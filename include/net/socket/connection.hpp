@@ -26,9 +26,9 @@
 #include <net/socket/socket_helpers.hpp>  // for socket_helpers::extract_peer_subject_cn used in ssl_connection
 #ifdef USE_SSL
 #include <boost/asio/ssl/context.hpp>
+#include <boost/asio/ssl/stream.hpp>
 #endif
 
-#include <boost/asio/ssl/stream.hpp>
 #include <list>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>

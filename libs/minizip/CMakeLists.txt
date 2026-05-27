@@ -31,13 +31,7 @@ if(MINIZ_FOUND)
             FOLDER
                 "core"
     )
-else()
-    if(NOT LIBZIP_FOUND)
-        message(
-            FATAL_ERROR
-            "nscp_miniz: libzip not found (install libzip-dev / libzip-devel)"
-        )
-    endif()
+elseif(LIBZIP_FOUND)
     add_library(${TARGET} INTERFACE)
     if(TARGET libzip::zip)
         target_link_libraries(${TARGET} INTERFACE libzip::zip)
@@ -45,4 +39,12 @@ else()
         target_include_directories(${TARGET} INTERFACE ${LIBZIP_INCLUDE_DIRS})
         target_link_libraries(${TARGET} INTERFACE ${LIBZIP_LIBRARIES})
     endif()
+else()
+    # No ZIP backend available. Rather than failing the build we present an
+    # empty target that propagates NSCP_NO_ZIP to consumers; the unzip shim in
+    # include/bytes/unzip.cpp then compiles a stub reader that reports every
+    # archive as unreadable, and zip_plugin therefore refuses to load .zip
+    # plugins. This keeps the daemon buildable on hosts without miniz or libzip.
+    add_library(${TARGET} INTERFACE)
+    target_compile_definitions(${TARGET} INTERFACE NSCP_NO_ZIP)
 endif()

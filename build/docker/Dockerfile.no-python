@@ -1,0 +1,38 @@
+# Validation: build WITHOUT Python embedding.
+#
+# Omits python3.12-dev and libboost-python-dev; keeps the other optional
+# libraries. The base image still ships the python3 *interpreter* (required by
+# the build for protobuf / module code generation) — only the development
+# libraries used to embed CPython are absent.
+#
+# Without libpython Python3_Development_FOUND is false, and without Boost.Python
+# the optional Boost component is missing (Boost_<version>_FOUND is false but
+# Boost_FOUND stays true because it is requested via OPTIONAL_COMPONENTS). The
+# PythonScript module skips itself. The daemon and the remaining modules must
+# still build.
+#
+# Tests are disabled: these images validate that the daemon + modules build
+# without the library; the unit-test suite is covered by the normal CI build.
+#
+#   docker build -f build/docker/Dockerfile.no-python -t nscp-validate-no-python .
+FROM nscp-build-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl-dev \
+        libcrypto++-dev \
+        libzip-dev \
+        liblua5.4-dev \
+        libtinyxml2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /src
+
+RUN cmake -S /src -B /build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_VERSION=0.0.0-docker \
+        -DNSCP_BOOST_PYTHON_VERSION=python312 \
+        -DCHECK_NSCLIENT_MISSING=TRUE \
+        -DNSCP_WEB_BACKEND=beast \
+        -DNSCP_BUILD_TESTS=OFF \
+    && cmake --build /build -j"$(nproc)"

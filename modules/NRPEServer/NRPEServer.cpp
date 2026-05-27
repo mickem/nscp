@@ -111,8 +111,8 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.notify();
 
 #ifndef USE_SSL
-  if (info_.use_ssl) {
-    NSC_LOG_ERROR_STD(_T("SSL not available! (not compiled with openssl support)"));
+  if (info_.ssl.enabled) {
+    NSC_LOG_ERROR_STD("SSL not available! (not compiled with openssl support)");
     return false;
   }
 #endif

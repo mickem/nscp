@@ -24,7 +24,7 @@
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
-#ifndef WIN32
+#if defined(USE_SSL) && !defined(WIN32)
 #define OPENSSL_NO_CRYPTO_MDEBUG
 #include <openssl/crypto.h>
 #include <openssl/evp.h>

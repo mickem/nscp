@@ -69,7 +69,14 @@ if(NSCP_WEB_BACKEND STREQUAL "mongoose")
     add_definitions(-DMG_ENABLE_HTTP_WEBSOCKET=0)
     add_definitions(-DMG_ENABLE_BROADCAST=1)
     add_definitions(-DMG_ENABLE_THREADS)
-    add_definitions(-DMG_TLS=MG_TLS_OPENSSL)
+    # mongoose.h pulls in <openssl/*.h> when MG_TLS == MG_TLS_OPENSSL, so only
+    # select the OpenSSL TLS backend when OpenSSL is actually available;
+    # otherwise build mongoose without TLS (HTTPS unavailable, plain HTTP works).
+    if(OPENSSL_FOUND)
+        add_definitions(-DMG_TLS=MG_TLS_OPENSSL)
+    else()
+        add_definitions(-DMG_TLS=MG_TLS_NONE)
+    endif()
     include_directories("${MONGOOSE_INCLUDE_DIR}")
     if(MSVC)
         set_source_files_properties(

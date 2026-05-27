@@ -21,7 +21,9 @@
 
 #include <algorithm>
 #include <boost/asio.hpp>
+#ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
+#endif
 #include <bytes/base64.hpp>
 #include <istream>
 #include <memory>
@@ -157,6 +159,7 @@ struct tcp_socket final : generic_socket {
   }
 };
 
+#ifdef USE_SSL
 struct ssl_socket final : generic_socket {
   boost::asio::ssl::context context_;
   boost::asio::ssl::stream<tcp::socket> ssl_socket_;
@@ -313,6 +316,7 @@ struct ssl_socket final : generic_socket {
     return boost::asio::read(ssl_socket_, buffer, boost::asio::transfer_at_least(1), error);
   }
 };
+#endif  // USE_SSL
 #ifdef WIN32
 struct file_socket final : generic_socket {
   boost::asio::windows::stream_handle handle_;
@@ -354,9 +358,11 @@ struct http_client_options {
   http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca, proxy_config proxy = proxy_config())
       : protocol_(std::move(protocol)), tls_version_(std::move(tls_version)), verify_(std::move(verify)), ca_(std::move(ca)), proxy_(std::move(proxy)) {}
 
+#ifdef USE_SSL
   boost::asio::ssl::context::method get_method() const { return socket_helpers::tls_method_parser(tls_version_); }
 
   boost::asio::ssl::context::verify_mode get_verify() const { return socket_helpers::verify_mode_parser(verify_); };
+#endif  // USE_SSL
 
   bool is_https() const { return protocol_ == "https"; }
   bool is_pipe() const { return protocol_ == "pipe"; }
@@ -370,7 +376,11 @@ class simple_client {
  public:
   explicit simple_client(const http_client_options &options) : options_(options) {
     if (options.is_https()) {
+#ifdef USE_SSL
       socket_ = std::make_unique<ssl_socket>(io_service_, options.get_method(), options.get_verify(), options.ca_, options.proxy_);
+#else
+      throw socket_helpers::socket_exception("HTTPS requested but this build has no TLS support (compiled without OpenSSL)");
+#endif
 #ifdef WIN32
     } else if (options.is_pipe()) {
       socket_ = std::make_unique<file_socket>(io_service_);

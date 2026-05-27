@@ -1,0 +1,32 @@
+# Validation: build WITHOUT TinyXML2.
+#
+# Omits libtinyxml2-dev; keeps the other optional libraries. TinyXML2 is used
+# only by the NRDPClient module, which gates itself on TINYXML2_FOUND and skips
+# when it is missing. The daemon and the remaining modules must still build.
+#
+# Tests are disabled: these images validate that the daemon + modules build
+# without the library; the unit-test suite is covered by the normal CI build.
+#
+#   docker build -f build/docker/Dockerfile.no-tinyxml2 -t nscp-validate-no-tinyxml2 .
+FROM nscp-build-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl-dev \
+        libcrypto++-dev \
+        libzip-dev \
+        liblua5.4-dev \
+        python3.12-dev \
+        libboost-python-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /src
+
+RUN cmake -S /src -B /build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_VERSION=0.0.0-docker \
+        -DNSCP_BOOST_PYTHON_VERSION=python312 \
+        -DCHECK_NSCLIENT_MISSING=TRUE \
+        -DNSCP_WEB_BACKEND=beast \
+        -DNSCP_BUILD_TESTS=OFF \
+    && cmake --build /build -j"$(nproc)"

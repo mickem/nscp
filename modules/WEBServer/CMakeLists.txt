@@ -143,4 +143,9 @@ NSCP_CREATE_TEST(
 # mismatch noise on MSVC. plugin_api_NOLIB neuters the macro to "" so both
 # sides agree: no dllexport, no dllimport, just a plain symbol. See
 # include/nscapi/dll_defines.hpp for the macro definition.
-target_compile_definitions(${TARGET}_test PRIVATE plugin_api_NOLIB)
+#
+# Guarded because NSCP_CREATE_TEST is a no-op when NSCP_BUILD_TESTS=OFF, so the
+# ${TARGET}_test target does not exist in that configuration.
+if(NSCP_BUILD_TESTS)
+    target_compile_definitions(${TARGET}_test PRIVATE plugin_api_NOLIB)
+endif()

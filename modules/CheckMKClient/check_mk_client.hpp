@@ -114,8 +114,8 @@ struct check_mk_client_handler : public client::handler_interface {
       NSC_DEBUG_MSG("Connecting to: " + con.to_string());
       if (con.ssl.enabled) {
 #ifndef USE_SSL
-        NSC_LOG_ERROR_STD(_T("SSL not available (compiled without USE_SSL)"));
-        return response;
+        NSC_LOG_ERROR_STD("SSL not available (compiled without USE_SSL)");
+        return;
 #endif
       }
       client.connect();

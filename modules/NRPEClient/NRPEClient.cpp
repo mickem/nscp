@@ -405,9 +405,12 @@ bool NRPEClient::make_cert(const PB::Commands::ExecuteRequestMessage::Request &r
       return true;
     }
 
+#ifdef USE_SSL
     socket_helpers::write_certs(cert, false);
-
     nscapi::protobuf::functions::set_response_good(*response, cert + " generated.");
+#else
+    nscapi::protobuf::functions::set_response_bad(*response, "Certificate generation requires OpenSSL (not compiled in)");
+#endif
     return true;
   } catch (const std::exception &e) {
     nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);

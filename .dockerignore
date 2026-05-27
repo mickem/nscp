@@ -1,0 +1,14 @@
+# Build context filter for the Docker images under build/docker/ (and any other
+# `docker build .` run from the repo root). Keeps the context small and the
+# build hermetic — host build trees must never leak into the container build.
+#
+# NOTE: this only excludes the hyphenated out-of-tree build dirs (build-asan,
+# build-cov, …) and cmake-build*; the in-tree source directory `build/`
+# (build/cmake, build/docker, build/python) is intentionally NOT matched.
+.git
+.idea
+.vscode
+cmake-build*
+build-*
+**/node_modules
+rust/*/target

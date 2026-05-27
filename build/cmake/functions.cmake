@@ -488,6 +488,12 @@ macro(nscp_add_test _TARGET)
 endmacro()
 
 function(NSCP_CREATE_TEST _TARGET)
+    # Tests are scattered across libs/ and modules/ CMakeLists as well as
+    # tests/. Honouring NSCP_BUILD_TESTS here makes every call site a no-op in
+    # one place when tests are disabled (e.g. building without Google Test).
+    if(NOT NSCP_BUILD_TESTS)
+        return()
+    endif()
     cmake_parse_arguments(
         PARSE_ARGV 1
         ARG

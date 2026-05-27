@@ -6,10 +6,15 @@ cmake_minimum_required(VERSION 3.10)
 #
 # ##############################################################################
 message(STATUS "Looking for dependencies:")
+# The Python *interpreter* is required by the build itself (protobuf / module
+# code generation). The *development* libraries are only needed to embed Python
+# in the PythonScript module, so they are optional — a missing libpython simply
+# disables that one module.
 find_package(
     Python3
     COMPONENTS
         Interpreter
+    OPTIONAL_COMPONENTS
         Development
 )
 find_package(TinyXML2)
@@ -22,7 +27,13 @@ endif()
 find_package(PROTOC_GEN_LUA)
 find_package(ProtocGenMd)
 find_package(ProtoBuf)
-find_package(GTest)
+# The unit tests link the googletest pulled in via FetchContent (see the
+# top-level CMakeLists), so a system Google Test is not actually required. We
+# still probe for it for the diagnostic report below, but only when tests are
+# being built.
+if(NSCP_BUILD_TESTS)
+    find_package(GTest)
+endif()
 find_package(OpenSSL)
 # Two separate backends for the ZIP archive reader in service/plugins/
 # zip_plugin.cpp; only the matching one is required for the current platform.
@@ -33,6 +44,23 @@ if(WIN32)
 else()
     find_package(LibZip)
 endif()
+# Record which ZIP backend (if any) the libs/minizip wrapper will use. "none"
+# is a supported configuration: the wrapper builds a stub and zip_archive
+# reading is disabled (zip_plugin / unzip return failure). See
+# libs/minizip/CMakeLists.txt and include/bytes/unzip.cpp.
+if(MINIZ_FOUND)
+    set(NSCP_ZIP_BACKEND "miniz")
+elseif(LIBZIP_FOUND)
+    set(NSCP_ZIP_BACKEND "libzip")
+else()
+    set(NSCP_ZIP_BACKEND "none")
+endif()
+set(NSCP_ZIP_BACKEND
+    "${NSCP_ZIP_BACKEND}"
+    CACHE STRING
+    "Resolved ZIP backend: miniz | libzip | none"
+    FORCE
+)
 # HTTP backend selector for WEBServer. The mongoose default keeps the
 # Windows packaging story unchanged; setting `beast` switches every
 # platform to the Boost.Beast implementation (libs/mongoose-cpp/
@@ -109,6 +137,12 @@ if(NSCP_WEB_BACKEND STREQUAL "beast")
     list(APPEND _nscp_extra_boost_components coroutine context)
 endif()
 
+# Boost.Python is requested as an OPTIONAL component: it is only consumed by
+# the PythonScript module, and not every environment ships libboost-python.
+# Listing it under COMPONENTS would drag a missing Boost.Python into
+# Boost_FOUND=FALSE and fail the whole build (see the required-dependency check
+# in the top-level CMakeLists). The PythonScript module checks
+# Boost_<version>_FOUND itself before building.
 find_package(
     Boost 1.75
     COMPONENTS
@@ -117,11 +151,12 @@ find_package(
         regex
         date_time
         program_options
-        ${NSCP_BOOST_PYTHON_VERSION}
         chrono
         json
         container
         ${_nscp_extra_boost_components}
+    OPTIONAL_COMPONENTS
+        ${NSCP_BOOST_PYTHON_VERSION}
 )
 find_package(Mkdocs)
 find_package(CSharp)
@@ -141,14 +176,17 @@ endif()
 if(Python3_Development_FOUND)
     message(STATUS " - python(lib) found: ${Python3_LIBRARIES}")
 else()
-    message(STATUS " ! python(lib) not found: TODO")
+    message(
+        STATUS
+        " - python(lib) not found (optional: PythonScript module disabled)"
+    )
 endif()
 if(TINYXML2_FOUND)
     message(STATUS " - tinyXML found: ${TINYXML2_INCLUDE_DIR}")
 else(TINYXML2_FOUND)
     message(
         STATUS
-        " ! tinyXML not found: TINY_XML2_SOURCE_DIR=${TINY_XML2_SOURCE_DIR}"
+        " - tinyXML not found (optional: NRDPClient module disabled): TINY_XML2_SOURCE_DIR=${TINY_XML2_SOURCE_DIR}"
     )
 endif(TINYXML2_FOUND)
 if(CRYPTOPP_FOUND)
@@ -167,7 +205,7 @@ else(LUA_FOUND)
     else()
         message(
             STATUS
-            " ! lua not found: LUA_INCLUDE_DIR=${LUA_INCLUDE_DIR} or LUA_SOURCE_DIR=${LUA_SOURCE_DIR}"
+            " - lua not found (optional: LUAScript + CheckMK modules disabled): LUA_INCLUDE_DIR=${LUA_INCLUDE_DIR} or LUA_SOURCE_DIR=${LUA_SOURCE_DIR}"
         )
     endif()
 endif(LUA_FOUND)
@@ -202,20 +240,31 @@ else(PROTOBUF_FOUND)
         " ! protocol buffers not found: PROTOBUF_ROOT=${PROTOBUF_ROOT}"
     )
 endif(PROTOBUF_FOUND)
-if(GTest_FOUND)
-    message(STATUS " - google test found")
-else(GTest_FOUND)
-    message(FATAL_ERROR " ! google test not found: GTEST_ROOT=${GTEST_ROOT}")
-endif(GTest_FOUND)
+if(NOT NSCP_BUILD_TESTS)
+    message(STATUS " - unit tests disabled (NSCP_BUILD_TESTS=OFF)")
+elseif(GTest_FOUND)
+    message(STATUS " - google test found (system)")
+else()
+    # Not fatal: the tests link the FetchContent-provided googletest, which is
+    # downloaded regardless of whether a system Google Test exists.
+    message(
+        STATUS
+        " - google test not found in system; using bundled (FetchContent) copy"
+    )
+endif()
 if(OPENSSL_FOUND)
     message(
         STATUS
         " - OpenSSL found in: ${OPENSSL_INCLUDE_DIR} / ${OPENSSL_LIBRARIES}"
     )
 else(OPENSSL_FOUND)
+    # Not fatal: TLS-dependent features (NRPE/NSCA/check_mk over SSL, the
+    # native NSCP protocol, HTTPS in WEBServer) are guarded on OPENSSL_FOUND in
+    # their respective modules and simply drop out. The Beast web backend is
+    # the one hard requirement and fails earlier above with a clear message.
     message(
-        FATAL_ERROR
-        " ! OpenSSL not found OPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}"
+        STATUS
+        " ! OpenSSL not found (TLS features disabled): OPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}"
     )
 endif(OPENSSL_FOUND)
 if(Boost_FOUND)
@@ -238,20 +287,32 @@ if(CSHARP_FOUND)
 else()
     message(STATUS " ! CSharp not found")
 endif()
-if(MINIZ_FOUND)
-    message(STATUS " - Miniz found in: ${MINIZ_INCLUDE_DIR}")
-else()
-    if(LIBZIP_FOUND AND TARGET libzip::zip)
+# Report the resolved ZIP backend (computed above). libzip may be located
+# either via its CMake config package (imported target libzip::zip) or via
+# pkg-config (LIBZIP_INCLUDE_DIRS/LIBZIP_LIBRARIES, no target) — both count as
+# a working libzip backend.
+if(NSCP_ZIP_BACKEND STREQUAL "miniz")
+    message(STATUS " - ZIP backend: miniz (${MINIZ_INCLUDE_DIR})")
+elseif(NSCP_ZIP_BACKEND STREQUAL "libzip")
+    if(TARGET libzip::zip)
         message(
             STATUS
-            " - libzip found (CMake config package): ${LIBZIP_INCLUDE_DIRS}"
+            " - ZIP backend: libzip (CMake config package): ${LIBZIP_INCLUDE_DIRS}"
         )
     else()
         message(
             STATUS
-            " ! Neither miniz (MINIZ_INCLUDE_DIR=${MINIZ_INCLUDE_DIR}) nor libzip (install libzip-dev (Debian) or libzip-devel (RPM)) was found"
+            " - ZIP backend: libzip (pkg-config): ${LIBZIP_INCLUDE_DIRS}"
         )
     endif()
+else()
+    # Not fatal: the libs/minizip wrapper builds a stub (NSCP_NO_ZIP) and ZIP
+    # archive reading is disabled. Install libzip-dev (Debian) / libzip-devel
+    # (RPM) to enable it.
+    message(
+        STATUS
+        " - ZIP backend: none (zip archive support disabled; install libzip-dev/libzip-devel to enable)"
+    )
 endif()
 if(MKDOCS_FOUND)
     message(STATUS " - MKDocs found in: ${MKDOCS_EXECUTABLE}")
