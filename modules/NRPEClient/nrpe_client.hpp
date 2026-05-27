@@ -153,7 +153,7 @@ struct nrpe_client_handler : public client::handler_interface {
       std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
       std::string data = command;
       for (int a = 0; a < request_message.payload(i).arguments_size(); a++) {
-        data += "!" + request_message.payload(i).arguments(i);
+        data += "!" + request_message.payload(i).arguments(a);
       }
       boost::tuple<int, std::string> ret = send(con, data);
       bool wentOk = ret.get<0>() != NSCAPI::query_return_codes::returnUNKNOWN;
