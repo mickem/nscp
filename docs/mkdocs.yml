@@ -44,6 +44,7 @@ nav:
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
       - Passive Monitoring (NSCA-NG): scenarios/passive-monitoring-nsca-ng.md
       - Passive Monitoring (Icinga 2): scenarios/passive-monitoring-icinga.md
+      - Passive Monitoring (Graphite): scenarios/passive-monitoring-graphite.md
       - Checkmk Agent Integration: scenarios/check-mk.md
       - Prometheus Scraping: scenarios/prometheus.md
       - External Scripts: scenarios/external-scripts.md

@@ -322,6 +322,13 @@ void send(const connection_config& cfg, const message& msg) {
   if (!cfg.insecure_skip_verify) {
     tls.set_verify_callback(asio::ssl::host_name_verification(cfg.server));
   }
+  // SNI: a server hosting several certs needs the server name to return the
+  // right one; without it it may answer with its default cert and fail the
+  // hostname check above. Set once here for both the immediate-TLS and STARTTLS
+  // handshakes below. Mirrors the HTTP client.
+  if (!cfg.server.empty()) {
+    SSL_set_tlsext_host_name(tls.native_handle(), cfg.server.c_str());
+  }
 
   sync_io conn(io, tls.next_layer(), cfg.timeout_seconds);
 

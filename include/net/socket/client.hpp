@@ -286,6 +286,12 @@ class ssl_connection : public connection<protocol_type> {
       // trust is accepted from any peer that happens to answer the TCP
       // connect - a textbook MITM hole. Mirrors the NSCA-NG client which
       // does the same explicitly.
+      // SNI: a server hosting several certs needs the server name to return the
+      // right one; without it it may answer with its default cert and fail the
+      // hostname check below. Mirrors the HTTP client.
+      if (!host.empty()) {
+        SSL_set_tlsext_host_name(ssl_socket_.native_handle(), host.c_str());
+      }
       if (verify_hostname_) {
         try {
           ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(host));

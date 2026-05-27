@@ -215,17 +215,25 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key           | Default Value | Description      |
-|---------------|---------------|------------------|
-| address       |               | TARGET ADDRESS   |
-| host          |               | TARGET HOST      |
-| path          |               | PATH FOR METRICS |
-| port          |               | TARGET PORT      |
-| retries       | 3             | RETRIES          |
-| send perfdata |               | SEND PERF DATA   |
-| send status   |               | SEND STATUS      |
-| status path   |               | PATH FOR STATUS  |
-| timeout       | 30            | TIMEOUT          |
+| Key                | Default Value                     | Description            |
+|--------------------|-----------------------------------|------------------------|
+| address            |                                   | TARGET ADDRESS         |
+| allowed ciphers    | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH | ALLOWED CIPHERS        |
+| ca                 | ${ca-path}                        | CA                     |
+| certificate        |                                   | CLIENT CERTIFICATE     |
+| certificate format | PEM                               | CERTIFICATE FORMAT     |
+| certificate key    |                                   | CLIENT CERTIFICATE KEY |
+| host               |                                   | TARGET HOST            |
+| path               |                                   | PATH FOR METRICS       |
+| port               |                                   | TARGET PORT            |
+| retries            | 3                                 | RETRIES                |
+| send perfdata      |                                   | SEND PERF DATA         |
+| send status        |                                   | SEND STATUS            |
+| ssl                | false                             | ENABLE TLS             |
+| status path        |                                   | PATH FOR STATUS        |
+| timeout            | 30                                | TIMEOUT                |
+| tls version        | 1.2+                              | TLS VERSION            |
+| verify mode        | peer                              | VERIFY MODE            |
 
 
 **Sample:**
@@ -234,14 +242,22 @@ This is a section of objects. This means that you will create objects below this
 # An example of a REMOTE TARGET DEFINITIONS section
 [/settings/graphite/client/targets/sample]
 #address=...
+allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
+ca=${ca-path}
+#certificate=...
+certificate format=PEM
+#certificate key=...
 #host=...
 #path=...
 #port=...
 retries=3
 #send perfdata=...
 #send status=...
+ssl=false
 #status path=...
 timeout=30
+tls version=1.2+
+verify mode=peer
 
 ```
 

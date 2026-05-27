@@ -335,6 +335,7 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 | Key                                                                  | Default Value                       | Description                        |
 |----------------------------------------------------------------------|-------------------------------------|------------------------------------|
 | [allow anonymous access](#allow-anonymous-access)                    | false                               | ALLOW ANONYMOUS ACCESS             |
+| [allow insecure](#allow-insecure-cleartext-http)                     | false                               | ALLOW INSECURE (CLEARTEXT HTTP)    |
 | [allowed hosts](#allowed-hosts)                                      | 127.0.0.1                           | Allowed hosts                      |
 | [auth rate limit block seconds](#auth-rate-limit-block-seconds)      | 60                                  | AUTH RATE LIMIT (BLOCK SECONDS)    |
 | [auth rate limit max failures](#auth-rate-limit-failures)            | 10                                  | AUTH RATE LIMIT (FAILURES)         |
@@ -353,6 +354,7 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 # Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 [/settings/WEB/server]
 allow anonymous access=false
+allow insecure=false
 allowed hosts=127.0.0.1
 auth rate limit block seconds=60
 auth rate limit max failures=10
@@ -390,6 +392,31 @@ When false (the default) any role named \`anonymous\` registered via /settings/W
 [/settings/WEB/server]
 # ALLOW ANONYMOUS ACCESS
 allow anonymous access=false
+```
+
+
+
+#### ALLOW INSECURE (CLEARTEXT HTTP) <a id="/settings/WEB/server/allow insecure"></a>
+
+When false (the default) the WEB server refuses to start if the TLS certificate is missing, rather than silently serving HTTP in clear. Set to true to explicitly accept unencrypted HTTP when no certificate is present - session tokens and Basic-auth credentials will then be transmitted unencrypted, so only do this behind a TLS-terminating proxy or on a trusted loopback interface.
+
+
+
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | allow insecure                                |
+| Default value: | `false`                                       |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server]
+# ALLOW INSECURE (CLEARTEXT HTTP)
+allow insecure=false
 ```
 
 
