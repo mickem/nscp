@@ -331,6 +331,7 @@ Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 
 | Key                                                  | Default Value                       | Description                         |
 |------------------------------------------------------|-------------------------------------|-------------------------------------|
+| [allow](#allowed-commands)                           | any                                 | ALLOWED COMMANDS                    |
 | [allowed ciphers](#allowed-ciphers)                  | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS                     |
 | [allowed hosts](#allowed-hosts)                      | 127.0.0.1                           | Allowed hosts                       |
 | [bind to](#bind-to-address)                          |                                     | BIND TO ADDRESS                     |
@@ -357,6 +358,7 @@ Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 ```ini
 # Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 [/settings/NSClient/server]
+allow=any
 allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 allowed hosts=127.0.0.1
 ca=${certificate-path}/ca.pem
@@ -376,6 +378,31 @@ verify mode=none
 ```
 
 
+
+
+
+#### ALLOWED COMMANDS <a id="/settings/NSClient/server/allow"></a>
+
+Comma separated list of which check_nt commands this server will answer. Each entry is a group, the keyword 'any'/'all', or an individual command name. Groups: 'metrics' (cpuload, uptime, useddiskspace, memuse), 'info' (clientversion), 'service' (servicestate), 'process' (procstate), 'counters' (counter, instances), 'files' (fileage). Individual commands: clientversion, cpuload, uptime, useddiskspace, servicestate, procstate, memuse, counter, fileage, instances. Default 'any' answers everything (full check_nt compatibility). To expose only harmless system metrics use e.g. 'metrics, info'; this denies the arbitrary-read commands (counter, fileage, instances) and the service/process enumeration commands.
+
+
+
+
+
+| Key            | Description                                             |
+|----------------|---------------------------------------------------------|
+| Path:          | [/settings/NSClient/server](#/settings/NSClient/server) |
+| Key:           | allow                                                   |
+| Default value: | `any`                                                   |
+
+
+**Sample:**
+
+```
+[/settings/NSClient/server]
+# ALLOWED COMMANDS
+allow=any
+```
 
 
 

@@ -36,6 +36,7 @@ Section for the Op5 server
 
 | Key                                       | Default Value | Description            |
 |-------------------------------------------|---------------|------------------------|
+| [ca](#certificate-authority)              | ${ca-path}    | Certificate authority  |
 | [channel](#channel)                       | op5           | CHANNEL                |
 | [contactgroups](#contact-groups)          |               | Contact groups         |
 | [default checks](#install-default-checks) | true          | Install default checks |
@@ -45,22 +46,52 @@ Section for the Op5 server
 | [password](#op5-password)                 |               | Op5 password           |
 | [remove](#remove-checks-on-exit)          | false         | Remove checks on exit  |
 | [server](#op5-base-url)                   |               | Op5 base url           |
+| [tls version](#tls-version)               | 1.2+          | TLS version            |
 | [user](#op5-user)                         |               | Op5 user               |
+| [verify mode](#tls-verify-mode)           | peer          | TLS verify mode        |
 
 
 
 ```ini
 # Section for the Op5 server
 [/settings/op5]
+ca=${ca-path}
 channel=op5
 default checks=true
 hostname=auto
 interval=5m
 remove=false
+tls version=1.2+
+verify mode=peer
 
 ```
 
 
+
+
+
+#### Certificate authority <a id="/settings/op5/ca"></a>
+
+The certificate authority bundle used to verify the Op5 server certificate (used when 'verify mode' is not 'none').
+
+
+
+
+
+| Key            | Description                     |
+|----------------|---------------------------------|
+| Path:          | [/settings/op5](#/settings/op5) |
+| Key:           | ca                              |
+| Default value: | `${ca-path}`                    |
+
+
+**Sample:**
+
+```
+[/settings/op5]
+# Certificate authority
+ca=${ca-path}
+```
 
 
 
@@ -304,6 +335,31 @@ server=
 
 
 
+#### TLS version <a id="/settings/op5/tls version"></a>
+
+The TLS version to use when connecting to the Op5 server (1.0, 1.1, 1.2, 1.2+ or 1.3).
+
+
+
+
+
+| Key            | Description                     |
+|----------------|---------------------------------|
+| Path:          | [/settings/op5](#/settings/op5) |
+| Key:           | tls version                     |
+| Default value: | `1.2+`                          |
+
+
+**Sample:**
+
+```
+[/settings/op5]
+# TLS version
+tls version=1.2+
+```
+
+
+
 #### Op5 user <a id="/settings/op5/user"></a>
 
 The user to authenticate as
@@ -326,6 +382,31 @@ The user to authenticate as
 [/settings/op5]
 # Op5 user
 user=
+```
+
+
+
+#### TLS verify mode <a id="/settings/op5/verify mode"></a>
+
+How to verify the Op5 server certificate. 'peer' (the default) validates the certificate chain and hostname against the configured CA. Set to 'none' to disable verification - this is insecure and lets an on-path attacker intercept the Op5 credentials and tamper with data.
+
+
+
+
+
+| Key            | Description                     |
+|----------------|---------------------------------|
+| Path:          | [/settings/op5](#/settings/op5) |
+| Key:           | verify mode                     |
+| Default value: | `peer`                          |
+
+
+**Sample:**
+
+```
+[/settings/op5]
+# TLS verify mode
+verify mode=peer
 ```
 
 
