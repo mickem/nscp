@@ -19,7 +19,9 @@
 
 #pragma once
 
+#ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
+#endif
 #include <boost/asio/write.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
