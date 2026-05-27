@@ -122,7 +122,10 @@ class connection : public std::enable_shared_from_this<connection<protocol_type,
   virtual void set_timeout(const int seconds) {
     timer_.expires_after(std::chrono::seconds(seconds));
     auto self(this->shared_from_this());
-    timer_.async_wait([self](const auto& e) { self->timeout(e); });
+    // Bind to the connection strand: timeout() -> on_done() closes the socket and
+    // writes is_active_, which must not run concurrently with the strand-bound
+    // read/write handlers on another io-pool thread (thread pool defaults to >1).
+    timer_.async_wait(boost::asio::bind_executor(strand_, [self](const auto& e) { self->timeout(e); }));
   }
 
   virtual void cancel_timer() {
