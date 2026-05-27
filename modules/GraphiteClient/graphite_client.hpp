@@ -235,6 +235,14 @@ struct graphite_client_handler : public client::handler_interface {
         }
         if (error) throw boost::system::system_error(error);
 
+        // SNI: a TLS proxy fronting carbon (nginx/stunnel/carbon-relay-ng) often
+        // hosts several certs and needs the server name to pick the right one;
+        // without it the server may answer with its default cert and the hostname
+        // check below fails. Mirrors the HTTP client.
+        if (!con.get_address().empty()) {
+          SSL_set_tlsext_host_name(stream.native_handle(), con.get_address().c_str());
+        }
+
         // When peer verification is enabled, pin the certificate to the host we
         // resolved so a CA-signed cert from another host cannot impersonate the
         // target (MITM guard) - mirrors the shared socket client.
