@@ -160,6 +160,84 @@ WEBServer:monitoring = CheckSystem.check_cpu, CheckSystem.check_drivesize, Check
 For deeper coverage of the WEB module's attack surface — including the `--disable-admin` trade-off and the
 `scripts_controller` endpoint — see the [WEB module](#web-module) section further down.
 
+## check_nt (legacy NSClient protocol)
+
+The `NSClientServer` module implements the original NSClient / check_nt protocol (TCP `12489` by default), spoken by the
+Nagios `check_nt` plugin. **It is a dead protocol and should be avoided.** It predates modern transport security and
+cannot be made genuinely secure. If you have any choice at all, monitor over [NRPE with two-way TLS](#nrpe) or the
+[REST API](#httphttpswebserver) instead, and simply do not load `NSClientServer`.
+
+> **Treat check_nt as unauthenticated cleartext.** Anyone who can observe a single request on the wire learns the
+> password and can replay it forever. Do not expose it on any network you do not fully trust, and never reuse the
+> check_nt password anywhere else.
+
+Why it is not secure:
+
+- **The password is sent in cleartext on every request.** check_nt prepends the configured password as the first field
+  of every query. The server has no working TLS path in practice (the `ssl` toggle exists, but virtually no check_nt
+  client ever implemented it), so the password travels unencrypted. The module logs a warning to this effect on startup
+  whenever a password is configured.
+- **There is no replay protection.** Unlike NSCA there is no timestamp, nonce or sequence number — a captured request
+  can be replayed verbatim, indefinitely. Capturing the password once is equivalent to knowing it permanently.
+- **A single shared secret is the only authentication.** There is no per-client identity, no certificate and no mutual
+  auth. `allowed hosts` is source-IP filtering, not authentication, and is spoofable on an untrusted network.
+
+What it does **not** expose, to be fair:
+
+- **It cannot run arbitrary commands.** The protocol's ten request codes map to a *fixed* set of read-only internal
+  checks (client version, CPU load, uptime, disk usage, memory, service/process state, performance counters, file age).
+  The caller cannot choose the command name, cannot inject extra arguments, and there is no path to a shell or to
+  `CheckExternalScripts`. The realistic risk is therefore **credential capture and read access to system metrics**, not
+  remote code execution. The server-side authentication itself is sound (constant-time password compare, an empty
+  password is refused, a single generic error string with no username/oracle) — it is the *transport* that is broken,
+  and that cannot be fixed within the protocol.
+
+If you must keep it running for a legacy monitoring system:
+
+- Always configure a password (an empty password is refused outright) and **firewall TCP `12489` to the monitoring host
+  only** — `allowed hosts` is defence-in-depth, not a control.
+- Use a password dedicated to check_nt and nowhere else, since it is effectively public on any shared network segment.
+- **Restrict which commands are answered with the `allow` setting** (see below) so that the effectively-public password
+  can only read what you actually monitor.
+- Plan the migration to NRPE or REST; do not build new monitoring on check_nt.
+
+### Restricting which commands are answered (`allow`)
+
+Because the password should be assumed compromised, the useful question is *how much can a holder of it read?* The
+`allow` setting under `[/settings/NSClient/server]` caps that. It is a comma-separated list where each entry is a group,
+the keyword `any`/`all`, or an individual command name:
+
+| Group       | Commands                                       | Disclosure                                        |
+|-------------|------------------------------------------------|---------------------------------------------------|
+| `metrics`   | `cpuload`, `uptime`, `useddiskspace`, `memuse` | aggregate system metrics — harmless               |
+| `info`      | `clientversion`                                | agent version (minor recon)                       |
+| `service`   | `servicestate`                                 | service inventory (`ShowAll` lists all services)  |
+| `process`   | `procstate`                                    | process inventory (`ShowAll` lists all processes) |
+| `counters`  | `counter`, `instances`                         | **arbitrary** performance-counter read            |
+| `files`     | `fileage`                                      | **arbitrary** file existence / last-modified time |
+| `any`/`all` | everything                                     | full check_nt compatibility (**default**)         |
+
+The default is `any`, which answers all ten commands (unchanged legacy behaviour). To expose only the harmless system
+metrics — denying the arbitrary-read commands (`counter`, `fileage`, `instances`) and the service/process enumeration:
+
+```ini
+[/settings/NSClient/server]
+; Only answer harmless system-metric queries plus the agent version.
+allow = metrics, info
+```
+
+Mix groups and individual commands freely, e.g. `allow = metrics, info, servicestate` to also answer service-state
+checks but nothing else. A request for a command outside the list is rejected (the server returns
+`ERROR: Command not allowed.`); an empty/typo'd list logs a warning and rejects everything, so use `allow = any` to get
+the default back.
+
+To remove the attack surface entirely, just don't load the module:
+
+```ini
+[/modules]
+; NSClientServer = enabled   ; leave disabled / removed - prefer NRPE or REST
+```
+
 ## User account
 
 By default, NSClient++ is running as `local system` which is a easy as it is always available.
@@ -533,5 +611,6 @@ If two-way TLS is not yet in place, the compensating controls are:
 | NRPE `allowed hosts`                            | broad         | tighten, but do not rely on it as the only control                       |
 | `WEBServer` module                              | optional      | leave disabled if not actively used; tight ACLs and TLS if used          |
 | `WEBServer` `disable admin user`                | `false`       | `true` if the WEB module is used only for monitoring, never for admin    |
+| check_nt (`NSClientServer`) protocol            | optional      | avoid; leave disabled. If required, firewall to the monitor, treat the password as public, and set `allow = metrics, info` |
 | Service account                                 | `LocalSystem` | dedicated low-privilege account with only the access your checks require |
 | Permission policy (`/settings/permissions`)     | disabled      | enable in observe mode, lock down to per-subject allow-list              |
