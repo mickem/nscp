@@ -69,6 +69,13 @@
 #endif
 
 #define NASTY_METACHARS "|`&><'\"\\[]{}" /* This may need to be modified for windows directory seperator */
+/* Stricter set, enforced ONLY when a command degrades to the /bin/sh -c (popen)
+ * fallback in CheckExternalScripts. The shared NASTY_METACHARS above deliberately
+ * permits %, (, ), $ so internal check syntax (e.g. "top-syntax=%(status): %(list)"
+ * / "filter=...") keeps working over NRPE/check_nt - those checks never touch a
+ * shell. Once a string is handed to a shell, however, those characters are
+ * dangerous, so block them on that path only. */
+#define SHELL_METACHARS "|`&><'\"\\[]{}$;()*?~!\n\r"
 
 #define MAIN_MODULES_SECTION "/modules"
 #define NS_HKEY_ROOT HKEY_LOCAL_MACHINE

@@ -397,9 +397,9 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
   }
   std::vector<std::string> argv;
   bool argv_ok = template_parse_error.empty();
+  std::vector<std::string> validated_user_args;
   if (allowArgs_) {
     int i = 1;
-    std::vector<std::string> validated_user_args;
     validated_user_args.reserve(args.size());
     for (const std::string &str : args) {
       if (!allowNasty_ && str.find_first_of(NASTY_METACHARS) != std::string::npos) {
@@ -465,6 +465,25 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
     NSC_DEBUG_MSG_STD("argv-isolation disabled for '" + cd.get_alias() + "' (using legacy single-string command form)" +
                       (template_parse_error.empty() ? "" : ": " + template_parse_error));
     argv_ok = false;
+  }
+
+  // When argv-isolation is unavailable the command is handed to /bin/sh -c
+  // (popen) as a single string. The per-arg NASTY_METACHARS check above
+  // intentionally permits %()$ so internal check syntax keeps working, but
+  // those characters enable shell injection here, so apply the stricter
+  // SHELL_METACHARS set to the user-supplied argument values on this fallback
+  // path only (operators can still opt out with `allow nasty characters`).
+  if (!argv_ok && !allowNasty_ && !validated_user_args.empty()) {
+    for (const std::string &ua : validated_user_args) {
+      if (ua.find_first_of(SHELL_METACHARS) != std::string::npos) {
+        NSC_LOG_ERROR_STD("Refusing '" + cd.get_alias() +
+                          "': argument contains shell metacharacters and argv-isolation is unavailable for this command (the template is not argv-safe, "
+                          "e.g. it uses a backslash path). Fix the command template or set /settings/external scripts/allow nasty characters=true to override.");
+        nscapi::protobuf::functions::set_response_bad(
+            *response, "Request contained illegal characters for the shell fallback path; see nsclient.log (allow nasty characters=true to override).");
+        return;
+      }
+    }
   }
 
   if (cmdline.find("$ARG") != std::string::npos) {
