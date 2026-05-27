@@ -84,6 +84,31 @@ struct graphite_target_object : public nscapi::targets::target_object {
           .add_bool("send status", sh::bool_fun_key([this](auto value) { this->set_property_bool("send status", value); }), "SEND STATUS",
                     "Send status data to this server");
     }
+
+    // Optional TLS. Carbon's line receiver is plaintext, so this is for talking
+    // to a TLS-terminating proxy (stunnel / nginx / carbon-relay-ng) in front of
+    // carbon. SSL is off by default to preserve the historical plaintext
+    // behaviour; when enabled the server certificate is verified by default
+    // (verify mode = peer). Registered for every target with defaults.
+    root_path.add_key()
+        .add_bool("ssl", sh::bool_fun_key([this](auto value) { this->set_property_bool("ssl", value); }, false), "ENABLE TLS",
+                  "Encrypt the connection with TLS. Carbon does not speak TLS itself - point this at a TLS-terminating proxy in front of carbon.")
+        .add_string("ca", sh::path_fun_key([this](auto value) { this->set_property_string("ca", value); }, "${ca-path}"), "CA",
+                    "Certificate authority bundle used to verify the server certificate.")
+        .add_string("verify mode", sh::string_fun_key([this](auto value) { this->set_property_string("verify mode", value); }, "peer"), "VERIFY MODE",
+                    "How to verify the server certificate: 'peer' (default) / 'peer-cert' validate the chain and hostname; 'none' disables verification (insecure).")
+        .add_string("tls version", sh::string_fun_key([this](auto value) { this->set_property_string("tls version", value); }, "1.2+"), "TLS VERSION",
+                    "The TLS version to use (1.0, 1.1, 1.2, 1.2+ or 1.3).")
+        .add_string("allowed ciphers",
+                    sh::string_fun_key([this](auto value) { this->set_property_string("allowed ciphers", value); }, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
+                    "ALLOWED CIPHERS", "OpenSSL cipher list.")
+        .add_string("certificate", sh::path_fun_key([this](auto value) { this->set_property_string("certificate", value); }), "CLIENT CERTIFICATE",
+                    "Optional client certificate for mutual TLS.")
+        .add_string("certificate key", sh::path_fun_key([this](auto value) { this->set_property_string("certificate key", value); }), "CLIENT CERTIFICATE KEY",
+                    "Private key for the client certificate (if not bundled in the certificate file).")
+        .add_string("certificate format", sh::string_fun_key([this](auto value) { this->set_property_string("certificate format", value); }, "PEM"),
+                    "CERTIFICATE FORMAT", "Format of the client certificate/key (PEM or DER).");
+
     settings.register_all();
     settings.notify();
   }

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <boost/asio/ssl.hpp>
+#include <boost/asio/write.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/tuple/tuple.hpp>
@@ -47,6 +49,18 @@ struct connection_data : public socket_helpers::connection_info {
     send_perf = target.get_bool_data("send perfdata");
     send_status = target.get_bool_data("send status");
     mpath = target.get_string_data("metric path");
+
+    // Optional TLS. Carbon itself is plaintext, so this targets a TLS-terminating
+    // proxy (stunnel / nginx / carbon-relay-ng) in front of carbon.
+    ssl.enabled = target.get_bool_data("ssl", false);
+    ssl.ca_path = target.get_string_data("ca");
+    ssl.certificate = target.get_string_data("certificate");
+    ssl.certificate_key = target.get_string_data("certificate key");
+    ssl.certificate_key_format = target.get_string_data("certificate format", "PEM");
+    ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+    ssl.verify_mode = target.get_string_data("verify mode", "peer");
+    ssl.tls_version = target.get_string_data("tls version", "1.2+");
+
     if (sender.has_data("host"))
       sender_hostname = sender.get_string_data("host");
     else
@@ -182,11 +196,64 @@ struct graphite_client_handler : public client::handler_interface {
     return true;
   }
 
+  // Build the carbon line for one datum. The value is scrubbed like the path:
+  // the Graphite line protocol is "<path> <value> <ts>\n", so a value with a
+  // space, newline or ';' could otherwise inject an extra metric/tag line.
+  // fix_graphite_string leaves a normal numeric value untouched.
+  static std::string make_line(const g_data &d, const std::string &ts) {
+    return d.path + " " + fix_graphite_string(d.value) + " " + ts + "\n";
+  }
+
   boost::tuple<bool, std::string> send(connection_data con, const std::list<g_data> &data) {
     try {
       boost::asio::io_context io_service;
       boost::asio::ip::tcp::resolver resolver(io_service);
       auto endpoints = resolver.resolve(con.get_address(), con.get_port());
+
+      const boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
+      const boost::posix_time::time_duration diff = boost::posix_time::microsec_clock::universal_time() - time_t_epoch;
+      const std::string ts = boost::lexical_cast<std::string>(diff.total_seconds());
+
+#ifdef USE_SSL
+      if (con.ssl.enabled) {
+        boost::asio::ssl::context ctx(boost::asio::ssl::context::sslv23);
+        std::list<std::string> errors;
+        con.ssl.configure_ssl_context(ctx, errors);
+        if (!errors.empty()) {
+          std::string emsg;
+          for (const std::string &e : errors) emsg += (emsg.empty() ? "" : "; ") + e;
+          return boost::make_tuple(false, "TLS setup failed: " + emsg);
+        }
+        boost::asio::ssl::stream<boost::asio::ip::tcp::socket> stream(io_service, ctx);
+
+        boost::system::error_code error = boost::asio::error::host_not_found;
+        for (auto it = endpoints.begin(); error && it != endpoints.end(); ++it) {
+          stream.lowest_layer().close();
+          stream.lowest_layer().connect(it->endpoint(), error);
+        }
+        if (error) throw boost::system::system_error(error);
+
+        // When peer verification is enabled, pin the certificate to the host we
+        // resolved so a CA-signed cert from another host cannot impersonate the
+        // target (MITM guard) - mirrors the shared socket client.
+        if ((con.ssl.get_verify_mode() & boost::asio::ssl::context_base::verify_peer) != 0) {
+          stream.set_verify_callback(boost::asio::ssl::host_name_verification(con.get_address()));
+        }
+        stream.handshake(boost::asio::ssl::stream_base::client);
+
+        for (const g_data &d : data) {
+          const std::string msg = make_line(d, ts);
+          boost::asio::write(stream, boost::asio::buffer(msg));
+        }
+        boost::system::error_code ignored;
+        stream.shutdown(ignored);
+        return boost::make_tuple(true, "Data presumably sent successfully (TLS)");
+      }
+#else
+      if (con.ssl.enabled) {
+        return boost::make_tuple(false, "TLS requested ('ssl = true') but NSClient++ was built without OpenSSL support");
+      }
+#endif
 
       boost::asio::ip::tcp::socket socket(io_service);
       boost::system::error_code error = boost::asio::error::host_not_found;
@@ -196,17 +263,8 @@ struct graphite_client_handler : public client::handler_interface {
       }
       if (error) throw boost::system::system_error(error);
 
-      boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
-      boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-      boost::posix_time::time_duration diff = now - time_t_epoch;
-      const auto x = diff.total_seconds();
-
       for (const g_data &d : data) {
-        // Scrub the value as well as the path: the Graphite line protocol is
-        // "<path> <value> <ts>\n", so a value containing a space, newline or
-        // ';' could otherwise inject an extra metric/tag line. fix_graphite_string
-        // leaves a normal numeric value untouched.
-        std::string msg = d.path + " " + fix_graphite_string(d.value) + " " + boost::lexical_cast<std::string>(x) + "\n";
+        const std::string msg = make_line(d, ts);
         socket.send(boost::asio::buffer(msg));
       }
       return boost::make_tuple(true, "Data presumably sent successfully");
