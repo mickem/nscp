@@ -202,7 +202,11 @@ struct graphite_client_handler : public client::handler_interface {
       const auto x = diff.total_seconds();
 
       for (const g_data &d : data) {
-        std::string msg = d.path + " " + d.value + " " + boost::lexical_cast<std::string>(x) + "\n";
+        // Scrub the value as well as the path: the Graphite line protocol is
+        // "<path> <value> <ts>\n", so a value containing a space, newline or
+        // ';' could otherwise inject an extra metric/tag line. fix_graphite_string
+        // leaves a normal numeric value untouched.
+        std::string msg = d.path + " " + fix_graphite_string(d.value) + " " + boost::lexical_cast<std::string>(x) + "\n";
         socket.send(boost::asio::buffer(msg));
       }
       return boost::make_tuple(true, "Data presumably sent successfully");
