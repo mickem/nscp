@@ -103,6 +103,9 @@ std::string get_my_ip() {
 http::response op5_client::do_call(const char *verb, const std::string &url, const std::string &payload) {
   std::string base_url;
   std::string auth_header;
+  std::string tls_version;
+  std::string verify_mode;
+  std::string ca;
   {
     boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     if (!lock.owns_lock()) {
@@ -110,20 +113,24 @@ http::response op5_client::do_call(const char *verb, const std::string &url, con
       return http::response();
     }
     base_url = config_.url;
+    tls_version = config_.tls_version;
+    verify_mode = config_.verify_mode;
+    ca = config_.ca;
     const std::string uid = config_.username + ":" + config_.password;
     auth_header = std::string(HTTP_HDR_AUTH_BASIC) + encode_b64(uid);
   }
   const std::string full_url = base_url + url;
   NSC_TRACE_ENABLED() {
     NSC_TRACE_MSG(std::string(verb) + ": " + full_url);
-    NSC_TRACE_MSG(std::string(HTTP_HDR_AUTH) + "=" + auth_header);
+    // Never log the Authorization header value - it is base64(user:password) and trivially reversible.
+    NSC_TRACE_MSG(std::string(HTTP_HDR_AUTH) + "=" + std::string(HTTP_HDR_AUTH_BASIC) + "<redacted>");
     if (!payload.empty()) {
       NSC_TRACE_MSG(payload);
     }
   }
   try {
     const http::parsed_url parsed = http::parse_url(full_url);
-    http::http_client_options opts(parsed.protocol, "1.2+", "none", "");
+    http::http_client_options opts(parsed.protocol, tls_version, verify_mode, ca);
     http::request rq(verb, parsed.host, parsed.path, payload);
     rq.add_header(HTTP_HDR_AUTH, auth_header);
     rq.add_header("Accept", "application/json");
