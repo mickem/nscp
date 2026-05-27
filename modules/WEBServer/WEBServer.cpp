@@ -104,6 +104,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   std::string key;
   std::string admin_password;
   int threads;
+  bool allow_insecure = false;
   bool log_errors = true;
   bool log_info = false;
   bool log_debug = false;
@@ -152,6 +153,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                 "Use this when you want the WEB server up for monitoring (queries, metrics, anonymous endpoints) but do NOT want any account that can "
                 "remotely reconfigure the host - even if credentials are compromised. Define your own read-only users under /settings/WEB/server/users "
                 "(or rely on `allow anonymous access` with a tightly-scoped `anonymous` role) so something remains callable.")
+      .add_bool("allow insecure", sh::bool_key(&allow_insecure, false), "ALLOW INSECURE (CLEARTEXT HTTP)",
+                "When false (the default) the WEB server refuses to start if the TLS certificate is missing, rather than silently serving HTTP in clear. "
+                "Set to true to explicitly accept unencrypted HTTP when no certificate is present - session tokens and Basic-auth credentials will then be "
+                "transmitted unencrypted, so only do this behind a TLS-terminating proxy or on a trusted loopback interface.")
       .add_int("auth rate limit max failures",
                nscapi::settings_helper::int_fun_key([this](auto value) { this->session->set_auth_rate_limit_max_failures(value); },
                                                     auth_rate_limiter::kDefaultMaxFailures),
@@ -245,21 +250,33 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         NSC_LOG_ERROR("Failed to find web folder: " + path + " (also tried " + fallback + ")");
       }
     }
-    // Silent HTTPS->HTTP downgrade is dangerous: a missing certificate flips
-    // the agent from 8443 to 8080 with no operational signal beyond a single
-    // log line. Keep the convenience auto-flip (so dev/test installs without
-    // a cert do not fail to start) but make the consequences explicit on
-    // every restart - session tokens travel in clear once HTTP is in use.
+    // Silent HTTPS->HTTP downgrade is dangerous: a missing certificate used to
+    // flip the agent to cleartext HTTP with no signal beyond a log line, which
+    // also affected operator-chosen non-default ports. We now refuse to start
+    // in the clear unless the operator explicitly opts in via `allow insecure`.
     const bool cert_missing = !boost::filesystem::is_regular_file(certificate);
-    if (cert_missing && port == "8443") {
-      NSC_LOG_ERROR(
-          "WEB certificate not found at '" + certificate +
-          "': falling back to HTTP on port 8080. Session tokens / Basic-auth credentials will be transmitted in clear. Do NOT use this configuration in "
-          "production - either provide a valid certificate or front the agent with a TLS-terminating proxy.");
-      port = "8080";
-    }
+    // The trailing "s" only denotes TLS intent; strip it before binding.
     if (boost::ends_with(port, "s")) {
       port = port.substr(0, port.length() - 1);
+    }
+    if (cert_missing) {
+      if (!allow_insecure) {
+        NSC_LOG_ERROR(
+            "WEB certificate not found at '" + certificate +
+            "': refusing to start the WEB server in cleartext HTTP. Provide a valid certificate, or set 'allow insecure = true' to explicitly accept "
+            "unencrypted HTTP (session tokens and Basic-auth credentials will then travel in clear - only safe behind a TLS-terminating proxy or on "
+            "loopback). The WEB server has NOT been started.");
+        return true;
+      }
+      // Operator explicitly accepted cleartext. Move off the TLS default port so
+      // a plain-HTTP listener does not masquerade on the conventional HTTPS port.
+      if (port == "8443") {
+        port = "8080";
+      }
+      NSC_LOG_ERROR(
+          "WEB certificate not found at '" + certificate +
+          "' and 'allow insecure = true' is set: serving UNENCRYPTED HTTP on port " + port +
+          ". Session tokens / Basic-auth credentials will be transmitted in clear - only use this behind a TLS-terminating proxy or on a trusted network.");
     }
 
     if (!disable_admin_user && !session->has_user("admin")) {
