@@ -22,6 +22,9 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
+#include <set>
+#include <string>
+
 class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::server::handler {
  public:
   NSClientServer();
@@ -55,6 +58,7 @@ class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::serv
   virtual void set_perf_data(bool v) { noPerfData_ = !v; }
   bool isPasswordOk(std::string remotePassword);
   std::string list_instance(std::string counter);
+  bool is_command_allowed(int code) const { return allowed_commands_.find(code) != allowed_commands_.end(); }
 
  private:
   bool noPerfData_;
@@ -64,4 +68,7 @@ class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::serv
   socket_helpers::connection_info info_;
   std::shared_ptr<check_nt::server::server> server_;
   std::string password_;
+  // Set of permitted check_nt request codes (REQ_*). Populated from the `allow`
+  // setting; a request for a code not in this set is rejected.
+  std::set<int> allowed_commands_;
 };

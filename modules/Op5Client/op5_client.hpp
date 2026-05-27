@@ -34,6 +34,9 @@ struct op5_config {
   std::string password;
   std::string hostgroups;
   std::string contactgroups;
+  std::string tls_version;
+  std::string verify_mode;
+  std::string ca;
   typedef std::map<std::string, std::string> check_map;
   check_map checks;
   bool deregister;

@@ -59,9 +59,13 @@ nsclient::logging::impl::nsclient_logger::~nsclient_logger() { nsclient_logger::
 
 void nsclient::logging::impl::nsclient_logger::destroy() { backend_.reset(); }
 
-void nsclient::logging::impl::nsclient_logger::add_subscriber(const logging_subscriber_instance subscriber) { subscribers_.push_back(subscriber); }
+// Route through the mutex-protected add()/clear() helpers: on_log_message()
+// iterates subscribers_ under mutex_ from the logging thread, so mutating the
+// list without that lock (during plugin load / shutdown) is a data race that
+// can free list nodes mid-iteration.
+void nsclient::logging::impl::nsclient_logger::add_subscriber(const logging_subscriber_instance subscriber) { add(subscriber); }
 
-void nsclient::logging::impl::nsclient_logger::clear_subscribers() { subscribers_.clear(); }
+void nsclient::logging::impl::nsclient_logger::clear_subscribers() { clear(); }
 bool nsclient::logging::impl::nsclient_logger::startup() {
   if (backend_) {
     return backend_->startup();

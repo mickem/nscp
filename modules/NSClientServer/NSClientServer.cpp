@@ -21,6 +21,8 @@
 
 #include <time.h>
 
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/assign.hpp>
 #include <net/socket/socket_settings_helper.hpp>
 #include <nscapi/macros.hpp>
@@ -35,6 +37,76 @@
 
 namespace sh = nscapi::settings_helper;
 
+#define REQ_CLIENTVERSION 1  // Works fine!
+#define REQ_CPULOAD 2        // Quirks
+#define REQ_UPTIME 3         // Works fine!
+#define REQ_USEDDISKSPACE 4  // Works fine!
+#define REQ_SERVICESTATE 5   // Works fine!
+#define REQ_PROCSTATE 6      // Works fine!
+#define REQ_MEMUSE 7         // Works fine!
+#define REQ_COUNTER 8        // Works fine!
+#define REQ_FILEAGE 9        // Works fine! (i hope)
+#define REQ_INSTANCES 10     // Works fine! (i hope)
+
+namespace {
+// Resolve a single token from the `allow` setting - either the keyword
+// "any"/"all", a group name, or an individual check_nt command name - into the
+// request code(s) it permits. Unrecognised tokens are collected in `unknown`.
+void add_allow_token(const std::string &raw, std::set<int> &out, std::set<std::string> &unknown) {
+  std::string t = boost::algorithm::to_lower_copy(boost::algorithm::trim_copy(raw));
+  if (t.empty()) return;
+  if (t == "any" || t == "all") {
+    for (int c = REQ_CLIENTVERSION; c <= REQ_INSTANCES; ++c) out.insert(c);
+  } else if (t == "metrics") {  // harmless aggregate system metrics
+    out.insert(REQ_CPULOAD);
+    out.insert(REQ_UPTIME);
+    out.insert(REQ_USEDDISKSPACE);
+    out.insert(REQ_MEMUSE);
+  } else if (t == "info") {
+    out.insert(REQ_CLIENTVERSION);
+  } else if (t == "service") {
+    out.insert(REQ_SERVICESTATE);
+  } else if (t == "process") {
+    out.insert(REQ_PROCSTATE);
+  } else if (t == "counters") {  // arbitrary PDH counter read
+    out.insert(REQ_COUNTER);
+    out.insert(REQ_INSTANCES);
+  } else if (t == "files") {  // arbitrary file existence/age
+    out.insert(REQ_FILEAGE);
+  } else if (t == "clientversion") {
+    out.insert(REQ_CLIENTVERSION);
+  } else if (t == "cpuload") {
+    out.insert(REQ_CPULOAD);
+  } else if (t == "uptime") {
+    out.insert(REQ_UPTIME);
+  } else if (t == "useddiskspace") {
+    out.insert(REQ_USEDDISKSPACE);
+  } else if (t == "servicestate") {
+    out.insert(REQ_SERVICESTATE);
+  } else if (t == "procstate") {
+    out.insert(REQ_PROCSTATE);
+  } else if (t == "memuse") {
+    out.insert(REQ_MEMUSE);
+  } else if (t == "counter") {
+    out.insert(REQ_COUNTER);
+  } else if (t == "fileage") {
+    out.insert(REQ_FILEAGE);
+  } else if (t == "instances") {
+    out.insert(REQ_INSTANCES);
+  } else {
+    unknown.insert(t);
+  }
+}
+
+std::set<int> parse_allowed_commands(const std::string &spec, std::set<std::string> &unknown) {
+  std::set<int> out;
+  for (const std::string &tok : str::utils::split_lst(spec, std::string(","))) {
+    add_allow_token(tok, out, unknown);
+  }
+  return out;
+}
+}  // namespace
+
 NSClientServer::NSClientServer() : noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
 NSClientServer::~NSClientServer() {}
 
@@ -42,13 +114,23 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("NSClient", alias, "server");
 
+  std::string allow_spec;
+
   settings.alias().add_path_to_settings()("NSCLIENT SERVER SECTION", "Section for NSClient (NSClientServer.dll) (check_nt) protocol options.");
 
   settings.alias()
       .add_key_to_settings()
 
       .add_bool("performance data", sh::bool_fun_key([this](auto value) { this->set_perf_data(value); }, true), "PERFORMANCE DATA",
-                "Send performance data back to Nagios (set this to 0 to remove all performance data).");
+                "Send performance data back to Nagios (set this to 0 to remove all performance data).")
+
+      .add_string("allow", sh::string_key(&allow_spec, "any"), "ALLOWED COMMANDS",
+                  "Comma separated list of which check_nt commands this server will answer. Each entry is a group, the keyword 'any'/'all', or an "
+                  "individual command name. Groups: 'metrics' (cpuload, uptime, useddiskspace, memuse), 'info' (clientversion), 'service' (servicestate), "
+                  "'process' (procstate), 'counters' (counter, instances), 'files' (fileage). Individual commands: clientversion, cpuload, uptime, "
+                  "useddiskspace, servicestate, procstate, memuse, counter, fileage, instances. Default 'any' answers everything (full check_nt "
+                  "compatibility). To expose only harmless system metrics use e.g. 'metrics, info'; this denies the arbitrary-read commands (counter, "
+                  "fileage, instances) and the service/process enumeration commands.");
 
   socket_helpers::settings_helper::add_port_server_opts(settings, info_, "12489");
   // Default SSL on: the legacy check_nt protocol carries the password in every
@@ -69,6 +151,19 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
   settings.register_all();
   settings.notify();
+
+  {
+    std::set<std::string> unknown;
+    allowed_commands_ = parse_allowed_commands(allow_spec, unknown);
+    for (const std::string &u : unknown) {
+      NSC_LOG_ERROR_STD("Ignoring unknown entry '" + u + "' in the check_nt 'allow' setting (expected a group, 'any', or a command name).");
+    }
+    if (allowed_commands_.empty()) {
+      NSC_LOG_ERROR_STD("The check_nt 'allow' setting did not enable any commands; the server will reject every request. Set 'allow = any' to restore the "
+                        "default (answer all commands).");
+    }
+    NSC_DEBUG_MSG_STD("check_nt 'allow' = " + allow_spec + " (" + str::xtos(allowed_commands_.size()) + " of 10 commands enabled).");
+  }
 
 #ifndef USE_SSL
   if (info_.use_ssl) {
@@ -148,17 +243,6 @@ bool NSClientServer::unloadModule() {
   }
   return true;
 }
-
-#define REQ_CLIENTVERSION 1  // Works fine!
-#define REQ_CPULOAD 2        // Quirks
-#define REQ_UPTIME 3         // Works fine!
-#define REQ_USEDDISKSPACE 4  // Works fine!
-#define REQ_SERVICESTATE 5   // Works fine!
-#define REQ_PROCSTATE 6      // Works fine!
-#define REQ_MEMUSE 7         // Works fine!
-#define REQ_COUNTER 8        // Works fine!
-#define REQ_FILEAGE 9        // Works fine! (i hope)
-#define REQ_INSTANCES 10     // Works fine! (i hope)
 
 bool NSClientServer::isPasswordOk(std::string remotePassword) {
   const std::string localPassword = get_password();
@@ -245,6 +329,13 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
     c = boost::lexical_cast<int>(cmd.first.c_str());
   } catch (const boost::bad_lexical_cast &) {
     return check_nt::packet("ERROR: Non-numeric command code: " + cmd.first);
+  }
+
+  // Honour the `allow` setting: a request for a command the operator has not
+  // permitted is rejected before it is dispatched.
+  if (!is_command_allowed(c)) {
+    NSC_DEBUG_MSG_STD("Rejected check_nt command code " + str::xtos(c) + ": not permitted by the 'allow' setting.");
+    return check_nt::packet("ERROR: Command not allowed.");
   }
 
   std::list<std::string> args;

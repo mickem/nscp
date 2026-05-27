@@ -181,7 +181,13 @@ void scheduler::thread_proc(const int id) {
       schedule_queue_type::value_type instance = queue_.pop();
       if (!instance) {
         boost::unique_lock<boost::mutex> lock(idle_thread_mutex_);
-        idle_thread_cond_.wait(lock);
+        // Wait with a predicate that re-checks the queue. This closes the
+        // lost-wakeup window where reschedule_at() pushed an item and notified
+        // in the gap between the empty pop() above and this wait (the predicate
+        // is evaluated on entry, before blocking). The timeout bounds any wakeup
+        // that is still somehow missed to <=1s rather than blocking indefinitely.
+        idle_thread_cond_.timed_wait(lock, boost::get_system_time() + boost::posix_time::seconds(1),
+                                     [this]() { return stop_requested_ || !queue_.empty(); });
         continue;
       }
 
@@ -267,7 +273,12 @@ void scheduler::reschedule_at(const std::string &tag, const int id, boost::posix
   if (!queue_.push(instance)) {
     log_error(__FILE__, __LINE__, "Failed to reschedule item");
   }
-  idle_thread_cond_.notify_one();
+  // Notify under idle_thread_mutex_ so the wakeup cannot be lost in the window
+  // between a worker evaluating its wait predicate and actually blocking.
+  {
+    boost::unique_lock<boost::mutex> lock(idle_thread_mutex_);
+    idle_thread_cond_.notify_one();
+  }
 }
 
 void scheduler::start_threads() {

@@ -258,11 +258,14 @@ void python_script::_exec(const std::string &scriptfile) {
       NSC_DEBUG_MSG("Lib path: " + path.string());
       try {
 #ifdef WIN32
-        // TODO: FIXME: Fix this somehow
-        PyRun_SimpleString(("sys.path.append('" + path.generic_string() + "')").c_str());
+        const std::string lib_path = path.generic_string();
 #else
-        PyRun_SimpleString(("sys.path.append('" + path.string() + "')").c_str());
+        const std::string lib_path = path.string();
 #endif
+        // Append to sys.path through the Python object API rather than building a
+        // code string: a base path containing a single quote would otherwise
+        // terminate the PyRun_SimpleString literal and execute arbitrary Python.
+        py::import("sys").attr("path").attr("append")(lib_path);
       } catch (py::error_already_set &) {
         NSC_LOG_ERROR("Failed to setup env for script: " + scriptfile);
         script_wrapper::log_exception(__FILE__, __LINE__, scriptfile);

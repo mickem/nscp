@@ -99,6 +99,14 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         .add_string("user", sh::string_key(&config.username, ""), "Op5 user", "The user to authenticate as")
         .add_password("password", sh::string_key(&config.password, ""), "Op5 password", "The password for the user to authenticate as")
 
+        .add_string("tls version", sh::string_key(&config.tls_version, "1.2+"), "TLS version",
+                    "The TLS version to use when connecting to the Op5 server (1.0, 1.1, 1.2, 1.2+ or 1.3).")
+        .add_string("verify mode", sh::string_key(&config.verify_mode, "peer"), "TLS verify mode",
+                    "How to verify the Op5 server certificate. 'peer' (the default) validates the certificate chain and hostname against the configured CA. "
+                    "Set to 'none' to disable verification - this is insecure and lets an on-path attacker intercept the Op5 credentials and tamper with data.")
+        .add_string("ca", sh::path_key(&config.ca, "${ca-path}"), "Certificate authority",
+                    "The certificate authority bundle used to verify the Op5 server certificate (used when 'verify mode' is not 'none').")
+
         .add_string("interval", sh::string_key(&interval, "5m"), "Check interval",
                     "How often to submit passive check results you can use an optional suffix to denote time (s, m, h)")
 
