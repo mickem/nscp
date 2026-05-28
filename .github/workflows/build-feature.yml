@@ -66,3 +66,8 @@ jobs:
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
+  build-web:
+    needs: get-version
+    uses: ./.github/workflows/build-web.yml
+    with:
+      version: ${{ needs.get-version.outputs.version }}

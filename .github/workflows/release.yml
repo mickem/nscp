@@ -60,6 +60,13 @@ jobs:
       with:
         name: NSCP-${{ inputs.version }}-rocky-10-arm64
 
+    # Web bundle (Phase 1 of docs/design/web-bundle-installer.md — published
+    # as a release asset; the .deb/.rpm/.msi still bundle the web themselves
+    # for now, so this is additive only).
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-web
+
     - name: Rename docs
       run: |
         mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
@@ -97,3 +104,5 @@ jobs:
           NSCP-${{ inputs.version }}-rocky-9-aarch64.rpm
           NSCP-${{ inputs.version }}-rocky-10-x86_64.rpm
           NSCP-${{ inputs.version }}-rocky-10-aarch64.rpm
+          NSCP-Web-${{ inputs.version }}.zip
+          NSCP-Web-${{ inputs.version }}.sha256
