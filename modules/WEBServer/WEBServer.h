@@ -58,6 +58,12 @@ class WEBServer : public nscapi::impl::simple_plugin {
   bool cli_add_user(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
   bool cli_add_role(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
   bool password(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  // Phase 2 of docs/design/web-bundle-installer.md: install/uninstall the
+  // pre-built web frontend bundle. Distinct verbs from `install` (which sets
+  // up the WEBServer config above).
+  bool cli_install_ui(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool cli_uninstall_ui(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
+  bool cli_ui_status(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 
  private:
   void add_user(const std::string &key, const std::string &arg);

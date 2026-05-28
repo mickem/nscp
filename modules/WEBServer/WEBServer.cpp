@@ -39,6 +39,7 @@
 
 #include "alias_controller.hpp"
 #include "api_controller.hpp"
+#include "web_installer.hpp"
 #include "error_handler.hpp"
 #include "events_controller.hpp"
 #include "info_controller.hpp"
@@ -424,12 +425,14 @@ bool WEBServer::commandLineExec(const int target_mode, const PB::Commands::Execu
     command = "help";
   if (command == "install") return install_server(request, response);
   if (command == "add-user") return cli_add_user(request, response);
-  if (command == "add-role")
-    return cli_add_role(request, response);
-  else if (command == "password")
-    return password(request, response);
-  else if (target_mode == NSCAPI::target_module) {
-    nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp web [install|password|add-user|add-role] --help");
+  if (command == "add-role") return cli_add_role(request, response);
+  if (command == "password") return password(request, response);
+  if (command == "install-ui") return cli_install_ui(request, response);
+  if (command == "uninstall-ui") return cli_uninstall_ui(request, response);
+  if (command == "ui-status") return cli_ui_status(request, response);
+  if (target_mode == NSCAPI::target_module) {
+    nscapi::protobuf::functions::set_response_bad(
+        *response, "Usage: nscp web [install|password|add-user|add-role|install-ui|uninstall-ui|ui-status] --help");
     return true;
   }
   return false;
@@ -955,4 +958,112 @@ void WEBServer::ensure_user(const nscapi::settings_helper::settings_registry &se
   settings.set_static_key(the_path, "password", stored);
   settings.register_key_string(the_path, "role", "Role for " + reason, "Role name for" + reason, role);
   settings.set_static_key(the_path, "role", role);
+}
+
+bool WEBServer::cli_install_ui(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
+  namespace po = boost::program_options;
+  po::variables_map vm;
+  po::options_description desc("install-ui");
+  std::string version_arg, from_arg, url_arg;
+  bool force = false, dry_run = false;
+  desc.add_options()
+      ("help", "Show help.")
+      ("release-version", po::value<std::string>(&version_arg)->default_value(""),
+       "Release version of the web bundle to install (defaults to this daemon's version).")
+      ("from", po::value<std::string>(&from_arg)->default_value(""),
+       "Install from a local zip instead of downloading. Skips the network entirely.")
+      ("url", po::value<std::string>(&url_arg)->default_value(""),
+       "Override the release URL base (default: project's GitHub releases).")
+      ("force", po::bool_switch(&force),
+       "Overwrite an existing install.")
+      ("dry-run", po::bool_switch(&dry_run),
+       "Report intended actions without touching disk.");
+  try {
+    nscapi::program_options::basic_command_line_parser cmd(request);
+    cmd.options(desc);
+    po::store(cmd.run(), vm);
+    po::notify(vm);
+    if (vm.count("help")) {
+      nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+      return true;
+    }
+    nsclient::web::web_installer installer([this](const std::string &p) { return get_core()->expand_path(p); });
+    nsclient::web::web_installer::options opts;
+    opts.version = version_arg;
+    opts.from_path = from_arg;
+    opts.url_base = url_arg;
+    opts.force = force;
+    opts.dry_run = dry_run;
+    std::stringstream out;
+    const int rc = installer.install(opts, out);
+    if (rc == 0)
+      nscapi::protobuf::functions::set_response_good(*response, out.str());
+    else
+      nscapi::protobuf::functions::set_response_bad(*response, out.str());
+    return true;
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, std::string("install-ui: ") + e.what());
+    return true;
+  }
+}
+
+bool WEBServer::cli_uninstall_ui(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
+  namespace po = boost::program_options;
+  po::variables_map vm;
+  po::options_description desc("uninstall-ui");
+  bool force = false;
+  desc.add_options()
+      ("help", "Show help.")
+      ("force", po::bool_switch(&force),
+       "Proceed past a missing manifest (forced uninstall removes nothing manifest-tracked, "
+       "since by definition we don't know what we installed).");
+  try {
+    nscapi::program_options::basic_command_line_parser cmd(request);
+    cmd.options(desc);
+    po::store(cmd.run(), vm);
+    po::notify(vm);
+    if (vm.count("help")) {
+      nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+      return true;
+    }
+    nsclient::web::web_installer installer([this](const std::string &p) { return get_core()->expand_path(p); });
+    std::stringstream out;
+    const int rc = installer.uninstall(force, out);
+    if (rc == 0)
+      nscapi::protobuf::functions::set_response_good(*response, out.str());
+    else
+      nscapi::protobuf::functions::set_response_bad(*response, out.str());
+    return true;
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, std::string("uninstall-ui: ") + e.what());
+    return true;
+  }
+}
+
+bool WEBServer::cli_ui_status(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
+  namespace po = boost::program_options;
+  po::variables_map vm;
+  po::options_description desc("ui-status");
+  desc.add_options()("help", "Show help.");
+  try {
+    nscapi::program_options::basic_command_line_parser cmd(request);
+    cmd.options(desc);
+    po::store(cmd.run(), vm);
+    po::notify(vm);
+    if (vm.count("help")) {
+      nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+      return true;
+    }
+    nsclient::web::web_installer installer([this](const std::string &p) { return get_core()->expand_path(p); });
+    std::stringstream out;
+    const int rc = installer.status(out);
+    if (rc == 0)
+      nscapi::protobuf::functions::set_response_good(*response, out.str());
+    else
+      nscapi::protobuf::functions::set_response_bad(*response, out.str());
+    return true;
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, std::string("ui-status: ") + e.what());
+    return true;
+  }
 }
