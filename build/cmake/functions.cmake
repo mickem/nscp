@@ -14,6 +14,17 @@ macro(LOAD_SECTIONS _TARGET_LIST _path _title)
             set(BUILD_MODULE_SKIP_REASON "Skipped")
             set(MODULE_NOTE "")
             include(${_CURRENT_MODULE})
+            option(
+                BUILD_MODULE_${CURRENT_MODULE_NAME}
+                "Build module ${CURRENT_MODULE_NAME}"
+                ON
+            )
+            if(NOT BUILD_MODULE_${CURRENT_MODULE_NAME})
+                set(BUILD_MODULE 0)
+                set(BUILD_MODULE_SKIP_REASON
+                    "Disabled (-DBUILD_MODULE_${CURRENT_MODULE_NAME}=OFF)"
+                )
+            endif()
             if(BUILD_MODULE)
                 if(MODULE_NOTE)
                     set(MODULE_NOTE " (${MODULE_NOTE})")

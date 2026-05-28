@@ -119,6 +119,36 @@ path); on Linux the system packages are found automatically.
 | `MINIZ_INCLUDE_DIR`                            | unpacked miniz source (Windows ZIP backend)       |
 | `DEPENDENCIES_FOLDER`                          | base folder several of the above are derived from |
 
+### Selecting individual modules
+
+Each module under `modules/`, `clients/` and (on Windows) `tools/` is exposed
+as a `BUILD_MODULE_<Name>` CMake option that defaults to `ON`. Pass
+`-DBUILD_MODULE_<Name>=OFF` to exclude a module from the build, for example:
+
+```bash
+cmake $SOURCE_ROOT \
+    -DBUILD_MODULE_WEBServer=OFF \
+    -DBUILD_MODULE_CheckNSClientServer=OFF
+```
+
+The module is still discovered (the build uses globbing) but its
+`add_subdirectory()` is skipped, so it produces no binary and links nothing in.
+The configure log marks it with the reason, alongside modules that are skipped
+for platform reasons:
+
+```
+-- Adding all: Modules
+--  - CheckDisk: Disabled (-DBUILD_MODULE_CheckDisk=OFF)
+--  - NSClientServer: Skipped
+--  - WEBServer: Disabled (-DBUILD_MODULE_WEBServer=OFF)
+```
+
+The flag can only opt out: setting `BUILD_MODULE_<Name>=ON` does **not**
+override a module that is unsupported on the current platform (e.g.
+`NSClientServer` on Linux). The exact module names are the directory names
+under `modules/` / `clients/` / `tools/`. Options are cached, so they persist
+across reconfigures until explicitly flipped back to `ON`.
+
 ## x64 version (dynamic runtime)
 
 ### Environment
@@ -588,6 +618,10 @@ there is no Linux package for it.
 
 Each missing-dependency combination is validated by the Docker images under
 [`build/docker/`](build/docker/README.md).
+
+Individual modules can also be dropped without touching dependencies — see
+[Selecting individual modules](#selecting-individual-modules) for the
+`-DBUILD_MODULE_<Name>=OFF` flag.
 
 ## Running tests
 
