@@ -9,6 +9,8 @@ If you want to produce debug builds and/or w32 some adjustments will be required
 ## TOC
 
 * [Prerequisites](#prerequisites)
+* [Dependencies](#dependencies)
+* [Build options](#build-options)
 * [x64 version (dynamic runtime)](#x64-version-dynamic-runtime)
 * [Win32 version (static link)](#win32-version-static-link)
 * [Linux version](#linux-version)
@@ -26,6 +28,96 @@ You need the following tools installed on your machine and in your path:
 * CMake
 * 7zip
 * Perl (I use strawberry perl)
+
+## Dependencies
+
+NSClient++ links against a handful of third-party libraries. A few are
+**required** — the build aborts at configure time without them — and the rest
+are **optional**: when they are not found the build still succeeds and the
+feature or module that needs them is silently disabled (see
+[Build options](#build-options) for the toggles, and
+[`build/docker/`](build/docker/README.md) for the images that validate each
+"missing library" case).
+
+On Linux almost everything comes from the distribution packages (see
+[Linux version](#linux-version)); on Windows each library is downloaded and
+built individually (see the per-library subsections under the Windows builds)
+and its location is pointed to from `build.cmake`.
+
+### Required
+
+| Dependency                                                                                     | Used for                                     | Debian/Ubuntu package                           | Windows                                                      |
+|------------------------------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------|--------------------------------------------------------------|
+| C++17 toolchain                                                                                | compiling                                    | `build-essential`                               | Visual Studio (v141_xp toolset)                              |
+| CMake ≥ 3.10                                                                                   | build system                                 | `cmake`                                         | CMake                                                        |
+| Boost (system, filesystem, thread, regex, date_time, program_options, chrono, json, container) | core runtime, filtering, JSON, threading     | `libboost-all-dev`                              | built from source                                            |
+| Protocol Buffers (library + `protoc`)                                                          | every cross-module message                   | `libprotobuf-dev`, `protobuf-compiler`          | built from source                                            |
+| Python 3 **interpreter** + Jinja2                                                              | build-time protobuf / module code generation | `python3`, `python3-protobuf`, `python3-jinja2` | on `PATH` (+ `pip install -r build/python/requirements.txt`) |
+
+The Python *interpreter* is a build tool (it generates each module's glue code
+during the build, via a Jinja2 template), so it is always required even though
+the Python *runtime libraries* are optional (see below). The full Python tool
+set is pinned in `build/python/requirements.txt`.
+
+### Optional
+
+| Dependency                             | Enables                                                   | Debian/Ubuntu package                            | Disabled when absent                                                                         |
+|----------------------------------------|-----------------------------------------------------------|--------------------------------------------------|----------------------------------------------------------------------------------------------|
+| OpenSSL                                | TLS for NRPE/NSCA/check_mk/native protocol + HTTPS client | `libssl-dev`                                     | TLS features; `SMTPClient` + `NSCANgClient` modules. **Required for the Beast web backend.** |
+| Crypto++                               | NSCA payload encryption                                   | `libcrypto++-dev`                                | NSCA encryption                                                                              |
+| libzip (Linux/macOS) / miniz (Windows) | reading `.zip` plugin archives                            | `libzip-dev`                                     | ZIP support (`NSCP_ZIP_BACKEND=none`); `.zip` plugins won't load                             |
+| Lua (system or bundled source)         | scripting                                                 | `liblua5.4-dev`                                  | `LUAScript`, `CheckMKClient`, `CheckMKServer` modules                                        |
+| TinyXML2                               | NRDP XML payloads                                         | `libtinyxml2-dev`                                | `NRDPClient` module                                                                          |
+| Python 3 dev libs + Boost.Python       | embedding CPython                                         | `python3.12-dev` (+ Boost built `--with-python`) | `PythonScript` module                                                                        |
+| Google Test                            | unit tests                                                | bundled via FetchContent (or `libgmock-dev`)     | unit tests (also toggled by `NSCP_BUILD_TESTS`)                                              |
+| Mongoose                               | web / REST server (mongoose backend)                      | vendored source (`MONGOOSE_SOURCE_DIR`)          | only needed when `NSCP_WEB_BACKEND=mongoose` (the default); not needed with `beast`          |
+| Rust toolchain                         | builds the bundled `check_nsclient` plugin                | [`rustup`](https://rust-lang.org/tools/install/) | bundled `check_nsclient` (skip with `-DCHECK_NSCLIENT_MISSING=TRUE`)                         |
+
+A few additional Linux packages are pulled in for packaging and supporting
+libraries: `pkg-config`, `libffi-dev`, `libdbus-1-dev` and `rpm` (the last one
+only for building `.rpm` packages).
+
+## Build options
+
+These are passed on the `cmake` command line (`-DNAME=VALUE`) or set in a
+`build.cmake` file. On Linux they go on the command line; on Windows they go in
+`build.cmake` (auto-included when found at the repository root, or point at it
+with `-DNSCP_CMAKE_CONFIG=<file>`).
+
+### General
+
+| Option                      | Default          | Description                                                                                                                                                              |
+|-----------------------------|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `BUILD_VERSION`             | —                | Version string baked into the binaries and installer (normally derived from git).                                                                                        |
+| `CMAKE_BUILD_TYPE`          | `RelWithDebInfo` | `Release` / `Debug` / `RelWithDebInfo` / `MinSizeRel`.                                                                                                                   |
+| `NSCP_BUILD_TESTS`          | `ON`             | Build the C++ unit tests. `OFF` skips the tests, the `tests/` subdirectory and the bundled googletest download — use it to build the daemon without a test toolchain.    |
+| `NSCP_WEB_BACKEND`          | `mongoose`       | HTTP/REST backend for `WEBServer`: `mongoose` (needs the vendored Mongoose source) or `beast` (header-only, **requires OpenSSL**). The Linux package builds use `beast`. |
+| `NSCP_BOOST_PYTHON_VERSION` | —                | Boost.Python component matching your Python, e.g. `python311`, `python312`, `python313`. Only relevant when building `PythonScript`.                                     |
+| `NSCP_SANITIZE`             | `off`            | Comma-separated sanitizer list for gcc/clang on Linux: `address`, `undefined`, `address,undefined`, `thread`. See `tools/sanitizers/run.sh`.                             |
+| `USE_STATIC_RUNTIME`        | `OFF`            | Link the C/C++ runtime statically (used by the Win32 static build).                                                                                                      |
+| `USE_SYSTEMD`               | `ON` (Linux)     | Install systemd service files in the package.                                                                                                                            |
+| `USE_INITD`                 | `OFF` (Linux)    | Install legacy init.d scripts in the package.                                                                                                                            |
+| `CHECK_NSCLIENT_LOCATION`   | —                | Directory holding the prebuilt Rust `check_nsclient` binary to bundle.                                                                                                   |
+| `CHECK_NSCLIENT_MISSING`    | unset            | Set `TRUE` to skip bundling `check_nsclient` (no Rust build required).                                                                                                   |
+| `NSCP_CMAKE_CONFIG`         | —                | Path (relative to the source or binary dir) to a custom `build.cmake`-style config to include.                                                                           |
+
+### Dependency locations
+
+Mainly needed on Windows (and any time a library is not in a default search
+path); on Linux the system packages are found automatically.
+
+| Variable                                       | Points at                                         |
+|------------------------------------------------|---------------------------------------------------|
+| `BOOST_ROOT` / `BOOST_LIBRARYDIR`              | Boost headers / compiled libraries                |
+| `Boost_USE_STATIC_RUNTIME`                     | link Boost against the static runtime             |
+| `OPENSSL_ROOT_DIR` / `OPENSSL_USE_STATIC_LIBS` | OpenSSL install / static linking                  |
+| `PROTOBUF_LIBRARYDIR`                          | compiled Protocol Buffers libraries               |
+| `CRYPTOPP_ROOT`                                | Crypto++ build directory                          |
+| `LUA_SOURCE_DIR`                               | unpacked Lua source (built from source)           |
+| `TINY_XML2_SOURCE_DIR`                         | unpacked TinyXML2 source                          |
+| `MONGOOSE_SOURCE_DIR`                          | unpacked Mongoose source (mongoose backend)       |
+| `MINIZ_INCLUDE_DIR`                            | unpacked miniz source (Windows ZIP backend)       |
+| `DEPENDENCIES_FOLDER`                          | base folder several of the above are derived from |
 
 ## x64 version (dynamic runtime)
 
@@ -407,7 +499,17 @@ msbuild nscp.sln /p:Configuration=Release /p:Platform=Win32
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libzip-dev libffi-dev python3.12-dev python3-protobuf libdbus-1-dev pkg-config rpm libgmock-dev
+sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libzip-dev libffi-dev python3.12-dev python3-protobuf python3-jinja2 libdbus-1-dev pkg-config rpm libgmock-dev
+```
+
+The build generates each module's glue code at build time with a Python script
+that uses **Jinja2** (`python3-jinja2` above). The full set of Python build
+tools — Jinja2 plus the optional docs (MkDocs) and Lua/Markdown protobuf
+generators — is pinned in `build/python/requirements.txt`; install it with pip
+if you also want those optional pieces (this is what CI does):
+
+```bash
+pip3 install -r build/python/requirements.txt
 ```
 
 In addition to this you also need to install rust: https://rust-lang.org/tools/install/
@@ -459,6 +561,33 @@ cmake $SOURCE_ROOT \
     -DCHECK_NSCLIENT_LOCATION="$SOURCE_ROOT/rust/check_nsclient/target/release"
 make -j$(nproc)
 ```
+
+### Trimming the build
+
+The [Dependencies](#dependencies) and [Build options](#build-options) sections
+list which libraries are optional and the flags that control them. To build on
+a host that is missing some of them, drop the matching `-dev` packages from the
+`apt-get install` line above and add the relevant options, for example:
+
+```bash
+# A lean build: no unit tests and no embedded Python (drop libgmock-dev,
+# python3.12-dev and Boost.Python from the apt line). OpenSSL is kept so the
+# Beast web backend still works.
+cmake $SOURCE_ROOT \
+    -DBUILD_VERSION=$NSCP_VERSION \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DNSCP_WEB_BACKEND=beast \
+    -DNSCP_BUILD_TESTS=OFF \
+    -DCHECK_NSCLIENT_MISSING=TRUE
+```
+
+Dropping **OpenSSL** is a special case: the Beast web backend needs it, so an
+OpenSSL-less build must also switch to `-DNSCP_WEB_BACKEND=mongoose`, which in
+turn needs the vendored Mongoose source (`-DMONGOOSE_SOURCE_DIR=...`) since
+there is no Linux package for it.
+
+Each missing-dependency combination is validated by the Docker images under
+[`build/docker/`](build/docker/README.md).
 
 ## Running tests
 

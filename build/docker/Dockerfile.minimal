@@ -1,0 +1,26 @@
+# Validation: build with ALL of the optional libraries missing at once.
+#
+# Installs none of the toggled libraries, so this drops everything: Google Test
+# (tests OFF), OpenSSL (Mongoose web backend), Crypto++ (no encryption), the ZIP
+# backend (NSCP_NO_ZIP), Lua (LUAScript/CheckMK skipped), TinyXML2 (NRDPClient
+# skipped) and Python embedding (PythonScript skipped). The base still provides
+# the python3 interpreter the build itself needs.
+#
+# This is the stress test: it proves the daemon still builds when every toggled
+# dependency is absent.
+#
+#   docker build -f build/docker/Dockerfile.minimal -t nscp-validate-minimal .
+FROM nscp-build-base
+
+# No optional libraries installed — this scenario keeps none of them.
+COPY . /src
+
+RUN cmake -S /src -B /build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_VERSION=0.0.0-docker \
+        -DNSCP_BOOST_PYTHON_VERSION=python312 \
+        -DCHECK_NSCLIENT_MISSING=TRUE \
+        -DNSCP_WEB_BACKEND=mongoose \
+        -DMONGOOSE_SOURCE_DIR=/opt/mongoose \
+        -DNSCP_BUILD_TESTS=OFF \
+    && cmake --build /build -j"$(nproc)"

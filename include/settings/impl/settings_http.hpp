@@ -100,7 +100,12 @@ class settings_http : public settings::settings_interface_impl {
     }
     return oss.str();
 #else
-    get_logger()->error("settings", __FILE__, __LINE__, "Settings http not compiled with hashing support");
+    // No OpenSSL: fall back to a non-cryptographic hash. hash_string is only
+    // used to derive cache file names from the downloaded content, so a
+    // collision-resistant digest is not required here.
+    std::ostringstream oss;
+    oss << std::hex << std::setw(16) << std::setfill('0') << std::hash<std::string>{}(input);
+    return oss.str();
 #endif
   }
 

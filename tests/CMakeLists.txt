@@ -397,18 +397,23 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 
-NSCP_CREATE_TEST(
-    unzip_test
-    SOURCES
-        ${NSCP_INCLUDEDIR}/bytes/unzip_test.cpp
-        ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
-    LIBRARIES
-        GTest::gtest_main
-        nscp_miniz
-        ${Boost_FILESYSTEM_LIBRARY}
-    INCLUDES
-        ${NSCP_INCLUDEDIR}
-)
+# unzip_test exercises real archive extraction, so it only makes sense when an
+# actual ZIP backend (miniz or libzip) is compiled in. With NSCP_ZIP_BACKEND
+# "none" the stub reports every archive as unreadable, so the test is skipped.
+if(NOT NSCP_ZIP_BACKEND STREQUAL "none")
+    NSCP_CREATE_TEST(
+        unzip_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/bytes/unzip_test.cpp
+            ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
+        LIBRARIES
+            GTest::gtest_main
+            nscp_miniz
+            ${Boost_FILESYSTEM_LIBRARY}
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+    )
+endif()
 
 NSCP_CREATE_TEST(
     threads_test

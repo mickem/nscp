@@ -1,0 +1,35 @@
+# Validation: build WITHOUT a ZIP backend (no libzip, no miniz).
+#
+# Omits libzip-dev; keeps the other optional libraries. miniz is the
+# Windows-only vendored backend and is never used on Linux, so omitting libzip
+# leaves the build with NO zip backend at all (NSCP_ZIP_BACKEND=none). The
+# libs/minizip wrapper then builds a stub that propagates NSCP_NO_ZIP,
+# include/bytes/unzip.cpp compiles its no-op reader and zip_plugin refuses to
+# load .zip plugins. The daemon must still build.
+#
+# Tests are disabled: these images validate that the daemon + modules build
+# without the library; the unit-test suite is covered by the normal CI build.
+#
+#   docker build -f build/docker/Dockerfile.no-zip -t nscp-validate-no-zip .
+FROM nscp-build-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl-dev \
+        libcrypto++-dev \
+        liblua5.4-dev \
+        libtinyxml2-dev \
+        python3.12-dev \
+        libboost-python-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /src
+
+RUN cmake -S /src -B /build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_VERSION=0.0.0-docker \
+        -DNSCP_BOOST_PYTHON_VERSION=python312 \
+        -DCHECK_NSCLIENT_MISSING=TRUE \
+        -DNSCP_WEB_BACKEND=beast \
+        -DNSCP_BUILD_TESTS=OFF \
+    && cmake --build /build -j"$(nproc)"

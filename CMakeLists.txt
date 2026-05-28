@@ -202,6 +202,14 @@ endif(USE_STATIC_RUNTIME)
 
 include(${BUILD_CMAKE_FOLDER}/SetMultiThread.cmake)
 include(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
+
+# When OFF the whole Google Test apparatus is skipped: the googletest download
+# (FetchContent), enable_testing(), the tests/ subdirectory and every
+# NSCP_CREATE_TEST() call become no-ops. This lets the daemon build on hosts
+# without GTest (and without network access to fetch it). Defined before
+# functions.cmake so NSCP_CREATE_TEST can honour it.
+option(NSCP_BUILD_TESTS "Build the unit tests (requires Google Test)" ON)
+
 include(${BUILD_CMAKE_FOLDER}/functions.cmake)
 
 # ##############################################################################
@@ -251,7 +259,11 @@ else(NOT HAVE_REQUIRED_DEPENDENCIES)
     )
 endif(NOT HAVE_REQUIRED_DEPENDENCIES)
 
-if(WIN32)
+# Bundling the embedded-Python runtime into the Windows installer only makes
+# sense when the Python development libraries were found (i.e. PythonScript is
+# being built). Without them Python3_LIBRARIES is empty and there is no runtime
+# to ship.
+if(WIN32 AND Python3_Development_FOUND)
     install(
         FILES
             ${PROJECT_BINARY_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.zip
@@ -912,19 +924,29 @@ if(CRYPTOPP_CMAKE)
     )
 endif(CRYPTOPP_CMAKE)
 
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    URL
-        https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip
-)
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-set(INSTALL_GTEST OFF)
-FetchContent_MakeAvailable(googletest)
-include_directories(${GTEST_INCLUDE_DIR})
-enable_testing()
-include(GoogleTest)
+if(NSCP_BUILD_TESTS)
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        URL
+            https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip
+    )
+    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    set(INSTALL_GTEST OFF)
+    FetchContent_MakeAvailable(googletest)
+    # GTEST_INCLUDE_DIR is only set when a *system* Google Test was found
+    # (find_package(GTest) in dependencies.cmake). The unit tests link the
+    # FetchContent-provided gtest_main target, which carries its own include
+    # dirs, so this global include is just a convenience. Guard it: without a
+    # system gtest the variable is "GTEST_INCLUDE_DIR-NOTFOUND", and adding that
+    # to include_directories() poisons every test target's include path.
+    if(GTEST_INCLUDE_DIR)
+        include_directories(${GTEST_INCLUDE_DIR})
+    endif()
+    enable_testing()
+    include(GoogleTest)
+endif(NSCP_BUILD_TESTS)
 
 if(NETLIB_FOUND)
     if(NOT (Boost_VERSION LESS 105400))
@@ -1101,7 +1123,9 @@ add_subdirectory("op5/config")
 add_subdirectory("op5/scripts")
 add_subdirectory("web")
 add_subdirectory("files")
-add_subdirectory("tests")
+if(NSCP_BUILD_TESTS)
+    add_subdirectory("tests")
+endif(NSCP_BUILD_TESTS)
 
 LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
 LOAD_SECTIONS(ALL_CLIENT_NAMES "clients/*/module.cmake" "Clients")

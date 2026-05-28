@@ -1,0 +1,35 @@
+# Validation: build WITHOUT OpenSSL.
+#
+# Omits libssl-dev; keeps the other optional libraries. With no OpenSSL the
+# Beast web backend is unavailable (it includes Boost.Asio's SSL headers), so
+# this build uses the Mongoose backend. TLS-dependent features drop out via
+# their OPENSSL_FOUND / USE_SSL guards and the SMTPClient / NSCANgClient modules
+# skip themselves. The core daemon and the remaining modules must still build.
+#
+# Tests are disabled: several unit tests link the TLS code paths, so they are
+# out of scope for the "daemon builds without OpenSSL" validation.
+#
+#   docker build -f build/docker/Dockerfile.no-openssl -t nscp-validate-no-openssl .
+FROM nscp-build-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libcrypto++-dev \
+        libzip-dev \
+        liblua5.4-dev \
+        libtinyxml2-dev \
+        python3.12-dev \
+        libboost-python-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /src
+
+RUN cmake -S /src -B /build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_VERSION=0.0.0-docker \
+        -DNSCP_BOOST_PYTHON_VERSION=python312 \
+        -DCHECK_NSCLIENT_MISSING=TRUE \
+        -DNSCP_WEB_BACKEND=mongoose \
+        -DMONGOOSE_SOURCE_DIR=/opt/mongoose \
+        -DNSCP_BUILD_TESTS=OFF \
+    && cmake --build /build -j"$(nproc)"

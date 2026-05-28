@@ -21,7 +21,9 @@
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
+#ifdef USE_SSL
 #include <boost/asio/ssl/context.hpp>
+#endif
 #include <boost/noncopyable.hpp>
 #include <memory>
 #include <net/socket/server.hpp>

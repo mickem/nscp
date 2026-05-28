@@ -21,9 +21,14 @@
 
 // Backend selection: the vendored miniz source is used on Windows (MINIZ is
 // propagated by the nscp_miniz CMake target); everywhere else we use the
-// system libzip. The public interface in unzip.hpp is identical for both.
+// system libzip. When neither is available the nscp_miniz target propagates
+// NSCP_NO_ZIP and a stub backend (below) is compiled instead, so the daemon
+// still builds — it just cannot read ZIP archives. The public interface in
+// unzip.hpp is identical for all three.
 #ifdef MINIZ
 #include <miniz.h>
+#elif defined(NSCP_NO_ZIP)
+// No backend headers required for the stub implementation.
 #else
 #include <zip.h>
 
@@ -82,6 +87,19 @@ struct reader::impl {
     if (!open_) return false;
     return mz_zip_reader_extract_file_to_file(&handle_, filename.c_str(), destination.c_str(), 0) != MZ_FALSE;
   }
+};
+#elif defined(NSCP_NO_ZIP)
+// No-backend stub: builds where neither miniz nor libzip is available. Every
+// archive is reported as unreadable so callers (zip_plugin, settings http
+// unzip) degrade gracefully instead of failing to link.
+struct reader::impl {
+  bool open(const std::string &) { return false; }
+  bool is_open() const { return false; }
+  void close() {}
+  unsigned int size() { return 0; }
+  bool stat(unsigned int, file_entry &) { return false; }
+  bool extract(const std::string &, std::string &) { return false; }
+  bool extract_to_file(const std::string &, const std::string &) { return false; }
 };
 #else
 // libzip-backed implementation. Used on Linux where miniz is not packaged but

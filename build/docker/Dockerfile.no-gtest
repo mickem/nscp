@@ -1,0 +1,33 @@
+# Validation: build WITHOUT Google Test.
+#
+# Keeps every other optional library; configures with -DNSCP_BUILD_TESTS=OFF.
+# This exercises the tests-optional path: the googletest FetchContent download
+# is skipped, every NSCP_CREATE_TEST() becomes a no-op and the tests/
+# subdirectory is not added. The daemon and all modules must still build.
+# (Google Test comes from FetchContent, not apt, so there is no package to omit
+# — only the flag.)
+#
+#   docker build -f build/docker/Dockerfile.no-gtest -t nscp-validate-no-gtest .
+FROM nscp-build-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl-dev \
+        libcrypto++-dev \
+        libzip-dev \
+        liblua5.4-dev \
+        libtinyxml2-dev \
+        python3.12-dev \
+        libboost-python-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /src
+
+RUN cmake -S /src -B /build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_VERSION=0.0.0-docker \
+        -DNSCP_BOOST_PYTHON_VERSION=python312 \
+        -DCHECK_NSCLIENT_MISSING=TRUE \
+        -DNSCP_WEB_BACKEND=beast \
+        -DNSCP_BUILD_TESTS=OFF \
+    && cmake --build /build -j"$(nproc)"

@@ -1,0 +1,65 @@
+# Shared base image for the "build with a missing library" validation matrix.
+#
+# It installs the constant toolchain and the build dependencies that are NOT
+# under test, but deliberately NONE of the toggled libraries whose absence we
+# validate:
+#
+#     Google Test, OpenSSL, Crypto++, miniz/libzip, Boost.Python + libpython,
+#     Lua, TinyXML2
+#
+# Each scenario image (Dockerfile.no-*) starts FROM this base and installs back
+# only the toggled libraries it is *supposed* to keep; whatever it leaves out is
+# what gets validated.
+#
+# Boost is installed as individual component -dev packages rather than
+# libboost-all-dev precisely so that Boost.Python can be left out (libboost-all-dev
+# would drag in libboost-python + libpython, defeating the no-python scenario).
+#
+# Build it first (the runner build-all.sh does this for you):
+#     docker build -f build/docker/Dockerfile.base -t nscp-build-base build/docker
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Toolchain + the non-toggled build dependencies. Note python3 (the
+# interpreter) IS installed: it is required by the build itself for protobuf /
+# module code generation — python3-jinja2 is the template engine that
+# build/python/create_plugin_module.py uses to generate each module's glue
+# code. Only the python *development* libraries (toggled) are omitted here.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        git \
+        pkg-config \
+        ca-certificates \
+        curl \
+        rpm \
+        python3 \
+        python3-protobuf \
+        python3-jinja2 \
+        libprotobuf-dev \
+        protobuf-compiler \
+        libffi-dev \
+        libdbus-1-dev \
+        libboost-dev \
+        libboost-system-dev \
+        libboost-filesystem-dev \
+        libboost-thread-dev \
+        libboost-regex-dev \
+        libboost-date-time-dev \
+        libboost-program-options-dev \
+        libboost-chrono-dev \
+        libboost-json-dev \
+        libboost-container-dev \
+        libboost-coroutine-dev \
+        libboost-context-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Vendored Mongoose source for the scenarios that cannot use the Beast web
+# backend (Beast pulls in Boost.Asio's OpenSSL headers, so the no-OpenSSL and
+# minimal builds fall back to NSCP_WEB_BACKEND=mongoose). Beast scenarios keep
+# OpenSSL and simply ignore this directory.
+ARG MONGOOSE_VERSION=7.19
+RUN mkdir -p /opt/mongoose \
+    && curl -fsSL "https://raw.githubusercontent.com/cesanta/mongoose/${MONGOOSE_VERSION}/mongoose.h" -o /opt/mongoose/mongoose.h \
+    && curl -fsSL "https://raw.githubusercontent.com/cesanta/mongoose/${MONGOOSE_VERSION}/mongoose.c" -o /opt/mongoose/mongoose.c

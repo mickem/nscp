@@ -1,0 +1,34 @@
+# Validation: build WITHOUT Lua.
+#
+# Omits liblua5.4-dev (and sets no LUA_SOURCE_DIR), so neither system Lua nor
+# the bundled Lua source is available. The libs/lua and libs/lua_nscp targets
+# guard their whole body on LUA_FOUND/LUA_SOURCE_FOUND and become empty, and the
+# LUAScript, CheckMKClient and CheckMKServer modules skip themselves. The daemon
+# and the remaining modules must still build.
+#
+# Tests are disabled: these images validate that the daemon + modules build
+# without the library; the unit-test suite is covered by the normal CI build.
+#
+#   docker build -f build/docker/Dockerfile.no-lua -t nscp-validate-no-lua .
+FROM nscp-build-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libssl-dev \
+        libcrypto++-dev \
+        libzip-dev \
+        libtinyxml2-dev \
+        python3.12-dev \
+        libboost-python-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /src
+
+RUN cmake -S /src -B /build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_VERSION=0.0.0-docker \
+        -DNSCP_BOOST_PYTHON_VERSION=python312 \
+        -DCHECK_NSCLIENT_MISSING=TRUE \
+        -DNSCP_WEB_BACKEND=beast \
+        -DNSCP_BUILD_TESTS=OFF \
+    && cmake --build /build -j"$(nproc)"

@@ -87,7 +87,7 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
 
 #ifndef USE_SSL
   if (info_.ssl.enabled) {
-    NSC_LOG_ERROR_STD(_T("SSL not available! (not compiled with openssl support)"));
+    NSC_LOG_ERROR_STD("SSL not available! (not compiled with openssl support)");
     return false;
   }
 #endif

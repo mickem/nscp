@@ -108,9 +108,11 @@ class server : boost::noncopyable {
 #endif
 #endif
   {
+#ifdef USE_SSL
     boost::system::error_code er;
     context_.set_options(info_.get_ctx_opts(), er);
     if (er) logger_->log_error(__FILE__, __LINE__, "Failed to set option: " + er.message());
+#endif
   }
   ~server() {}
 
