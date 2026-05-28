@@ -248,7 +248,15 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         NSC_DEBUG_MSG("Web folder " + path + " not found, using " + fallback + " instead.");
         path = fallback;
       } else {
-        NSC_LOG_ERROR("Failed to find web folder: " + path + " (also tried " + fallback + ")");
+        // Phase 3 of the web-bundle-installer rollout: the .deb/.rpm no
+        // longer ship a web/ directory by default. Boot the WEB server
+        // anyway — the REST API doesn't depend on the bundle, and the
+        // static controller will serve a placeholder page that tells the
+        // operator how to install the UI.
+        NSC_LOG_MESSAGE("Web bundle not installed at " + path +
+                        " (also tried " + fallback +
+                        "). The REST API will work; the UI is served as a "
+                        "placeholder. Run `nscp web install-ui` to install it.");
       }
     }
     // Silent HTTPS->HTTP downgrade is dangerous: a missing certificate used to

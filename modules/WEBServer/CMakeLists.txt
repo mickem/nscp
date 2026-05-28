@@ -120,6 +120,8 @@ NSCP_CREATE_TEST(
         metrics_handler.cpp
         web_installer.cpp
         web_installer_test.cpp
+        static_controller.cpp
+        static_controller_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
@@ -148,6 +150,7 @@ NSCP_CREATE_TEST(
         nscp_miniz
     INCLUDES
         ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/mongoose-cpp
 )
 # The nscapi headers above declare their public API with NSCAPI_EXPORT, which
 # expands to __declspec(dllimport) when consumers include them. We compile
