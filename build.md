@@ -128,7 +128,7 @@ as a `BUILD_MODULE_<Name>` CMake option that defaults to `ON`. Pass
 ```bash
 cmake $SOURCE_ROOT \
     -DBUILD_MODULE_WEBServer=OFF \
-    -DBUILD_MODULE_CheckNSClientServer=OFF
+    -DBUILD_MODULE_NSClientServer=OFF
 ```
 
 The module is still discovered (the build uses globbing) but its
