@@ -11,7 +11,12 @@ See [Supported platforms](supported-platforms.md) for the Windows and Linux vers
 - [Introduction](#introduction)
   - [Configuration](#configuration)
   - [Windows Firewall](#windows-firewall)
-- [Automated installation](#automated-installation)
+- [Installing on Linux (.deb / .rpm)](#installing-on-linux-deb-rpm)
+  - [Debian / Ubuntu](#debian-ubuntu)
+  - [Rocky / RHEL / Fedora-family](#rocky-rhel-fedora-family)
+  - [Installing the web UI bundle](#installing-the-web-ui-bundle)
+  - [Offline / air-gapped UI install](#offline-air-gapped-ui-install)
+- [Automated installation (Windows MSI)](#automated-installation-windows-msi)
   - [Basic command line](#basic-command-line)
   - [MSI Options](#msi-options)
   - [Features](#features)
@@ -79,7 +84,97 @@ Firewall configuration should be pretty straight forward:
 
 All these ports can be changed so be sure to check your nsclient.ini for your ports.
 
-## Automated installation
+## Installing on Linux (.deb / .rpm)
+
+On Linux NSClient++ ships as a standard `.deb` (Ubuntu / Debian) or `.rpm`
+(Rocky / RHEL / AlmaLinux / Fedora) package. See the [package matrix in
+README.md](https://github.com/mickem/nscp#which-package-to-download) for the
+file to download from the
+[releases page](https://github.com/mickem/nscp/releases).
+
+<!-- @formatter:off -->
+!!! important
+    The Linux packages **do not include the web management UI**. The daemon,
+    REST API, NRPE/NSCA listeners and all check modules are bundled in the
+    `.deb`/`.rpm` as usual; only the React/Vite frontend lives in a separate
+    release artifact (`NSCP-Web-<version>.zip`). Run `sudo nscp web
+    install-ui` after installing the package to fetch the matching UI bundle.
+    See [Installing the web UI bundle](#installing-the-web-ui-bundle) below.
+
+    This split is driven by Debian/Fedora packaging policy (no `npm install`
+    during package builds) and only applies to the Linux packages. The
+    Windows MSI keeps bundling the UI inline.
+<!-- @formatter:on -->
+
+### Debian / Ubuntu
+
+```bash
+# Replace the file name with the one matching your release / arch from
+# the README package matrix.
+sudo apt install ./NSCP-<version>-ubuntu-24.04-amd64.deb
+```
+
+`postinst` enables and starts the `nsclient` systemd service. The first-install
+output also reminds you that the UI hasn't been fetched yet:
+
+```
+NSClient++: web UI is not installed. Run 'nscp web install-ui' as root to fetch it.
+```
+
+Until you run that command, hitting the web port in a browser will show a
+small built-in placeholder page that repeats the instruction. The REST API,
+NRPE, NSCA and all other listeners work normally without the UI bundle.
+
+### Rocky / RHEL / Fedora-family
+
+```bash
+sudo dnf install ./NSCP-<version>-rocky-10-x86_64.rpm
+```
+
+Same as above: the service starts immediately, and the UI bundle needs a
+separate `sudo nscp web install-ui` step.
+
+### Installing the web UI bundle
+
+Once the package is installed, fetch the matching UI bundle:
+
+```bash
+sudo nscp web install-ui
+```
+
+This downloads `NSCP-Web-<version>.zip` and its `.sha256` companion from the
+project's GitHub release that matches your installed daemon version, verifies
+the checksum, and unpacks the bundle into the configured `web-path` (usually
+`/usr/lib/nsclient/web`). `sudo` is required because that directory is
+root-owned.
+
+Companion commands:
+
+```bash
+sudo nscp web install-ui --force       # overwrite an existing install
+sudo nscp web ui-status                # show installed version, size, source URL
+sudo nscp web uninstall-ui             # remove only the files this command installed
+```
+
+After `install-ui` succeeds you can reload the daemon and the UI replaces the
+placeholder. If `WEBServer` is already running, an immediate browser refresh
+picks up the new files — no restart needed.
+
+### Offline / air-gapped UI install
+
+For hosts without outbound internet access, download `NSCP-Web-<version>.zip`
+(and optionally `NSCP-Web-<version>.sha256`) on a machine that has access,
+copy them to the target, and point the installer at the local file:
+
+```bash
+sudo nscp web install-ui --from /tmp/NSCP-Web-<version>.zip
+```
+
+When a sibling `.zip.sha256` (or `<basename>.sha256`) is present next to the
+zip, the installer verifies it. Without one, it skips verification and prints
+a warning — you opted into trusting a local path.
+
+## Automated installation (Windows MSI)
 
 The NSClient++ installer for windows is a standard MSI installer which means it can be installed using pretty much all
 deployment techniques available on the windows platform.

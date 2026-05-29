@@ -574,6 +574,36 @@ cd $SOURCE_ROOT/rust/check_nsclient
 cargo build --release
 ```
 
+#### Build the web UI bundle (optional)
+
+The React/Vite web frontend is **not** built as part of the CMake build:
+`web/CMakeLists.txt` only copies files out of `web/dist/` and is a no-op when
+`dist/` is empty. The CI `build-debian.yml` / `build-redhat.yml` workflows
+deliberately leave `dist/` empty so the resulting `.deb` / `.rpm` do not
+contain the UI — operators install the matching `NSCP-Web-<version>.zip` at
+runtime via `sudo nscp web install-ui` (see
+[Installing on Linux](docs/docs/setup/installing.md#installing-the-web-ui-bundle)).
+
+For a local source build you have two options:
+
+1. **Bundle the UI in-tree** — run the npm build once before configuring
+   CMake. The resulting `web/dist/` is picked up automatically; the
+   built daemon serves the UI without any further step.
+
+    ```bash
+    cd $SOURCE_ROOT/web
+    npm install
+    npm run build
+    cd -
+    ```
+
+2. **Install the UI at runtime** — skip the npm step entirely. The daemon
+   boots fine without the bundle and serves a built-in placeholder on `/`
+   until `nscp web install-ui` (or `--from /path/to/NSCP-Web-X.Y.Z.zip` for
+   air-gapped hosts) drops the real UI into `${web-path}`.
+
+Either way, `WEBServer` and its REST API don't depend on the bundle.
+
 ### Build NSClient++
 
 Linux passes its configuration on the `cmake` command line — no `build.cmake`
