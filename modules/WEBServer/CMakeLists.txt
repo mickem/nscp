@@ -39,6 +39,7 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     ${NSCP_INCLUDEDIR}/client/simple_client.cpp
     ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
+    ${NSCP_INCLUDEDIR}/bytes/base64.c
     ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
@@ -122,6 +123,7 @@ NSCP_CREATE_TEST(
         web_installer_test.cpp
         static_controller.cpp
         static_controller_test.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
