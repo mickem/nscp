@@ -16,4 +16,10 @@ class StaticController : public Mongoose::Controller {
 
   Mongoose::Response *handleRequest(Mongoose::Request &request);
   bool handles(std::string method, std::string url);
+
+  // Built-in HTML served when the web bundle hasn't been installed yet
+  // (e.g. on a fresh .deb/.rpm install before `nscp web install-ui`).
+  // Self-contained: no external assets, inline CSS only. Exposed for
+  // unit testing — production paths reach it via handleRequest.
+  static const std::string &placeholder_html();
 };

@@ -22,4 +22,11 @@ if [ "$1" = "configure" ]; then
         systemctl enable nsclient
         systemctl start nsclient
     fi
+
+    # Web UI is shipped as a separate release artifact (Debian/Fedora
+    # policy forbids `npm install` at build time), so the .deb installs
+    # the daemon without it.
+    if [ -z "$2" ]; then
+        echo "NSClient++: web UI is not installed. Run 'nscp web install-ui' as root to fetch it."
+    fi
 fi

@@ -60,9 +60,14 @@ jobs:
     with:
       architecture: x64
       version: ${{ needs.get-version.outputs.version }}
+  build-web:
+    needs: get-version
+    uses: ./.github/workflows/build-web.yml
+    with:
+      version: ${{ needs.get-version.outputs.version }}
 
   release:
-    needs: [get-version, build-server-x64, build-server-x86, build-x86-static, build-debian, build-redhat]
+    needs: [get-version, build-server-x64, build-server-x86, build-x86-static, build-debian, build-redhat, build-web]
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.get-version.outputs.version }}

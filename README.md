@@ -1,4 +1,4 @@
-# NSClient++ (nscp)
+   # NSClient++ (nscp)
 
 [![Build release](https://github.com/mickem/nscp/actions/workflows/build-main.yml/badge.svg)](https://github.com/mickem/nscp/actions/workflows/build-main.yml)
 
@@ -69,6 +69,8 @@ The following packages are produced by the official build pipelines. Pick the on
 | Rocky Linux / RHEL / AlmaLinux | 10                                                | ARM64 (aarch64)  | `NSCP-<version>-rocky-10-aarch64.rpm`            | 64-bit ARM build for RHEL 10-family distributions.                                                                                                               |
 
 In addition, a stand-alone `check_nsclient` binary is published alongside each Linux package for use as a Nagios/Icinga check plugin.
+
+> **Linux only:** the `.deb` / `.rpm` packages contain the daemon, modules and REST API but **not** the React web UI — that ships as a separate release artifact, `NSCP-Web-<version>.zip`, to keep the Linux packages compatible with Debian/Fedora packaging policy (no `npm install` at build time). After installing the package, run `sudo nscp web install-ui` once to fetch and unpack the matching UI bundle. See [Installing on Linux](docs/docs/setup/installing.md#installing-on-linux-deb-rpm) for the full flow, including the air-gapped `--from /path/to/NSCP-Web-<version>.zip` option. The Windows MSI keeps bundling the UI inline; this extra step does not apply there.
 
 > Note: On unsupported distributions you can build from source — see [build.md](build.md).
 

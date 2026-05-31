@@ -34,10 +34,13 @@ set(SRCS
     openmetrics_controller.cpp
     metadata_controller.cpp
     events_controller.cpp
+    web_installer.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
     ${NSCP_INCLUDEDIR}/client/simple_client.cpp
     ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
+    ${NSCP_INCLUDEDIR}/bytes/base64.c
+    ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
 )
@@ -93,6 +96,7 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
     ${EXTRA_LIBS}
     nscp_mongoose
+    nscp_miniz
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
@@ -115,7 +119,19 @@ NSCP_CREATE_TEST(
         auth_rate_limiter_test.cpp
         error_handler.cpp
         metrics_handler.cpp
+        web_installer.cpp
+        web_installer_test.cpp
+        static_controller.cpp
+        static_controller_test.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
+        # web_installer.cpp pulls in net/http/client.hpp which references
+        # socket_helpers::tls_method_parser / verify_mode_parser at link
+        # time, even though our tests never go through the HTTP path
+        # (from_path code path skips it).
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         # NSC_LOG_ERROR / NSC_DEBUG_MSG in session_manager_interface.cpp
         # resolve through nscapi::plugin_singleton -> core_wrapper::log /
         # should_log. The wrapper itself is defined in nscapi_core_wrapper.cpp;
@@ -133,8 +149,10 @@ NSCP_CREATE_TEST(
         ${Boost_REGEX_LIBRARY}
         ${EXTRA_LIBS}
         nscp_mongoose
+        nscp_miniz
     INCLUDES
         ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../libs/mongoose-cpp
 )
 # The nscapi headers above declare their public API with NSCAPI_EXPORT, which
 # expands to __declspec(dllimport) when consumers include them. We compile

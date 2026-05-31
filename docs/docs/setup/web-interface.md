@@ -6,8 +6,17 @@
 
 ## Prerequisites
 
-The web UI lives in the `WEBServer` module. The `nscp web install` helper
-below will enable it automatically, but if you prefer to do it by hand:
+There are two distinct steps the names of which look almost identical and
+get mixed up regularly — make sure you read both before you start:
+
+| Command                      | What it does                                                                             | When to run                                                            |
+|------------------------------|------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
+| `nscp web install`           | Writes the configuration to enable the `WEBServer` module (roles, users, port, password) | Once, when first turning on the web server.                            |
+| `nscp web install-ui`        | Downloads and unpacks the React UI bundle (`NSCP-Web-<version>.zip`) into `web-path`     | On Linux: after every package install. On Windows MSI: not needed.     |
+
+The web server (REST API + the static-file controller) lives in the
+`WEBServer` module. `nscp web install` flips it on; if you prefer to do it
+by hand:
 
 ```ini
 [/modules]
@@ -17,6 +26,15 @@ WEBServer = enabled
 You also need a password for the `admin` user (set during install or with
 `nscp settings --path /settings/default --key password --set ...`) and the
 machine must be reachable on port `8443` from your browser.
+
+<!-- @formatter:off -->
+!!! note
+    **Linux only:** the `.deb` / `.rpm` packages do not ship the React UI
+    bundle. Without `nscp web install-ui` the daemon boots fine and the REST
+    API works, but `/` serves a small built-in placeholder pointing you at
+    `nscp web install-ui` instead of the real UI. The Windows MSI bundles
+    the UI inline, so this extra step does not apply there.
+<!-- @formatter:on -->
 
 ---
 
@@ -61,6 +79,56 @@ Next up we need top restart NSClient++:
 ```commandline
 nsclient service --restart
 ```
+
+## Installing the web UI bundle (Linux only)
+
+On Linux the `.deb` / `.rpm` packages contain the daemon but not the React
+UI. Fetch the bundle that matches the running daemon version:
+
+```bash
+sudo nscp web install-ui
+```
+
+`sudo` is required because the install path (`/usr/lib/nsclient/web` by
+default) is root-owned. The command downloads
+`NSCP-Web-<version>.zip` and its `.sha256` companion from the project's
+matching GitHub release, verifies the checksum, and unpacks the bundle into
+`${web-path}`. An install manifest is written to
+`${web-path}/.nscp-web-manifest.json` so a later `uninstall-ui` only removes
+files the installer actually placed there — anything the operator dropped in
+themselves survives.
+
+Status / removal:
+
+```bash
+sudo nscp web ui-status                # version, source URL, file count
+sudo nscp web uninstall-ui             # remove the bundle (manifest-driven)
+sudo nscp web install-ui --force       # overwrite an existing bundle
+```
+
+### Offline / air-gapped install
+
+If the host has no outbound internet access, download
+`NSCP-Web-<version>.zip` (and optionally `NSCP-Web-<version>.sha256`) on a
+machine that does, copy them across, and:
+
+```bash
+sudo nscp web install-ui --from /tmp/NSCP-Web-<version>.zip
+```
+
+A sibling `.sha256` file is verified when present; without one the installer
+prints a warning and proceeds — you opted into trusting a local path.
+
+### What the daemon serves before `install-ui`
+
+Without the bundle installed, the WEB server still boots, the REST API still
+answers, and any browser request to `/` (or any page navigation) returns a
+small built-in HTML placeholder that explains how to fix it. So a freshly
+`apt install`-ed host that you intend to manage only via NRPE / NSCA / the
+REST API needs no further action; the `install-ui` step is only for
+operators who want the browser UI.
+
+## Logging in to the Web Interface
 
 After this we can access the web interface you can open a web browser and navigate to `https://localhost:8443/`.
 Then you are met with a scary looking dialog (in your language) about an untrusted certificate:

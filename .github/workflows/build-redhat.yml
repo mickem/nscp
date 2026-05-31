@@ -78,8 +78,9 @@ jobs:
           dnf config-manager --set-enabled crb
         fi
         retry dnf update -y
-        retry sh -c 'curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -'
-        retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash libzip-devel tinyxml2-devel pkgconf-pkg-config
+        # Node.js / npm are no longer needed here: the web bundle ships
+        # separately and is installed at runtime via `nscp web install-ui`.
+        retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build python3-devel dbus-devel bash libzip-devel tinyxml2-devel pkgconf-pkg-config
     - uses: actions/checkout@v6
 
     - name: make dirs
@@ -104,12 +105,6 @@ jobs:
         retry bash -c 'pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt'
       env:
         PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-    - id: build-web
-      working-directory: web
-      run: |
-        npm install
-        npm run build
 
     - name: Download check_nsclient from mickem/check_nsclient
       shell: bash

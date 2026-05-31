@@ -60,6 +60,10 @@ jobs:
       with:
         name: NSCP-${{ inputs.version }}-rocky-10-arm64
 
+    - uses: actions/download-artifact@v7
+      with:
+        name: NSCP-${{ inputs.version }}-web
+
     - name: Rename docs
       run: |
         mv NSCP-${{ inputs.version }}-x64-docs.zip NSCP-${{ inputs.version }}-docs.zip
@@ -97,3 +101,5 @@ jobs:
           NSCP-${{ inputs.version }}-rocky-9-aarch64.rpm
           NSCP-${{ inputs.version }}-rocky-10-x86_64.rpm
           NSCP-${{ inputs.version }}-rocky-10-aarch64.rpm
+          NSCP-Web-${{ inputs.version }}.zip
+          NSCP-Web-${{ inputs.version }}.sha256
