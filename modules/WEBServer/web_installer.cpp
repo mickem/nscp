@@ -32,8 +32,10 @@
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 
+#ifdef USE_SSL
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#endif
 
 #include <chrono>
 #include <ctime>
@@ -186,6 +188,7 @@ bool http_get(const std::string& ca_path, std::string url, std::string& body, st
   return false;
 }
 
+#ifdef USE_SSL
 std::string sha256_hex(const std::string& bytes) {
   unsigned char digest[SHA256_DIGEST_LENGTH];
   EVP_MD_CTX* ctx = EVP_MD_CTX_new();
@@ -201,6 +204,16 @@ std::string sha256_hex(const std::string& bytes) {
   for (const unsigned char c : digest) oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
   return oss.str();
 }
+#else
+// This build has no OpenSSL, so the bundle integrity check can't run. Fail
+// closed rather than silently installing unverified content: sha256_file()
+// propagates this and install() reports it (return 1). Mirrors
+// http::simple_client, which likewise throws for HTTPS in no-TLS builds — and
+// since the download path needs HTTPS to reach GitHub, it would fail there too.
+std::string sha256_hex(const std::string& /*bytes*/) {
+  throw std::runtime_error("SHA-256 verification requires an OpenSSL-enabled build");
+}
+#endif
 
 std::string sha256_file(const fs::path& path) {
   std::ifstream in(path.string(), std::ios::binary);
@@ -362,18 +375,27 @@ int web_installer::install(const options& opts, std::ostream& out) const {
       out << "Local zip not found: " << zip_local << std::endl;
       return 1;
     }
-    // Optional sibling sha256 file (same basename + .sha256). When present
-    // we verify; when absent we skip — the user opted into trusting a local
-    // path.
-    const fs::path sibling = zip_local.string() + ".sha256";
-    if (fs::is_regular_file(sibling)) {
+    // Optional sibling sha256 file (basename + .sha256, e.g. foo.zip.sha256,
+    // or the .zip extension swapped for .sha256, e.g. foo.sha256). When
+    // present we verify; when absent we skip — the user opted into trusting
+    // a local path. But a present-yet-unreadable/malformed file is a hard
+    // error: the user asked for verification by placing it there, so silently
+    // downgrading to "no checksum" would defeat the point (this mirrors the
+    // strict handling of the downloaded manifest below).
+    fs::path sha_file = zip_local.string() + ".sha256";
+    if (!fs::is_regular_file(sha_file)) {
+      sha_file = zip_local.parent_path() / (zip_local.stem().string() + ".sha256");
+    }
+    if (fs::is_regular_file(sha_file)) {
       std::string raw;
-      if (read_file(sibling, raw)) expected_hash = parse_sha256_manifest(raw);
-    } else {
-      const fs::path alt = zip_local.parent_path() / (zip_local.stem().string() + ".sha256");
-      if (fs::is_regular_file(alt)) {
-        std::string raw;
-        if (read_file(alt, raw)) expected_hash = parse_sha256_manifest(raw);
+      if (!read_file(sha_file, raw)) {
+        out << "Failed to read checksum file: " << sha_file << std::endl;
+        return 1;
+      }
+      expected_hash = parse_sha256_manifest(raw);
+      if (expected_hash.empty()) {
+        out << "Checksum file is malformed (expected SHA-256 hex + filename): " << sha_file << std::endl;
+        return 1;
       }
     }
     out << "  source : " << source_url << std::endl;

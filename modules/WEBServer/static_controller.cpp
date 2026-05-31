@@ -64,10 +64,11 @@ StaticController::StaticController(const std::shared_ptr<session_manager_interfa
 
 Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) {
   const bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
+  const bool is_css = boost::algorithm::ends_with(request.getUrl(), ".css");
   const bool is_png = boost::algorithm::ends_with(request.getUrl(), ".png");
   auto *sr = new Mongoose::StreamResponse();
   std::string path = stripPath(request.getUrl());
-  if (path != "/nscp.png" && path != "/assets/index.js") {
+  if (path != "/nscp.png" && path != "/assets/index.js" && path != "/assets/index.css") {
     path = "/index.html";
   }
 
@@ -84,12 +85,6 @@ Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) 
   }
 
   if (!boost::filesystem::is_regular_file(file)) {
-    // Page-navigation requests get coerced to /index.html above. When that
-    // file is missing (no web bundle installed yet — see
-    // docs/design/web-bundle-installer.md Phase 3) we serve a built-in
-    // placeholder that points the operator at `nscp web install-ui`.
-    // Missing JS / PNG assets keep returning 404 so genuine bundle bugs
-    // stay visible.
     if (path == "/index.html") {
       sr->setHeader("Content-Type", "text/html");
       sr->write(kPlaceholderHtml.data(), kPlaceholderHtml.size());
@@ -102,12 +97,14 @@ Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) 
 
   if (is_js)
     sr->setHeader("Content-Type", "application/javascript");
+  else if (is_css)
+    sr->setHeader("Content-Type", "text/css");
   else if (is_png)
     sr->setHeader("Content-Type", "image/png");
   else {
     sr->setHeader("Content-Type", "text/html");
   }
-  if (is_png || is_js) {
+  if (is_png || is_js || is_css) {
     sr->setHeader("Cache-Control", "max-age=3600");  // 1 hour (60*60)
   }
   std::ifstream in(file.string().c_str(), std::ios_base::in | std::ios_base::binary);
@@ -121,8 +118,9 @@ Mongoose::Response *StaticController::handleRequest(Mongoose::Request &request) 
   return sr;
 }
 bool StaticController::handles(std::string method, const std::string url) {
-  return boost::algorithm::ends_with(url, ".js") || boost::algorithm::ends_with(url, ".html") || boost::algorithm::ends_with(url, ".png") ||
-         boost::algorithm::ends_with(url, "/") || boost::algorithm::starts_with(url, "/modules") || boost::algorithm::starts_with(url, "/queries") ||
+  return boost::algorithm::ends_with(url, ".js") || boost::algorithm::ends_with(url, ".css") || boost::algorithm::ends_with(url, ".html") ||
+         boost::algorithm::ends_with(url, ".png") || boost::algorithm::ends_with(url, "/") || boost::algorithm::starts_with(url, "/modules") ||
+         boost::algorithm::starts_with(url, "/queries") ||
          boost::algorithm::starts_with(url, "/settings") || boost::algorithm::starts_with(url, "/metrics") || boost::algorithm::starts_with(url, "/logs");
   ;
 }

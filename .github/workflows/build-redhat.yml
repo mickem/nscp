@@ -106,10 +106,6 @@ jobs:
       env:
         PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-    # No `npm install && npm run build` here: the web bundle is published
-    # as a separate release artifact (build-web.yml) and installed at runtime
-    # via `nscp web install-ui`. See docs/design/web-bundle-installer.md.
-
     - name: Download check_nsclient from mickem/check_nsclient
       shell: bash
       run: |

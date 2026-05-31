@@ -3,10 +3,9 @@ cmake_minimum_required(VERSION 3.10)
 project(copy_web)
 
 # Web bundle ships out-of-band as of the web-bundle-installer rollout
-# (docs/design/web-bundle-installer.md, Phase 3). On Linux the .deb/.rpm
-# no longer carry the web frontend; operators run `nscp web install-ui`
-# at runtime to fetch the matching NSCP-Web-${VERSION}.zip from the
-# release page. On Windows the MSI still bundles `dist/` directly.
+# On Linux the .deb/.rpm no longer carry the web frontend; operators
+# run `nscp web install-ui` at runtime to fetch the matching NSCP-Web-${VERSION}.zip
+# from the release page. On Windows the MSI still bundles `dist/` directly.
 #
 # This file therefore needs to do *something* iff `dist/` was populated
 # by a developer running `npm run build` (or by CI staging the bundle

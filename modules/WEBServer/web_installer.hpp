@@ -27,7 +27,6 @@ namespace nsclient {
 namespace web {
 
 // CLI-driven install/uninstall/status for the web frontend bundle.
-// Phase 2 of docs/design/web-bundle-installer.md.
 //
 // Decoupled from both the daemon core and the plugin API: the caller injects
 // a path resolver (typically `[this](auto p) { return get_core()->expand_path(p); }`)

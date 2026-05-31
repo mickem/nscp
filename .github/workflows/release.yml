@@ -60,9 +60,6 @@ jobs:
       with:
         name: NSCP-${{ inputs.version }}-rocky-10-arm64
 
-    # Web bundle (Phase 1 of docs/design/web-bundle-installer.md — published
-    # as a release asset; the .deb/.rpm/.msi still bundle the web themselves
-    # for now, so this is additive only).
     - uses: actions/download-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-web
