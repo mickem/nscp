@@ -59,19 +59,19 @@ class SchedulerTest(BasicTest):
     def check_one(self, result, key, min, max):
         result.assert_gt(self.command_count[key], min, 'check %s (%d) fired more then %d'%(key, self.command_count[key], min))
         result.assert_lt(self.command_count[key], max, 'check %s (%d) fired less then %d'%(key, self.command_count[key], max))
-    
+
     def run_test(self, cases = None):
         self.core.load_module('Scheduler', self.sched_alias)
         result = TestResult()
         start = time()
 
         last_major = 0
-        elapsed = time()-start
-        while elapsed < 60:
+        elapsed = time() - start
+        while elapsed < 90:
             if elapsed > 0:
                 log("testing scheduler %d%% (collected %d instance in %d seconds)"%(elapsed/60*100, self.results_count, elapsed))
             sleep(2000)
-            elapsed = time()-start
+            elapsed = time() - start
         result.add_message(True, 'Summary Collected %d instance in %d seconds: %d/s'%(self.results_count, elapsed, self.results_count/elapsed))
         # Bounds chosen to absorb one missed beat (CI stall, cold-start jitter,
         # PDH first-enumeration pause) and one extra beat (clock drift) per
