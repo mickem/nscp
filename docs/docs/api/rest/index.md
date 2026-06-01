@@ -290,8 +290,6 @@ unknown fields rather than failing on them.
 ## Integrations
 
 * [check_nscp_api](https://github.com/Icinga/icinga2/pull/5239) — included in Icinga 2 v2.7.
-* [check_nsc_web](https://github.com/m-kraus/check_nsc_web) — standalone Go plugin.
-* [centreon_plugins](https://github.com/centreon/centreon-plugins/blob/master/docs/en/user/guide.rst#nsclient) — included in the Centreon plugin project.
 
 ## References
 
