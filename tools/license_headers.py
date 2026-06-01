@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Ensure every C/C++ source/header file carries the NSClient++ GPL-2 header.
+Ensure every C/C++ source/header file carries the canonical NSClient++ SPDX
+license header:
+
+    // SPDX-FileCopyrightText: 2004-<year> Michael Medin
+    // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 Modes
 -----
@@ -9,9 +13,10 @@ Modes
   (default)  Dry-run summary, exits 0 regardless.
 
 The script:
-  * adds the canonical LGPL header to files that have no copyright line,
-  * rewrites an existing NSClient++ / Michael Medin header to the canonical
-    form (normalizing year, formatting, and license wording),
+  * adds the canonical SPDX header to files that have no copyright line,
+  * rewrites an existing NSClient++ / Michael Medin header (whether the old
+    GPL block comment or an earlier SPDX line) to the canonical form,
+    normalizing the year,
   * leaves files with a foreign copyright (third-party code) untouched.
 
 Run from anywhere; the repo root is auto-detected from the script's path,
@@ -54,24 +59,8 @@ OWN_COPYRIGHT_PATTERNS = (
 )
 
 CANONICAL_HEADER_TEMPLATE = """\
-/*
- * Copyright (C) 2004-{year} Michael Medin
- *
- * This file is part of NSClient++ - https://nsclient.org
- *
- * NSClient++ is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * NSClient++ is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
- */
+// SPDX-FileCopyrightText: 2004-{year} Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 """
 
 
@@ -133,6 +122,47 @@ def find_first_block_comment(text: str):
     if end == -1:
         return None
     return start, end + 2
+
+
+def find_header_start(text: str) -> int:
+    """Index of the first 'real' content, skipping a BOM, a shebang line, and
+    any leading whitespace. This is where a header is expected to begin."""
+    i = 0
+    n = len(text)
+    if n >= 1 and text[0] == "﻿":
+        i = 1
+    if text.startswith("#!", i):
+        nl = text.find("\n", i)
+        i = n if nl == -1 else nl + 1
+    while i < n and text[i] in " \t\r\n":
+        i += 1
+    return i
+
+
+def extract_leading_spdx(text: str, start: int):
+    """If the run of consecutive `//` line comments beginning at `start` forms
+    an SPDX header (contains an "SPDX-" tag), return (start, end_exclusive) of
+    that run. Otherwise return None.
+    """
+    if not text.startswith("//", start):
+        return None
+    n = len(text)
+    i = start
+    end = start
+    saw_spdx = False
+    while i < n and text.startswith("//", i):
+        nl = text.find("\n", i)
+        line_end = n if nl == -1 else nl
+        if "SPDX-" in text[i:line_end]:
+            saw_spdx = True
+        if nl == -1:
+            end = n
+            break
+        end = nl + 1
+        i = nl + 1
+    if not saw_spdx:
+        return None
+    return start, end
 
 
 def header_block_is_ours(block: str) -> bool:
@@ -208,21 +238,34 @@ def classify_and_transform(path: Path, text: str, year: int, root: Path):
     normalized = text.replace("\r\n", "\n")
     canonical = build_canonical_header(year)
 
+    # Case 1: a leading SPDX line-comment header already exists. If it's ours,
+    # normalize it (e.g. bump the year); if it's a third party's SPDX header,
+    # leave it. Checked first so a re-run on an already-converted file reports
+    # "ok" rather than treating the "Copyright" in SPDX-FileCopyrightText as a
+    # foreign copyright further down.
+    hstart = find_header_start(normalized)
+    spdx_bounds = extract_leading_spdx(normalized, hstart)
+    if spdx_bounds:
+        start, end = spdx_bounds
+        block = normalized[start:end]
+        if any(p.search(block) for p in OWN_COPYRIGHT_PATTERNS):
+            new = normalized[:start] + canonical + "\n" + normalized[end:].lstrip("\n")
+            if new == normalized:
+                return "ok", None, "canonical"
+            return "updated", apply_eol(new, eol), "SPDX header normalized"
+        return "skipped-3p", None, "foreign SPDX header"
+
+    # Case 2: a leading /* ... */ block comment. The old canonical header was
+    # such a block; ours gets replaced with the SPDX lines.
     block_bounds = find_first_block_comment(normalized)
     if block_bounds:
         start, end = block_bounds
         block = normalized[start:end]
         if header_block_is_ours(block):
-            # Replace just the block with the canonical form.
-            new = canonical + normalized[end:].lstrip("\n")
-            # Preserve a single blank line between header and code.
-            if not new.endswith("\n"):
-                new += "\n"
-            # Ensure exactly one blank line after the header.
-            new = canonical + "\n" + normalized[end:].lstrip("\n")
+            new = normalized[:start] + canonical + "\n" + normalized[end:].lstrip("\n")
             if new == normalized:
                 return "ok", None, "canonical"
-            return "updated", apply_eol(new, eol), "header normalized"
+            return "updated", apply_eol(new, eol), "block header replaced with SPDX"
         if block_has_foreign_copyright(block):
             return "skipped-3p", None, "foreign copyright in block"
         # Block comment that isn't a copyright (e.g. a file-level doc comment).
@@ -238,7 +281,7 @@ def classify_and_transform(path: Path, text: str, year: int, root: Path):
             if bounds is None:
                 return "skipped-3p", None, "own copyright in non-block form (manual review)"
             start, end = bounds
-            new = normalized[:start] + canonical + normalized[end:].lstrip("\n")
+            new = normalized[:start] + canonical + "\n" + normalized[end:].lstrip("\n")
             if new == normalized:
                 return "ok", None, "canonical (non-leading block)"
             return "updated", apply_eol(new, eol), "header normalized (non-leading block)"
