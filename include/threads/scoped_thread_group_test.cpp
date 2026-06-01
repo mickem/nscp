@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2004-2016 Michael Medin
+ * Copyright (C) 2004-2026 Michael Medin
  *
  * This file is part of NSClient++ - https://nsclient.org
  *
- * NSClient++ is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * NSClient++ is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
  * NSClient++ is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
@@ -21,35 +21,35 @@
 
 #include <atomic>
 #include <boost/thread.hpp>
-#include <threads/has-threads.hpp>
+#include <threads/scoped_thread_group.hpp>
 
 // --- Construction / destruction ---
 
-TEST(has_threads, construct_and_destroy) {
-  has_threads ht;
-  EXPECT_EQ(ht.threadCount(), 0u);
+TEST(scoped_thread_group, construct_and_destroy) {
+  scoped_thread_group ht;
+  EXPECT_EQ(ht.count(), 0u);
 }
 
-// --- createThread ---
+// --- create_thread ---
 
-TEST(has_threads, create_single_thread) {
-  has_threads ht;
+TEST(scoped_thread_group, create_single_thread) {
+  scoped_thread_group ht;
   std::atomic<bool> ran{false};
 
-  ht.createThread([&]() { ran.store(true); });
+  ht.create_thread([&]() { ran.store(true); });
 
-  ht.waitForThreads();
+  ht.wait_all();
   EXPECT_TRUE(ran.load());
 }
 
-TEST(has_threads, thread_count_increments) {
-  has_threads ht;
+TEST(scoped_thread_group, count_increments) {
+  scoped_thread_group ht;
   boost::mutex mtx;
   boost::condition_variable cv;
   bool ready = false;
 
   // Launch a thread that blocks until we release it
-  ht.createThread([&]() {
+  ht.create_thread([&]() {
     boost::mutex::scoped_lock lock(mtx);
     while (!ready) {
       cv.wait(lock);
@@ -58,7 +58,7 @@ TEST(has_threads, thread_count_increments) {
 
   // Give the thread time to start
   boost::this_thread::sleep_for(boost::chrono::milliseconds(50));
-  EXPECT_EQ(ht.threadCount(), 1u);
+  EXPECT_EQ(ht.count(), 1u);
 
   // Release the thread
   {
@@ -67,11 +67,11 @@ TEST(has_threads, thread_count_increments) {
   }
   cv.notify_all();
 
-  ht.waitForThreads();
+  ht.wait_all();
 }
 
-TEST(has_threads, create_multiple_threads) {
-  has_threads ht;
+TEST(scoped_thread_group, create_multiple_threads) {
+  scoped_thread_group ht;
   std::atomic<int> counter{0};
   const int num_threads = 5;
 
@@ -80,7 +80,7 @@ TEST(has_threads, create_multiple_threads) {
   bool go = false;
 
   for (int i = 0; i < num_threads; ++i) {
-    ht.createThread([&]() {
+    ht.create_thread([&]() {
       // Wait until all threads are created
       {
         boost::mutex::scoped_lock lock(mtx);
@@ -94,7 +94,7 @@ TEST(has_threads, create_multiple_threads) {
 
   // Give threads time to start
   boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
-  EXPECT_EQ(ht.threadCount(), static_cast<size_t>(num_threads));
+  EXPECT_EQ(ht.count(), static_cast<size_t>(num_threads));
 
   // Release all threads
   {
@@ -103,39 +103,39 @@ TEST(has_threads, create_multiple_threads) {
   }
   cv.notify_all();
 
-  ht.waitForThreads();
+  ht.wait_all();
   EXPECT_EQ(counter.load(), num_threads);
 }
 
-// --- waitForThreads ---
+// --- wait_all ---
 
-TEST(has_threads, wait_for_threads_blocks_until_complete) {
-  has_threads ht;
+TEST(scoped_thread_group, wait_all_blocks_until_complete) {
+  scoped_thread_group ht;
   std::atomic<bool> finished{false};
 
-  ht.createThread([&]() {
+  ht.create_thread([&]() {
     boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
     finished.store(true);
   });
 
-  ht.waitForThreads();
+  ht.wait_all();
   EXPECT_TRUE(finished.load());
 }
 
-TEST(has_threads, wait_for_threads_on_empty_is_noop) {
-  has_threads ht;
+TEST(scoped_thread_group, wait_all_on_empty_is_noop) {
+  scoped_thread_group ht;
   // Should not hang or crash
-  ht.waitForThreads();
-  EXPECT_EQ(ht.threadCount(), 0u);
+  ht.wait_all();
+  EXPECT_EQ(ht.count(), 0u);
 }
 
-// --- interruptThreads ---
+// --- interrupt_all ---
 
-TEST(has_threads, interrupt_threads) {
-  has_threads ht;
+TEST(scoped_thread_group, interrupt_all) {
+  scoped_thread_group ht;
   std::atomic<bool> interrupted{false};
 
-  ht.createThread([&]() {
+  ht.create_thread([&]() {
     try {
       // Sleep indefinitely, relying on interruption to break out
       boost::this_thread::sleep_for(boost::chrono::seconds(60));
@@ -147,34 +147,34 @@ TEST(has_threads, interrupt_threads) {
   // Give the thread time to start sleeping
   boost::this_thread::sleep_for(boost::chrono::milliseconds(50));
 
-  ht.interruptThreads();
-  ht.waitForThreads();
+  ht.interrupt_all();
+  ht.wait_all();
   EXPECT_TRUE(interrupted.load());
 }
 
 // --- thread count after completion ---
 
-TEST(has_threads, thread_count_decreases_after_thread_exits) {
-  has_threads ht;
+TEST(scoped_thread_group, count_decreases_after_thread_exits) {
+  scoped_thread_group ht;
 
-  ht.createThread([&]() {
+  ht.create_thread([&]() {
     // Finish immediately
   });
 
   // Wait a bit for the thread to finish and self-remove
   boost::this_thread::sleep_for(boost::chrono::milliseconds(200));
 
-  EXPECT_EQ(ht.threadCount(), 0u);
+  EXPECT_EQ(ht.count(), 0u);
 }
 
 // --- destructor waits for threads ---
 
-TEST(has_threads, destructor_waits_for_threads) {
+TEST(scoped_thread_group, destructor_waits_for_threads) {
   std::atomic<bool> finished{false};
 
   {
-    has_threads ht;
-    ht.createThread([&]() {
+    scoped_thread_group ht;
+    ht.create_thread([&]() {
       boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
       finished.store(true);
     });
@@ -186,18 +186,18 @@ TEST(has_threads, destructor_waits_for_threads) {
 
 // --- exception in thread does not crash ---
 
-TEST(has_threads, thread_exception_is_caught) {
-  has_threads ht;
+TEST(scoped_thread_group, thread_exception_is_caught) {
+  scoped_thread_group ht;
   std::atomic<bool> other_ran{false};
 
-  ht.createThread([&]() { throw std::runtime_error("test error"); });
+  ht.create_thread([&]() { throw std::runtime_error("test error"); });
 
   // Give time for the throwing thread to finish
   boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
 
   // Create another thread to verify the object is still functional
-  ht.createThread([&]() { other_ran.store(true); });
+  ht.create_thread([&]() { other_ran.store(true); });
 
-  ht.waitForThreads();
+  ht.wait_all();
   EXPECT_TRUE(other_ran.load());
 }
