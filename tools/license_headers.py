@@ -17,7 +17,12 @@ The script:
   * rewrites an existing NSClient++ / Michael Medin header (whether the old
     GPL block comment or an earlier SPDX line) to the canonical form,
     normalizing the year,
-  * leaves files with a foreign copyright (third-party code) untouched.
+  * applies a combined MIT header (upstream + NSClient++ copyright) to the
+    handful of mongoose-cpp files derived from Gregwar/mongoose-cpp, so the
+    required upstream MIT attribution is preserved per file (DERIVED_MIT_FILES),
+  * leaves files with a foreign copyright (third-party code) untouched,
+  * leaves explicitly listed third-party files untouched even when their
+    copyright sits below the scan window (EXCLUDE_FILES).
 
 Run from anywhere; the repo root is auto-detected from the script's path,
 or passed via --root.
@@ -41,17 +46,28 @@ EXCLUDE_DIRS = {
 
 # Path fragments (POSIX style) that mark third-party code we never modify,
 # even when the file has no copyright at all.
+#
+# Note: libs/mongoose-cpp/ is intentionally NOT here. It is a vendored copy of
+# Gregwar/mongoose-cpp that has since been substantially rewritten: the files
+# still derived from the upstream MIT code are handled via DERIVED_MIT_FILES
+# (combined MIT attribution), while the genuinely new files get the canonical
+# NSClient++ header through the normal flow.
 THIRD_PARTY_PATH_FRAGMENTS = (
     "/libs/lua/",
     "/libs/minizip/",
-    "/libs/mongoose-cpp/",
     "/libs/protobuf/",
     "/libs/protobuf_net/",
 )
 
-# Individual third-party files that don't trip the "Copyright" detector
-# (e.g. they use "Rights reserved" or another wording). POSIX, repo-relative.
-EXCLUDE_FILES = frozenset()
+# Individual third-party files we never modify. These either carry their
+# upstream license below the scan window (so auto-detection would miss it) or
+# we simply want their exclusion documented explicitly. POSIX, repo-relative.
+EXCLUDE_FILES = frozenset({
+    "include/bytes/base64.c",        # BSD-3-Clause (Matthew Wilson / Synesis Software)
+    "include/net/icmp_header.hpp",   # Boost Software License 1.0 (Christopher M. Kohlhoff)
+    "include/net/ipv4_header.hpp",   # Boost Software License 1.0 (Christopher M. Kohlhoff)
+    "include/simpleini/simpleini.h", # MIT (Brodie Thiesfield); copyright sits below the scan window
+})
 
 OWN_COPYRIGHT_PATTERNS = (
     re.compile(r"Michael\s+Medin", re.IGNORECASE),
@@ -62,6 +78,32 @@ CANONICAL_HEADER_TEMPLATE = """\
 // SPDX-FileCopyrightText: 2004-{year} Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 """
+
+# Header for the mongoose-cpp files derived from Gregwar/mongoose-cpp. They were
+# originally MIT-licensed; MIT requires the upstream copyright notice be kept, so
+# we preserve Passault's line alongside the NSClient++ copyright and keep the
+# file under MIT (the upstream license) rather than the project's dual license.
+MIT_DERIVED_HEADER_TEMPLATE = """\
+// SPDX-FileCopyrightText: 2013 Grégoire Passault
+// SPDX-FileCopyrightText: 2004-{year} Michael Medin
+// SPDX-License-Identifier: MIT
+"""
+
+# Files in libs/mongoose-cpp/ still derived from the upstream MIT code. Repo-
+# relative POSIX paths. Everything else in that directory is original NSClient++
+# work and gets the canonical header through the normal flow.
+DERIVED_MIT_FILES = frozenset({
+    "libs/mongoose-cpp/Request.h",
+    "libs/mongoose-cpp/Request.cpp",
+    "libs/mongoose-cpp/Response.h",
+    "libs/mongoose-cpp/Response.cpp",
+    "libs/mongoose-cpp/Controller.h",
+    "libs/mongoose-cpp/Controller.cpp",
+    "libs/mongoose-cpp/StreamResponse.h",
+    "libs/mongoose-cpp/StreamResponse.cpp",
+    "libs/mongoose-cpp/Server.h",
+    "libs/mongoose-cpp/RequestHandler.h",
+})
 
 
 def find_repo_root(start: Path) -> Path:
@@ -220,6 +262,27 @@ def _find_block_containing_our_copyright(text: str, limit: int):
         i = end
 
 
+def replace_or_prepend_header(normalized: str, header: str) -> str:
+    """Put `header` at the top of `normalized` (\\n EOL), replacing a leading
+    SPDX line-comment run or a leading own /* ... */ block if present, else
+    prepending. Used for files whose header is fully managed by this script
+    (the canonical and the MIT-derived headers)."""
+    hstart = find_header_start(normalized)
+    spdx_bounds = extract_leading_spdx(normalized, hstart)
+    if spdx_bounds:
+        start, end = spdx_bounds
+        return normalized[:start] + header + "\n" + normalized[end:].lstrip("\n")
+    block_bounds = find_first_block_comment(normalized)
+    if block_bounds:
+        start, end = block_bounds
+        if header_block_is_ours(normalized[start:end]):
+            return normalized[:start] + header + "\n" + normalized[end:].lstrip("\n")
+    i = 0
+    while i < len(normalized) and normalized[i] in "\r\n":
+        i += 1
+    return header + "\n" + normalized[i:]
+
+
 def classify_and_transform(path: Path, text: str, year: int, root: Path):
     """
     Decide what to do with a file. Returns (action, new_text_or_none, reason).
@@ -237,6 +300,18 @@ def classify_and_transform(path: Path, text: str, year: int, root: Path):
     eol = detect_eol(text)
     normalized = text.replace("\r\n", "\n")
     canonical = build_canonical_header(year)
+
+    # mongoose-cpp files derived from upstream MIT code: apply the combined MIT
+    # header (upstream + NSClient++ copyright). Handled before the generic
+    # detection below so a re-run does not mistake the Michael Medin line for a
+    # cue to rewrite it to the canonical Apache/GPL header.
+    rel = str(path.relative_to(root)).replace(os.sep, "/")
+    if rel in DERIVED_MIT_FILES:
+        header = MIT_DERIVED_HEADER_TEMPLATE.format(year=year)
+        new = replace_or_prepend_header(normalized, header)
+        if new == normalized:
+            return "ok", None, "canonical (MIT derived)"
+        return "updated", apply_eol(new, eol), "MIT derived header applied"
 
     # Case 1: a leading SPDX line-comment header already exists. If it's ours,
     # normalize it (e.g. bump the year); if it's a third party's SPDX header,
