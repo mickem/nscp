@@ -30,16 +30,12 @@ class process_exception final : public std::exception {
   //////////////////////////////////////////////////////////////////////////
   /// Constructor takes an error message.
   /// @param error the error message
-  ///
-  /// @author mickem
   explicit process_exception(std::string error) : error(std::move(error)) {}
   ~process_exception() noexcept override = default;
 
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
-  ///
-  /// @author mickem
   const char *what() const noexcept override { return error.c_str(); }
 };
 

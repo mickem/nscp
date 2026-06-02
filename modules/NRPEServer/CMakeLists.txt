@@ -40,7 +40,6 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/net/nrpe/server/handler.hpp
         ${NSCP_INCLUDEDIR}/net/nrpe/server/parser.hpp
         ${NSCP_INCLUDEDIR}/net/nrpe/packet.hpp
-        ${NSCP_INCLUDEDIR}/bytes/swap_bytes.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_settings_helper.hpp
         ${NSCP_INCLUDEDIR}/net/socket/server.hpp

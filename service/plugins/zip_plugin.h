@@ -31,31 +31,17 @@
 #include "plugin_manager.hpp"
 
 /**
- * @ingroup NSClient++
  * NSCPlugin is a wrapper class to wrap all DLL calls and make things simple and clean inside the actual application.<br>
  * Things tend to be one-to-one by which I mean that a call to a function here should call the corresponding function in the plug in (if loaded).
  * If things are "broken" NSPluginException is called to indicate this. Error states are returned for normal "conditions".
- *
  *
  * @version 1.0
  * first version
  *
  * @date 02-12-2005
  *
- * @author mickem
- *
- * @par license
- * This code is absolutely free to use and modify. The code is provided "as is" with
- * no expressed or implied warranty. The author accepts no liability if it causes
- * any damage to your computer, causes your pet to fall ill, increases baldness
- * or makes your car start emitting strange noises when you start it up.
- * This code has no bugs, just undocumented features!
- *
  * @todo
  * getVersion() is not implemented as of yet.
- *
- * @bug
- *
  */
 namespace nsclient {
 namespace core {

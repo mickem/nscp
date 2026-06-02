@@ -38,8 +38,6 @@ class settings_exception : public std::exception {
   /// @param file THe file in which the error occurred
   /// @param line The line in which the error occurred
   /// @param error the error message
-  ///
-  /// @author mickem
   settings_exception(const char* file, const int line, std::string error) noexcept : file_(file), line_(line), error_(std::move(error)) {}
   settings_exception(const settings_exception& other) noexcept : settings_exception(other.file_, other.line_, other.error_) {}
   ~settings_exception() noexcept override = default;
@@ -47,8 +45,6 @@ class settings_exception : public std::exception {
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
-  ///
-  /// @author mickem
   const char* what() const throw() { return error_.c_str(); }
   // std::string reason() const throw() { return utf8::utf8_from_native(what()); }
   const char* file() const { return file_; }
@@ -92,8 +88,6 @@ class settings_interface {
   //////////////////////////////////////////////////////////////////////////
   /// Empty all cached settings values and force a reload.
   /// Notice this does not save so any "active" values will be flushed and new ones read from file.
-  ///
-  /// @author mickem
   virtual void clear_cache() = 0;
 
   //////////////////////////////////////////////////////////////////////////
@@ -102,8 +96,6 @@ class settings_interface {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the string value
-  ///
-  /// @author mickem
   virtual op_string get_string(std::string path, std::string key) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Get a string value if it does not exist the default value will be returned
@@ -112,8 +104,6 @@ class settings_interface {
   /// @param key the key to lookup
   /// @param def the default value to use when no value is found
   /// @return the string value
-  ///
-  /// @author mickem
   virtual std::string get_string(std::string path, std::string key, std::string def) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Set or update a string value
@@ -121,8 +111,6 @@ class settings_interface {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @param value the value to set
-  ///
-  /// @author mickem
   virtual void set_string(std::string path, std::string key, std::string value) = 0;
 
   virtual void remove_key(std::string path, std::string key) = 0;
@@ -135,24 +123,18 @@ class settings_interface {
   ///
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual string_list get_sections(std::string path) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Get all keys for a path.
   ///
   /// @param path The path to get keys under
   /// @return a list of keys
-  ///
-  /// @author mickem
   virtual string_list get_keys(std::string path) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Does the section exists?
   ///
   /// @param path The path of the section
   /// @return true/false
-  ///
-  /// @author mickem
   virtual bool has_section(std::string path) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Does the key exists?
@@ -160,8 +142,6 @@ class settings_interface {
   /// @param path The path of the section
   /// @param key The key to check
   /// @return true/false
-  ///
-  /// @author mickem
   virtual bool has_key(std::string path, std::string key) = 0;
 
   virtual void add_path(std::string path) = 0;
@@ -171,28 +151,20 @@ class settings_interface {
   /// The context is an identifier for the settings store for INI/XML it is the filename.
   ///
   /// @return the context
-  ///
-  /// @author mickem
   virtual std::string get_context() = 0;
 
   // Save/Load Functions
   //////////////////////////////////////////////////////////////////////////
   /// Reload the settings store
-  ///
-  /// @author mickem
   virtual void reload() = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Copy the settings store to another settings store
   ///
   /// @param other the settings store to save to
-  ///
-  /// @author mickem
   virtual void save_to(instance_ptr other) = 0;
   virtual void save_to(std::string alias, std::string other) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Save the settings store
-  ///
-  /// @author mickem
   virtual void save(bool re_save_all) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Re-emit the settings store with sections (and keys within each section)
@@ -205,15 +177,11 @@ class settings_interface {
   virtual void save_sorted() { save(true); }
   //////////////////////////////////////////////////////////////////////////
   /// Load settings from the context.
-  ///
-  /// @author mickem
   virtual void load() = 0;
 
   virtual std::string get_type() = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Validate the settings store and report all missing/invalid and superfluous keys.
-  ///
-  /// @author mickem
   virtual settings::error_list validate() = 0;
 
   virtual std::string to_string() = 0;
@@ -238,8 +206,6 @@ class settings_interface {
   /// pending (unsaved) changes.
   ///
   /// @return list of pending changes
-  ///
-  /// @author mickem
   virtual change_list get_changes() = 0;
 };
 }  // namespace settings

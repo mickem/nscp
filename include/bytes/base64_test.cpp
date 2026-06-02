@@ -241,6 +241,23 @@ TEST(base64_decode, padding_at_position_1) {
   EXPECT_EQ(result, 0u);
 }
 
+TEST(base64_decode, padding_at_position_0_no_underflow_size_query) {
+  // "====" — the final quantum is padding from position 0. The drop must be
+  // clamped to 3 (a quantum holds at most 3 bytes); without the clamp `total`
+  // (size_t) would underflow to ~SIZE_MAX and the size query would report a
+  // huge length, inviting an over-allocation.
+  EXPECT_EQ(b64::b64_decode("====", 4, nullptr, 0), 0u);
+  // Same, in a multi-quantum input: only the valid leading quantum counts.
+  EXPECT_EQ(b64::b64_decode("QUJD====", 8, nullptr, 0), 3u);
+}
+
+TEST(base64_decode, padding_at_position_0_no_underflow_decode) {
+  // The clamp must also hold on the write path: "====" yields 0 bytes and must
+  // not overflow `dest` or read past it.
+  unsigned char buf[3];
+  EXPECT_EQ(b64::b64_decode("====", 4, buf, sizeof(buf)), 0u);
+}
+
 TEST(base64_decode, embedded_null_in_last_chunk_size_query) {
   // Tests the '\0' == *p branch in the padding scan
   char encoded[] = {'Q', 'U', 'J', 'D', 'Q', 'Q', '\0', '\0'};

@@ -254,7 +254,6 @@ NSCP_CREATE_TEST(
     SOURCES
         ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler_test.cpp
         ${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
-        ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
@@ -389,7 +388,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
         ${NSCP_INCLUDEDIR}/bytes/buffer_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/char_buffer_test.cpp
-        ${NSCP_INCLUDEDIR}/bytes/swap_bytes_test.cpp
     LIBRARIES
         gtest_main
     INCLUDES
@@ -420,8 +418,7 @@ NSCP_CREATE_TEST(
     SOURCES
         ${NSCP_INCLUDEDIR}/threads/queue_test.cpp
         ${NSCP_INCLUDEDIR}/threads/concurrent_queue_test.cpp
-        ${NSCP_INCLUDEDIR}/threads/has_threads_test.cpp
-        ${NSCP_INCLUDEDIR}/threads/has-threads.cpp
+        ${NSCP_INCLUDEDIR}/threads/scoped_thread_group_test.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_THREAD_LIBRARY}

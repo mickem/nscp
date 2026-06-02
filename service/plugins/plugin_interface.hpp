@@ -22,8 +22,6 @@ class plugin_exception : public std::exception {
   /// Constructor takes an error message.
   /// @param module The module name
   /// @param error the error message
-  ///
-  /// @author mickem
   plugin_exception(std::string module, std::string error)
       : file_(std::make_shared<const std::string>(std::move(module))), error_(std::make_shared<const std::string>(std::move(error))) {}
   ~plugin_exception() noexcept override = default;
@@ -31,8 +29,6 @@ class plugin_exception : public std::exception {
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
-  ///
-  /// @author mickem
   const char *what() const noexcept override { return error_->c_str(); }
   std::string file() const { return *file_; }
   std::string reason() const { return *error_; }

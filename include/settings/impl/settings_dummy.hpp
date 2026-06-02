@@ -36,8 +36,6 @@ class settings_dummy : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the string value
-  ///
-  /// @author mickem
   virtual op_string get_real_string(settings_core::key_path_type key) { return op_string(); }
   //////////////////////////////////////////////////////////////////////////
   /// Get an integer value if it does not exist exception will be thrown
@@ -45,8 +43,6 @@ class settings_dummy : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the int value
-  ///
-  /// @author mickem
   virtual op_int get_real_int(settings_core::key_path_type key) { return op_int(); }
   //////////////////////////////////////////////////////////////////////////
   /// Get a boolean value if it does not exist exception will be thrown
@@ -54,8 +50,6 @@ class settings_dummy : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the boolean value
-  ///
-  /// @author mickem
   virtual op_bool get_real_bool(settings_core::key_path_type key) { return op_bool(); }
   //////////////////////////////////////////////////////////////////////////
   /// Check if a key exists
@@ -63,8 +57,6 @@ class settings_dummy : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return true/false if the key exists.
-  ///
-  /// @author mickem
   virtual bool has_real_key(settings_core::key_path_type key) { return false; }
   virtual bool has_real_path(std::string path) { return false; }
   //////////////////////////////////////////////////////////////////////////
@@ -72,8 +64,6 @@ class settings_dummy : public settings::settings_interface_impl {
   ///
   /// @param key The key to write to
   /// @param value The value to write
-  ///
-  /// @author mickem
   virtual void set_real_value(settings_core::key_path_type key, conainer value) {}
 
   virtual void set_real_path(std::string path) {}
@@ -87,8 +77,6 @@ class settings_dummy : public settings::settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_sections(std::string, string_list &) {}
   //////////////////////////////////////////////////////////////////////////
   /// Get all keys given a path/section.
@@ -97,13 +85,9 @@ class settings_dummy : public settings::settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_keys(std::string, string_list &) {}
   //////////////////////////////////////////////////////////////////////////
   /// Save the settings store
-  ///
-  /// @author mickem
   virtual void save(bool re_save_all) { settings_interface_impl::save(re_save_all); }
   virtual std::string get_info() { return "dummy settings"; }
   settings::error_list validate() {

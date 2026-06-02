@@ -66,16 +66,12 @@ class settings_handler_impl : public settings_core {
   /// In other words set where the settings files reside
   ///
   /// @param path the path to the settings files
-  ///
-  /// @author mickem
   void set_base(boost::filesystem::path path) { base_path_ = path; }
 
   //////////////////////////////////////////////////////////////////////////
   /// Get the logging interface (will receive log messages)
   ///
   /// @return the logger to use
-  ///
-  /// @author mickem
   nsclient::logging::logger_instance get_logger() const { return logger_; }
 
   //////////////////////////////////////////////////////////////////////////
@@ -83,8 +79,6 @@ class settings_handler_impl : public settings_core {
   /// In other words get where the settings files reside
   ///
   /// @return the path to the settings files
-  ///
-  /// @author mickem
   boost::filesystem::path get_base() { return base_path_; }
 
   settings::error_list validate();
@@ -126,8 +120,6 @@ class settings_handler_impl : public settings_core {
   /// @param description the description to use
   /// @param defValue the default value
   /// @param advanced advanced options will only be included if they are changed
-  ///
-  /// @author mickem
   void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample,
                      bool update_existing) {
     boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
@@ -152,8 +144,6 @@ class settings_handler_impl : public settings_core {
   /// @param description the description to use
   /// @param defValue the default value
   /// @param advanced advanced options will only be included if they are changed
-  ///
-  /// @author mickem
   void register_subkey(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample,
                        bool update_existing) {
     boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
@@ -181,8 +171,6 @@ class settings_handler_impl : public settings_core {
   /// @param description the description to use
   /// @param defValue the default value
   /// @param advanced advanced options will only be included if they are changed
-  ///
-  /// @author mickem
   void register_key(unsigned int plugin_id, std::string path, std::string key, std::string type, std::string title, std::string description,
                     std::string defValue, bool advanced, bool is_sample, bool update_existing = true) {
     boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
@@ -227,8 +215,6 @@ class settings_handler_impl : public settings_core {
   /// @param path The path of the key
   /// @param key The key of the key
   /// @return the key description
-  ///
-  /// @author mickem
   boost::optional<settings_core::key_description> get_registered_key(std::string path, std::string key) {
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
     if (!readLock.owns_lock()) {
@@ -287,8 +273,6 @@ class settings_handler_impl : public settings_core {
   /// Get all registered sections
   ///
   /// @return a list of section paths
-  ///
-  /// @author mickem
   string_list get_reg_sections(std::string path, bool fetch_samples) {
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
     if (!readLock.owns_lock()) {
@@ -305,8 +289,6 @@ class settings_handler_impl : public settings_core {
   ///
   /// @param path the path to find keys under
   /// @return a list of key names
-  ///
-  /// @author mickem
   virtual string_list get_reg_keys(std::string path, bool fetch_samples) {
     boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
     if (!readLock.owns_lock()) {

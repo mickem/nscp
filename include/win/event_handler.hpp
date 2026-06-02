@@ -38,27 +38,12 @@ class event_exception {
 };
 
 /**
- * @ingroup NSClient++
  * A simple class to wrap the W32 API event object.
  *
  * @version 1.0
  * first version
  *
  * @date 02-14-2005
- *
- * @author mickem
- *
- * @par license
- * This code is absolutely free to use and modify. The code is provided "as is" with
- * no expressed or implied warranty. The author accepts no liability if it causes
- * any damage to your computer, causes your pet to fall ill, increases baldness
- * or makes your car start emitting strange noises when you start it up.
- * This code has no bugs, just undocumented features!
- *
- * @todo
- *
- * @bug
- *
  */
 class event_handler {
  public:

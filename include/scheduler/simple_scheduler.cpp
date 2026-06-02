@@ -77,7 +77,7 @@ void scheduler::start() {
   log_trace(__FILE__, __LINE__, "starting all threads");
   running_ = true;
   start_threads();
-  log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.threadCount()));
+  log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.count()));
 }
 
 void scheduler::prepare_shutdown() {
@@ -85,17 +85,17 @@ void scheduler::prepare_shutdown() {
   running_ = false;
   stop_requested_ = true;
   has_watchdog_ = false;
-  threads_.interruptThreads();
+  threads_.interrupt_all();
 }
 void scheduler::stop() {
   log_trace(__FILE__, __LINE__, "stopping all threads");
   running_ = false;
   stop_requested_ = true;
   has_watchdog_ = false;
-  threads_.interruptThreads();
-  threads_.waitForThreads();
+  threads_.interrupt_all();
+  threads_.wait_all();
   thread_count_ = 0;
-  log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.threadCount()));
+  log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.count()));
 }
 
 int scheduler::add_task(const std::string &tag, const boost::posix_time::time_duration duration, const double jitter_factor) {
@@ -285,17 +285,17 @@ void scheduler::start_threads() {
   if (!running_) return;
   stop_requested_ = false;
   std::size_t missing_threads = 0;
-  if (thread_count_ > threads_.threadCount()) missing_threads = thread_count_ - threads_.threadCount();
+  if (thread_count_ > threads_.count()) missing_threads = thread_count_ - threads_.count();
   if (missing_threads > 0 && missing_threads <= thread_count_) {
     for (std::size_t i = 0; i < missing_threads; i++) {
       const boost::function<void()> f = [this, i]() { this->thread_proc(static_cast<int>(100 + i)); };
-      threads_.createThread(f);
+      threads_.create_thread(f);
     }
   }
   if (!has_watchdog_) {
     has_watchdog_ = true;
     const boost::function<void()> f = [this]() { this->watch_dog(0); };
-    threads_.createThread(f);
+    threads_.create_thread(f);
   }
 }
 }  // namespace simple_scheduler

@@ -40,7 +40,6 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/net/nsca/server/handler.hpp
         ${NSCP_INCLUDEDIR}/net/nsca/server/parser.hpp
         ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.hpp
-        ${NSCP_INCLUDEDIR}/bytes/swap_bytes.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_INCLUDEDIR}/net/socket/server.hpp
         ${NSCP_INCLUDEDIR}/net/socket/connection.hpp

@@ -105,8 +105,6 @@ class settings_interface_impl : public settings_interface {
   //////////////////////////////////////////////////////////////////////////
   /// Empty all cached settings values and force a reload.
   /// Notice this does not save so anhy "active" values will be flushed and new ones read from file.
-  ///
-  /// @author mickem
   void clear_cache() {
     MUTEX_GUARD();
     {
@@ -125,8 +123,6 @@ class settings_interface_impl : public settings_interface {
   /// Set the core module to use
   ///
   /// @param core The core to use
-  ///
-  /// @author mickem
   virtual void set_core(settings_core *core) {
     MUTEX_GUARD();
     core_ = core;
@@ -248,8 +244,6 @@ class settings_interface_impl : public settings_interface {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the string value
-  ///
-  /// @author mickem
   virtual op_string get_string(std::string path, std::string key) { return getter<StringHandler>(path, key); }
   //////////////////////////////////////////////////////////////////////////
   /// Get a string value if it does not exist the default value will be returned
@@ -258,8 +252,6 @@ class settings_interface_impl : public settings_interface {
   /// @param key the key to lookup
   /// @param def the default value to use when no value is found
   /// @return the string value
-  ///
-  /// @author mickem
   virtual std::string get_string(std::string path, std::string key, std::string def) {
     op_string val = get_string(path, key);
     if (val) return *val;
@@ -271,8 +263,6 @@ class settings_interface_impl : public settings_interface {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @param value the value to set
-  ///
-  /// @author mickem
   virtual void set_string(std::string path, std::string key, std::string value) { setter<StringHandler>(path, key, value); }
 
   virtual void remove_key(std::string path, std::string key) {
@@ -327,8 +317,6 @@ class settings_interface_impl : public settings_interface {
   ///
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual string_list get_sections(std::string path) {
     MUTEX_GUARD();
     string_list ret;
@@ -395,8 +383,6 @@ class settings_interface_impl : public settings_interface {
   ///
   /// @param path The path to get keys under
   /// @return a list of keys
-  ///
-  /// @author mickem
   virtual string_list get_keys(std::string path) {
     if (path.size() > 0 && path[path.size() - 1] == '/') {
       path = path.substr(0, path.size() - 1);
@@ -434,8 +420,6 @@ class settings_interface_impl : public settings_interface {
   ///
   /// @param path The path of the section
   /// @return true/false
-  ///
-  /// @author mickem
   virtual bool has_section(std::string path) {
     MUTEX_GUARD();
     if (settings_delete_path_cache_.find(path) != settings_delete_path_cache_.end()) return false;
@@ -449,8 +433,6 @@ class settings_interface_impl : public settings_interface {
   /// @param path The path of the section
   /// @param key The key to check
   /// @return true/false
-  ///
-  /// @author mickem
   virtual bool has_key(std::string path, std::string key) {
     MUTEX_GUARD();
     settings_core::key_path_type lookup(path, key);
@@ -472,8 +454,6 @@ class settings_interface_impl : public settings_interface {
   /// The context is an identifier for the settings store for INI/XML it is the filename.
   ///
   /// @return the context
-  ///
-  /// @author mickem
   virtual std::string get_context() {
     MUTEX_GUARD();
     return context_;
@@ -485,8 +465,6 @@ class settings_interface_impl : public settings_interface {
   /// The context is an identifier for the settings store for INI/XML it is the filename.
   ///
   /// @param context the new context
-  ///
-  /// @author mickem
   virtual void set_context(std::string context) {
     MUTEX_GUARD();
     context_ = context;
@@ -495,15 +473,11 @@ class settings_interface_impl : public settings_interface {
   // Save/Load Functions
   //////////////////////////////////////////////////////////////////////////
   /// Reload the settings store
-  ///
-  /// @author mickem
   virtual void reload() { load(); }
   //////////////////////////////////////////////////////////////////////////
   /// Copy the settings store to another settings store
   ///
   /// @param other the settings store to save to
-  ///
-  /// @author mickem
   virtual void save_to(std::string alias, std::string other) {
     const instance_ptr i = get_core()->create_instance(alias, other);
     if (!i) throw settings_exception(__FILE__, __LINE__, "Failed to create new instance!");
@@ -552,8 +526,6 @@ class settings_interface_impl : public settings_interface {
   }
   //////////////////////////////////////////////////////////////////////////
   /// Save the settings store
-  ///
-  /// @author mickem
   virtual void save(bool re_save_all) {
     MUTEX_GUARD();
 
@@ -590,8 +562,6 @@ class settings_interface_impl : public settings_interface {
   }
   //////////////////////////////////////////////////////////////////////////
   /// Load settings from the context.
-  ///
-  /// @author mickem
   virtual void load() {
     MUTEX_GUARD();
     settings_delete_cache_.clear();
@@ -616,8 +586,6 @@ class settings_interface_impl : public settings_interface {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_sections(std::string path, string_list &list) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Get all keys given a path/section.
@@ -626,8 +594,6 @@ class settings_interface_impl : public settings_interface {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_keys(std::string path, string_list &list) = 0;
 
   //////////////////////////////////////////////////////////////////////////
@@ -635,8 +601,6 @@ class settings_interface_impl : public settings_interface {
   ///
   /// @param key the key to lookup
   /// @return the string value
-  ///
-  /// @author mickem
   virtual op_string get_real_string(settings_core::key_path_type key) = 0;
 
   //////////////////////////////////////////////////////////////////////////
@@ -644,8 +608,6 @@ class settings_interface_impl : public settings_interface {
   ///
   /// @param key The key to write to
   /// @param value The value to write
-  ///
-  /// @author mickem
   virtual void set_real_value(settings_core::key_path_type key, conainer value) = 0;
 
   virtual void remove_real_value(settings_core::key_path_type key) = 0;
@@ -656,8 +618,6 @@ class settings_interface_impl : public settings_interface {
   ///
   /// @param key The key to write to
   /// @param value The value to write
-  ///
-  /// @author mickem
   virtual void set_real_path(std::string path) = 0;
 
   //////////////////////////////////////////////////////////////////////////
@@ -665,23 +625,17 @@ class settings_interface_impl : public settings_interface {
   ///
   /// @param key the key to lookup
   /// @return true/false if the key exists.
-  ///
-  /// @author mickem
   virtual bool has_real_key(settings_core::key_path_type key) = 0;
   virtual bool has_real_path(std::string path) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Get the type this settings store represent.
   ///
   /// @return the type of settings store
-  ///
-  /// @author mickem
   // 		virtual settings_core::settings_type get_type() = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Is this the active settings store
   ///
   /// @return
-  ///
-  /// @author mickem
   // 		virtual bool is_active() = 0;
 
   virtual void real_clear_cache() = 0;
@@ -716,8 +670,6 @@ class settings_interface_impl : public settings_interface {
   /// the resulting payload (see settings_query_handler).
   ///
   /// @return list of pending changes
-  ///
-  /// @author mickem
   virtual change_list get_changes() {
     change_list result;
     {

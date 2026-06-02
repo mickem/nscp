@@ -33,10 +33,7 @@ namespace win_service_control {
  * @param szDisplayName
  * @param szDependencies
  *
- * @author mickem
- *
  * @date 03-13-2004
- *
  */
 void Install(std::wstring szName, std::wstring szDisplayName, std::wstring szDependencies, DWORD dwServiceType, std::wstring args, std::wstring exe) {
   SC_HANDLE schService;
@@ -136,10 +133,7 @@ DWORD GetServiceType(LPCTSTR szName) {
  *
  * @param name The name of the service to start
  *
- * @author mickem
- *
  * @date 03-13-2004
- *
  */
 void Start(std::wstring name) {
   SC_HANDLE schService;
@@ -255,10 +249,7 @@ bool isStarted(std::wstring name) {
  *
  * @param name The name of the service to uninstall
  *
- * @author mickem
- *
  * @date 03-13-2004
- *
  */
 void Uninstall(std::wstring name) {
   SC_HANDLE schService;
@@ -289,10 +280,7 @@ void Uninstall(std::wstring name) {
  *
  * @param name The name of the serive to stop
  *
- * @author MickeM
- *
  * @date 03-13-2004
- *
  */
 void Stop(std::wstring name) {
   SC_HANDLE schService;

@@ -21,10 +21,10 @@
 
 #include <stdint.h>
 
+#include <boost/endian/conversion.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
 #include <boost/tuple/tuple.hpp>
-#include <bytes/swap_bytes.hpp>
 #include <list>
 #include <map>
 #include <sstream>
@@ -107,7 +107,7 @@ class packet {
   template <class T>
   inline void set_byte(std::string &buffer, const std::string::size_type pos, const T value) {
     T *b_value = reinterpret_cast<T *>(&buffer[pos]);
-    *b_value = swap_bytes::hton<T>(value);
+    *b_value = boost::endian::native_to_big(value);
   }
 
   void append_string(int16_t type, std::string &string_data) {
@@ -115,8 +115,8 @@ class packet {
     std::string::size_type pos = buffer.length();
     buffer.append(sizeof(collectd::data::string_part), '\0');
     collectd::data::string_part *data = reinterpret_cast<collectd::data::string_part *>(&buffer[pos]);
-    data->type = swap_bytes::hton<int16_t>(type);
-    data->length = swap_bytes::hton<int16_t>(len);
+    data->type = boost::endian::native_to_big(type);
+    data->length = boost::endian::native_to_big(len);
     buffer.append(string_data.c_str(), string_data.length() + 1);
   }
   void append_int(int16_t type, unsigned long long int_data) {
@@ -138,9 +138,9 @@ class packet {
     }
     int16_t len = static_cast<int16_t>(buffer.length() - pos);
     collectd::data::value_part *data = reinterpret_cast<collectd::data::value_part *>(&buffer[pos]);
-    data->type = swap_bytes::hton<int16_t>(base_type);
-    data->count = swap_bytes::hton<int16_t>(static_cast<int16_t>(value_data.size()));
-    data->length = swap_bytes::hton<int16_t>(len);
+    data->type = boost::endian::native_to_big(base_type);
+    data->count = boost::endian::native_to_big(static_cast<int16_t>(value_data.size()));
+    data->length = boost::endian::native_to_big(len);
   }
   void append_values(int16_t base_type, int value_type, const std::list<long long> &value_data) {
     std::string::size_type pos = buffer.length();
@@ -153,9 +153,9 @@ class packet {
     }
     int16_t len = static_cast<int16_t>(buffer.length() - pos);
     collectd::data::value_part *data = reinterpret_cast<collectd::data::value_part *>(&buffer[pos]);
-    data->type = swap_bytes::hton<int16_t>(base_type);
-    data->count = swap_bytes::hton<int16_t>(static_cast<int16_t>(value_data.size()));
-    data->length = swap_bytes::hton<int16_t>(len);
+    data->type = boost::endian::native_to_big(base_type);
+    data->count = boost::endian::native_to_big(static_cast<int16_t>(value_data.size()));
+    data->length = boost::endian::native_to_big(len);
   }
 
   void append_value_type(int type) {
@@ -170,7 +170,7 @@ class packet {
     int sz = sizeof(int64_t);
     buffer.append(sz, '\0');
     // 				int64_t *b_value = reinterpret_cast<int64_t*>(&buffer[pos + sizeof(int8_t)]);
-    // 				*b_value = swap_bytes::hton<int64_t>(*int_data);
+    // 				*b_value = boost::endian::native_to_big(static_cast<int64_t>(*int_data));
     double *b_dvalue = reinterpret_cast<double *>(&buffer[pos]);
     *b_dvalue = double_data;
   }
@@ -179,7 +179,7 @@ class packet {
     int sz = sizeof(int64_t);
     buffer.append(sz, '\0');
     int64_t *b_value = reinterpret_cast<int64_t *>(&buffer[pos]);
-    *b_value = swap_bytes::hton<int64_t>(int_data);
+    *b_value = boost::endian::native_to_big(static_cast<int64_t>(int_data));
   }
 
   std::string get_buffer() const { return buffer; }

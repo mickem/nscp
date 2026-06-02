@@ -38,8 +38,6 @@ class settings_impl_interface {
   /// @param title The title to use
   /// @param description the description to use
   /// @param advanced advanced options will only be included if they are changed
-  ///
-  /// @author mickem
   virtual void register_path(std::string path, std::string title, std::string description, bool advanced, bool sample) = 0;
 
   //////////////////////////////////////////////////////////////////////////
@@ -53,8 +51,6 @@ class settings_impl_interface {
   /// @param description the description to use
   /// @param defValue the default value
   /// @param advanced advanced options will only be included if they are changed
-  ///
-  /// @author mickem
   virtual void register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defValue,
                             bool advanced, bool sample, bool sensitive) = 0;
 
@@ -69,8 +65,6 @@ class settings_impl_interface {
   /// @param key the key to lookup
   /// @param def the default value to use when no value is found
   /// @return the string value
-  ///
-  /// @author mickem
   virtual std::string get_string(std::string path, std::string key, std::string def) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Set or update a string value
@@ -78,8 +72,6 @@ class settings_impl_interface {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @param value the value to set
-  ///
-  /// @author mickem
   virtual void set_string(std::string path, std::string key, std::string value) = 0;
 
   // Meta Functions
@@ -89,16 +81,12 @@ class settings_impl_interface {
   ///
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual string_list get_sections(std::string path) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Get all keys for a path.
   ///
   /// @param path The path to get keys under
   /// @return a list of keys
-  ///
-  /// @author mickem
   virtual string_list get_keys(std::string path) = 0;
 
   virtual std::string expand_path(std::string key) = 0;
@@ -112,8 +100,6 @@ class settings_impl_interface {
   /// @param file the file where the event happened
   /// @param line the line where the event happened
   /// @param message the message to log
-  ///
-  /// @author mickem
   virtual void err(const char* file, int line, std::string message) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Log an WARNING message.
@@ -121,8 +107,6 @@ class settings_impl_interface {
   /// @param file the file where the event happened
   /// @param line the line where the event happened
   /// @param message the message to log
-  ///
-  /// @author mickem
   virtual void warn(const char* file, int line, std::string message) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Log an INFO message.
@@ -130,8 +114,6 @@ class settings_impl_interface {
   /// @param file the file where the event happened
   /// @param line the line where the event happened
   /// @param message the message to log
-  ///
-  /// @author mickem
   virtual void info(const char* file, int line, std::string message) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Log an DEBUG message.
@@ -139,8 +121,6 @@ class settings_impl_interface {
   /// @param file the file where the event happened
   /// @param line the line where the event happened
   /// @param message the message to log
-  ///
-  /// @author mickem
   virtual void debug(const char* file, int line, std::string message) = 0;
 };
 }  // namespace settings_helper

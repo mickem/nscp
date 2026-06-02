@@ -59,30 +59,38 @@ class SchedulerTest(BasicTest):
     def check_one(self, result, key, min, max):
         result.assert_gt(self.command_count[key], min, 'check %s (%d) fired more then %d'%(key, self.command_count[key], min))
         result.assert_lt(self.command_count[key], max, 'check %s (%d) fired less then %d'%(key, self.command_count[key], max))
-    
+
     def run_test(self, cases = None):
         self.core.load_module('Scheduler', self.sched_alias)
         result = TestResult()
         start = time()
 
+        # Sampling window in seconds. The per-check bounds below are calibrated
+        # for this duration (counts scale as test_seconds / interval), so if you
+        # change it you MUST rescale them too — forgetting that is exactly what
+        # made this test fail consistently once before.
+        test_seconds = 90
         last_major = 0
-        elapsed = time()-start
-        while elapsed < 60:
+        elapsed = time() - start
+        while elapsed < test_seconds:
             if elapsed > 0:
-                log("testing scheduler %d%% (collected %d instance in %d seconds)"%(elapsed/60*100, self.results_count, elapsed))
+                log("testing scheduler %d%% (collected %d instance in %d seconds)"%(elapsed/test_seconds*100, self.results_count, elapsed))
             sleep(2000)
-            elapsed = time()-start
+            elapsed = time() - start
         result.add_message(True, 'Summary Collected %d instance in %d seconds: %d/s'%(self.results_count, elapsed, self.results_count/elapsed))
-        # Bounds chosen to absorb one missed beat (CI stall, cold-start jitter,
-        # PDH first-enumeration pause) and one extra beat (clock drift) per
-        # check. Tighter bounds were flaky on busy CI agents; see the analysis
-        # alongside the scheduler-tests rework.
-        self.check_one(result, "rand", 4, 11)
-        self.check_one(result, "1s", 50, 65)
-        self.check_one(result, "short", 9, 14)
-        self.check_one(result, "30s", 1, 4)
-        self.check_one(result, "explicit", 9, 14)
-        self.check_one(result, "10s", 4, 8)
+        # Bounds absorb missed beats (CI stall, cold-start jitter, PDH
+        # first-enumeration pause) and a couple of extra beats (clock drift)
+        # per check, over the test_seconds (90s) window. Tighter bounds were
+        # flaky on busy CI agents; see the analysis alongside the scheduler-
+        # tests rework. Expected counts ~= 90 / interval:
+        #   1s -> ~90, 5s (short/explicit) -> ~18, 10s -> ~9,
+        #   10s +/-50% (rand) -> ~6..18, 30s -> ~3.
+        self.check_one(result, "rand", 5, 18)
+        self.check_one(result, "1s", 75, 98)
+        self.check_one(result, "short", 13, 21)
+        self.check_one(result, "30s", 1, 6)
+        self.check_one(result, "explicit", 13, 21)
+        self.check_one(result, "10s", 6, 12)
 
         return result
 

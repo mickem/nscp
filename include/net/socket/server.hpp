@@ -36,8 +36,6 @@ class server_exception : public std::exception {
   //////////////////////////////////////////////////////////////////////////
   /// Constructor takes an error message.
   /// @param error the error message
-  ///
-  /// @author mickem
   // server_exception(std::wstring error) : error(to_string(error)) {}
   server_exception(std::string error) : error(error) {}
   ~server_exception() throw() {}
@@ -45,8 +43,6 @@ class server_exception : public std::exception {
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
-  ///
-  /// @author mickem
   const char *what() const throw() { return error.c_str(); }
 };
 

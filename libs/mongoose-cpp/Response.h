@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2013 Grégoire Passault
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
 #include "dll_defines.hpp"

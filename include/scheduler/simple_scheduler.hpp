@@ -31,7 +31,7 @@
 #include <queue>
 #include <random>
 #include <string>
-#include <threads/has-threads.hpp>
+#include <threads/scoped_thread_group.hpp>
 #include <utility>
 
 namespace simple_scheduler {
@@ -178,7 +178,7 @@ class scheduler : public boost::noncopyable {
   // start, so a plain string is sufficient.
   std::string tz_;
 
-  has_threads threads_;
+  scoped_thread_group threads_;
   boost::mutex mutex_;
   tasks_list_type tasks_;
   schedule_queue_type queue_;

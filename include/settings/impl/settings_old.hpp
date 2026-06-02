@@ -187,8 +187,6 @@ class OLDSettings : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the string value
-  ///
-  /// @author mickem
   virtual op_string get_real_string(settings_core::key_path_type in_key) {
     settings_core::key_path_type key = map.key(in_key);
     if (has_key_int(key.first, key.second)) return internal_get_value(key.first, key.second);
@@ -217,8 +215,6 @@ class OLDSettings : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return true/false if the key exists.
-  ///
-  /// @author mickem
   virtual bool has_real_key(settings_core::key_path_type key) {
     settings_core::key_path_type old = map.key(key);
     return has_key_int(old.first, old.second);
@@ -263,8 +259,6 @@ class OLDSettings : public settings::settings_interface_impl {
   ///
   /// @param key The key to write to
   /// @param value The value to write
-  ///
-  /// @author mickem
   virtual void set_real_value(settings_core::key_path_type key, conainer value) {
     try {
       key = map.key(key);
@@ -292,8 +286,6 @@ class OLDSettings : public settings::settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_sections(std::string path, string_list &list) {
     map.get_sections(path, list);
     list.unique();
@@ -333,8 +325,6 @@ class OLDSettings : public settings::settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_keys(std::string path, string_list &list) {
     if (path.empty() || path == "/") {
       get_logger()->debug("settings", __FILE__, __LINE__, "Loose leaves not supported: TODO");

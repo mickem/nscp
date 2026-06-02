@@ -7,6 +7,7 @@ import MessageIcon from "@mui/icons-material/Message";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useNavigate, useLocation } from "react-router";
 
 export default function SideMenu() {
@@ -83,6 +84,17 @@ export default function SideMenu() {
               <MessageIcon />
             </ListItemIcon>
             <ListItemText primary="Logs" />
+          </ListItemButton>
+        </ListItem>
+      </List>
+      <Divider />
+      <List>
+        <ListItem disablePadding>
+          <ListItemButton selected={isActive("/about")} onClick={() => navigate("/about")}>
+            <ListItemIcon>
+              <InfoOutlinedIcon />
+            </ListItemIcon>
+            <ListItemText primary="About" />
           </ListItemButton>
         </ListItem>
       </List>

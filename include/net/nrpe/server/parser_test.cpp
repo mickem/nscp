@@ -419,8 +419,8 @@ TEST(NrpeParser, DigestRejectsOversizedV3Header) {
   // by other fields up to int32 buffer_length at the documented offset.
   std::vector<char> hdr(sizeof(data::packet_v3), 0);
   data::packet_v3* p = reinterpret_cast<data::packet_v3*>(hdr.data());
-  p->packet_version = swap_bytes::hton<int16_t>(data::version3);
-  p->buffer_length = swap_bytes::hton<int32_t>(static_cast<int32_t>(2 * 1024 * 1024));  // 2 MiB
+  p->packet_version = boost::endian::native_to_big(static_cast<int16_t>(data::version3));
+  p->buffer_length = boost::endian::native_to_big(static_cast<int32_t>(2 * 1024 * 1024));  // 2 MiB
 
   char* begin = hdr.data();
   char* end = begin + hdr.size();
@@ -440,8 +440,8 @@ TEST(NrpeParser, DigestRejectsNegativeBufferLength) {
 
   std::vector<char> hdr(sizeof(data::packet_v3), 0);
   data::packet_v3* p = reinterpret_cast<data::packet_v3*>(hdr.data());
-  p->packet_version = swap_bytes::hton<int16_t>(data::version3);
-  p->buffer_length = swap_bytes::hton<int32_t>(static_cast<int32_t>(-1));
+  p->packet_version = boost::endian::native_to_big(static_cast<int16_t>(data::version3));
+  p->buffer_length = boost::endian::native_to_big(static_cast<int32_t>(-1));
 
   char* begin = hdr.data();
   char* end = begin + hdr.size();

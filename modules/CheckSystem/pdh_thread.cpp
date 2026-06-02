@@ -149,13 +149,10 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
 /**
  * Thread that collects the data every "CHECK_INTERVAL" seconds.
  *
- * @author mickem
- *
  * @date 03-13-2004
  *
  * @bug If we have "custom named" counters ?
  * @bug This whole concept needs work I think.
- *
  */
 void pdh_thread::thread_proc() {
   memory_checks::realtime::helper memory_helper(core_, plugin_id);

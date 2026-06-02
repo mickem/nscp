@@ -45,7 +45,6 @@ if(WIN32)
         ../../modules/NRPEClient/nrpe_handler.hpp
         ${NSCP_INCLUDEDIR}/net/nrpe/packet.hpp
         ${NSCP_INCLUDEDIR}/net/nrpe/client/nrpe_client_protocol.hpp
-        ${NSCP_INCLUDEDIR}/bytes/swap_bytes.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.hpp

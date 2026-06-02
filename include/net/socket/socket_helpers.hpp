@@ -98,8 +98,6 @@ class socket_exception : public std::exception {
   //////////////////////////////////////////////////////////////////////////
   /// Constructor takes an error message.
   /// @param error the error message
-  ///
-  /// @author mickem
   explicit socket_exception(std::string error) noexcept : error(std::move(error)) {}
   socket_exception(const socket_exception& other) noexcept : socket_exception(other.reason()) {}
   ~socket_exception() noexcept override = default;
@@ -107,8 +105,6 @@ class socket_exception : public std::exception {
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
-  ///
-  /// @author mickem
   const char* what() const noexcept override { return error.c_str(); }
   std::string reason() const { return error; }
 };

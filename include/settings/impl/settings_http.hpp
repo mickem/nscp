@@ -306,8 +306,6 @@ class settings_http : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the string value
-  ///
-  /// @author mickem
   virtual op_string get_real_string(settings_core::key_path_type key) { return op_string(); }
   //////////////////////////////////////////////////////////////////////////
   /// Get an integer value if it does not exist exception will be thrown
@@ -315,8 +313,6 @@ class settings_http : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the int value
-  ///
-  /// @author mickem
   virtual op_int get_real_int(settings_core::key_path_type key) { return op_int(); }
   //////////////////////////////////////////////////////////////////////////
   /// Get a boolean value if it does not exist exception will be thrown
@@ -324,8 +320,6 @@ class settings_http : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the boolean value
-  ///
-  /// @author mickem
   virtual op_bool get_real_bool(settings_core::key_path_type key) { return op_bool(); }
   //////////////////////////////////////////////////////////////////////////
   /// Check if a key exists
@@ -333,8 +327,6 @@ class settings_http : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return true/false if the key exists.
-  ///
-  /// @author mickem
   virtual bool has_real_key(settings_core::key_path_type key) { return false; }
   virtual bool has_real_path(std::string path) { return false; }
   //////////////////////////////////////////////////////////////////////////
@@ -342,8 +334,6 @@ class settings_http : public settings::settings_interface_impl {
   ///
   /// @param key The key to write to
   /// @param value The value to write
-  ///
-  /// @author mickem
   virtual void set_real_value(settings_core::key_path_type key, conainer value) {
     get_logger()->error("settings", __FILE__, __LINE__, "Cant save over HTTP: " + make_skey(key.first, key.second));
     throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");
@@ -369,8 +359,6 @@ class settings_http : public settings::settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_sections(std::string section, string_list &list) {
     if (child_instance) {
       auto child_list = child_instance->get_sections(section);
@@ -384,8 +372,6 @@ class settings_http : public settings::settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_keys(std::string path, string_list &list) {
     if (child_instance) {
       auto child_list = child_instance->get_keys(path);
@@ -394,8 +380,6 @@ class settings_http : public settings::settings_interface_impl {
   }
   //////////////////////////////////////////////////////////////////////////
   /// Save the settings store
-  ///
-  /// @author mickem
   virtual void save(bool _re_save_all) {
     get_logger()->error("settings", __FILE__, __LINE__, "Cannot save settings over HTTP");
     throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");

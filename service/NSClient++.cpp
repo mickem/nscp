@@ -131,7 +131,6 @@ namespace sh = nscapi::settings_helper;
  * @param boot true if we shall boot all plugins
  * @param attachIfPossible is true we will attach to a running instance.
  * @return success
- * @author mickem
  */
 bool NSClientT::load_configuration_1() {
   // TODO: These are split temporarily to allow overriding log-path

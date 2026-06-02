@@ -11,6 +11,7 @@ import Module from "./pages/Module.tsx";
 import Settings from "./pages/Settings.tsx";
 import Metrics from "./pages/Metrics.tsx";
 import Events from "./pages/Events.tsx";
+import About from "./pages/About.tsx";
 
 export default function Router() {
   const { isAuthenticated } = useAuthentication();
@@ -40,6 +41,7 @@ export default function Router() {
           </Route>
           <Route path={"metrics"} element={<Metrics />} />
           <Route path={"events"} element={<Events />} />
+          <Route path={"about"} element={<About />} />
         </Route>
       </Routes>
     </BrowserRouter>

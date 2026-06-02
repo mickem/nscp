@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2013 Grégoire Passault
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: MIT
+
 #ifndef _MONGOOSE_REQUEST_HANDLER_H
 #define _MONGOOSE_REQUEST_HANDLER_H
 

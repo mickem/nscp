@@ -19,8 +19,8 @@
 
 #pragma once
 
+#include <boost/endian/conversion.hpp>
 #include <boost/tuple/tuple.hpp>
-#include <bytes/swap_bytes.hpp>
 #include <net/nrpe/packet.hpp>
 
 namespace nrpe {
@@ -37,14 +37,14 @@ class parser : public boost::noncopyable {
       return -1;
     }
     auto p = reinterpret_cast<const data::packet_header*>(buffer_.data());
-    return swap_bytes::ntoh<int16_t>(p->packet_version);
+    return boost::endian::big_to_native(p->packet_version);
   }
   int32_t read_len() const {
     if (buffer_.size() < sizeof(data::packet_v3)) {
       return -1;
     }
     const data::packet_v3* p = reinterpret_cast<const data::packet_v3*>(buffer_.data());
-    return swap_bytes::ntoh<int32_t>(p->buffer_length);
+    return boost::endian::big_to_native(p->buffer_length);
   }
   std::size_t get_packet_length_v2() const { return length::get_packet_length_v2(payload_length_); }
   std::size_t get_packet_length_v3() const {
