@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
 /*
  * Integration tests for Mongoose::ServerBeastImpl — the Boost.Beast
  * implementation of `Mongoose::Server`. These mirror the assertions in
