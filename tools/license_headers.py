@@ -63,7 +63,6 @@ THIRD_PARTY_PATH_FRAGMENTS = (
 # upstream license below the scan window (so auto-detection would miss it) or
 # we simply want their exclusion documented explicitly. POSIX, repo-relative.
 EXCLUDE_FILES = frozenset({
-    "include/bytes/base64.c",        # BSD-3-Clause (Matthew Wilson / Synesis Software)
     "include/net/icmp_header.hpp",   # Boost Software License 1.0 (Christopher M. Kohlhoff)
     "include/net/ipv4_header.hpp",   # Boost Software License 1.0 (Christopher M. Kohlhoff)
     "include/simpleini/simpleini.h", # MIT (Brodie Thiesfield); copyright sits below the scan window
