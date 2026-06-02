@@ -6,7 +6,7 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
             ${NSCP_INCLUDEDIR}/win/shellapi.cpp
         LIBRARIES
-            gtest_main
+            GTest::gtest_main
             ${Boost_FILESYSTEM_LIBRARY}
             Userenv
             ole32
@@ -21,7 +21,7 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}/process/argv_quote.cpp
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES
-            gtest_main
+            GTest::gtest_main
             Shell32
         INCLUDES
             ${NSCP_INCLUDEDIR}
@@ -34,7 +34,7 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}/error/error_w32.cpp
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES
-            gtest_main
+            GTest::gtest_main
             ${Boost_FILESYSTEM_LIBRARY}
             ole32
             wbemuuid
@@ -88,7 +88,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
         ${NSCP_INCLUDEDIR}/str/constant_time_test.cpp
     LIBRARIES
-        gtest_main
+        GTest::gtest_main
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
@@ -389,7 +389,7 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/bytes/buffer_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/char_buffer_test.cpp
     LIBRARIES
-        gtest_main
+        GTest::gtest_main
     INCLUDES
         ${NSCP_INCLUDEDIR}/bytes
         ${NSCP_INCLUDEDIR}
