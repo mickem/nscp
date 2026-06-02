@@ -74,27 +74,12 @@ class w32_api_impl {
 };
 
 /**
- * @ingroup NSClient++
  * Helper class to implement a NT service
  *
  * @version 1.0
  * first version
  *
  * @date 02-13-2005
- *
- * @author mickem
- *
- * @par license
- * This code is absolutely free to use and modify. The code is provided "as is" with
- * no expressed or implied warranty. The author accepts no liability if it causes
- * any damage to your computer, causes your pet to fall ill, increases baldness
- * or makes your car start emitting strange noises when you start it up.
- * This code has no bugs, just undocumented features!
- *
- * @todo
- *
- * @bug
- *
  */
 template <class TBase>
 class win32_service : public TBase {
@@ -255,10 +240,7 @@ class win32_service : public TBase {
    * @param dwWaitHint
    * @return
    *
-   * @author mickem
-   *
    * @date 03-13-2004
-   *
    */
   BOOL _report_status_to_SCMgr(DWORD dwCurrentState, DWORD dwWaitHint) {
     static DWORD dwCheckPoint = 1;
@@ -290,10 +272,7 @@ class win32_service : public TBase {
    * @param dwArgc
    * @param *lpszArgv
    *
-   * @author mickem
-   *
    * @date 03-13-2004
-   *
    */
   void _handle_start(DWORD, LPTSTR *) {
     stop_mutex_.lock();
@@ -313,11 +292,7 @@ class win32_service : public TBase {
   /**
    * Stops the service
    *
-   *
-   * @author mickem
-   *
    * @date 03-13-2004
-   *
    */
   void stop_service() { stop_mutex_.unlock(); }
 };

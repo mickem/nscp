@@ -33,7 +33,6 @@ class NSClientT;
 typedef service_helper::impl<NSClientT>::system_service NSClient;
 
 /**
- * @ingroup NSClient++
  * Main NSClient++ core class. This is the service core and as such is responsible for pretty much everything.
  * It also acts as a broker for all plugins and other sub threads and such.
  *
@@ -42,20 +41,8 @@ typedef service_helper::impl<NSClientT>::system_service NSClient;
  *
  * @date 02-12-2005
  *
- * @author mickem
- *
- * @par license
- * This code is absolutely free to use and modify. The code is provided "as is" with
- * no expressed or implied warranty. The author accepts no liability if it causes
- * any damage to your computer, causes your pet to fall ill, increases baldness
- * or makes your car start emitting strange noises when you start it up.
- * This code has no bugs, just undocumented features!
- *
  * @todo Plugininfy the socket somehow ?
  * It is technically possible to make the socket a plug-in but would it be a good idea ?
- *
- * @bug
- *
  */
 
 class NSClientT : public nsclient::core::core_interface {

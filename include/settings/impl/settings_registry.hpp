@@ -132,8 +132,6 @@ class REGSettings : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the string value
-  ///
-  /// @author mickem
   virtual op_string get_real_string(settings_core::key_path_type key) { return getString_(get_reg_key(key.first), key.second); }
   //////////////////////////////////////////////////////////////////////////
   /// Check if a key exists
@@ -141,8 +139,6 @@ class REGSettings : public settings::settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return true/false if the key exists.
-  ///
-  /// @author mickem
   virtual bool has_real_key(settings_core::key_path_type key) { return false; }
   virtual bool has_real_path(std::string path) { return false; }
 
@@ -151,8 +147,6 @@ class REGSettings : public settings::settings_interface_impl {
   ///
   /// @param key The key to write to
   /// @param value The value to write
-  ///
-  /// @author mickem
   virtual void set_real_value(settings_core::key_path_type key, conainer value) { setString_(get_reg_key(key), key.second, value.get_string()); }
   virtual void set_real_path(std::string path) {
     // NOT Supported (and not needed) so silently ignored!
@@ -172,8 +166,6 @@ class REGSettings : public settings::settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_sections(std::string path, string_list &list) { getSubKeys_(get_reg_key(path), list); }
   //////////////////////////////////////////////////////////////////////////
   /// Get all keys given a path/section.
@@ -182,8 +174,6 @@ class REGSettings : public settings::settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   virtual void get_real_keys(std::string path, string_list &list) { getValues_(get_reg_key(path), list); }
 
  private:

@@ -62,8 +62,6 @@ std::string NSCSettingsImpl::expand_context(const std::string &key) {
 /// @param type the type to create
 /// @param context the context to use
 /// @return a new instance of given type.
-///
-/// @author mickem
 settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::string alias, std::string key) {
   key = expand_context(key);
   net::url url = net::parse(key);
@@ -127,8 +125,6 @@ void NSCSettingsImpl::write_boot_ini_key(std::string section, std::string key, s
 /// Boot the settings subsystem from the given file (boot.ini).
 ///
 /// @param file the file to use when booting.
-///
-/// @author mickem
 void NSCSettingsImpl::boot(std::string key) {
   std::list<std::string> order;
   if (!key.empty()) {

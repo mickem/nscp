@@ -52,16 +52,12 @@ class program_options_exception : public std::exception {
   //////////////////////////////////////////////////////////////////////////
   /// Constructor takes an error message.
   /// @param error the error message
-  ///
-  /// @author mickem
   explicit program_options_exception(std::string error) : error(std::move(error)) {}
   ~program_options_exception() noexcept override = default;
 
   //////////////////////////////////////////////////////////////////////////
   /// Retrieve the error message from the exception.
   /// @return the error message
-  ///
-  /// @author mickem
   const char *what() const noexcept override { return error.c_str(); }
 };
 

@@ -137,8 +137,6 @@ class settings_core {
   /// @param title The title to use
   /// @param description the description to use
   /// @param advanced advanced options will only be included if they are changed
-  ///
-  /// @author mickem
   virtual void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample,
                              bool update_existing = true) = 0;
 
@@ -156,8 +154,6 @@ class settings_core {
   /// @param description the description to use
   /// @param defValue the default value
   /// @param advanced advanced options will only be included if they are changed
-  ///
-  /// @author mickem
   virtual void register_key(unsigned int plugin_id, std::string path, std::string key, std::string type, std::string title, std::string description,
                             std::string defValue, bool advanced, bool is_sample, bool update_existing = true) = 0;
   virtual void add_sensitive_key(unsigned int plugin_id, std::string path, std::string key) = 0;
@@ -170,8 +166,6 @@ class settings_core {
   /// @param path The path of the key
   /// @param key The key of the key
   /// @return the key description
-  ///
-  /// @author mickem
   virtual boost::optional<key_description> get_registered_key(std::string path, std::string key) = 0;
   virtual bool is_sensitive_key(std::string path, std::string key) = 0;
 
@@ -183,24 +177,18 @@ class settings_core {
   /// Get all registered sections
   ///
   /// @return a list of section paths
-  ///
-  /// @author mickem
   virtual string_list get_reg_sections(std::string path, bool fetch_samples) = 0;
   //////////////////////////////////////////////////////////////////////////
   /// Get all keys for a registered section.
   ///
   /// @param path the path to find keys under
   /// @return a list of key names
-  ///
-  /// @author mickem
   virtual string_list get_reg_keys(std::string path, bool fetch_samples) = 0;
 
   //////////////////////////////////////////////////////////////////////////
   /// Get the currently active settings interface.
   ///
   /// @return the currently active interface
-  ///
-  /// @author mickem
   virtual instance_ptr get() = 0;
   virtual instance_ptr get_no_wait() = 0;
 
@@ -209,8 +197,6 @@ class settings_core {
   ///
   /// @param type the type of settings interface to get
   /// @return the settings interface
-  ///
-  /// @author mickem
   // virtual settings_interface* get(settings_core::settings_type type) = 0;
   //  Conversion Functions
   virtual void migrate_to(std::string alias, std::string to) = 0;
@@ -220,14 +206,10 @@ class settings_core {
 
   //////////////////////////////////////////////////////////////////////////
   /// Validate the settings store and report all missing/invalid and superflous keys.
-  ///
-  /// @author mickem
   virtual settings::error_list validate() = 0;
 
   //////////////////////////////////////////////////////////////////////////
   /// Overwrite the (current) settings store with default values.
-  ///
-  /// @author mickem
   virtual void update_defaults() = 0;
   virtual void remove_defaults() = 0;
 
@@ -235,8 +217,6 @@ class settings_core {
   /// Boot the settings subsystem from the given file (boot.ini).
   ///
   /// @param file the file to use when booting.
-  ///
-  /// @author mickem
   virtual void boot(std::string file = "boot.ini") = 0;
   virtual void set_ready(bool is_read = true) = 0;
   virtual bool is_ready() = 0;
@@ -251,8 +231,6 @@ class settings_core {
   ///
   /// @param context the context to use
   /// @return a new instance of given type.
-  ///
-  /// @author mickem
   virtual instance_raw_ptr create_instance(std::string alias, std::string context) = 0;
 
   //////////////////////////////////////////////////////////////////////////
@@ -260,8 +238,6 @@ class settings_core {
   ///
   /// @param context the context to check
   /// @return if the given store supports updates
-  ///
-  /// @author mickem
   virtual bool supports_edit(const std::string key) = 0;
 
   //////////////////////////////////////////////////////////////////////////
@@ -269,8 +245,6 @@ class settings_core {
   /// In other words set where the settings files reside
   ///
   /// @param path the path to the settings files
-  ///
-  /// @author mickem
   virtual void set_base(boost::filesystem::path path) = 0;
 
   virtual std::string to_string() = 0;

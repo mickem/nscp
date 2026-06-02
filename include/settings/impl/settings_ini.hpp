@@ -65,8 +65,6 @@ class INISettings : public settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return the string value
-  ///
-  /// @author mickem
   op_string get_real_string(settings_core::key_path_type key) override {
     load_data();
     const wchar_t *val = ini.GetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), NULL);
@@ -88,8 +86,6 @@ class INISettings : public settings_interface_impl {
   /// @param path the path to look up
   /// @param key the key to lookup
   /// @return true/false if the key exists.
-  ///
-  /// @author mickem
   bool has_real_key(settings_core::key_path_type key) override {
     return ini.GetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str()) != nullptr;
   }
@@ -120,8 +116,6 @@ class INISettings : public settings_interface_impl {
   ///
   /// @param key The key to write to
   /// @param value The value to write
-  ///
-  /// @author mickem
   void set_real_value(settings_core::key_path_type key, conainer value) override {
     if (!value.is_dirty()) return;
     try {
@@ -177,8 +171,6 @@ class INISettings : public settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   void get_real_sections(std::string path, string_list &list) override {
     CSimpleIni::TNamesDepend lst;
     std::string::size_type path_len = path.length();
@@ -225,8 +217,6 @@ class INISettings : public settings_interface_impl {
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @param list The list to append nodes to
   /// @return a list of sections
-  ///
-  /// @author mickem
   void get_real_keys(std::string path, string_list &list) override {
     load_data();
     CSimpleIni::TNamesDepend lst;
@@ -237,8 +227,6 @@ class INISettings : public settings_interface_impl {
   }
   //////////////////////////////////////////////////////////////////////////
   /// Save the settings store
-  ///
-  /// @author mickem
   void save(bool re_save_all) override {
     settings_interface_impl::save(re_save_all);
 
