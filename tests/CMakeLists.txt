@@ -388,7 +388,6 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/bytes/crc32.cpp
         ${NSCP_INCLUDEDIR}/bytes/buffer_test.cpp
         ${NSCP_INCLUDEDIR}/bytes/char_buffer_test.cpp
-        ${NSCP_INCLUDEDIR}/bytes/swap_bytes_test.cpp
     LIBRARIES
         gtest_main
     INCLUDES

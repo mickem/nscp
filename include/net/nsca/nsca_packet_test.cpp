@@ -254,7 +254,7 @@ TEST(NscaPacket, WrongVersionThrows) {
   auto* data = reinterpret_cast<nsca::data::data_packet*>(&buffer[0]);
   data->crc32_value = 0;
   const unsigned int new_crc = calculate_crc32(buffer.c_str(), static_cast<int>(buffer.size()));
-  data->crc32_value = swap_bytes::hton<uint32_t>(new_crc);
+  data->crc32_value = boost::endian::native_to_big(static_cast<uint32_t>(new_crc));
 
   nsca::packet parsed(512);
   EXPECT_THROW(parsed.parse_data(buffer.c_str(), buffer.size()), nsca::nsca_exception);

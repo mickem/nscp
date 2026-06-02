@@ -41,7 +41,6 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet.hpp
         ${NSCP_INCLUDEDIR}/net/nsca/client/nsca_client_protocol.hpp
         ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
-        ${NSCP_INCLUDEDIR}/bytes/swap_bytes.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.hpp
         ${NSCP_INCLUDEDIR}/bytes/crc32.h

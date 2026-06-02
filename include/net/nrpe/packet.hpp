@@ -22,7 +22,7 @@
 #include <bytes/crc32.h>
 
 #include <boost/asio/buffer.hpp>
-#include <bytes/swap_bytes.hpp>
+#include <boost/endian/conversion.hpp>
 #include <memory>
 #include <str/xtos.hpp>
 #include <string>
@@ -182,15 +182,15 @@ class packet /*: public boost::noncopyable*/ {
     tmpBuffer = std::make_unique<char[]>(packet_length + 1);
     memset(tmpBuffer.get(), 0, packet_length + 1);
     auto p = reinterpret_cast<data::packet_v2*>(tmpBuffer.get());
-    p->result_code = swap_bytes::hton<int16_t>(result_);
-    p->packet_type = swap_bytes::hton<int16_t>(type_);
-    p->packet_version = swap_bytes::hton<int16_t>(version_);
+    p->result_code = boost::endian::native_to_big(result_);
+    p->packet_type = boost::endian::native_to_big(static_cast<int16_t>(type_));
+    p->packet_version = boost::endian::native_to_big(static_cast<int16_t>(version_));
     if (payload_.length() >= payload_length_) {
       throw nrpe_exception("To much data cant create return packet (truncate data)");
     }
     update_payload(p, payload_);
     p->crc32_value = 0;
-    crc32_ = p->crc32_value = swap_bytes::hton<uint32_t>(calculate_crc32(tmpBuffer.get(), packet_length));
+    crc32_ = p->crc32_value = boost::endian::native_to_big(static_cast<uint32_t>(calculate_crc32(tmpBuffer.get(), packet_length)));
     return std::make_pair(tmpBuffer.get(), packet_length);
   }
   buffer_holder create_buffer_v3() {
@@ -199,14 +199,14 @@ class packet /*: public boost::noncopyable*/ {
     tmpBuffer = std::make_unique<char[]>(packet_length + 1);
     memset(tmpBuffer.get(), 0, packet_length + 1);
     auto p = reinterpret_cast<data::packet_v3*>(tmpBuffer.get());
-    p->result_code = swap_bytes::hton<int16_t>(result_);
-    p->packet_type = swap_bytes::hton<int16_t>(type_);
-    p->packet_version = swap_bytes::hton<int16_t>(version_);
+    p->result_code = boost::endian::native_to_big(result_);
+    p->packet_type = boost::endian::native_to_big(static_cast<int16_t>(type_));
+    p->packet_version = boost::endian::native_to_big(static_cast<int16_t>(version_));
     p->alignment = 0;
-    p->buffer_length = swap_bytes::hton<int32_t>(static_cast<int32_t>(len));
+    p->buffer_length = boost::endian::native_to_big(static_cast<int32_t>(len));
     update_payload(p, payload_);
     p->crc32_value = 0;
-    crc32_ = p->crc32_value = swap_bytes::hton<uint32_t>(calculate_crc32(tmpBuffer.get(), packet_length));
+    crc32_ = p->crc32_value = boost::endian::native_to_big(static_cast<uint32_t>(calculate_crc32(tmpBuffer.get(), packet_length)));
     return std::make_pair(tmpBuffer.get(), packet_length);
   }
 
@@ -224,7 +224,7 @@ class packet /*: public boost::noncopyable*/ {
       throw nrpe_exception("Packet to short to determine version: " + str::xtos(length) + " < " + str::xtos(length::get_min_header_length()));
     }
     const auto p = reinterpret_cast<const data::packet_header*>(buffer);
-    int version = swap_bytes::ntoh<int16_t>(p->packet_version);
+    int version = boost::endian::big_to_native(p->packet_version);
     if (version == 3 || version == 4) {
       readFromV3(buffer, length);
     } else {
@@ -237,15 +237,15 @@ class packet /*: public boost::noncopyable*/ {
                            " configured payload is: " + str::xtos(get_payload_length()));
     }
     const data::packet_v2* p = reinterpret_cast<const data::packet_v2*>(buffer);
-    type_ = swap_bytes::ntoh<int16_t>(p->packet_type);
+    type_ = boost::endian::big_to_native(p->packet_type);
     if (type_ != data::queryPacket && type_ != data::responsePacket && type_ != data::moreResponsePacket) {
       throw nrpe_exception("Invalid packet type: " + str::xtos(type_));
     }
-    version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
+    version_ = boost::endian::big_to_native(p->packet_version);
     if (version_ != data::version2) {
       throw nrpe_exception("Invalid packet version: " + str::xtos(version_));
     }
-    crc32_ = swap_bytes::ntoh<uint32_t>(p->crc32_value);
+    crc32_ = boost::endian::big_to_native(p->crc32_value);
     // Verify CRC32
     // Use a local copy so we can zero the CRC field without modifying the original buffer.
     std::vector<char> tb(buffer, buffer + length);
@@ -257,7 +257,7 @@ class packet /*: public boost::noncopyable*/ {
                            " payload length: " + str::xtos(payload_length_));
     }
     // Verify CRC32 end
-    result_ = swap_bytes::ntoh<int16_t>(p->result_code);
+    result_ = boost::endian::big_to_native(p->result_code);
     payload_ = fetch_payload(p, length);
   }
 
@@ -267,15 +267,15 @@ class packet /*: public boost::noncopyable*/ {
     }
 
     auto p = reinterpret_cast<const data::packet_v3*>(buffer);
-    type_ = swap_bytes::ntoh<int16_t>(p->packet_type);
+    type_ = boost::endian::big_to_native(p->packet_type);
     if (type_ != data::queryPacket && type_ != data::responsePacket && type_ != data::moreResponsePacket) {
       throw nrpe_exception("Invalid packet type: " + str::xtos(type_));
     }
-    version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
+    version_ = boost::endian::big_to_native(p->packet_version);
     if (version_ != 3 && version_ != 4) {
       throw nrpe_exception("Invalid packet version: " + str::xtos(version_));
     }
-    const int32_t raw_payload_length = swap_bytes::ntoh<int32_t>(p->buffer_length);
+    const int32_t raw_payload_length = boost::endian::big_to_native(p->buffer_length);
     if (raw_payload_length < 0) {
       throw nrpe_exception("Negative payload length in NRPE v3 packet: " + str::xtos(raw_payload_length));
     }
@@ -288,7 +288,7 @@ class packet /*: public boost::noncopyable*/ {
       throw nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(source_data_length));
     }
 
-    crc32_ = swap_bytes::ntoh<uint32_t>(p->crc32_value);
+    crc32_ = boost::endian::big_to_native(p->crc32_value);
     // Verify CRC32
     // Use a local copy so we can zero the CRC/alignment fields without modifying the original buffer.
     std::vector<char> tb(buffer, buffer + length);
@@ -300,7 +300,7 @@ class packet /*: public boost::noncopyable*/ {
       throw nrpe_exception("Invalid checksum reading v3 NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
     }
     // Verify CRC32 end
-    result_ = swap_bytes::ntoh<int16_t>(p->result_code);
+    result_ = boost::endian::big_to_native(p->result_code);
     payload_ = fetch_payload(p, length);
   }
 

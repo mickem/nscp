@@ -22,7 +22,7 @@
 #include <bytes/crc32.h>
 
 #include <boost/date_time.hpp>
-#include <bytes/swap_bytes.hpp>
+#include <boost/endian/conversion.hpp>
 #include <cstring>
 #include <nscp_time.hpp>
 #include <str/xtos.hpp>
@@ -176,12 +176,12 @@ class packet {
     }
     std::vector<char> tmp(buffer, buffer + buffer_len);
     auto* data = reinterpret_cast<data::data_packet*>(tmp.data());
-    const auto version = swap_bytes::ntoh<int16_t>(data->packet_version);
+    const auto version = boost::endian::big_to_native(data->packet_version);
     if (version != data::version3) {
       throw nsca_exception("Unsupported NSCA packet version: " + str::xtos(version));
     }
-    time = swap_bytes::ntoh<uint32_t>(data->timestamp);
-    code = swap_bytes::ntoh<int16_t>(data->return_code);
+    time = boost::endian::big_to_native(data->timestamp);
+    code = boost::endian::big_to_native(data->return_code);
 
     const std::size_t payload_available = buffer_len - sizeof(data::data_packet) - length::host_length - length::desc_length;
     host = std::string(data->get_host_ptr(), strnlen(data->get_host_ptr(), length::host_length));
@@ -189,7 +189,7 @@ class packet {
     result = std::string(data->get_result_ptr(length::host_length, length::desc_length),
                          strnlen(data->get_result_ptr(length::host_length, length::desc_length), payload_available));
 
-    const auto crc32 = swap_bytes::ntoh<uint32_t>(data->crc32_value);
+    const auto crc32 = boost::endian::big_to_native(data->crc32_value);
     data->crc32_value = 0;
     const unsigned int calculated_crc32 = calculate_crc32(tmp.data(), buffer_len);
     if (crc32 != calculated_crc32) throw nsca_exception("Invalid crc: " + str::xtos(crc32) + " != " + str::xtos(calculated_crc32));
@@ -211,20 +211,20 @@ class packet {
     data::data_packet* data = reinterpret_cast<data::data_packet*>(&*buffer.begin());
     if (buffer.size() < get_packet_length()) throw nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(get_packet_length()));
 
-    data->packet_version = swap_bytes::hton<int16_t>(data::version3);
+    data->packet_version = boost::endian::native_to_big(data::version3);
     if (servertime != 0)
-      data->timestamp = swap_bytes::hton<uint32_t>(static_cast<uint32_t>(servertime));
+      data->timestamp = boost::endian::native_to_big(static_cast<uint32_t>(servertime));
     else
-      data->timestamp = swap_bytes::hton<uint32_t>(time);
-    data->return_code = swap_bytes::hton<int16_t>(static_cast<int16_t>(code));
-    data->crc32_value = swap_bytes::hton<uint32_t>(0);
+      data->timestamp = boost::endian::native_to_big(time);
+    data->return_code = boost::endian::native_to_big(static_cast<int16_t>(code));
+    data->crc32_value = 0;
 
     copy_string(data->get_host_ptr(), host, length::host_length);
     copy_string(data->get_desc_ptr(length::host_length), service, length::desc_length);
     copy_string(data->get_result_ptr(length::host_length, length::desc_length), result, get_payload_length());
 
     const unsigned int calculated_crc32 = calculate_crc32(buffer.c_str(), static_cast<int>(buffer.size()));
-    data->crc32_value = swap_bytes::hton<uint32_t>(calculated_crc32);
+    data->crc32_value = boost::endian::native_to_big(static_cast<uint32_t>(calculated_crc32));
   }
   std::string get_buffer() const {
     std::string buffer;
@@ -255,7 +255,7 @@ class iv_packet {
       throw nsca_exception("Invalid IV size: " + str::xtos(iv.size()) + " != " + str::xtos(length::iv::get_payload_length()));
     data::iv_packet data{};
     memcpy(data.iv, iv.c_str(), iv.size());
-    data.timestamp = swap_bytes::hton<uint32_t>(time);
+    data.timestamp = boost::endian::native_to_big(time);
     const char* src = reinterpret_cast<char*>(&data);
     std::string buffer(src, length::iv::get_packet_length());
     return buffer;
@@ -265,7 +265,7 @@ class iv_packet {
       throw nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(length::iv::get_packet_length()));
     const auto* data = reinterpret_cast<const data::iv_packet*>(buffer.c_str());
     iv = std::string(data->iv, data::transmitted_iuv_size);
-    time = swap_bytes::ntoh<uint32_t>(data->timestamp);
+    time = boost::endian::big_to_native(data->timestamp);
   }
 };
 }  // namespace nsca
