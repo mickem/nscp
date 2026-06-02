@@ -26,4 +26,4 @@ the in-app **About** page and summarized here:
 | Emotion                              | MIT        |
 | Redux Toolkit, React Redux           | MIT        |
 | Zod                                  | MIT        |
-| Roboto font (via @fontsource/roboto) | Apache-2.0 |
+| Roboto font (via @fontsource/roboto) | OFL-1.1    |

@@ -87,7 +87,14 @@ size_t b64_decode(char const *src, size_t srcLen, void *dest, size_t destSize) {
     size_t k;
     for (k = 0; k < 4; ++k) {
       if (last[k] == '=' || last[k] == '\0') {
-        total -= (4 - k);
+        /* A quantum decodes to at most 3 bytes. A quantum that is padding from
+         * its very first character (e.g. "====") contributes nothing, so clamp
+         * the drop to 3: `total` is size_t and an unclamped `4 - 0` would
+         * underflow it, making the size-query path report a near-SIZE_MAX
+         * length and invite a huge allocation. */
+        size_t drop = 4 - k;
+        if (drop > 3) drop = 3;
+        total -= drop;
         break;
       }
     }
