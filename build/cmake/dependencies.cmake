@@ -76,6 +76,12 @@ set(NSCP_ZIP_BACKEND
 # variable of the same name — silently reverting build.cmake's
 # `SET(NSCP_WEB_BACKEND "beast")` back to mongoose. That broke the Linux
 # (beast) package builds, which opt in via build.cmake rather than -D.
+#
+# The HTTP backend only matters when the WEBServer module is built; skip the
+# whole selector otherwise so a no-web build (-DBUILD_MODULE_WEBServer=OFF)
+# needs no backend at all — neither the vendored mongoose source nor
+# Beast/OpenSSL — and does not abort here.
+if(BUILD_MODULE_WEBServer)
 if(NOT DEFINED NSCP_WEB_BACKEND)
     set(NSCP_WEB_BACKEND "mongoose")
 endif()
@@ -121,6 +127,7 @@ elseif(NSCP_WEB_BACKEND STREQUAL "beast")
 else()
     message(FATAL_ERROR "Unknown NSCP_WEB_BACKEND='${NSCP_WEB_BACKEND}' (expected mongoose | beast)")
 endif()
+endif() # BUILD_MODULE_WEBServer (HTTP backend selector)
 # CMP0167 (CMake 3.30+) removes the bundled FindBoost module in favour of
 # upstream BoostConfig.
 if(POLICY CMP0167)

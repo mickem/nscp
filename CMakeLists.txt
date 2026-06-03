@@ -210,6 +210,18 @@ include(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
 # functions.cmake so NSCP_CREATE_TEST can honour it.
 option(NSCP_BUILD_TESTS "Build the unit tests (requires Google Test)" ON)
 
+# WEBServer's per-module flag (the generic BUILD_MODULE_<name> option that
+# LOAD_SECTIONS declares for every module) is consumed *early* here — by the
+# HTTP backend selector in dependencies.cmake and by the libs/* glob that adds
+# its Beast/mongoose backend library (libs/mongoose-cpp -> nscp_mongoose) — long
+# before LOAD_SECTIONS would normally declare it. Declare it up front so those
+# early consumers see it (and its ON default); LOAD_SECTIONS' later option()
+# call for it is then a no-op. With -DBUILD_MODULE_WEBServer=OFF this turns off
+# the module, its HTTP backend library, the backend selector and the mongoose
+# wrapper test together — a build with no web/HTTP server at all (e.g. a
+# stripped-down agent package).
+option(BUILD_MODULE_WEBServer "Build module WEBServer" ON)
+
 include(${BUILD_CMAKE_FOLDER}/functions.cmake)
 
 # ##############################################################################
@@ -1020,6 +1032,8 @@ foreach(CURRENT_LIB ${ALL_LIB_PROJECTS})
         OR CURRENT_LIB_NAME
             STREQUAL
             "dotnet-plugin-api"
+        OR (NOT BUILD_MODULE_WEBServer
+            AND CURRENT_LIB_NAME STREQUAL "mongoose-cpp")
     )
         message(
             STATUS
