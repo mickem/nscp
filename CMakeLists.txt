@@ -926,16 +926,22 @@ if(CRYPTOPP_CMAKE)
 endif(CRYPTOPP_CMAKE)
 
 if(NSCP_BUILD_TESTS)
-    include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        URL
-            https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip
-    )
-    # For Windows: Prevent overriding the parent project's compiler/linker settings
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    set(INSTALL_GTEST OFF)
-    FetchContent_MakeAvailable(googletest)
+    if(NOT GTest_FOUND)
+        # No system Google Test was found by find_package(GTest) in
+        # dependencies.cmake; fetch a known version. Skipping this when a system
+        # copy exists (libgtest-dev / libgmock-dev) lets distro and offline
+        # builds use it and avoids any network access at configure time.
+        include(FetchContent)
+        FetchContent_Declare(
+            googletest
+            URL
+                https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip
+        )
+        # For Windows: Prevent overriding the parent project's compiler/linker settings
+        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+        set(INSTALL_GTEST OFF)
+        FetchContent_MakeAvailable(googletest)
+    endif()
     # GTEST_INCLUDE_DIR is only set when a *system* Google Test was found
     # (find_package(GTest) in dependencies.cmake). The unit tests link the
     # FetchContent-provided gtest_main target, which carries its own include
