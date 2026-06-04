@@ -1009,7 +1009,6 @@ set(NSCP_DEF_PLUGIN_LIB
     ${PLUGIN_API_TARGET}
 )
 
-set(ALL_LIB_NAMES)
 message(STATUS "Adding libraries")
 file(
     GLOB ALL_LIB_PROJECTS
@@ -1035,10 +1034,6 @@ foreach(CURRENT_LIB ${ALL_LIB_PROJECTS})
     endif()
     message(STATUS " + Library: ${CURRENT_LIB_PATH} (${CURRENT_LIB_NAME})")
     add_subdirectory("${CURRENT_LIB_PATH}")
-    set(ALL_LIB_NAMES
-        ${ALL_LIB_NAMES}
-        ${CURRENT_LIB_NAME}
-    )
 endforeach(
     CURRENT_LIB
     ${ALL_LIB_PROJECTS}
