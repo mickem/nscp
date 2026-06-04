@@ -90,6 +90,65 @@ int lua::core_wrapper::simple_query(lua_State *L) {
     return lua_instance.error("Unknown exception");
   }
 }
+int lua::core_wrapper::query_target(lua_State *L) {
+  lua_wrapper lua_instance(L);
+  try {
+    lua_instance.get_user_object_instance<CoreData>();
+    if (lua_instance.size() < 3) return lua_instance.error("Incorrect syntax: query_target(target, command, args)");
+    std::list<std::string> arguments;
+    if (lua_instance.is_table()) {
+      std::list<std::string> table = lua_instance.pop_array();
+      arguments.insert(arguments.begin(), table.begin(), table.end());
+    } else {
+      arguments.push_front(lua_instance.pop_string());
+    }
+    const std::string command = lua_instance.pop_string();
+    const std::string target = lua_instance.pop_string();
+    std::string message;
+    std::string perf;
+    NSCAPI::nagiosReturn ret;
+    {
+      lua::lua_gil::release unlocked;
+      ret = get_core(lua_instance)->simple_query(target, command, arguments, message, perf);
+    }
+    lua_instance.push_code(ret);
+    lua_instance.push_string(message);
+    lua_instance.push_string(perf);
+    return 3;
+  } catch (...) {
+    return lua_instance.error("Unknown exception in: query_target");
+  }
+}
+int lua::core_wrapper::query_forward(lua_State *L) {
+  lua_wrapper lua_instance(L);
+  try {
+    lua_instance.get_user_object_instance<CoreData>();
+    if (lua_instance.size() < 4) return lua_instance.error("Incorrect syntax: query_forward(forward_command, target, command, args)");
+    std::list<std::string> arguments;
+    if (lua_instance.is_table()) {
+      std::list<std::string> table = lua_instance.pop_array();
+      arguments.insert(arguments.begin(), table.begin(), table.end());
+    } else {
+      arguments.push_front(lua_instance.pop_string());
+    }
+    const std::string command = lua_instance.pop_string();
+    const std::string target = lua_instance.pop_string();
+    const std::string forward_command = lua_instance.pop_string();
+    std::string message;
+    std::string perf;
+    NSCAPI::nagiosReturn ret;
+    {
+      lua::lua_gil::release unlocked;
+      ret = get_core(lua_instance)->query_forward(forward_command, target, command, arguments, message, perf);
+    }
+    lua_instance.push_code(ret);
+    lua_instance.push_string(message);
+    lua_instance.push_string(perf);
+    return 3;
+  } catch (...) {
+    return lua_instance.error("Unknown exception in: query_forward");
+  }
+}
 int lua::core_wrapper::query(lua_State *L) {
   lua_wrapper lua_instance(L);
   try {
@@ -187,6 +246,8 @@ int lua::core_wrapper::log(lua_State *L) {
 
 const luaL_Reg core_functions[] = {{"create_pb_query", &lua::core_wrapper::create_pb_query},
                                    {"simple_query", &lua::core_wrapper::simple_query},
+                                   {"query_target", &lua::core_wrapper::query_target},
+                                   {"query_forward", &lua::core_wrapper::query_forward},
                                    {"query", &lua::core_wrapper::query},
                                    {"simple_exec", &lua::core_wrapper::simple_exec},
                                    {"exec", &lua::core_wrapper::exec},
