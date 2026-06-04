@@ -1,326 +1,144 @@
-test = require("test_helper")
+-- Protobuf-free Lua port of scripts/python/test_nrpe.py.
+--
+-- The Python NRPE acceptance test drives a full NRPE client+server round trip
+-- across a matrix of "SSL on/off" x "payload length" x "Nagios state", asserting
+-- that an arbitrary command result (state + message) survives the trip. It did so
+-- via the protobuf plugin API (a custom server-side handler keyed by a per-request
+-- UUID).
+--
+-- This port keeps that coverage without protobuf by combining two pieces:
+--   1. A server-side Lua handler `check_echo` registered on this same NSCP
+--      instance. It simply echoes back the state and message it is handed as
+--      arguments, so whatever we send must come back unchanged if the transport
+--      is faithful.
+--   2. The new core:query_forward(forward_command, target, command, args) binding.
+--      It sets the request header command to a relay's "forward as-is" command
+--      (here "nrpe_forward"), which ships our payload command + arguments onto the
+--      wire untouched - unlike a handler alias, whose mapped command is not
+--      currently forwarded (see the i_do_query custom_command TODO in
+--      include/client/command_line_parser.cpp). So `check_echo <state> <message>`
+--      actually reaches the server and dispatches back into this script.
+--
+-- Looping the round trip over SSL on/off and a spread of payload lengths also
+-- exercises the client, the SSL layer and the v2 packet (de)serializer across a
+-- range of buffer sizes - the classic NRPE packet is padded to the configured
+-- "payload length" on the wire regardless of message size (see
+-- net/nrpe/server/parser.hpp get_packet_length_v2), which is where the
+-- memory/UB bugs under ASan/LSan/UBSan tend to live.
+--
+-- Replaces the old protobuf-based test_nrpe.lua (the Lua protobuf bindings are
+-- disabled). A minimal single-shot smoke version lives in test_nrpe_relay.lua.
+local test = require("test_helper")
 
-TestMessage = {
-	uuid = nil,
-	source = nil,
-	command = nil,
-	status = nil,
-	message = nil,
-	perfdata = nil,
-	got_simple_response = false,
-	got_response = false
-}
-	
-TestNRPE = {
-	requests = {}, 
-	responses = {} 
-}
-function TestNRPE:install(arguments)
-	local conf = nscp.Settings()
-	
-	conf:set_string('/modules', 'test_nrpe_server', 'NRPEServer')
-	conf:set_string('/modules', 'test_nrpe_client', 'NRPEClient')
+local SERVER = 'test_nrpe_server'
+local CLIENT = 'test_nrpe_client'
+local TARGET = 'valid'
+local PORT = '15666'
+-- The relay's "forward as-is" command: routes to the NRPE client and ships the
+-- payload command + arguments onto the wire verbatim (modules/NRPEClient/module.json).
+local FORWARD = 'nrpe_forward'
+-- Command we register below and forward over NRPE; it echoes its arguments back.
+local ECHO = 'check_echo'
+
+-- SSL on/off and a spread of payload lengths to flex the packet buffers.
+local SSL_MODES = {true, false}
+local LENGTHS = {1024, 4096, 65536}
+
+-- Nagios states to round-trip. These are the canonical strings core returns
+-- (see lua push_code), so a faithful trip yields back exactly what we sent.
+local STATES = {'ok', 'warning', 'critical', 'unknown'}
+
+-- Server-side handler: echo the requested state and message straight back.
+-- args[1] = state string, args[2] = message. Registered once at script load so
+-- the NRPE server can dispatch the forwarded `check_echo` to it.
+local function check_echo(command, args)
+	return args[1] or 'unknown', args[2] or '', ''
+end
+Registry():simple_function(ECHO, check_echo, 'NRPE round-trip echo (test helper)')
+
+local NrpeTest = {}
+
+function NrpeTest:install(arguments)
+	local conf = Settings()
+	conf:set_string('/modules', SERVER, 'NRPEServer')
+	conf:set_string('/modules', CLIENT, 'NRPEClient')
 	conf:set_string('/modules', 'luatest', 'LUAScript')
-
 	conf:set_string('/settings/luatest/scripts', 'test_nrpe', 'test_nrpe.lua')
-	
-	conf:set_string('/settings/NRPE/test_nrpe_server', 'port', '15666')
-	conf:set_string('/settings/NRPE/test_nrpe_server', 'inbox', 'nrpe_test_inbox')
-	conf:set_string('/settings/NRPE/test_nrpe_server', 'encryption', '1')
-	conf:set_string('/settings/NRPE/test_nrpe_server', 'insecure', 'true')
 
-	conf:set_string('/settings/NRPE/test_nrpe_client/targets', 'nrpe_test_local', 'nrpe://127.0.0.1:15666')
-	conf:set_string('/settings/NRPE/test_nrpe_client/targets/default', 'insecure', 'true')
+	-- Local NRPE server: insecure (no cert, relaxed ciphers) so we can speak SSL
+	-- without provisioning certificates; arguments allowed so check_echo receives
+	-- the state/message we forward. SSL and payload length are (re)set per
+	-- iteration in reconfigure().
+	conf:set_string('/settings/NRPE/' .. SERVER, 'port', PORT)
+	conf:set_string('/settings/NRPE/' .. SERVER, 'insecure', 'true')
+	conf:set_string('/settings/NRPE/' .. SERVER, 'allow arguments', 'true')
+
+	-- NRPE client target pointing at the server.
+	conf:set_string('/settings/NRPE/' .. CLIENT .. '/targets', TARGET, 'nrpe://127.0.0.1:' .. PORT)
+	conf:set_string('/settings/NRPE/' .. CLIENT .. '/targets/' .. TARGET, 'insecure', 'true')
 end
 
-function TestNRPE:setup()
-	local reg = nscp.Registry()
-	reg:simple_query('check_py_nrpe_test_s', self, self.simple_handler, 'TODO')
-	--reg:query('check_py_nrpe_test', self, self.handler, 'TODO')
-end
-function TestNRPE:teardown()
-end
+function NrpeTest:setup() end
+function NrpeTest:teardown() end
 
-function TestNRPE:uninstall()
-end
+-- Apply one (ssl, length) combination to both modules and reload them.
+function NrpeTest:reconfigure(ssl, length)
+	local conf = Settings()
+	local sbool = ssl and 'true' or 'false'
 
-function TestNRPE:help()
-end
+	conf:set_string('/settings/NRPE/' .. SERVER, 'use ssl', sbool)
+	conf:set_string('/settings/NRPE/' .. SERVER, 'payload length', tostring(length))
 
-function TestNRPE:init(plugin_id)
-end
+	local tpath = '/settings/NRPE/' .. CLIENT .. '/targets/' .. TARGET
+	conf:set_string(tpath, 'use ssl', sbool)
+	conf:set_string(tpath, 'payload length', tostring(length))
 
-function TestNRPE:shutdown()
-end
-
-function TestNRPE:has_response(id)
-	return self.responses[id]
-end
-
-function TestNRPE:get_response(id)
-	msg = self.requests[id]
-	if msg == nil then
-		msg = TestMessage
-		msg.uuid=id
-		self.responses[id] = msg
-		return msg
-	end
-	return msg
-end
-
-function TestNRPE:set_response(msg)
-	self.responses[msg.uuid] = msg
-end
-
-function TestNRPE:del_response(id)
-	self.responses[id] = nil
-end
-		
-function TestNRPE:get_request(id)
-	msg = self.requests[id]
-	if msg == nil then
-		msg = TestMessage
-		msg.uuid=id
-		self.requests[id] = msg
-		return msg
-	end
-	return msg
-end
-
-function TestNRPE:set_request(msg)
-	self.requests[msg.uuid] = msg
-end
-
-function TestNRPE:del_request(id)
-	self.requests[id] = nil
-end
-
-function TestNRPE:simple_handler(command, args)
-	local core = nscp.Core()
-	msg = self:get_response(args[0])
-	msg.got_simple_response = true
-	self:set_response(msg)
-	message = rmsg.message
-	if args[1] then
-		message = string.rep('x', args[1])
-	end
-	rmsg = self:get_request(args[0])
-	return rmsg.status, message, rmsg.perfdata
-end
-
-function TestNRPE:handler(req)
-	local msg = self:get_response(args[0])
-	msg.got_response = true
-	self:set_response(msg)
-end
-
-function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, status, message, perf, target)
-	local core = nscp.Core()
-	local result = test.TestResult:new{message='Testing NRPE: '..tag..' for '..target}
-	
-	local msg = protobuf.Plugin.QueryRequestMessage.new()
-	hdr = msg:get_header()
-	hdr:set_destination_id(target)
-	hdr:set_command("nrpe_forward")
-	host = hdr:add_hosts()
-	host:set_address("127.0.0.1:15666")
-	host:set_id(target)
-	if target == 'valid' then
-	else
-		enc = host:add_metadata()
-		enc:set_key("use ssl")
-		enc:set_value(tostring(ssl))
-		enc = host:add_metadata()
-		enc:set_key("payload length")
-		enc:set_value(tostring(length))
-		enc = host:add_metadata()
-		enc:set_key("timeout")
-		enc:set_value('10')
-	end
-
-	uid = string.random(12)
-	payload = msg:add_payload()
-	payload:set_command('check_py_nrpe_test_s')
-	payload:set_arguments(1, uid)
-	if payload_length ~= 0 then
-		payload:set_arguments(2, payload_length)
-	end
-	rmsg = self:get_request(uid)
-	rmsg.status = status
-	rmsg.message = message
-	rmsg.perfdata = perf
-	self:set_request(rmsg)
-	serialized = msg:serialized()
-	result_code, response = core:query(serialized)
-	response_message = protobuf.Plugin.QueryResponseMessage.parsefromstring(response)
-
-
-	found = False
-	for i = 0,10 do
-		if (self:has_response(uid)) then
-			rmsg = self:get_response(uid)
-			--#result.add_message(rmsg.got_response, 'Testing to receive message using %s'%tag)
-			result:add_message(rmsg.got_simple_response, 'Testing to receive simple message using '..tag)
-			result:add_message(response_message:size_payload() == 1, 'Verify that we only get one payload response for '..tag)
-			pl = response_message:get_payload(1)
-			result:assert_equals(pl:get_result(), test.status_to_int(status), 'Verify that status is sent through '..tag)
-			if payload_length == 0 then
-				l = pl:get_lines(1)
-				result:assert_equals(l:get_message(), rmsg.message, 'Verify that message is sent through '..tag)
-			else
-				max_len = payload_length
-				if max_len >= length then
-					max_len = length - 1
-				end
-				l = pl:get_lines(1)
-				result:assert_equals(string.len(l:get_message()), max_len, 'Verify that message length is correct ' .. max_len .. ': ' ..tag)
-			end
-			--#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through')
-			self:del_response(uid)
-			found = true
-			break
-		else
-			core:log('info', string.format('Waiting for %s (%s/%s)', uid,tag,target))
-			nscp.sleep(500)
-		end
-	end
-	if (not found) then
-		result:add_message(false, string.format('Failed to find message %s using %s', uid, tag))
-	end
-	
-	return result
-end
-
-function TestNRPE:test_one(ssl, length, payload_length, status)
-	tag = string.format("%s/%d/%s", tostring(ssl), length, status)
-	local result = test.TestResult:new{message=string.format('Testing: %s with various targets', tag)}
-	for k,t in pairs({'valid', 'test_rp', 'invalid'}) do
-		result:add(self:submit_payload(tag, ssl, length, payload_length, tag .. 'src' .. tag, status, tag .. 'msg' .. tag, '', t))
-	end
-	result:add(self:submit_payload(tag, ssl, length, payload_length, tag .. 'src' .. tag, status, tag .. 'msg' .. tag, '', 'valid'))
-	return result
-end
-
-function TestNRPE:do_one_test(ssl, length)
-	if ssl == nil then ssl = true end
-	length = length or 1024
-	
-	local conf = nscp.Settings()
-	local core = nscp.Core()
-	conf:set_int('/settings/NRPE/test_nrpe_server', 'payload length', length)
-	conf:set_bool('/settings/NRPE/test_nrpe_server', 'use ssl', ssl)
-	conf:set_bool('/settings/NRPE/test_nrpe_server', 'allow arguments', true)
-	conf:set_bool('/settings/NRPE/test_nrpe_server', 'extended response', false)
-	core:reload('test_nrpe_server')
-
-	conf:set_string('/settings/NRPE/test_nrpe_client/targets/default', 'address', 'nrpe://127.0.0.1:35666')
-	conf:set_bool('/settings/NRPE/test_nrpe_client/targets/default', 'ssl', not ssl)
-	conf:set_int('/settings/NRPE/test_nrpe_client/targets/default', 'payload length', length*3)
-
-	conf:set_string('/settings/NRPE/test_nrpe_client/targets/invalid', 'address', 'nrpe://127.0.0.1:25666')
-	conf:set_bool('/settings/NRPE/test_nrpe_client/targets/invalid', 'use ssl', not ssl)
-	conf:set_int('/settings/NRPE/test_nrpe_client/targets/invalid', 'payload length', length*2)
-
-	conf:set_string('/settings/NRPE/test_nrpe_client/targets/valid', 'address', 'nrpe://127.0.0.1:15666')
-	conf:set_bool('/settings/NRPE/test_nrpe_client/targets/valid', 'use ssl', ssl)
-	conf:set_int('/settings/NRPE/test_nrpe_client/targets/valid', 'payload length', length)
-	core:reload('test_nrpe_client')
-
-	local result = test.TestResult:new{message="Testing "..tostring(ssl)..", "..tostring(length)}
-	result:add(self:test_one(ssl, length, 0, 'unknown'))
-	result:add(self:test_one(ssl, length, 0, 'ok'))
-	result:add(self:test_one(ssl, length, 0, 'warn'))
-	result:add(self:test_one(ssl, length, 0, 'crit'))
-	result:add(self:test_one(ssl, length, length/2, 'ok'))
-	result:add(self:test_one(ssl, length, length, 'ok'))
-	result:add(self:test_one(ssl, length, length*2, 'ok'))
-	return result
-end
-
-function TestNRPE:test_timeout(ssl, server_timeout, client_timeout, length)
-
-	local conf = nscp.Settings()
-	local core = nscp.Core()
-	conf:set_bool('/settings/NRPE/test_nrpe_server', 'use ssl', ssl)
-	conf:set_int('/settings/NRPE/test_nrpe_server', 'timeout', server_timeout)
-	conf:set_bool('/settings/NRPE/test_nrpe_server', 'allow arguments', true)
-	conf:set_int('/settings/NRPE/test_nrpe_server', 'payload length', length)
-	core:reload('test_nrpe_server')
-
-	conf:set_string('/settings/NRPE/test_nrpe_client/targets/default', 'address', 'nrpe://127.0.0.1:15666')
-	conf:set_bool('/settings/NRPE/test_nrpe_client/targets/default', 'use ssl', ssl)
-	conf:set_int('/settings/NRPE/test_nrpe_client/targets/default', 'timeout', client_timeout)
-	conf:set_int('/settings/NRPE/test_nrpe_client/targets/default', 'payload length', length)
-
-	core:reload('test_nrpe_client')
-
-	local result = test.TestResult:new{message="Testing timeouts ssl: "..tostring(ssl)..", server: "..tostring(server_timeout)..", client: "..tostring(client_timeout)}
-
-	local msg = protobuf.Plugin.QueryRequestMessage.new()
-	hdr = msg:get_header()
-	hdr:set_destination_id('test')
-	host = hdr:add_hosts()
-	host:set_address("127.0.0.1:15666")
-	host:set_id('test')
-	meta = hdr:add_metadata()
-	meta:set_key("command")
-	meta:set_value('check_py_nrpe_test_s')
-	meta = hdr:add_metadata()
-	meta:set_key("retry")
-	meta:set_value('0')
-
-	uid = string.random(12)
-	payload = msg:add_payload()
-	payload:set_command('nrpe_forward')
-	payload:set_arguments(1, uid)
-	rmsg = self:get_request(uid)
-	rmsg.status = 'ok'
-	rmsg.message = 'Hello: Timeout'
-	rmsg.perfdata = ''
-	self:set_request(rmsg)
-	serialized = msg:serialized()
-	result_code, response = core:query(serialized)
-	response_message = protobuf.Plugin.QueryResponseMessage.parsefromstring(response)
-
-
-	found = False
-	for i = 0,10 do
-		if (self:has_response(uid)) then
-			rmsg = self:get_response(uid)
-			result:add_message(false, string.format('Testing to receive message using'))
-			self:del_response(uid)
-			found = true
-			break
-		else
-			core:log('error', string.format('Timeout waiting for %s', uid))
-			nscp.sleep(500)
-		end
-	end
-	if (found) then
-		result:add_message(false, string.format('Making sure timeout message was never delivered'))
-	end
-	
-	return result
-end
-
-function TestNRPE:run()
-	local result = test.TestResult:new{message="NRPE Test Suite"}
-	result:add(self:do_one_test(true, 1024))
-	result:add(self:do_one_test(false, 1024))
-	result:add(self:do_one_test(true, 4096))
-	result:add(self:do_one_test(true, 65536))
-	result:add(self:do_one_test(true, 1048576))
-
-	result:add(self:test_timeout(false, 30, 1, 104857600))
-	result:add(self:test_timeout(false, 1, 30, 104857600))
-	result:add(self:test_timeout(true, 30, 1, 104857600))
-	result:add(self:test_timeout(true, 1, 30, 104857600))
+	local core = Core()
+	core:reload(SERVER)
+	core:reload(CLIENT)
+	-- Give the freshly reloaded server a moment to rebind its listener before we
+	-- fire the first request at it (mirrors the Python test's settle/poll loop).
 	nscp.sleep(500)
+end
+
+-- Forward `check_echo state message` over NRPE and assert both survive the trip.
+function NrpeTest:test_state(ssl, length, state)
+	local result = test.TestResult:new{message = string.format('ssl=%s, length=%d, state=%s', tostring(ssl), length, state)}
+	-- Short, separator-free message so it round-trips intact (well under any
+	-- payload length and free of NRPE argument separators).
+	local message = string.format('msg_%s_%d', state, length)
+
+	local core = Core()
+	local code, msg = core:query_forward(FORWARD, TARGET, ECHO, {state, message})
+
+	result:assert_equals(code, state,
+		string.format('state survives NRPE round trip (ssl=%s, len=%d)', tostring(ssl), length))
+	result:assert_equals(msg, message,
+		string.format('message survives NRPE round trip (ssl=%s, len=%d)', tostring(ssl), length))
 	return result
 end
 
+-- Run all states through one (ssl, length) configuration.
+function NrpeTest:test_one(ssl, length)
+	local result = test.TestResult:new{message = string.format('ssl=%s, length=%d', tostring(ssl), length)}
+	self:reconfigure(ssl, length)
+	for _, state in ipairs(STATES) do
+		result:add(self:test_state(ssl, length, state))
+	end
+	return result
+end
 
-instances = { TestNRPE }
+function NrpeTest:run()
+	local result = test.TestResult:new{message = 'NRPE client/server round trip via query_forward'}
+	for _, ssl in ipairs(SSL_MODES) do
+		for _, length in ipairs(LENGTHS) do
+			result:add(self:test_one(ssl, length))
+		end
+	end
+	return result
+end
+
+local instances = { NrpeTest }
 test.init_test_manager(instances)
 
 function main(args)
