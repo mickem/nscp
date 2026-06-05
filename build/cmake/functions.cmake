@@ -522,6 +522,39 @@ function(NSCP_CREATE_TEST _TARGET)
     nscp_add_test(${_TARGET})
 endfunction()
 
+# Register a Lua acceptance test that drives the built `nscp` binary:
+#   nscp unit --language lua --script <script>
+# The test name should end in `_test` so `ctest -R '_test$'` (used by
+# tools/sanitizers/run.sh) picks it up alongside the C++ unit tests. It runs
+# under the same NSCP_SANITIZER_TEST_ENV as those tests, so leaks/UB in the
+# Lua-driven code paths are caught. Requires the `nscp` target, the LUAScript
+# module and the copy_scripts target, all built as part of the default build.
+function(NSCP_ADD_LUA_TEST _NAME _SCRIPT)
+    if(NOT NSCP_BUILD_TESTS)
+        return()
+    endif()
+    add_test(
+        NAME ${_NAME}
+        COMMAND
+            $<TARGET_FILE:nscp>
+            unit
+            --language lua
+            --script ${_SCRIPT}
+            --path-override scripts=${BUILD_TARGET_ROOT_PATH}/scripts
+        # Run from the build root so ${base-path} (the external-scripts working
+        # dir) makes relative script paths like "scripts/check_test.sh" resolve.
+        WORKING_DIRECTORY ${BUILD_TARGET_ROOT_PATH}
+    )
+    if(NSCP_SANITIZER_TEST_ENV)
+        set_tests_properties(
+            ${_NAME}
+            PROPERTIES
+                ENVIRONMENT
+                    "${NSCP_SANITIZER_TEST_ENV}"
+        )
+    endif()
+endfunction()
+
 macro(NSCP_MAKE_EXE_SBIN _TARGET _SRCS)
     NSCP_MAKE_EXE(${_TARGET} "${_SRCS}" ${SBIN_TARGET_FOLDER})
 endmacro()

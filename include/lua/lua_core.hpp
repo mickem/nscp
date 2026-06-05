@@ -23,6 +23,8 @@ extern "C" {
 #include <lua.h>
 }
 
+#include <boost/thread/recursive_mutex.hpp>
+
 #include <list>
 #include <lua/lua_script.hpp>
 #include <memory>
@@ -32,6 +34,28 @@ extern "C" {
 
 namespace lua {
 typedef scripts::script_information<lua_traits> script_information;
+
+// A process-wide "GIL" that serialises all Lua execution. The Lua runtime shares
+// a single lua_State across threads with no internal locking, so any handler that
+// fires on another thread (a Scheduler tick, an NSCA inbox delivery, a relayed
+// sub-query arriving on a server thread) would otherwise corrupt the interpreter
+// if it ran while the main script is mid-Lua. Every entry into Lua holds the GIL
+// for the duration of its pcall (guard) and releases it only around blocking /
+// re-entrant core calls and nscp.sleep (release) - the same model as CPython's
+// GIL. A recursive mutex keeps a missed release on a same-thread re-entry from
+// self-deadlocking; the genuine cross-thread re-entry points (the query/submit
+// family) always release explicitly.
+struct lua_gil {
+  static boost::recursive_mutex &mutex();
+  struct guard {
+    guard() { mutex().lock(); }
+    ~guard() { mutex().unlock(); }
+  };
+  struct release {
+    release() { mutex().unlock(); }
+    ~release() { mutex().lock(); }
+  };
+};
 
 struct lua_runtime_plugin {
   virtual void load(lua::lua_wrapper &instance) = 0;

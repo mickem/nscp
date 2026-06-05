@@ -65,6 +65,16 @@ struct core_provider {
   virtual bool submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code, const std::string &message,
                                      const std::string &perf, std::string &response) = 0;
   virtual NSCAPI::nagiosReturn simple_query(const std::string &command, const std::list<std::string> &argument, std::string &msg, std::string &perf) = 0;
+  // Same as simple_query but routed to a specific target (sets the request header
+  // recipient/destination), so relay modules (NRPE/NSCA/NSCP client targets) pick it up.
+  virtual NSCAPI::nagiosReturn simple_query(const std::string &target, const std::string &command, const std::list<std::string> &argument, std::string &msg,
+                                            std::string &perf) = 0;
+  // Forward a command verbatim to a relay target via the header "<protocol>_forward"
+  // command (e.g. "nrpe_forward"). Unlike simple_query(target, ...) the inner payload
+  // command + arguments are sent on the wire untouched, so a remote handler actually
+  // receives them. Returns the flattened (code, msg, perf) of the relayed response.
+  virtual NSCAPI::nagiosReturn query_forward(const std::string &forward_command, const std::string &target, const std::string &command,
+                                             const std::list<std::string> &argument, std::string &msg, std::string &perf) = 0;
   virtual bool exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument,
                                    std::list<std::string> &result) = 0;
   virtual bool exec_command(const std::string target, const std::string &request, std::string &response) = 0;

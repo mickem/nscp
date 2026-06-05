@@ -40,7 +40,10 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   try {
     root_ = get_core()->expand_path("${scripts}");
     nscp_runtime_ = std::make_shared<scripts::nscp::nscp_runtime_impl>(get_id(), get_core());
-    lua_runtime_ = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(root_.string()));
+    // The lua runtime appends "/scripts/lua/lib/?.lua" to this base when building
+    // package.path for require(), so it must be the install base ("${base-path}"),
+    // not "${scripts}" (which already points at the scripts dir and would double it).
+    lua_runtime_ = std::make_shared<lua::lua_runtime>(utf8::cvt<std::string>(get_core()->expand_path("${base-path}")));
     scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
     sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
@@ -141,10 +144,7 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
       nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [add|execute|list|install|delete] --help");
       return true;
     } else if (command == "execute" || command == "lua-script" || command == "lua-run") {
-      boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::simple_exec_tag, request.command());
-      if (cmd) {
-        lua_runtime_->on_exec(request.command(), cmd->information, cmd->function, true, request, response, request_message);
-      }
+      execute_script(request, response);
       return true;
     }
 
@@ -162,6 +162,51 @@ bool LUAScript::commandLineExec(const int target_mode, const PB::Commands::Execu
   }
 
   return false;
+}
+
+void LUAScript::execute_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response) {
+  po::options_description desc = nscapi::program_options::create_desc(request);
+  po::variables_map vm;
+  nscapi::program_options::unrecognized_map script_options;
+  std::string file;
+  // clang-format off
+  desc.add_options()
+    ("help", "Show help.")
+    ("script", po::value<std::string>(&file), "The script to run")
+    ("file", po::value<std::string>(&file), "The script to run")
+    ;
+  // clang-format on
+
+  try {
+    nscapi::program_options::basic_command_line_parser cmd(request);
+    cmd.options(desc);
+
+    po::parsed_options parsed = cmd.allow_unregistered().run();
+    po::store(parsed, vm);
+    po::notify(vm);
+    script_options = po::collect_unrecognized(parsed.options, po::include_positional);
+    if (!script_options.empty() &&
+        (script_options[0] == "execute" || script_options[0] == "exec" || script_options[0] == "lua-script" || script_options[0] == "lua-run"))
+      script_options.erase(script_options.begin());
+
+  } catch (const std::exception &e) {
+    return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+  }
+
+  if (vm.count("help")) {
+    nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+    return;
+  }
+
+  boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
+  if (!ofile) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
+    return;
+  }
+  scripts::script_information<lua::lua_traits> *info = scripts_->add("", ofile->string());
+  lua_runtime_->load(info);
+  std::vector<std::string> opts(script_options.begin(), script_options.end());
+  lua_runtime_->exec_main(info, opts, response);
 }
 
 void LUAScript::handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,

@@ -13,6 +13,11 @@
 #include <nscapi/protobuf/functions_status.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
 
+boost::recursive_mutex &lua::lua_gil::mutex() {
+  static boost::recursive_mutex m;
+  return m;
+}
+
 void lua::lua_runtime::register_query(const std::string &command, const std::string &description) {
   throw lua_exception("The method or operation is not implemented(reg_query).");
 }
@@ -24,6 +29,7 @@ void lua::lua_runtime::register_subscription(const std::string &channel, const s
 void lua::lua_runtime::on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple,
                                 const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                                 const PB::Commands::QueryRequestMessage &request_message) {
+  lua_gil::guard gil;
   lua_wrapper lua(prep_function(information, function));
   int args = 2;
   if (function.object_ref != 0) args = 3;
@@ -68,6 +74,7 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
 
 void lua::lua_runtime::exec_main(script_information *information, const std::vector<std::string> &opts,
                                  PB::Commands::ExecuteResponseMessage::Response *response) {
+  lua_gil::guard gil;
   lua_wrapper lua(prep_function(information, "main"));
   lua.push_array(opts);
   if (lua.pcall(1, 2, 0) != 0) return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command main: " + lua.pop_string());
@@ -86,6 +93,7 @@ void lua::lua_runtime::exec_main(script_information *information, const std::vec
 void lua::lua_runtime::on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple,
                                const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response,
                                const PB::Commands::ExecuteRequestMessage &request_message) {
+  lua_gil::guard gil;
   lua_wrapper lua(prep_function(information, function));
   int args = 2;
   if (function.object_ref != 0) args = 3;
@@ -128,9 +136,12 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
 
 void lua::lua_runtime::on_submit(std::string channel, script_information *information, lua::lua_traits::function_type function, bool simple,
                                  const PB::Commands::QueryResponseMessage::Response &request, PB::Commands::SubmitResponseMessage::Response *response) {
+  lua_gil::guard gil;
   lua_wrapper lua(prep_function(information, function));
-  int cmd_args = 1;
-  if (function.object_ref != 0) cmd_args = 2;
+  // cmd_args is the leading self argument (1 when the handler is a bound method,
+  // 0 otherwise); the fixed channel/command/... args are added on at each pcall.
+  int cmd_args = 0;
+  if (function.object_ref != 0) cmd_args = 1;
   if (simple) {
     lua.push_string(channel);
     lua.push_string(request.command());

@@ -82,6 +82,49 @@ NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::
   return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, nscapi::protobuf::functions::no_truncation);
 }
 
+NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::string &target, const std::string &command, const std::list<std::string> &argument,
+                                                                    std::string &msg, std::string &perf) {
+  std::string request, response;
+  PB::Commands::QueryRequestMessage message;
+  auto *header = message.mutable_header();
+  header->set_recipient_id(target);
+  header->set_destination_id(target);
+  auto *payload = message.add_payload();
+  payload->set_command(command);
+  for (const std::string &s : argument) {
+    payload->add_arguments(s);
+  }
+  message.SerializeToString(&request);
+  if (!core_->query(request, response)) {
+    msg = "Command failed.";
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+  return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, nscapi::protobuf::functions::no_truncation);
+}
+
+NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::query_forward(const std::string &forward_command, const std::string &target, const std::string &command,
+                                                                     const std::list<std::string> &argument, std::string &msg, std::string &perf) {
+  std::string request, response;
+  PB::Commands::QueryRequestMessage message;
+  auto *header = message.mutable_header();
+  // The header command selects the relay's "forward as-is" path (e.g. nrpe_forward),
+  // which ships the payload below verbatim instead of re-parsing it locally.
+  header->set_command(forward_command);
+  header->set_recipient_id(target);
+  header->set_destination_id(target);
+  auto *payload = message.add_payload();
+  payload->set_command(command);
+  for (const std::string &s : argument) {
+    payload->add_arguments(s);
+  }
+  message.SerializeToString(&request);
+  if (!core_->query(request, response)) {
+    msg = "Command failed.";
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+  return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, nscapi::protobuf::functions::no_truncation);
+}
+
 bool scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument,
                                                             std::list<std::string> &result) {
   std::string request, response;

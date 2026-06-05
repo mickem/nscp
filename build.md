@@ -736,8 +736,17 @@ be swallowed by the capture buffer and never shown.
 Build a sanitizer-instrumented tree with `tools/sanitizers/run.sh`. It
 configures `build-<sanitizers>/` with `-DNSCP_SANITIZE` and
 `-DCMAKE_BUILD_TYPE=RelWithDebInfo`, builds the whole daemon **and all its
-modules** (not just the `*_test` binaries), then runs the C++ unit tests under
-the sanitizer:
+modules** (not just the `*_test` binaries), then runs every `*_test` ctest
+target under the sanitizer. That includes the C++ unit tests **and** a set of
+Lua acceptance tests (`lua_*_test`) that drive the built `nscp` over the Lua
+scripting API — exercising real module code paths (check dispatch, the NRPE
+client/server round-trip, etc.) so leaks/UB in those paths are caught too. They
+get the same baked-in sanitizer `ENVIRONMENT` as the C++ tests:
+
+> Note: the Python acceptance tests are intentionally **not** part of this run.
+> The embedded `boost::python` build SEGVs under AddressSanitizer (a
+> toolchain-level incompatibility, not a real NSClient++ bug), so the Lua
+> acceptance tests cover the scripting-driven paths instead.
 
 ```bash
 # From the repo root. ASan + UBSan by default -> build-address+undefined/

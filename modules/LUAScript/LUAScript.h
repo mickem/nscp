@@ -46,6 +46,7 @@ class LUAScript : public nscapi::impl::simple_plugin {
                       const PB::Commands::QueryRequestMessage &request_message);
   bool commandLineExec(const int target_mode, const PB::Commands::ExecuteRequestMessage::Request &request,
                        PB::Commands::ExecuteResponseMessage::Response *response, const PB::Commands::ExecuteRequestMessage &request_message);
+  void execute_script(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
   void handleNotification(const std::string &channel, const PB::Commands::QueryResponseMessage::Response &request,
                           PB::Commands::SubmitResponseMessage::Response *response, const PB::Commands::SubmitRequestMessage &request_message);
 

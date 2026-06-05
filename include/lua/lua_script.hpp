@@ -64,6 +64,8 @@ namespace core_wrapper {
 int create_core(lua_State *L);
 int create_pb_query(lua_State *L);
 int simple_query(lua_State *L);
+int query_target(lua_State *L);
+int query_forward(lua_State *L);
 int query(lua_State *L);
 int simple_exec(lua_State *L);
 int exec(lua_State *L);

@@ -1,6 +1,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/optional.hpp>
 #include <boost/thread.hpp>
+#include <lua/lua_core.hpp>
 #include <lua/lua_cpp.hpp>
 #include <lua/lua_script.hpp>
 #include <nscapi/macros.hpp>
@@ -75,7 +76,11 @@ int lua::core_wrapper::simple_query(lua_State *L) {
     // NSC_LOG_ERROR_STD(lua_instance.dump_stack());
     std::string message;
     std::string perf;
-    NSCAPI::nagiosReturn ret = get_core(lua_instance)->simple_query(command, arguments, message, perf);
+    NSCAPI::nagiosReturn ret;
+    {
+      lua::lua_gil::release unlocked;
+      ret = get_core(lua_instance)->simple_query(command, arguments, message, perf);
+    }
     lua_instance.push_code(ret);
     lua_instance.push_string(message);
     lua_instance.push_string(perf);
@@ -85,6 +90,65 @@ int lua::core_wrapper::simple_query(lua_State *L) {
     return lua_instance.error("Unknown exception");
   }
 }
+int lua::core_wrapper::query_target(lua_State *L) {
+  lua_wrapper lua_instance(L);
+  try {
+    lua_instance.get_user_object_instance<CoreData>();
+    if (lua_instance.size() < 3) return lua_instance.error("Incorrect syntax: query_target(target, command, args)");
+    std::list<std::string> arguments;
+    if (lua_instance.is_table()) {
+      std::list<std::string> table = lua_instance.pop_array();
+      arguments.insert(arguments.begin(), table.begin(), table.end());
+    } else {
+      arguments.push_front(lua_instance.pop_string());
+    }
+    const std::string command = lua_instance.pop_string();
+    const std::string target = lua_instance.pop_string();
+    std::string message;
+    std::string perf;
+    NSCAPI::nagiosReturn ret;
+    {
+      lua::lua_gil::release unlocked;
+      ret = get_core(lua_instance)->simple_query(target, command, arguments, message, perf);
+    }
+    lua_instance.push_code(ret);
+    lua_instance.push_string(message);
+    lua_instance.push_string(perf);
+    return 3;
+  } catch (...) {
+    return lua_instance.error("Unknown exception in: query_target");
+  }
+}
+int lua::core_wrapper::query_forward(lua_State *L) {
+  lua_wrapper lua_instance(L);
+  try {
+    lua_instance.get_user_object_instance<CoreData>();
+    if (lua_instance.size() < 4) return lua_instance.error("Incorrect syntax: query_forward(forward_command, target, command, args)");
+    std::list<std::string> arguments;
+    if (lua_instance.is_table()) {
+      std::list<std::string> table = lua_instance.pop_array();
+      arguments.insert(arguments.begin(), table.begin(), table.end());
+    } else {
+      arguments.push_front(lua_instance.pop_string());
+    }
+    const std::string command = lua_instance.pop_string();
+    const std::string target = lua_instance.pop_string();
+    const std::string forward_command = lua_instance.pop_string();
+    std::string message;
+    std::string perf;
+    NSCAPI::nagiosReturn ret;
+    {
+      lua::lua_gil::release unlocked;
+      ret = get_core(lua_instance)->query_forward(forward_command, target, command, arguments, message, perf);
+    }
+    lua_instance.push_code(ret);
+    lua_instance.push_string(message);
+    lua_instance.push_string(perf);
+    return 3;
+  } catch (...) {
+    return lua_instance.error("Unknown exception in: query_forward");
+  }
+}
 int lua::core_wrapper::query(lua_State *L) {
   lua_wrapper lua_instance(L);
   try {
@@ -92,7 +156,12 @@ int lua::core_wrapper::query(lua_State *L) {
     if (lua_instance.size() < 1) return lua_instance.error("Incorrect syntax: query(data)");
     std::string data = lua_instance.pop_string();
     std::string response;
-    lua_instance.push_boolean(get_core(lua_instance)->query(data, response));
+    bool ok;
+    {
+      lua::lua_gil::release unlocked;
+      ok = get_core(lua_instance)->query(data, response);
+    }
+    lua_instance.push_boolean(ok);
     lua_instance.push_raw_string(response);
     return 2;
   } catch (...) {
@@ -108,7 +177,11 @@ int lua::core_wrapper::simple_exec(lua_State *L) {
     const std::string command = lua_instance.pop_string();
     const std::string target = lua_instance.pop_string();
     std::list<std::string> result;
-    const NSCAPI::nagiosReturn ret = get_core(lua_instance)->exec_simple_command(target, command, arguments, result);
+    NSCAPI::nagiosReturn ret;
+    {
+      lua::lua_gil::release unlocked;
+      ret = get_core(lua_instance)->exec_simple_command(target, command, arguments, result);
+    }
     lua_instance.push_code(ret);
     lua_instance.push_array(result);
     return 2;
@@ -132,7 +205,11 @@ int lua::core_wrapper::simple_submit(lua_State *L) {
     const std::string command = lua_instance.pop_string();
     const std::string channel = lua_instance.pop_string();
     std::string result;
-    NSCAPI::nagiosReturn ret = get_core(lua_instance)->submit_simple_message(channel, command, code, message, perf, result);
+    NSCAPI::nagiosReturn ret;
+    {
+      lua::lua_gil::release unlocked;
+      ret = get_core(lua_instance)->submit_simple_message(channel, command, code, message, perf, result);
+    }
     lua_instance.push_boolean(ret == NSCAPI::bool_return::istrue);
     lua_instance.push_string(result);
     return 2;
@@ -151,7 +228,9 @@ int lua::core_wrapper::reload(lua_State *L) {
   lua_instance.get_user_object_instance<CoreData>();
   if (lua_instance.size() < 1) return lua_instance.error("Incorrect syntax: reload([<module>]);");
   std::string module = "module";
-  get_core(lua_instance)->reload(lua_instance.pop_string());
+  const std::string target = lua_instance.pop_string();
+  lua::lua_gil::release unlocked;
+  get_core(lua_instance)->reload(target);
   return 0;
 }
 int lua::core_wrapper::log(lua_State *L) {
@@ -167,6 +246,8 @@ int lua::core_wrapper::log(lua_State *L) {
 
 const luaL_Reg core_functions[] = {{"create_pb_query", &lua::core_wrapper::create_pb_query},
                                    {"simple_query", &lua::core_wrapper::simple_query},
+                                   {"query_target", &lua::core_wrapper::query_target},
+                                   {"query_forward", &lua::core_wrapper::query_forward},
                                    {"query", &lua::core_wrapper::query},
                                    {"simple_exec", &lua::core_wrapper::simple_exec},
                                    {"exec", &lua::core_wrapper::exec},
@@ -471,6 +552,9 @@ static int error(lua_State *L) { return log_any(L, NSCAPI::log_level::error); }
 static int lua_sleep(lua_State *L) {
   lua::lua_wrapper lua_instance(L);
   int time = lua_instance.pop_int();
+  // Release the GIL while parked so handlers (scheduler ticks, inbox deliveries)
+  // can run on their own threads instead of racing us for the lua_State.
+  lua::lua_gil::release unlocked;
   boost::this_thread::sleep(boost::posix_time::milliseconds(time));
   return 0;
 }

@@ -665,3 +665,39 @@ NSCP_CREATE_TEST(
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
+
+# Lua acceptance tests (protobuf-free) - drive the built `nscp` over the Lua
+# scripting API. Registered as ctest `*_test` targets so they run under the
+# sanitizer environment via tools/sanitizers/run.sh (ctest -R '_test$').
+# Each is guarded by the modules it exercises.
+if(BUILD_MODULE_LUAScript)
+    NSCP_ADD_LUA_TEST(lua_selfcheck_test test_selfcheck)
+    if(BUILD_MODULE_CheckHelpers)
+        NSCP_ADD_LUA_TEST(lua_checks_test test_checks)
+        NSCP_ADD_LUA_TEST(lua_check_helpers_test test_check_helpers)
+    endif()
+    # check_uptime lives in CheckSystem(Unix), which builds under BUILD_MODULE_CheckSystem.
+    if(BUILD_MODULE_CheckSystem)
+        NSCP_ADD_LUA_TEST(lua_uptime_test test_uptime)
+    endif()
+    if(BUILD_MODULE_NSCAServer AND BUILD_MODULE_NSCAClient)
+        NSCP_ADD_LUA_TEST(lua_nsca_test test_nsca)
+    endif()
+    if(BUILD_MODULE_CheckHelpers AND BUILD_MODULE_NRPEServer AND BUILD_MODULE_NRPEClient)
+        NSCP_ADD_LUA_TEST(lua_nrpe_relay_test test_nrpe_relay)
+    endif()
+    # test_nrpe registers its own check_echo handler, so it only needs the NRPE
+    # transport modules (no CheckHelpers).
+    if(BUILD_MODULE_NRPEServer AND BUILD_MODULE_NRPEClient)
+        NSCP_ADD_LUA_TEST(lua_nrpe_test test_nrpe)
+    endif()
+    if(BUILD_MODULE_CheckExternalScripts)
+        NSCP_ADD_LUA_TEST(lua_ext_script_test test_ext_script)
+    endif()
+    if(BUILD_MODULE_CheckLogFile)
+        NSCP_ADD_LUA_TEST(lua_log_file_test test_log_file)
+    endif()
+    if(BUILD_MODULE_Scheduler)
+        NSCP_ADD_LUA_TEST(lua_scheduler_test test_scheduler)
+    endif()
+endif()
