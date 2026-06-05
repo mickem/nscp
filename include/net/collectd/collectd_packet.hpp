@@ -22,9 +22,8 @@
 #include <stdint.h>
 
 #include <boost/endian/conversion.hpp>
-#include <boost/noncopyable.hpp>
 #include <boost/optional.hpp>
-#include <boost/tuple/tuple.hpp>
+#include <cstring>
 #include <list>
 #include <map>
 #include <sstream>
@@ -32,37 +31,32 @@
 #include <str/xtos.hpp>
 
 namespace collectd {
-class data {
- public:
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4200)  // flexible-array member is intentional
-#endif
-  struct string_part : boost::noncopyable {
-    int16_t type;
-    int16_t length;
-    char data[];
-
-    char *get_data() { return &data[0]; }
-  };
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif
-  struct int64_part : boost::noncopyable {
-    int16_t type;
-    int16_t length;
-    int64_t data;
-  };
-  struct value_part : boost::noncopyable {
-    int16_t type;
-    int16_t length;
-    int16_t count;
-  };
-  struct derive_value_part : boost::noncopyable {
-    int8_t type;
-    int64_t value;
-  };
+// collectd "part" type codes (see https://collectd.org/wiki/index.php/Binary_protocol).
+enum part_type : int16_t {
+  part_host = 0x0000,
+  part_time_hr = 0x0008,
+  part_plugin = 0x0002,
+  part_plugin_instance = 0x0003,
+  part_type = 0x0004,
+  part_type_instance = 0x0005,
+  part_values = 0x0006,
+  part_interval_hr = 0x0009,
 };
+
+// Value type codes inside a values part.
+enum value_type : uint8_t {
+  value_gauge = 0x01,
+  value_derive = 0x02,
+};
+
+// The collectd network plugin reads at most this many bytes per datagram, so
+// we must not emit a packet larger than this (see Network plugin
+// `MaxPacketSize`, default 1452).
+static const std::size_t max_packet_size = 1452;
+
+// Longest string a single part may carry: it must fit in one datagram alongside
+// the 4-byte part header and the trailing NUL.
+static const std::size_t max_string_length = max_packet_size - 5;
 
 class collectd_exception : public std::exception {
   std::string msg_;
@@ -92,95 +86,82 @@ class packet {
     return ss.str();
   }
 
-  void add_host(std::string value) { append_string(0x0000, value); }
-  void add_plugin(std::string value) { append_string(0x0002, value); }
-  void add_plugin_instance(std::string value) { append_string(0x0003, value); }
-  void add_type(std::string value) { append_string(0x0004, value); }
-  void add_type_instance(std::string value) { append_string(0x0005, value); }
-  void add_gauge_value(std::list<double> values) { append_values(0x00006, 0x01, values); }
-  void add_derive_value(std::list<long long> values) { append_values(0x00006, 0x02, values); }
-  void add_time_hr(unsigned long long time) { append_int(0x0008, time); }
-  void add_interval_hr(unsigned long long time) { append_int(0x0009, time); }
+  void add_host(const std::string &value) { append_string(part_host, value); }
+  void add_plugin(const std::string &value) { append_string(part_plugin, value); }
+  void add_plugin_instance(const std::string &value) { append_string(part_plugin_instance, value); }
+  void add_type(const std::string &value) { append_string(part_type, value); }
+  void add_type_instance(const std::string &value) { append_string(part_type_instance, value); }
+  void add_gauge_value(const std::list<double> &values) { append_values(value_gauge, values); }
+  void add_derive_value(const std::list<long long> &values) { append_values(value_derive, values); }
+  void add_time_hr(unsigned long long time) { append_int(part_time_hr, time); }
+  void add_interval_hr(unsigned long long time) { append_int(part_interval_hr, time); }
 
-  bool is_full() const { return buffer.size() > 200; }
+  // A packet is "full" once adding another value-list could overflow the
+  // network buffer. Leave headroom for one more value-list (a handful of
+  // string parts plus the values) so render() never emits an oversized packet.
+  bool is_full() const { return buffer.size() > max_packet_size - 128; }
 
+  // All multi-byte integers in the collectd protocol are big-endian. Build the
+  // big-endian value in a properly aligned local and append its bytes, rather
+  // than reinterpret_cast-ing into the std::string buffer (which is unaligned
+  // and aliasing UB, and trips the sanitizers).
   template <class T>
-  inline void set_byte(std::string &buffer, const std::string::size_type pos, const T value) {
-    T *b_value = reinterpret_cast<T *>(&buffer[pos]);
-    *b_value = boost::endian::native_to_big(value);
+  static void append_be(std::string &buf, T value) {
+    const T be = boost::endian::native_to_big(value);
+    buf.append(reinterpret_cast<const char *>(&be), sizeof(be));
   }
 
-  void append_string(int16_t type, std::string &string_data) {
-    int16_t len = static_cast<int16_t>(string_data.length()) + 5;
-    std::string::size_type pos = buffer.length();
-    buffer.append(sizeof(collectd::data::string_part), '\0');
-    collectd::data::string_part *data = reinterpret_cast<collectd::data::string_part *>(&buffer[pos]);
-    data->type = boost::endian::native_to_big(type);
-    data->length = boost::endian::native_to_big(len);
-    buffer.append(string_data.c_str(), string_data.length() + 1);
+  // A string part: type(2) + length(2) + NUL-terminated string. The length
+  // field covers the 4-byte header and the trailing NUL.
+  //
+  // The length field is an (unsigned) 16-bit value and the whole part must fit
+  // inside one datagram, so clamp pathologically long strings — e.g. a
+  // misconfigured hostname/plugin/type — instead of letting the cast to int16_t
+  // silently wrap and emit a malformed part.
+  void append_string(int16_t type, const std::string &string_data) {
+    const std::size_t data_len = string_data.size() > max_string_length ? max_string_length : string_data.size();
+    const int16_t len = static_cast<int16_t>(data_len + 5);
+    append_be<int16_t>(buffer, type);
+    append_be<int16_t>(buffer, len);
+    buffer.append(string_data, 0, data_len);
+    buffer.push_back('\0');
   }
+  // A number part: type(2) + length(2, always 12) + uint64(8).
   void append_int(int16_t type, unsigned long long int_data) {
-    std::string::size_type pos = buffer.length();
-    buffer.append(sizeof(int16_t) + sizeof(int16_t) + sizeof(int64_t), '\0');
-    int16_t len = static_cast<int16_t>(buffer.length() - pos);
-    set_byte<uint16_t>(buffer, pos, type);
-    set_byte<uint16_t>(buffer, pos + sizeof(int16_t), len);
-    set_byte<uint64_t>(buffer, pos + sizeof(int16_t) + sizeof(int16_t), int_data);
+    append_be<int16_t>(buffer, type);
+    append_be<int16_t>(buffer, static_cast<int16_t>(12));
+    append_be<uint64_t>(buffer, static_cast<uint64_t>(int_data));
   }
-  void append_values(int16_t base_type, int value_type, const std::list<double> &value_data) {
-    std::string::size_type pos = buffer.length();
-    buffer.append(sizeof(collectd::data::value_part), '\0');
+  // A values part: type(2) + length(2) + count(2) + count value-type bytes +
+  // count 8-byte values. Gauge values are little-endian IEEE-754 doubles;
+  // derive values are big-endian int64. Build the body first, then prefix the
+  // header with the now-known length.
+  template <class T>
+  void append_values(uint8_t value_type, const std::list<T> &value_data) {
+    std::string body;
+    body.reserve(value_data.size() * 9);
     for (std::size_t i = 0; i < value_data.size(); i++) {
-      append_value_type(value_type);
+      body.push_back(static_cast<char>(value_type));
     }
-    for (const double &v : value_data) {
-      append_value_value(v);
+    for (const T &v : value_data) {
+      append_value(body, v);
     }
-    int16_t len = static_cast<int16_t>(buffer.length() - pos);
-    collectd::data::value_part *data = reinterpret_cast<collectd::data::value_part *>(&buffer[pos]);
-    data->type = boost::endian::native_to_big(base_type);
-    data->count = boost::endian::native_to_big(static_cast<int16_t>(value_data.size()));
-    data->length = boost::endian::native_to_big(len);
-  }
-  void append_values(int16_t base_type, int value_type, const std::list<long long> &value_data) {
-    std::string::size_type pos = buffer.length();
-    buffer.append(sizeof(collectd::data::value_part), '\0');
-    for (std::size_t i = 0; i < value_data.size(); i++) {
-      append_value_type(value_type);
-    }
-    for (const long long &v : value_data) {
-      append_value_value(v);
-    }
-    int16_t len = static_cast<int16_t>(buffer.length() - pos);
-    collectd::data::value_part *data = reinterpret_cast<collectd::data::value_part *>(&buffer[pos]);
-    data->type = boost::endian::native_to_big(base_type);
-    data->count = boost::endian::native_to_big(static_cast<int16_t>(value_data.size()));
-    data->length = boost::endian::native_to_big(len);
+    const int16_t len = static_cast<int16_t>(6 + body.size());
+    append_be<int16_t>(buffer, part_values);
+    append_be<int16_t>(buffer, len);
+    append_be<int16_t>(buffer, static_cast<int16_t>(value_data.size()));
+    buffer.append(body);
   }
 
-  void append_value_type(int type) {
-    std::string::size_type pos = buffer.length();
-    int sz = sizeof(int8_t);
-    buffer.append(sz, '\0');
-    int8_t *b_type = reinterpret_cast<int8_t *>(&buffer[pos]);
-    *b_type = static_cast<int8_t>(type);
+  // Gauge: little-endian double (collectd stores gauges in x86 byte order).
+  static void append_value(std::string &buf, double value) {
+    uint64_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    const uint64_t le = boost::endian::native_to_little(bits);
+    buf.append(reinterpret_cast<const char *>(&le), sizeof(le));
   }
-  void append_value_value(const double double_data) {
-    std::string::size_type pos = buffer.length();
-    int sz = sizeof(int64_t);
-    buffer.append(sz, '\0');
-    // 				int64_t *b_value = reinterpret_cast<int64_t*>(&buffer[pos + sizeof(int8_t)]);
-    // 				*b_value = boost::endian::native_to_big(static_cast<int64_t>(*int_data));
-    double *b_dvalue = reinterpret_cast<double *>(&buffer[pos]);
-    *b_dvalue = double_data;
-  }
-  void append_value_value(const long long int_data) {
-    std::string::size_type pos = buffer.length();
-    int sz = sizeof(int64_t);
-    buffer.append(sz, '\0');
-    int64_t *b_value = reinterpret_cast<int64_t *>(&buffer[pos]);
-    *b_value = boost::endian::native_to_big(static_cast<int64_t>(int_data));
-  }
+  // Derive/counter: big-endian int64.
+  static void append_value(std::string &buf, long long value) { append_be<int64_t>(buf, static_cast<int64_t>(value)); }
 
   std::string get_buffer() const { return buffer; }
 
@@ -392,7 +373,11 @@ struct collectd_builder {
         is_new = true;
       }
     }
-    packets.push_back(packet);
+    // Only emit the trailing packet if it actually holds data. When nothing
+    // rendered (e.g. an unmatched variable) or the last metric exactly filled
+    // and flushed a packet, `packet` is an empty default-constructed buffer and
+    // must not be sent as a zero-length datagram.
+    if (packet.get_size() > 0) packets.push_back(packet);
   }
   void set_metric(const ::std::string &key, const std::string &value);
 };

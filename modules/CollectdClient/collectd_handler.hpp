@@ -42,7 +42,10 @@ struct collectd_target_object : public nscapi::targets::target_object {
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
-    // add_ssl_keys(root_path);
+    root_path.add_key().add_int(
+        "interval", sh::int_fun_key([this](auto value) { this->set_property_int("interval", value); }), "METRICS INTERVAL",
+        "The interval (in seconds) reported to collectd for metrics sent to this target. Overrides the client-level interval; should match the core 'metrics "
+        "interval'.");
 
     settings.register_all();
     settings.notify();
@@ -58,18 +61,10 @@ struct options_reader_impl : public client::options_reader_interface {
   }
 
   void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
-    // add_ssl_options(desc, data);
-
     // clang-format off
     desc.add_options()
-      ("payload-length,l", po::value<unsigned int>()->notifier([&data] (auto value) { data.set_int_data("payload length", value); }),
-      "Length of payload (has to be same as on the server)")
-      ("buffer-length", po::value<unsigned int>()->notifier([&data] (auto value) { data.set_int_data("payload length", value); }),
-      "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
-      ("password", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("password", value); }),
-      "Password")
-      ("time-offset", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("time offset", value); }),
-      "")
+      ("interval", po::value<unsigned int>()->notifier([&data] (auto value) { data.set_int_data("interval", value); }),
+      "The interval (in seconds) reported to collectd for these metrics.")
     ;
     // clang-format on
   }

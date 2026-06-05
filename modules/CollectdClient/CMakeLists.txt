@@ -46,3 +46,19 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Client" REGULAR_EXPRESSION .*include/collectd/.*)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+
+NSCP_CREATE_TEST(
+    collectd_packet_test
+    SOURCES
+        collectd_packet_test.cpp
+        ${NSCP_INCLUDEDIR}/net/collectd/collectd_packet.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        expression_parser
+        ${Boost_REGEX_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

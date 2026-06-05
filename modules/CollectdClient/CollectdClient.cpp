@@ -36,7 +36,8 @@
  * @return
  */
 CollectdClient::CollectdClient()
-    : client_("nsca", std::make_shared<collectd_client::collectd_client_handler>(), std::make_shared<collectd_handler::options_reader_impl>()) {}
+    : handler_(std::make_shared<collectd_client::collectd_client_handler>()),
+      client_("collectd", handler_, std::make_shared<collectd_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
@@ -52,29 +53,47 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     client_.set_path(target_path);
 
+    unsigned int interval = 10;
+
     // clang-format off
     settings.alias().add_path_to_settings()
-      ("COLLECTD CLIENT SECTION", "Section for NSCA passive check module.")
+      ("COLLECTD CLIENT SECTION", "Section for the collectd client; forwards NSClient++ metrics to a collectd server.")
 
       ("targets", sh::fun_values_path([this] (auto key, auto value) { this->add_target(key, value); }),
 	      "REMOTE TARGET DEFINITIONS", "",
 	      "TARGET", "For more configuration options add a dedicated section")
+
+      ("variables", sh::fun_values_path([this] (auto key, auto value) { this->handler_->add_variable(key, value); }),
+	      "VARIABLE DEFINITIONS",
+	      "Variables used to expand ${...} placeholders in metric keys. Each value is a regular expression matched against metric names; "
+	      "the captured groups become the variable's values. When empty a built-in default set is used.")
+
+      ("metrics", sh::fun_values_path([this] (auto key, auto value) { this->handler_->add_metric(key, value); }),
+	      "METRIC MAPPINGS",
+	      "Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user). "
+	      "When empty a built-in default set is used.")
       ;
 
-    // clang-format on
-    settings.alias().add_key_to_settings().add_string(
-        "hostname", sh::string_key(&hostname_, "auto"), "HOSTNAME",
-        "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+    settings.alias().add_key_to_settings()
+      .add_string("hostname", sh::string_key(&hostname_, "auto"), "HOSTNAME",
+        "The host name reported to collectd.\nSet this to auto (default) to use the name of this computer.\n\n"
         "auto\tHostname\n"
         "${host}\tHostname\n"
-        "${host_lc}\nHostname in lowercase\n"
+        "${host_lc}\tHostname in lowercase\n"
         "${host_uc}\tHostname in uppercase\n"
         "${domain}\tDomainname\n"
         "${domain_lc}\tDomainname in lowercase\n"
-        "${domain_uc}\tDomainname in uppercase\n");
+        "${domain_uc}\tDomainname in uppercase\n")
+
+      .add_int("interval", sh::uint_key(&interval, 10), "METRICS INTERVAL",
+        "The interval (in seconds) reported to collectd. Should match the core 'metrics interval' so collectd computes rates correctly.")
+      ;
+    // clang-format on
 
     settings.register_all();
     settings.notify();
+
+    handler_->set_interval(interval);
 
     client_.finalize(nscapi::settings_proxy::create(get_id(), get_core()));
 
