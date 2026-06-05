@@ -237,15 +237,19 @@ describe("CollectD integration", () => {
   });
 
   it("maps CheckSystem metrics onto collectd plugins", async () => {
-    // The metrics handler always emits these plugins for non-variable mappings
-    // (cpu-total, memory-*, processes-*), independent of platform, so at least
-    // one of them must show up once metrics have flowed.
+    // The default mapping is platform-specific: Linux emits cpu/memory/swap,
+    // Windows emits cpu/memory/processes. cpu + memory are common to both, so
+    // assert those show up once metrics have flowed.
     const ok = await receiver.waitFor((r) =>
-      r.some((v) => ["cpu", "memory", "processes"].includes(v.plugin)),
+      r.some((v) => v.plugin === "cpu") && r.some((v) => v.plugin === "memory"),
     );
     expect(ok).toBe(true);
     const plugins = new Set(receiver.readings.map((v) => v.plugin));
-    expect([...plugins].some((p) => ["cpu", "memory", "processes"].includes(p))).toBe(true);
+    expect(plugins).toContain("cpu");
+    expect(plugins).toContain("memory");
+    // Per-core CPU (cpu-0, cpu-1, …) proves the default `core` variable
+    // expanded — this was broken on Linux before the per-platform defaults.
+    expect(receiver.readings.some((v) => v.plugin === "cpu" && /^\d+$/.test(v.pluginInstance))).toBe(true);
   });
 
   it("reports the default 10s interval", async () => {

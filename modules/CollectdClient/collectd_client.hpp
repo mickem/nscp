@@ -103,27 +103,53 @@ struct client_handler : public socket_helpers::client::client_handler {
 typedef std::list<std::pair<std::string, std::string> > mapping_list;
 
 struct collectd_client_handler : public client::handler_interface {
-  // Built-in mapping used when none is configured in settings. Kept identical
-  // to the historical hard-coded mapping so default behaviour is preserved.
+  // Built-in mapping used when none is configured in settings. The metric
+  // namespace CheckSystem emits differs between platforms (Windows exposes
+  // committed/virtual/page memory, PDH counters and "core N"; the Unix module
+  // exposes physical/cached/swap memory and "core_N"), so the defaults are
+  // platform-specific — otherwise one platform would forward fabricated zeros
+  // for metrics the other never produces.
   static mapping_list default_variables() {
     mapping_list m;
-    m.push_back(std::make_pair("diskid", "system.metrics.pdh.disk_queue_length.disk_queue_length_(.*)$"));
-    m.push_back(std::make_pair("core", "system.cpu.core (.*).user"));
+#ifdef WIN32
+    // CheckSystem emits per-core CPU as "system.cpu.core 0.user" (space).
+    m.push_back(std::make_pair("core", "system.cpu.core (.*)\\.user"));
+#else
+    // CheckSystemUnix normalises per-core CPU to "system.cpu.core_0.user".
+    m.push_back(std::make_pair("core", "system.cpu.core_(.*)\\.user"));
+#endif
     return m;
   }
   static mapping_list default_metrics() {
     mapping_list m;
-    m.push_back(std::make_pair("memory-/memory-available", "gauge:system.mem.physical.avail"));
-    m.push_back(std::make_pair("disk-${diskid}/queue_length", "gauge:system.metrics.pdh.disk_queue_length.disk_queue_length_${diskid}"));
-    m.push_back(std::make_pair("processes-/ps_count", "gauge:system.metrics.procs.procs,system.metrics.procs.threads"));
-    m.push_back(std::make_pair("memory-pagefile/memory-used", "gauge:system.mem.commited.used"));
-    m.push_back(std::make_pair("memory-pagefile/memory-free", "gauge:system.mem.commited.free"));
-    m.push_back(std::make_pair("cpu-${core}/cpu-user", "derive:system.cpu.core ${core}.user"));
-    m.push_back(std::make_pair("cpu-${core}/cpu-system", "derive:system.cpu.core ${core}.kernel"));
-    m.push_back(std::make_pair("cpu-${core}/cpu-idle", "derive:system.cpu.core ${core}.idle"));
+    // CPU total + per-core (derive) — available on both platforms.
     m.push_back(std::make_pair("cpu-total/cpu-user", "derive:system.cpu.total.user"));
     m.push_back(std::make_pair("cpu-total/cpu-system", "derive:system.cpu.total.kernel"));
     m.push_back(std::make_pair("cpu-total/cpu-idle", "derive:system.cpu.total.idle"));
+    // Uptime in seconds (collectd "uptime" GAUGE type) — both platforms expose
+    // it as the numeric system.uptime.ticks.raw (system.uptime.uptime is a
+    // human-readable string and is not usable here).
+    m.push_back(std::make_pair("uptime/uptime", "gauge:system.uptime.ticks.raw"));
+#ifdef WIN32
+    m.push_back(std::make_pair("cpu-${core}/cpu-user", "derive:system.cpu.core ${core}.user"));
+    m.push_back(std::make_pair("cpu-${core}/cpu-system", "derive:system.cpu.core ${core}.kernel"));
+    m.push_back(std::make_pair("cpu-${core}/cpu-idle", "derive:system.cpu.core ${core}.idle"));
+    // Physical + page-file (committed) memory.
+    m.push_back(std::make_pair("memory-/memory-available", "gauge:system.mem.physical.avail"));
+    m.push_back(std::make_pair("memory-pagefile/memory-used", "gauge:system.mem.commited.used"));
+    m.push_back(std::make_pair("memory-pagefile/memory-free", "gauge:system.mem.commited.avail"));
+    // Process / thread counts (Windows-only metric family).
+    m.push_back(std::make_pair("processes-/ps_count", "gauge:system.metrics.procs.procs,system.metrics.procs.threads"));
+#else
+    m.push_back(std::make_pair("cpu-${core}/cpu-user", "derive:system.cpu.core_${core}.user"));
+    m.push_back(std::make_pair("cpu-${core}/cpu-system", "derive:system.cpu.core_${core}.kernel"));
+    m.push_back(std::make_pair("cpu-${core}/cpu-idle", "derive:system.cpu.core_${core}.idle"));
+    // Physical memory (collectd "memory" type) + swap (collectd "swap" type).
+    m.push_back(std::make_pair("memory-/memory-used", "gauge:system.mem.physical.used"));
+    m.push_back(std::make_pair("memory-/memory-free", "gauge:system.mem.physical.avail"));
+    m.push_back(std::make_pair("swap-/swap-used", "gauge:system.mem.swap.used"));
+    m.push_back(std::make_pair("swap-/swap-free", "gauge:system.mem.swap.avail"));
+#endif
     return m;
   }
 

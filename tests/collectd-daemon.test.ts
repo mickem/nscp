@@ -11,14 +11,16 @@
  *
  * collectd's csv plugin only writes a file once it has accepted a value-list —
  * i.e. parsed the packet AND matched the value count/types against types.db —
- * so the presence of /data/it-collectd-host/cpu-total/cpu-user-* is positive
- * proof the wire format is correct, not just self-consistent with our decoder
- * (that is what collectd-submit.test.ts covers).
+ * so the presence of /data/<host>/cpu-total/cpu-user-* is positive proof the
+ * wire format is correct, not just self-consistent with our own decoder (that
+ * is what collectd-submit.test.ts covers).
  *
- * collectd's UDP port is published with a raw `docker run -p ...:25826/udp`
- * because testcontainers only maps TCP; dockerd's proxy forwards the UDP
- * datagrams from loopback to the container. Everything is read back through
- * `docker exec`, so no UDP needs to flow host<-container.
+ * One collectd container is shared; each sub-scenario runs its own nscp with a
+ * distinct collectd `host` so their output lands in separate /data/<host>
+ * trees. collectd's UDP port is published with a raw `docker run -p
+ * ...:25826/udp` because testcontainers only maps TCP; dockerd's proxy
+ * forwards the datagrams from loopback to the container, and everything is read
+ * back through `docker exec`.
  */
 import * as path from "path";
 import execa from "execa";
@@ -26,7 +28,6 @@ import { NscpInstance, dockerOrSkip } from "@fixtures/index";
 
 jest.setTimeout(600_000);
 
-const HOSTNAME = "it-collectd-host";
 const IMAGE_TAG = "nscp_collectd_it";
 
 /** Thin `docker ...` wrapper. */
@@ -35,13 +36,13 @@ async function docker(args: string[], opts: { reject?: boolean } = {}) {
 }
 
 dockerOrSkip()("CollectD real-daemon integration", () => {
-  let nscp: NscpInstance;
   let containerId = "";
+  let port = 0;
 
-  /** Files collectd's csv plugin has written for our host so far. */
-  async function dataFiles(): Promise<string[]> {
+  /** Files collectd's csv plugin has written for `host` so far. */
+  async function dataFiles(host: string): Promise<string[]> {
     const r = await docker(
-      ["exec", containerId, "sh", "-c", `find /data/${HOSTNAME} -type f 2>/dev/null || true`],
+      ["exec", containerId, "sh", "-c", `find /data/${host} -type f 2>/dev/null || true`],
       { reject: false },
     );
     return r.stdout
@@ -50,15 +51,16 @@ dockerOrSkip()("CollectD real-daemon integration", () => {
       .filter(Boolean);
   }
 
-  /** Poll collectd's output dir until `predicate` holds (or the deadline passes). */
+  /** Poll collectd's output dir for `host` until `predicate` holds. */
   async function waitForFiles(
+    host: string,
     predicate: (files: string[]) => boolean,
     timeoutMs = 90_000,
   ): Promise<string[]> {
     const deadline = Date.now() + timeoutMs;
     let last: string[] = [];
     while (Date.now() < deadline) {
-      last = await dataFiles();
+      last = await dataFiles(host);
       if (predicate(last)) return last;
       await new Promise((r) => setTimeout(r, 1000));
     }
@@ -66,31 +68,30 @@ dockerOrSkip()("CollectD real-daemon integration", () => {
   }
 
   beforeAll(async () => {
-    // Build directly with `docker build` (cwd = tests/, so tests/.dockerignore
-    // keeps node_modules/ out of the context) and a fixed tag we can run
-    // ourselves with a published UDP port.
+    // Build with `docker build` (cwd = tests/, so tests/.dockerignore keeps
+    // node_modules/ out of the context) and a fixed tag we can run ourselves
+    // with a published UDP port.
     await execa("docker", ["build", "-t", IMAGE_TAG, "-f", "Dockerfiles/collectd.Dockerfile", "."], {
       cwd: path.resolve(__dirname),
       all: true,
     });
 
-    const run = await execa(
-      "docker",
-      ["run", "-d", "-p", "127.0.0.1::25826/udp", IMAGE_TAG],
-      { all: true },
-    );
+    const run = await execa("docker", ["run", "-d", "-p", "127.0.0.1::25826/udp", IMAGE_TAG], {
+      all: true,
+    });
     containerId = run.stdout.trim();
 
     // Wait for "Initialization complete, entering read-loop." in the logs.
-    const ready = await (async () => {
-      const deadline = Date.now() + 30_000;
-      while (Date.now() < deadline) {
-        const logs = await docker(["logs", containerId], { reject: false });
-        if (/entering read-loop/.test(`${logs.stdout}\n${logs.stderr}`)) return true;
-        await new Promise((r) => setTimeout(r, 500));
+    const deadline = Date.now() + 30_000;
+    let ready = false;
+    while (Date.now() < deadline) {
+      const logs = await docker(["logs", containerId], { reject: false });
+      if (/entering read-loop/.test(`${logs.stdout}\n${logs.stderr}`)) {
+        ready = true;
+        break;
       }
-      return false;
-    })();
+      await new Promise((r) => setTimeout(r, 500));
+    }
     if (!ready) {
       const logs = await docker(["logs", containerId], { reject: false });
       throw new Error(`collectd did not become ready. Logs:\n${logs.stdout}\n${logs.stderr}`);
@@ -98,58 +99,108 @@ dockerOrSkip()("CollectD real-daemon integration", () => {
 
     // The published loopback UDP port (docker assigns it; `docker port` reports it).
     const portOut = (await docker(["port", containerId, "25826/udp"])).stdout.trim();
-    const port = Number(portOut.split("\n")[0].split(":").pop());
+    port = Number(portOut.split("\n")[0].split(":").pop());
     if (!Number.isInteger(port) || port <= 0) {
       throw new Error(`could not parse mapped UDP port from: ${portOut}`);
     }
-
-    nscp = new NscpInstance();
-    await nscp.configure({
-      "/modules": {
-        CheckSystem: "enabled",
-        CollectdClient: "enabled",
-      },
-      "/settings/core": {
-        "metrics interval": "1s",
-      },
-      "/settings/collectd/client": {
-        hostname: HOSTNAME,
-      },
-      "/settings/collectd/client/targets/default": {
-        address: `127.0.0.1:${port}`,
-      },
-    });
-    nscp.start();
   });
 
   afterAll(async () => {
-    await nscp?.stop();
     if (containerId) await docker(["rm", "-f", containerId], { reject: false });
   });
 
-  it("is parsed and stored by a real collectd daemon", async () => {
-    // cpu (single DERIVE) and memory (single GAUGE) are standard collectd
-    // types, so a real collectd accepts and stores them — but only if our
-    // packet really is valid collectd binary protocol.
-    const files = await waitForFiles(
-      (f) => f.some((p) => /\/cpu-total\/cpu-/.test(p)) && f.some((p) => /\/memory\/memory-available/.test(p)),
-    );
-    expect(files.some((p) => /\/cpu-total\/cpu-user-/.test(p))).toBe(true);
-    expect(files.some((p) => /\/memory\/memory-available-/.test(p))).toBe(true);
+  // The built-in default mapping is platform-specific (CheckSystem's metric
+  // namespace differs by OS), so the expected collectd output differs too. nscp
+  // runs as a host process, so process.platform decides which default branch is
+  // exercised; the collectd receiver is the same Linux container either way.
+  const isWindows = process.platform === "win32";
+  const label = isWindows ? "default Windows mapping" : "default Linux mapping";
+  // [regex, human description] for files that MUST be present for this platform.
+  const required: Array<[RegExp, string]> = isWindows
+    ? [
+        [/\/cpu-total\/cpu-user-/, "cpu-total/cpu-user"],
+        [/\/cpu-\d+\/cpu-user-/, "per-core cpu-<N>/cpu-user"],
+        [/\/memory\/memory-available-/, "memory/memory-available"],
+        [/\/memory-pagefile\/memory-used-/, "memory-pagefile/memory-used"],
+        [/\/processes\/ps_count-/, "processes/ps_count"],
+        [/\/uptime\/uptime-/, "uptime/uptime"],
+      ]
+    : [
+        [/\/cpu-total\/cpu-user-/, "cpu-total/cpu-user"],
+        [/\/cpu-\d+\/cpu-user-/, "per-core cpu-<N>/cpu-user"],
+        [/\/memory\/memory-free-/, "memory/memory-free"],
+        [/\/swap\/swap-used-/, "swap/swap-used"],
+        [/\/uptime\/uptime-/, "uptime/uptime"],
+      ];
 
-    // The stored CSV must contain collectd's "epoch,value" header plus at least
-    // one data line — confirming collectd decoded a value, not just a header.
-    const cpuFile = files.find((p) => /\/cpu-total\/cpu-user-/.test(p))!;
-    const content = (await docker(["exec", containerId, "cat", cpuFile])).stdout;
-    expect(content).toMatch(/^epoch,value/m);
-    expect(content).toMatch(/^\d+(?:\.\d+)?,\S+$/m);
+  describe(label, () => {
+    const HOST = "it-collectd-default";
+    let nscp: NscpInstance;
+
+    beforeAll(async () => {
+      nscp = new NscpInstance();
+      await nscp.configure({
+        "/modules": { CheckSystem: "enabled", CollectdClient: "enabled" },
+        "/settings/core": { "metrics interval": "1s" },
+        "/settings/collectd/client": { hostname: HOST },
+        "/settings/collectd/client/targets/default": { address: `127.0.0.1:${port}` },
+      });
+      nscp.start();
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("stores the platform's default value-lists via a real collectd", async () => {
+      // Every default mapping for this platform produces a standard collectd
+      // type, so a real collectd accepts and stores them only if our packets
+      // are valid collectd binary protocol. The per-core file (cpu-<N>/...)
+      // specifically exercises the `core`/`core_<N>` variable expansion.
+      const files = await waitForFiles(HOST, (f) => required.every(([re]) => f.some((p) => re.test(p))));
+      for (const [re, desc] of required) {
+        expect({ desc, present: files.some((p) => re.test(p)) }).toEqual({ desc, present: true });
+      }
+
+      // The stored CSV must contain collectd's "epoch,value" header plus at
+      // least one data line — confirming collectd decoded a value, not just a
+      // header.
+      const cpuFile = files.find((p) => /\/cpu-total\/cpu-user-/.test(p))!;
+      const content = (await docker(["exec", containerId, "cat", cpuFile])).stdout;
+      expect(content).toMatch(/^epoch,value/m);
+      expect(content).toMatch(/^\d+(?:\.\d+)?,\S+$/m);
+    });
   });
 
-  it("accepts the multi-value ps_count type", async () => {
-    // ps_count is a two-value type (processes + threads) in types.db; collectd
-    // drops value-lists whose value count doesn't match the type, so a written
-    // ps_count file proves our multi-value encoding lines up with the spec.
-    const files = await waitForFiles((f) => f.some((p) => /\/processes\/ps_count-/.test(p)));
-    expect(files.some((p) => /\/processes\/ps_count-/.test(p))).toBe(true);
+  describe("multi-value type", () => {
+    const HOST = "it-collectd-mv";
+    let nscp: NscpInstance;
+
+    beforeAll(async () => {
+      nscp = new NscpInstance();
+      await nscp.configure({
+        "/modules": { CheckSystem: "enabled", CollectdClient: "enabled" },
+        "/settings/core": { "metrics interval": "1s" },
+        "/settings/collectd/client": { hostname: HOST },
+        // A custom mapping emitting the two-value collectd "ps_count" type
+        // (processes + threads) from two metrics that exist on Linux. This
+        // proves a real collectd accepts our multi-value encoding — it drops
+        // value-lists whose value count doesn't match the type in types.db.
+        "/settings/collectd/client/metrics": {
+          "processes-/ps_count": "gauge:system.cpu.total.user,system.cpu.total.idle",
+        },
+        "/settings/collectd/client/targets/default": { address: `127.0.0.1:${port}` },
+      });
+      nscp.start();
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("accepts a two-value ps_count value-list", async () => {
+      const files = await waitForFiles(HOST, (f) => f.some((p) => /\/processes\/ps_count-/.test(p)));
+      expect(files.some((p) => /\/processes\/ps_count-/.test(p))).toBe(true);
+    });
   });
 });
