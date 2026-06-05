@@ -217,8 +217,12 @@ struct collectd_client_handler : public client::handler_interface {
     boost::posix_time::ptime const time_epoch(boost::gregorian::date(1970, 1, 1));
     const unsigned long long now_seconds = (boost::posix_time::microsec_clock::universal_time() - time_epoch).total_seconds();
 
+    // Interval reported to collectd: a per-target "interval" overrides the
+    // module-level default (interval_seconds_) when set.
+    const unsigned long long interval = static_cast<unsigned long long>(target.get_int_data("interval", static_cast<int>(interval_seconds_)));
+
     // collectd "high-resolution" time/interval are in units of 2^-30 seconds.
-    builder.set_time(now_seconds << 30, interval_seconds_ << 30);
+    builder.set_time(now_seconds << 30, interval << 30);
     builder.set_host(sender.get_host());
 
     // Variables must be expanded (against the flattened metric names) before
@@ -265,6 +269,7 @@ struct collectd_client_handler : public client::handler_interface {
       }
 
       for (const collectd::packet &p : packets) {
+        if (p.get_size() == 0) continue;  // never put an empty datagram on the wire
         for (const std::shared_ptr<udp_sender> &s : senders) {
           s->send_data(p.get_buffer());
         }

@@ -42,7 +42,10 @@ struct collectd_target_object : public nscapi::targets::target_object {
     nscapi::settings_helper::path_extension root_path = settings.path(get_path());
     if (is_sample) root_path.set_sample();
 
-    // add_ssl_keys(root_path);
+    root_path.add_key().add_int(
+        "interval", sh::int_fun_key([this](auto value) { this->set_property_int("interval", value); }), "METRICS INTERVAL",
+        "The interval (in seconds) reported to collectd for metrics sent to this target. Overrides the client-level interval; should match the core 'metrics "
+        "interval'.");
 
     settings.register_all();
     settings.notify();

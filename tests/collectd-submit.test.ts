@@ -315,3 +315,48 @@ describe("CollectD configurable mapping", () => {
     expect(receiver.readings.every((v) => v.intervalSeconds === 7)).toBe(true);
   });
 });
+
+// A per-target `interval` must override the client-level interval on the wire.
+describe("CollectD per-target interval override", () => {
+  let nscp: NscpInstance;
+  let receiver: CollectdReceiver;
+
+  beforeAll(async () => {
+    receiver = new CollectdReceiver();
+    const port = await receiver.start();
+
+    nscp = new NscpInstance();
+    await nscp.configure({
+      "/modules": {
+        CheckSystem: "enabled",
+        CollectdClient: "enabled",
+      },
+      "/settings/core": {
+        "metrics interval": "1s",
+      },
+      "/settings/collectd/client": {
+        hostname: HOSTNAME,
+        // Client-level default — the per-target value below must win over this.
+        interval: "5",
+      },
+      "/settings/collectd/client/targets/default": {
+        address: `127.0.0.1:${port}`,
+        // Per-target override.
+        interval: "13",
+      },
+    });
+
+    nscp.start();
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+    await receiver?.stop();
+  });
+
+  it("reports the per-target interval, not the client-level one", async () => {
+    await receiver.waitFor((r) => r.length > 0);
+    expect(receiver.readings.length).toBeGreaterThan(0);
+    expect(receiver.readings.every((v) => v.intervalSeconds === 13)).toBe(true);
+  });
+});

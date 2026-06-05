@@ -54,6 +54,10 @@ enum value_type : uint8_t {
 // `MaxPacketSize`, default 1452).
 static const std::size_t max_packet_size = 1452;
 
+// Longest string a single part may carry: it must fit in one datagram alongside
+// the 4-byte part header and the trailing NUL.
+static const std::size_t max_string_length = max_packet_size - 5;
+
 class collectd_exception : public std::exception {
   std::string msg_;
 
@@ -109,11 +113,17 @@ class packet {
 
   // A string part: type(2) + length(2) + NUL-terminated string. The length
   // field covers the 4-byte header and the trailing NUL.
+  //
+  // The length field is an (unsigned) 16-bit value and the whole part must fit
+  // inside one datagram, so clamp pathologically long strings — e.g. a
+  // misconfigured hostname/plugin/type — instead of letting the cast to int16_t
+  // silently wrap and emit a malformed part.
   void append_string(int16_t type, const std::string &string_data) {
-    const int16_t len = static_cast<int16_t>(string_data.length() + 5);
+    const std::size_t data_len = string_data.size() > max_string_length ? max_string_length : string_data.size();
+    const int16_t len = static_cast<int16_t>(data_len + 5);
     append_be<int16_t>(buffer, type);
     append_be<int16_t>(buffer, len);
-    buffer.append(string_data);
+    buffer.append(string_data, 0, data_len);
     buffer.push_back('\0');
   }
   // A number part: type(2) + length(2, always 12) + uint64(8).
@@ -363,7 +373,11 @@ struct collectd_builder {
         is_new = true;
       }
     }
-    packets.push_back(packet);
+    // Only emit the trailing packet if it actually holds data. When nothing
+    // rendered (e.g. an unmatched variable) or the last metric exactly filled
+    // and flushed a packet, `packet` is an empty default-constructed buffer and
+    // must not be sent as a zero-length datagram.
+    if (packet.get_size() > 0) packets.push_back(packet);
   }
   void set_metric(const ::std::string &key, const std::string &value);
 };

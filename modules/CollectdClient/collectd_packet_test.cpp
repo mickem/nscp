@@ -158,6 +158,25 @@ TEST(CollectdPacket, HostStringPartLayout) {
   EXPECT_EQ(buf.compare(4, 6, "myhost"), 0);
 }
 
+TEST(CollectdPacket, ClampsOverlongStringPart) {
+  collectd::packet p;
+  // A hostname far larger than a datagram: the length field must not wrap.
+  p.add_host(std::string(40000, 'x'));
+  const std::string buf = p.get_buffer();
+  const uint16_t len = read_be<uint16_t>(reinterpret_cast<const unsigned char *>(buf.data()) + 2);
+  // Length stays positive, within the datagram, and matches the actual part.
+  EXPECT_GT(len, 0u);
+  EXPECT_LE(len, collectd::max_packet_size);
+  EXPECT_EQ(buf.size(), len);
+
+  // Still decodes cleanly to a (clamped, non-empty) host without overrunning.
+  p.add_gauge_value({1.0});
+  const auto lists = decode_packet(p.get_buffer());
+  ASSERT_EQ(lists.size(), 1u);
+  EXPECT_FALSE(lists[0].host.empty());
+  EXPECT_LE(lists[0].host.size(), collectd::max_string_length);
+}
+
 TEST(CollectdPacket, TimeAndIntervalPartsAreBigEndian) {
   collectd::packet p;
   p.add_time_hr(0x1122334455667788ULL);
@@ -300,10 +319,12 @@ TEST(CollectdBuilder, UnmatchedVariableProducesNoMetrics) {
 
   collectd::collectd_builder::packet_list packets;
   b.render(packets);
-  // render() always pushes at least the (possibly empty) trailing packet.
+  // Nothing rendered, so there must be no value-lists — and crucially no empty
+  // trailing packet that would go out as a zero-length datagram.
   std::size_t value_lists = 0;
   for (const auto &pk : packets) value_lists += decode_packet(pk.get_buffer()).size();
   EXPECT_EQ(value_lists, 0u);
+  for (const auto &pk : packets) EXPECT_GT(pk.get_size(), 0u);
 }
 
 // ============================================================================
@@ -328,6 +349,7 @@ TEST(CollectdBuilder, FragmentsLargeMetricSetWithinMtu) {
   std::size_t total_value_lists = 0;
   for (const auto &pk : packets) {
     EXPECT_LE(pk.get_size(), collectd::max_packet_size);
+    EXPECT_GT(pk.get_size(), 0u);  // no empty trailing packet even when fragmenting
     total_value_lists += decode_packet(pk.get_buffer()).size();
   }
   EXPECT_EQ(total_value_lists, 500u);
