@@ -140,8 +140,14 @@ endif()
 # unused work — and would force the package list (libboost-coroutine,
 # libboost-context on Debian; analogous on RPM) on environments that
 # only ever build the mongoose backend (typically Windows).
+#
+# Gate on NSCP_MONGOOSE_AVAILABLE too: when the Beast backend is selected but
+# its dependencies are missing (e.g. OpenSSL not found) the web library is
+# skipped, so ServerBeastImpl is never compiled. Requesting coroutine/context
+# as *required* COMPONENTS below would then turn an optional, disabled web
+# build into a hard Boost.Coroutine/Context requirement and fail configure.
 set(_nscp_extra_boost_components)
-if(NSCP_WEB_BACKEND STREQUAL "beast")
+if(NSCP_WEB_BACKEND STREQUAL "beast" AND NSCP_MONGOOSE_AVAILABLE)
     list(APPEND _nscp_extra_boost_components coroutine context)
 endif()
 
