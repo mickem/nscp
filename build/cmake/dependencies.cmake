@@ -86,38 +86,46 @@ set(NSCP_WEB_BACKEND
 )
 set_property(CACHE NSCP_WEB_BACKEND PROPERTY STRINGS mongoose beast)
 
+# Decide whether the nscp_mongoose web library can be built. It is only
+# built when the selected backend's dependencies are satisfied:
+#   mongoose -> the vendored mongoose source is found
+#   beast    -> OpenSSL is available (ServerBeastImpl includes Boost.Asio
+#               SSL headers, which need OpenSSL headers/libs at compile time
+#               even when TLS is not enabled at runtime)
+# When they are not, we skip building nscp_mongoose rather than failing the
+# whole configure; modules/WEBServer/CMakeLists.txt raises a targeted error
+# if it is asked to build without the library.
+set(NSCP_MONGOOSE_AVAILABLE FALSE)
 if(NSCP_WEB_BACKEND STREQUAL "mongoose")
     find_package(Mongoose)
-    # Surface a clear error here instead of letting MONGOOSE_INCLUDE_DIR-NOTFOUND
-    # propagate into source lists (`${MONGOOSE_INCLUDE_DIR}/mongoose.c`), which
-    # otherwise fails much later with a cryptic "Cannot find source file".
-    if(NOT MONGOOSE_FOUND)
+    if(MONGOOSE_FOUND)
+        set(NSCP_MONGOOSE_AVAILABLE TRUE)
+    else()
         message(
-            FATAL_ERROR
-            "NSCP_WEB_BACKEND=mongoose requires the vendored mongoose source.\n"
-            "Either set MONGOOSE_SOURCE_DIR (see build.md), or switch to the\n"
-            "Beast backend with -DNSCP_WEB_BACKEND=beast (the default on Linux\n"
-            "CI builds)."
+            STATUS
+            "NSCP_WEB_BACKEND=mongoose but the vendored mongoose source was not "
+            "found; nscp_mongoose (and the WEBServer module) will not be built. "
+            "Set MONGOOSE_SOURCE_DIR (see build.md), or switch to the Beast "
+            "backend with -DNSCP_WEB_BACKEND=beast (the default on Linux CI "
+            "builds)."
         )
     endif()
 elseif(NSCP_WEB_BACKEND STREQUAL "beast")
     # Beast is header-only; the Boost components (coroutine + context)
     # needed by ServerBeastImpl are added below.
-    # ServerBeastImpl also includes Boost.Asio SSL headers, which require
-    # OpenSSL headers/libs at compile time even when TLS is not enabled at
-    # runtime. Fail during configure instead of producing a later compile
-    # error from missing openssl/ssl.h or unresolved SSL symbols.
-    if(NOT OPENSSL_FOUND)
+    if(OPENSSL_FOUND)
+        set(NSCP_MONGOOSE_AVAILABLE TRUE)
+        message(STATUS "WEB backend: Boost.Beast (mongoose download skipped)")
+    else()
         message(
-            FATAL_ERROR
-            "NSCP_WEB_BACKEND=beast requires OpenSSL.\n"
-            "ServerBeastImpl includes Boost.Asio SSL headers, so OpenSSL must\n"
-            "be available at configure/build time even if TLS is not enabled\n"
-            "at runtime.\n"
+            STATUS
+            "NSCP_WEB_BACKEND=beast but OpenSSL was not found; nscp_mongoose "
+            "(and the WEBServer module) will not be built. ServerBeastImpl "
+            "includes Boost.Asio SSL headers, so OpenSSL must be available at "
+            "configure/build time even if TLS is not enabled at runtime. "
             "Install/configure OpenSSL, or switch to -DNSCP_WEB_BACKEND=mongoose."
         )
     endif()
-    message(STATUS "WEB backend: Boost.Beast (mongoose download skipped)")
 else()
     message(FATAL_ERROR "Unknown NSCP_WEB_BACKEND='${NSCP_WEB_BACKEND}' (expected mongoose | beast)")
 endif()
@@ -132,8 +140,14 @@ endif()
 # unused work — and would force the package list (libboost-coroutine,
 # libboost-context on Debian; analogous on RPM) on environments that
 # only ever build the mongoose backend (typically Windows).
+#
+# Gate on NSCP_MONGOOSE_AVAILABLE too: when the Beast backend is selected but
+# its dependencies are missing (e.g. OpenSSL not found) the web library is
+# skipped, so ServerBeastImpl is never compiled. Requesting coroutine/context
+# as *required* COMPONENTS below would then turn an optional, disabled web
+# build into a hard Boost.Coroutine/Context requirement and fail configure.
 set(_nscp_extra_boost_components)
-if(NSCP_WEB_BACKEND STREQUAL "beast")
+if(NSCP_WEB_BACKEND STREQUAL "beast" AND NSCP_MONGOOSE_AVAILABLE)
     list(APPEND _nscp_extra_boost_components coroutine context)
 endif()
 

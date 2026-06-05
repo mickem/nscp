@@ -4,6 +4,22 @@ set(TARGET WEBServer)
 
 project(${TARGET})
 
+# WEBServer links against nscp_mongoose, which is only built when the selected
+# web backend's dependencies are satisfied (see NSCP_MONGOOSE_AVAILABLE in
+# build/cmake/dependencies.cmake). Fail with a clear message here instead of a
+# cryptic "target nscp_mongoose not found" later. Disable this module with
+# -DBUILD_MODULE_WEBServer=OFF if you cannot provide the backend.
+if(NOT TARGET nscp_mongoose)
+    message(
+        FATAL_ERROR
+        "WEBServer requires the nscp_mongoose library, which was not built "
+        "because the NSCP_WEB_BACKEND='${NSCP_WEB_BACKEND}' web backend's "
+        "dependencies are not satisfied. Provide the backend dependencies "
+        "(mongoose source, or OpenSSL for beast), switch NSCP_WEB_BACKEND, "
+        "or disable this module with -DBUILD_MODULE_WEBServer=OFF."
+    )
+endif()
+
 CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRCS

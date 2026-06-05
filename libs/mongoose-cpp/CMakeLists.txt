@@ -1,6 +1,19 @@
 cmake_minimum_required(VERSION 3.10)
 project(nscp_mongoose)
 
+# Only build the library when the selected web backend's dependencies are
+# satisfied (see NSCP_MONGOOSE_AVAILABLE in build/cmake/dependencies.cmake).
+# When they are not, skip the target entirely; the WEBServer module raises a
+# targeted error if it is asked to build without it.
+if(NOT NSCP_MONGOOSE_AVAILABLE)
+    message(
+        STATUS
+        "Skipping nscp_mongoose: NSCP_WEB_BACKEND='${NSCP_WEB_BACKEND}' "
+        "dependencies are not satisfied."
+    )
+    return()
+endif()
+
 # Backend-independent sources.
 set(SOURCES
     Controller.cpp
@@ -24,8 +37,10 @@ set(SOURCES
 if(NSCP_WEB_BACKEND STREQUAL "beast")
     list(APPEND SOURCES ServerBeastImpl.cpp)
     add_definitions(-DNSCP_WEB_BACKEND_BEAST)
-else()
+elseif(NSCP_WEB_BACKEND STREQUAL "mongoose")
     list(APPEND SOURCES ServerMongooseImpl.cpp ${MONGOOSE_INCLUDE_DIR}/mongoose.c)
+else()
+    message(FATAL_ERROR "Unknown NSCP_WEB_BACKEND='${NSCP_WEB_BACKEND}' (expected mongoose | beast)")
 endif()
 
 if(WIN32)
