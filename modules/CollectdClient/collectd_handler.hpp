@@ -58,18 +58,10 @@ struct options_reader_impl : public client::options_reader_interface {
   }
 
   void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
-    // add_ssl_options(desc, data);
-
     // clang-format off
     desc.add_options()
-      ("payload-length,l", po::value<unsigned int>()->notifier([&data] (auto value) { data.set_int_data("payload length", value); }),
-      "Length of payload (has to be same as on the server)")
-      ("buffer-length", po::value<unsigned int>()->notifier([&data] (auto value) { data.set_int_data("payload length", value); }),
-      "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
-      ("password", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("password", value); }),
-      "Password")
-      ("time-offset", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("time offset", value); }),
-      "")
+      ("interval", po::value<unsigned int>()->notifier([&data] (auto value) { data.set_int_data("interval", value); }),
+      "The interval (in seconds) reported to collectd for these metrics.")
     ;
     // clang-format on
   }

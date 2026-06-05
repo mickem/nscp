@@ -25,13 +25,20 @@
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 
+#include <memory>
+
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
+
+namespace collectd_client {
+struct collectd_client_handler;
+}
 
 class CollectdClient : public nscapi::impl::simple_plugin {
  private:
   std::string hostname_;
 
+  std::shared_ptr<collectd_client::collectd_client_handler> handler_;
   client::configuration client_;
 
  public:
