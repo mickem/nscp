@@ -60,6 +60,10 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   ;
   // clang-format on
 
+  // Ensure "now" is current for age/relative-date fields. The where-engine only
+  // resets it when it parses an expression, so a filter-less scan would
+  // otherwise see now == 0 and compute a nonsensical (negative) age.
+  parsers::where::constants::reset();
   context.now = parsers::where::constants::get_now();
 
   if (!filter_helper.parse_options()) return;
