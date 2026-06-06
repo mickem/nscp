@@ -28,17 +28,23 @@ disk_io_check::disks_type collector_thread::get_disk_io() { return disk_io_.get(
 disk_free_check::drives_type collector_thread::get_disk_free() { return disk_free_.get(); }
 
 bool collector_thread::start() {
-  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+  {
+    const boost::lock_guard<boost::mutex> lock(stop_mutex_);
+    stop_requested_ = false;
+  }
   thread_ = std::make_shared<boost::thread>([this]() { this->thread_proc(); });
   return true;
 }
 
 bool collector_thread::stop() {
-  if (stop_event_ != nullptr) {
-    SetEvent(stop_event_);
-    if (thread_) thread_->join();
-    CloseHandle(stop_event_);
-    stop_event_ = nullptr;
+  {
+    const boost::lock_guard<boost::mutex> lock(stop_mutex_);
+    stop_requested_ = true;
+  }
+  stop_cv_.notify_all();
+  if (thread_) {
+    thread_->join();
+    thread_.reset();
   }
   return true;
 }
@@ -73,8 +79,7 @@ void collector_thread::thread_proc() {
     }
   }
 
-  DWORD wait_status = 0;
-  do {
+  for (;;) {
     if (!disable_disk_io) {
       try {
         disk_io_.fetch();
@@ -95,5 +100,10 @@ void collector_thread::thread_proc() {
         NSC_LOG_ERROR("Failed to get disk free metrics");
       }
     }
-  } while ((wait_status = WaitForSingleObject(stop_event_, collection_interval * 1000)) == WAIT_TIMEOUT);
+    // Sleep until the next interval, waking early if stop() was requested.
+    boost::unique_lock<boost::mutex> lock(stop_mutex_);
+    if (stop_cv_.timed_wait(lock, boost::posix_time::seconds(collection_interval), [this]() { return stop_requested_; })) {
+      break;  // stop requested
+    }
+  }
 }

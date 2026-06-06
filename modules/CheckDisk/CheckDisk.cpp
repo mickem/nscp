@@ -127,6 +127,13 @@ void CheckDisk::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
 }
 
 void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+#ifndef WIN32
+  // Deprecated legacy command. Its argument-shim path is not supported on this
+  // platform; the modern check_drivesize covers all of its functionality.
+  return nscapi::protobuf::functions::set_response_bad(*response,
+                                                       "checkDriveSize is a deprecated legacy command and is not supported on this platform; use "
+                                                       "check_drivesize instead.");
+#endif
   boost::program_options::options_description desc;
 
   std::vector<std::string> times;
@@ -192,6 +199,12 @@ void CheckDisk::check_drivesize(const PB::Commands::QueryRequestMessage::Request
 }
 
 void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+#ifndef WIN32
+  // Deprecated legacy command. Its argument-shim path is not supported on this
+  // platform; the modern check_files covers all of its functionality.
+  return nscapi::protobuf::functions::set_response_bad(
+      *response, "checkFiles is a deprecated legacy command and is not supported on this platform; use check_files instead.");
+#endif
   boost::program_options::options_description desc;
 
   std::vector<std::string> times;
