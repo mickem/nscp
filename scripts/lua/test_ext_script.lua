@@ -1,9 +1,9 @@
--- Protobuf-free Lua port of scripts/python/test_external_script.py (Linux paths).
+-- Protobuf-free Lua port of scripts/python/test_external_script.py.
 --
 -- Drives the CheckExternalScripts module over the core via simple_query(): it
--- configures a set of shell-script commands (scripts/check_ok.sh and
--- scripts/check_test.sh), then runs them with and without arguments and asserts
--- the returned state + message. This exercises the external-script argv-isolation
+-- configures a set of external-script commands (check_ok and check_test, as
+-- .bat on Windows / .sh on POSIX), then runs them with and without arguments
+-- and asserts the returned state + message. This exercises the argv-isolation
 -- and "allow arguments"/"allow nasty characters" gating - a good CheckExternalScripts
 -- target under the sanitizer build. No protobuf, no network.
 --
@@ -11,12 +11,24 @@
 -- protobuf-based NRPE test and did not exercise external scripts at all.
 local test = require("test_helper")
 
--- check_test.sh, when invoked with $1 == "LONG", prints the header line followed
--- by 11 identical digit lines. tes_sca_sh maps user arg 1 -> $ARG1$ and leaves
--- $ARG2$/$ARG3$ unsubstituted (argv-isolation, 0.13+), so the header reads
--- "(LONG $ARG2$ $ARG3$)".
+-- Pick the platform's external script flavour: a batch file on Windows, a shell
+-- script on POSIX. package.config's first char is the path separator Lua was
+-- built with ('\\' on Windows, '/' elsewhere) - the idiomatic pure-Lua OS probe,
+-- already used by default_check_mk.lua. Mirrors the os.name branch in the Python
+-- reference test (scripts/python/test_external_script.py).
+local IS_WIN = (package.config:sub(1, 1) == '\\')
+local function script_path(name)
+	if IS_WIN then return 'scripts\\' .. name .. '.bat' end
+	return 'scripts/' .. name .. '.sh'
+end
+
+-- check_test.{sh,bat}, when invoked with $1 == "LONG", prints the header line
+-- followed by 11 identical digit lines. tes_sca_sh maps user arg 1 -> $ARG1$ and
+-- leaves $ARG2$/$ARG3$ unsubstituted (argv-isolation, 0.13+), so the header reads
+-- '(LONG "$ARG2$" "$ARG3$")'. The quotes survive on Windows; on POSIX normalise()
+-- strips them (see below) so the same expected string works for both.
 local DIGITS = '0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789'
-local LONG_OUTPUT = 'Test arguments are: (LONG $ARG2$ $ARG3$)'
+local LONG_OUTPUT = 'Test arguments are: (LONG "$ARG2$" "$ARG3$")'
 for _ = 1, 11 do LONG_OUTPUT = LONG_OUTPUT .. '\n' .. DIGITS end
 
 local ExtScriptTest = {}
@@ -27,7 +39,12 @@ local ExtScriptTest = {}
 --     consumes before argv is built (so they never reach the script);
 --   * collapse CR/LF and doubled newlines.
 local function normalise(s, cleanup)
-	if cleanup then s = s:gsub('"', '') end
+	-- On POSIX the double quotes around `"$ARGn$"` in the operator template are
+	-- consumed by the template tokeniser before argv is built, so they never
+	-- reach the script - strip them from the expected message to match. On
+	-- Windows NSCP re-quotes each argv element when rebuilding the command line,
+	-- so cmd's `%n` echoes them back verbatim and the quotes must be kept.
+	if cleanup and not IS_WIN then s = s:gsub('"', '') end
 	s = s:gsub('\r', '\n')
 	s = s:gsub('\n\n', '\n')
 	return s
@@ -44,12 +61,12 @@ function ExtScriptTest:install(arguments)
 	conf:set_string('/settings/test_external_scripts', 'allow nasty characters', 'false')
 
 	local s = '/settings/test_external_scripts/scripts'
-	conf:set_string(s, 'tes_UPPER_lower', 'scripts/check_ok.sh')
-	conf:set_string(s, 'tes_script_ok', 'scripts/check_ok.sh')
-	conf:set_string(s, 'tes_script_sh', 'scripts/check_test.sh')
-	conf:set_string(s, 'tes_script_test', 'scripts/check_test.sh')
-	conf:set_string(s, 'tes_sa_test', 'scripts/check_test.sh "ARG1" "ARG 2" "A R G 3"')
-	conf:set_string(s, 'tes_sca_sh', 'scripts/check_test.sh $ARG1$ "$ARG2$" "$ARG3$"')
+	conf:set_string(s, 'tes_UPPER_lower', script_path('check_ok'))
+	conf:set_string(s, 'tes_script_ok', script_path('check_ok'))
+	conf:set_string(s, 'tes_script_sh', script_path('check_test'))
+	conf:set_string(s, 'tes_script_test', script_path('check_test'))
+	conf:set_string(s, 'tes_sa_test', script_path('check_test') .. ' "ARG1" "ARG 2" "A R G 3"')
+	conf:set_string(s, 'tes_sca_sh', script_path('check_test') .. ' $ARG1$ "$ARG2$" "$ARG3$"')
 
 	local a = '/settings/test_external_scripts/alias'
 	conf:set_string(a, 'tes_alias_ok', 'tes_script_test')
@@ -118,12 +135,19 @@ function ExtScriptTest:run()
 	conf:set_string('/settings/test_external_scripts', 'allow nasty characters', 'true')
 	core:reload('test_external_scripts')
 
-	-- Nasty arguments allowed: each "$ \ \" is a single argv element under
-	-- argv-isolation, printed verbatim with no shell mangling.
+	-- Nasty arguments allowed: each nasty arg is a single argv element under
+	-- argv-isolation, printed verbatim with no shell mangling. cmd echoes the
+	-- re-quoted element (quotes kept); bash strips the quotes - hence two
+	-- platform variants, mirroring the Python reference test.
 	result = test.TestResult:new{message = 'Nasty Arguments allowed'}
 	sub = test.TestResult:new{message = 'sh'}
-	sub:add(self:do_one_test('tes_sca_sh', 'ok', 'Test arguments are: (OK $ \\ \\ $ \\ \\)',
-		{'OK', '$ \\ \\', '$ \\ \\'}, false))
+	if IS_WIN then
+		sub:add(self:do_one_test('tes_sca_sh', 'ok', 'Test arguments are: (OK "$$$ \\ \\" "$$$ \\ \\")',
+			{'OK', '$$$ \\ \\', '$$$ \\ \\'}, false))
+	else
+		sub:add(self:do_one_test('tes_sca_sh', 'ok', 'Test arguments are: (OK $ \\ \\ $ \\ \\)',
+			{'OK', '$ \\ \\', '$ \\ \\'}, false))
+	end
 	result:add(sub)
 	ret:add(result)
 
