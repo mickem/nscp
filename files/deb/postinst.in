@@ -10,9 +10,11 @@ if [ "$1" = "configure" ]; then
   	adduser nsclient nsclient
   fi
 
-    # Create log folder if it doesn't exist (redundancy check)
-    mkdir -p /var/log/nsclient
-    chown nsclient:nsclient /var/log/nsclient
+    # Create log + state folders if they don't exist (redundancy check)
+    mkdir -p @NSCP_LOGDIR@
+    chown nsclient:nsclient @NSCP_LOGDIR@
+    mkdir -p @NSCP_PKGSTATEDIR@
+    chown nsclient:nsclient @NSCP_PKGSTATEDIR@
 
     # Reload systemd to recognize the new service
     if command -v systemctl >/dev/null 2>&1; then

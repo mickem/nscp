@@ -96,10 +96,21 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
 #ifdef WIN32
       {"ca-path", "${certificate-path}/windows-ca.pem"},
 #else
+      // ca-path stays a literal absolute path: the system CA bundle belongs to
+      // the distro, lives at /etc/ssl/... regardless of our install prefix, and
+      // must NOT track ${etc}/NSCP_SYSCONFDIR (a --prefix=/usr/local build still
+      // reads /etc/ssl/certs/..., not /usr/local/etc/ssl/...).
       {"ca-path", "/etc/ssl/certs/ca-certificates.crt"},
       {"shared-path", UNIX_SHARED_PATH_FOLDER},
       {"data-path", UNIX_DATA_PATH_FOLDER},
-      {"etc", "/etc"},
+      // ${etc} tracks this build's config root (NSCP_SYSCONFDIR) so user
+      // ${etc}/... includes follow the prefix; see linux-prefix-builds.md.
+      {"etc", ETC_FOLDER},
+      // boot.ini's default location, expressed as a token off ${etc} so it
+      // both tracks the prefix and stays CLI-overridable
+      // (--path-override boot-conf=/path/to/boot.ini). Expands cleanly with no
+      // self-reference; the kMaxExpandDepth guard catches a misconfigured cycle.
+      {"boot-conf", "${etc}/nsclient/boot.ini"},
 #endif
   };
 
@@ -116,7 +127,12 @@ void nsclient::core::path_manager::add_overrides(paths_type overrides) {
   }
 }
 
+void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) { cli_overrides_ = std::move(overrides); }
+
 std::string nsclient::core::path_manager::getFolder(const std::string &key) {
+  // Precedence: CLI --path-override > boot.ini [paths] > compile-time defaults.
+  const auto cli = cli_overrides_.find(key);
+  if (cli != cli_overrides_.end()) return cli->second;
   const auto it = overrides_.find(key);
   if (it != overrides_.end()) return it->second;
   return get_path_for_key(key);

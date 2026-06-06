@@ -8,9 +8,11 @@ if [ "$1" -eq 1 ]; then
         useradd --system --no-create-home --shell /sbin/nologin nsclient
     fi
 
-    # Create log folder if it doesn't exist
-    mkdir -p /var/log/nsclient
-    chown nsclient:nsclient /var/log/nsclient
+    # Create log + state folders if they don't exist
+    mkdir -p @NSCP_LOGDIR@
+    chown nsclient:nsclient @NSCP_LOGDIR@
+    mkdir -p @NSCP_PKGSTATEDIR@
+    chown nsclient:nsclient @NSCP_PKGSTATEDIR@
 
     if command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload

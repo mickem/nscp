@@ -1,5 +1,6 @@
 #include "path_manager.hpp"
 
+#include <config.h>
 #include <gtest/gtest.h>
 
 #include <memory>
@@ -87,8 +88,47 @@ TEST_F(PathManagerTest, GetFolderKeysWindows) {
   }
 }
 #else
-TEST_F(PathManagerTest, GetFolderKeysLinux) { EXPECT_EQ(pm->getFolder("etc"), "/etc"); }
+// ${etc} tracks NSCP_SYSCONFDIR (ETC_FOLDER) so it follows CMAKE_INSTALL_PREFIX
+// rather than being a literal /etc.
+TEST_F(PathManagerTest, GetFolderKeysLinux) { EXPECT_EQ(pm->getFolder("etc"), ETC_FOLDER); }
+
+// boot-conf is the CLI-overridable token for boot.ini's location. Its default
+// chains off ${etc} and must expand to a clean absolute path (no leftover
+// ${...}) ending in nsclient/boot.ini.
+TEST_F(PathManagerTest, BootConfDefaultExpandsCleanly) {
+  const std::string expanded = pm->expand_path("${boot-conf}");
+  EXPECT_EQ(expanded.find("${"), std::string::npos);
+  EXPECT_NE(expanded.find("nsclient/boot.ini"), std::string::npos);
+  EXPECT_EQ(expanded, std::string(ETC_FOLDER) + "/nsclient/boot.ini");
+}
+
+// A CLI --path-override can relocate boot-conf, which is what lets an operator
+// run a binary built for one prefix against a config laid out for another.
+TEST_F(PathManagerTest, CliOverrideRelocatesBootConf) {
+  pm->set_cli_overrides({{"boot-conf", "/opt/custom/boot.ini"}});
+  EXPECT_EQ(pm->expand_path("${boot-conf}"), "/opt/custom/boot.ini");
+}
 #endif
+
+// set_cli_overrides — the highest-precedence layer (CLI --path-override). It
+// must win over boot.ini's [paths] (set_overrides) and the compile-time
+// defaults, regardless of the order the two layers are installed in.
+
+TEST_F(PathManagerTest, CliOverridesBeatBootIniAndDefaults) {
+  pm->set_overrides({{"certificate-path", "/from-boot-ini"}});
+  pm->set_cli_overrides({{"certificate-path", "/from-cli"}, {"module-path", "/cli-modules"}});
+
+  EXPECT_EQ(pm->getFolder("certificate-path"), "/from-cli");  // CLI beats boot.ini
+  EXPECT_EQ(pm->getFolder("module-path"), "/cli-modules");    // CLI beats default
+}
+
+TEST_F(PathManagerTest, CliOverridesWinIrrespectiveOfApplyOrder) {
+  // boot.ini's [paths] are applied after the CLI layer in practice (init_settings
+  // runs after set_cli_overrides); the CLI layer must still win.
+  pm->set_cli_overrides({{"certificate-path", "/from-cli"}});
+  pm->set_overrides({{"certificate-path", "/from-boot-ini"}});
+  EXPECT_EQ(pm->getFolder("certificate-path"), "/from-cli");
+}
 
 // set_overrides — the override-first behaviour Phase 1.5 added. Overrides
 // come from boot.ini's [paths] section; once installed, getFolder must

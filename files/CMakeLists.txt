@@ -21,10 +21,12 @@ if(NOT WIN32)
         COMPONENT configs
         RENAME nsclient.ini
     )
-    file(MAKE_DIRECTORY ${LOG_TARGET_FOLDER})
+    # ${LOG_TARGET_FOLDER} is the full log dir (e.g. /var/log/nsclient). The
+    # trailing slash on the source copies the *contents* of files/nsclient/
+    # into it, so the staged tree keeps <logdir>/nsclient.log.
     install(
         DIRECTORY
-            "nsclient"
+            "nsclient/"
         DESTINATION ${LOG_TARGET_FOLDER}
         DIRECTORY_PERMISSIONS
             OWNER_WRITE
@@ -36,10 +38,17 @@ if(NOT WIN32)
             WORLD_EXECUTE
         COMPONENT logs
     )
+    # Template the unit so WorkingDirectory/PIDFile/ExecStart track the chosen
+    # install prefix (NSCP_* values) instead of being baked to /usr.
+    configure_file(
+        nsclient.service.in
+        ${PROJECT_BINARY_DIR}/nsclient.service
+        @ONLY
+    )
     install(
         FILES
-            nsclient.service
-        DESTINATION lib/systemd/system
+            ${PROJECT_BINARY_DIR}/nsclient.service
+        DESTINATION ${SYSTEMD_TARGET_FOLDER}
         COMPONENT runtime
     )
 endif()

@@ -66,6 +66,10 @@
 #ifndef WIN32
 #define UNIX_SHARED_PATH_FOLDER "@UNIX_SHARED_PATH_FOLDER@"
 #define UNIX_DATA_PATH_FOLDER "@UNIX_DATA_PATH_FOLDER@"
+// Config root for this build (NSCP_SYSCONFDIR): tracks CMAKE_INSTALL_PREFIX,
+// e.g. /etc for --prefix=/usr, /usr/local/etc for --prefix=/usr/local. Backs
+// the ${etc} path token. NOT the system CA location - see ca-path.
+#define ETC_FOLDER "@CONFIG_ETC_FOLDER@"
 #endif
 
 #define NASTY_METACHARS "|`&><'\"\\[]{}" /* This may need to be modified for windows directory seperator */

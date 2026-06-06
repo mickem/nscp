@@ -111,6 +111,7 @@ jobs:
           -DBUILD_VERSION=${{ inputs.version }} \
           -DCPACK_GENERATOR=DEB \
           -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/usr \
           -DNSCP_WEB_BACKEND=beast \
           -DNSCP_BOOST_PYTHON_VERSION=${{ matrix.python_version }} \
           -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
