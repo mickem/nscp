@@ -21,18 +21,24 @@
 
 #include <boost/thread/shared_mutex.hpp>
 #include <list>
+#include <map>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 #include <string>
+#include <vector>
+#ifdef WIN32
 #include <win/wmi/wmi_query.hpp>
+#endif
 
 namespace disk_io_check {
 
+#ifdef WIN32
 struct helper {
   // Win32_PerfFormattedData_PerfDisk_LogicalDisk provides pre-computed per-second rates.
   static std::string perf_query;
   static std::string perf_namespace;
 };
+#endif
 
 struct disk_io {
   std::string name;
@@ -57,7 +63,9 @@ struct disk_io {
   disk_io(const disk_io &other) = default;
   disk_io &operator=(const disk_io &other) = default;
 
+#ifdef WIN32
   void read_wmi(const wmi_impl::row &r);
+#endif
   void build_metrics(PB::Metrics::MetricsBundle *section) const;
 
   std::string get_name() const { return name; }
@@ -90,7 +98,14 @@ class disk_io_data {
   void set(const disks_type &disks);
 
  private:
+#ifdef WIN32
   static disks_type query_perf();
+#else
+  // Previous raw /proc/diskstats counters (per device) + timestamp, used to
+  // compute per-second rates from the cumulative counters (Unix).
+  std::map<std::string, std::vector<unsigned long long>> prev_raw_;
+  long long prev_time_ms_ = 0;
+#endif
 };
 
 namespace check {

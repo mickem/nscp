@@ -240,7 +240,15 @@ int lua::core_wrapper::log(lua_State *L) {
   if (lua_instance.size() < 2) return lua_instance.error("Incorrect syntax: log(<level>, <message>);");
   const std::string message = lua_instance.pop_string();
   const std::string level = lua_instance.pop_string();
-  get_core(lua_instance)->log(nscapi::logging::parse(level), __FILE__, __LINE__, message);
+  // Report the location of the log() call in the Lua script rather than this C++ file.
+  std::string file = __FILE__;
+  int line = __LINE__;
+  lua_Debug ar;
+  if (lua_getstack(L, 1, &ar) && lua_getinfo(L, "Sl", &ar)) {
+    file = ar.short_src;
+    line = ar.currentline;
+  }
+  get_core(lua_instance)->log(nscapi::logging::parse(level), file, line, message);
   return 0;
 }
 

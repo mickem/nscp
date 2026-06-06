@@ -72,6 +72,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   if (!filter_helper.build_filter(filter)) return;
 
+  parsers::where::constants::reset();
   const long long now = parsers::where::constants::get_now();
   const std::shared_ptr<file_filter::filter_obj> info = file_finder::stat_single_file(file_path, now);
   if (!info) {

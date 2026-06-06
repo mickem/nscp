@@ -31,7 +31,7 @@ namespace file_finder {
 bool is_directory(unsigned long dwAttr);
 
 struct scanner_context {
-  bool debug;
+  bool debug = false;
   std::string pattern;
   long long now;
   int max_depth;

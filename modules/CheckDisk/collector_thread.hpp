@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <boost/thread/condition_variable.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <memory>
 #include <nscapi/nscapi_core_wrapper.hpp>
@@ -27,7 +29,12 @@
 
 class collector_thread {
   std::shared_ptr<boost::thread> thread_;
-  HANDLE stop_event_;
+  // Portable stop signalling (replaces the Win32 event so the collector is
+  // cross-platform): set the flag under the mutex and notify the CV; the
+  // worker waits on the CV with a timeout equal to the collection interval.
+  boost::mutex stop_mutex_;
+  boost::condition_variable stop_cv_;
+  bool stop_requested_;
   int plugin_id_;
   nscapi::core_wrapper *core_;
 
@@ -38,7 +45,7 @@ class collector_thread {
   int collection_interval;
   std::string disable_;
 
-  collector_thread(nscapi::core_wrapper *core, const int plugin_id) : stop_event_(nullptr), plugin_id_(plugin_id), core_(core), collection_interval(10) {}
+  collector_thread(nscapi::core_wrapper *core, const int plugin_id) : stop_requested_(false), plugin_id_(plugin_id), core_(core), collection_interval(10) {}
 
   disk_io_check::disks_type get_disk_io();
   disk_free_check::drives_type get_disk_free();

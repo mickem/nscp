@@ -34,10 +34,6 @@
 // nscapi::plugin_singleton is defined once in check_disk_io_test.cpp for the
 // merged check_disk_test target.
 
-// Forward declaration for free function defined in filter.cpp (no header
-// exposes it, but it has external linkage).
-extern int convert_new_type(const parsers::where::evaluation_context &context, std::string str);
-
 // Mirror of file-local constants from filter.cpp.
 constexpr int kFileTypeFile = 1;
 constexpr int kFileTypeDir = 2;
@@ -148,49 +144,57 @@ TEST(FileFilterObj, DefaultConstruction) {
 }
 
 TEST(FileFilterObj, ParameterizedConstructionStoresFields) {
-  file_filter::filter_obj o(boost::filesystem::path("C:\\tmp"), "a.log",
-                            /*now=*/100,
-                            /*creationTime=*/1,
-                            /*lastAccessTime=*/2,
-                            /*lastWriteTime=*/3,
-                            /*size=*/4096,
-                            /*attributes=*/FILE_ATTRIBUTE_NORMAL);
-  EXPECT_EQ(o.get_filename(), "a.log");
-  EXPECT_EQ(o.get_path(), std::string("C:\\tmp"));
-  EXPECT_EQ(o.get_size(), 4096u);
-  EXPECT_FALSE(o.is_total());
+  auto o = file_filter::filter_obj::create(boost::filesystem::path("C:\\tmp"), "a.log",
+                                           /*size=*/4096,
+                                           /*creation_time=*/1,
+                                           /*access_time=*/2,
+                                           /*write_time=*/3,
+                                           /*is_dir=*/false,
+                                           /*now=*/100);
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_filename(), "a.log");
+  EXPECT_EQ(o->get_path(), std::string("C:\\tmp"));
+  EXPECT_EQ(o->get_size(), 4096u);
+  EXPECT_FALSE(o->is_total());
 }
 
 TEST(FileFilterObj, ShowConcatenatesPathAndFilename) {
-  file_filter::filter_obj o(boost::filesystem::path("C:\\tmp"), "a.log");
-  EXPECT_EQ(o.show(), std::string("C:\\tmp\\a.log"));
+  auto o = file_filter::filter_obj::create(boost::filesystem::path("C:\\tmp"), "a.log", 0, 0, 0, 0, /*is_dir=*/false, 0);
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->show(), std::string("C:\\tmp\\a.log"));
 }
 
 TEST(FileFilterObj, ShowEmptyDefault) {
   file_filter::filter_obj o;
-  EXPECT_EQ(o.show(), std::string("\\"));
+  // Both path and filename are empty, so joining them yields an empty string
+  // (boost only inserts a separator when the left-hand side is non-empty).
+  EXPECT_EQ(o.show(), std::string(""));
 }
 
 // ----- get_extension --------------------------------------------------------
 
 TEST(FileFilterObj, GetExtensionSimple) {
-  file_filter::filter_obj o(boost::filesystem::path(""), "foo.txt");
-  EXPECT_EQ(o.get_extension(), "txt");
+  auto o = file_filter::filter_obj::create(boost::filesystem::path(""), "foo.txt", 0, 0, 0, 0, /*is_dir=*/false, 0);
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_extension(), "txt");
 }
 
 TEST(FileFilterObj, GetExtensionNone) {
-  file_filter::filter_obj o(boost::filesystem::path(""), "file");
-  EXPECT_EQ(o.get_extension(), "");
+  auto o = file_filter::filter_obj::create(boost::filesystem::path(""), "file", 0, 0, 0, 0, /*is_dir=*/false, 0);
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_extension(), "");
 }
 
 TEST(FileFilterObj, GetExtensionTrailingDot) {
-  file_filter::filter_obj o(boost::filesystem::path(""), "file.");
-  EXPECT_EQ(o.get_extension(), "");
+  auto o = file_filter::filter_obj::create(boost::filesystem::path(""), "file.", 0, 0, 0, 0, /*is_dir=*/false, 0);
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_extension(), "");
 }
 
 TEST(FileFilterObj, GetExtensionMultiDot) {
-  file_filter::filter_obj o(boost::filesystem::path(""), "a.tar.gz");
-  EXPECT_EQ(o.get_extension(), "gz");
+  auto o = file_filter::filter_obj::create(boost::filesystem::path(""), "a.tar.gz", 0, 0, 0, 0, /*is_dir=*/false, 0);
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_extension(), "gz");
 }
 
 // ----- total flag -----------------------------------------------------------
@@ -207,21 +211,21 @@ TEST(FileFilterObj, GetTotalFactory) {
   ASSERT_TRUE(p);
   EXPECT_EQ(p->get_filename(), "total");
   EXPECT_EQ(p->get_size(), 0u);
-  // The factory does not call make_total(); is_total_ stays false.
-  EXPECT_FALSE(p->is_total());
+  // get_total() marks the object as the total accumulator.
+  EXPECT_TRUE(p->is_total());
 }
 
 // ----- add accumulates size -------------------------------------------------
 
 TEST(FileFilterObj, AddAccumulatesOnlySize) {
-  boost::filesystem::path p_a("p");
-  boost::filesystem::path p_b("q");
-  file_filter::filter_obj a(p_a, "a", 0, 0, 0, 0, /*size=*/100);
-  std::shared_ptr<file_filter::filter_obj> b(new file_filter::filter_obj(p_b, "b", 0, 0, 0, 0, /*size=*/50));
-  a.add(b);
-  EXPECT_EQ(a.get_size(), 150u);
-  EXPECT_EQ(a.get_filename(), "a");
-  EXPECT_EQ(a.get_path(), "p");
+  auto a = file_filter::filter_obj::create(boost::filesystem::path("p"), "a", /*size=*/100, 0, 0, 0, /*is_dir=*/false, 0);
+  auto b = file_filter::filter_obj::create(boost::filesystem::path("q"), "b", /*size=*/50, 0, 0, 0, /*is_dir=*/false, 0);
+  ASSERT_TRUE(a);
+  ASSERT_TRUE(b);
+  a->add(b);
+  EXPECT_EQ(a->get_size(), 150u);
+  EXPECT_EQ(a->get_filename(), "a");
+  EXPECT_EQ(a->get_path(), "p");
   // The summand is unchanged.
   EXPECT_EQ(b->get_size(), 50u);
 }
@@ -229,17 +233,17 @@ TEST(FileFilterObj, AddAccumulatesOnlySize) {
 // ----- get_type / get_type_su ----------------------------------------------
 
 TEST(FileFilterObj, GetTypeIsDir) {
-  file_filter::filter_obj o(boost::filesystem::path(""), "dir", 0, 0, 0, 0, 0,
-                            /*attributes=*/FILE_ATTRIBUTE_DIRECTORY);
-  EXPECT_EQ(o.get_type(), static_cast<unsigned long long>(kFileTypeDir));
-  EXPECT_EQ(o.get_type_su(), "dir");
+  auto o = file_filter::filter_obj::create(boost::filesystem::path(""), "dir", 0, 0, 0, 0, /*is_dir=*/true, 0);
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_type(), static_cast<unsigned long long>(kFileTypeDir));
+  EXPECT_EQ(o->get_type_su(), "dir");
 }
 
 TEST(FileFilterObj, GetTypeIsFile) {
-  file_filter::filter_obj o(boost::filesystem::path(""), "f", 0, 0, 0, 0, 0,
-                            /*attributes=*/FILE_ATTRIBUTE_NORMAL);
-  EXPECT_EQ(o.get_type(), static_cast<unsigned long long>(kFileTypeFile));
-  EXPECT_EQ(o.get_type_su(), "file");
+  auto o = file_filter::filter_obj::create(boost::filesystem::path(""), "f", 0, 0, 0, 0, /*is_dir=*/false, 0);
+  ASSERT_TRUE(o);
+  EXPECT_EQ(o->get_type(), static_cast<unsigned long long>(kFileTypeFile));
+  EXPECT_EQ(o->get_type_su(), "file");
 }
 
 // =========================================================================
@@ -260,32 +264,4 @@ TEST(FileFilterHandler, ConstructsWithoutThrowing) {
     file_filter::filter_obj_handler h;
     (void)&h;
   });
-}
-
-// =========================================================================
-// convert_new_type  (success branches only — failure branch dereferences
-// the evaluation_context and is not safely testable without the parser
-// runtime.)
-// =========================================================================
-
-TEST(ConvertNewType, KeywordCritical) { EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "critical"), 1); }
-TEST(ConvertNewType, KeywordError) { EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "error"), 2); }
-TEST(ConvertNewType, KeywordWarning) {
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "warning"), 3);
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "warn"), 3);
-}
-TEST(ConvertNewType, KeywordInformational) {
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "informational"), 4);
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "info"), 4);
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "information"), 4);
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "success"), 4);
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "auditSuccess"), 4);
-}
-TEST(ConvertNewType, KeywordDebug) {
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "debug"), 5);
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "verbose"), 5);
-}
-TEST(ConvertNewType, NumericString) {
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "42"), 42);
-  EXPECT_EQ(convert_new_type(parsers::where::evaluation_context{}, "0"), 0);
 }

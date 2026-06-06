@@ -756,6 +756,29 @@ tools/sanitizers/run.sh
 SANITIZE=thread tools/sanitizers/run.sh
 ```
 
+Positional arguments are forwarded to **ctest**, not cmake — use them to scope
+the run (e.g. `tools/sanitizers/run.sh -R collectd`). To pass extra cmake `-D`
+flags at configure time, set **`CMAKE_ARGS`** (space-separated, forwarded to the
+`cmake` configure step). This is how you select a web backend or drop a module
+whose dependencies aren't installed — e.g. if the configure aborts with
+`WEBServer requires the nscp_mongoose library` because the vendored Mongoose
+source isn't present, switch to the Beast backend (which reuses the OpenSSL the
+build already found) or disable the module:
+
+```bash
+# Use the Beast web backend instead of the (missing) Mongoose source:
+CMAKE_ARGS="-DNSCP_WEB_BACKEND=beast" SANITIZE=thread tools/sanitizers/run.sh
+
+# …or just drop a module you don't need for this run (multiple flags are fine):
+CMAKE_ARGS="-DBUILD_MODULE_WEBServer=OFF" SANITIZE=thread tools/sanitizers/run.sh
+
+# Combine with a ctest filter to skip the full build/test sweep:
+CMAKE_ARGS="-DNSCP_WEB_BACKEND=beast" SANITIZE=thread tools/sanitizers/run.sh -R collectd
+```
+
+CMake caches these, so `CMAKE_ARGS` is only needed the first time a given
+`build-<sanitizers>/` dir is configured; later runs reuse the cached values.
+
 That leaves a fully instrumented daemon at `build-address+undefined/nscp` (the
 directory is `build-${SANITIZE//,/+}`). Point the harness at it and run the
 suites as usual:
