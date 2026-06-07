@@ -42,7 +42,7 @@ jobs:
         # `sha256sum -c NSCP-Web-<version>.sha256`.
         sha256sum "${zipname}" > "${shaname}"
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-web
         path: |

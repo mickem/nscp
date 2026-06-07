@@ -154,7 +154,7 @@ jobs:
         dnf install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.rpm_arch }}.rpm
         nscp settings --load-all --list --add-defaults
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
         path: |

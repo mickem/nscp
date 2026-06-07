@@ -110,7 +110,7 @@ jobs:
           python packaging/scripts/verify_manifest_hashes.py winget dist/winget
 
       - name: Upload rendered manifests
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: winget-manifests-${{ steps.ctx.outputs.version }}
           path: dist/winget
