@@ -360,11 +360,9 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
     else(USE_STATIC_RUNTIME)
         add_library(${_TARGET} SHARED ${_SRCS})
         SET_LIBRARY_OUT_FOLDER(${_TARGET})
-        # These are package-PRIVATE libraries (see linux-prefix-builds.md): they
-        # install under NSCP_PKGLIBDIR alongside the modules, not the public
-        # libdir, and ship no public ABI. So no SOVERSION/VERSION symlink chain
-        # (dead weight + a lintian remark for a private lib). On Windows the
-        # VERSION property is harmless but equally unnecessary here.
+        # These are package-PRIVATE libraries they install under NSCP_PKGLIBDIR alongside the modules, not the public
+        # libdir, and ship no public ABI. So no SOVERSION/VERSION symlink chain (dead weight + a lintian remark for a
+        # private lib). On Windows the VERSION property is harmless but equally unnecessary here.
         #
         # $ORIGIN RPATH: the libraries depend on each other and are co-located,
         # and DT_RUNPATH is non-transitive, so each must find its siblings.

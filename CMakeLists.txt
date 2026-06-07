@@ -95,8 +95,7 @@ if(WIN32)
     endif(FOUND_ATL)
 endif()
 # On Linux/macOS CMAKE_INSTALL_PREFIX is honoured (GNU default /usr/local).
-# Distribution package builds pass -DCMAKE_INSTALL_PREFIX=/usr explicitly; see
-# docs/design/linux-prefix-builds.md and the NSCP_* layout block below.
+# Distribution package builds pass -DCMAKE_INSTALL_PREFIX=/usr explicitly;
 
 set(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/build/python")
 set(BUILD_CMAKE_FOLDER "${CMAKE_SOURCE_DIR}/build/cmake")
@@ -131,8 +130,7 @@ set(ETC_TARGET_FOLDER etc)
 # These NSCP_* variables are the single source of truth for where the daemon,
 # its private libraries, modules, data, config, state and logs are installed
 # AND for the runtime defaults baked into config.h, so the same value drives
-# both the install(...) rules and the path_manager runtime defaults. See
-# docs/design/linux-prefix-builds.md.
+# both the install(...) rules and the path_manager runtime defaults.
 #
 # Everything derives from CMAKE_INSTALL_PREFIX via GNUInstallDirs, so the same
 # source tree honours --prefix=/usr, /usr/local, /opt/nsclient, ... without a

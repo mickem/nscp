@@ -104,7 +104,7 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
       {"shared-path", UNIX_SHARED_PATH_FOLDER},
       {"data-path", UNIX_DATA_PATH_FOLDER},
       // ${etc} tracks this build's config root (NSCP_SYSCONFDIR) so user
-      // ${etc}/... includes follow the prefix; see linux-prefix-builds.md.
+      // ${etc}/... includes follow the prefix.
       {"etc", ETC_FOLDER},
       // boot.ini's default location, expressed as a token off ${etc} so it
       // both tracks the prefix and stays CLI-overridable
