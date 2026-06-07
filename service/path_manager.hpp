@@ -23,6 +23,13 @@ class path_manager {
   // reload, add synchronisation at that point.
   paths_type overrides_;
 
+  // Highest-precedence overrides from the CLI --path-override flag. Kept in a
+  // separate map (rather than merged into overrides_) so precedence is
+  // application-order-independent: CLI always beats boot.ini, which always
+  // beats the compile-time defaults. CLI overrides are applied before
+  // init_settings() so they can even relocate ${boot-conf} itself.
+  paths_type cli_overrides_;
+
  public:
   explicit path_manager(const logging::log_client_accessor& log_instance_);
   std::string getFolder(const std::string& key);
@@ -34,10 +41,14 @@ class path_manager {
   void set_overrides(paths_type overrides);
 
   // Merge additional overrides on top of whatever set_overrides previously
-  // installed. Same-key entries overwrite, missing keys are preserved. Used
-  // for layering: boot.ini calls set_overrides, then CLI --path-override arguments
-  // call add_overrides so they win without nuking the boot.ini set.
+  // installed. Same-key entries overwrite, missing keys are preserved.
   void add_overrides(paths_type overrides);
+
+  // Install the highest-precedence CLI override layer. Checked ahead of both
+  // the boot.ini overrides and the compile-time defaults in getFolder(), so
+  // these win no matter when boot.ini's [paths] are applied. Intended to be
+  // called once, before init_settings(), from the CLI parser plumbing.
+  void set_cli_overrides(paths_type overrides);
 
   // Maximum recursion depth for ${var} substitution. Caps the cycle defence
   // ("${a}" -> "${b}" -> "${a}") so a misconfiguration cannot stack-overflow

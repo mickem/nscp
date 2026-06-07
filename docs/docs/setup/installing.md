@@ -134,6 +134,30 @@ sudo dnf install ./NSCP-<version>-rocky-10-x86_64.rpm
 Same as above: the service starts immediately, and the UI bundle needs a
 separate `sudo nscp web install-ui` step.
 
+### File locations
+
+The official `.deb`/`.rpm` packages install under the standard FHS prefix
+`/usr`:
+
+| What                | Location                       |
+|---------------------|--------------------------------|
+| Daemon              | `/usr/sbin/nscp`               |
+| Check modules       | `/usr/lib/nsclient/modules`    |
+| Private libraries   | `/usr/lib/nsclient`            |
+| Scripts / web / certs | `/usr/lib/nsclient/{scripts,web,security}` |
+| Configuration       | `/etc/nsclient`                |
+| State / cache       | `/var/lib/nsclient`            |
+| Logs                | `/var/log/nsclient`            |
+| systemd unit        | `/lib/systemd/system/nsclient.service` |
+
+These are derived from the build's install prefix; a package built for a
+different prefix (e.g. `/opt/nsclient`) places everything under that prefix and
+the daemon resolves its paths accordingly. To point an already-built daemon at
+a `boot.ini` in a non-standard location, start it with
+`--path-override boot-conf=/path/to/boot.ini`. See
+[Choosing an install prefix](https://github.com/mickem/nscp/blob/main/build.md#choosing-an-install-prefix-linux)
+in the build guide for building against a custom prefix.
+
 ### Installing the web UI bundle
 
 Once the package is installed, fetch the matching UI bundle:

@@ -308,6 +308,15 @@ macro(NSCP_INSTALL_MODULE _TARGET)
         install(TARGETS ${_TARGET} LIBRARY DESTINATION ${_FOLDER})
     else()
         set(_FOLDER ${MODULE_TARGET_FOLDER})
+        # Modules sit in NSCP_PKGLIBDIR/modules and load the project's private
+        # shared libraries from NSCP_PKGLIBDIR one directory up. Carry an
+        # $ORIGIN-relative RPATH so they resolve regardless of install prefix.
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                INSTALL_RPATH
+                    "${NSCP_RPATH_MODULE}"
+        )
         install(TARGETS ${_TARGET} LIBRARY DESTINATION ${_FOLDER})
     endif()
     if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
@@ -339,8 +348,19 @@ macro(NSCP_INSTALL_MODULE _TARGET)
 endmacro()
 
 macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
+    # Optional trailing EXCLUDE_FROM_ALL keyword: keep the target out of the
+    # default build so it is only built when another target depends on it (e.g.
+    # nscp_mongoose, which is only needed by WEBServer). When excluded, the
+    # install rule is made OPTIONAL so `make install` doesn't fail if the
+    # library was never built.
+    set(_NSCP_LIB_EXCLUDE "")
+    set(_NSCP_INSTALL_OPTIONAL "")
+    if("${ARGN}" STREQUAL "EXCLUDE_FROM_ALL")
+        set(_NSCP_LIB_EXCLUDE EXCLUDE_FROM_ALL)
+        set(_NSCP_INSTALL_OPTIONAL OPTIONAL)
+    endif()
     if(USE_STATIC_RUNTIME)
-        add_library(${_TARGET} STATIC ${_SRCS})
+        add_library(${_TARGET} STATIC ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         nscp_apply_pic(${_TARGET})
         set_target_properties(
             ${_TARGET}
@@ -349,16 +369,22 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
                     "${NSCP_LIB_VERSION}"
         )
     else(USE_STATIC_RUNTIME)
-        add_library(${_TARGET} SHARED ${_SRCS})
+        add_library(${_TARGET} SHARED ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         SET_LIBRARY_OUT_FOLDER(${_TARGET})
-        set_target_properties(
-            ${_TARGET}
-            PROPERTIES
-                VERSION
-                    "${NSCP_LIB_VERSION}"
-                SOVERSION
-                    "${NSCP_LIB_VERSION}"
-        )
+        # These are package-PRIVATE libraries they install under NSCP_PKGLIBDIR alongside the modules, not the public
+        # libdir, and ship no public ABI. So no SOVERSION/VERSION symlink chain (dead weight + a lintian remark for a
+        # private lib). On Windows the VERSION property is harmless but equally unnecessary here.
+        #
+        # $ORIGIN RPATH: the libraries depend on each other and are co-located,
+        # and DT_RUNPATH is non-transitive, so each must find its siblings.
+        if(NOT WIN32)
+            set_target_properties(
+                ${_TARGET}
+                PROPERTIES
+                    INSTALL_RPATH
+                        "${NSCP_RPATH_LIB}"
+            )
+        endif()
     endif(USE_STATIC_RUNTIME)
     set_target_properties(
         ${_TARGET}
@@ -372,13 +398,20 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
             install(
                 TARGETS
                     ${_TARGET}
+                ${_NSCP_INSTALL_OPTIONAL}
                 RUNTIME
                     DESTINATION .
                 LIBRARY
                     DESTINATION .
             )
         else()
-            install(TARGETS ${_TARGET} LIBRARY DESTINATION ${LIB_TARGET_FOLDER})
+            install(
+                TARGETS
+                    ${_TARGET}
+                ${_NSCP_INSTALL_OPTIONAL}
+                LIBRARY
+                    DESTINATION ${LIB_TARGET_FOLDER}
+            )
         endif()
         if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
             set_target_properties(
@@ -415,6 +448,23 @@ macro(NSCP_MAKE_EXE _TARGET _SRCS _FOLDER)
     if(WIN32)
         install(TARGETS ${_TARGET} RUNTIME DESTINATION .)
     else()
+        # Executables (the nscp daemon in sbin, client tools in bin) load the
+        # project's private shared libraries from NSCP_PKGLIBDIR. Carry an
+        # $ORIGIN-relative RPATH derived from this target's install folder so it
+        # resolves regardless of prefix (sbin and bin are both one level under
+        # the prefix, so this is typically $ORIGIN/../lib/nsclient).
+        file(
+            RELATIVE_PATH
+            _NSCP_EXE_TO_PKGLIB
+            "${_FOLDER}"
+            "${NSCP_PKGLIBDIR}"
+        )
+        set_target_properties(
+            ${_TARGET}
+            PROPERTIES
+                INSTALL_RPATH
+                    "$ORIGIN/${_NSCP_EXE_TO_PKGLIB}"
+        )
         install(TARGETS ${_TARGET} RUNTIME DESTINATION ${_FOLDER})
     endif()
     if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)

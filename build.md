@@ -622,6 +622,51 @@ cmake $SOURCE_ROOT \
 make -j$(nproc)
 ```
 
+### Choosing an install prefix (Linux)
+
+The Linux build honours `CMAKE_INSTALL_PREFIX` like any other CMake project, so
+the same source tree can target `/usr`, `/usr/local`, `/opt/nsclient`, or a
+throwaway staging tree without recompiling per destination. Everything — the
+daemon, its private libraries and modules, config, state, logs and the systemd
+unit — is derived from the prefix through **GNUInstallDirs**, and the *same*
+values are baked into the runtime path defaults, so `install(...)` and the
+running daemon always agree.
+
+```bash
+# Distribution package layout (what the .deb/.rpm CI builds pass):
+cmake $SOURCE_ROOT -DCMAKE_INSTALL_PREFIX=/usr ...
+#   binary    -> /usr/sbin/nscp
+#   modules   -> /usr/lib/nsclient/modules
+#   libs      -> /usr/lib/nsclient          (package-private, $ORIGIN RPATH)
+#   data      -> /usr/lib/nsclient/{web,scripts,security}
+#   config    -> /etc/nsclient              (FHS: prefix=/usr redirects to /etc)
+#   state     -> /var/lib/nsclient
+#   logs      -> /var/log/nsclient
+
+# A self-contained tree under /opt:
+cmake $SOURCE_ROOT -DCMAKE_INSTALL_PREFIX=/opt/nsclient ...
+```
+
+The default prefix when you pass nothing is CMake's standard `/usr/local` (this
+changed — older trees forced a bare `usr/` subdirectory in the build dir).
+
+Standard GNUInstallDirs knobs work and need no NSCP-specific names:
+`-DCMAKE_INSTALL_SBINDIR=...`, `-DCMAKE_INSTALL_SYSCONFDIR=...`,
+`-DCMAKE_INSTALL_LOCALSTATEDIR=...`, etc. The systemd unit directory is
+`-DNSCP_SYSTEMD_UNITDIR=...` (defaults to `/lib/systemd/system`; pass
+`$(pkg-config systemd --variable=systemdsystemunitdir)` to follow the distro).
+
+`DESTDIR=/tmp/stage cmake --install build/` stages a relocatable tree at any
+prefix, exactly as the package builds rely on.
+
+> **Upgrade note for packagers patching old hardcoded paths.** The runtime
+> defaults used to be compile-time constants (`/usr/lib/nsclient`,
+> `/etc/nsclient`, …). They are now prefix-derived, so a patch that rewrote
+> those constants is no longer needed — pass `-DCMAKE_INSTALL_PREFIX` (and any
+> `CMAKE_INSTALL_*DIR` overrides) instead. To relocate just `boot.ini` at
+> runtime there is now a path token: `--path-override boot-conf=/path/boot.ini`
+> (highest precedence, applied before `boot.ini` is read).
+
 ### Trimming the build
 
 The [Dependencies](#dependencies) and [Build options](#build-options) sections

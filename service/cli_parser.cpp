@@ -144,9 +144,9 @@ bool cli_parser::process_common_options(const std::string &context, const po::op
   if (!settings_store.empty()) core_->set_settings_context(settings_store);
 
   // Parse --path-override KEY=VALUE entries and stash on core_. NSClient
-  // applies them in load_configuration_1, AFTER init_settings has loaded
-  // boot.ini's [paths] section, so CLI overrides win without nuking the
-  // boot.ini set.
+  // installs them in load_configuration_1 as the highest-precedence path layer
+  // BEFORE init_settings loads boot.ini, so they can even relocate ${boot-conf}
+  // and always win over boot.ini's own [paths] section.
   if (!path_overrides.empty()) {
     std::map<std::string, std::string> overrides;
     for (const std::string &raw : path_overrides) {

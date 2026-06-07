@@ -12,5 +12,5 @@ if [ "$1" = "purge" ]; then
     fi
 
     # Remove log directory
-    rm -rf /var/log/nsclient
+    rm -rf @NSCP_LOGDIR@
 fi

@@ -140,16 +140,19 @@ bool NSClientT::load_configuration_1() {
 
   LOG_DEBUG_CORE(utf8::cvt<std::string>(SERVICE_NAME) + " Loading settings and logger...");
 
-  if (!settings_manager::init_settings(provider_, context_)) {
-    return false;
-  }
-  // init_settings has just pushed boot.ini's [paths] overrides via
-  // provider_->apply_path_overrides. Layer CLI --path-override arguments
-  // on top so they win for the keys they specify, without nuking the
-  // boot.ini set.
+  // Install CLI --path-override entries as the highest-precedence layer BEFORE
+  // init_settings(). This has to happen first because init_settings() opens
+  // boot.ini, whose location is itself the resolvable ${boot-conf} token now -
+  // applying the overrides afterwards would be too late to relocate boot.ini.
+  // The dedicated CLI layer (set_cli_overrides) wins over boot.ini's own
+  // [paths], so precedence stays CLI > boot.ini > defaults regardless of order.
   if (!cli_path_overrides_.empty()) {
     LOG_DEBUG_CORE("Applying " + std::to_string(cli_path_overrides_.size()) + " path override(s) from command line");
-    path_->add_overrides(cli_path_overrides_);
+    path_->set_cli_overrides(cli_path_overrides_);
+  }
+
+  if (!settings_manager::init_settings(provider_, context_)) {
+    return false;
   }
   return true;
 }

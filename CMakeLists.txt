@@ -93,9 +93,9 @@ if(WIN32)
         )
         set(VSTUDIO_EXPRESS ON)
     endif(FOUND_ATL)
-else()
-    set(CMAKE_INSTALL_PREFIX "usr")
 endif()
+# On Linux/macOS CMAKE_INSTALL_PREFIX is honoured (GNU default /usr/local).
+# Distribution package builds pass -DCMAKE_INSTALL_PREFIX=/usr explicitly;
 
 set(BUILD_PYTHON_FOLDER "${CMAKE_SOURCE_DIR}/build/python")
 set(BUILD_CMAKE_FOLDER "${CMAKE_SOURCE_DIR}/build/cmake")
@@ -122,6 +122,79 @@ set(SBIN_TARGET_FOLDER usr/sbin)
 set(BIN_TARGET_FOLDER usr/bin)
 set(LOG_TARGET_FOLDER var/log)
 set(ETC_TARGET_FOLDER etc)
+
+# ##############################################################################
+#
+# Linux install layout (GNUInstallDirs)
+#
+# These NSCP_* variables are the single source of truth for where the daemon,
+# its private libraries, modules, data, config, state and logs are installed
+# AND for the runtime defaults baked into config.h, so the same value drives
+# both the install(...) rules and the path_manager runtime defaults.
+#
+# Everything derives from CMAKE_INSTALL_PREFIX via GNUInstallDirs, so the same
+# source tree honours --prefix=/usr, /usr/local, /opt/nsclient, ... without a
+# recompile. GNUInstallDirs handles the FHS quirk where --prefix=/usr redirects
+# SYSCONFDIR to /etc and LOCALSTATEDIR to /var.
+#
+# Windows keeps the existing exe-relative model and never sees these.
+#
+# ##############################################################################
+if(NOT WIN32)
+    include(GNUInstallDirs)
+
+    set(NSCP_SBINDIR "${CMAKE_INSTALL_FULL_SBINDIR}")
+    set(NSCP_BINDIR "${CMAKE_INSTALL_FULL_BINDIR}")
+
+    # NSCP_LIBDIR is the base for NSCP_PKGLIBDIR only - nothing installs into it
+    # directly. It deliberately uses a plain "<prefix>/lib" rather than
+    # CMAKE_INSTALL_FULL_LIBDIR: on Debian/Ubuntu the latter expands to the
+    # multiarch path (/usr/lib/<triplet>), and putting our private libraries +
+    # modules there is exactly what makes dpkg/lintian treat them as public
+    # (SONAME deps, shlibs/symbols, -dev split, ldconfig triggers). The project
+    # ships no public ABI, so the libraries live in a package-private
+    # "<prefix>/lib/nsclient" off the default loader path. See the RPATH set in
+    # NSCP_MAKE_LIBRARY / NSCP_INSTALL_MODULE.
+    set(NSCP_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib")
+    set(NSCP_PKGLIBDIR "${NSCP_LIBDIR}/nsclient")
+
+    set(NSCP_PKGDATADIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/nsclient")
+    set(NSCP_SYSCONFDIR "${CMAKE_INSTALL_FULL_SYSCONFDIR}")
+    set(NSCP_PKGSYSCONFDIR "${NSCP_SYSCONFDIR}/nsclient")
+    set(NSCP_PKGSTATEDIR "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/nsclient")
+    set(NSCP_LOGDIR "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/log/nsclient")
+
+    # systemd system unit directory. Defaults to the historical
+    # /lib/systemd/system; a packager who wants the pkg-config-reported
+    # location passes
+    #   -DNSCP_SYSTEMD_UNITDIR=$(pkg-config systemd --variable=systemdsystemunitdir)
+    if(NOT NSCP_SYSTEMD_UNITDIR)
+        set(NSCP_SYSTEMD_UNITDIR "/lib/systemd/system")
+    endif()
+
+    # Map the historical *_TARGET_FOLDER install-destination variables (defined
+    # above as Windows/fallback defaults) onto the prefix-derived NSCP_* values.
+    # These are absolute now, so they ignore CMAKE_INSTALL_PREFIX at install
+    # time - which is correct, the prefix is already baked into NSCP_*.
+    set(MODULE_TARGET_FOLDER "${NSCP_PKGLIBDIR}/modules")
+    set(LIB_TARGET_FOLDER "${NSCP_PKGLIBDIR}") # Phase 2b: private libs next to modules
+    set(SYSTEMD_TARGET_FOLDER "${NSCP_SYSTEMD_UNITDIR}")
+    set(SBIN_TARGET_FOLDER "${NSCP_SBINDIR}")
+    set(BIN_TARGET_FOLDER "${NSCP_BINDIR}")
+    set(LOG_TARGET_FOLDER "${NSCP_LOGDIR}")
+    set(ETC_TARGET_FOLDER "${NSCP_SYSCONFDIR}")
+
+    # $ORIGIN-relative RPATHs so the private libraries resolve regardless of
+    # prefix. Executables derive theirs per-target in NSCP_MAKE_EXE (sbin and
+    # bin are both one level under the prefix). Modules live in
+    # NSCP_PKGLIBDIR/modules, so the libraries sit one dir up.
+    set(NSCP_RPATH_MODULE "$ORIGIN/..")
+    # The private libraries are co-located in NSCP_PKGLIBDIR; their inter-deps
+    # resolve via $ORIGIN. This is required because modern toolchains emit
+    # DT_RUNPATH (not the deprecated, transitive DT_RPATH), so each object must
+    # carry an RPATH covering its own direct dependencies.
+    set(NSCP_RPATH_LIB "$ORIGIN")
+endif()
 
 set(NSCP_GLOBAL_DEFINES
     ${NSCP_GLOBAL_DEFINES}
@@ -806,15 +879,24 @@ if(WIN32)
         "PAth for log file"
     )
 else()
-    set(INSTALL_FILES_BASE "usr/lib/nsclient/")
+    # Files installed via copy_single_file() land under the package-private
+    # shared dir (NSCP_PKGLIBDIR, e.g. /usr/lib/nsclient). This is also what
+    # ${shared-path} resolves to at runtime, so scripts/web/security stay where
+    # the daemon looks for them.
+    set(INSTALL_FILES_BASE "${NSCP_PKGLIBDIR}/")
 
-    set(CONFIG_DEFAULT_CONFIG_FOLDER
-        "/etc/nsclient"
-        CACHE STRING
-        "Base location for ini files"
-    )
+    # Absolute, prefix-dependent values. These are intentionally NOT CACHE
+    # variables: GNUInstallDirs already gives packagers the override knobs
+    # (CMAKE_INSTALL_SYSCONFDIR, ...), and caching would pin a value from a
+    # previous configure so it could no longer track CMAKE_INSTALL_PREFIX.
+    set(CONFIG_DEFAULT_CONFIG_FOLDER "${NSCP_PKGSYSCONFDIR}")
 
-    set(CONFIG_BOOT_CONF_LOCATION "${CONFIG_DEFAULT_CONFIG_FOLDER}/boot.ini")
+    # boot.ini's location is now a path_manager token (${boot-conf}) so an
+    # operator can relocate it with --path-override boot-conf=... . The token's
+    # default (NSCP_PKGSYSCONFDIR/boot.ini) is registered in path_manager.
+    # Escaped so configure_file(@ONLY) emits the literal token, not an empty
+    # CMake expansion.
+    set(CONFIG_BOOT_CONF_LOCATION "\${boot-conf}")
     set(CONFIG_DEFAULT_CONF_LOCATION
         "ini"
         CACHE STRING
@@ -826,16 +908,9 @@ else()
         CACHE STRING
         "modules folder"
     )
-    set(UNIX_SHARED_PATH_FOLDER
-        "/usr/lib/nsclient"
-        CACHE STRING
-        "Shared files on linux"
-    )
-    set(UNIX_DATA_PATH_FOLDER
-        "/var/lib/nsclient"
-        CACHE STRING
-        "Data path on linux"
-    )
+    set(UNIX_SHARED_PATH_FOLDER "${NSCP_PKGLIBDIR}")
+    set(UNIX_DATA_PATH_FOLDER "${NSCP_PKGSTATEDIR}")
+    set(CONFIG_ETC_FOLDER "${NSCP_SYSCONFDIR}")
     set(CONFIG_WEB_FOLDER "\${shared-path}/web" CACHE STRING "web folder")
     set(CONFIG_SCRIPTS_FOLDER
         "\${shared-path}/scripts"
@@ -1204,25 +1279,57 @@ else()
     option(USE_SYSTEMD "Install systemd service files" ON)
     option(USE_INITD "Install legacy init.d scripts" OFF)
 
+    # Install destinations are absolute (prefix-derived NSCP_* values), so the
+    # CPack staging prefix must be the filesystem root - it is only consulted
+    # for relative destinations, of which we now have none.
     set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 
+    # The maintainer scripts and conffiles reference install paths, so they are
+    # templated through configure_file with the NSCP_* values rather than baked
+    # to /usr. (prerm touches no paths, so it ships verbatim.)
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst.in
+        ${PROJECT_BINARY_DIR}/files/deb/postinst
+        @ONLY
+    )
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postrm.in
+        ${PROJECT_BINARY_DIR}/files/deb/postrm
+        @ONLY
+    )
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/deb/conffiles.in
+        ${PROJECT_BINARY_DIR}/files/deb/conffiles
+        @ONLY
+    )
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/postinstall.sh.in
+        ${PROJECT_BINARY_DIR}/files/rpm/postinstall.sh
+        @ONLY
+    )
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/preuninstall.sh.in
+        ${PROJECT_BINARY_DIR}/files/rpm/preuninstall.sh
+        @ONLY
+    )
+
     set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-        "${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/prerm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postrm;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/conffiles"
+        "${PROJECT_BINARY_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/prerm;${PROJECT_BINARY_DIR}/files/deb/postrm;${PROJECT_BINARY_DIR}/files/deb/conffiles"
     )
     set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE
-        "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/postinstall.sh"
+        "${PROJECT_BINARY_DIR}/files/rpm/postinstall.sh"
     )
     set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE
-        "${CMAKE_CURRENT_SOURCE_DIR}/files/rpm/preuninstall.sh"
+        "${PROJECT_BINARY_DIR}/files/rpm/preuninstall.sh"
     )
 
     set(CPACK_RPM_PACKAGE_CONFIG_FILES
-        "/etc/nsclient/boot.ini"
-        "/etc/nsclient/nsclient.ini"
+        "${NSCP_PKGSYSCONFDIR}/boot.ini"
+        "${NSCP_PKGSYSCONFDIR}/nsclient.ini"
     )
 
     # Ensure empty directories are included in the RPM
-    set(CPACK_RPM_USER_FILELIST "%dir /var/log/nsclient")
+    set(CPACK_RPM_USER_FILELIST "%dir ${NSCP_LOGDIR}")
 
     set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
         "/bin"

@@ -1,0 +1,12 @@
+[Unit]
+Description=NSClient++ Monitoring Agent
+
+[Service]
+WorkingDirectory=@NSCP_PKGLIBDIR@
+User=nsclient
+PIDFile=@NSCP_PKGSTATEDIR@/nscp.pid
+
+ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run --pid @NSCP_PKGSTATEDIR@/nscp.pid
+
+[Install]
+WantedBy=multi-user.target

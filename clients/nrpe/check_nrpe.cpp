@@ -123,7 +123,9 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
     }
 #else
     else if (key == "etc") {
-      default_value = "/etc";
+      // Track the daemon's ${etc} (NSCP_SYSCONFDIR) so a build for a non-/usr
+      // prefix resolves ${etc}/... the same way nscp does. See path_manager.cpp.
+      default_value = ETC_FOLDER;
     }
 #endif
     return default_value;
