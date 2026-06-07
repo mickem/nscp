@@ -183,3 +183,120 @@ NSCP_CREATE_TEST(
 if(NSCP_BUILD_TESTS)
     target_compile_definitions(${TARGET}_test PRIVATE plugin_api_NOLIB)
 endif()
+
+# The mongoose wrapper tests link against nscp_mongoose. They live here (rather
+# than in tests/CMakeLists.txt) so they are only configured/built when the
+# WEBServer module is built - the same condition under which nscp_mongoose
+# (EXCLUDE_FROM_ALL) is built at all.
+set(MONGOOSE_CPP_DIR ${CMAKE_SOURCE_DIR}/libs/mongoose-cpp)
+
+# Shared (backend-independent) test sources.
+set(MONGOOSE_WRAPPER_TEST_SOURCES
+    ${MONGOOSE_CPP_DIR}/Request_test.cpp
+    ${MONGOOSE_CPP_DIR}/Response_test.cpp
+    ${MONGOOSE_CPP_DIR}/StreamResponse_test.cpp
+    ${MONGOOSE_CPP_DIR}/string_response_test.cpp
+    ${MONGOOSE_CPP_DIR}/Helpers_test.cpp
+    ${MONGOOSE_CPP_DIR}/Controller_test.cpp
+    ${MONGOOSE_CPP_DIR}/MatchController_test.cpp
+    ${MONGOOSE_CPP_DIR}/RegexController_test.cpp
+)
+
+# Per-backend additions. Beast tests depend on the symbols that
+# ServerBeastImpl.cpp compiles into nscp_mongoose, plus Boost.Coroutine
+# / Boost.Context for the spawn-based test client. Mongoose tests
+# compile mongoose.c into the test exe to get a private copy of the
+# C-API symbols (which nscp_mongoose doesn't export).
+set(_nscp_wrapper_test_backend_libs)
+if(NSCP_WEB_BACKEND STREQUAL "beast")
+    list(
+        APPEND MONGOOSE_WRAPPER_TEST_SOURCES
+        ${MONGOOSE_CPP_DIR}/ServerBeastImpl_test.cpp
+    )
+    list(
+        APPEND _nscp_wrapper_test_backend_libs
+        ${Boost_COROUTINE_LIBRARY}
+        ${Boost_CONTEXT_LIBRARY}
+    )
+else()
+    list(
+        APPEND MONGOOSE_WRAPPER_TEST_SOURCES
+        ${MONGOOSE_CPP_DIR}/Server_test.cpp
+        ${MONGOOSE_INCLUDE_DIR}/mongoose.c
+    )
+endif()
+
+NSCP_CREATE_TEST(
+    mongoose_wrapper_test
+    SOURCES
+        ${MONGOOSE_WRAPPER_TEST_SOURCES}
+    LIBRARIES
+        GTest::gtest_main
+        nscp_mongoose
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+        ${_nscp_wrapper_test_backend_libs}
+    INCLUDES
+        ${MONGOOSE_CPP_DIR}
+        ${NSCP_INCLUDEDIR}
+)
+if(NSCP_WEB_BACKEND STREQUAL "mongoose")
+    target_include_directories(
+        mongoose_wrapper_test
+        PRIVATE
+            ${MONGOOSE_INCLUDE_DIR}
+    )
+endif()
+if(OPENSSL_FOUND)
+    if(NSCP_WEB_BACKEND STREQUAL "mongoose")
+        target_compile_definitions(
+            mongoose_wrapper_test
+            PRIVATE
+                MG_ENABLE_OPENSSL=1
+                MG_DISABLE_PFS=1
+        )
+    endif()
+    target_include_directories(
+        mongoose_wrapper_test
+        PRIVATE
+            ${OPENSSL_INCLUDE_DIR}
+    )
+    target_link_libraries(mongoose_wrapper_test ${OPENSSL_LIBRARIES})
+    if(WIN32)
+        target_link_libraries(mongoose_wrapper_test CRYPT32)
+    endif()
+endif()
+target_compile_definitions(
+    mongoose_wrapper_test
+    PRIVATE
+        MG_ENABLE_HTTP_WEBSOCKET=0
+        MG_ENABLE_BROADCAST=1
+        MG_ENABLE_THREADS
+)
+
+# Make sure the test process can locate runtime DLLs (gtest_main, nscp_mongoose,
+# boost, openssl, ...) regardless of how it is launched (ctest, IDE runner,
+# debugger). We copy every DLL the test depends on next to the exe at build
+# time using $<TARGET_RUNTIME_DLLS> (CMake >= 3.21).
+#
+# Note: in fully-static configurations (e.g. the legacy v141_xp / static-CRT
+# build) $<TARGET_RUNTIME_DLLS:...> evaluates to an empty list, which would
+# leave the post-build command as `cmake -E copy_if_different <destdir>` -
+# i.e. a destination with no source files. cmake then prints its `-E` usage
+# banner and exits 1, breaking the build with MSB3073. Guard the command
+# with $<BOOL:...> so it degenerates into `cmake -E true` (a no-op exit 0)
+# whenever there is nothing to copy.
+if(WIN32 AND NSCP_BUILD_TESTS)
+    set(_runtime_dlls "$<TARGET_RUNTIME_DLLS:mongoose_wrapper_test>")
+    set(_have_dlls "$<BOOL:${_runtime_dlls}>")
+    add_custom_command(
+        TARGET mongoose_wrapper_test
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E $<IF:${_have_dlls},copy_if_different,true>
+            ${_runtime_dlls}
+            $<${_have_dlls}:$<TARGET_FILE_DIR:mongoose_wrapper_test>>
+        COMMAND_EXPAND_LISTS
+    )
+endif()

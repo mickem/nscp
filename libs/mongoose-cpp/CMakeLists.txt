@@ -137,7 +137,7 @@ if(WIN32)
 endif(WIN32)
 
 # Compiling library
-NSCP_MAKE_LIBRARY(nscp_mongoose "${SOURCES}")
+NSCP_MAKE_LIBRARY(nscp_mongoose "${SOURCES}" EXCLUDE_FROM_ALL)
 # SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
 
 # Beast needs Boost.Coroutine + Boost.Context (transitive of

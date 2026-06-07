@@ -348,8 +348,19 @@ macro(NSCP_INSTALL_MODULE _TARGET)
 endmacro()
 
 macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
+    # Optional trailing EXCLUDE_FROM_ALL keyword: keep the target out of the
+    # default build so it is only built when another target depends on it (e.g.
+    # nscp_mongoose, which is only needed by WEBServer). When excluded, the
+    # install rule is made OPTIONAL so `make install` doesn't fail if the
+    # library was never built.
+    set(_NSCP_LIB_EXCLUDE "")
+    set(_NSCP_INSTALL_OPTIONAL "")
+    if("${ARGN}" STREQUAL "EXCLUDE_FROM_ALL")
+        set(_NSCP_LIB_EXCLUDE EXCLUDE_FROM_ALL)
+        set(_NSCP_INSTALL_OPTIONAL OPTIONAL)
+    endif()
     if(USE_STATIC_RUNTIME)
-        add_library(${_TARGET} STATIC ${_SRCS})
+        add_library(${_TARGET} STATIC ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         nscp_apply_pic(${_TARGET})
         set_target_properties(
             ${_TARGET}
@@ -358,7 +369,7 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
                     "${NSCP_LIB_VERSION}"
         )
     else(USE_STATIC_RUNTIME)
-        add_library(${_TARGET} SHARED ${_SRCS})
+        add_library(${_TARGET} SHARED ${_NSCP_LIB_EXCLUDE} ${_SRCS})
         SET_LIBRARY_OUT_FOLDER(${_TARGET})
         # These are package-PRIVATE libraries they install under NSCP_PKGLIBDIR alongside the modules, not the public
         # libdir, and ship no public ABI. So no SOVERSION/VERSION symlink chain (dead weight + a lintian remark for a
@@ -387,13 +398,20 @@ macro(NSCP_MAKE_LIBRARY _TARGET _SRCS)
             install(
                 TARGETS
                     ${_TARGET}
+                ${_NSCP_INSTALL_OPTIONAL}
                 RUNTIME
                     DESTINATION .
                 LIBRARY
                     DESTINATION .
             )
         else()
-            install(TARGETS ${_TARGET} LIBRARY DESTINATION ${LIB_TARGET_FOLDER})
+            install(
+                TARGETS
+                    ${_TARGET}
+                ${_NSCP_INSTALL_OPTIONAL}
+                LIBRARY
+                    DESTINATION ${LIB_TARGET_FOLDER}
+            )
         endif()
         if(MSVC11 OR MSVC12 OR MSVC13 OR MSVC14 OR APPLE)
             set_target_properties(
