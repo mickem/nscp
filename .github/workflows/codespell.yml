@@ -1,0 +1,17 @@
+name: Codespell
+on: [pull_request]
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: codespell
+        uses: codespell-project/actions-codespell@v2
+        with:
+          only_warn: 1
+          builtin: clear
+          skip: "*.vbs,rust"
+          ignore_words_list: "afterall" # Important note: ignored words must be lowercase
