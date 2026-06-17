@@ -40,7 +40,14 @@ env:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # Pinned to windows-2022 (not windows-latest): the legacy XP build needs
+    # the v141_xp toolset, the Windows 8.1 SDK, the "Visual Studio 17"
+    # (VS 2022) cmake generator, and ./.github/actions/update-msvc installs
+    # components into ...\Microsoft Visual Studio\2022\Enterprise. The
+    # windows-latest image has moved to Visual Studio 18, which ships none of
+    # those, so ilammy/msvc-dev-cmd fails with "Toolset directory for version
+    # '14.1' was not found".
+    runs-on: windows-2022
     outputs:
       platform: ${{ steps.setup.outputs.platform }}
 

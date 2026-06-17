@@ -38,8 +38,9 @@ TEST(Request, HasVariableChecksHeaders) {
   EXPECT_TRUE(r.hasVariable("Host"));
   EXPECT_TRUE(r.hasVariable("X-Test"));
   EXPECT_FALSE(r.hasVariable("Missing"));
-  // Map is case-sensitive on the contained keys.
-  EXPECT_FALSE(r.hasVariable("host"));
+  // Header names are case-insensitive (RFC 7230 3.2).
+  EXPECT_TRUE(r.hasVariable("host"));
+  EXPECT_TRUE(r.hasVariable("x-test"));
 }
 
 TEST(Request, ReadHeaderReturnsValueOrEmpty) {
@@ -47,6 +48,17 @@ TEST(Request, ReadHeaderReturnsValueOrEmpty) {
   const auto r = make_request("GET", "/", "", h);
   EXPECT_EQ(r.readHeader("Host"), "example.com");
   EXPECT_EQ(r.readHeader("Missing"), "");
+}
+
+TEST(Request, ReadHeaderIsCaseInsensitive) {
+  // Clients send the legacy credential header as either `password` or
+  // `Password` (e.g. Go's net/http canonicalizes to `Password`); both must
+  // resolve to the same value. See session_manager_interface::is_logged_in.
+  const Request::headers_type h{{"Password", "secret"}};
+  const auto r = make_request("GET", "/", "", h);
+  EXPECT_EQ(r.readHeader("password"), "secret");
+  EXPECT_EQ(r.readHeader("Password"), "secret");
+  EXPECT_EQ(r.readHeader("PASSWORD"), "secret");
 }
 
 TEST(Request, ReadHeaderDoesNotMutateHeaders) {

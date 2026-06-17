@@ -10,6 +10,8 @@
 #pragma warning(disable : 4251)
 #endif
 
+#include <algorithm>
+#include <cctype>
 #include <map>
 #include <string>
 #include <vector>
@@ -22,7 +24,17 @@ class NSCAPI_EXPORT Request {
  public:
   typedef std::pair<std::string, std::string> arg_entry;
   typedef std::vector<arg_entry> arg_vector;
-  typedef std::map<std::string, std::string> headers_type;
+
+  // HTTP header names are case-insensitive (RFC 7230 3.2), so the header map
+  // compares keys without regard to case. This lets clients send e.g. either
+  // `password` or `Password` and have it resolve to the same entry.
+  struct ci_less {
+    bool operator()(const std::string& lhs, const std::string& rhs) const {
+      return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+                                          [](unsigned char a, unsigned char b) { return std::tolower(a) < std::tolower(b); });
+    }
+  };
+  typedef std::map<std::string, std::string, ci_less> headers_type;
 
   Request(std::string ip, bool is_ssl, std::string method, std::string url, std::string query, headers_type headers, std::string data);
 
