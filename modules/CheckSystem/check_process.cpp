@@ -275,7 +275,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     ("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
     ("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
     ("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
-    ("delta", po::value<bool>(&delta_scan), "Calculate delta over one elapsed second.\nThis call will measure values and then sleep for 2 second and then measure again calculating deltas.")
+    ("delta", po::value<bool>(&delta_scan), "Calculate delta over one elapsed second.\nThis call will measure values, sleep for one second and then measure again, calculating deltas.\nIn this mode the 'kernel', 'user' and 'time' keywords are expressed as a percentage of the total CPU time across all cores instead of seconds.")
     ("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
     ("total", po::bool_switch(&total), "Include the total of all matching files")
     ;
