@@ -191,6 +191,7 @@ struct perf_config_parser {
   perf_config_parser() {}
 
   bool parse(std::shared_ptr<TFactory> context, const std::string &str, const error_handler &error) {
+    if (str.empty() || str == "none") return true;
     parsers::perfconfig::result_type keys;
     parsers::perfconfig parser;
     if (!parser.parse(str, keys)) {

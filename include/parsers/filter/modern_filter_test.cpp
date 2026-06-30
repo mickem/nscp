@@ -264,3 +264,59 @@ TEST(ErrorHandlerImpl, PolymorphicUsageThroughInterface) {
   EXPECT_TRUE(impl->has_errors());
   EXPECT_EQ(impl->get_errors(), "interface error");
 }
+
+// ============================================================================
+// perf_config_parser tests
+// ============================================================================
+
+// Minimal factory exposing only what perf_config_parser::parse needs.
+struct mock_perf_factory {
+  std::map<std::string, std::map<std::string, std::string> > configs;
+  void add_perf_config(const std::string &name, const std::map<std::string, std::string> &options) { configs[name] = options; }
+};
+
+namespace {
+std::shared_ptr<parsers::where::error_handler_interface> make_error_handler() {
+  return std::shared_ptr<parsers::where::error_handler_interface>(new modern_filter::error_handler_impl(false));
+}
+}  // namespace
+
+// Regression test for "perf-config=none" reporting "Failed to parse syntax".
+// "none" (and an empty string) must be accepted as "no perf-config" rather
+// than fed to the grammar, which only accepts keyword(options) form.
+TEST(PerfConfigParser, NoneIsAcceptedAndAddsNoConfig) {
+  modern_filter::perf_config_parser<mock_perf_factory> parser;
+  std::shared_ptr<mock_perf_factory> factory(new mock_perf_factory());
+  auto error = make_error_handler();
+
+  EXPECT_TRUE(parser.parse(factory, "none", error));
+  EXPECT_TRUE(factory->configs.empty());
+  EXPECT_FALSE(error->is_debug());
+}
+
+TEST(PerfConfigParser, EmptyStringIsAccepted) {
+  modern_filter::perf_config_parser<mock_perf_factory> parser;
+  std::shared_ptr<mock_perf_factory> factory(new mock_perf_factory());
+
+  EXPECT_TRUE(parser.parse(factory, "", make_error_handler()));
+  EXPECT_TRUE(factory->configs.empty());
+}
+
+TEST(PerfConfigParser, ValidConfigIsParsedAndStored) {
+  modern_filter::perf_config_parser<mock_perf_factory> parser;
+  std::shared_ptr<mock_perf_factory> factory(new mock_perf_factory());
+
+  EXPECT_TRUE(parser.parse(factory, "cpu(unit:%)", make_error_handler()));
+  ASSERT_EQ(1u, factory->configs.size());
+  ASSERT_EQ(1u, factory->configs.count("cpu"));
+  EXPECT_EQ("%", factory->configs["cpu"]["unit"]);
+}
+
+TEST(PerfConfigParser, InvalidConfigStillFails) {
+  modern_filter::perf_config_parser<mock_perf_factory> parser;
+  std::shared_ptr<mock_perf_factory> factory(new mock_perf_factory());
+  auto error = make_error_handler();
+
+  // Bare keyword without "(options)" is not "none" and is not valid syntax.
+  EXPECT_FALSE(parser.parse(factory, "bogus", error));
+}
