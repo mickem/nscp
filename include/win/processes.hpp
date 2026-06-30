@@ -266,12 +266,13 @@ struct process_info {
     gdiHandleCount -= other.gdiHandleCount.get();
     userHandleCount -= other.userHandleCount.get();
 
-    // TImes
+    // Times. The CPU time counters are intentionally NOT subtracted here: the
+    // per-process CPU delta (together with its guards against PID reuse) is
+    // computed in make_cpu_delta() directly from the two raw snapshots.
+    // Subtracting the raw counters here as well would underflow the unsigned
+    // values whenever a PID is recycled mid-interval (the headline bug behind
+    // the absurd percentages such as "cpu=72562484370%").
     creation_time -= other.creation_time.get();
-    kernel_time -= other.kernel_time.get();
-    user_time -= other.user_time.get();
-    kernel_time_raw -= other.kernel_time_raw;
-    user_time_raw -= other.user_time_raw;
 
     // IO Counters
     readOperationCount -= other.readOperationCount.get();
@@ -297,10 +298,41 @@ struct process_info {
     return *this;
   }
 
-  void make_cpu_delta(const unsigned long long kernel, const unsigned long long user, const unsigned long long total) {
-    if (kernel > 0) kernel_time = kernel_time_raw * 100ull / kernel;
-    if (user > 0) user_time = user_time_raw * 100ull / user;
-    if (total > 0) total_time = (kernel_time_raw + user_time_raw) * 100ull / total;
+  // Compute `part * 100 / whole` rounded to the nearest whole percent rather
+  // than truncated. Plain truncation made every sub-1% process read 0% (and
+  // biased busier processes low), which is why repeated runs so often showed
+  // "everything at 0". Rounding keeps small-but-real usage visible.
+  static unsigned long long to_percent(const unsigned long long part, const unsigned long long whole) {
+    if (whole == 0) return 0;
+    return (part * 100ull + whole / 2ull) / whole;
+  }
+
+  // Turn this snapshot into per-process CPU usage over the sampling interval,
+  // using `previous` as the earlier snapshot of the SAME process. `sys_kernel`
+  // and `sys_user` are the system-wide kernel/user time consumed over the same
+  // interval; their sum is the total CPU capacity. On Windows GetSystemTimes()
+  // already folds idle time into the kernel figure, so idle must NOT be added a
+  // second time (doing so inflated the denominator and halved every result).
+  //
+  // On success kernel_time, user_time and total_time hold whole-percent CPU
+  // usage and the function returns true. It returns false - and zeroes the
+  // fields - when the delta is not meaningful and the caller should drop the
+  // process: when a raw counter moved backwards (the PID was recycled to a
+  // different process mid-interval) or when no capacity was measured.
+  bool make_cpu_delta(const process_info &previous, const unsigned long long sys_kernel, const unsigned long long sys_user) {
+    const unsigned long long capacity = sys_kernel + sys_user;
+    if (capacity == 0 || kernel_time_raw < previous.kernel_time_raw || user_time_raw < previous.user_time_raw) {
+      kernel_time = 0;
+      user_time = 0;
+      total_time = 0;
+      return false;
+    }
+    const unsigned long long kernel_delta = kernel_time_raw - previous.kernel_time_raw;
+    const unsigned long long user_delta = user_time_raw - previous.user_time_raw;
+    kernel_time = to_percent(kernel_delta, capacity);
+    user_time = to_percent(user_delta, capacity);
+    total_time = to_percent(kernel_delta + user_delta, capacity);
+    return true;
   }
   static std::shared_ptr<process_info> get_total();
 

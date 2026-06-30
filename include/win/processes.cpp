@@ -445,39 +445,59 @@ process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *e
     if (error_interface != nullptr) error_interface->report_error(e.reason());
   }
 
-  unsigned long long kernel_time = 0;
-  unsigned long long user_time = 0;
-  unsigned long long idle_time = 0;
+  // Convert a FILETIME (split 64-bit value) into a single 64-bit tick count.
+  const auto filetime_to_u64 = [](const FILETIME &ft) -> unsigned long long {
+    return (static_cast<unsigned long long>(ft.dwHighDateTime) << 32) + static_cast<unsigned long long>(ft.dwLowDateTime);
+  };
+
+  // Bracket both per-process samples with the system-time measurements so the
+  // numerator (per-process CPU) and denominator (system CPU) cover the same
+  // wall-clock window. Previously the second GetSystemTimes() was taken before
+  // the second process snapshot, leaving the two windows misaligned.
   FILETIME idleTime;
   FILETIME kernelTime;
   FILETIME userTime;
+  unsigned long long kernel_time = 0;
+  unsigned long long user_time = 0;
   if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
-    kernel_time = (kernelTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(kernelTime.dwLowDateTime);
-    user_time = (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime);
-    idle_time = (idleTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(idleTime.dwLowDateTime);
+    kernel_time = filetime_to_u64(kernelTime);
+    user_time = filetime_to_u64(userTime);
   }
 
   const process_map p1 = get_process_data(ignore_unreadable, error_interface);
   Sleep(1000);
-  if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
-    kernel_time =
-        (kernelTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(kernelTime.dwLowDateTime) - kernel_time;
-    user_time =
-        (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime) - user_time;
-    idle_time =
-        (idleTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(idleTime.dwLowDateTime) - idle_time;
-  }
-  const unsigned long long total_time = kernel_time + user_time + idle_time;
-
   process_map p2 = get_process_data(ignore_unreadable, error_interface);
+
+  if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
+    kernel_time = filetime_to_u64(kernelTime) - kernel_time;
+    user_time = filetime_to_u64(userTime) - user_time;
+  }
+  // Capacity = kernel + user. GetSystemTimes() already folds idle time into the
+  // kernel figure, so idle is NOT added again here (doing so used to inflate
+  // the denominator and bias every per-process percentage low).
+
   for (const auto &v1 : p1) {
     auto v2 = p2.find(v1.first);
     if (v2 == p2.end()) {
       if (error_interface != nullptr) error_interface->report_debug("process died: " + str::xtos(v1.first));
       continue;
     }
+    // Guard against PID reuse: if a process exited during the sample window and
+    // its PID was handed to a brand new process, the two snapshots describe
+    // different programs and any delta between them is meaningless. The
+    // creation time uniquely identifies the incarnation.
+    if (v2->second.get_creation_time() != v1.second.get_creation_time()) {
+      if (error_interface != nullptr) error_interface->report_debug("pid reused, skipping: " + str::xtos(v1.first));
+      continue;
+    }
     v2->second -= v1.second;
-    v2->second.make_cpu_delta(kernel_time, user_time, total_time);
+    // make_cpu_delta() also defends against the counters moving backwards; if it
+    // reports the delta is not meaningful we drop the process rather than emit a
+    // bogus percentage.
+    if (!v2->second.make_cpu_delta(v1.second, kernel_time, user_time)) {
+      if (error_interface != nullptr) error_interface->report_debug("cpu counter went backwards, skipping: " + str::xtos(v1.first));
+      continue;
+    }
     ret.push_back(v2->second);
   }
 
