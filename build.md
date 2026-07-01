@@ -20,8 +20,12 @@ If you want to produce debug builds and/or w32 some adjustments will be required
 
 You need the following tools installed on your machine and in your path:
 
-* Visual Studio (Community Edition is fine)
-    * In addition, you need to enable the following modules (to get support for XP) in the installer
+* Visual Studio 2022 (Community Edition is fine)
+    * The **standard** build uses the default `v143` toolset ("Desktop
+      development with C++" workload), which targets Windows 10 / Server 2016
+      and later.
+    * Only the **legacy** build (see [Win32 version (static link)](#win32-version-static-link),
+      which targets Windows XP) needs the following additional components:
         * Microsoft.VisualStudio.Component.VC.v141.x86.x64
         * Microsoft.VisualStudio.Component.VC.v141.ATL
         * Microsoft.VisualStudio.Component.WinXP
@@ -48,7 +52,7 @@ and its location is pointed to from `build.cmake`.
 
 | Dependency                                                                                     | Used for                                     | Debian/Ubuntu package                           | Windows                                                      |
 |------------------------------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------|--------------------------------------------------------------|
-| C++17 toolchain                                                                                | compiling                                    | `build-essential`                               | Visual Studio (v141_xp toolset)                              |
+| C++17 toolchain                                                                                | compiling                                    | `build-essential`                               | Visual Studio 2022 (`v143` toolset; `v141_xp` for the legacy XP build)  |
 | CMake ≥ 3.10                                                                                   | build system                                 | `cmake`                                         | CMake                                                        |
 | Boost (system, filesystem, thread, regex, date_time, program_options, chrono, json, container) | core runtime, filtering, JSON, threading     | `libboost-all-dev`                              | built from source                                            |
 | Protocol Buffers (library + `protoc`)                                                          | every cross-module message                   | `libprotobuf-dev`, `protobuf-compiler`          | built from source                                            |
@@ -151,6 +155,11 @@ across reconfigures until explicitly flipped back to `ON`.
 
 ## x64 version (dynamic runtime)
 
+This is the **standard** build: it uses the default `v143` toolset and targets
+Windows 10 / Server 2016 and later. For older systems (down to Windows XP) see
+the legacy [Win32 version (static link)](#win32-version-static-link) below,
+which uses the `v141_xp` toolset.
+
 ### Environment
 
 To make things smooth we will define a few environment variables we can use:
@@ -159,8 +168,8 @@ To make things smooth we will define a few environment variables we can use:
 set SOURCE_ROOT=FOLDER WHERE YOU CLONED THE GIT REPO
 set BUILD_FOLDER=WHERE TO BUILD EVERYTHING, NORMALLY AN EMPTY FOLDER
 set NSCP_VERSION=NORMALLY READ FROM GIT
-# Ensure we configure Visual Studio to use 14.16 (v141_xp) which is the toolset which support building XP binaries
-"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.16
+# Configure Visual Studio to use the default v143 toolset (14.4)
+"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 mkdir %BUILD_FOLDER%
 mkdir %BUILD_FOLDER%\nscp
 ```
@@ -197,12 +206,12 @@ curl -L https://archives.boost.io/release/%BOOST_VERSION%/source/boost_%BOOST_VE
 xcopy boost_%BOOST_VERSION_% boost_%BOOST_VERSION_%_static /E /I
 
 cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%
-call bootstrap.bat vc141
-b2.exe --layout=system address-model=64 toolset=msvc-14.1 variant=release link=shared runtime-link=shared warnings=off -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono --with-json --with-container
+call bootstrap.bat vc143
+b2.exe --layout=system address-model=64 toolset=msvc-14.3 variant=release link=shared runtime-link=shared warnings=off -d0 --with-system --with-filesystem --with-thread --with-regex --with-date_time --with-program_options --with-python --with-chrono --with-json --with-container
 
 cd %BUILD_FOLDER%\boost_%BOOST_VERSION_%_static
-call bootstrap.bat vc141
-b2.exe --layout=system address-model=64 toolset=msvc-14.1 variant=release link=static runtime-link=static warnings=off define=BOOST_NO_CXX17_HDR_SHARED_MUTEX -d0 --with-system --with-filesystem
+call bootstrap.bat vc143
+b2.exe --layout=system address-model=64 toolset=msvc-14.3 variant=release link=static runtime-link=static warnings=off -d0 --with-system --with-filesystem
 ```
 
 #### Build Proto-buf
@@ -215,7 +224,7 @@ curl -L https://github.com/protocolbuffers/protobuf/releases/download/v%PROTOBUF
 cd %BUILD_FOLDER%\protobuf-%PROTOBUF_VERSION%
 mkdir build
 cd %BUILD_FOLDER%\protobuf-%PROTOBUF_VERSION%\build
-cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -T v141_xp -A x64 ..
+cmake -DBUILD_SHARED_LIBS=TRUE -G "Visual Studio 17" -T v143 -A x64 ..
 
 msbuild libprotobuf.vcxproj /p:Configuration=Release /p:Platform=x64
 msbuild libprotobuf.vcxproj /p:Configuration=Debug /p:Platform=x64
@@ -239,10 +248,10 @@ cd %BUILD_FOLDER%\CRYPTOPP_%CRYPTOPP_VERSION_%
 7z x ..\cryptopp.zip
 
 python %SOURCE_ROOT%/build/python/msdev-to-dynamic.py cryptlib.vcxproj
-msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v141
-msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v141
-msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:PlatformToolset=v141
-msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:PlatformToolset=v141
+msbuild cryptlib.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143
+msbuild cryptdll.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143
+msbuild cryptlib.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:PlatformToolset=v143
+msbuild cryptdll.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:PlatformToolset=v143
 ```
 
 #### Download Lua
@@ -302,7 +311,7 @@ del miniz.zip
 cd %BUILD_FOLDER%
 mkdir installer_lib
 cd installer_lib 
-cmake %SOURCE_ROOT%/installer_lib -T v141 -G "Visual Studio 18" -A x64 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION% -DBUILD_VERSION=%NSCP_VERSION% 
+cmake %SOURCE_ROOT%/installer_lib -T v143 -G "Visual Studio 17" -A x64 -DBOOST_ROOT=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static -DBOOST_LIBRARYDIR=%BUILD_FOLDER%\boost_%BOOST_VERSION_%_static/stage/lib -DOPENSSL_ROOT_DIR=%BUILD_FOLDER%\openssl-%OPENSSL_VERSION% -DBUILD_VERSION=%NSCP_VERSION% 
 msbuild installer_lib.sln /p:Configuration=Release /p:Platform=x64
 ```
 
@@ -312,7 +321,7 @@ msbuild installer_lib.sln /p:Configuration=Release /p:Platform=x64
 cd %BUILD_FOLDER%
 git clone --depth 1 --branch release-1.12.1 https://github.com/google/googletest.git
 cd googletest
-cmake -S . -B build -DCMAKE_INSTALL_PREFIX="C:/src/build/googletest/install" -DBUILD_SHARED_LIBS=ON -T v141
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX="C:/src/build/googletest/install" -DBUILD_SHARED_LIBS=ON -T v143
 cmake --build build --config Release --target install
 copy install\bin\*.dll %BUILD_FOLDER%\nscp
 ```
@@ -343,11 +352,16 @@ SET(MINIZ_INCLUDE_DIR "BUILD_FOLDER/miniz-VERSION")
 cd %BUILD_FOLDER%
 mkdir nscp
 cd nscp
-cmake %SOURCE_ROOT% -T v141_xp -G "Visual Studio 17" -A x64 -DBUILD_VERSION=%NSCP_VERSION%
+cmake %SOURCE_ROOT% -T v143 -G "Visual Studio 17" -A x64 -DBUILD_VERSION=%NSCP_VERSION%
 msbuild nscp.sln /p:Configuration=Release /p:Platform=x64
 ```
 
 ## Win32 version (static link)
+
+This is the **legacy** build: it links statically and uses the `v141_xp`
+toolset so the binaries run on Windows XP / Server 2003 and later. New
+deployments on Windows 10 / Server 2016 or newer should use the standard
+[x64 version (dynamic runtime)](#x64-version-dynamic-runtime) above instead.
 
 ### Environment
 

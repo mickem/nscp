@@ -41,12 +41,12 @@ env:
 jobs:
   build:
     # Pinned to windows-2022 (not windows-latest): this build targets the
-    # v141 toolset via vcvars 14.1, builds with the "Visual Studio 17"
-    # (VS 2022) cmake generator, and ./.github/actions/update-msvc installs
-    # components into ...\Microsoft Visual Studio\2022\Enterprise. The
-    # windows-latest image has moved to Visual Studio 18, which ships none of
-    # those, so ilammy/msvc-dev-cmd fails with "Toolset directory for version
-    # '14.1' was not found".
+    # default v143 toolset via vcvars 14.4 and builds with the
+    # "Visual Studio 17" (VS 2022) cmake generator. The windows-latest image
+    # has moved to Visual Studio 18, so the "Visual Studio 17" generator is no
+    # longer present there. v143 raises the minimum supported OS to
+    # Windows 10 / Server 2016; older systems are served by the separate
+    # legacy (v141_xp) build in build-windows-legacy.yml.
     runs-on: windows-2022
     outputs:
       platform: ${{ steps.setup.outputs.platform }}
@@ -60,20 +60,20 @@ jobs:
           "x64" {
             echo "msvc_arch=x64" >> $env:GITHUB_OUTPUT
             echo "platform=x64" >> $env:GITHUB_OUTPUT
-            echo "toolset=v141" >> $env:GITHUB_OUTPUT
-            echo "vs_toolset=14.1" >> $env:GITHUB_OUTPUT
+            echo "toolset=v143" >> $env:GITHUB_OUTPUT
+            echo "vs_toolset=14.4" >> $env:GITHUB_OUTPUT
             echo "python_arch=x64" >> $env:GITHUB_OUTPUT
           }
           "x86" {
             echo "msvc_arch=amd64_x86" >> $env:GITHUB_OUTPUT
             echo "platform=Win32" >> $env:GITHUB_OUTPUT
-            echo "toolset=v141" >> $env:GITHUB_OUTPUT
-            echo "vs_toolset=14.1" >> $env:GITHUB_OUTPUT
+            echo "toolset=v143" >> $env:GITHUB_OUTPUT
+            echo "vs_toolset=14.4" >> $env:GITHUB_OUTPUT
             echo "python_arch=x86" >> $env:GITHUB_OUTPUT
           }
           "arm64" {
-            # Cross-compile ARM64 from the x64 host runner. v141 does not
-            # support ARM64, so use the default v143 toolset.
+            # Cross-compile ARM64 from the x64 host runner using the same
+            # default v143 toolset as the x64/x86 builds.
             echo "msvc_arch=amd64_arm64" >> $env:GITHUB_OUTPUT
             echo "platform=ARM64" >> $env:GITHUB_OUTPUT
             echo "toolset=v143" >> $env:GITHUB_OUTPUT
@@ -108,9 +108,10 @@ jobs:
         npm install
         npm run build
 
-    - name: Install components
-      uses: ./.github/actions/update-msvc
-
+    # No ./.github/actions/update-msvc here: that action installs the
+    # v141 / WinXP / Windows 8.1 SDK components used only by the legacy XP
+    # build. This build uses the default v143 toolset that ships with the
+    # windows-2022 image, so no extra components are required.
     - uses: ilammy/msvc-dev-cmd@v1
       name: Setup msvc environment
       with:

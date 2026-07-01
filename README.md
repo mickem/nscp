@@ -48,7 +48,8 @@ Since NSClient++ is meaningless by itself it also supports a lot of protocols to
 ## Supported OS/Platform
 
 NSClient++ should run on the following operating systems:
- * Windows: In theory from Windows XP with lots of service back (verified Windows 2008 R2 and later)
+ * Windows (standard build): Windows 10 / Server 2016 and later. Built with the `v143` toolset (MSVC 2022).
+ * Windows (legacy build): Windows XP and later, best-effort. Built with the `v141_xp` toolset for older estates that cannot move to a supported OS.
  * Linux: Debian, Centos and Ubuntu (and possibly others as well)
 
 ### Which package to download
@@ -57,8 +58,8 @@ The following packages are produced by the official build pipelines. Pick the on
 
 | Operating system               | Version                                           | Architecture     | Package / artifact name                          | Notes                                                                                                                                                            |
 |--------------------------------|---------------------------------------------------|------------------|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Windows (modern)               | Windows 10 / 11, Server 2016 / 2019 / 2022 / 2025 | x64 (64-bit)     | `NSCP-<version>-x64.msi`                         | Recommended for all modern Windows systems. Built with MSVC 2022.                                                                                                |
-| Windows (modern)               | Windows 10 / 11, Server 2016 / 2019 / 2022 / 2025 | x86 (32-bit)     | `NSCP-<version>-Win32.msi`                       | Use only on 32-bit Windows installations. Built with MSVC 2022.                                                                                                  |
+| Windows (modern)               | Windows 10 / 11, Server 2016 / 2019 / 2022 / 2025 | x64 (64-bit)     | `NSCP-<version>-x64.msi`                         | Recommended for all modern Windows systems. Built with the `v143` toolset (MSVC 2022).                                                                           |
+| Windows (modern)               | Windows 10 / 11, Server 2016 / 2019 / 2022 / 2025 | x86 (32-bit)     | `NSCP-<version>-Win32.msi`                       | Use only on 32-bit Windows installations. Built with the `v143` toolset (MSVC 2022).                                                                             |
 | Windows (modern)               | Windows 11 ARM, Server 2025 ARM                   | ARM64            | `NSCP-<version>-ARM64.msi`                       | Native ARM64 build, cross-compiled with the `v143` toolset. Use this on Windows-on-ARM devices (e.g. Surface Pro X / Copilot+ PCs, ARM-based Azure VMs).         |
 | Windows (legacy)               | Windows XP and above                              | x86 (32-bit)     | `NSCP-<version>-Win32-legacy-xp.msi`             | Statically linked, built with the `v141_xp` toolset. Use this on any Windows older than Windows 10 / Server 2016. Works on x64 versions of these older OSes too. |
 | Ubuntu                         | 24.04 LTS (Noble)                                 | x64 (amd64)      | `NSCP-<version>-ubuntu-24.04-amd64.deb`          | Should also install on recent Debian/Ubuntu derivatives with compatible glibc and Lua 5.4.                                                                       |
