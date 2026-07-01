@@ -76,8 +76,8 @@ The most common check commands with their default thresholds:
 
 ## Supported Platforms
 
-- **Windows (standard)**: Windows 10 / Server 2016 and later (Win32 and x64), built with the `v143` toolset.
-    - For older systems down to Windows XP / Server 2003, use the legacy build (`v141_xp` toolset). See [Supported platforms](setup/supported-platforms.md).
+- **Windows (standard)**: Windows 10 / Server 2016 and later (Win32 and x64).
+    - For older systems down to Windows XP / Server 2003, use the legacy build. See [Supported platforms](setup/supported-platforms.md).
 - **Linux**: Debian, Ubuntu, CentOS/RHEL (limited module support).
 
 ## Supported Protocols

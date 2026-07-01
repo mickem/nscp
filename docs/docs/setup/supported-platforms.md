@@ -11,46 +11,49 @@ NSClient++ is built for two operating system families: Windows and Linux.
 
 There are two Windows editions:
 
-| Edition  | Supported on                                  | Toolset    | Installer           | Notes                                                                                                                                                |
-|----------|-----------------------------------------------|------------|---------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Standard | Windows 10 / Server 2016 and later            | `v143`     | MSI (recommended)   | The mainline build. New features and fixes land here first.                                                                                          |
-| Legacy   | Windows XP (latest Service Pack), Server 2003 | `v141_xp`  | Manual install only | Best-effort build for older systems. The MSI installer is not supported on XP; the binaries need to be deployed and registered as a service by hand. |
+| Edition  | Runs on                                       | Build       | How to install      | Notes                                                                                                                                        |
+|----------|-----------------------------------------------|-------------|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| Standard | Windows 10 / Server 2016 and later            | `v143`      | MSI (recommended)   | The mainline build. New features and fixes land here first.                                                                                  |
+| Legacy   | Windows XP (latest Service Pack), Server 2003 | `v141_xp`   | Manual install only | For older machines. The MSI installer will not run on XP, so the files have to be copied in and registered as a service by hand.             |
 
-Both 32-bit and 64-bit builds are produced for the standard edition; pick the one that matches the host architecture.
+Both 32-bit and 64-bit installers are produced for the standard edition; pick
+the one that matches the machine.
 
-The standard edition is built with the `v143` platform toolset (MSVC 2022),
-which raises the minimum supported OS to Windows 10 / Server 2016. Systems
-older than that — down to Windows XP — are served by the separate **legacy**
-edition, which is built with the `v141_xp` toolset. That toolset is the last
-one from Microsoft that can target Windows XP SP3 / Server 2003; Visual Studio
-2019 and later dropped Windows XP targeting entirely (see Microsoft's
-[Configuring Programs for Windows XP][winxp]).
+The **standard** edition is the one to use on any supported version of Windows
+(Windows 10 / Server 2016 and newer). The **legacy** edition exists only for
+older machines — anything from Windows XP up to Windows 8.1 / Server 2012 R2 —
+that cannot be upgraded but still need to report into your monitoring server.
+
+(The `v143` / `v141_xp` labels are the Microsoft build tools each edition is
+compiled with. Windows XP support was removed from Microsoft's tools after
+Visual Studio 2017, which is why the legacy edition stays on the older
+`v141_xp` tools — see Microsoft's [Configuring Programs for Windows XP][winxp].)
 
 [winxp]: https://learn.microsoft.com/en-us/cpp/build/configuring-programs-for-windows-xp?view=msvc-170
 
-### Where the Windows 10 / Server 2016 floor comes from
+### Why the standard edition needs Windows 10 / Server 2016
 
-The `v143` limit is not a hard property of the compiler itself — it comes from
-the **Visual C++ runtime (redistributable)** that the standard build links
-against dynamically. The current Visual C++ Redistributable that ships with
-MSVC 2022 requires Windows 10 / Server 2016 or later; Microsoft dropped
-Windows 7 SP1 / 8.1 support from the newer redistributable builds. Because the
-standard MSI bundles and depends on that current runtime, Windows 10 /
-Server 2016 is the supported floor.
+The version requirement does not really come from NSClient++ itself — it comes
+from the **Microsoft Visual C++ Runtime** that the program needs in order to
+start. The standard installer ships and installs the current version of that
+runtime, and Microsoft only supports it on Windows 10 / Server 2016 and newer
+(support for Windows 7 SP1 / 8.1 was dropped from the current runtime). That is
+what sets the minimum version.
 
 <!-- @formatter:off -->
-!!! tip "Bring-your-own-redistributable (unsupported)"
-    The `v143` *compiler* can still emit code that runs on older Windows
-    (down to Windows 7 SP1 / Server 2008 R2 SP1). If you deploy the standard
-    build alongside an **older** Visual C++ Redistributable — one that still
-    supports Windows 7 SP1 / 8.1 (for example a `14.3x` redistributable rather
-    than the latest) — it will **likely** run on those older systems.
+!!! tip "Getting the standard build onto older Windows (unsupported)"
+    In practice the standard build will often still start on older machines
+    (down to Windows 7 SP1 / Server 2008 R2 SP1) — but only if an **older**
+    version of the Microsoft Visual C++ Redistributable is already installed,
+    one that still supports those systems (for example a `14.3x` release rather
+    than the newest). If only the current runtime is present it refuses to
+    install on those older systems and NSClient++ will not start.
 
-    This is *not tested or supported*: we build and validate against the
-    current runtime only. If you need a genuinely supported path for
-    pre-Windows-10 systems, use the **legacy** (`v141_xp`) edition instead.
-    See Microsoft's [latest supported VC++ redistributable requirements][vcredist]
-    for which OS versions each redistributable build supports.
+    We do not test or support this: the standard build is only validated
+    against the current runtime. If you need a properly supported option for
+    anything older than Windows 10 / Server 2016, use the **legacy** edition
+    instead. Microsoft lists which Windows versions each runtime release
+    supports on their [Visual C++ Redistributable download page][vcredist].
 <!-- @formatter:on -->
 
 [vcredist]: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
