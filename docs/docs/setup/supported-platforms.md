@@ -21,7 +21,39 @@ Both 32-bit and 64-bit builds are produced for the standard edition; pick the on
 The standard edition is built with the `v143` platform toolset (MSVC 2022),
 which raises the minimum supported OS to Windows 10 / Server 2016. Systems
 older than that — down to Windows XP — are served by the separate **legacy**
-edition, which is built with the `v141_xp` toolset.
+edition, which is built with the `v141_xp` toolset. That toolset is the last
+one from Microsoft that can target Windows XP SP3 / Server 2003; Visual Studio
+2019 and later dropped Windows XP targeting entirely (see Microsoft's
+[Configuring Programs for Windows XP][winxp]).
+
+[winxp]: https://learn.microsoft.com/en-us/cpp/build/configuring-programs-for-windows-xp?view=msvc-170
+
+### Where the Windows 10 / Server 2016 floor comes from
+
+The `v143` limit is not a hard property of the compiler itself — it comes from
+the **Visual C++ runtime (redistributable)** that the standard build links
+against dynamically. The current Visual C++ Redistributable that ships with
+MSVC 2022 requires Windows 10 / Server 2016 or later; Microsoft dropped
+Windows 7 SP1 / 8.1 support from the newer redistributable builds. Because the
+standard MSI bundles and depends on that current runtime, Windows 10 /
+Server 2016 is the supported floor.
+
+<!-- @formatter:off -->
+!!! tip "Bring-your-own-redistributable (unsupported)"
+    The `v143` *compiler* can still emit code that runs on older Windows
+    (down to Windows 7 SP1 / Server 2008 R2 SP1). If you deploy the standard
+    build alongside an **older** Visual C++ Redistributable — one that still
+    supports Windows 7 SP1 / 8.1 (for example a `14.3x` redistributable rather
+    than the latest) — it will **likely** run on those older systems.
+
+    This is *not tested or supported*: we build and validate against the
+    current runtime only. If you need a genuinely supported path for
+    pre-Windows-10 systems, use the **legacy** (`v141_xp`) edition instead.
+    See Microsoft's [latest supported VC++ redistributable requirements][vcredist]
+    for which OS versions each redistributable build supports.
+<!-- @formatter:on -->
+
+[vcredist]: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
 
 ## Linux
 
