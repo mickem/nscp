@@ -71,6 +71,8 @@ The following packages are produced by the official build pipelines. Pick the on
 
 In addition, a stand-alone `check_nsclient` binary is published alongside each Linux package for use as a Nagios/Icinga check plugin.
 
+> **Older Windows?** The standard build needs Windows 10 / Server 2016 or newer because of the Microsoft Visual C++ Runtime it installs. Prefer the **legacy** package for anything older. It is sometimes possible to run the standard build down to Windows 7 SP1 / Server 2008 R2 SP1 by first installing an older Visual C++ Runtime, but that is unsupported — see [Supported platforms](docs/docs/setup/supported-platforms.md#why-the-standard-edition-needs-windows-10--server-2016) for details.
+
 > **Linux only:** the `.deb` / `.rpm` packages contain the daemon, modules and REST API but **not** the React web UI — that ships as a separate release artifact, `NSCP-Web-<version>.zip`, to keep the Linux packages compatible with Debian/Fedora packaging policy (no `npm install` at build time). After installing the package, run `sudo nscp web install-ui` once to fetch and unpack the matching UI bundle. See [Installing on Linux](docs/docs/setup/installing.md#installing-on-linux-deb-rpm) for the full flow, including the air-gapped `--from /path/to/NSCP-Web-<version>.zip` option. The Windows MSI keeps bundling the UI inline; this extra step does not apply there.
 
 > Note: On unsupported distributions you can build from source — see [build.md](build.md).
