@@ -151,12 +151,14 @@ struct filter_obj {
   long long user_free;
   long long total_free;
   long long drive_size;
+  long long inode_total;
+  long long inode_free;
   bool has_size;
   bool writable;
   bool readable;
 
   explicit filter_obj(const drive_container &drive)
-      : drive(drive), user_free(0), total_free(0), drive_size(0), has_size(false), writable(true), readable(true) {}
+      : drive(drive), user_free(0), total_free(0), drive_size(0), inode_total(0), inode_free(0), has_size(false), writable(true), readable(true) {}
 
   std::string get_drive() const { return drive.mountpoint; }
   std::string get_letter() const { return ""; }
@@ -190,8 +192,28 @@ struct filter_obj {
     drive_size = static_cast<long long>(vfs.f_blocks * bs);
     total_free = static_cast<long long>(vfs.f_bfree * bs);
     user_free = static_cast<long long>(vfs.f_bavail * bs);
+    inode_total = static_cast<long long>(vfs.f_files);
+    inode_free = static_cast<long long>(vfs.f_ffree);
     writable = (vfs.f_flag & ST_RDONLY) == 0;
   }
+
+  long long get_inodes_total(parsers::where::evaluation_context context) {
+    get_size(context);
+    return inode_total;
+  }
+  long long get_inodes_free(parsers::where::evaluation_context context) {
+    get_size(context);
+    return inode_free;
+  }
+  long long get_inodes_used(parsers::where::evaluation_context context) {
+    get_size(context);
+    return inode_total - inode_free;
+  }
+  long long get_inodes_free_pct(parsers::where::evaluation_context context) {
+    get_size(context);
+    return str::format::calc_pct_round(inode_free, inode_total);
+  }
+  long long get_inodes_used_pct(parsers::where::evaluation_context context) { return 100 - get_inodes_free_pct(context); }
 
   long long get_user_free(parsers::where::evaluation_context context) {
     get_size(context);
@@ -260,10 +282,13 @@ struct filter_obj {
     user_free += other->user_free;
     total_free += other->total_free;
     drive_size += other->drive_size;
+    inode_total += other->inode_total;
+    inode_free += other->inode_free;
   }
   void make_total() {
     has_size = true;
     total_free = user_free = drive_size = 0;
+    inode_total = inode_free = 0;
   }
 };
 
@@ -352,6 +377,11 @@ struct filter_obj_handler : public native_context {
       ("used_pct", &filter_obj::get_total_used_pct, "Shorthand for total_used_pct (% used space)")
       ("total_used_pct", &filter_obj::get_total_used_pct, "% used space")
       ("user_used_pct", type_custom_user_used, &filter_obj::get_user_used_pct, "% used space available to user")
+      ("inodes_total", parsers::where::type_int, &filter_obj::get_inodes_total, "Total number of inodes on the filesystem")
+      ("inodes_free", parsers::where::type_int, &filter_obj::get_inodes_free, "Number of free inodes")
+      ("inodes_used", parsers::where::type_int, &filter_obj::get_inodes_used, "Number of used inodes")
+      ("inodes_free_pct", &filter_obj::get_inodes_free_pct, "% free inodes")
+      ("inodes_used_pct", &filter_obj::get_inodes_used_pct, "% used inodes")
       ("mounted", parsers::where::type_int, &filter_obj::get_is_mounted, "Check if a drive is mounted")
       ("removable", &filter_obj::get_removable, "1 (true) if drive is removable")
       ("hotplug", &filter_obj::get_hotplug, "1 (true) if drive is hotplugable")
