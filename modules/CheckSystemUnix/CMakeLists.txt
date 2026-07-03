@@ -81,6 +81,8 @@ NSCP_CREATE_TEST(
         check_os_updates.cpp
         check_process_test.cpp
         check_process.cpp
+        check_temperature_test.cpp
+        check_temperature.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
