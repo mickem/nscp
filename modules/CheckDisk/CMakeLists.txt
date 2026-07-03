@@ -14,6 +14,7 @@ set(SRCS
     check_disk_io.cpp
     check_disk_health.cpp
     check_files.cpp
+    check_mount.cpp
     check_single_file.cpp
     collector_thread.cpp
     filter.cpp
@@ -38,6 +39,7 @@ if(WIN32)
         check_disk_io.hpp
         check_disk_health.hpp
         check_files.hpp
+        check_mount.hpp
         check_single_file.hpp
         collector_thread.hpp
         file_finder.hpp
@@ -142,6 +144,8 @@ else()
             check_disk_io_unix.cpp
             check_drive_unix.cpp
             check_files.cpp
+            check_mount.cpp
+            check_mount_test.cpp
             check_single_file.cpp
             file_finder_unix.cpp
             filter.cpp
