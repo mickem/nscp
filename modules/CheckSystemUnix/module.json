@@ -20,6 +20,7 @@
 		"check_pagefile"	: "Check the size of the system pagefile(s).",
 		"check_service"		: "Check the state of one or more of the computer services.",
 		"check_process"		: "Check state/metrics of one or more of the processes running on the computer."
+		"check_battery"		: "Check battery charge level, power source and health.",
 	},
 
 	"metrics" : "produce",

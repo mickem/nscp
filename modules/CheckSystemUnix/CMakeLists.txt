@@ -23,6 +23,7 @@ set(SRCS
     check_service.cpp
     check_process.cpp
     check_pagefile.cpp
+    check_battery.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -44,6 +45,7 @@ if(WIN32)
         check_service.h
         check_process.h
         check_pagefile.h
+        check_battery.h
     )
 endif(WIN32)
 
@@ -66,6 +68,7 @@ NSCP_CREATE_TEST(
     check_system_unix_test
     SOURCES
         check_system_unix_test.cpp
+        check_battery.cpp
         check_os_updates_test.cpp
         check_os_updates.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
