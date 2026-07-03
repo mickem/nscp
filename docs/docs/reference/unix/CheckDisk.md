@@ -36,6 +36,7 @@ A list of all available queries (check commands)
 | [check_disk_io](#check_disk_io)         | Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).                                                                                   |
 | [check_drivesize](#check_drivesize)     | Check the size (free-space) of a drive or volume.                                                                                                                 |
 | [check_files](#check_files)             | Check various aspects of a file and/or folder.                                                                                                                    |
+| [check_mount](#check_mount)             | Check that a filesystem is mounted with the expected fstype and options.                                                                                          |
 | [check_single_file](#check_single_file) | Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file. |
 
 
@@ -648,38 +649,43 @@ Multiple options can be used to check more than one mount or wildcards can be us
 #### Filter keywords
 
 
-| Option         | Description                                                        |
-|----------------|--------------------------------------------------------------------|
-| drive          | Technical name of drive (mount point)                              |
-| drive_or_id    | Mount point if present if not use device                           |
-| drive_or_name  | Mount point if present if not use device                           |
-| erasable       | 1 (true) if drive is erasable                                      |
-| filesystem     | Filesystem type as reported by the OS (e.g. ext4, xfs, btrfs, nfs) |
-| flags          | String representation of flags                                     |
-| free           | Shorthand for total_free (Number of free bytes)                    |
-| free_pct       | Shorthand for total_free_pct (% free space)                        |
-| fs             | Shorthand alias for filesystem                                     |
-| hotplug        | 1 (true) if drive is hotplugable                                   |
-| id             | Drive or id of drive (device)                                      |
-| letter         | Letter the drive is mounted on (always empty on Unix)              |
-| media_type     | Get the media type                                                 |
-| mounted        | Check if a drive is mounted                                        |
-| name           | Descriptive name of drive (device)                                 |
-| readable       | 1 (true) if drive is readable                                      |
-| removable      | 1 (true) if drive is removable                                     |
-| size           | Total size of drive                                                |
-| total_free     | Number of free bytes                                               |
-| total_free_pct | % free space                                                       |
-| total_used     | Number of used bytes                                               |
-| total_used_pct | % used space                                                       |
-| type           | Type of drive                                                      |
-| used           | Number of used bytes                                               |
-| used_pct       | Shorthand for total_used_pct (% used space)                        |
-| user_free      | Free space available to user (which runs NSClient++)               |
-| user_free_pct  | % free space available to user                                     |
-| user_used      | Number of used bytes (related to user)                             |
-| user_used_pct  | % used space available to user                                     |
-| writable       | 1 (true) if drive is writable                                      |
+| Option          | Description                                                        |
+|-----------------|--------------------------------------------------------------------|
+| drive           | Technical name of drive (mount point)                              |
+| drive_or_id     | Mount point if present if not use device                           |
+| drive_or_name   | Mount point if present if not use device                           |
+| erasable        | 1 (true) if drive is erasable                                      |
+| filesystem      | Filesystem type as reported by the OS (e.g. ext4, xfs, btrfs, nfs) |
+| flags           | String representation of flags                                     |
+| free            | Shorthand for total_free (Number of free bytes)                    |
+| free_pct        | Shorthand for total_free_pct (% free space)                        |
+| fs              | Shorthand alias for filesystem                                     |
+| hotplug         | 1 (true) if drive is hotplugable                                   |
+| id              | Drive or id of drive (device)                                      |
+| inodes_free     | Number of free inodes                                              |
+| inodes_free_pct | % free inodes                                                      |
+| inodes_total    | Total number of inodes on the filesystem                           |
+| inodes_used     | Number of used inodes                                              |
+| inodes_used_pct | % used inodes                                                      |
+| letter          | Letter the drive is mounted on (always empty on Unix)              |
+| media_type      | Get the media type                                                 |
+| mounted         | Check if a drive is mounted                                        |
+| name            | Descriptive name of drive (device)                                 |
+| readable        | 1 (true) if drive is readable                                      |
+| removable       | 1 (true) if drive is removable                                     |
+| size            | Total size of drive                                                |
+| total_free      | Number of free bytes                                               |
+| total_free_pct  | % free space                                                       |
+| total_used      | Number of used bytes                                               |
+| total_used_pct  | % used space                                                       |
+| type            | Type of drive                                                      |
+| used            | Number of used bytes                                               |
+| used_pct        | Shorthand for total_used_pct (% used space)                        |
+| user_free       | Free space available to user (which runs NSClient++)               |
+| user_free_pct   | % free space available to user                                     |
+| user_used       | Number of used bytes (related to user)                             |
+| user_used_pct   | % used space available to user                                     |
+| writable        | 1 (true) if drive is writable                                      |
 
 **Common options for all checks:**
 
@@ -904,28 +910,205 @@ Include the total of either (filter) all files matching the filter or (all) all 
 #### Filter keywords
 
 
-| Option     | Description                                  |
-|------------|----------------------------------------------|
-| access     | Last access time                             |
-| access_l   | Last access time (local time)                |
-| access_u   | Last access time (UTC)                       |
-| age        | Seconds since file was last written          |
-| creation   | When file was created                        |
-| creation_l | When file was created (local time)           |
-| creation_u | When file was created (UTC)                  |
-| extension  | The filename extension                       |
-| file       | The name of the file                         |
-| filename   | The name of the file                         |
-| line_count | Number of lines in the file (text files)     |
-| name       | The name of the file                         |
-| path       | Path of file                                 |
-| size       | File size                                    |
-| type       | Type of item (file or dir)                   |
-| version    | Windows exe/dll file version (empty on Unix) |
-| write      | Alias for written                            |
-| written    | When file was last written to                |
-| written_l  | When file was last written  to (local time)  |
-| written_u  | When file was last written  to (UTC)         |
+| Option          | Description                                  |
+|-----------------|----------------------------------------------|
+| access          | Last access time                             |
+| access_l        | Last access time (local time)                |
+| access_u        | Last access time (UTC)                       |
+| age             | Seconds since file was last written          |
+| creation        | When file was created                        |
+| creation_l      | When file was created (local time)           |
+| creation_u      | When file was created (UTC)                  |
+| extension       | The filename extension                       |
+| file            | The name of the file                         |
+| filename        | The name of the file                         |
+| line_count      | Number of lines in the file (text files)     |
+| md5_checksum    | MD5 checksum of the file content (hex)       |
+| name            | The name of the file                         |
+| path            | Path of file                                 |
+| sha1_checksum   | SHA-1 checksum of the file content (hex)     |
+| sha256_checksum | SHA-256 checksum of the file content (hex)   |
+| sha384_checksum | SHA-384 checksum of the file content (hex)   |
+| sha512_checksum | SHA-512 checksum of the file content (hex)   |
+| size            | File size                                    |
+| type            | Type of item (file or dir)                   |
+| version         | Windows exe/dll file version (empty on Unix) |
+| write           | Alias for written                            |
+| written         | When file was last written to                |
+| written_l       | When file was last written  to (local time)  |
+| written_u       | When file was last written  to (UTC)         |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+
+### check_mount
+
+Check that a filesystem is mounted with the expected fstype and options.
+
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_mount_options)
+* [Filter keywords](#check_mount_filter_keys)
+
+
+
+
+
+<a id="check_mount_warn"></a>
+<a id="check_mount_crit"></a>
+<a id="check_mount_debug"></a>
+<a id="check_mount_show-all"></a>
+<a id="check_mount_escape-html"></a>
+<a id="check_mount_help"></a>
+<a id="check_mount_help-pb"></a>
+<a id="check_mount_show-default"></a>
+<a id="check_mount_help-short"></a>
+<a id="check_mount_mount"></a>
+<a id="check_mount_options"></a>
+<a id="check_mount_fstype"></a>
+<a id="check_mount_options"></a>
+#### Command-line Arguments
+
+
+| Option                                      | Default Value                                  | Description                                                                                                      |
+|---------------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_mount_filter)               |                                                | Filter which marks interesting items.                                                                            |
+| [warning](#check_mount_warning)             | has_issues = 1                                 | Filter which marks items which generates a warning state.                                                        |
+| warn                                        |                                                | Short alias for warning                                                                                          |
+| [critical](#check_mount_critical)           | issues like 'not mounted'                      | Filter which marks items which generates a critical state.                                                       |
+| crit                                        |                                                | Short alias for critical.                                                                                        |
+| [ok](#check_mount_ok)                       |                                                | Filter which marks items which generates an ok state.                                                            |
+| debug                                       | N/A                                            | Show debugging information in the log                                                                            |
+| show-all                                    | N/A                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_mount_empty-state)     | unknown                                        | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_mount_perf-config)     |                                                | Performance data generation configuration                                                                        |
+| escape-html                                 | N/A                                            | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                        | N/A                                            | Show help screen (this screen)                                                                                   |
+| help-pb                                     | N/A                                            | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                | N/A                                            | Show default values for a given command                                                                          |
+| help-short                                  | N/A                                            | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_mount_top-syntax)       | ${status}: ${problem_list}                     | Top level syntax.                                                                                                |
+| [ok-syntax](#check_mount_ok-syntax)         | %(status): mounts are as expected              | ok syntax.                                                                                                       |
+| [empty-syntax](#check_mount_empty-syntax)   | check_mount found nothing matching this filter | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_mount_detail-syntax) | mount ${mount} ${issues}                       | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_mount_perf-syntax)     | ${mount}                                       | Performance alias syntax.                                                                                        |
+| mount                                       |                                                | The mount point to check (omit to check all real mounts)                                                         |
+| options                                     |                                                | The mount options to expect (comma separated)                                                                    |
+| fstype                                      |                                                | The filesystem type to expect                                                                                    |
+
+
+
+<h5 id="check_mount_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_mount_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `has_issues = 1`
+
+<h5 id="check_mount_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `issues like 'not mounted'`
+
+<h5 id="check_mount_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_mount_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `unknown`
+
+<h5 id="check_mount_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_mount_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${problem_list}`
+
+<h5 id="check_mount_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): mounts are as expected`
+
+<h5 id="check_mount_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `check_mount found nothing matching this filter`
+
+<h5 id="check_mount_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `mount ${mount} ${issues}`
+
+<h5 id="check_mount_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${mount}`
+
+
+<a id="check_mount_filter_keys"></a>
+#### Filter keywords
+
+
+| Option     | Description                                        |
+|------------|----------------------------------------------------|
+| device     | Device backing this mount                          |
+| fstype     | Filesystem type of this mount                      |
+| has_issues | 1 when any issue was found, else 0                 |
+| issues     | Issues found (empty when the mount is as expected) |
+| mount      | Path of the mounted folder                         |
+| options    | Mount options                                      |
 
 **Common options for all checks:**
 
@@ -1158,28 +1341,33 @@ This is the syntax for the base names of the performance data.
 #### Filter keywords
 
 
-| Option     | Description                                  |
-|------------|----------------------------------------------|
-| access     | Last access time                             |
-| access_l   | Last access time (local time)                |
-| access_u   | Last access time (UTC)                       |
-| age        | Seconds since file was last written          |
-| creation   | When file was created                        |
-| creation_l | When file was created (local time)           |
-| creation_u | When file was created (UTC)                  |
-| extension  | The filename extension                       |
-| file       | The name of the file                         |
-| filename   | The name of the file                         |
-| line_count | Number of lines in the file (text files)     |
-| name       | The name of the file                         |
-| path       | Path of file                                 |
-| size       | File size                                    |
-| type       | Type of item (file or dir)                   |
-| version    | Windows exe/dll file version (empty on Unix) |
-| write      | Alias for written                            |
-| written    | When file was last written to                |
-| written_l  | When file was last written  to (local time)  |
-| written_u  | When file was last written  to (UTC)         |
+| Option          | Description                                  |
+|-----------------|----------------------------------------------|
+| access          | Last access time                             |
+| access_l        | Last access time (local time)                |
+| access_u        | Last access time (UTC)                       |
+| age             | Seconds since file was last written          |
+| creation        | When file was created                        |
+| creation_l      | When file was created (local time)           |
+| creation_u      | When file was created (UTC)                  |
+| extension       | The filename extension                       |
+| file            | The name of the file                         |
+| filename        | The name of the file                         |
+| line_count      | Number of lines in the file (text files)     |
+| md5_checksum    | MD5 checksum of the file content (hex)       |
+| name            | The name of the file                         |
+| path            | Path of file                                 |
+| sha1_checksum   | SHA-1 checksum of the file content (hex)     |
+| sha256_checksum | SHA-256 checksum of the file content (hex)   |
+| sha384_checksum | SHA-384 checksum of the file content (hex)   |
+| sha512_checksum | SHA-512 checksum of the file content (hex)   |
+| size            | File size                                    |
+| type            | Type of item (file or dir)                   |
+| version         | Windows exe/dll file version (empty on Unix) |
+| write           | Alias for written                            |
+| written         | When file was last written to                |
+| written_l       | When file was last written  to (local time)  |
+| written_u       | When file was last written  to (UTC)         |
 
 **Common options for all checks:**
 
