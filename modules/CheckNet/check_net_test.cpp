@@ -25,8 +25,10 @@
 #include "check_connections.h"
 #include "check_connections_internal.hpp"
 #include "check_dns.h"
+#include "check_dns_internal.hpp"
 #include "check_http.h"
 #include "check_http_internal.hpp"
+#include "check_nsclient_web_online.h"
 #include "check_ntp_internal.hpp"
 #include "check_ntp_offset.h"
 #include "check_tcp.h"
@@ -131,6 +133,172 @@ TEST(CheckDns, filter_obj_show_and_getters) {
   EXPECT_EQ(o.get_count(), 2);
   EXPECT_EQ(o.get_time(), 10);
   EXPECT_EQ(o.get_result(), "ok");
+}
+
+// ============================================================================
+// check_dns - DNS wire protocol (build_query / parse_response)
+// ============================================================================
+
+namespace {
+// Assemble a packet from raw bytes.
+std::string bytes(std::initializer_list<int> b) {
+  std::string s;
+  for (int v : b) s.push_back(static_cast<char>(v & 0xff));
+  return s;
+}
+}  // namespace
+
+TEST(CheckDnsWire, TypeNameMapping) {
+  using namespace check_net::check_dns_internal;
+  EXPECT_EQ(type_from_string("a"), DNS_A);
+  EXPECT_EQ(type_from_string("AAAA"), DNS_AAAA);
+  EXPECT_EQ(type_from_string("mx"), DNS_MX);
+  EXPECT_EQ(type_from_string("TXT"), DNS_TXT);
+  EXPECT_EQ(type_from_string("bogus"), -1);
+  EXPECT_EQ(type_to_string(DNS_MX), "MX");
+}
+
+TEST(CheckDnsWire, BuildQueryEncodesQuestionAndEdns) {
+  using namespace check_net::check_dns_internal;
+  const std::string q = build_query(0x1234, "a.com", DNS_A, true);
+  // Header: id, RD flag, qdcount=1, arcount=1 (the EDNS0 OPT record).
+  EXPECT_EQ(static_cast<unsigned char>(q[0]), 0x12);
+  EXPECT_EQ(static_cast<unsigned char>(q[1]), 0x34);
+  EXPECT_EQ(static_cast<unsigned char>(q[2]), 0x01);  // RD
+  EXPECT_EQ(static_cast<unsigned char>(q[5]), 0x01);  // qdcount low byte
+  EXPECT_EQ(static_cast<unsigned char>(q[11]), 0x01);  // arcount low byte
+  // Question name: 1 'a' 3 'c' 'o' 'm' 0
+  EXPECT_EQ(q.substr(12, 7), std::string("\x01" "a" "\x03" "com" "\x00", 7));
+}
+
+TEST(CheckDnsWire, BuildQueryNoRecursion) {
+  using namespace check_net::check_dns_internal;
+  const std::string q = build_query(1, "x", DNS_A, false);
+  EXPECT_EQ(static_cast<unsigned char>(q[2]), 0x00);  // RD cleared
+}
+
+TEST(CheckDnsWire, ParsesARecordWithCompression) {
+  using namespace check_net::check_dns_internal;
+  const std::string pkt = bytes({
+      0x12, 0x34, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,  // header
+      0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 0x03, 'c', 'o', 'm', 0x00,       // qname
+      0x00, 0x01, 0x00, 0x01,                                                    // qtype A, qclass IN
+      0xc0, 0x0c,                                                                // answer name -> ptr to offset 12
+      0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x3c, 0x00, 0x04,               // type A, class IN, ttl 60, rdlen 4
+      0x5d, 0xb8, 0xd8, 0x22,                                                    // 93.184.216.34
+  });
+  const dns_result r = parse_response(pkt, DNS_A);
+  ASSERT_TRUE(r.ok);
+  EXPECT_EQ(r.rcode, 0);
+  ASSERT_EQ(r.records.size(), 1u);
+  EXPECT_EQ(r.records[0], "93.184.216.34");
+}
+
+TEST(CheckDnsWire, ParsesMxRecord) {
+  using namespace check_net::check_dns_internal;
+  const std::string pkt = bytes({
+      0x00, 0x01, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+      0x01, 'a', 0x00, 0x00, 0x0f, 0x00, 0x01,        // qname "a", qtype MX(15), qclass IN
+      0xc0, 0x0c, 0x00, 0x0f, 0x00, 0x01, 0x00, 0x00, 0x00, 0x3c,
+      0x00, 0x06, 0x00, 0x0a, 0x03, 'm', 'x', '1', 0x00,  // rdlen 6: pref 10 + "mx1"
+  });
+  const dns_result r = parse_response(pkt, DNS_MX);
+  ASSERT_TRUE(r.ok);
+  ASSERT_EQ(r.records.size(), 1u);
+  EXPECT_EQ(r.records[0], "10 mx1");
+}
+
+TEST(CheckDnsWire, ParsesTxtRecord) {
+  using namespace check_net::check_dns_internal;
+  const std::string pkt = bytes({
+      0x00, 0x01, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+      0x01, 'a', 0x00, 0x00, 0x10, 0x00, 0x01,        // qname "a", qtype TXT(16)
+      0xc0, 0x0c, 0x00, 0x10, 0x00, 0x01, 0x00, 0x00, 0x00, 0x3c,
+      0x00, 0x06, 0x05, 'h', 'e', 'l', 'l', 'o',      // rdlen 6: one 5-char string "hello"
+  });
+  const dns_result r = parse_response(pkt, DNS_TXT);
+  ASSERT_TRUE(r.ok);
+  ASSERT_EQ(r.records.size(), 1u);
+  EXPECT_EQ(r.records[0], "hello");
+}
+
+TEST(CheckDnsWire, NxdomainRcode) {
+  using namespace check_net::check_dns_internal;
+  const std::string pkt = bytes({
+      0x00, 0x01, 0x81, 0x83, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // rcode 3, ancount 0
+      0x01, 'a', 0x00, 0x00, 0x01, 0x00, 0x01,
+  });
+  const dns_result r = parse_response(pkt, DNS_A);
+  ASSERT_TRUE(r.ok);
+  EXPECT_EQ(r.rcode, 3);
+  EXPECT_TRUE(r.records.empty());
+}
+
+TEST(CheckDnsWire, TruncatedPacketIsNotOk) {
+  using namespace check_net::check_dns_internal;
+  EXPECT_FALSE(parse_response(std::string("\x00\x01", 2), DNS_A).ok);
+}
+
+// ============================================================================
+// check_tcp - service presets and response keyword
+// ============================================================================
+
+TEST(CheckTcp, ResponseGetter) {
+  check_net::check_tcp_filter::filter_obj o;
+  o.response = "SSH-2.0-OpenSSH";
+  EXPECT_EQ(o.get_response(), "SSH-2.0-OpenSSH");
+}
+
+TEST(CheckTcp, ServicePresetLookup) {
+  const auto *ssh = check_net::find_service_preset("ssh");
+  ASSERT_NE(ssh, nullptr);
+  EXPECT_EQ(ssh->port, 22);
+  EXPECT_STREQ(ssh->expect_regex, "^SSH-");
+  const auto *smtp = check_net::find_service_preset("SMTP");
+  ASSERT_NE(smtp, nullptr);
+  EXPECT_EQ(smtp->port, 25);
+  EXPECT_EQ(check_net::find_service_preset("bogus"), nullptr);
+}
+
+// ============================================================================
+// check_nsclient_web_online - REST result JSON parsing
+// ============================================================================
+
+TEST(CheckNsclientWebOnline, ParsesResultAndMessage) {
+  int code = -1;
+  std::string msg;
+  ASSERT_TRUE(check_net::parse_nsclient_web_online_result(
+      R"({"command":"check_cpu","result":2,"lines":[{"message":"CPU load is high","perf":{}}]})", code, msg));
+  EXPECT_EQ(code, 2);
+  EXPECT_EQ(msg, "CPU load is high");
+}
+
+TEST(CheckNsclientWebOnline, JoinsMultipleLines) {
+  int code = -1;
+  std::string msg;
+  ASSERT_TRUE(check_net::parse_nsclient_web_online_result(R"({"result":0,"lines":[{"message":"a"},{"message":"b"}]})", code, msg));
+  EXPECT_EQ(code, 0);
+  EXPECT_EQ(msg, "a\nb");
+}
+
+TEST(CheckNsclientWebOnline, MissingResultFails) {
+  int code = -1;
+  std::string msg;
+  EXPECT_FALSE(check_net::parse_nsclient_web_online_result(R"({"lines":[]})", code, msg));
+}
+
+TEST(CheckNsclientWebOnline, InvalidJsonFails) {
+  int code = -1;
+  std::string msg;
+  EXPECT_FALSE(check_net::parse_nsclient_web_online_result("not json", code, msg));
+}
+
+TEST(CheckNsclientWebOnline, MissingLinesIsOkWithEmptyMessage) {
+  int code = -1;
+  std::string msg = "x";
+  ASSERT_TRUE(check_net::parse_nsclient_web_online_result(R"({"result":3})", code, msg));
+  EXPECT_EQ(code, 3);
+  EXPECT_TRUE(msg.empty());
 }
 
 // ============================================================================

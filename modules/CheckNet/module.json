@@ -10,6 +10,7 @@
 	"commands" : {
 		"check_ping"		: "Ping another host and check the result.",
 		"check_tcp"		: "Connect to a TCP port and optionally send/expect data to check that a service is reachable.",
+		"check_ssh"		: "Connect to an SSH port and verify the server presents a valid SSH banner.",
 		"check_dns"		: "Resolve a host name and check the response time and resulting addresses.",
 		"check_http"		: "Send an HTTP/HTTPS request and check the response status, time, size and body.",
 		"check_nsclient_web_online"		: "Query the REST API of a remote NSClient++ agent (reachability or a remote check).",

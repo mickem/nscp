@@ -19,9 +19,11 @@
 
 #include "check_tcp.h"
 
+#include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
+#include <boost/regex.hpp>
 #include <chrono>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
@@ -38,6 +40,7 @@ namespace check_tcp_filter {
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("host", &filter_obj::get_host, "Host the check connected to");
   registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, refused, timeout, no_match, ...)");
+  registry_.add_string_var("response", &filter_obj::get_response, "The data received from the peer (use with 'like'/'regexp' for custom matching)");
   registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port the check connected to");
   registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds");
   registry_.add_int_var("connected", parsers::where::type_int, &filter_obj::get_connected, "1 when the connection succeeded, 0 otherwise");
@@ -47,11 +50,13 @@ filter_obj_handler::filter_obj_handler() {
 
 namespace {
 
-// Synchronous TCP connect with millisecond timeout.
-// Optionally writes "send_data" and reads the response, looking for "expect" as a substring.
-// "result" gets a short status word (connected/timeout/refused/no_match/error).
+// Synchronous TCP connect with millisecond timeout. Optionally writes
+// "send_data" and reads the response; the raw response is stored in out.response
+// (trimmed). If "expect" (substring) and/or "expect_regex" are given the result
+// is set to "no_match" when the response fails either. "result" gets a short
+// status word (ok/timeout/refused/no_match/error).
 void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms, const std::string &send_data, const std::string &expect,
-                   check_tcp_filter::filter_obj &out) {
+                   const std::string &expect_regex, check_tcp_filter::filter_obj &out) {
   using boost::asio::ip::tcp;
 
   out.host = host;
@@ -126,7 +131,7 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
       }
     }
 
-    if (!expect.empty()) {
+    if (!expect.empty() || !expect_regex.empty()) {
       // Read whatever the peer sends within a small window, with a deadline.
       boost::asio::streambuf response_buf;
       boost::system::error_code read_ec = boost::asio::error::would_block;
@@ -160,11 +165,19 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
       }
 
       const std::string data{boost::asio::buffers_begin(response_buf.data()), boost::asio::buffers_end(response_buf.data())};
-      if (data.find(expect) == std::string::npos) {
-        out.result = "no_match";
-      } else {
-        out.result = "ok";
+      out.response = boost::trim_copy(data);
+
+      bool matched = true;
+      if (!expect.empty() && data.find(expect) == std::string::npos) matched = false;
+      if (matched && !expect_regex.empty()) {
+        try {
+          if (!boost::regex_search(data, boost::regex(expect_regex))) matched = false;
+        } catch (const std::exception &) {
+          out.result = "error: invalid expect regex";
+          return;
+        }
       }
+      out.result = matched ? "ok" : "no_match";
     }
   } catch (const std::exception &e) {
     out.result = std::string("error: ") + check_net::format_exception_message(e);
@@ -176,7 +189,12 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
 
 }  // namespace
 
-void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+namespace {
+// Shared core for check_tcp and check_ssh. When `forced` is non-null (check_ssh)
+// its preset is always applied; otherwise the preset is chosen from a `service`
+// argument.
+void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                    const service_preset *forced) {
   using check_tcp_filter::filter;
   using check_tcp_filter::filter_obj;
 
@@ -189,6 +207,7 @@ void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
   int timeout_ms = 5000;
   std::string send_data;
   std::string expect;
+  std::string service;
 
   filter f;
   filter_helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
@@ -200,11 +219,30 @@ void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
     ("port", po::value<unsigned short>(&port), "TCP port to connect to.")
     ("timeout", po::value<int>(&timeout_ms)->default_value(5000), "Connection / read timeout in milliseconds.")
     ("send", po::value<std::string>(&send_data), "Optional payload to send after the connection is established.")
-    ("expect", po::value<std::string>(&expect), "Optional substring expected in the response (requires --send or returns whatever the peer sent first).")
+    ("expect", po::value<std::string>(&expect), "Optional substring expected in the response.")
     ;
+  if (forced == nullptr) {
+    filter_helper.get_desc().add_options()
+      ("service", po::value<std::string>(&service), "Service preset (ftp, pop, imap, smtp, ssh): sets a default port, greeting and expected-response regex.")
+      ;
+  }
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  // Resolve the preset: forced (check_ssh) or from the `service` argument.
+  const service_preset *preset = forced;
+  if (preset == nullptr && !service.empty()) {
+    preset = find_service_preset(service);
+    if (preset == nullptr) return nscapi::protobuf::functions::set_response_bad(*response, "Unknown service preset: " + service);
+  }
+
+  std::string expect_regex;
+  if (preset != nullptr) {
+    if (port == 0) port = preset->port;
+    if (send_data.empty()) send_data = preset->send;
+    expect_regex = preset->expect_regex;
+  }
 
   if (!hosts_string.empty()) {
     std::vector<std::string> tmp;
@@ -222,11 +260,20 @@ void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
 
   for (const auto &host : hosts) {
     auto obj = std::make_shared<filter_obj>();
-    run_tcp_check(host, port, timeout_ms, send_data, expect, *obj);
+    run_tcp_check(host, port, timeout_ms, send_data, expect, expect_regex, *obj);
     f.match(obj);
   }
 
   filter_helper.post_process(f);
+}
+}  // namespace
+
+void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_tcp_impl(request, response, nullptr);
+}
+
+void check_ssh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_tcp_impl(request, response, find_service_preset("SSH"));
 }
 
 }  // namespace check_net
