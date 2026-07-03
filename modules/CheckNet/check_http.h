@@ -36,11 +36,12 @@ struct filter_obj {
   long long status_code;
   long long time;
   long long size;
+  long long ssl_expiry_days;
   std::string status_message;
   std::string body;
   std::string result;
 
-  filter_obj() : port(0), status_code(0), time(0), size(0) {}
+  filter_obj() : port(0), status_code(0), time(0), size(0), ssl_expiry_days(-1) {}
 
   std::string show() const { return url + " (" + std::to_string(status_code) + ", " + result + ")"; }
 
@@ -52,6 +53,7 @@ struct filter_obj {
   long long get_code() const { return status_code; }
   long long get_time() const { return time; }
   long long get_size() const { return size; }
+  long long get_ssl_expiry_days() const { return ssl_expiry_days; }
   std::string get_status() const { return status_message; }
   std::string get_body() const { return body; }
   std::string get_result() const { return result; }
