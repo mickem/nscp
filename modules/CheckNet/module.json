@@ -12,6 +12,7 @@
 		"check_tcp"		: "Connect to a TCP port and optionally send/expect data to check that a service is reachable.",
 		"check_dns"		: "Resolve a host name and check the response time and resulting addresses.",
 		"check_http"		: "Send an HTTP/HTTPS request and check the response status, time, size and body.",
+		"check_nsclient_web_online"		: "Query the REST API of a remote NSClient++ agent (reachability or a remote check).",
 		"check_connections"	: "Count active TCP/UDP connections and report counts per protocol and TCP state.",
 		"check_ntp_offset"	: "Query an NTP server and check the offset between the local clock and the server."
 	}
