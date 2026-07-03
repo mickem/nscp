@@ -20,6 +20,7 @@ set(SRCS
     check_os_updates.cpp
     check_memory.cpp
     check_cpu.cpp
+    check_load.cpp
     check_cpu_utilization.cpp
     check_kernel_stats.cpp
     check_service.cpp
@@ -48,6 +49,7 @@ if(WIN32)
         check_os_updates.h
         check_memory.h
         check_cpu.h
+        check_load.h
         check_cpu_utilization.h
         check_kernel_stats.h
         check_service.h
@@ -88,6 +90,8 @@ NSCP_CREATE_TEST(
         check_process.cpp
         check_temperature_test.cpp
         check_temperature.cpp
+        check_load_test.cpp
+        check_load.cpp
         check_cpu_utilization_test.cpp
         check_cpu_utilization.cpp
         check_kernel_stats_test.cpp

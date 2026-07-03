@@ -13,6 +13,7 @@
 
 	"commands" : {
 		"check_cpu" 		: "Check that the load of the CPU(s) are within bounds.",
+		"check_load"		: "Check the system load average (1/5/15 minutes).",
 		"check_cpu_utilization"	: "Check CPU utilization broken down by user/system/iowait/steal/guest.",
 		"check_uptime"		: "Check time since last server re-boot." ,
 		"check_memory"		: "Check free/used memory on the system.",
