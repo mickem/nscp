@@ -366,7 +366,7 @@ void check_connections(const PB::Commands::QueryRequestMessage::Request &request
   modern_filter::cli_helper<filter> filter_helper(request, response, data);
 
   filter f;
-  filter_helper.add_options("", "", "protocol = 'total'", f.get_filter_syntax(), "ignored");
+  filter_helper.add_options("total > 1000", "total > 2000", "protocol = 'total'", f.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${list}", "${protocol}/${state}: ${count}", "${protocol}_${state}", "No connection data", "%(status): %(list)");
   // Emit useful default performance data for the 'total' bucket so the check
   // graphs out of the box even without warn/crit thresholds.
