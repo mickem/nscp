@@ -112,6 +112,17 @@ check_drivesize "crit=free < 1M" drive=all-volumes
 check_drivesize "warn=free < 10M" "crit=free < 1M" drive=C:\\data
 ```
 
+### Check inode exhaustion (Linux)
+
+A filesystem can have free bytes but no free inodes (millions of tiny files),
+which fails writes just the same. Threshold on the inode keywords
+(`inodes_total`, `inodes_free`, `inodes_used`, `inodes_free_pct`,
+`inodes_used_pct`):
+
+```
+check_drivesize drive=/ "warn=inodes_used_pct > 85" "crit=inodes_used_pct > 95"
+```
+
 ---
 
 ## Performance Data
@@ -153,6 +164,34 @@ check_files path=/var/log pattern=*.log "crit=size > 100M"
 ```
 check_files path=C:\AppData pattern=output.dat "crit=written > -1h"
 ```
+
+**File-integrity monitoring with checksums (Linux/Windows):** `check_files`
+exposes `md5_checksum`, `sha1_checksum`, `sha256_checksum`, `sha384_checksum`
+and `sha512_checksum` (computed lazily, only when referenced). Alert if a file
+drifts from a known-good hash:
+
+```
+check_files path=/etc pattern=hosts "crit=sha256_checksum != 'ec4e309d…af4d'"
+```
+
+---
+
+## Mount Point Verification (Linux)
+
+Use `check_mount` to confirm a filesystem is mounted — and, optionally, that it
+is mounted with the expected type and options. It reads the live mount table
+(`/proc/self/mounts`), so it reflects the running state rather than `/etc/fstab`.
+
+**Verify a critical data volume is mounted with the right filesystem:**
+
+```
+check_mount mount=/data fstype=ext4
+```
+
+- A path that is **not mounted** is CRITICAL (`not mounted`).
+- A **fstype** or missing **options** mismatch is WARNING
+  (e.g. `check_mount mount=/data options=rw,noatime`).
+- With no `mount=` it checks every real filesystem at once.
 
 ---
 

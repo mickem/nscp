@@ -342,6 +342,27 @@ check_nscp_client --host 192.168.56.103 --command check_dns --argument "host=exa
 OK: google.com -> 172.217.20.174 (1) in 10ms [ok]|'google.com_time'=10;1000;0
 ```
 
+**Query a specific record type (`type=A|AAAA|MX|TXT|CNAME|NS|SOA|PTR`):**
+
+```
+check_dns host=google.com type=MX server=8.8.8.8
+OK: google.com -> 10 smtp.google.com (1) in 9ms [ok]|'google.com_time'=9;1000;0
+```
+
+**Query a specific DNS server (A/AAAA without `server=` use the system resolver; any other type or an explicit `server=` uses a direct DNS-over-UDP query):**
+
+```
+check_dns host=nsclient.org type=TXT server=1.1.1.1
+OK: nsclient.org -> v=spf1 include:_spf.google.com ~all (1) in 12ms [ok]
+```
+
+**Non-recursive query against an authoritative server on a custom port:**
+
+```
+check_dns host=example.com type=A server=192.168.10.53 port=5353 norecursion=true
+OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
+```
+
 
 
 
@@ -626,6 +647,48 @@ check_nscp_client --host 192.168.56.103 --command check_http --argument "url=htt
 OK: https://nsclient.org/ -> 200 ok (61204B in 561ms)| 'https://nsclient.org/_code'=200;0;200 'https://nsclient.org/_time'=561;5000;0
 ```
 
+**Use a specific HTTP method (`HEAD`, `POST`, `PUT`, …):**
+
+```
+check_http url=https://www.google.com method=HEAD
+OK: https://www.google.com -> 200 ok (0B in 197ms)|'https://www.google.com_code'=200;0;200 'https://www.google.com_time'=197;5000;0
+```
+
+**POST a body (`post-data` implies POST unless `method=` is given):**
+
+```
+check_http url=https://httpbin.org/post post-data="name=value" content-type="application/x-www-form-urlencoded" expected-body="name"
+OK: https://httpbin.org/post -> 200 ok (429B in 380ms)
+```
+
+**HTTP Basic authentication:**
+
+```
+check_http url=https://example.com/private username=admin password=secret
+OK: https://example.com/private -> 200 ok (1200B in 88ms)
+```
+
+**Follow redirects (default reports the 3xx as-is; `onredirect=follow` chases the Location):**
+
+```
+check_http url=http://github.com onredirect=follow "detail-syntax=code=${code}"
+OK: code=200
+```
+
+**Accept a set of status codes with the `code` keyword, and match the body with a regex:**
+
+```
+check_http url=https://example.com "warn=code not in (200,301,302)" "crit=code >= 500 or body not regexp 'Welcome'"
+OK: https://example.com -> 200 ok (1256B in 74ms)
+```
+
+**Alert when the TLS certificate is about to expire (`ssl_expiry_days`):**
+
+```
+check_http url=https://www.google.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=cert expires in ${ssl_expiry_days} days"
+OK: cert expires in 58 days
+```
+
 
 
 <a id="check_http_warn"></a>
@@ -891,12 +954,95 @@ Path to a CA bundle to use when verifying the server certificate.
 
 Query the REST API of a remote NSClient++ agent (reachability or a remote check).
 
+#### About `check_nsclient_web_online`
+
+`check_nsclient_web_online` queries the REST API of a **remote** NSClient++ (or
+snclient) agent over HTTPS. It has two modes:
+
+* **Reachability probe** (no `command=`): it hits `/api/v1/info` and reports
+  **OK** `REST API reachable …` when the agent answers, **CRITICAL** when it
+  cannot be reached or authentication fails.
+* **Remote check** (`command=<check>`): it runs that check on the remote agent
+  (`/api/v1/queries/<check>/commands/execute`) and passes the remote Nagios
+  status **and** message straight through, so the local result mirrors what the
+  remote agent returned.
+
+This is intended for *liveness / availability* monitoring of an agent from a
+central host. (A fuller "run remote checks" command — `check_nsclient_web` — is
+planned separately; this one focuses on whether the web API is online.)
+
+Arguments:
+
+| Argument            | Description                                                        |
+|---------------------|-------------------------------------------------------------------|
+| `url`               | Base URL of the remote agent, e.g. `https://host:8443`            |
+| `host` / `port`     | Alternative to `url`; `port` defaults to `8443`                   |
+| `password`          | REST API password (sent as the `password` header, as user `admin`)|
+| `user`              | Optional username → switches to HTTP Basic authentication         |
+| `command`           | Remote check to run (omit for a plain reachability probe)         |
+| `argument`          | Argument for the remote check; repeat for multiple                |
+| `timeout`           | Request timeout in milliseconds                                   |
+| `tls-version`       | TLS version (default `tlsv1.2+`)                                  |
+| `verify`            | Certificate verify mode (default `none`, for self-signed agents)  |
+| `ca`                | CA bundle to verify the remote certificate                        |
+
+By default the remote certificate is **not** verified (`verify=none`) because
+agents commonly present a self-signed certificate; set `verify=peer` with `ca=`
+to enforce verification.
+
 
 **Jump to section:**
 
+* [Sample Commands](#check_nsclient_web_online_samples)
 * [Command-line Arguments](#check_nsclient_web_online_options)
 
 
+<a id="check_nsclient_web_online_samples"></a>
+#### Sample Commands
+
+_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_nsclient_web_online_samples.md)_
+
+**Check that a remote NSClient++/snclient agent's REST API is reachable:**
+
+```
+check_nsclient_web_online url=https://192.168.56.10:8443 password=secret
+OK: REST API reachable on https://192.168.56.10:8443
+```
+
+**Give host and port separately instead of a URL:**
+
+```
+check_nsclient_web_online host=192.168.56.10 port=8443 password=secret
+OK: REST API reachable on https://192.168.56.10:8443
+```
+
+**Run a check on the remote agent and pass its result through:**
+
+```
+check_nsclient_web_online url=https://192.168.56.10:8443 password=secret command=check_cpu
+OK: CPU load is ok.
+```
+
+**Pass arguments to the remote check (repeat `argument=`):**
+
+```
+check_nsclient_web_online url=https://192.168.56.10:8443 password=secret command=check_drivesize argument=drive=/ "argument=warn=used>80%"
+OK: / 42.1% used
+```
+
+**A wrong password reports the authentication failure:**
+
+```
+check_nsclient_web_online url=https://192.168.56.10:8443 password=wrong
+CRITICAL: Authentication failed (HTTP 403) on https://192.168.56.10:8443
+```
+
+**An unreachable agent is CRITICAL:**
+
+```
+check_nsclient_web_online url=https://192.168.56.10:9999 password=secret
+CRITICAL: Failed to reach https://192.168.56.10:9999: Connection refused
+```
 
 
 
@@ -1389,13 +1535,79 @@ The payload to send in the ping request (default: 'Hello from NSClient++')
 
 Connect to an SSH port and verify the server presents a valid SSH banner.
 
+#### About `check_ssh`
+
+`check_ssh` confirms that an SSH server is reachable and presents a valid SSH
+protocol banner. It connects to the port (default **22**), reads the greeting
+the server sends on connect, and requires it to start with `SSH-` (e.g.
+`SSH-2.0-OpenSSH_9.6`). Nothing is written to the peer, so it does not initiate
+a key exchange or authenticate — it is a lightweight "is sshd up and answering"
+probe.
+
+It is a thin preset over [`check_tcp`](#check_tcp) (`service=ssh`), so it shares
+`check_tcp`'s keywords and thresholds:
+
+| Keyword     | Description                                             |
+|-------------|--------------------------------------------------------|
+| `host`      | Host the check connected to                            |
+| `port`      | Port the check connected to (default 22)               |
+| `time`      | Connection + banner-read time in milliseconds          |
+| `result`    | `ok`, `no_match`, `refused`, `timeout`, `resolve_failed`, … |
+| `response`  | The banner the server returned                          |
+| `connected` | `1` when the TCP connection succeeded                   |
+
+Default thresholds: **warning** `time > 1000`, **critical**
+`time > 5000 or result != 'ok'`. A port that answers but is not SSH yields
+`result = no_match` (CRITICAL); a closed port yields `result = refused`.
+
 
 **Jump to section:**
 
+* [Sample Commands](#check_ssh_samples)
 * [Command-line Arguments](#check_ssh_options)
 * [Filter keywords](#check_ssh_filter_keys)
 
 
+<a id="check_ssh_samples"></a>
+#### Sample Commands
+
+_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_ssh_samples.md)_
+
+**Check that an SSH server presents a valid banner:**
+
+```
+check_ssh host=github.com
+OK: github.com:22 ok in 13ms
+L        cli  Performance data: 'github.com_22_time'=13;1000;5000
+```
+
+**Non-standard SSH port:**
+
+```
+check_ssh host=192.168.56.10 port=2222
+OK: 192.168.56.10:2222 ok in 2ms
+```
+
+**A port that is not speaking SSH is CRITICAL (`no_match`):**
+
+```
+check_ssh host=www.google.com port=443
+CRITICAL: www.google.com:443 no_match in 12ms
+```
+
+**Tighter response-time thresholds:**
+
+```
+check_ssh host=192.168.56.10 "warn=time > 200" "crit=time > 1000 or result != 'ok'"
+OK: 192.168.56.10:22 ok in 3ms
+```
+
+**Check via NRPE:**
+
+```
+check_nscp_client --host 192.168.56.103 --command check_ssh --argument "host=192.168.56.10"
+OK: 192.168.56.10:22 ok in 2ms
+```
 
 
 
@@ -1645,6 +1857,41 @@ L        cli  Performance data: 'www.google.com_443_connected'=1;0;0 'www.google
 ```
 check_tcp host=a.example.com host=b.example.com port=80 "top-syntax=%(status): %(list)" "detail-syntax=%(host):%(port)=%(result) in %(time)ms"
 OK: a.example.com:80=ok in 14ms, b.example.com:80=ok in 19ms
+```
+
+**Use a service preset (`ftp`, `pop`, `imap`, `smtp`, `ssh`) — sets the port, greeting and expected-response regex:**
+
+```
+check_tcp host=mail.example.com service=smtp
+OK: mail.example.com:25 ok in 8ms
+```
+
+**Wrap the connection in TLS with `ssl=true` (e.g. to test an HTTPS listener answers):**
+
+```
+check_tcp host=www.google.com port=443 ssl=true
+OK: www.google.com:443 ok in 11ms|'www.google.com_443_time'=11;1000;5000
+```
+
+**Implicit-TLS service presets (`spop`, `simap`, `ssmtp`) connect over TLS and check the greeting:**
+
+```
+check_tcp host=smtp.gmail.com service=ssmtp
+OK: smtp.gmail.com:465 ok in 16ms|'smtp.gmail.com_465_time'=16;1000;5000
+```
+
+**Match the peer's response with a regex via the `response` keyword:**
+
+```
+check_tcp host=mail.example.com port=25 "crit=response not regexp '^220'"
+OK: mail.example.com:25 ok in 8ms
+```
+
+**Verify the server certificate when using TLS (needs a CA bundle):**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt
+OK: secure.example.com:443 ok in 21ms
 ```
 
 **Default check via NRPE:**

@@ -35,6 +35,7 @@ nav:
   - Monitoring Scenarios:
       - Overview: scenarios/index.md
       - Windows Server Health: scenarios/windows-server-health.md
+      - Linux Server Health: scenarios/linux-server-health.md
       - Disk Space Alerting: scenarios/disk-space.md
       - Service & Process Monitoring: scenarios/service-monitoring.md
       - Real-Time System Monitoring: scenarios/realtime-monitoring.md

@@ -122,11 +122,56 @@ check_tcp host=myserver.example.com port=1433 ; SQL Server
 check_tcp host=myserver.example.com port=443 timeout=2000 "warn=time > 200" "crit=time > 1000"
 ```
 
+**Use a service preset** (sets the port and validates the greeting) — `ftp`, `pop`, `imap`, `smtp`, `ssh`, and the implicit-TLS variants `spop`, `simap`, `ssmtp`:
+
+```
+check_tcp host=mail.example.com service=smtp
+check_tcp host=mail.example.com service=ssmtp   ; SMTP-over-TLS on port 465
+```
+
+**Wrap the connection in TLS** and (optionally) verify the server certificate:
+
+```
+check_tcp host=secure.example.com port=443 ssl=true
+check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt
+```
+
+**Match the peer's banner/response** with a regex via the `response` keyword:
+
+```
+check_tcp host=mail.example.com port=25 "crit=response not regexp '^220'"
+```
+
 **Via NRPE:**
 
 ```
 check_nrpe -H <agent-ip> -c check_tcp --argument "host=myserver.example.com" --argument "port=443"
 ```
+
+---
+
+## SSH Service Check
+
+Use `check_ssh` to confirm an SSH server is up and presenting a valid banner. It
+connects (default port 22), reads the greeting and requires it to start with
+`SSH-`. Nothing is written to the peer, so no key exchange or authentication
+takes place.
+
+### Command
+
+```
+check_ssh host=192.168.0.10
+```
+
+### Expected output (healthy)
+
+```
+OK: 192.168.0.10:22 ok in 3ms
+```
+
+A port that answers but is not SSH yields `no_match` (CRITICAL); a closed port
+yields `refused`. Use a non-standard port with `port=2222`, and tighten timing
+with `"crit=time > 1000 or result != 'ok'"`.
 
 ---
 
@@ -207,6 +252,37 @@ OK: https://myapp.example.com/ -> 200 in 45ms
 check_http url=https://myapp.example.com/api header="Authorization: Bearer mytoken"
 ```
 
+**Use HTTP Basic authentication:**
+
+```
+check_http url=https://myapp.example.com/private username=admin password=secret
+```
+
+**Use a different HTTP method / POST a body** (`post-data` implies POST):
+
+```
+check_http url=https://myapp.example.com/health method=HEAD
+check_http url=https://myapp.example.com/api method=POST post-data="ping=1" content-type="application/json"
+```
+
+**Follow redirects** (by default a 3xx is reported as-is; `onredirect=follow` chases the `Location`):
+
+```
+check_http url=http://myapp.example.com/ onredirect=follow
+```
+
+**Accept a set of status codes / match the body with a regex** (via the `code` and `body` keywords):
+
+```
+check_http url=https://myapp.example.com/ "warn=code not in (200,301,302)" "crit=body not regexp 'Welcome'"
+```
+
+**Warn before the TLS certificate expires** (`ssl_expiry_days`):
+
+```
+check_http url=https://myapp.example.com/ "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7"
+```
+
 **Via NRPE:**
 
 ```
@@ -235,6 +311,49 @@ check_dns host=myapp.example.com
 ```
 check_dns host=myapp.example.com server=8.8.8.8 "crit=address != '93.184.216.34'"
 ```
+
+**Query a specific record type** (`A`, `AAAA`, `MX`, `TXT`, `CNAME`, `NS`, `SOA`, `PTR`):
+
+```
+check_dns host=example.com type=MX server=8.8.8.8
+OK: example.com -> 10 smtp.example.com (1) in 9ms [ok]
+```
+
+A/AAAA lookups without `server=` use the system resolver; any other record type,
+or an explicit `server=`, uses a direct DNS-over-UDP query. Add `port=` for a
+non-standard resolver port and `norecursion=true` to query an authoritative
+server directly.
+
+---
+
+## Remote Agent Availability
+
+Use `check_nsclient_web_online` from a central host to confirm that a **remote**
+NSClient++/snclient agent's REST API is online, or to run a check on it and pass
+the result through.
+
+### Command
+
+```
+check_nsclient_web_online url=https://192.168.0.10:8443 password=secret
+```
+
+### Expected output
+
+```
+OK: REST API reachable on https://192.168.0.10:8443
+```
+
+Run a remote check and mirror its result locally with `command=`:
+
+```
+check_nsclient_web_online url=https://192.168.0.10:8443 password=secret command=check_cpu
+```
+
+A wrong password reports `Authentication failed (HTTP 403)`; an unreachable
+agent is CRITICAL. The remote certificate is not verified by default
+(`verify=none`) since agents usually present a self-signed certificate — set
+`verify=peer` with `ca=` to enforce it.
 
 ---
 

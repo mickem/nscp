@@ -511,6 +511,16 @@ check_nrpe --host 192.168.56.103 --command check_drivesize
 C:\: 205GB/223GB used, D:\: 448GB/466GB used, M:\: 2.6TB/2.68TB used|'C:\ used'=204GB;44;22;0;223 'C:\ used %'=91%;19;9;0;100 'D:\ used'=447GB;93;46;0;465...
 ```
 
+**Check inode exhaustion (Linux) — a filesystem can be "not full" on bytes yet out of inodes:**
+
+```
+check_drivesize drive=/ "warn=inodes_used_pct > 85" "crit=inodes_used_pct > 95" "detail-syntax=${drive} inodes ${inodes_used}/${inodes_total} (${inodes_used_pct}%)"
+OK: / inodes 350474/67108864 (1%)
+```
+
+The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
+`inodes_free_pct` and `inodes_used_pct`.
+
 
 
 <a id="check_drivesize_warn"></a>
@@ -759,6 +769,23 @@ L        cli WARNING: WARNING: 1/6 files (AsChkDev.txt: 29738)
 L        cli  Performance data: 'AsChkDev.txt size'=29.04101KB;20;0 'AsDCDVer.txt size'=0.02246KB;20;0 'AsHDIVer.txt size'=0.02734KB;20;0 'AsPEToolVer.txt size'=0.08789KB;20;0 'AsToolCDVer.txt size'=0.05273KB;20;0 'csup.txt size'=0.00976KB;20;0
 ```
 
+**Report a file's checksum (keywords: `md5_checksum`, `sha1_checksum`, `sha256_checksum`, `sha384_checksum`, `sha512_checksum`):**
+
+```
+check_files path=/etc pattern=hostname "top-syntax=${list}" "detail-syntax=${filename}=${sha256_checksum}"
+hostname=ec4e309d512b118e0ec6451c724b6dd9eaed955a9f1cb68b7d939765ac47af4d
+```
+
+**Alert if a file's checksum drifts from a known-good value (integrity monitoring):**
+
+```
+check_files path=/etc pattern=hostname "crit=md5_checksum != '63150f223f8488b21c374ae8ad13fb9c'"
+OK: All 1 files are ok
+```
+
+Checksums are computed lazily — they are only calculated when a
+`*_checksum` keyword is used in the filter or syntax.
+
 
 
 <a id="check_files_warn"></a>
@@ -961,13 +988,95 @@ Include the total of either (filter) all files matching the filter or (all) all 
 
 Check that a filesystem is mounted with the expected fstype and options.
 
+#### About `check_mount`
+
+`check_mount` verifies that filesystems are mounted, and optionally that they
+are mounted with the expected filesystem type and options. It reads the live
+mount table (`/proc/self/mounts` via `getmntent`) so it reflects the actual
+running state, not `/etc/fstab`. It is implemented on **Unix only**; on Windows
+it reports that it is not supported.
+
+Behaviour at a glance:
+
+* With no `mount=` it inspects every *real* mount (pseudo-filesystems such as
+  `proc`, `sysfs`, `cgroup`, `tmpfs` overlays … are skipped).
+* With `mount=<path>` it inspects only that mount point, and reports
+  **CRITICAL** `not mounted` when nothing is mounted there.
+* `fstype=<type>` requires the mount to use that filesystem type; a mismatch is
+  flagged as an `expected fstype differs` issue.
+* `options=<a,b,c>` requires each listed mount option to be present; any missing
+  option is flagged as a `missing options` issue.
+
+Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
+
+| Keyword      | Description                                             |
+|--------------|--------------------------------------------------------|
+| `mount`      | Path of the mounted folder                             |
+| `device`     | Device backing this mount                              |
+| `fstype`     | Filesystem type of this mount                          |
+| `options`    | Mount options (comma separated)                        |
+| `issues`     | Human-readable description of any problems found       |
+| `has_issues` | `1` when this mount has one or more issues, else `0`   |
+
+Default thresholds: **warning** `has_issues = 1`, **critical**
+`issues like 'not mounted'`. So a missing filesystem is CRITICAL while a
+fstype/options mismatch is WARNING out of the box; override `warning=` /
+`critical=` to change that.
+
 
 **Jump to section:**
 
+* [Sample Commands](#check_mount_samples)
 * [Command-line Arguments](#check_mount_options)
 * [Filter keywords](#check_mount_filter_keys)
 
 
+<a id="check_mount_samples"></a>
+#### Sample Commands
+
+_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_mount_samples.md)_
+
+**Check that every real filesystem is mounted as expected:**
+
+```
+check_mount
+OK: mounts are as expected
+```
+
+**Check a single mount point:**
+
+```
+check_mount mount=/
+OK: mounts are as expected
+```
+
+**Require a specific filesystem type (warns when it differs):**
+
+```
+check_mount mount=/ fstype=zfs
+WARNING: mount / expected fstype differs: zfs != ext4
+```
+
+**Require specific mount options (e.g. that `/` is mounted read-write with `noatime`):**
+
+```
+check_mount mount=/ options=rw,noatime
+WARNING: mount / missing options: noatime
+```
+
+**A mount point that is not mounted is CRITICAL:**
+
+```
+check_mount mount=/does/not/exist
+CRITICAL: mount /does/not/exist not mounted
+```
+
+**Check via NRPE:**
+
+```
+check_nscp_client --host 192.168.56.103 --command check_mount --argument "mount=/data" --argument "fstype=ext4"
+OK: mounts are as expected
+```
 
 
 
