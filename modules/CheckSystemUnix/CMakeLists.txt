@@ -23,6 +23,7 @@ set(SRCS
     check_load.cpp
     check_cpu_utilization.cpp
     check_kernel_stats.cpp
+    check_swap_io.cpp
     check_service.cpp
     check_process.cpp
     check_pagefile.cpp
@@ -52,6 +53,7 @@ if(WIN32)
         check_load.h
         check_cpu_utilization.h
         check_kernel_stats.h
+        check_swap_io.h
         check_service.h
         check_process.h
         check_pagefile.h
@@ -96,6 +98,8 @@ NSCP_CREATE_TEST(
         check_cpu_utilization.cpp
         check_kernel_stats_test.cpp
         check_kernel_stats.cpp
+        check_swap_io_test.cpp
+        check_swap_io.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
