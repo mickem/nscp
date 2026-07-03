@@ -254,10 +254,32 @@ TEST(CheckTcp, ServicePresetLookup) {
   ASSERT_NE(ssh, nullptr);
   EXPECT_EQ(ssh->port, 22);
   EXPECT_STREQ(ssh->expect_regex, "^SSH-");
+  EXPECT_FALSE(ssh->tls);
   const auto *smtp = check_net::find_service_preset("SMTP");
   ASSERT_NE(smtp, nullptr);
   EXPECT_EQ(smtp->port, 25);
+  EXPECT_FALSE(smtp->tls);
   EXPECT_EQ(check_net::find_service_preset("bogus"), nullptr);
+}
+
+TEST(CheckTcp, TlsServicePresets) {
+  // The s-prefixed presets use implicit TLS on their well-known secure ports.
+  const auto *spop = check_net::find_service_preset("spop");
+  ASSERT_NE(spop, nullptr);
+  EXPECT_EQ(spop->port, 995);
+  EXPECT_TRUE(spop->tls);
+  EXPECT_STREQ(spop->expect_regex, "^\\+OK");
+
+  const auto *simap = check_net::find_service_preset("SIMAP");
+  ASSERT_NE(simap, nullptr);
+  EXPECT_EQ(simap->port, 993);
+  EXPECT_TRUE(simap->tls);
+
+  const auto *ssmtp = check_net::find_service_preset("ssmtp");
+  ASSERT_NE(ssmtp, nullptr);
+  EXPECT_EQ(ssmtp->port, 465);
+  EXPECT_TRUE(ssmtp->tls);
+  EXPECT_STREQ(ssmtp->expect_regex, "^220");
 }
 
 // ============================================================================
@@ -359,6 +381,33 @@ TEST(CheckHttp, parse_url_rejects_bad_input) {
   EXPECT_FALSE(check_net::check_http_internal::parse_url("not a url", u));
   EXPECT_FALSE(check_net::check_http_internal::parse_url("ftp://example.com/", u));
   EXPECT_FALSE(check_net::check_http_internal::parse_url("http:///nohost", u));
+}
+
+TEST(CheckHttp, resolve_redirect_absolute) {
+  using check_net::check_http_internal::resolve_redirect;
+  EXPECT_EQ(resolve_redirect("http://a.com/x", "https://b.com/y"), "https://b.com/y");
+}
+
+TEST(CheckHttp, resolve_redirect_root_relative) {
+  using check_net::check_http_internal::resolve_redirect;
+  EXPECT_EQ(resolve_redirect("http://a.com:8080/dir/page", "/login"), "http://a.com:8080/login");
+}
+
+TEST(CheckHttp, resolve_redirect_protocol_relative) {
+  using check_net::check_http_internal::resolve_redirect;
+  EXPECT_EQ(resolve_redirect("https://a.com/x", "//cdn.b.com/z"), "https://cdn.b.com/z");
+}
+
+TEST(CheckHttp, resolve_redirect_path_relative) {
+  using check_net::check_http_internal::resolve_redirect;
+  // Resolves against the directory of the current path.
+  EXPECT_EQ(resolve_redirect("http://a.com/dir/page", "next"), "http://a.com:80/dir/next");
+  EXPECT_EQ(resolve_redirect("https://a.com/", "home"), "https://a.com:443/home");
+}
+
+TEST(CheckHttp, ssl_expiry_days_default_is_minus_one) {
+  check_net::check_http_filter::filter_obj o;
+  EXPECT_EQ(o.get_ssl_expiry_days(), -1);
 }
 
 // ============================================================================

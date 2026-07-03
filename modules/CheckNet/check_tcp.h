@@ -27,23 +27,27 @@
 
 namespace check_net {
 
-// A named service preset: default port, an optional payload to send, and a
-// regular expression the peer's greeting/response must match.
+// A named service preset: default port, an optional payload to send, a regular
+// expression the peer's greeting/response must match, and whether the transport
+// is wrapped in TLS.
 struct service_preset {
   const char *name;
   unsigned short port;
   const char *send;
   const char *expect_regex;
+  bool tls;
 };
 
 // Look up a service preset by name (case-insensitive). Returns nullptr for an
 // unknown service.
 inline const service_preset *find_service_preset(const std::string &name) {
   // SSH/FTP/SMTP/POP/IMAP all send a greeting on connect, so no payload is
-  // sent — we just read and match the greeting.
+  // sent — we just read and match the greeting. The S-prefixed variants are the
+  // implicit-TLS ports (POP3S/IMAPS/SMTPS).
   static const service_preset presets[] = {
-      {"FTP", 21, "", "^220"},  {"POP", 110, "", "^\\+OK"}, {"IMAP", 143, "", "^\\* OK"},
-      {"SMTP", 25, "", "^220"}, {"SSH", 22, "", "^SSH-"},
+      {"FTP", 21, "", "^220", false},   {"POP", 110, "", "^\\+OK", false},  {"IMAP", 143, "", "^\\* OK", false},
+      {"SMTP", 25, "", "^220", false},  {"SSH", 22, "", "^SSH-", false},    {"SPOP", 995, "", "^\\+OK", true},
+      {"SIMAP", 993, "", "^\\* OK", true}, {"SSMTP", 465, "", "^220", true},
   };
   std::string upper = name;
   for (char &c : upper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
