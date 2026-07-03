@@ -24,8 +24,9 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 // Provide the NSCAPI singleton so modern_filter.cpp can link.
-// nscapi::plugin_singleton is defined once in check_disk_io_test.cpp for the
-// merged check_disk_test target.
+// nscapi::plugin_singleton is defined once per test binary: in
+// check_disk_io_test.cpp for the Windows check_disk_test target and in
+// check_disk_unix_test.cpp for check_disk_unix_test.
 
 // ============================================================================
 // disk_health struct tests
@@ -34,6 +35,8 @@
 TEST(DiskHealth, DefaultConstruction) {
   disk_health_check::disk_health h;
   EXPECT_EQ(h.name, "");
+  EXPECT_FALSE(h.has_space);
+  EXPECT_EQ(h.get_has_space(), 0);
   EXPECT_EQ(h.total, 0);
   EXPECT_EQ(h.free, 0);
   EXPECT_EQ(h.user_free, 0);
@@ -184,7 +187,8 @@ TEST(DiskHealthJoin, IoOnlyDrive) {
   EXPECT_EQ(h.name, "C:");
   EXPECT_EQ(h.read_bytes_per_sec, 500);
   EXPECT_EQ(h.percent_disk_time, 30);
-  // Space fields should be zero
+  // Space fields should be zero and flagged as absent
+  EXPECT_FALSE(h.has_space);
   EXPECT_EQ(h.total, 0);
   EXPECT_EQ(h.free, 0);
 }
@@ -204,6 +208,7 @@ TEST(DiskHealthJoin, FreeOnlyDrive) {
   ASSERT_EQ(result.size(), 1u);
   const auto &h = result.front();
   EXPECT_EQ(h.name, "D:");
+  EXPECT_TRUE(h.has_space);
   EXPECT_EQ(h.total, 100000);
   EXPECT_EQ(h.free, 50000);
   EXPECT_EQ(h.user_free, 45000);
@@ -239,6 +244,7 @@ TEST(DiskHealthJoin, MatchingDrives) {
   const auto &h = result.front();
   EXPECT_EQ(h.name, "C:");
   // Space fields
+  EXPECT_TRUE(h.has_space);
   EXPECT_EQ(h.total, 100000);
   EXPECT_EQ(h.free, 40000);
   EXPECT_EQ(h.user_free, 35000);
@@ -331,7 +337,8 @@ TEST(DiskHealthJoin, MismatchedDrives) {
   ++it;
   EXPECT_EQ(it->name, "_Total");
   EXPECT_EQ(it->read_bytes_per_sec, 300);
-  EXPECT_EQ(it->total, 0);  // No free data
+  EXPECT_EQ(it->total, 0);          // No free data
+  EXPECT_FALSE(it->has_space);      // ... and flagged as such
 }
 
 TEST(DiskHealthJoin, EmptyIoData) {
@@ -364,4 +371,119 @@ TEST(DiskHealthJoin, EmptyFreeData) {
   EXPECT_EQ(result.front().name, "C:");
   EXPECT_EQ(result.front().queue_length, 5);
   EXPECT_EQ(result.front().total, 0);
+  EXPECT_FALSE(result.front().has_space);
+}
+
+TEST(DiskHealthJoin, FreeEntryJoinsIoByBackingDevice) {
+  // Unix: the free entry carries the physical device backing the mountpoint
+  // ("sda" for "/" mounted from /dev/sda1) and must join the I/O of that device.
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  d.read_bytes_per_sec = 1234;
+  d.percent_disk_time = 40;
+  io.push_back(d);
+
+  disk_free_check::drives_type df;
+  disk_free_check::disk_free f;
+  f.name = "/";
+  f.device = "sda";
+  f.total = 100000;
+  f.free = 60000;
+  df.push_back(f);
+
+  auto result = disk_health_check::join(io, df);
+  ASSERT_EQ(result.size(), 1u);
+  const auto &h = result.front();
+  EXPECT_EQ(h.name, "/");
+  EXPECT_TRUE(h.has_space);
+  EXPECT_EQ(h.total, 100000);
+  EXPECT_EQ(h.read_bytes_per_sec, 1234);
+  EXPECT_EQ(h.percent_disk_time, 40);
+}
+
+TEST(DiskHealthJoin, UnmatchedIoDeviceStaysIoOnly) {
+  // Regression: a physical device whose filesystems could not be mapped back
+  // to it (e.g. root on LVM before dm resolution) must not gain fabricated
+  // space data (total=0 would read as free_pct=0 -> false critical).
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  d.percent_disk_time = 10;
+  io.push_back(d);
+
+  disk_free_check::drives_type df;
+  disk_free_check::disk_free f;
+  f.name = "/";
+  f.device = "";  // mount source could not be resolved to a physical disk
+  f.total = 100000;
+  f.free = 60000;
+  df.push_back(f);
+
+  auto result = disk_health_check::join(io, df);
+  ASSERT_EQ(result.size(), 2u);
+  auto it = result.begin();
+  EXPECT_EQ(it->name, "/");
+  EXPECT_TRUE(it->has_space);
+  EXPECT_EQ(it->percent_disk_time, 0);
+  ++it;
+  EXPECT_EQ(it->name, "sda");
+  EXPECT_FALSE(it->has_space);
+  EXPECT_EQ(it->total, 0);
+  EXPECT_EQ(it->percent_disk_time, 10);
+}
+
+// ============================================================================
+// check_disk_health() default threshold tests
+// ============================================================================
+
+namespace {
+PB::Common::ResultCode run_health_check(const disk_health_check::health_type &data) {
+  PB::Commands::QueryRequestMessage::Request request;
+  PB::Commands::QueryResponseMessage::Response response;
+  request.set_command("check_disk_health");
+  disk_health_check::check::check_disk_health(request, &response, data);
+  return response.result();
+}
+}  // namespace
+
+TEST(CheckDiskHealth, IoOnlyRowIsNotEvaluatedAgainstSpaceThresholds) {
+  // An idle I/O-only row (no space data) must not go critical on the default
+  // free_pct thresholds despite its zeroed total/free fields.
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  d.percent_idle_time = 100;
+  io.push_back(d);
+
+  disk_free_check::drives_type df;
+  disk_free_check::disk_free f;
+  f.name = "/";
+  f.device = "";  // does not match "sda" -> "sda" becomes an I/O-only row
+  f.total = 100000;
+  f.free = 60000;
+  df.push_back(f);
+
+  EXPECT_EQ(run_health_check(disk_health_check::join(io, df)), PB::Common::ResultCode::OK);
+}
+
+TEST(CheckDiskHealth, IoOnlyRowStillEvaluatedAgainstIoThresholds) {
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  d.percent_disk_time = 99;
+  io.push_back(d);
+
+  EXPECT_EQ(run_health_check(disk_health_check::join(io, {})), PB::Common::ResultCode::CRITICAL);
+}
+
+TEST(CheckDiskHealth, LowFreeSpaceStillGoesCritical) {
+  disk_free_check::drives_type df;
+  disk_free_check::disk_free f;
+  f.name = "/";
+  f.total = 100000;
+  f.free = 5000;  // 5% free < 10%
+  df.push_back(f);
+
+  EXPECT_EQ(run_health_check(disk_health_check::join({}, df)), PB::Common::ResultCode::CRITICAL);
 }

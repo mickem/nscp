@@ -501,7 +501,41 @@ void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Com
 
 }  // namespace
 
+namespace {
+// `fetch-only` short-circuits the filter machinery and emits one line per
+// mounted filesystem in `<<<df>>>` format: mountpoint fs total_kb used_kb
+// avail_kb pct% mountpoint. Mirrors the Windows check_drive_win.cpp behaviour so
+// the fetch-only contract is identical across platforms.
+void do_fetch_only(PB::Commands::QueryResponseMessage::Response *response) {
+  std::string body;
+  std::vector<std::string> wanted = {"*"};
+  std::vector<std::string> not_found;
+  for (const drive_container &drive : find_drives(wanted, not_found)) {
+    struct statvfs vfs;
+    if (statvfs(drive.mountpoint.c_str(), &vfs) != 0) continue;
+    const unsigned long long bs = vfs.f_frsize ? vfs.f_frsize : vfs.f_bsize;
+    const long long total_kb = static_cast<long long>(vfs.f_blocks * bs / 1024);
+    const long long avail_kb = static_cast<long long>(vfs.f_bavail * bs / 1024);
+    const long long free_kb = static_cast<long long>(vfs.f_bfree * bs / 1024);
+    const long long used_kb = total_kb - free_kb;
+    const long long pct = total_kb > 0 ? (used_kb * 100) / total_kb : 0;
+    const std::string fs = drive.fs.empty() ? "unknown" : drive.fs;
+    const std::string &mp = drive.mountpoint;
+    if (!body.empty()) body += "\n";
+    body += mp + " " + fs + " " + str::xtos(total_kb) + " " + str::xtos(used_kb) + " " + str::xtos(avail_kb) + " " + str::xtos(pct) + "% " + mp;
+  }
+  nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_drivesize", NSCAPI::query_return_codes::returnOK, body, "");
+}
+}  // namespace
+
 void check_drive::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  for (int i = 0; i < request.arguments_size(); i++) {
+    const std::string &a = request.arguments(i);
+    if (a == "fetch-only" || a == "--fetch-only") {
+      do_fetch_only(response);
+      return;
+    }
+  }
   do_check(request, response);
 }
 

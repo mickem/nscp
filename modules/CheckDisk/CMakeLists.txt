@@ -136,6 +136,10 @@ else()
         check_disk_unix_test
         SOURCES
             check_disk_unix_test.cpp
+            check_disk_health_test.cpp
+            check_disk_health.cpp
+            check_disk_io.cpp
+            check_disk_io_unix.cpp
             check_drive_unix.cpp
             check_files.cpp
             check_single_file.cpp
@@ -144,6 +148,7 @@ else()
             filter_unix.cpp
             ${NSCP_FILTER_CPP}
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+            ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES
