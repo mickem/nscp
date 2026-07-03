@@ -30,6 +30,8 @@ namespace check_dns_filter {
 struct filter_obj {
   std::string host;
   std::string addresses;
+  std::string type;    // queried record type (A, AAAA, MX, TXT, ...)
+  std::string server;  // resolver used (empty for the system resolver)
   long long count;
   long long time;
   std::string result;
@@ -40,6 +42,8 @@ struct filter_obj {
 
   std::string get_host() const { return host; }
   std::string get_addresses() const { return addresses; }
+  std::string get_type() const { return type; }
+  std::string get_server() const { return server; }
   std::string get_result() const { return result; }
   long long get_count() const { return count; }
   long long get_time() const { return time; }
