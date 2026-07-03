@@ -20,6 +20,7 @@ set(SRCS
     check_os_updates.cpp
     check_memory.cpp
     check_cpu.cpp
+    check_cpu_utilization.cpp
     check_service.cpp
     check_process.cpp
     check_pagefile.cpp
@@ -46,6 +47,7 @@ if(WIN32)
         check_os_updates.h
         check_memory.h
         check_cpu.h
+        check_cpu_utilization.h
         check_service.h
         check_process.h
         check_pagefile.h
@@ -84,6 +86,8 @@ NSCP_CREATE_TEST(
         check_process.cpp
         check_temperature_test.cpp
         check_temperature.cpp
+        check_cpu_utilization_test.cpp
+        check_cpu_utilization.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
