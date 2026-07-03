@@ -23,6 +23,8 @@ set(SRCS
     check_service.cpp
     check_process.cpp
     check_pagefile.cpp
+    check_cpu_frequency.cpp
+    check_temperature.cpp
     check_battery.cpp
 )
 
@@ -45,6 +47,8 @@ if(WIN32)
         check_service.h
         check_process.h
         check_pagefile.h
+        check_cpu_frequency.h
+        check_temperature.h
         check_battery.h
     )
 endif(WIN32)
