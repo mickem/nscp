@@ -103,6 +103,16 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   bool load_single_plugin(const std::string &plugin, const std::string &alias = "", bool start = false);
   void start_plugins(NSCAPI::moduleLoadMode mode);
   void post_start_plugins();
+
+ private:
+  // Drop every registry reference to a plugin that failed to load or start
+  // and unload it. A shared_ptr left behind in any registry keeps the
+  // dll_plugin alive past shutdown, and its destructor then calls back into
+  // the module DSO at static-destruction time, after the DSO's own statics
+  // are gone — a crash on process exit.
+  void purge_broken_plugin(unsigned long plugin_id);
+
+ public:
   void prepare_shutdown_plugins();
   void stop_plugins();
   plugin_type only_load_module(const std::string &module, const std::string &alias, bool &loaded);
