@@ -21,6 +21,7 @@
 		"check_service"		: "Check the state of one or more of the computer services.",
 		"check_process"		: "Check state/metrics of one or more of the processes running on the computer.",
 		"check_cpu_frequency"	: "Check the CPU clock frequency (current vs max) per core.",
+		"check_temperature"	: "Check temperature sensors (thermal zones / hwmon).",
 		"check_battery"		: "Check battery charge level, power source and health.",
 		"check_network"		: "Check network interface status and throughput.",
 		"check_process_history"	: "Check the history of processes seen since NSClient++ started (requires 'process history = true').",

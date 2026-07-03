@@ -31,6 +31,10 @@
 #include <string>
 #include <vector>
 
+#include <set>
+
+#include "check_network.h"
+#include "check_process_history.h"
 #include "filter_config_object.hpp"
 
 // CPU load entry structure (similar to Windows version)
@@ -263,15 +267,34 @@ class pdh_thread {
 
   std::map<std::string, cpu_times> last_cpu_times_;
 
+  // Raw cumulative /proc/net/dev counters per interface, for rate calculation.
+  struct net_counters {
+    unsigned long long rx_bytes = 0, rx_packets = 0, rx_errors = 0;
+    unsigned long long tx_bytes = 0, tx_packets = 0, tx_errors = 0;
+  };
+  std::map<std::string, net_counters> last_net_;
+  network_check::nics_type network_;
+
+  // Process history (keyed by lowercase exe name), tracked once per second when
+  // process_history_enabled is set. Mirrors the Windows process-history feature.
+  std::map<std::string, process_history_check::process_record> proc_history_;
+
   filters::cpu::filter_config_handler cpu_filters_;
   filters::mem::filter_config_handler mem_filters_;
+  filters::proc::filter_config_handler proc_filters_;
+
+  // See set_settings_path().
+  std::string settings_path_;
 
  public:
   std::string subsystem;
   std::string default_buffer_size;
+  // Bound directly from settings ("process history"); gates per-second /proc
+  // enumeration for the history feature. Public to mirror the Windows collector.
+  bool process_history_enabled;
 
  public:
-  pdh_thread() : stop_requested_(false), core_(nullptr), plugin_id_(0) {}
+  pdh_thread() : stop_requested_(false), core_(nullptr), plugin_id_(0), process_history_enabled(false) {}
 
   void set_core(nscapi::core_wrapper *core, int plugin_id) {
     core_ = core;
@@ -293,10 +316,29 @@ class pdh_thread {
   // Check if we have collected any memory data yet
   bool has_memory_data() const;
 
-  void set_path(const std::string &cpu_path, const std::string &mem_path);
+  // Get the latest per-interface network throughput snapshot
+  network_check::nics_type get_network() const;
+
+  // Check if we have collected any network data yet
+  bool has_network_data() const;
+
+  // Get the accumulated process history (empty unless tracking is enabled)
+  process_history_check::history_type get_process_history() const;
+
+  // Whether process-history tracking is enabled
+  bool has_process_history() const { return process_history_enabled; }
+
+  // The module's settings path (e.g. /settings/system/unix), used to point the
+  // user at the right section in error messages. Written once at module load
+  // before the collector thread starts.
+  void set_settings_path(const std::string &path) { settings_path_ = path; }
+  std::string get_settings_path() const { return settings_path_; }
+
+  void set_path(const std::string &cpu_path, const std::string &mem_path, const std::string &proc_path);
 
   void add_realtime_cpu_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
   void add_realtime_mem_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+  void add_realtime_proc_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 
   void add_samples(std::shared_ptr<nscapi::settings_proxy> settings);
 
@@ -307,4 +349,8 @@ class pdh_thread {
   std::map<std::string, cpu_times> read_cpu_times();
   cpu_load calculate_cpu_load(const std::map<std::string, cpu_times> &old_times, const std::map<std::string, cpu_times> &new_times);
   memory_info read_memory_info();
+  std::map<std::string, net_counters> read_net_counters();
+  network_check::nics_type calculate_network(const std::map<std::string, net_counters> &old_c, const std::map<std::string, net_counters> &new_c, double dt);
+  std::set<std::string> read_running_exes();
+  void update_process_history(const std::set<std::string> &running, long long now_ts);
 };

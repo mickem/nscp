@@ -19,6 +19,7 @@
 
 #include "filter_config_object.hpp"
 
+#include <boost/algorithm/string.hpp>
 #include <boost/date_time.hpp>
 #include <boost/optional.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
@@ -46,8 +47,11 @@ void filter_config_object::set_data(std::string file_string) {
 void filter_config_object::set_datas(std::string file_string) {
   if (file_string.empty()) return;
   data.clear();
-  for (const std::string &s : str::utils::split_lst(file_string, std::string(","))) {
-    data.push_back(s);
+  // "a, b" must match "b", not " b": split_lst does not trim, so strip the
+  // whitespace around each entry here.
+  for (std::string s : str::utils::split_lst(file_string, std::string(","))) {
+    boost::algorithm::trim(s);
+    if (!s.empty()) data.push_back(s);
   }
 }
 
@@ -93,8 +97,11 @@ void filter_config_object::set_data(std::string file_string) {
 void filter_config_object::set_datas(std::string file_string) {
   if (file_string.empty()) return;
   data.clear();
-  for (const std::string &s : str::utils::split_lst(file_string, std::string(","))) {
-    data.push_back(s);
+  // "a, b" must match "b", not " b": split_lst does not trim, so strip the
+  // whitespace around each entry here.
+  for (std::string s : str::utils::split_lst(file_string, std::string(","))) {
+    boost::algorithm::trim(s);
+    if (!s.empty()) data.push_back(s);
   }
 }
 
@@ -120,4 +127,51 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
 }
 
 }  // namespace mem
+
+namespace proc {
+
+std::string filter_config_object::to_string() const {
+  std::stringstream ss;
+  ss << get_alias() << "[" << get_alias() << "] = "
+     << "{tpl: " << parent::to_string() << ", filter: " << filter.to_string() << "}";
+  return ss.str();
+}
+
+void filter_config_object::set_data(std::string file_string) {
+  if (file_string.empty()) return;
+  data.clear();
+  data.push_back(file_string);
+}
+void filter_config_object::set_datas(std::string file_string) {
+  if (file_string.empty()) return;
+  data.clear();
+  // "a, b" must match "b", not " b": split_lst does not trim, so strip the
+  // whitespace around each entry here.
+  for (std::string s : str::utils::split_lst(file_string, std::string(","))) {
+    boost::algorithm::trim(s);
+    if (!s.empty()) data.push_back(s);
+  }
+}
+
+void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool /*oneliner*/, bool is_sample) {
+  if (!get_value().empty()) filter.set_filter_string(get_value().c_str());
+  bool is_default = parent::is_default();
+
+  nscapi::settings_helper::settings_registry settings(proxy);
+  nscapi::settings_helper::path_extension root_path = settings.path(get_path());
+  if (is_sample) root_path.set_sample();
+
+  root_path.add_path()("REAL TIME FILTER DEFINITION", "Definition for real time filter: " + get_alias());
+  root_path.add_key()
+      .add_string("process", sh::string_fun_key([this](auto value) { this->set_data(value); }), "PROCESS", "The process (executable name) to check", false)
+      .add_string("processes", sh::string_fun_key([this](auto value) { this->set_datas(value); }), "PROCESSES",
+                  "A list of processes to check (comma separated); empty means all processes", true);
+
+  filter.read_object(root_path, is_default);
+
+  settings.register_all();
+  settings.notify();
+}
+
+}  // namespace proc
 }  // namespace filters

@@ -19,9 +19,11 @@
 
 #include "realtime_data.hpp"
 
+#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <map>
 #include <nscapi/macros.hpp>
+#include <set>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <str/format.hpp>
 
@@ -83,3 +85,28 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 }
 }  // namespace check_mem_filter
 }  // namespace check_memory
+
+namespace check_proc {
+namespace check_proc_filter {
+void runtime_data::add(const std::string &proc) {
+  if (proc == "*") {
+    check_all = true;
+  } else {
+    checks.push_back(boost::algorithm::to_lower_copy(proc));
+  }
+}
+
+modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type) const {
+  modern_filter::match_result ret;
+  const bool all = check_all || checks.empty();
+  const std::set<std::string> wanted(checks.begin(), checks.end());
+  for (const filter_obj &info : enumerate_processes()) {
+    if (all || wanted.count(boost::algorithm::to_lower_copy(info.exe)) > 0) {
+      const std::shared_ptr<filter_obj> record(new filter_obj(info));
+      ret.append(filter.match(record));
+    }
+  }
+  return ret;
+}
+}  // namespace check_proc_filter
+}  // namespace check_proc

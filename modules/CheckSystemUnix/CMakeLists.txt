@@ -76,6 +76,7 @@ NSCP_CREATE_TEST(
     check_system_unix_test
     SOURCES
         check_system_unix_test.cpp
+        check_battery_test.cpp
         check_battery.cpp
         check_os_updates_test.cpp
         check_os_updates.cpp
@@ -83,6 +84,7 @@ NSCP_CREATE_TEST(
         check_process.cpp
         check_temperature_test.cpp
         check_temperature.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp

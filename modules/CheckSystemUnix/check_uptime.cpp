@@ -41,9 +41,11 @@ parsers::where::node_type parse_time(std::shared_ptr<filter_obj> object, parsers
 
 static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_int_legacy()(
-      "boot", parsers::where::type_date, [](auto obj, auto context) { return obj->get_boot(); }, "System boot time")(
-      "uptime", type_custom_uptime, [](auto obj, auto context) { return obj->get_uptime(); }, "Time since last boot");
+  // Mirror the Windows CheckSystem uptime handler: expose `uptime` as a perf
+  // counter (unit "s") so Linux emits the same performance data as Windows.
+  registry_.add_int_var("boot", parsers::where::type_date, &filter_obj::get_boot, "System boot time")
+      .add_int_var("uptime", type_custom_uptime, &filter_obj::get_uptime, "Time since last boot")
+      .add_int_perf("s", "", "");
   registry_.add_converter(type_custom_uptime, &parse_time);
   registry_.add_human_string("boot", &filter_obj::get_boot_s, "The system boot time")
       .add_human_string("uptime", &filter_obj::get_uptime_s, "Time since last boot (granularity controlled by --max-unit)")
