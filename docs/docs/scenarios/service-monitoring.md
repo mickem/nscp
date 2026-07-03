@@ -2,6 +2,11 @@
 
 **Goal:** Verify that critical Windows services are running and that specific processes are alive and healthy.
 
+Service checks (`check_service`) are Windows-only. Process checks
+(`check_process` and everything in [Monitoring Processes](#monitoring-processes))
+work on **Windows and Linux** — on Linux, match the executable name without an
+extension (`process=sshd` instead of `process=explorer.exe`).
+
 ---
 
 ## Prerequisites
@@ -112,6 +117,12 @@ OK: All processes are ok.
 ```
 CRITICAL: CRITICAL: myapp.exe=stopped
 'myapp.exe state'=0;1;0
+```
+
+On Linux the same check looks like:
+
+```
+check_process process=sshd
 ```
 
 ### Check multiple processes at once

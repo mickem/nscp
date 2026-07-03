@@ -27,8 +27,9 @@ Each scenario follows the same structure:
 | Scenario                                              | Description                                                               |
 |-------------------------------------------------------|---------------------------------------------------------------------------|
 | [Windows Server Health](windows-server-health.md)     | Monitor CPU, memory, disk, and uptime together as a baseline health check |
-| [Disk Space Alerting](disk-space.md)                  | Alert when drives are running low on free space                           |
+| [Disk Space Alerting](disk-space.md)                  | Alert when drives are running low on free space (Windows & Linux)         |
 | [Service & Process Monitoring](service-monitoring.md) | Ensure critical Windows services and processes are running                |
+| [Real-Time System Monitoring](realtime-monitoring.md) | Push CPU/memory/process alerts the second they happen (Windows & Linux)   |
 | [Event Log Monitoring](event-log.md)                  | Alert on errors and warnings in the Windows Event Log                     |
 | [Performance Counter (PDH) Monitoring](counters.md)   | Read Windows performance counters, average them over time, and alert      |
 

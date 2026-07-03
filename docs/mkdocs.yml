@@ -37,6 +37,7 @@ nav:
       - Windows Server Health: scenarios/windows-server-health.md
       - Disk Space Alerting: scenarios/disk-space.md
       - Service & Process Monitoring: scenarios/service-monitoring.md
+      - Real-Time System Monitoring: scenarios/realtime-monitoring.md
       - Event Log Monitoring: scenarios/event-log.md
       - Performance Counters (PDH): scenarios/counters.md
       - Network Checks: scenarios/network-checks.md
