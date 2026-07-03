@@ -26,6 +26,8 @@ set(SRCS
     check_cpu_frequency.cpp
     check_temperature.cpp
     check_battery.cpp
+    check_network.cpp
+    check_process_history.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -50,6 +52,8 @@ if(WIN32)
         check_cpu_frequency.h
         check_temperature.h
         check_battery.h
+        check_network.h
+        check_process_history.h
     )
 endif(WIN32)
 
