@@ -22,14 +22,16 @@ A quick reference for all available queries (check commands) in the CheckNet mod
 
 A list of all available queries (check commands)
 
-| Command                                 | Description                                                                                 |
-|-----------------------------------------|---------------------------------------------------------------------------------------------|
-| [check_connections](#check_connections) | Count active TCP/UDP connections and report counts per protocol and TCP state.              |
-| [check_dns](#check_dns)                 | Resolve a host name and check the response time and resulting addresses.                    |
-| [check_http](#check_http)               | Send an HTTP/HTTPS request and check the response status, time, size and body.              |
-| [check_ntp_offset](#check_ntp_offset)   | Query an NTP server and check the offset between the local clock and the server.            |
-| [check_ping](#check_ping)               | Ping another host and check the result.                                                     |
-| [check_tcp](#check_tcp)                 | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
+| Command                                                 | Description                                                                                 |
+|---------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| [check_connections](#check_connections)                 | Count active TCP/UDP connections and report counts per protocol and TCP state.              |
+| [check_dns](#check_dns)                                 | Resolve a host name and check the response time and resulting addresses.                    |
+| [check_http](#check_http)                               | Send an HTTP/HTTPS request and check the response status, time, size and body.              |
+| [check_nsclient_web_online](#check_nsclient_web_online) | Query the REST API of a remote NSClient++ agent (reachability or a remote check).           |
+| [check_ntp_offset](#check_ntp_offset)                   | Query an NTP server and check the offset between the local clock and the server.            |
+| [check_ping](#check_ping)                               | Ping another host and check the result.                                                     |
+| [check_ssh](#check_ssh)                                 | Connect to an SSH port and verify the server presents a valid SSH banner.                   |
+| [check_tcp](#check_tcp)                                 | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
 
 
 
@@ -354,6 +356,8 @@ OK: google.com -> 172.217.20.174 (1) in 10ms [ok]|'google.com_time'=10;1000;0
 <a id="check_dns_help-short"></a>
 <a id="check_dns_host"></a>
 <a id="check_dns_lookup"></a>
+<a id="check_dns_server"></a>
+<a id="check_dns_norecursion"></a>
 <a id="check_dns_expected-address"></a>
 <a id="check_dns_expected"></a>
 <a id="check_dns_options"></a>
@@ -384,9 +388,13 @@ OK: google.com -> 172.217.20.174 (1) in 10ms [ok]|'google.com_time'=10;1000;0
 | [perf-syntax](#check_dns_perf-syntax)     | ${host}                                                     | Performance alias syntax.                                                                                        |
 | host                                      |                                                             | Hostname to look up.                                                                                             |
 | lookup                                    |                                                             | Alias for --host.                                                                                                |
+| [type](#check_dns_type)                   | A                                                           | DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.                                                 |
+| server                                    |                                                             | DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf otherwise).                       |
+| [port](#check_dns_port)                   | 53                                                          | UDP port of the DNS server.                                                                                      |
+| norecursion                               | N/A                                                         | Do not request recursion (RD=0).                                                                                 |
 | [timeout](#check_dns_timeout)             | 5000                                                        | Timeout in milliseconds.                                                                                         |
-| expected-address                          |                                                             | Address that must be present in the answer (may be given multiple times).                                        |
-| expected                                  |                                                             | Comma separated list of addresses that must all be present in the answer.                                        |
+| expected-address                          |                                                             | Record that must be present in the answer (may be given multiple times).                                         |
+| expected                                  |                                                             | Comma separated list of records that must all be present in the answer.                                          |
 
 
 
@@ -471,6 +479,18 @@ This is the syntax for the base names of the performance data.
 
 *Default Value:* `${host}`
 
+<h5 id="check_dns_type">type:</h5>
+
+DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.
+
+*Default Value:* `A`
+
+<h5 id="check_dns_port">port:</h5>
+
+UDP port of the DNS server.
+
+*Default Value:* `53`
+
 <h5 id="check_dns_timeout">timeout:</h5>
 
 Timeout in milliseconds.
@@ -484,10 +504,12 @@ Timeout in milliseconds.
 
 | Option    | Description                                                        |
 |-----------|--------------------------------------------------------------------|
-| addresses | Comma separated list of resolved addresses                         |
+| addresses | Comma separated list of resolved records                           |
 | host      | Hostname that was looked up                                        |
 | result    | Textual result of the lookup (ok, not_found, mismatch, error, ...) |
+| server    | DNS server used (empty for the system resolver)                    |
 | time      | Time taken by the lookup in milliseconds                           |
+| type      | Record type that was queried (A, AAAA, MX, TXT, ...)               |
 
 **Common options for all checks:**
 
@@ -821,6 +843,27 @@ Path to a CA bundle to use when verifying the server certificate.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
+
+
+### check_nsclient_web_online
+
+Query the REST API of a remote NSClient++ agent (reachability or a remote check).
+
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_nsclient_web_online_options)
+
+
+
+
+
+<a id="check_nsclient_web_online_options"></a>
+#### Command-line Arguments
+
+
+
+
 
 
 ### check_ntp_offset
@@ -1300,6 +1343,189 @@ The payload to send in the ping request (default: 'Hello from NSClient++')
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
 
+### check_ssh
+
+Connect to an SSH port and verify the server presents a valid SSH banner.
+
+
+**Jump to section:**
+
+* [Command-line Arguments](#check_ssh_options)
+* [Filter keywords](#check_ssh_filter_keys)
+
+
+
+
+
+<a id="check_ssh_warn"></a>
+<a id="check_ssh_crit"></a>
+<a id="check_ssh_debug"></a>
+<a id="check_ssh_show-all"></a>
+<a id="check_ssh_escape-html"></a>
+<a id="check_ssh_help"></a>
+<a id="check_ssh_help-pb"></a>
+<a id="check_ssh_show-default"></a>
+<a id="check_ssh_help-short"></a>
+<a id="check_ssh_host"></a>
+<a id="check_ssh_hosts"></a>
+<a id="check_ssh_port"></a>
+<a id="check_ssh_send"></a>
+<a id="check_ssh_expect"></a>
+<a id="check_ssh_options"></a>
+#### Command-line Arguments
+
+
+| Option                                    | Default Value                          | Description                                                                                                      |
+|-------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_ssh_filter)               |                                        | Filter which marks interesting items.                                                                            |
+| [warning](#check_ssh_warning)             | time > 1000                            | Filter which marks items which generates a warning state.                                                        |
+| warn                                      |                                        | Short alias for warning                                                                                          |
+| [critical](#check_ssh_critical)           | time > 5000 or result != 'ok'          | Filter which marks items which generates a critical state.                                                       |
+| crit                                      |                                        | Short alias for critical.                                                                                        |
+| [ok](#check_ssh_ok)                       |                                        | Filter which marks items which generates an ok state.                                                            |
+| debug                                     | N/A                                    | Show debugging information in the log                                                                            |
+| show-all                                  | N/A                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_ssh_empty-state)     | ignored                                | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_ssh_perf-config)     |                                        | Performance data generation configuration                                                                        |
+| escape-html                               | N/A                                    | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                      | N/A                                    | Show help screen (this screen)                                                                                   |
+| help-pb                                   | N/A                                    | Show help screen as a protocol buffer payload                                                                    |
+| show-default                              | N/A                                    | Show default values for a given command                                                                          |
+| help-short                                | N/A                                    | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_ssh_top-syntax)       | ${status}: ${problem_list}             | Top level syntax.                                                                                                |
+| [ok-syntax](#check_ssh_ok-syntax)         | %(status): %(list)                     | ok syntax.                                                                                                       |
+| [empty-syntax](#check_ssh_empty-syntax)   | No hosts checked                       | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_ssh_detail-syntax) | ${host}:${port} ${result} in ${time}ms | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_ssh_perf-syntax)     | ${host}_${port}                        | Performance alias syntax.                                                                                        |
+| host                                      |                                        | Host(s) to connect to (may be given multiple times).                                                             |
+| hosts                                     |                                        | Comma separated list of hosts to connect to.                                                                     |
+| port                                      |                                        | TCP port to connect to.                                                                                          |
+| [timeout](#check_ssh_timeout)             | 5000                                   | Connection / read timeout in milliseconds.                                                                       |
+| send                                      |                                        | Optional payload to send after the connection is established.                                                    |
+| expect                                    |                                        | Optional substring expected in the response.                                                                     |
+
+
+
+<h5 id="check_ssh_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_ssh_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `time > 1000`
+
+<h5 id="check_ssh_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `time > 5000 or result != 'ok'`
+
+<h5 id="check_ssh_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_ssh_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ignored`
+
+<h5 id="check_ssh_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_ssh_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${problem_list}`
+
+<h5 id="check_ssh_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): %(list)`
+
+<h5 id="check_ssh_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `No hosts checked`
+
+<h5 id="check_ssh_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${host}:${port} ${result} in ${time}ms`
+
+<h5 id="check_ssh_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${host}_${port}`
+
+<h5 id="check_ssh_timeout">timeout:</h5>
+
+Connection / read timeout in milliseconds.
+
+*Default Value:* `5000`
+
+
+<a id="check_ssh_filter_keys"></a>
+#### Filter keywords
+
+
+| Option    | Description                                                                    |
+|-----------|--------------------------------------------------------------------------------|
+| connected | 1 when the connection succeeded, 0 otherwise                                   |
+| host      | Host the check connected to                                                    |
+| port      | TCP port the check connected to                                                |
+| response  | The data received from the peer (use with 'like'/'regexp' for custom matching) |
+| result    | Textual result of the check (ok, refused, timeout, no_match, ...)              |
+| time      | Connection time in milliseconds                                                |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+
 ### check_tcp
 
 Connect to a TCP port and optionally send/expect data to check that a service is reachable.
@@ -1380,6 +1606,7 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 <a id="check_tcp_port"></a>
 <a id="check_tcp_send"></a>
 <a id="check_tcp_expect"></a>
+<a id="check_tcp_service"></a>
 <a id="check_tcp_options"></a>
 #### Command-line Arguments
 
@@ -1411,7 +1638,8 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 | port                                      |                                        | TCP port to connect to.                                                                                          |
 | [timeout](#check_tcp_timeout)             | 5000                                   | Connection / read timeout in milliseconds.                                                                       |
 | send                                      |                                        | Optional payload to send after the connection is established.                                                    |
-| expect                                    |                                        | Optional substring expected in the response (requires --send or returns whatever the peer sent first).           |
+| expect                                    |                                        | Optional substring expected in the response.                                                                     |
+| service                                   |                                        | Service preset (ftp, pop, imap, smtp, ssh): sets a default port, greeting and expected-response regex.           |
 
 
 
@@ -1507,13 +1735,14 @@ Connection / read timeout in milliseconds.
 #### Filter keywords
 
 
-| Option    | Description                                                       |
-|-----------|-------------------------------------------------------------------|
-| connected | 1 when the connection succeeded, 0 otherwise                      |
-| host      | Host the check connected to                                       |
-| port      | TCP port the check connected to                                   |
-| result    | Textual result of the check (ok, refused, timeout, no_match, ...) |
-| time      | Connection time in milliseconds                                   |
+| Option    | Description                                                                    |
+|-----------|--------------------------------------------------------------------------------|
+| connected | 1 when the connection succeeded, 0 otherwise                                   |
+| host      | Host the check connected to                                                    |
+| port      | TCP port the check connected to                                                |
+| response  | The data received from the peer (use with 'like'/'regexp' for custom matching) |
+| result    | Textual result of the check (ok, refused, timeout, no_match, ...)              |
+| time      | Connection time in milliseconds                                                |
 
 **Common options for all checks:**
 
