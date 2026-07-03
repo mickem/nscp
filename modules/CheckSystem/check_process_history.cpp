@@ -58,7 +58,7 @@ void process_record::build_metrics(PB::Metrics::MetricsBundle *section) const {
   add_metric(section, exe + ".first_seen", first_seen);
   add_metric(section, exe + ".last_seen", last_seen);
   add_metric(section, exe + ".times_seen", times_seen);
-  add_metric(section, exe + ".currently_running", get_currently_running());
+  add_metric(section, exe + ".currently_running", get_currently_running_i());
 }
 
 // Simple error reporter that does nothing (we don't want to spam logs during enumeration)

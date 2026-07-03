@@ -21,6 +21,7 @@
 
 #include <boost/thread/locks.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -132,6 +133,11 @@ void temperature_data::fetch() {
   if (!use_fallback_) {
     try {
       query_acpi(tmp);
+      if (tmp.empty()) {
+        // The ACPI class can exist yet expose no zones (common on consumer
+        // hardware) — treat that like "not available" and use the fallback.
+        use_fallback_ = true;
+      }
     } catch (const wmi_impl::wmi_exception &e) {
       if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_NOT_FOUND || e.get_code() == WBEM_E_ACCESS_DENIED) {
         // ACPI thermal zone not available — switch to performance counter fallback.
@@ -195,6 +201,14 @@ void check_temperature(const PB::Commands::QueryRequestMessage::Request &request
   if (!filter_helper.parse_options()) return;
 
   if (!filter_helper.build_filter(filter)) return;
+
+  // Same contract as the Linux implementation: no sensors (or, here, a
+  // collector cache that has not been populated yet) is UNKNOWN, not a
+  // trip through the filter's empty-state.
+  if (data.empty()) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "No temperature sensors found");
+  }
+
   for (const thermal_zone &z : data) {
     std::shared_ptr<filter_obj> record(new filter_obj(z));
     filter.match(record);

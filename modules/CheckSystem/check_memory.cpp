@@ -160,8 +160,14 @@ helper::helper(nscapi::core_wrapper *core, int plugin_id) : memory_helper(new me
 
 void helper::add_obj(std::shared_ptr<filters::mem::filter_config_object> object) {
   runtime_data data;
-  for (const std::string &d : object->data) {
-    data.add(d);
+  if (object->data.empty()) {
+    // No explicit `type` configured: default to physical memory (parity with
+    // the Linux implementation) so the filter actually produces rows.
+    data.add("physical");
+  } else {
+    for (const std::string &d : object->data) {
+      data.add(d);
+    }
   }
   memory_helper->helper.add_item(object, data, "system.memory");
 }

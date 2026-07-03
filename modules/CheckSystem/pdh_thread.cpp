@@ -231,8 +231,14 @@ void pdh_thread::thread_proc() {
   for (const std::shared_ptr<filters::cpu::filter_config_object> &object : cpu_filters_.get_object_list()) {
     try {
       check_cpu_filter::runtime_data data;
-      for (const std::string &d : object->data) {
-        data.add(d);
+      if (object->data.empty()) {
+        // No explicit `time` configured: default to one window (parity with
+        // the Linux implementation) so the filter actually produces rows.
+        data.add("1m");
+      } else {
+        for (const std::string &d : object->data) {
+          data.add(d);
+        }
       }
       cpu_helper.add_item(object, data, "system.cpu");
     } catch (const std::exception &e) {

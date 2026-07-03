@@ -147,8 +147,10 @@ describe("CheckSystem commands", () => {
   // --- check_process_history -------------------------------------------------
 
   it("check_process_history tracks our process with times_seen=1", async () => {
-    // The collector samples /proc (or the PDH snapshot) once per second;
-    // poll until our own exe shows up in the history.
+    // Both platforms synthesise a seen=0 placeholder row for a requested but
+    // not-yet-sampled process, so wait for a real sighting (seen >= 1). The
+    // Linux collector samples /proc once per second; the Windows one only
+    // refreshes process history every ~12s.
     const args = {
       process: SELF_EXE,
       "top-syntax": "${list}",
@@ -158,7 +160,7 @@ describe("CheckSystem commands", () => {
       key,
       "check_process_history",
       args,
-      (r) => r.result === OK && new RegExp(`${SELF_RE.source} seen=`, "i").test(messageOf(r)),
+      (r) => r.result === OK && new RegExp(`${SELF_RE.source} seen=[1-9]`, "i").test(messageOf(r)),
     );
     expect(q.result).toBe(OK);
     // times_seen counts starts, not samples: a continuously-running process
@@ -200,19 +202,28 @@ describe("CheckSystem commands", () => {
   });
 
   it("check_temperature reports sensors or UNKNOWN without hardware", async () => {
-    const q = await executeQuery(key, "check_temperature", {
+    // Windows serves this from the collector cache and the first WMI sweep
+    // can take several seconds, during which the check reports the same
+    // UNKNOWN as a machine without sensors — poll the warm-up out so a final
+    // UNKNOWN is a definitive no-hardware answer. Linux reads /sys directly,
+    // so the first (and only) query already settles it.
+    const args = {
       warning: "temperature > 1000",
       critical: "temperature > 1000",
-    });
+    };
+    const q = await pollQuery(
+      key,
+      "check_temperature",
+      args,
+      (r) => r.result !== UNKNOWN,
+      onWindows ? 20_000 : 1,
+    );
     if (q.result === UNKNOWN) {
       expect(messageOf(q)).toMatch(/no temperature sensors/i);
-      return; // Linux without sensors (typical VM/WSL) — contract holds.
+      return; // No sensors (typical VM/WSL) — contract holds.
     }
     expect(q.result).toBe(OK);
     const temps = Object.values(perfOf(q)).map((p) => p.value as number);
-    if (onWindows && temps.length === 0) {
-      return; // Windows without WMI thermal data reports OK with zero zones.
-    }
     expect(temps.length).toBeGreaterThan(0);
     for (const t of temps) {
       expect(t).toBeGreaterThan(-60);
@@ -221,14 +232,29 @@ describe("CheckSystem commands", () => {
   });
 
   it("check_cpu_frequency reports clocks or UNKNOWN without cpufreq", async () => {
-    const q = await executeQuery(key, "check_cpu_frequency", {});
+    // Perf entries are only generated for variables referenced by thresholds
+    // and are keyed by the record's ${name}, so pin the thresholds to
+    // current_mhz and find its perf entry via the MHz unit. Same Windows
+    // collector warm-up dance as check_temperature above.
+    const args = {
+      warning: "current_mhz > 999999",
+      critical: "current_mhz > 999999",
+    };
+    const q = await pollQuery(
+      key,
+      "check_cpu_frequency",
+      args,
+      (r) => r.result !== UNKNOWN,
+      onWindows ? 20_000 : 1,
+    );
     if (q.result === UNKNOWN) {
       expect(messageOf(q)).toMatch(/no cpu frequency/i);
       return; // No cpufreq/WMI clock data (typical VM/WSL) — contract holds.
     }
-    expect(q.result).toBeLessThanOrEqual(CRITICAL);
-    const mhz = Object.entries(perfOf(q)).find(([k]) => /mhz|frequency/i.test(k));
+    expect(q.result).toBe(OK);
+    const mhz = Object.values(perfOf(q)).find((p) => /mhz/i.test(String(p.unit ?? "")));
     expect(mhz).toBeDefined();
+    expect(mhz!.value as number).toBeGreaterThan(0);
   });
 
   // --- check_network ----------------------------------------------------------

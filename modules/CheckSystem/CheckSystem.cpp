@@ -1175,6 +1175,13 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
       PB::Metrics::MetricsBundle *section = bundle->add_children();
       section->set_key("process_history");
       using namespace nscapi::metrics;
+      long long running = 0;
+      for (const process_history_check::process_record &rec : history) {
+        rec.build_metrics(section);
+        if (rec.currently_running) ++running;
+      }
+      add_metric(section, "count", static_cast<long long>(history.size()));
+      add_metric(section, "running", running);
       add_metric(section, "unique_processes", static_cast<long long>(history.size()));
     }
   } catch (...) {

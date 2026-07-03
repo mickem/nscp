@@ -21,6 +21,7 @@
 
 #include <boost/thread/locks.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
+#include <nscapi/protobuf/functions_response.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -116,13 +117,23 @@ void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &reque
   modern_filter::cli_helper<filter_type> filter_helper(request, response, mdata);
 
   filter_type filter;
-  filter_helper.add_options("frequency_pct < 50", "frequency_pct < 30", "", filter.get_filter_syntax(), "warning");
+  // No default warn/crit thresholds (parity with the Linux implementation):
+  // modern CPUs legitimately clock far below their maximum at idle, so a
+  // frequency_pct default would warn on every idle machine.
+  filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${list}", "${name}: ${current_mhz}/${max_mhz} MHz (${frequency_pct}%)", "${name}", "",
                            "%(status): All CPU frequencies seem ok.");
 
   if (!filter_helper.parse_options()) return;
 
   if (!filter_helper.build_filter(filter)) return;
+
+  // Same contract as the Linux implementation: no data (or a collector cache
+  // that has not been populated yet) is UNKNOWN, not an empty-state trip.
+  if (data.empty()) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "No CPU frequency data available");
+  }
+
   for (const cpu_frequency &c : data) {
     const std::shared_ptr<filter_obj> record(new filter_obj(c));
     filter.match(record);
