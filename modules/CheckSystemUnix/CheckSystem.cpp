@@ -35,6 +35,9 @@
 #include "check_battery.h"
 #include "check_cpu.h"
 #include "check_cpu_frequency.h"
+#include "check_cpu_utilization.h"
+#include "check_kernel_stats.h"
+#include "check_load.h"
 #include "check_memory.h"
 #include "check_network.h"
 #include "check_os_updates.h"
@@ -44,6 +47,7 @@
 #include "check_process_history.h"
 #include "check_service.h"
 #include "check_temperature.h"
+#include "check_swap_io.h"
 #include "check_uptime.h"
 
 namespace sh = nscapi::settings_helper;
@@ -136,6 +140,18 @@ void CheckSystem::check_process(const PB::Commands::QueryRequestMessage::Request
 }
 void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   checks::check_cpu(collector_, request, response);
+}
+void CheckSystem::check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  load_check::check_load(request, response);
+}
+void CheckSystem::check_cpu_utilization(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  cpu_utilization_check::check_cpu_utilization(request, response);
+}
+void CheckSystem::check_kernel_stats(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  kernel_stats_check::check_kernel_stats(request, response);
+}
+void CheckSystem::check_swap_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  swap_io_check::check_swap_io(request, response);
 }
 void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   checks::check_uptime(request, response, timezone_);

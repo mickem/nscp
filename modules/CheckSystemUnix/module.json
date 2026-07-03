@@ -27,7 +27,7 @@
 		"check_battery"		: "Check battery charge level, power source and health.",
 		"check_network"		: "Check network interface status and throughput.",
 		"check_process_history"	: "Check the history of processes seen since NSClient++ started (requires 'process history = true').",
-		"check_process_history_new"	: "Check for processes first seen within a recent time window (requires 'process history = true')."
+		"check_process_history_new"	: "Check for processes first seen within a recent time window (requires 'process history = true').",
 		"check_kernel_stats"	: "Check kernel activity: context-switch rate, fork rate and live thread count.",
 		"check_swap_io"		: "Check the swap in/out paging rate."
 	},

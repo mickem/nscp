@@ -88,8 +88,12 @@ NSCP_CREATE_TEST(
         check_battery.cpp
         check_os_updates_test.cpp
         check_os_updates.cpp
+        check_os_version_test.cpp
+        check_os_version.cpp
         check_process_test.cpp
         check_process.cpp
+        check_service_test.cpp
+        check_service.cpp
         check_temperature_test.cpp
         check_temperature.cpp
         check_load_test.cpp
