@@ -68,7 +68,9 @@ describe("CheckSystem commands", () => {
   it("check_os_version identifies the platform", async () => {
     const q = await executeQuery(key, "check_os_version", {});
     expect(q.result).toBe(OK);
-    expect(messageOf(q)).toMatch(onWindows ? /windows/i : /linux/i);
+    // Default detail-syntax is "${os} (kernel ${kernel_release})" on Linux —
+    // the distro pretty name plus the kernel release; on Windows it names the OS.
+    expect(messageOf(q)).toMatch(onWindows ? /windows/i : /kernel/i);
   });
 
   // --- check_cpu / check_memory / check_pagefile -----------------------------
@@ -275,5 +277,103 @@ describe("CheckSystem commands", () => {
     );
     expect(q.result).toBe(OK);
     expect(Object.keys(perfOf(q)).length).toBeGreaterThan(0);
+  });
+
+  // --- Linux-only checks (no Windows CheckSystem equivalent) ------------------
+
+  it("check_load reports the three load averages (Linux)", async () => {
+    if (onWindows) return; // check_load is CheckSystemUnix-only.
+    const q = await executeQuery(key, "check_load", {
+      "detail-syntax": "l1=${load1} l5=${load5} l15=${load15} type=${type}",
+    });
+    expect(q.result).toBe(OK); // no default thresholds -> always OK
+    expect(messageOf(q)).toMatch(/l1=[\d.]+ l5=[\d.]+ l15=[\d.]+ type=total/);
+    // load1/5/15 perf is emitted.
+    expect(Object.keys(perfOf(q)).some((k) => /load1/.test(k))).toBe(true);
+  });
+
+  it("check_load percpu reports the scaled per-core load (Linux)", async () => {
+    if (onWindows) return;
+    const q = await executeQuery(key, "check_load", { percpu: "true", "detail-syntax": "${type}" });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/scaled/);
+  });
+
+  it("check_cpu_utilization exposes iowait/steal breakdown (Linux)", async () => {
+    if (onWindows) return; // check_cpu_utilization is CheckSystemUnix-only.
+    const q = await executeQuery(key, "check_cpu_utilization", {
+      warning: "total > 101", // never trips; just exercise the check
+      critical: "total > 101",
+      "detail-syntax": "total=${total} iowait=${iowait} steal=${steal}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/total=[\d.]+ iowait=[\d.]+ steal=[\d.]+/);
+    const total = perfValue(q, "cpu_total"); // perf label is "<perf-syntax>_<keyword>"
+    expect(total).toBeGreaterThanOrEqual(0);
+    expect(total).toBeLessThanOrEqual(100);
+  });
+
+  it("check_kernel_stats reports ctxt/processes/threads (Linux)", async () => {
+    if (onWindows) return; // check_kernel_stats is CheckSystemUnix-only.
+    const q = await executeQuery(key, "check_kernel_stats", {
+      "detail-syntax": "${name}=${current}",
+    });
+    expect(q.result).toBeLessThanOrEqual(CRITICAL);
+    const msg = messageOf(q);
+    expect(msg).toMatch(/ctxt=\d+/);
+    expect(msg).toMatch(/processes=\d+/);
+    expect(msg).toMatch(/threads=[1-9]\d*/); // there is always at least one thread
+  });
+
+  it("check_kernel_stats type= selects a single metric (Linux)", async () => {
+    if (onWindows) return;
+    const q = await executeQuery(key, "check_kernel_stats", {
+      type: "threads",
+      "detail-syntax": "${name}",
+    });
+    expect(messageOf(q)).toMatch(/threads/);
+    expect(messageOf(q)).not.toMatch(/ctxt/);
+  });
+
+  it("check_swap_io reports paging rates (Linux)", async () => {
+    if (onWindows) return; // check_swap_io is CheckSystemUnix-only.
+    const q = await executeQuery(key, "check_swap_io", {
+      "detail-syntax": "in=${swap_in} out=${swap_out} count=${swap_count}",
+    });
+    expect(q.result).toBe(OK); // no default thresholds
+    expect(messageOf(q)).toMatch(/in=[\d.]+ out=[\d.]+ count=\d+/);
+  });
+
+  it("check_os_version reports the distribution on Linux", async () => {
+    if (onWindows) return; // distribution keywords are Linux-only.
+    const q = await executeQuery(key, "check_os_version", {
+      "detail-syntax":
+        "os=${os}|distro=${distribution}|ver=${version}|fam=${family}|proc=${processor}",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    // ${os} and ${processor} used to render empty (the fixed bug); assert both
+    // are now populated, plus the new distribution identity keywords.
+    expect(msg).toMatch(/os=\S+/);
+    expect(msg).not.toMatch(/os=\|/);
+    expect(msg).toMatch(/distro=\w+/);
+    expect(msg).toMatch(/proc=\w+/);
+    expect(msg).not.toMatch(/proc=$/);
+  });
+
+  it("check_service maps systemd state and exposes process metrics (Linux)", async () => {
+    if (onWindows) return; // Linux systemd semantics differ from Windows services.
+    const q = await executeQuery(key, "check_service", {
+      "top-syntax": "${list}",
+      "detail-syntax": "${name}=${state}/${active} rss=${rss} tasks=${tasks}",
+    });
+    // Hosts without systemd (some CI containers) yield no services -> UNKNOWN.
+    if (q.result === UNKNOWN) return;
+    expect(q.result).toBeLessThanOrEqual(CRITICAL);
+    const msg = messageOf(q);
+    if (msg.includes("=")) {
+      expect(msg).toMatch(/=(running|oneshot|static|starting|stopped|unknown)\//);
+      expect(msg).toMatch(/rss=\d+ tasks=\d+/);
+    }
   });
 });

@@ -11,11 +11,16 @@
  * disk I/O rates come from a background collector that needs a couple of
  * 1-second samples before it has data.
  */
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+
 import {
   CRITICAL,
   NscpInstance,
   OK,
   UNKNOWN,
+  WARNING,
   executeQuery,
   messageOf,
   perfOf,
@@ -108,5 +113,86 @@ describe("CheckDisk commands", () => {
     );
     expect(q.result).toBe(OK);
     expect(messageOf(q)).not.toMatch(/free_pct/); // no threshold annotation on the rows
+  });
+
+  // --- inodes (check_drivesize, Linux) --------------------------------------
+
+  it("check_drivesize exposes inode counts (Linux)", async () => {
+    if (onWindows) return; // inode keywords are a Unix statvfs concept.
+    const q = await executeQuery(key, "check_drivesize", {
+      drive: ROOT_DRIVE,
+      warning: "inodes_used_pct > 100",
+      critical: "inodes_used_pct > 100",
+      "top-syntax": "${list}",
+      "detail-syntax":
+        "inodes ${inodes_used}/${inodes_total} (${inodes_used_pct}% used, ${inodes_free} free)",
+    });
+    expect(q.result).toBe(OK);
+    const m = messageOf(q);
+    const total = Number(/\/(\d+) /.exec(m)?.[1]);
+    expect(total).toBeGreaterThan(0); // a real filesystem has inodes
+    expect(m).toMatch(/inodes \d+\/\d+ \(\d+% used, \d+ free\)/);
+  });
+
+  // --- checksums (check_files, both platforms) ------------------------------
+
+  it("check_files computes file content checksums", async () => {
+    // A file with known content -> known digests (independent of platform).
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-hash-"));
+    fs.writeFileSync(path.join(dir, "hash.txt"), "hello world");
+    try {
+      const q = await executeQuery(key, "check_files", {
+        path: dir,
+        pattern: "hash.txt",
+        "top-syntax": "${list}",
+        "detail-syntax": "md5=${md5_checksum} sha256=${sha256_checksum}",
+      });
+      expect(q.result).toBe(OK);
+      expect(messageOf(q)).toContain("md5=5eb63bbbe01eeed093cb22bb8f5acdc3");
+      expect(messageOf(q)).toContain(
+        "sha256=b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("check_files can alert on an unexpected checksum", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-hash-"));
+    fs.writeFileSync(path.join(dir, "hash.txt"), "hello world");
+    try {
+      const q = await executeQuery(key, "check_files", {
+        path: dir,
+        pattern: "hash.txt",
+        critical: "sha256_checksum != 'deadbeef'",
+      });
+      expect(q.result).toBe(CRITICAL);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --- check_mount (Linux) ---------------------------------------------------
+
+  it("check_mount confirms the root filesystem is mounted (Linux)", async () => {
+    if (onWindows) return; // check_mount is implemented on Unix.
+    const q = await executeQuery(key, "check_mount", { mount: ROOT_DRIVE });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/mounts are as expected/i);
+  });
+
+  it("check_mount reports a missing mount as critical (Linux)", async () => {
+    if (onWindows) return;
+    const q = await executeQuery(key, "check_mount", { mount: "/no/such/mount/point" });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/not mounted/i);
+  });
+
+  it("check_mount detects an unexpected fstype (Linux)", async () => {
+    if (onWindows) return;
+    const q = await executeQuery(key, "check_mount", { mount: ROOT_DRIVE, fstype: "no_such_fs" });
+    // fstype mismatch on a specific mount -> issue -> warning by default.
+    expect(q.result).toBe(WARNING);
+    expect(messageOf(q)).toMatch(/fstype differs/i);
   });
 });

@@ -83,6 +83,15 @@ target_link_libraries(
     expression_parser
     ${EXTRA_LIBS}
 )
+
+# OpenSSL powers the check_files content checksums (md5/sha*). Optional: without
+# it the checksum keywords compile but return empty strings.
+if(OPENSSL_FOUND)
+    target_include_directories(${TARGET} PRIVATE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES})
+    target_compile_definitions(${TARGET} PRIVATE CHECKDISK_HAVE_OPENSSL)
+endif()
+
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
 if(WIN32)
@@ -133,6 +142,11 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}
             ${CMAKE_CURRENT_SOURCE_DIR}
     )
+    if(OPENSSL_FOUND AND TARGET check_disk_test)
+        target_include_directories(check_disk_test PRIVATE ${OPENSSL_INCLUDE_DIR})
+        target_link_libraries(check_disk_test ${OPENSSL_LIBRARIES})
+        target_compile_definitions(check_disk_test PRIVATE CHECKDISK_HAVE_OPENSSL)
+    endif()
 else()
     NSCP_CREATE_TEST(
         check_disk_unix_test
@@ -144,6 +158,7 @@ else()
             check_disk_io_unix.cpp
             check_drive_unix.cpp
             check_files.cpp
+            check_files_checksum_test.cpp
             check_mount.cpp
             check_mount_test.cpp
             check_single_file.cpp
@@ -170,4 +185,9 @@ else()
             ${NSCP_INCLUDEDIR}
             ${CMAKE_CURRENT_SOURCE_DIR}
     )
+    if(OPENSSL_FOUND AND TARGET check_disk_unix_test)
+        target_include_directories(check_disk_unix_test PRIVATE ${OPENSSL_INCLUDE_DIR})
+        target_link_libraries(check_disk_unix_test ${OPENSSL_LIBRARIES})
+        target_compile_definitions(check_disk_unix_test PRIVATE CHECKDISK_HAVE_OPENSSL)
+    endif()
 endif()

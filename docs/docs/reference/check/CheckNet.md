@@ -122,9 +122,9 @@ OK: total/all: 231|'total_all_close_wait'=0;0;0 'total_all_closing'=0;0;0 'total
 | Option                                            | Default Value                  | Description                                                                                                      |
 |---------------------------------------------------|--------------------------------|------------------------------------------------------------------------------------------------------------------|
 | [filter](#check_connections_filter)               | protocol = 'total'             | Filter which marks interesting items.                                                                            |
-| [warning](#check_connections_warning)             |                                | Filter which marks items which generates a warning state.                                                        |
+| [warning](#check_connections_warning)             | total > 1000                   | Filter which marks items which generates a warning state.                                                        |
 | warn                                              |                                | Short alias for warning                                                                                          |
-| [critical](#check_connections_critical)           |                                | Filter which marks items which generates a critical state.                                                       |
+| [critical](#check_connections_critical)           | total > 2000                   | Filter which marks items which generates a critical state.                                                       |
 | crit                                              |                                | Short alias for critical.                                                                                        |
 | [ok](#check_connections_ok)                       |                                | Filter which marks items which generates an ok state.                                                            |
 | debug                                             | N/A                            | Show debugging information in the log                                                                            |
@@ -158,6 +158,7 @@ Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
 
+*Default Value:* `total > 1000`
 
 <h5 id="check_connections_critical">critical:</h5>
 
@@ -165,6 +166,7 @@ Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
 
 
+*Default Value:* `total > 2000`
 
 <h5 id="check_connections_ok">ok:</h5>
 
@@ -907,9 +909,9 @@ OK: pool.ntp.org offset=1326ms stratum=2| 'pool.ntp.org_offset'=1326;60000;12000
 | Option                                           | Default Value                                          | Description                                                                                                      |
 |--------------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
 | [filter](#check_ntp_offset_filter)               |                                                        | Filter which marks interesting items.                                                                            |
-| [warning](#check_ntp_offset_warning)             | offset > 60000 or stratum >= 16                        | Filter which marks items which generates a warning state.                                                        |
+| [warning](#check_ntp_offset_warning)             | offset > 50 or stratum >= 16                           | Filter which marks items which generates a warning state.                                                        |
 | warn                                             |                                                        | Short alias for warning                                                                                          |
-| [critical](#check_ntp_offset_critical)           | offset > 120000 or stratum >= 16 or result != 'ok'     | Filter which marks items which generates a critical state.                                                       |
+| [critical](#check_ntp_offset_critical)           | offset > 100 or stratum >= 16 or result != 'ok'        | Filter which marks items which generates a critical state.                                                       |
 | crit                                             |                                                        | Short alias for critical.                                                                                        |
 | [ok](#check_ntp_offset_ok)                       |                                                        | Filter which marks items which generates an ok state.                                                            |
 | debug                                            | N/A                                                    | Show debugging information in the log                                                                            |
@@ -946,7 +948,7 @@ Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
 
-*Default Value:* `offset > 60000 or stratum >= 16`
+*Default Value:* `offset > 50 or stratum >= 16`
 
 <h5 id="check_ntp_offset_critical">critical:</h5>
 
@@ -954,7 +956,7 @@ Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
 
 
-*Default Value:* `offset > 120000 or stratum >= 16 or result != 'ok'`
+*Default Value:* `offset > 100 or stratum >= 16 or result != 'ok'`
 
 <h5 id="check_ntp_offset_ok">ok:</h5>
 

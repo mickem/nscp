@@ -289,6 +289,11 @@ struct function_registry {
     get_last_variable()->int_perf.push_back(int_perf_generator_type(new simple_number_performance_generator<T, long long>(unit, prefix, suffix)));
     return *this;
   }
+  typedef typename filter_variable<T>::float_perf_generator_type float_perf_generator_type;
+  function_registry<T>& add_float_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
+    get_last_variable()->float_perf.push_back(float_perf_generator_type(new simple_number_performance_generator<T, double>(unit, prefix, suffix)));
+    return *this;
+  }
   function_registry<T>& no_perf() {
     get_last_variable()->set_no_perf();
     return *this;
