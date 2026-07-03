@@ -71,6 +71,7 @@ Docker-free scenarios (always run, including in no-docker CI pipelines):
 | File                                    | Notes                                  |
 | --------------------------------------- | -------------------------------------- |
 | `tests/checksystem-commands.test.ts`    | CheckSystem check commands, both OSes  |
+| `tests/checknet-commands.test.ts`       | CheckNet tcp/ssh/http/dns/web checks   |
 | `tests/checkdisk-commands.test.ts`      | CheckDisk drive/IO checks, both OSes   |
 | `tests/checkdisk-unix.test.ts`          | CheckDisk file/drive checks (Linux)    |
 | `tests/metrics-realtime.test.ts`        | Metrics + real-time filters, both OSes |
