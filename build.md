@@ -700,7 +700,7 @@ Individual modules can also be dropped without touching dependencies — see
 
 ## Running tests
 
-There are three kinds of tests in this repo:
+There are four kinds of tests in this repo:
 
 1. **Unit tests** — C++ Google Test binaries, registered with CTest via
    `NSCP_CREATE_TEST()` in `tests/CMakeLists.txt`. They run against
@@ -714,6 +714,12 @@ There are three kinds of tests in this repo:
    NSCA-NG, SMTP, Icinga, HTTP proxy, etc.) and drive `nscp` against
    them. These replace the old `tests/<proto>/run-test.bat` scripts and
    run on both Linux and Windows.
+4. **Live / remote acceptance tests** — the same Jest harness, but pointed
+   at an nscp that is **already installed and running** (a provisioned
+   Azure VM, a package install, or a dev build you started by hand) rather
+   than one it spawns itself. They talk to the running server over REST and
+   assert the standard checks are healthy. See
+   [Live / remote acceptance tests](#live--remote-acceptance-tests) below.
 
 ### Unit tests (CTest)
 
@@ -847,4 +853,140 @@ export UBSAN_OPTIONS=suppressions=$PWD/../tools/sanitizers/ubsan-suppressions.tx
 See the header of `tools/sanitizers/run.sh` and
 `.github/workflows/tests-sanitizers.yml` for more variations.
 
-See `tests/integration/README.md` for the full layout, fixture documentation
+See `tests/README.md` for the full layout, fixture documentation and the
+per-suite table.
+
+### Live / remote acceptance tests
+
+Unlike the scenario suites — which spawn a throwaway `nscp`, configure it per
+test and force WARNING/CRITICAL threshold cases — the **live** suite spawns
+nothing. It connects to an nscp that is already installed, configured and
+running, logs in over REST, and asserts the standard checks return a valid
+status with the performance data they should expose ("shape + healthy", not
+forced thresholds). It's aimed at a freshly provisioned Azure VM, a package /
+MSI install, or a dev build you started by hand.
+
+The suite lives in `tests/live/`, has its own Jest config
+(`tests/jest.live.config.js`) and its own npm script (`test:live`). It needs
+**no Docker and no `NSCP_BIN`** — only a reachable server and its WEB password.
+
+#### Configuration
+
+Everything is driven by environment so the identical suite runs from a pipeline
+against a VM and locally against localhost:
+
+| Variable               | Default                  | Meaning                                             |
+| ---------------------- | ------------------------ | --------------------------------------------------- |
+| `NSCP_TARGET_URL`      | `https://127.0.0.1:8443` | Base URL of the REST API.                           |
+| `NSCP_TARGET_USER`     | `admin`                  | REST user to log in as.                             |
+| `NSCP_TARGET_PASSWORD` | _(required)_             | Password for that user (the `nscp web install` pw); use a random one, see below. |
+| `NSCP_TARGET_INSECURE` | `1`                      | Skip TLS cert verification (VMs are self-signed).   |
+| `NSCP_TARGET_OS`       | _(auto)_                 | `windows` / `linux`; else derived from the server.  |
+
+#### Run it locally
+
+First, get a running server with the WEB (REST) API enabled on 8443. Any of:
+
+* a **dev build** you start by hand (recommended for local testing), or
+* a locally installed service (`.deb` / `.rpm` / MSI).
+
+**Dev build — keep everything in the build dir (no root).** A source build
+defaults its settings and cert paths to the *install* locations
+(`/etc/nsclient/nsclient.ini`, `/usr/lib/nsclient/security/`), which need root
+to write and are easy to get out of sync between install and run. Do what the
+test harness does instead: point both `web install` and `test` at a writable
+settings file and cert dir in your build tree with `--settings` /
+`--path-override`, so no `sudo` is involved and both commands read the same
+config:
+
+```bash
+cd <build-dir>          # e.g. cmake-build-debug-wsl, holds the nscp binary
+echo > nsclient.ini     # a local, writable settings file
+mkdir -p security       # writable dir for the generated server cert
+
+# Generate a RANDOM web password instead of a weak hardcoded one, and keep it
+# in the environment (the live suite reads NSCP_TARGET_PASSWORD). It's also
+# saved to .web-pw so the separate test shell / a browser can reuse it.
+export NSCP_TARGET_PASSWORD="$(openssl rand -hex 24)"   # any random source is fine
+echo "$NSCP_TARGET_PASSWORD" | tee .web-pw
+
+# Enable the standard check modules.
+./nscp settings --settings "$PWD/nsclient.ini" \
+    --activate-module CheckHelpers CheckSystem CheckDisk
+
+# Enable HTTPS on 8443 with the random password, writing to the LOCAL ini.
+# Use a CIDR allow-list, NOT '*': the WEB server can't resolve '*' and leaves
+# the allow-list empty, which makes every REST call (login included) 403.
+./nscp web --settings "$PWD/nsclient.ini" \
+    --path-override certificate-path="$PWD/security" \
+    install --https --allowed-hosts '0.0.0.0/0,::/0' --password "$NSCP_TARGET_PASSWORD"
+
+# Start the daemon against the SAME local settings (Ctrl-C to stop).
+./nscp test --settings "$PWD/nsclient.ini" \
+    --path-override certificate-path="$PWD/security"
+```
+
+Then point the suite at it. `nscp test` runs in the foreground, so run this in a
+second shell and pull the password back out of the `.web-pw` file written above
+(or, if you started the server in the same shell, `NSCP_TARGET_PASSWORD` is
+already exported and you can drop that line):
+
+```bash
+cd tests
+npm install        # first time only
+
+NSCP_TARGET_URL=https://127.0.0.1:8443 \
+NSCP_TARGET_PASSWORD="$(cat ../<build-dir>/.web-pw)" \
+NSCP_TARGET_OS=linux \
+  npm run test:live
+```
+
+On Windows / PowerShell, generate the password the same way and reuse it:
+
+```powershell
+# In the server shell — random password, saved for the test shell:
+$env:NSCP_TARGET_PASSWORD = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 32 | ForEach-Object { [char]$_ })
+$env:NSCP_TARGET_PASSWORD | Set-Content .web-pw
+# ...run `nscp web ... install --password $env:NSCP_TARGET_PASSWORD` and `nscp test` as above...
+
+# In the test shell:
+$env:NSCP_TARGET_URL = "https://127.0.0.1:8443"
+$env:NSCP_TARGET_PASSWORD = Get-Content <build-dir>\.web-pw
+$env:NSCP_TARGET_OS = "windows"
+npm run test:live
+```
+
+The live suite is **not** part of the default `npm test` run — its config only
+matches `tests/live/**` and its global-setup validates `NSCP_TARGET_*` instead
+of resolving `NSCP_BIN`. If `NSCP_TARGET_PASSWORD` is missing it fails fast with
+an actionable message.
+
+> `.web-pw` holds a live password — like `build/powershell/.vm.pwd` it should
+> not be committed (add it to your local ignore if your build dir is tracked).
+> If you re-run `web install` with a fresh random password, restart `nscp test`
+> so it loads the new value — an already-running daemon keeps serving the old one.
+
+#### The PowerShell runner
+
+`build/powershell/run-tests.ps1` wires the target address + password into the
+`NSCP_TARGET_*` environment and runs `npm run test:live` for you. Against a
+local install it needs only the password (defaults to `https://127.0.0.1:8443`):
+
+```powershell
+# Reuse the random password saved by the server shell above:
+./build/powershell/run-tests.ps1 -Local -Password (Get-Content <build-dir>\.web-pw) -Os linux
+```
+
+The same script also runs the suite against an Azure VM provisioned by the
+`build/powershell/*/setup-*-machine.ps1` scripts, reading the VM's public IP and
+random web password from the `.vm.pwd` file they write:
+
+```powershell
+# provision + install (writes build/powershell/.vm.pwd), then test it:
+./build/powershell/linux/setup-ubuntu-machine.ps1 -VmName NSCP-Ubuntu-Test -Version 0.14.0
+./build/powershell/run-tests.ps1 -VmName NSCP-Ubuntu-Test -Os linux
+```
+
+See [`tests/live/README.md`](tests/live/README.md) and
+[`build/powershell/README.md`](build/powershell/README.md) for the full VM flow
+(provision → install → test → teardown).

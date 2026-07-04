@@ -68,3 +68,5 @@ _build
 
 
 /docs/design/*
+
+\\.ssh\\*

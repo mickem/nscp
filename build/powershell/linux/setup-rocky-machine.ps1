@@ -39,15 +39,32 @@ foreach ($module in @('Az.Accounts', 'Az.Compute', 'Az.Network', 'Az.Marketplace
 }
 
 Write-Host "Connecting to Azure account..."
-Connect-AzAccount
-Set-AzContext -Subscription (Get-AzSubscription)[0]
+if (-not (Get-AzContext)) {
+    # WSL / headless hosts have no local browser for the interactive account
+    # picker (it hangs on "Please select the account..."), so fall back to
+    # device-code auth on Linux/macOS — open the printed URL in any browser
+    # and enter the code.
+    if ($IsLinux -or $IsMacOS) {
+        Connect-AzAccount -UseDeviceAuthentication
+    } else {
+        Connect-AzAccount
+    }
+    Set-AzContext -Subscription (Get-AzSubscription)[0]
+}
 Write-Host "✅ Successfully connected to Azure."
 
-# Generate SSH key pair for authentication
-$sshKeyPath = "$env:USERPROFILE\.ssh\az_$($VmName)_rsa"
+# Generate SSH key pair for authentication. Use $HOME (set on both Windows
+# PowerShell and PowerShell 7 on Linux/macOS) with Join-Path, not the
+# Windows-only $env:USERPROFILE with '\' separators — the latter resolves to
+# '/.ssh/...' under WSL, so the key is written nowhere and $sshPublicKey ends up
+# empty. -N '' is an empty passphrase; '""' would set the literal two-character
+# passphrase "" and break `ssh -i` into the VM later.
+$sshDir = Join-Path $HOME ".ssh"
+if (-not (Test-Path $sshDir)) { New-Item -ItemType Directory -Path $sshDir -Force | Out-Null }
+$sshKeyPath = Join-Path $sshDir "az_$($VmName)_rsa"
 if (-not (Test-Path $sshKeyPath)) {
     Write-Host "Generating SSH key pair..."
-    ssh-keygen -t rsa -b 4096 -f $sshKeyPath -N '""' -q
+    ssh-keygen -t rsa -b 4096 -f $sshKeyPath -N '' -q
 }
 $sshPublicKey = Get-Content "$sshKeyPath.pub"
 
@@ -129,15 +146,24 @@ sudo dnf install -y wget
 mkdir -p /tmp/nscp
 cd /tmp/nscp
 wget -q '$RpmUrl' -O nscp.rpm
-# Install required dependencies
-sudo dnf install -y boost-filesystem boost-program-options boost-thread \
-    boost-python3 protobuf lua-libs || true
-
-# Install the RPM package
+# Install the package and let dnf resolve ALL of its dependencies from the
+# rpm's Requires (no hand-maintained dependency list to drift out of date).
 sudo dnf install -y ./nscp.rpm
 
-# Configure web interface with password
-sudo nscp web install --https --allowed-hosts * --password '$WebPassword'
+# Configure web interface with password. Use a CIDR allow-list, NOT '*': the
+# WEB server can't resolve '*' (every REST call 403s), and unquoted it would
+# also glob-expand in the shell.
+sudo nscp web install --https --allowed-hosts '0.0.0.0/0,::/0' --password '$WebPassword'
+# Enable the standard check modules. One --activate-module call PER module:
+# the released binary accepts only a single module per call (multi-module
+# support is newer), so combining them would silently drop all but the first.
+# Without these, every check returns UNKNOWN.
+# The `|| true` is required: the released nscp returns a non-zero exit code from
+# `settings --activate-module` even on success, which under `set -e` would abort
+# the script before the restart below and leave the WEB server down (ECONNREFUSED).
+sudo nscp settings --activate-module CheckHelpers || true
+sudo nscp settings --activate-module CheckSystem || true
+sudo nscp settings --activate-module CheckDisk || true
 
 # Configure firewall
 sudo dnf install -y firewalld
@@ -205,7 +231,24 @@ if ($value0 -match "SUCCESS: ") {
 
 Write-Host "✅ Correct version installed!"
 
+# Save credentials to .vm.pwd (same format as the Windows setup script) so
+# run-tests.ps1 can point the live acceptance suite at this VM.
+$pwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd"
+@"
+VM Name:        $VmName
+Resource Group: $ResourceGroupName
+Public IP:      $vmPublicIp
+SSH:            ssh -i $sshKeyPath $AdminUsername@$vmPublicIp
+Admin Username: $AdminUsername
+Web URL:        https://$($vmPublicIp):8443
+Web Password:   $WebPassword
+"@ | Set-Content -Path $pwdFile -Force
+Write-Host "● Credentials saved to $pwdFile"
+
 Write-Host "✅ Script finished! VM '$VmName' is deployed and NSCP has been installed."
 Write-Host "Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
 Write-Host "Web interface: https://$($vmPublicIp):8443"
 Write-Host "Web password: $WebPassword"
+Write-Host ""
+Write-Host "Run the acceptance suite against it with:"
+Write-Host "  ./build/powershell/run-tests.ps1 -VmName $VmName -Os linux"

@@ -16,6 +16,6 @@
       "@fixtures/*": ["src/*"]
     }
   },
-  "include": ["src/**/*.ts", "*.test.ts"],
+  "include": ["src/**/*.ts", "*.test.ts", "live/**/*.ts"],
   "exclude": ["node_modules", "dist", "rest", "msi"]
 }

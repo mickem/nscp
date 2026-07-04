@@ -6,3 +6,4 @@ export * from "./http";
 export * from "./log-on-fail";
 export * from "./rest-fixture";
 export * from "./queries";
+export * from "./live-target";

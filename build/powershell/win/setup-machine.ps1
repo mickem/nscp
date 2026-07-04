@@ -124,8 +124,17 @@ $Result.Value | ForEach-Object { $_.Message }
 
 Write-Host "● Configuring web server and firewall on VM '$VmName'..."
 $scriptBlock = @"
-# Configure web interface with password
-& 'C:\Program Files\NSClient++\nscp.exe' web install --https --allowed-hosts '*' --password '$WebPassword'
+# Configure web interface with password. Use a CIDR allow-list, NOT '*': the
+# WEB server can't resolve '*', so every REST call would 403.
+& 'C:\Program Files\NSClient++\nscp.exe' web install --https --allowed-hosts '0.0.0.0/0,::/0' --password '$WebPassword'
+
+# Enable the standard check modules. One --activate-module call PER module:
+# the released binary accepts only a single module per call (multi-module
+# support is newer), so combining them would silently drop all but the first.
+& 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module CheckHelpers
+& 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module CheckSystem
+& 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module CheckDisk
+& 'C:\Program Files\NSClient++\nscp.exe' settings --activate-module CheckEventLog
 
 # Configure Windows Firewall
 New-NetFirewallRule -DisplayName 'NSClient++ HTTPS' -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow -ErrorAction SilentlyContinue
@@ -199,3 +208,6 @@ Write-Host "✅ Script finished! VM '$VmName' is deployed and NSCP has been inst
 Write-Host "Connect via RDP: $vmPublicIp"
 Write-Host "Web interface: https://$($vmPublicIp):8443"
 Write-Host "Web password: $WebPassword"
+Write-Host ""
+Write-Host "Run the acceptance suite against it with:"
+Write-Host "  ./build/powershell/run-tests.ps1 -VmName $VmName -Os windows"
