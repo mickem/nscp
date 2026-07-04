@@ -4,6 +4,11 @@
 memory, uptime, network, temperature, predefined performance counters, …) so
 they appear alongside everything else in Grafana / Alertmanager.
 
+This works the same on **Windows and Linux** — the same modules, endpoint,
+user/role setup and scrape configuration apply on both. The platforms differ
+only in which metric families they emit (see
+[Available Metrics](#available-metrics) below).
+
 This scenario is the **inverse** of the rest of the integration scenarios:
 NRPE/NSCA/NRDP/Icinga 2 *send check results* to a monitoring server, but
 Prometheus *scrapes raw metrics* on its own schedule. The two patterns are
@@ -102,7 +107,7 @@ From the agent (or anywhere allowed to reach it):
 curl -k -u prometheus:<password> https://<agent>:8443/api/v2/openmetrics
 ```
 
-Expected output is one metric per line, `<name> <value>`:
+Expected output is one metric per line, `<name> <value>`. On a Windows host:
 
 ```text
 system_mem_commited.avail 12592123904
@@ -111,7 +116,20 @@ system_mem_commited.% 73
 system_cpu_total.idle 95
 system_cpu_total.total 5
 system_uptime_ticks.raw 84135
-system_network_eth0_bytes_in 1029384...
+```
+
+On a Linux host:
+
+```text
+system_cpu_total.idle 97.8293
+system_cpu_total.user 1.19519
+system_cpu_total.kernel 0.975472
+system_mem_physical.total 1.6554e+10
+system_mem_physical.used 2.78311e+09
+system_mem_swap.% 26
+system_uptime_ticks.raw 434344
+system_network_eth0.received 343
+system_network_eth0.sent 131
 ```
 
 If you get HTTP 401, the credentials or role grant are wrong; if you get a
@@ -141,8 +159,11 @@ scrape_configs:
     static_configs:
       - targets:
           - win-server-01.example.com:8443
-          - win-server-02.example.com:8443
+          - linux-server-01.example.com:8443
 ```
+
+Windows and Linux agents can share the same scrape job — the endpoint, port
+and authentication are identical.
 
 Reload Prometheus and check **Status → Targets** — the job should go green
 within one scrape interval.
@@ -151,24 +172,43 @@ within one scrape interval.
 
 ## Available Metrics
 
-The exact set depends on which modules are loaded. From `CheckSystem` alone
-you get (Windows host):
+The exact set depends on which modules are loaded and on the platform.
+Available on **both platforms** from `CheckSystem`:
 
-| Bundle                  | Examples                                                                     |
-|-------------------------|------------------------------------------------------------------------------|
-| `system_mem_*`          | `commited.avail`, `physical.total`, `page.used`, `virtual.%`                 |
-| `system_cpu_*`          | `total.idle`, `total.user`, `total.kernel`, plus per-core variants           |
-| `system_uptime_*`       | `ticks.raw`, `boot.raw`                                                      |
-| `system_network_<nic>_*`| `bytes_in`, `bytes_out`, packet counters                                     |
-| `system_temperature_*`  | ACPI thermal zone temperatures                                               |
-| `system_metrics_*`      | Predefined PDH counters (see [Performance Counters](counters.md))            |
+| Bundle                    | Examples                                                            |
+|---------------------------|----------------------------------------------------------------------|
+| `system_cpu_*`            | `total.idle`, `total.user`, `total.kernel`, plus per-core variants  |
+| `system_mem_*`            | families differ per platform — see below                            |
+| `system_uptime_*`         | `ticks.raw`, `boot.raw`                                             |
+| `system_network_<nic>.*`  | `received`, `sent`, `total` (bytes/s per interface)                 |
+| `system_temperature_*`    | thermal sensors (WMI/ACPI on Windows, sysfs thermal/hwmon on Linux) |
+| `system_battery_*`        | charge/health, on machines that have a battery                      |
+| `system_cpu_frequency_*`  | current/max clock per core, where exposed                           |
+| `system_process_history_*`| per-executable `times_seen` / `currently_running` (opt-in, below)   |
 
-Add `CheckDisk` and you also get `disk_*` and `disk.io_*` bundles.
+Add `CheckDisk` (either platform) and you also get `disk_io_<device>.*`
+(throughput, IOPS, queue length, busy time) and `disk_free_<drive>.*`
+(total/free/used and percentages).
 
-For ad-hoc Windows performance counters, predefine them in
-`[/settings/system/windows/counters/<name>]` (see
-[Performance Counter (PDH) Monitoring](counters.md)) — they appear on the
-endpoint automatically as `system_metrics_<name>`.
+Platform differences to be aware of:
+
+- **Memory families** follow what the OS exposes: Windows publishes
+  `commited` / `physical` / `page` / `virtual`, Linux publishes `physical` /
+  `cached` / `swap`.
+- **Per-core CPU naming**: Linux normalises core names to `core_0`, `core_1`,
+  …; Windows names them `core 0` (with a space), which is not a valid
+  OpenMetrics identifier — strict parsers may drop the per-core lines there
+  (the `total` aggregate is always parseable on both).
+- **PDH counters** (`system_metrics_*`) are Windows-only: predefine them in
+  `[/settings/system/windows/counters/<name>]` (see
+  [Performance Counter (PDH) Monitoring](counters.md)) and they appear on the
+  endpoint automatically. There is no Linux equivalent.
+- **Process history** is opt-in on both platforms — set
+  `process history = true` under `[/settings/system/windows]` or
+  `[/settings/system/unix]` respectively.
+- **Hardware metrics** (temperature, battery, CPU frequency) depend on what
+  the host exposes: virtual machines and WSL typically publish none, which is
+  normal.
 
 ---
 

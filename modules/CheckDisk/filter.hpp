@@ -78,6 +78,15 @@ struct filter_obj {
   std::string get_version(parsers::where::evaluation_context context);
   unsigned long get_line_count();
 
+  // Lazily-computed file content checksums (lower-case hex). Return "" when the
+  // file cannot be read or the build has no OpenSSL. Computed only when the
+  // corresponding keyword is referenced, and cached per object.
+  std::string get_md5();
+  std::string get_sha1();
+  std::string get_sha256();
+  std::string get_sha384();
+  std::string get_sha512();
+
   void add(const std::shared_ptr<filter_obj>& info) { ullSize += info->ullSize; }
   void make_total() { is_total_ = true; }
   bool is_total() const { return is_total_; }
@@ -101,6 +110,11 @@ struct filter_obj {
   boost::filesystem::path path;
   boost::optional<std::string> cached_version;
   boost::optional<unsigned long> cached_count;
+  boost::optional<std::string> cached_md5;
+  boost::optional<std::string> cached_sha1;
+  boost::optional<std::string> cached_sha256;
+  boost::optional<std::string> cached_sha384;
+  boost::optional<std::string> cached_sha512;
 };
 
 typedef std::shared_ptr<filter_obj> filter_obj_ptr;

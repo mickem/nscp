@@ -20,9 +20,18 @@ set(SRCS
     check_os_updates.cpp
     check_memory.cpp
     check_cpu.cpp
+    check_load.cpp
+    check_cpu_utilization.cpp
+    check_kernel_stats.cpp
+    check_swap_io.cpp
     check_service.cpp
     check_process.cpp
     check_pagefile.cpp
+    check_cpu_frequency.cpp
+    check_temperature.cpp
+    check_battery.cpp
+    check_network.cpp
+    check_process_history.cpp
 )
 
 add_definitions(${NSCP_GLOBAL_DEFINES})
@@ -41,9 +50,18 @@ if(WIN32)
         check_os_updates.h
         check_memory.h
         check_cpu.h
+        check_load.h
+        check_cpu_utilization.h
+        check_kernel_stats.h
+        check_swap_io.h
         check_service.h
         check_process.h
         check_pagefile.h
+        check_cpu_frequency.h
+        check_temperature.h
+        check_battery.h
+        check_network.h
+        check_process_history.h
     )
 endif(WIN32)
 
@@ -66,8 +84,27 @@ NSCP_CREATE_TEST(
     check_system_unix_test
     SOURCES
         check_system_unix_test.cpp
+        check_battery_test.cpp
+        check_battery.cpp
         check_os_updates_test.cpp
         check_os_updates.cpp
+        check_os_version_test.cpp
+        check_os_version.cpp
+        check_process_test.cpp
+        check_process.cpp
+        check_service_test.cpp
+        check_service.cpp
+        check_temperature_test.cpp
+        check_temperature.cpp
+        check_load_test.cpp
+        check_load.cpp
+        check_cpu_utilization_test.cpp
+        check_cpu_utilization.cpp
+        check_kernel_stats_test.cpp
+        check_kernel_stats.cpp
+        check_swap_io_test.cpp
+        check_swap_io.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp

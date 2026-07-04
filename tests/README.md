@@ -68,24 +68,29 @@ Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
 
 Docker-free scenarios (always run, including in no-docker CI pipelines):
 
-| File                                    | Notes                                 |
-| --------------------------------------- | ------------------------------------- |
-| `tests/rest-aliases-v2.test.ts`         | CheckHelpers alias listing            |
-| `tests/rest-api-discovery.test.ts`      | `/api`, `/api/v1`, `/api/v2`, isalive |
-| `tests/rest-auth.test.ts`               | Login + all auth schemes              |
-| `tests/rest-events.test.ts`             | events_controller GET / DELETE        |
-| `tests/rest-index.test.ts`              | StaticController fallback             |
-| `tests/rest-info.test.ts`               | `/api/v2/info` shape                  |
-| `tests/rest-legacy-auth-icinga.test.ts` | Icinga UA-allowlisted query auth      |
-| `tests/rest-legacy-query.test.ts`       | Pre-v1 `/query/<cmd>` endpoint        |
-| `tests/rest-log.test.ts`                | logs CRUD + `/logs/since`             |
-| `tests/rest-metadata.test.ts`           | metadata_controller                   |
-| `tests/rest-modules-v1.test.ts`         | modules lifecycle (v1)                |
-| `tests/rest-modules-v2.test.ts`         | modules lifecycle (v2)                |
-| `tests/rest-permissions.test.ts`        | Role gating on `/modules`             |
-| `tests/rest-queries-v1.test.ts`         | queries × execute × json/nagios/text  |
-| `tests/rest-queries-v2.test.ts`         | queries v2 of the above               |
-| `tests/rest-settings.test.ts`           | settings GET / PUT / DELETE           |
+| File                                    | Notes                                  |
+| --------------------------------------- | -------------------------------------- |
+| `tests/checksystem-commands.test.ts`    | CheckSystem check commands, both OSes  |
+| `tests/checknet-commands.test.ts`       | CheckNet tcp/ssh/http/dns/web checks   |
+| `tests/checkdisk-commands.test.ts`      | CheckDisk drive/IO checks, both OSes   |
+| `tests/checkdisk-unix.test.ts`          | CheckDisk file/drive checks (Linux)    |
+| `tests/metrics-realtime.test.ts`        | Metrics + real-time filters, both OSes |
+| `tests/rest-aliases-v2.test.ts`         | CheckHelpers alias listing             |
+| `tests/rest-api-discovery.test.ts`      | `/api`, `/api/v1`, `/api/v2`, isalive  |
+| `tests/rest-auth.test.ts`               | Login + all auth schemes               |
+| `tests/rest-events.test.ts`             | events_controller GET / DELETE         |
+| `tests/rest-index.test.ts`              | StaticController fallback              |
+| `tests/rest-info.test.ts`               | `/api/v2/info` shape                   |
+| `tests/rest-legacy-auth-icinga.test.ts` | Icinga UA-allowlisted query auth       |
+| `tests/rest-legacy-query.test.ts`       | Pre-v1 `/query/<cmd>` endpoint         |
+| `tests/rest-log.test.ts`                | logs CRUD + `/logs/since`              |
+| `tests/rest-metadata.test.ts`           | metadata_controller                    |
+| `tests/rest-modules-v1.test.ts`         | modules lifecycle (v1)                 |
+| `tests/rest-modules-v2.test.ts`         | modules lifecycle (v2)                 |
+| `tests/rest-permissions.test.ts`        | Role gating on `/modules`              |
+| `tests/rest-queries-v1.test.ts`         | queries × execute × json/nagios/text   |
+| `tests/rest-queries-v2.test.ts`         | queries v2 of the above                |
+| `tests/rest-settings.test.ts`           | settings GET / PUT / DELETE            |
 
 The Checkmk end-to-end test (`check_mk-site.test.ts`) pulls a ~500MB image and is also gated by `RUN_CMK_SITE_TEST=1`
 (must be set _and_ docker must not be skipped).

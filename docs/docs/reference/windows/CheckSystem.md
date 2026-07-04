@@ -533,14 +533,14 @@ Check CPU clock frequency (current vs max) per processor.
 | Option                                              | Default Value                                              | Description                                                                                                      |
 |-----------------------------------------------------|------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
 | [filter](#check_cpu_frequency_filter)               |                                                            | Filter which marks interesting items.                                                                            |
-| [warning](#check_cpu_frequency_warning)             | frequency_pct < 50                                         | Filter which marks items which generates a warning state.                                                        |
+| [warning](#check_cpu_frequency_warning)             |                                                            | Filter which marks items which generates a warning state.                                                        |
 | warn                                                |                                                            | Short alias for warning                                                                                          |
-| [critical](#check_cpu_frequency_critical)           | frequency_pct < 30                                         | Filter which marks items which generates a critical state.                                                       |
+| [critical](#check_cpu_frequency_critical)           |                                                            | Filter which marks items which generates a critical state.                                                       |
 | crit                                                |                                                            | Short alias for critical.                                                                                        |
 | [ok](#check_cpu_frequency_ok)                       |                                                            | Filter which marks items which generates an ok state.                                                            |
 | debug                                               | N/A                                                        | Show debugging information in the log                                                                            |
 | show-all                                            | N/A                                                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_cpu_frequency_empty-state)     | warning                                                    | Return status to use when nothing matched filter.                                                                |
+| [empty-state](#check_cpu_frequency_empty-state)     | ignored                                                    | Return status to use when nothing matched filter.                                                                |
 | [perf-config](#check_cpu_frequency_perf-config)     |                                                            | Performance data generation configuration                                                                        |
 | escape-html                                         | N/A                                                        | Escape any < and > characters to prevent HTML encoding                                                           |
 | help                                                | N/A                                                        | Show help screen (this screen)                                                                                   |
@@ -568,15 +568,11 @@ Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
 
-*Default Value:* `frequency_pct < 50`
-
 <h5 id="check_cpu_frequency_critical">critical:</h5>
 
 Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
 
-
-*Default Value:* `frequency_pct < 30`
 
 <h5 id="check_cpu_frequency_ok">ok:</h5>
 
@@ -589,7 +585,7 @@ If anything matches this any previous state for this item will be reset to ok.
 Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
-*Default Value:* `warning`
+*Default Value:* `ignored`
 
 <h5 id="check_cpu_frequency_perf-config">perf-config:</h5>
 

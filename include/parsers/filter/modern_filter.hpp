@@ -338,7 +338,16 @@ struct modern_filters {
   bool build_syntax(const bool debug, const std::string &top, const std::string &detail, const std::string &perf, const std::string &perf_config_data,
                     const std::string &ok_syntax, const std::string &empty_syntax) {
     if (debug) set_debug(true);
-    if (!renderer_top.parse(context, top, get_error_handler(debug))) {
+    // The summary-level templates (top/ok/empty) render with no record
+    // attached, so summary keywords (%(status), %(list), ...) take precedence
+    // over same-named record variables there; the per-record templates
+    // (detail/perf) keep record-first lookup.
+    context->set_prefer_summary(true);
+    const bool summary_templates_ok = renderer_top.parse(context, top, get_error_handler(debug)) &&
+                                      renderer_ok.parse(context, ok_syntax, get_error_handler(debug)) &&
+                                      renderer_empty.parse(context, empty_syntax, get_error_handler(debug));
+    context->set_prefer_summary(false);
+    if (!summary_templates_ok) {
       return false;
     }
     if (!renderer_detail.parse(context, detail, get_error_handler(debug))) {
@@ -348,12 +357,6 @@ struct modern_filters {
       return false;
     }
     if (!perf_config.parse(context, perf_config_data, get_error_handler(debug))) {
-      return false;
-    }
-    if (!renderer_ok.parse(context, ok_syntax, get_error_handler(debug))) {
-      return false;
-    }
-    if (!renderer_empty.parse(context, empty_syntax, get_error_handler(debug))) {
       return false;
     }
     renderer_hash.parse(context);

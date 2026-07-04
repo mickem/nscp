@@ -391,7 +391,13 @@ void nsclient::core::dll_plugin::handleMessage(const char *data, unsigned int le
  */
 void nsclient::core::dll_plugin::unload_plugin() {
   if (!isLoaded()) return;
+  // Only call into the DSO while a module instance can exist there (fLoadModule
+  // was invoked — even unsuccessfully — and unload has not run yet). A second
+  // call, e.g. from the destructor of a shared_ptr copy that outlives main(),
+  // would re-enter the module after its static state is destructed.
+  if (!loaded_ && !loading_) return;
   loaded_ = false;
+  loading_ = false;
   if (!fUnLoadModule) throw plugin_exception(get_alias_or_name(), "Critical error (fUnLoadModule)");
   try {
     fUnLoadModule(get_id());

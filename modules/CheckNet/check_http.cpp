@@ -22,6 +22,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
+#include <bytes/base64.hpp>
 #include <memory>
 #include <net/http/client.hpp>
 #include <net/http/http_packet.hpp>
@@ -50,6 +51,8 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code");
   registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the request in milliseconds");
   registry_.add_int_var("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes");
+  registry_.add_int_var("ssl_expiry_days", parsers::where::type_int, &filter_obj::get_ssl_expiry_days,
+                        "Days until the server's TLS certificate expires (-1 for plain http; negative if already expired)");
 }
 
 }  // namespace check_http_filter
@@ -58,71 +61,101 @@ namespace {
 
 using check_http_internal::parse_url;
 using check_http_internal::parsed_url;
+using check_http_internal::resolve_redirect;
 
-void run_http_check(const std::string &url_in, int /*timeout_ms*/, const std::vector<std::string> &headers, const std::string &expected_body,
-                    const std::string &user_agent, const std::string &tls_version, const std::string &verify_mode, const std::string &ca_file,
-                    check_http_filter::filter_obj &out) {
+// Options controlling a single HTTP check (kept in one struct so the growing
+// argument set doesn't turn into a dozen positional parameters).
+struct http_check_options {
+  std::string method = "GET";
+  std::string post_data;
+  std::string content_type = "application/x-www-form-urlencoded";
+  std::string username;
+  std::string password;
+  std::vector<std::string> headers;
+  std::string expected_body;
+  std::string user_agent = "NSClient++";
+  std::string tls_version = "tlsv1.2+";
+  std::string verify_mode = "none";
+  std::string ca_file;
+  std::string sni;
+  bool follow_redirects = false;
+  int max_redirs = 15;
+};
+
+// Returns true for the 3xx status codes that carry a Location we should follow.
+bool is_redirect(unsigned int code) { return code == 301 || code == 302 || code == 303 || code == 307 || code == 308; }
+
+void run_http_check(const std::string &url_in, const http_check_options &opt, check_http_filter::filter_obj &out) {
   out.url = url_in;
   out.result = "error";
 
-  parsed_url u;
-  if (!parse_url(url_in, u)) {
-    out.result = "invalid_url";
-    return;
-  }
-
-  out.host = u.host;
-  out.port = std::stoll(u.port);
-  out.path = u.path;
-  out.protocol = u.protocol;
+  const auto start = boost::chrono::steady_clock::now();
+  std::string current = url_in;
+  int redirects = 0;
 
   try {
-    http::http_client_options options(u.protocol, tls_version, verify_mode, ca_file);
-    http::simple_client client(options);
-    http::request rq("GET", u.host, u.path);
-    if (!user_agent.empty()) rq.add_header("User-Agent", user_agent);
-    for (const auto &h : headers) {
-      const auto pos = h.find(':');
-      if (pos == std::string::npos) continue;
-      std::string k = h.substr(0, pos);
-      std::string v = h.substr(pos + 1);
-      boost::trim(k);
-      boost::trim(v);
-      if (!k.empty()) rq.add_header(k, v);
-    }
-
-    const auto start = boost::chrono::steady_clock::now();
-    client.connect(u.host, u.port);
-    client.send_request(rq);
-
-    boost::asio::streambuf response_buffer;
-    const http::response resp = client.read_result(response_buffer);
-
-    // Drain remaining body.
-    std::ostringstream body_stream;
-    if (response_buffer.size() > 0) body_stream << &response_buffer;
-    if (client.is_open()) {
-      boost::system::error_code error;
-      while (true) {
-        const std::size_t n = client.read_some(response_buffer, error);
-        if (n == 0) break;
-        body_stream << &response_buffer;
+    while (true) {
+      parsed_url u;
+      if (!parse_url(current, u)) {
+        out.result = "invalid_url";
+        return;
       }
-    }
+      out.host = u.host;
+      out.port = std::stoll(u.port);
+      out.path = u.path;
+      out.protocol = u.protocol;
 
-    const auto elapsed = boost::chrono::duration_cast<boost::chrono::milliseconds>(boost::chrono::steady_clock::now() - start).count();
-    out.time = static_cast<long long>(elapsed);
-    out.status_code = resp.status_code_;
-    out.status_message = resp.status_message_;
-    out.body = body_stream.str();
-    out.size = static_cast<long long>(out.body.size());
+      http::http_client_options options(u.protocol, opt.tls_version, opt.verify_mode, opt.ca_file);
+      if (!opt.sni.empty()) options.sni_ = opt.sni;
+      http::simple_client client(options);
 
-    if (!expected_body.empty() && out.body.find(expected_body) == std::string::npos) {
-      out.result = "no_match";
-    } else if (resp.status_code_ >= 200 && resp.status_code_ < 400) {
-      out.result = "ok";
-    } else {
-      out.result = "http_" + std::to_string(resp.status_code_);
+      http::request rq(opt.method, u.host, u.path);
+      if (!opt.user_agent.empty()) rq.add_header("User-Agent", opt.user_agent);
+      if (!opt.username.empty() || !opt.password.empty())
+        rq.add_header("Authorization", "Basic " + bytes::base64_encode(opt.username + ":" + opt.password));
+      for (const auto &h : opt.headers) {
+        const auto pos = h.find(':');
+        if (pos == std::string::npos) continue;
+        std::string k = h.substr(0, pos);
+        std::string v = h.substr(pos + 1);
+        boost::trim(k);
+        boost::trim(v);
+        if (!k.empty()) rq.add_header(k, v);
+      }
+      if (!opt.post_data.empty()) {
+        rq.set_payload(opt.post_data);
+        rq.add_header("Content-Length", std::to_string(opt.post_data.size()));
+        rq.add_header("Content-Type", opt.content_type);
+      }
+
+      // fetch() connects, sends, reads the full (de-chunked) body and does NOT
+      // throw on non-2xx — we want to inspect any status code / body ourselves.
+      const http::response resp = client.fetch(u.host, u.port, rq);
+      out.ssl_expiry_days = client.peer_certificate_expiry_days();
+
+      // Follow redirects when asked to, up to the configured limit.
+      if (opt.follow_redirects && redirects < opt.max_redirs && is_redirect(resp.status_code_)) {
+        const auto loc = resp.headers_.find("location");
+        if (loc != resp.headers_.end() && !loc->second.empty()) {
+          current = resolve_redirect(current, loc->second);
+          ++redirects;
+          continue;
+        }
+      }
+
+      out.status_code = resp.status_code_;
+      out.status_message = resp.status_message_;
+      out.body = resp.payload_;
+      out.size = static_cast<long long>(out.body.size());
+
+      if (!opt.expected_body.empty() && out.body.find(opt.expected_body) == std::string::npos) {
+        out.result = "no_match";
+      } else if (resp.status_code_ >= 200 && resp.status_code_ < 400) {
+        out.result = "ok";
+      } else {
+        out.result = "http_" + std::to_string(resp.status_code_);
+      }
+      break;
     }
   } catch (const std::exception &e) {
     // Boost.Asio surfaces system errors using the OS code page (e.g. Windows
@@ -130,6 +163,9 @@ void run_http_check(const std::string &url_in, int /*timeout_ms*/, const std::ve
     // build-path source location. Convert to UTF-8 and strip the location.
     out.result = std::string("error: ") + check_net::format_exception_message(e);
   }
+
+  const auto elapsed = boost::chrono::duration_cast<boost::chrono::milliseconds>(boost::chrono::steady_clock::now() - start).count();
+  out.time = static_cast<long long>(elapsed);
 }
 
 }  // namespace
@@ -148,13 +184,11 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   std::string protocol = "http";
   unsigned short port = 0;
   int timeout_ms = 30000;
-  std::string expected_body;
-  std::string user_agent = "NSClient++";
-  std::vector<std::string> headers;
   bool use_ssl = false;
-  std::string tls_version = "tlsv1.2+";
-  std::string verify_mode = "none";
+  std::string onredirect = "ok";
   std::string ca_file;
+
+  http_check_options opt;
 
   filter f;
   filter_helper.add_options("time > 5000", "code < 200 or code >= 400 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
@@ -168,22 +202,38 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
     ("port", po::value<unsigned short>(&port), "TCP port (defaults to 80 or 443).")
     ("path", po::value<std::string>(&path)->default_value("/"), "Path component of the URL.")
     ("protocol", po::value<std::string>(&protocol)->default_value("http"), "Protocol to use: http or https.")
-    ("ssl", po::bool_switch(&use_ssl), "Force https (alias for --protocol https).")
+    ("ssl", po::value<bool>(&use_ssl)->implicit_value(true)->default_value(false), "Force https, alias for --protocol https (ssl=true).")
     ("timeout", po::value<int>(&timeout_ms)->default_value(30000), "Timeout in milliseconds.")
-    ("expected-body", po::value<std::string>(&expected_body),
+    ("method", po::value<std::string>(&opt.method)->default_value("GET"), "HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).")
+    ("post-data", po::value<std::string>(&opt.post_data), "Request body to send; implies POST unless --method is given.")
+    ("content-type", po::value<std::string>(&opt.content_type)->default_value("application/x-www-form-urlencoded"),
+        "Content-Type header for the request body.")
+    ("username", po::value<std::string>(&opt.username), "Username for HTTP Basic authentication.")
+    ("password", po::value<std::string>(&opt.password), "Password for HTTP Basic authentication.")
+    ("expected-body", po::value<std::string>(&opt.expected_body),
         "Substring that must appear in the body for the check to be ok.")
-    ("user-agent", po::value<std::string>(&user_agent)->default_value("NSClient++"), "User-Agent header value.")
-    ("header", po::value<std::vector<std::string> >(&headers),
+    ("user-agent", po::value<std::string>(&opt.user_agent)->default_value("NSClient++"), "User-Agent header value.")
+    ("header", po::value<std::vector<std::string> >(&opt.headers),
         "Additional request header in 'Name: value' form (may be given multiple times).")
-    ("tls-version", po::value<std::string>(&tls_version)->default_value("tlsv1.2+"),
+    ("onredirect", po::value<std::string>(&onredirect)->default_value("ok"),
+        "How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.")
+    ("max-redirs", po::value<int>(&opt.max_redirs)->default_value(15), "Maximum number of redirects to follow (with --onredirect follow).")
+    ("sni", po::value<std::string>(&opt.sni), "TLS Server Name Indication / verification hostname override (defaults to the URL host).")
+    ("tls-version", po::value<std::string>(&opt.tls_version)->default_value("tlsv1.2+"),
         "TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).")
-    ("verify", po::value<std::string>(&verify_mode)->default_value("peer"),
+    ("verify", po::value<std::string>(&opt.verify_mode)->default_value("peer"),
         "Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.")
     ("ca", po::value<std::string>(&ca_file)->default_value(default_ca_file), "Path to a CA bundle to use when verifying the server certificate.")
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  opt.ca_file = ca_file;
+  opt.follow_redirects = boost::algorithm::to_lower_copy(onredirect) == "follow";
+  // A body without an explicit method means POST (matches curl / check_http_go).
+  if (!opt.post_data.empty() && opt.method == "GET") opt.method = "POST";
+  boost::algorithm::to_upper(opt.method);
 
   if (urls.empty()) {
     if (host.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No URL or host specified");
@@ -201,7 +251,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
 
   for (const auto &u : urls) {
     auto obj = std::make_shared<filter_obj>();
-    run_http_check(u, timeout_ms, headers, expected_body, user_agent, tls_version, verify_mode, ca_file, *obj);
+    run_http_check(u, opt, *obj);
     f.match(obj);
   }
 

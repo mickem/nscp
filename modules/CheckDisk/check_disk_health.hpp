@@ -30,7 +30,11 @@ namespace disk_health_check {
 struct disk_health {
   std::string name;
 
-  // Space metrics (from disk_free_check)
+  // Space metrics (from disk_free_check). has_space is false for I/O-only rows
+  // (e.g. "_Total" or a physical disk with no mounted filesystem mapped back to
+  // it); such rows carry no real space data so they must not be judged against
+  // free-space thresholds (total=0 would otherwise read as free_pct=0 -> full).
+  bool has_space;
   long long total;
   long long free;
   long long user_free;
@@ -46,7 +50,8 @@ struct disk_health {
   long long split_io_per_sec;
 
   disk_health()
-      : total(0),
+      : has_space(false),
+        total(0),
         free(0),
         user_free(0),
         read_bytes_per_sec(0),
@@ -62,6 +67,7 @@ struct disk_health {
 
   // Space accessors
   std::string get_name() const { return name; }
+  long long get_has_space() const { return has_space ? 1 : 0; }
   long long get_total() const { return total; }
   long long get_free() const { return free; }
   long long get_used() const { return total - free; }
@@ -87,7 +93,9 @@ struct disk_health {
 typedef std::list<disk_health> health_type;
 
 /// Join disk I/O and disk free data by drive name (outer join).
-/// Drives present in only one source get zeroed fields for the missing side.
+/// Drives present in only one source get zeroed fields for the missing side;
+/// rows without free-space data are flagged has_space=false so the default
+/// thresholds only judge them on their I/O metrics.
 health_type join(const disk_io_check::disks_type &io_data, const disk_free_check::drives_type &free_data);
 
 namespace check {

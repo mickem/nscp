@@ -118,6 +118,13 @@ namespace disk_free_check {
 
 struct disk_free {
   std::string name;
+  // Backing physical block device this filesystem lives on (e.g. "sda" for a
+  // filesystem mounted from /dev/sda1). Populated on Unix so check_disk_health
+  // can join a mountpoint's free space with the I/O of its underlying disk
+  // (disk_io rows are keyed by physical device, disk_free rows by mountpoint).
+  // Left empty on Windows, where disk_io and disk_free already share the same
+  // logical-disk key (e.g. "C:") and join directly by name.
+  std::string device;
   long long total;
   long long free;
   long long user_free;
@@ -129,6 +136,7 @@ struct disk_free {
   void build_metrics(PB::Metrics::MetricsBundle *section) const;
 
   std::string get_name() const { return name; }
+  std::string get_device() const { return device; }
   long long get_total() const { return total; }
   long long get_free() const { return free; }
   long long get_used() const { return total - free; }

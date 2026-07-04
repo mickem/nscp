@@ -392,16 +392,22 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
     }
   }
   for (const long &plugin_id : broken) {
-    auto plugin = plugin_list_.find_by_id(plugin_id);
-    plugin_list_.remove(plugin_id);
-    commands_.remove_plugin(plugin_id);
-    metrics_fetchers_.remove_plugin(plugin_id);
-    metrics_submitters_.remove_plugin(plugin_id);
-    if (plugin) {
-      plugin->unload_plugin();
-    }
-    plugin_cache_.remove_plugin(plugin_id);
+    purge_broken_plugin(plugin_id);
   }
+}
+
+void nsclient::core::plugin_manager::purge_broken_plugin(const unsigned long plugin_id) {
+  const auto plugin = plugin_list_.find_by_id(plugin_id);
+  plugin_list_.remove(plugin_id);
+  commands_.remove_plugin(plugin_id);
+  channels_.remove_plugin(plugin_id);
+  event_subscribers_.remove_plugin(plugin_id);
+  metrics_fetchers_.remove_plugin(plugin_id);
+  metrics_submitters_.remove_plugin(plugin_id);
+  if (plugin) {
+    plugin->unload_plugin();
+  }
+  plugin_cache_.remove_plugin(plugin_id);
 }
 
 void nsclient::core::plugin_manager::post_start_plugins() {
@@ -428,7 +434,7 @@ void nsclient::core::plugin_manager::post_start_plugins() {
     }
   }
   for (const long &id : broken) {
-    plugin_list_.remove(id);
+    purge_broken_plugin(id);
   }
 }
 
@@ -461,6 +467,9 @@ void nsclient::core::plugin_manager::prepare_shutdown_plugins() {
 void nsclient::core::plugin_manager::stop_plugins() {
   commands_.remove_all();
   channels_.remove_all();
+  event_subscribers_.remove_all();
+  metrics_fetchers_.remove_all();
+  metrics_submitters_.remove_all();
   for (const plugin_type &p : plugin_list_.get_plugins()) {
     try {
       if (p) {

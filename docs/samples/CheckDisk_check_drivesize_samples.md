@@ -101,3 +101,13 @@ Default via NRPE:
 check_nrpe --host 192.168.56.103 --command check_drivesize
 C:\: 205GB/223GB used, D:\: 448GB/466GB used, M:\: 2.6TB/2.68TB used|'C:\ used'=204GB;44;22;0;223 'C:\ used %'=91%;19;9;0;100 'D:\ used'=447GB;93;46;0;465...
 ```
+
+**Check inode exhaustion (Linux) — a filesystem can be "not full" on bytes yet out of inodes:**
+
+```
+check_drivesize drive=/ "warn=inodes_used_pct > 85" "crit=inodes_used_pct > 95" "detail-syntax=${drive} inodes ${inodes_used}/${inodes_total} (${inodes_used_pct}%)"
+OK: / inodes 350474/67108864 (1%)
+```
+
+The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
+`inodes_free_pct` and `inodes_used_pct`.

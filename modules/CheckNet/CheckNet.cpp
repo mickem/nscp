@@ -32,6 +32,7 @@
 #include "check_connections.h"
 #include "check_dns.h"
 #include "check_http.h"
+#include "check_nsclient_web_online.h"
 #include "check_ntp_offset.h"
 #include "check_tcp.h"
 #include "filter.hpp"
@@ -106,11 +107,17 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
 void CheckNet::check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_tcp(request, response);
 }
+void CheckNet::check_ssh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_net::check_ssh(request, response);
+}
 void CheckNet::check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_dns(request, response);
 }
 void CheckNet::check_http(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
   check_net::check_http(default_ca_, request, response);
+}
+void CheckNet::check_nsclient_web_online(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_nsclient_web_online(default_ca_, request, response);
 }
 void CheckNet::check_connections(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_connections(request, response);

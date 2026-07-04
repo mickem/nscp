@@ -14,6 +14,7 @@ set(SRCS
     check_disk_io.cpp
     check_disk_health.cpp
     check_files.cpp
+    check_mount.cpp
     check_single_file.cpp
     collector_thread.cpp
     filter.cpp
@@ -38,6 +39,7 @@ if(WIN32)
         check_disk_io.hpp
         check_disk_health.hpp
         check_files.hpp
+        check_mount.hpp
         check_single_file.hpp
         collector_thread.hpp
         file_finder.hpp
@@ -81,6 +83,19 @@ target_link_libraries(
     expression_parser
     ${EXTRA_LIBS}
 )
+
+# OpenSSL powers the check_files content checksums (md5/sha*). Optional: without
+# it the checksum keywords compile but return empty strings.
+if(OPENSSL_FOUND)
+    target_include_directories(${TARGET} PRIVATE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(${TARGET} ${OPENSSL_LIBRARIES})
+    target_compile_definitions(${TARGET} PRIVATE CHECKDISK_HAVE_OPENSSL)
+    if(WIN32)
+        # Static libcrypto pulls in the CAPI engine / cert store and BIO sockets.
+        target_link_libraries(${TARGET} CRYPT32 ws2_32)
+    endif()
+endif()
+
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
 if(WIN32)
@@ -131,19 +146,32 @@ if(WIN32)
             ${NSCP_INCLUDEDIR}
             ${CMAKE_CURRENT_SOURCE_DIR}
     )
+    if(OPENSSL_FOUND AND TARGET check_disk_test)
+        target_include_directories(check_disk_test PRIVATE ${OPENSSL_INCLUDE_DIR})
+        target_link_libraries(check_disk_test ${OPENSSL_LIBRARIES} CRYPT32 ws2_32)
+        target_compile_definitions(check_disk_test PRIVATE CHECKDISK_HAVE_OPENSSL)
+    endif()
 else()
     NSCP_CREATE_TEST(
         check_disk_unix_test
         SOURCES
             check_disk_unix_test.cpp
+            check_disk_health_test.cpp
+            check_disk_health.cpp
+            check_disk_io.cpp
+            check_disk_io_unix.cpp
             check_drive_unix.cpp
             check_files.cpp
+            check_files_checksum_test.cpp
+            check_mount.cpp
+            check_mount_test.cpp
             check_single_file.cpp
             file_finder_unix.cpp
             filter.cpp
             filter_unix.cpp
             ${NSCP_FILTER_CPP}
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+            ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
             ${NSCP_INCLUDEDIR}/str/utf8.cpp
         LIBRARIES
@@ -161,4 +189,9 @@ else()
             ${NSCP_INCLUDEDIR}
             ${CMAKE_CURRENT_SOURCE_DIR}
     )
+    if(OPENSSL_FOUND AND TARGET check_disk_unix_test)
+        target_include_directories(check_disk_unix_test PRIVATE ${OPENSSL_INCLUDE_DIR})
+        target_link_libraries(check_disk_unix_test ${OPENSSL_LIBRARIES})
+        target_compile_definitions(check_disk_unix_test PRIVATE CHECKDISK_HAVE_OPENSSL)
+    endif()
 endif()

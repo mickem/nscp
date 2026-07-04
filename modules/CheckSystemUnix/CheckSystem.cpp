@@ -32,13 +32,22 @@
 #include <nscp_time.hpp>
 #include <str/format.hpp>
 
+#include "check_battery.h"
 #include "check_cpu.h"
+#include "check_cpu_frequency.h"
+#include "check_cpu_utilization.h"
+#include "check_kernel_stats.h"
+#include "check_load.h"
 #include "check_memory.h"
+#include "check_network.h"
 #include "check_os_updates.h"
 #include "check_os_version.h"
 #include "check_pagefile.h"
 #include "check_process.h"
+#include "check_process_history.h"
 #include "check_service.h"
+#include "check_temperature.h"
+#include "check_swap_io.h"
 #include "check_uptime.h"
 
 namespace sh = nscapi::settings_helper;
@@ -56,7 +65,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // Start the CPU collector thread
   collector_ = std::shared_ptr<pdh_thread>(new pdh_thread());
   collector_->set_core(get_core(), get_id());
-  collector_->set_path(settings.alias().get_settings_path("real-time/cpu"), settings.alias().get_settings_path("real-time/memory"));
+  collector_->set_path(settings.alias().get_settings_path("real-time/cpu"), settings.alias().get_settings_path("real-time/memory"),
+                       settings.alias().get_settings_path("real-time/process"));
+  collector_->set_settings_path(settings.alias().get_settings_path(""));
 
   // clang-format off
   settings.alias().add_path_to_settings()
@@ -69,11 +80,17 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ("real-time/memory", sh::fun_values_path([this] (auto key, auto value) { collector_->add_realtime_mem_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime memory filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
+
+    ("real-time/process", sh::fun_values_path([this] (auto key, auto value) { collector_->add_realtime_proc_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
+        "Realtime process filters", "A set of filters to use in real-time mode",
+        "FILTER", "For more configuration options add a dedicated section")
     ;
 
   settings.alias().add_key_to_settings()
     .add_string("default buffer length", sh::string_key(&collector_->default_buffer_size, "1h"),
         "Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
+    .add_bool("process history", sh::bool_key(&collector_->process_history_enabled, false),
+        "Track process history", "Enable tracking of process history for use with the check_process_history and check_process_history_new commands.")
     ;
   // clang-format on
 
@@ -124,6 +141,18 @@ void CheckSystem::check_process(const PB::Commands::QueryRequestMessage::Request
 void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   checks::check_cpu(collector_, request, response);
 }
+void CheckSystem::check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  load_check::check_load(request, response);
+}
+void CheckSystem::check_cpu_utilization(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  cpu_utilization_check::check_cpu_utilization(request, response);
+}
+void CheckSystem::check_kernel_stats(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  kernel_stats_check::check_kernel_stats(request, response);
+}
+void CheckSystem::check_swap_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  swap_io_check::check_swap_io(request, response);
+}
 void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   checks::check_uptime(request, response, timezone_);
 }
@@ -135,6 +164,24 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
 }
 void CheckSystem::check_os_updates(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   os_updates::check_os_updates(request, response);
+}
+void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  cpu_frequency_check::check_cpu_frequency(request, response);
+}
+void CheckSystem::check_temperature(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  temperature_check::check_temperature(request, response);
+}
+void CheckSystem::check_battery(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  battery_check::check_battery(request, response);
+}
+void CheckSystem::check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  network_check::check_network(collector_, request, response);
+}
+void CheckSystem::check_process_history(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  process_history_check::check_process_history(collector_, request, response);
+}
+void CheckSystem::check_process_history_new(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  process_history_check::check_process_history_new(collector_, request, response);
 }
 
 namespace {
@@ -227,5 +274,50 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
     NSC_LOG_ERROR(std::string("Failed to fetch uptime metrics: ") + e.what());
   } catch (...) {
     NSC_LOG_ERROR("Failed to fetch uptime metrics");
+  }
+
+  // CPU frequency metrics: system.cpu_frequency.<core>.{current_mhz,max_mhz,frequency_pct}
+  try {
+    cpu_frequency_check::build_cpu_frequency_metrics(bundle);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR(std::string("Failed to fetch cpu frequency metrics: ") + e.what());
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to fetch cpu frequency metrics");
+  }
+
+  // Temperature metrics: system.temperature.<sensor>.temperature
+  try {
+    temperature_check::build_temperature_metrics(bundle);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR(std::string("Failed to fetch temperature metrics: ") + e.what());
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to fetch temperature metrics");
+  }
+
+  // Battery metrics: system.battery.<name>.{charge,health,status}
+  try {
+    battery_check::build_battery_metrics(bundle);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR(std::string("Failed to fetch battery metrics: ") + e.what());
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to fetch battery metrics");
+  }
+
+  // Network metrics: system.network.<iface>.{received,sent,total,status}
+  try {
+    if (collector_) network_check::build_network_metrics(bundle, collector_->get_network());
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR(std::string("Failed to fetch network metrics: ") + e.what());
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to fetch network metrics");
+  }
+
+  // Process history metrics: system.process_history.{<exe>.*,count,running}
+  try {
+    if (collector_ && collector_->has_process_history()) process_history_check::build_process_history_metrics(bundle, collector_->get_process_history());
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR(std::string("Failed to fetch process history metrics: ") + e.what());
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to fetch process history metrics");
   }
 }

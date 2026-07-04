@@ -289,6 +289,11 @@ struct function_registry {
     get_last_variable()->int_perf.push_back(int_perf_generator_type(new simple_number_performance_generator<T, long long>(unit, prefix, suffix)));
     return *this;
   }
+  typedef typename filter_variable<T>::float_perf_generator_type float_perf_generator_type;
+  function_registry<T>& add_float_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
+    get_last_variable()->float_perf.push_back(float_perf_generator_type(new simple_number_performance_generator<T, double>(unit, prefix, suffix)));
+    return *this;
+  }
   function_registry<T>& no_perf() {
     get_last_variable()->set_no_perf();
     return *this;
@@ -469,6 +474,16 @@ struct filter_handler_impl : evaluation_context_impl<TObject> {
 
   registry_type registry_;
 
+  // When set, summary keywords (status, list, count, ...) take precedence over
+  // same-named record variables in create_variable. Enabled while parsing the
+  // summary-level templates (top/ok/empty syntax): those render with no record
+  // attached, so a record variable named e.g. "status" (battery charge status,
+  // network link state) would otherwise shadow the overall %(status) and
+  // always render as an empty string.
+  bool prefer_summary_ = false;
+
+  void set_prefer_summary(const bool prefer_summary) { prefer_summary_ = prefer_summary; }
+
   std::map<std::string, std::string> get_filter_syntax() const {
     std::map<std::string, std::string> ret;
     for (const typename registry_type::variable_type::value_type& var : registry_.variables) {
@@ -488,6 +503,9 @@ struct filter_handler_impl : evaluation_context_impl<TObject> {
     return registry_.has_variable(name) || evaluation_context_impl<TObject>::get_summary()->has_variable(name);
   }
   node_type create_variable(const std::string& name, bool human_readable) override {
+    if (prefer_summary_ && evaluation_context_impl<TObject>::get_summary()->has_variable(name)) {
+      return evaluation_context_impl<TObject>::get_summary()->create_variable(name);
+    }
     if (registry_.has_variable(name)) {
       std::shared_ptr<filter_variable<object_type>> var = registry_.get_variable(name, human_readable);
       if (var) {

@@ -35,6 +35,7 @@
 #include "check_disk_health.hpp"
 #include "check_drive.hpp"
 #include "check_files.hpp"
+#include "check_mount.hpp"
 #include "check_single_file.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
@@ -287,4 +288,8 @@ void CheckDisk::check_files(const PB::Commands::QueryRequestMessage::Request &re
 
 void CheckDisk::check_single_file(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_single_file_command::check(request, response);
+}
+
+void CheckDisk::check_mount(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_mount_command::check(request, response);
 }

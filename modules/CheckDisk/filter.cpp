@@ -24,6 +24,12 @@
 #include <memory>
 #include <str/xtos.hpp>
 
+#ifdef CHECKDISK_HAVE_OPENSSL
+#include <openssl/evp.h>
+
+#include <array>
+#endif
+
 using namespace parsers::where;
 
 constexpr int file_type_file = 1;
@@ -69,6 +75,103 @@ unsigned long file_filter::filter_obj::get_line_count() {
   }
   cached_count = count;
   return count;
+}
+
+namespace {
+#ifdef CHECKDISK_HAVE_OPENSSL
+// Stream `path` through the given OpenSSL digest and return the lower-case hex
+// digest, or "" if the file cannot be opened or hashing fails.
+std::string hash_file(const std::string &path, const EVP_MD *md) {
+  if (md == nullptr) return "";
+  FILE *fp = fopen(path.c_str(), "rb");
+  if (fp == nullptr) return "";
+  EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+  if (ctx == nullptr) {
+    fclose(fp);
+    return "";
+  }
+  std::string result;
+  if (EVP_DigestInit_ex(ctx, md, nullptr) == 1) {
+    std::array<unsigned char, 65536> buf{};
+    size_t n;
+    bool ok = true;
+    while ((n = fread(buf.data(), 1, buf.size(), fp)) > 0) {
+      if (EVP_DigestUpdate(ctx, buf.data(), n) != 1) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok && ferror(fp) == 0) {
+      unsigned char digest[EVP_MAX_MD_SIZE];
+      unsigned int len = 0;
+      if (EVP_DigestFinal_ex(ctx, digest, &len) == 1) {
+        static const char *hex = "0123456789abcdef";
+        result.reserve(len * 2);
+        for (unsigned int i = 0; i < len; ++i) {
+          result.push_back(hex[digest[i] >> 4]);
+          result.push_back(hex[digest[i] & 0x0f]);
+        }
+      }
+    }
+  }
+  EVP_MD_CTX_free(ctx);
+  fclose(fp);
+  return result;
+}
+#else
+std::string hash_file(const std::string &, const void *) { return ""; }
+#endif
+}  // namespace
+
+std::string file_filter::filter_obj::get_md5() {
+  if (!cached_md5) {
+#ifdef CHECKDISK_HAVE_OPENSSL
+    cached_md5 = hash_file((path / filename).string(), EVP_md5());
+#else
+    cached_md5 = std::string();
+#endif
+  }
+  return *cached_md5;
+}
+std::string file_filter::filter_obj::get_sha1() {
+  if (!cached_sha1) {
+#ifdef CHECKDISK_HAVE_OPENSSL
+    cached_sha1 = hash_file((path / filename).string(), EVP_sha1());
+#else
+    cached_sha1 = std::string();
+#endif
+  }
+  return *cached_sha1;
+}
+std::string file_filter::filter_obj::get_sha256() {
+  if (!cached_sha256) {
+#ifdef CHECKDISK_HAVE_OPENSSL
+    cached_sha256 = hash_file((path / filename).string(), EVP_sha256());
+#else
+    cached_sha256 = std::string();
+#endif
+  }
+  return *cached_sha256;
+}
+std::string file_filter::filter_obj::get_sha384() {
+  if (!cached_sha384) {
+#ifdef CHECKDISK_HAVE_OPENSSL
+    cached_sha384 = hash_file((path / filename).string(), EVP_sha384());
+#else
+    cached_sha384 = std::string();
+#endif
+  }
+  return *cached_sha384;
+}
+std::string file_filter::filter_obj::get_sha512() {
+  if (!cached_sha512) {
+#ifdef CHECKDISK_HAVE_OPENSSL
+    cached_sha512 = hash_file((path / filename).string(), EVP_sha512());
+#else
+    cached_sha512 = std::string();
+#endif
+  }
+  return *cached_sha512;
 }
 
 std::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::create(const boost::filesystem::path &dir, const std::string &name, unsigned long long size,
@@ -125,7 +228,12 @@ file_filter::filter_obj_handler::filter_obj_handler() {
       .add_string_var("written_l", &filter_obj::get_written_sl, "When file was last written  to (local time)")
       .add_string_var("access_u", &filter_obj::get_access_su, "Last access time (UTC)")
       .add_string_var("creation_u", &filter_obj::get_creation_su, "When file was created (UTC)")
-      .add_string_var("written_u", &filter_obj::get_written_su, "When file was last written  to (UTC)");
+      .add_string_var("written_u", &filter_obj::get_written_su, "When file was last written  to (UTC)")
+      .add_string_var("md5_checksum", &filter_obj::get_md5, "MD5 checksum of the file content (hex)")
+      .add_string_var("sha1_checksum", &filter_obj::get_sha1, "SHA-1 checksum of the file content (hex)")
+      .add_string_var("sha256_checksum", &filter_obj::get_sha256, "SHA-256 checksum of the file content (hex)")
+      .add_string_var("sha384_checksum", &filter_obj::get_sha384, "SHA-384 checksum of the file content (hex)")
+      .add_string_var("sha512_checksum", &filter_obj::get_sha512, "SHA-512 checksum of the file content (hex)");
 
   registry_.add_int_var("line_count", &filter_obj::get_line_count, "Number of lines in the file (text files)")
       .add_int_var("access", type_date, &filter_obj::get_access, "Last access time")

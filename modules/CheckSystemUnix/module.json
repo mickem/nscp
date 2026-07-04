@@ -13,13 +13,23 @@
 
 	"commands" : {
 		"check_cpu" 		: "Check that the load of the CPU(s) are within bounds.",
+		"check_load"		: "Check the system load average (1/5/15 minutes).",
+		"check_cpu_utilization"	: "Check CPU utilization broken down by user/system/iowait/steal/guest.",
 		"check_uptime"		: "Check time since last server re-boot." ,
 		"check_memory"		: "Check free/used memory on the system.",
 		"check_os_version"	: "Check the version of the underlying OS.",
 		"check_os_updates"	: "Check for available OS package updates via the system package manager (apt/dnf/yum/zypper/pacman).",
 		"check_pagefile"	: "Check the size of the system pagefile(s).",
 		"check_service"		: "Check the state of one or more of the computer services.",
-		"check_process"		: "Check state/metrics of one or more of the processes running on the computer."
+		"check_process"		: "Check state/metrics of one or more of the processes running on the computer.",
+		"check_cpu_frequency"	: "Check the CPU clock frequency (current vs max) per core.",
+		"check_temperature"	: "Check temperature sensors (thermal zones / hwmon).",
+		"check_battery"		: "Check battery charge level, power source and health.",
+		"check_network"		: "Check network interface status and throughput.",
+		"check_process_history"	: "Check the history of processes seen since NSClient++ started (requires 'process history = true').",
+		"check_process_history_new"	: "Check for processes first seen within a recent time window (requires 'process history = true').",
+		"check_kernel_stats"	: "Check kernel activity: context-switch rate, fork rate and live thread count.",
+		"check_swap_io"		: "Check the swap in/out paging rate."
 	},
 
 	"metrics" : "produce",

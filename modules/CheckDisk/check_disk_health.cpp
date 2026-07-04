@@ -20,39 +20,68 @@
 #include "check_disk_health.hpp"
 
 #include <map>
+#include <set>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 
 namespace disk_health_check {
 
+namespace {
+void copy_io(disk_health &h, const disk_io_check::disk_io &io) {
+  h.read_bytes_per_sec = io.read_bytes_per_sec;
+  h.write_bytes_per_sec = io.write_bytes_per_sec;
+  h.reads_per_sec = io.reads_per_sec;
+  h.writes_per_sec = io.writes_per_sec;
+  h.queue_length = io.queue_length;
+  h.percent_disk_time = io.percent_disk_time;
+  h.percent_idle_time = io.percent_idle_time;
+  h.split_io_per_sec = io.split_io_per_sec;
+}
+}  // namespace
+
+// Join disk I/O (keyed by physical device) with disk free space (keyed by
+// mountpoint / logical disk). On Windows both sides key off the same logical
+// disk (e.g. "C:") so the join is direct. On Unix a free entry carries the
+// backing device (e.g. "sda" for "/" mounted from /dev/sda1); we match the
+// free entry against the I/O of that device so each mountpoint row reports both
+// its free space and the I/O of the disk it lives on. I/O rows with no matching
+// filesystem (e.g. "_Total", or an unmounted disk) are emitted as I/O-only rows.
 health_type join(const disk_io_check::disks_type &io_data, const disk_free_check::drives_type &free_data) {
-  std::map<std::string, disk_health> by_name;
-
+  std::map<std::string, const disk_io_check::disk_io *> io_by_name;
   for (const auto &io : io_data) {
-    disk_health &h = by_name[io.name];
-    h.name = io.name;
-    h.read_bytes_per_sec = io.read_bytes_per_sec;
-    h.write_bytes_per_sec = io.write_bytes_per_sec;
-    h.reads_per_sec = io.reads_per_sec;
-    h.writes_per_sec = io.writes_per_sec;
-    h.queue_length = io.queue_length;
-    h.percent_disk_time = io.percent_disk_time;
-    h.percent_idle_time = io.percent_idle_time;
-    h.split_io_per_sec = io.split_io_per_sec;
-  }
-
-  for (const auto &df : free_data) {
-    disk_health &h = by_name[df.name];
-    h.name = df.name;
-    h.total = df.total;
-    h.free = df.free;
-    h.user_free = df.user_free;
+    io_by_name[io.name] = &io;
   }
 
   health_type result;
-  for (const auto &kv : by_name) {
-    result.push_back(kv.second);
+  std::set<std::string> matched_io;
+
+  // One row per filesystem, attaching the I/O of its backing device when known.
+  for (const auto &df : free_data) {
+    disk_health h;
+    h.name = df.name;
+    h.has_space = true;
+    h.total = df.total;
+    h.free = df.free;
+    h.user_free = df.user_free;
+    const std::string io_key = df.device.empty() ? df.name : df.device;
+    const auto it = io_by_name.find(io_key);
+    if (it != io_by_name.end()) {
+      copy_io(h, *it->second);
+      matched_io.insert(io_key);
+    }
+    result.push_back(h);
+  }
+
+  // I/O-only rows (devices/totals with no matching filesystem). has_space stays
+  // false: there is no real space data, so the check must not treat the zeroed
+  // total/free as a full disk.
+  for (const auto &io : io_data) {
+    if (matched_io.count(io.name)) continue;
+    disk_health h;
+    h.name = io.name;
+    copy_io(h, io);
+    result.push_back(h);
   }
   return result;
 }
@@ -69,6 +98,14 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &filter_obj::get_name, "Drive name (e.g. C:, D:, _Total)");
+
+  // Guard for threshold expressions: I/O-only rows carry no space data.
+  // no_perf: a boolean guard is not a metric (it would otherwise be emitted as
+  // perf data because the default warn/crit expressions reference it).
+  registry_
+      .add_int_var("has_space", &filter_obj::get_has_space,
+                   "1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or a disk with no mounted filesystem)")
+      .no_perf();
 
   // Space metrics
   registry_.add_int_var("total", &filter_obj::get_total, "Total disk size in bytes")
@@ -101,8 +138,10 @@ void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request
   modern_filter::cli_helper<filter_type> filter_helper(request, response, mdata);
 
   filter_type filter;
-  filter_helper.add_options("free_pct < 20 or percent_disk_time > 80", "free_pct < 10 or percent_disk_time > 95", "name != '_Total'",
-                            filter.get_filter_syntax(), "critical");
+  // Only judge free space on rows that actually have space data; I/O-only rows
+  // (has_space = 0) would otherwise read as free_pct=0 and falsely go critical.
+  filter_helper.add_options("(has_space = 1 and free_pct < 20) or percent_disk_time > 80", "(has_space = 1 and free_pct < 10) or percent_disk_time > 95",
+                            "name != '_Total'", filter.get_filter_syntax(), "critical");
   filter_helper.add_syntax("${status}: ${list}", "${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}", "${name}", "",
                            "%(status): All disks are healthy.");
 

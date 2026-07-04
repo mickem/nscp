@@ -24,16 +24,22 @@
 
 #include "check_disk_io.hpp"
 
+#include <dirent.h>
 #include <mntent.h>
 #include <sys/statvfs.h>
 
+#include <algorithm>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <cctype>
+#include <climits>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <set>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -63,6 +69,76 @@ bool is_physical_disk(const std::string &n) {
   }
   return !is_partition(n);
 }
+
+// Strip a trailing partition suffix to get the parent device name ("sda1" ->
+// "sda", "nvme0n1p2" -> "nvme0n1", "md0p2" -> "md0"). Names without a
+// recognized suffix are returned unchanged.
+std::string strip_partition_suffix(const std::string &n) {
+  std::size_t i = n.size();
+  while (i > 0 && std::isdigit(static_cast<unsigned char>(n[i - 1]))) i--;
+  if (i == n.size() || i == 0) return n;  // no trailing digit -> already a whole disk
+  // "pN" suffix on devices whose base name itself ends in a digit (nvme0n1p2,
+  // mmcblk0p1, md0p2).
+  if (n[i - 1] == 'p' && i > 1 && std::isdigit(static_cast<unsigned char>(n[i - 2]))) return n.substr(0, i - 1);
+  if (n.compare(0, 2, "sd") == 0 || n.compare(0, 2, "vd") == 0 || n.compare(0, 2, "hd") == 0 || n.compare(0, 3, "xvd") == 0) {
+    return n.substr(0, i);  // sda1 -> sda
+  }
+  return n;
+}
+
+// realpath() wrapper: canonicalize /dev/disk/by-uuid/... and /dev/mapper/...
+// symlinks to the real block node (e.g. /dev/dm-0). Returns "" on failure.
+std::string canonicalize_dev(const std::string &path) {
+  char buf[PATH_MAX];
+  if (realpath(path.c_str(), buf) == nullptr) return "";
+  return buf;
+}
+
+// Entries under /sys/class/block/<name>/slaves: the devices a stacked block
+// device (LVM/dm, md, ...) sits on top of. Empty for plain disks/partitions.
+std::vector<std::string> sysfs_slaves(const std::string &name) {
+  std::vector<std::string> ret;
+  DIR *dir = opendir(("/sys/class/block/" + name + "/slaves").c_str());
+  if (!dir) return ret;
+  while (const struct dirent *e = readdir(dir)) {
+    const std::string entry = e->d_name;
+    if (entry != "." && entry != "..") ret.push_back(entry);
+  }
+  closedir(dir);
+  return ret;
+}
+
+// Map a /proc/mounts device path (mnt_fsname, e.g. "/dev/sda1",
+// "/dev/mapper/vg-root", "/dev/disk/by-uuid/...") to the whole physical block
+// device name used as the key in /proc/diskstats (e.g. "sda", "nvme0n1").
+// `canonicalize` resolves symlinks (realpath) and `slaves` lists
+// /sys/class/block/<name>/slaves; both are injectable for unit tests. Returns
+// "" for anything that cannot be resolved to a physical disk (network mounts,
+// tmpfs, ...), in which case the disk_health join keeps the row space-only.
+std::string mount_source_to_disk(const std::string &fsname, const std::function<std::string(const std::string &)> &canonicalize,
+                                 const std::function<std::vector<std::string>(const std::string &)> &slaves) {
+  const std::string prefix = "/dev/";
+  if (fsname.compare(0, prefix.size(), prefix) != 0) return "";
+  std::string path = canonicalize(fsname);
+  if (path.empty()) path = fsname;
+  if (path.compare(0, prefix.size(), prefix) != 0) return "";
+  const std::string base = path.substr(prefix.size());
+  if (base.find('/') != std::string::npos) return "";  // unresolved /dev subdirectory entry
+  // Walk stacked devices (LVM on LUKS on md, ...) down to the physical disk
+  // they sit on; bounded in case of sysfs cycles. A multi-disk array resolves
+  // to its (lexicographically) first member; the other members are left as
+  // I/O-only rows in the disk_health join.
+  std::string n = base;
+  for (int depth = 0; depth < 8; ++depth) {
+    n = strip_partition_suffix(n);
+    const std::vector<std::string> s = slaves(n);
+    if (s.empty()) break;
+    n = *std::min_element(s.begin(), s.end());
+  }
+  return is_physical_disk(n) ? n : "";
+}
+
+std::string device_to_disk(const std::string &fsname) { return mount_source_to_disk(fsname, canonicalize_dev, sysfs_slaves); }
 
 bool is_pseudo_fs(const std::string &fstype) {
   static const std::set<std::string> pseudo = {"proc",     "sysfs",      "cgroup",   "cgroup2",  "devtmpfs",  "devpts",   "mqueue",
@@ -160,6 +236,7 @@ void disk_free_data::fetch() {
     const unsigned long long bs = vfs.f_frsize ? vfs.f_frsize : vfs.f_bsize;
     disk_free d;
     d.name = mountpoint;
+    d.device = device_to_disk(ent.mnt_fsname ? ent.mnt_fsname : "");
     d.total = static_cast<long long>(vfs.f_blocks * bs);
     d.free = static_cast<long long>(vfs.f_bfree * bs);
     d.user_free = static_cast<long long>(vfs.f_bavail * bs);
@@ -170,3 +247,11 @@ void disk_free_data::fetch() {
 }
 
 }  // namespace disk_free_check
+
+// Test seam: resolve a mount source to its backing physical disk with
+// injectable symlink/sysfs lookups (no syscalls, so it is directly
+// unit-testable).
+std::string checkdisk_unix_mount_source_to_disk(const std::string &fsname, const std::function<std::string(const std::string &)> &canonicalize,
+                                                const std::function<std::vector<std::string>(const std::string &)> &slaves) {
+  return mount_source_to_disk(fsname, canonicalize, slaves);
+}

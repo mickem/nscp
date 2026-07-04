@@ -23,6 +23,8 @@
 #include <boost/asio.hpp>
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
 #endif
 #include <bytes/base64.hpp>
 #include <istream>
@@ -116,6 +118,9 @@ struct generic_socket {
   virtual void read_until(boost::asio::streambuf &buffer, const std::string &until) = 0;
   virtual bool is_open() const = 0;
   virtual std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) = 0;
+  // Days until the peer's TLS certificate expires (negative if already expired).
+  // Returns -1 when the transport is not TLS or no peer certificate is available.
+  virtual long peer_certificate_expiry_days() const { return -1; }
 };
 
 struct tcp_socket final : generic_socket {
@@ -165,11 +170,12 @@ struct ssl_socket final : generic_socket {
   boost::asio::ssl::stream<tcp::socket> ssl_socket_;
   tcp::resolver resolver_;
   boost::asio::ssl::verify_mode verify_;
+  std::string sni_;  // TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
 
   explicit ssl_socket(boost::asio::io_context &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
-                      const std::string &ca, proxy_config proxy = proxy_config())
-      : context_(method), ssl_socket_(io_service, context_), resolver_(io_service), verify_(verify), proxy_(std::move(proxy)) {
+                      const std::string &ca, std::string sni = std::string(), proxy_config proxy = proxy_config())
+      : context_(method), ssl_socket_(io_service, context_), resolver_(io_service), verify_(verify), sni_(std::move(sni)), proxy_(std::move(proxy)) {
     if (!ca.empty() && ca != "none") {
       try {
         context_.load_verify_file(ca);
@@ -193,13 +199,25 @@ struct ssl_socket final : generic_socket {
     if (error) {
       return;
     }
+    const std::string tls_name = sni_.empty() ? server_name : sni_;
     ssl_socket_.set_verify_mode(verify_);
-    if (!server_name.empty()) {
-      SSL_set_tlsext_host_name(ssl_socket_.native_handle(), server_name.c_str());
+    if (!tls_name.empty()) {
+      SSL_set_tlsext_host_name(ssl_socket_.native_handle(), tls_name.c_str());
     }
-    ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(server_name));
+    ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
 
     ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
+  }
+
+  long peer_certificate_expiry_days() const override {
+    // native_handle() is non-const; the underlying SSL* is not mutated here.
+    SSL *ssl = const_cast<ssl_socket *>(this)->ssl_socket_.native_handle();
+    X509 *cert = SSL_get_peer_certificate(ssl);
+    if (cert == nullptr) return -1;
+    int days = -1, seconds = 0;
+    const int ok = ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert));
+    X509_free(cert);
+    return ok == 1 ? static_cast<long>(days) : -1;
   }
 
   /// Establish an HTTP CONNECT tunnel through proxy_ then perform TLS handshake.
@@ -278,11 +296,12 @@ struct ssl_socket final : generic_socket {
     boost::asio::read_until(tcp_sock, response_buf, "\r\n\r\n");
 
     // Step 4 — TLS handshake over the established tunnel
+    const std::string tls_name = sni_.empty() ? real_host : sni_;
     ssl_socket_.set_verify_mode(verify_);
-    if (!real_host.empty()) {
-      SSL_set_tlsext_host_name(ssl_socket_.native_handle(), real_host.c_str());
+    if (!tls_name.empty()) {
+      SSL_set_tlsext_host_name(ssl_socket_.native_handle(), tls_name.c_str());
     }
-    ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(real_host));
+    ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
     ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
     if (error) {
       throw socket_helpers::socket_exception("TLS handshake via proxy tunnel failed: " + error.message());
@@ -353,6 +372,7 @@ struct http_client_options {
   std::string tls_version_;
   std::string verify_;
   std::string ca_;
+  std::string sni_;  // optional TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
 
   http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca, proxy_config proxy = proxy_config())
@@ -377,7 +397,7 @@ class simple_client {
   explicit simple_client(const http_client_options &options) : options_(options) {
     if (options.is_https()) {
 #ifdef USE_SSL
-      socket_ = std::make_unique<ssl_socket>(io_service_, options.get_method(), options.get_verify(), options.ca_, options.proxy_);
+      socket_ = std::make_unique<ssl_socket>(io_service_, options.get_method(), options.get_verify(), options.ca_, options.sni_, options.proxy_);
 #else
       throw socket_helpers::socket_exception("HTTPS requested but this build has no TLS support (compiled without OpenSSL)");
 #endif
@@ -405,6 +425,8 @@ class simple_client {
   // without going through execute() (which throws on non-2xx responses).
   std::size_t read_some(boost::asio::streambuf &buf, boost::system::error_code &ec) const { return socket_->read_some(buf, ec); }
   bool is_open() const { return socket_ && socket_->is_open(); }
+  // Days until the peer TLS certificate expires; -1 for non-TLS or if unavailable.
+  long peer_certificate_expiry_days() const { return socket_ ? socket_->peer_certificate_expiry_days() : -1; }
 
   response read_result(boost::asio::streambuf &response_buffer) const {
     std::string http_version, status_message;

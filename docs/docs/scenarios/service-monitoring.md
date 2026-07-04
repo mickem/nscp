@@ -2,6 +2,11 @@
 
 **Goal:** Verify that critical Windows services are running and that specific processes are alive and healthy.
 
+Service checks (`check_service`) are Windows-only. Process checks
+(`check_process` and everything in [Monitoring Processes](#monitoring-processes))
+work on **Windows and Linux** — on Linux, match the executable name without an
+extension (`process=sshd` instead of `process=explorer.exe`).
+
 ---
 
 ## Prerequisites
@@ -92,6 +97,48 @@ check_nrpe -H <agent-ip> -c check_service
 
 ---
 
+## Monitoring Linux Services (systemd)
+
+The same `check_service` command works on Linux, where it inspects **systemd**
+units. The raw systemd state is mapped to a normalised `state` keyword so
+thresholds read the same as on Windows, and the raw fields are exposed too
+(`active`, `sub_state`, `preset`).
+
+By default it flags any *enabled* unit that has failed or stopped, and ignores
+units that are deliberately `disabled`:
+
+```
+check_service
+OK: All 42 service(s) are ok.
+```
+
+**Check a specific unit and show its state / preset:**
+
+```
+check_service service=cron "top-syntax=${list}" "detail-syntax=${name}=${state} active=${active} preset=${preset}"
+cron=running active=active preset=enabled
+```
+
+**Only alert on one unit being down:**
+
+```
+check_service service=ssh "crit=state != 'running'"
+```
+
+**Alert on a unit's resource usage** — process metrics `rss`, `vms`, `cpu`,
+`tasks`, `age` are available:
+
+```
+check_service service=mysql "warn=rss > 1G" "crit=rss > 2G"
+```
+
+The default critical expression is
+`( state not in ('running', 'oneshot', 'static') or active = 'failed' ) and preset != 'disabled'`,
+so a stopped-but-disabled unit stays OK while an enabled unit that failed is
+CRITICAL.
+
+---
+
 ## Monitoring Processes
 
 ### Check that specific processes are running
@@ -112,6 +159,12 @@ OK: All processes are ok.
 ```
 CRITICAL: CRITICAL: myapp.exe=stopped
 'myapp.exe state'=0;1;0
+```
+
+On Linux the same check looks like:
+
+```
+check_process process=sshd
 ```
 
 ### Check multiple processes at once

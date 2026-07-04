@@ -5,6 +5,11 @@
 trending — on the agent's own schedule, without the monitoring server polling
 each machine.
 
+This works identically on **Windows and Linux** agents; `CheckSystem`
+produces the system metrics on both (the metric families differ slightly per
+platform — see [Prometheus Scraping](prometheus.md#available-metrics) for the
+breakdown).
+
 <!-- @formatter:off -->
 !!! tip "Graphite vs. NSCA / NRDP / Prometheus"
     Graphite is a **time-series / graphing** backend, not a Nagios-style
@@ -95,7 +100,8 @@ nscp graphite --host <graphite-server> --port 2003 ^
 <!-- @formatter:off -->
 !!! note
     The `^` is the Windows **Command Prompt** line-continuation character. In
-    PowerShell use a backtick (`` ` ``) instead, or put it on one line.
+    PowerShell use a backtick (`` ` ``) instead; on Linux use a backslash
+    (`\`) — or put it all on one line.
 <!-- @formatter:on -->
 
 Because carbon never acknowledges anything, a "success" from the agent only
@@ -386,6 +392,8 @@ metrics live under whatever prefix you chose, e.g. `nsclient.*`:
 ```
 nsclient.win-server-01.cpu.load
 nsclient.win-server-01.system.mem.physical.used
+nsclient.linux-server-01.system.cpu.total.user
+nsclient.linux-server-01.system.mem.swap.used
 ```
 
 Use Graphite functions (`scale`, `summarize`, `nonNegativeDerivative`, …) or

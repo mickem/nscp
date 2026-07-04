@@ -76,3 +76,45 @@ L        cli  Performance data: 'https://nsclient.org/_code'=200;0;200 'https://
 check_nscp_client --host 192.168.56.103 --command check_http --argument "url=https://nsclient.org/"
 OK: https://nsclient.org/ -> 200 ok (61204B in 561ms)| 'https://nsclient.org/_code'=200;0;200 'https://nsclient.org/_time'=561;5000;0
 ```
+
+**Use a specific HTTP method (`HEAD`, `POST`, `PUT`, …):**
+
+```
+check_http url=https://www.google.com method=HEAD
+OK: https://www.google.com -> 200 ok (0B in 197ms)|'https://www.google.com_code'=200;0;200 'https://www.google.com_time'=197;5000;0
+```
+
+**POST a body (`post-data` implies POST unless `method=` is given):**
+
+```
+check_http url=https://httpbin.org/post post-data="name=value" content-type="application/x-www-form-urlencoded" expected-body="name"
+OK: https://httpbin.org/post -> 200 ok (429B in 380ms)
+```
+
+**HTTP Basic authentication:**
+
+```
+check_http url=https://example.com/private username=admin password=secret
+OK: https://example.com/private -> 200 ok (1200B in 88ms)
+```
+
+**Follow redirects (default reports the 3xx as-is; `onredirect=follow` chases the Location):**
+
+```
+check_http url=http://github.com onredirect=follow "detail-syntax=code=${code}"
+OK: code=200
+```
+
+**Accept a set of status codes with the `code` keyword, and match the body with a regex:**
+
+```
+check_http url=https://example.com "warn=code not in (200,301,302)" "crit=code >= 500 or body not regexp 'Welcome'"
+OK: https://example.com -> 200 ok (1256B in 74ms)
+```
+
+**Alert when the TLS certificate is about to expire (`ssl_expiry_days`):**
+
+```
+check_http url=https://www.google.com "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7" "detail-syntax=cert expires in ${ssl_expiry_days} days"
+OK: cert expires in 58 days
+```

@@ -33,3 +33,20 @@ check_files path=c:/windows pattern=*.txt "detail-syntax=%(filename): %(size)" "
 L        cli WARNING: WARNING: 1/6 files (AsChkDev.txt: 29738)
 L        cli  Performance data: 'AsChkDev.txt size'=29.04101KB;20;0 'AsDCDVer.txt size'=0.02246KB;20;0 'AsHDIVer.txt size'=0.02734KB;20;0 'AsPEToolVer.txt size'=0.08789KB;20;0 'AsToolCDVer.txt size'=0.05273KB;20;0 'csup.txt size'=0.00976KB;20;0
 ```
+
+**Report a file's checksum (keywords: `md5_checksum`, `sha1_checksum`, `sha256_checksum`, `sha384_checksum`, `sha512_checksum`):**
+
+```
+check_files path=/etc pattern=hostname "top-syntax=${list}" "detail-syntax=${filename}=${sha256_checksum}"
+hostname=ec4e309d512b118e0ec6451c724b6dd9eaed955a9f1cb68b7d939765ac47af4d
+```
+
+**Alert if a file's checksum drifts from a known-good value (integrity monitoring):**
+
+```
+check_files path=/etc pattern=hostname "crit=md5_checksum != '63150f223f8488b21c374ae8ad13fb9c'"
+OK: All 1 files are ok
+```
+
+Checksums are computed lazily — they are only calculated when a
+`*_checksum` keyword is used in the filter or syntax.

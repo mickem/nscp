@@ -240,8 +240,13 @@ describe("CollectD integration", () => {
     // The default mapping is platform-specific: Linux emits cpu/memory/swap,
     // Windows emits cpu/memory/processes. cpu + memory are common to both, so
     // assert those show up once metrics have flowed.
-    const ok = await receiver.waitFor((r) =>
-      r.some((v) => v.plugin === "cpu") && r.some((v) => v.plugin === "memory"),
+    // Wait for the per-core readings, not just the first cpu packet: the
+    // ${core} variable expands against the previous metrics snapshot, so
+    // cpu-0/cpu-1/… only appear from the second push onwards.
+    const ok = await receiver.waitFor(
+      (r) =>
+        r.some((v) => v.plugin === "cpu" && /^\d+$/.test(v.pluginInstance)) &&
+        r.some((v) => v.plugin === "memory"),
     );
     expect(ok).toBe(true);
     const plugins = new Set(receiver.readings.map((v) => v.plugin));
@@ -249,7 +254,9 @@ describe("CollectD integration", () => {
     expect(plugins).toContain("memory");
     // Per-core CPU (cpu-0, cpu-1, …) proves the default `core` variable
     // expanded — this was broken on Linux before the per-platform defaults.
-    expect(receiver.readings.some((v) => v.plugin === "cpu" && /^\d+$/.test(v.pluginInstance))).toBe(true);
+    expect(
+      receiver.readings.some((v) => v.plugin === "cpu" && /^\d+$/.test(v.pluginInstance)),
+    ).toBe(true);
   });
 
   it("reports the default 10s interval", async () => {

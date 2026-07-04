@@ -55,3 +55,24 @@ check_nscp_client --host 192.168.56.103 --command check_dns --argument "host=exa
 OK: google.com -> 172.217.20.174 (1) in 10ms [ok]|'google.com_time'=10;1000;0
 ```
 
+**Query a specific record type (`type=A|AAAA|MX|TXT|CNAME|NS|SOA|PTR`):**
+
+```
+check_dns host=google.com type=MX server=8.8.8.8
+OK: google.com -> 10 smtp.google.com (1) in 9ms [ok]|'google.com_time'=9;1000;0
+```
+
+**Query a specific DNS server (A/AAAA without `server=` use the system resolver; any other type or an explicit `server=` uses a direct DNS-over-UDP query):**
+
+```
+check_dns host=nsclient.org type=TXT server=1.1.1.1
+OK: nsclient.org -> v=spf1 include:_spf.google.com ~all (1) in 12ms [ok]
+```
+
+**Non-recursive query against an authoritative server on a custom port:**
+
+```
+check_dns host=example.com type=A server=192.168.10.53 port=5353 norecursion=true
+OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
+```
+

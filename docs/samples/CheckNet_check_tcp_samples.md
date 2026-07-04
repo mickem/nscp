@@ -37,6 +37,41 @@ check_tcp host=a.example.com host=b.example.com port=80 "top-syntax=%(status): %
 OK: a.example.com:80=ok in 14ms, b.example.com:80=ok in 19ms
 ```
 
+**Use a service preset (`ftp`, `pop`, `imap`, `smtp`, `ssh`) — sets the port, greeting and expected-response regex:**
+
+```
+check_tcp host=mail.example.com service=smtp
+OK: mail.example.com:25 ok in 8ms
+```
+
+**Wrap the connection in TLS with `ssl=true` (e.g. to test an HTTPS listener answers):**
+
+```
+check_tcp host=www.google.com port=443 ssl=true
+OK: www.google.com:443 ok in 11ms|'www.google.com_443_time'=11;1000;5000
+```
+
+**Implicit-TLS service presets (`spop`, `simap`, `ssmtp`) connect over TLS and check the greeting:**
+
+```
+check_tcp host=smtp.gmail.com service=ssmtp
+OK: smtp.gmail.com:465 ok in 16ms|'smtp.gmail.com_465_time'=16;1000;5000
+```
+
+**Match the peer's response with a regex via the `response` keyword:**
+
+```
+check_tcp host=mail.example.com port=25 "crit=response not regexp '^220'"
+OK: mail.example.com:25 ok in 8ms
+```
+
+**Verify the server certificate when using TLS (needs a CA bundle):**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt
+OK: secure.example.com:443 ok in 21ms
+```
+
 **Default check via NRPE:**
 
 ```

@@ -56,5 +56,28 @@ inline bool parse_url(const std::string &url, parsed_url &out) {
   return !out.host.empty();
 }
 
+// Resolve a redirect target (a Location header value) against the URL that
+// produced it. Handles absolute URLs, protocol-relative ("//host/..."),
+// root-relative ("/path") and path-relative ("sub/page") locations.
+inline std::string resolve_redirect(const std::string &base, const std::string &location) {
+  if (location.empty()) return base;
+  if (location.find("://") != std::string::npos) return location;  // already absolute
+
+  parsed_url b;
+  if (!parse_url(base, b)) return location;
+
+  // Protocol-relative: keep the base scheme, take host/path from the location.
+  if (location.size() >= 2 && location[0] == '/' && location[1] == '/') return b.protocol + ":" + location;
+
+  const std::string origin = b.protocol + "://" + b.host + ":" + b.port;
+  if (location[0] == '/') return origin + location;  // root-relative
+
+  // Path-relative: resolve against the directory of the base path.
+  std::string dir = b.path;
+  const auto slash = dir.rfind('/');
+  dir = (slash == std::string::npos) ? "/" : dir.substr(0, slash + 1);
+  return origin + dir + location;
+}
+
 }  // namespace check_http_internal
 }  // namespace check_net
