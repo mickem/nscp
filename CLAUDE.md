@@ -37,6 +37,38 @@
   while REST passes a single `key=value` token. Prefer the filter/option helpers
   over hand-rolled argument parsing.
 
+## Adding a new check module
+- Modules are auto-discovered: a `modules/<Name>/module.cmake` containing
+  `set(BUILD_MODULE 1)` is enough (no top-level CMake edit). Re-run `cmake` on an
+  existing build dir to pick up a new module directory.
+- `module.json` declares the module and its `commands`. The build **generates**
+  the dispatch/export glue (`module.cpp/hpp`) from it: `name` maps to a class
+  `<Name>` in `<Name>.h/.cpp`, and every `commands` entry maps to a method of the
+  **same name** on that class. Omit the `"metrics"` key unless the class
+  implements `fetchMetrics()` — `"metrics":"produce"` generates a call to it and
+  will fail to link otherwise.
+- Cross-platform data acquisition uses the win/unix shim: platform-neutral
+  sources plus an `if(WIN32) … _win.cpp else() … _unix.cpp` split in
+  `CMakeLists.txt`, behind a shared filter/interface header (see `CheckDisk`).
+  Keep the check logic, keyword registry and output builders platform-neutral;
+  only the data source is `#ifdef`'d.
+- Packaging: modules self-install via `NSCP_INSTALL_MODULE()` (pulled in by
+  `include(${BUILD_CMAKE_FOLDER}/module.cmake)` in the module's `CMakeLists.txt`),
+  so Linux CPack (DEB/RPM/ZIP) packages them automatically. The **Windows MSI
+  does not** — add a `<File>` entry to `installers/installer-NSCP/Product.wxs`
+  under `<Component Id="Plugins">` (the "Check Plugins" feature). Also add the
+  module to the feature-hint map in `service/plugins/plugin_manager.cpp`, and
+  (optionally, commented) to `files/NSC.dist`.
+- A check is a `modern_filter` check: a `filter_obj` + a `filter_obj_handler`
+  registering keywords (`registry_.add_string_var` / `add_int_var(...,type,...)`
+  with `type_int`/`type_date`/`type_bool`, chaining `.add_int_perf("unit")` for
+  perfdata), driven by `modern_filter::cli_helper` (`add_options(warn, crit,
+  filter, syntax, empty_state)` + `add_syntax(top, detail, perf, empty, ok)`).
+  See `CheckDisk/check_single_file.cpp` for a minimal template.
+- Unit-test binaries have no generated module glue, so they must define the
+  plugin singleton themselves (normally provided by `NSC_WRAP_DLL()`):
+  `nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();`
+
 ## Documentation for new commands
 Every new check command needs, under `docs/samples/`:
 - `<Module>_<command>_samples.md` — usage examples with real captured output.
@@ -50,6 +82,14 @@ both `docs/mkdocs.yml` (nav) and `docs/docs/scenarios/index.md`.
 Integration tests live under `tests/` (jest + ts-jest) and drive commands over
 REST against a long-lived `nscp test` instance. Run them from `tests/`:
 `NSCP_SKIP_DOCKER=1 NSCP_BIN=<path>/nscp npx jest --runInBand <pattern>`.
+
+For a check that only needs its command exercised (and where standing up the
+REST web server is undesirable or unavailable), the one-shot **client-query**
+path works without a web server: `nscp client --module <Mod> --boot --query
+<cmd> <k=v>…` (see `checkdisk-unix.test.ts`, `checksecurity.test.ts`). It still
+passes `k=v` as single tokens, so it exercises the same REST-style argument
+parsing; note its output is the raw Nagios `message|perfdata` with no
+status-word prefix added.
 
 ## Changelog / release notes
 Release notes follow the style of the GitHub releases (e.g.

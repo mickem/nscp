@@ -1,0 +1,1 @@
+set(BUILD_MODULE 1)
