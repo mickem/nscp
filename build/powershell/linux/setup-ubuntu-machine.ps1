@@ -29,7 +29,11 @@ param(
     [string]$Version = "0.11.16",
     [string]$Arch = "amd64",
     [string]$UbuntuVersion = "24.04",
-    [string]$AdminUsername = "azureadmin"
+    [string]$AdminUsername = "azureadmin",
+    # Where to write the credentials file. Defaults to the shared
+    # build/powershell/.vm.pwd; the wrapper passes a per-machine path so parallel
+    # runs don't clobber each other.
+    [string]$PwdFile = ""
 )
 
 Write-Host "Connecting to Azure account..."
@@ -46,6 +50,29 @@ if (-not (Get-AzContext)) {
     Set-AzContext -Subscription (Get-AzSubscription)[0]
 }
 Write-Host "✅ Successfully connected to Azure."
+
+# Run a script on the VM via RunCommand, retrying transient Azure API errors
+# (Invoke-AzVMRunCommand can fail with "An error occurred while sending the
+# request" even when the VM is healthy; Azure serialises RunCommands per VM).
+function Invoke-VMRun {
+    param(
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)][string]$ScriptString,
+        [int]$Retries = 3
+    )
+    for ($attempt = 1; $attempt -le $Retries; $attempt++) {
+        try {
+            return Invoke-AzVMRunCommand -ResourceGroupName $ResourceGroupName -VMName $VMName `
+                -CommandId 'RunShellScript' -ScriptString $ScriptString -ErrorAction Stop
+        }
+        catch {
+            Write-Warning "RunCommand attempt $attempt/$Retries failed: $($_.Exception.Message)"
+            if ($attempt -eq $Retries) { throw }
+            Start-Sleep -Seconds (15 * $attempt)
+        }
+    }
+}
 
 # Generate SSH key pair for authentication. Use $HOME (set on both Windows
 # PowerShell and PowerShell 7 on Linux/macOS) with Join-Path, not the
@@ -131,7 +158,9 @@ $scriptBlock = @"
 set -e
 mkdir -p /tmp/nscp
 cd /tmp/nscp
-wget -q '$DebUrl' -O nscp.deb
+# -nv (not -q) so a bad URL prints the HTTP error (e.g. 404) instead of failing
+# silently and surfacing later as a confusing "nscp: command not found".
+wget -nv '$DebUrl' -O nscp.deb
 # Install the package and let apt resolve ALL of its dependencies from the
 # deb's Depends field (libboost-chrono/context, libtinyxml2, libzip, ...) — no
 # hand-maintained list to drift out of date. `dpkg -i` unpacks nscp (failing to
@@ -161,10 +190,7 @@ sudo nscp settings --activate-module CheckDisk || true
 sudo systemctl restart nsclient
 "@
 
-$result = Invoke-AzVMRunCommand -ResourceGroupName $ResourceGroupName `
-    -VMName $VmName `
-    -CommandId 'RunShellScript' `
-    -ScriptString $scriptBlock
+$result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
 
 if ($result.Status -ne "Succeeded") {
     Write-Error "❌ Failed to run command on VM. Status: $($result.Status)"
@@ -186,10 +212,7 @@ else
 fi
 "@
 
-$result = Invoke-AzVMRunCommand -ResourceGroupName $ResourceGroupName `
-    -VMName $VmName `
-    -CommandId 'RunShellScript' `
-    -ScriptString $scriptBlock
+$result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
 
 if ($result.Status -ne "Succeeded") {
     Write-Error "❌ Failed to run command on VM. Status: $($result.Status)"
@@ -217,7 +240,7 @@ $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $
 
 # Save credentials to .vm.pwd (same format as the Windows setup script) so
 # run-tests.ps1 can point the live acceptance suite at this VM.
-$pwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd"
+if (-not $PwdFile) { $PwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd" }
 @"
 VM Name:        $VmName
 Resource Group: $ResourceGroupName

@@ -22,10 +22,89 @@ not a CI pipeline (that can be layered on top later).
                           │                                   write .vm.pwd
                  run-tests.ps1        →  live acceptance suite (tests/live)
                           │
+                 connect-machine.ps1  →  RDP (Windows) / SSH (Linux) into the VM
+                          │
                  show-log.ps1         →  pull nsclient.log / install log
                           │
               teardown-machine.ps1    →  delete the resource group
 ```
+
+## Connect to a running VM
+
+`connect-machine.ps1` opens an interactive session to whatever the last setup
+run left in `.vm.pwd` — Remote Desktop for a Windows VM, SSH for a Linux one —
+picking the client and credentials automatically. It works from WSL too (it
+finds `mstsc.exe` / `cmdkey.exe` under `/mnt/c/Windows/System32`).
+
+```powershell
+./connect-machine.ps1                 # connect to the current .vm.pwd target
+./connect-machine.ps1 -PrintOnly      # just show IP / user / password
+./connect-machine.ps1 -Os windows -PublicIp 20.1.2.3 -User azureadmin -Password 'PW'
+```
+
+Since `.vm.pwd` only describes the **last** machine provisioned, to debug a
+specific VM either pass its details explicitly, or keep it alive when you
+provision it — e.g. `./run-all-tests.ps1 -Target windows -WindowsVersions windows-2025 -KeepVms`,
+then `./connect-machine.ps1` to RDP in.
+
+## Run everything in one command
+
+`run-all-tests.ps1` chains the three steps above (provision → test → teardown)
+for one or several machine types. Each machine gets its own resource group and
+is torn down when it finishes.
+
+```powershell
+# The whole matrix: Windows Server (latest + oldest) + Ubuntu + Rocky
+./run-all-tests.ps1 -Target all -Version 0.14.0
+
+# Same, but concurrently — much faster (most of the time is Azure create/destroy)
+./run-all-tests.ps1 -Target all -Version 0.14.0 -Parallel
+
+# A single family
+./run-all-tests.ps1 -Target ubuntu  -Version 0.14.0
+./run-all-tests.ps1 -Target windows -Version 0.14.0     # windows-2025 + windows-2019
+./run-all-tests.ps1 -Target rocky   -Version 0.14.0     # 'redhat' is an alias
+```
+
+**Sequential vs. `-Parallel`.** By default machines run one at a time and share
+`build/powershell/.vm.pwd` (so `connect-machine.ps1` and a bare `run-tests`
+still find the last one). `-Parallel` (PowerShell 7+) runs them concurrently,
+each with its own `.vm.<name>.pwd`, capped by `-MaxParallel` (default 4 — mind
+your Azure vCPU quota). It logs in once up front so the concurrent setups don't
+each prompt. Output from the machines interleaves (every line is prefixed with
+the machine label); the pass/fail summary at the end is what matters. With
+`-Parallel -KeepVms`, point at a specific box with
+`./connect-machine.ps1 -PwdFile .vm.<name>.pwd`.
+
+| `-Target`           | Machines provisioned                                  |
+| ------------------- | ----------------------------------------------------- |
+| `all`               | Windows 2025 + Windows 2019 + Ubuntu 24.04 + Rocky 9  |
+| `windows`           | `-WindowsVersions` (default latest + oldest server)   |
+| `ubuntu`            | `-UbuntuVersion` (default 24.04)                      |
+| `rocky` / `redhat`  | `-RockyVersion` (default 9)                           |
+
+It prints a pass/fail summary at the end and exits non-zero if any machine
+failed. Useful switches: `-KeepVms` (skip teardown for debugging — only the last
+machine's `.vm.pwd` survives), `-StopOnFirstFailure`, and `-WindowsVersions` /
+`-UbuntuVersion` / `-RockyVersion` to override the images (e.g.
+`-WindowsVersions windows-2025` for just the latest). The first machine performs
+the Azure login (device-code on WSL); run `./install-azure.ps1` once beforehand
+if the Az modules are missing.
+
+Supported `-WindowsVersions` values: `windows-2025`, `windows-2022`,
+`windows-2019` (Windows Server), and `windows-11`, `windows-10` (client). Mix
+them freely, e.g. test every Windows:
+
+```powershell
+./run-all-tests.ps1 -Target windows -Version 0.14.0 `
+  -WindowsVersions windows-2025,windows-2022,windows-2019,windows-11,windows-10
+```
+
+> **Client Windows (10/11) needs an eligible subscription.** They deploy as
+> Trusted Launch images, and Azure only allows Windows client images on
+> subscriptions with client rights (Visual Studio / Enterprise Dev-Test, or
+> multi-session via AVD). On a plain pay-as-you-go subscription the deploy is
+> rejected — the Server SKUs have no such restriction.
 
 ## 1. Provision + install
 

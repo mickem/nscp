@@ -24,9 +24,13 @@ param(
     [string]$Location = "WestEurope",
     [string]$VmName = "NSCP-Rocky-Test",
     [string]$Version = "0.11.17",
-    [string]$Arch = "amd64",
+    [string]$Arch = "x86_64",   # RPM arch tag (the release asset is ...-x86_64.rpm, not amd64)
     [string]$RockyVersion = "9",
-    [string]$AdminUsername = "azureadmin"
+    [string]$AdminUsername = "azureadmin",
+    # Where to write the credentials file. Defaults to the shared
+    # build/powershell/.vm.pwd; the wrapper passes a per-machine path so parallel
+    # runs don't clobber each other.
+    [string]$PwdFile = ""
 )
 
 # Ensure required modules are installed
@@ -52,6 +56,29 @@ if (-not (Get-AzContext)) {
     Set-AzContext -Subscription (Get-AzSubscription)[0]
 }
 Write-Host "✅ Successfully connected to Azure."
+
+# Run a script on the VM via RunCommand, retrying transient Azure API errors
+# (Invoke-AzVMRunCommand can fail with "An error occurred while sending the
+# request" even when the VM is healthy; Azure serialises RunCommands per VM).
+function Invoke-VMRun {
+    param(
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)][string]$ScriptString,
+        [int]$Retries = 3
+    )
+    for ($attempt = 1; $attempt -le $Retries; $attempt++) {
+        try {
+            return Invoke-AzVMRunCommand -ResourceGroupName $ResourceGroupName -VMName $VMName `
+                -CommandId 'RunShellScript' -ScriptString $ScriptString -ErrorAction Stop
+        }
+        catch {
+            Write-Warning "RunCommand attempt $attempt/$Retries failed: $($_.Exception.Message)"
+            if ($attempt -eq $Retries) { throw }
+            Start-Sleep -Seconds (15 * $attempt)
+        }
+    }
+}
 
 # Generate SSH key pair for authentication. Use $HOME (set on both Windows
 # PowerShell and PowerShell 7 on Linux/macOS) with Join-Path, not the
@@ -145,7 +172,10 @@ sudo dnf install -y epel-release
 sudo dnf install -y wget
 mkdir -p /tmp/nscp
 cd /tmp/nscp
-wget -q '$RpmUrl' -O nscp.rpm
+# -nv (not -q) so a bad URL prints the HTTP error (e.g. 404) instead of failing
+# silently; set -e then aborts with a visible reason rather than a later
+# "nscp: command not found".
+wget -nv '$RpmUrl' -O nscp.rpm
 # Install the package and let dnf resolve ALL of its dependencies from the
 # rpm's Requires (no hand-maintained dependency list to drift out of date).
 sudo dnf install -y ./nscp.rpm
@@ -176,10 +206,7 @@ sudo firewall-cmd --reload || true
 sudo systemctl restart nsclient
 "@
 
-$result = Invoke-AzVMRunCommand -ResourceGroupName $ResourceGroupName `
-    -VMName $VmName `
-    -CommandId 'RunShellScript' `
-    -ScriptString $scriptBlock
+$result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
 
 if ($result.Status -ne "Succeeded") {
     Write-Error "❌ Failed to run command on VM. Status: $($result.Status)"
@@ -204,10 +231,7 @@ else
 fi
 "@
 
-$result = Invoke-AzVMRunCommand -ResourceGroupName $ResourceGroupName `
-    -VMName $VmName `
-    -CommandId 'RunShellScript' `
-    -ScriptString $scriptBlock
+$result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
 
 if ($result.Status -ne "Succeeded") {
     Write-Error "❌ Failed to run command on VM. Status: $($result.Status)"
@@ -233,7 +257,7 @@ Write-Host "✅ Correct version installed!"
 
 # Save credentials to .vm.pwd (same format as the Windows setup script) so
 # run-tests.ps1 can point the live acceptance suite at this VM.
-$pwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd"
+if (-not $PwdFile) { $PwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd" }
 @"
 VM Name:        $VmName
 Resource Group: $ResourceGroupName
