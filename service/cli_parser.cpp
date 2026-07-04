@@ -85,7 +85,9 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
         ("add-defaults", "Same as --add-missing")
         ("remove-defaults", "Remove all keys which have default values (and empty sections)")
         ("use-samples", "Add sample commands provided by some sections such as targets and real time filters")
-        ("activate-module", po::value<std::string>()->implicit_value(""), "Add a module (and its configuration options) to the configuration.")
+        ("activate-module", po::value<std::vector<std::string> >()->multitoken(),
+         "Add one or more modules (and their configuration options) to the configuration. "
+         "Accepts several names in one go, e.g. --activate-module CheckHelpers CheckSystem CheckDisk")
         ("sort", "Re-write the active settings store with sections (and keys within each section) sorted alphabetically. "
                  "[/modules] is kept as the first section. Only meaningful for the INI backend; other backends fall back to a regular save.")
       ;
@@ -339,7 +341,7 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
           ret = -1;
         }
       } else if (vm.count("activate-module")) {
-        settings_cli.activate(vm["activate-module"].as<std::string>());
+        ret = settings_cli.activate(vm["activate-module"].as<std::vector<std::string> >());
       } else if (vm.count("validate")) {
         ret = settings_cli.validate();
       } else if (vm.count("sort")) {

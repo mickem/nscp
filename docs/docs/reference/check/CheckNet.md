@@ -956,8 +956,8 @@ Query the REST API of a remote NSClient++ agent (reachability or a remote check)
 
 #### About `check_nsclient_web_online`
 
-`check_nsclient_web_online` queries the REST API of a **remote** NSClient++ (or
-snclient) agent over HTTPS. It has two modes:
+`check_nsclient_web_online` queries the REST API of a **remote** NSClient++ agent
+over HTTPS. It has two modes:
 
 * **Reachability probe** (no `command=`): it hits `/api/v1/info` and reports
   **OK** `REST API reachable …` when the agent answers, **CRITICAL** when it
@@ -1002,7 +1002,7 @@ to enforce verification.
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_nsclient_web_online_samples.md)_
 
-**Check that a remote NSClient++/snclient agent's REST API is reachable:**
+**Check that a remote NSClient++ agent's REST API is reachable:**
 
 ```
 check_nsclient_web_online url=https://192.168.56.10:8443 password=secret

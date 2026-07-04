@@ -329,8 +329,8 @@ server directly.
 ## Remote Agent Availability
 
 Use `check_nsclient_web_online` from a central host to confirm that a **remote**
-NSClient++/snclient agent's REST API is online, or to run a check on it and pass
-the result through.
+NSClient++ agent's REST API is online, or to run a check on it and pass the result 
+through.
 
 ### Command
 

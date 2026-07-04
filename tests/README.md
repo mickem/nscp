@@ -5,6 +5,12 @@ or native) and Windows under one Jest + TypeScript harness,
 using [testcontainers-node](https://node.testcontainers.org/) to drive the per-test Docker images
 and [execa](https://github.com/sindresorhus/execa) to spawn the `nscp` CLI.
 
+> **Testing an already-running server (VM / installed service)?** These suites
+> spawn their own `nscp`. To instead point a suite at an nscp that is already
+> installed and running (a provisioned Azure VM, a package install, a hand-started
+> build), use the **live acceptance suite** — `npm run test:live` — documented in
+> [`live/README.md`](live/README.md).
+
 ## Requirements
 
 - Node.js 20+ and npm (matches `tests/rest/`)

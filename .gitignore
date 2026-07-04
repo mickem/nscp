@@ -68,3 +68,6 @@ _build
 
 
 /docs/design/*
+
+\\.ssh\\*
+*.pwd

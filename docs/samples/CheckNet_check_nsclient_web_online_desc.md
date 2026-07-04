@@ -1,7 +1,7 @@
 #### About `check_nsclient_web_online`
 
-`check_nsclient_web_online` queries the REST API of a **remote** NSClient++ (or
-snclient) agent over HTTPS. It has two modes:
+`check_nsclient_web_online` queries the REST API of a **remote** NSClient++ 
+agent over HTTPS. It has two modes:
 
 * **Reachability probe** (no `command=`): it hits `/api/v1/info` and reports
   **OK** `REST API reachable …` when the agent answers, **CRITICAL** when it
