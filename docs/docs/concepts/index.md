@@ -44,10 +44,12 @@ CheckDisk = enabled
 NRPEServer = enabled
 ```
 
-You can also enable a module from the command line without editing the file:
+You can also enable a module from the command line without editing the file.
+`--activate-module` accepts one or several module names, so the three modules
+above become a single command:
 
 ```
-nscp settings --activate-module CheckSystem
+nscp settings --activate-module CheckSystem CheckDisk NRPEServer
 ```
 
 Or load it temporarily in the test shell without touching the configuration:

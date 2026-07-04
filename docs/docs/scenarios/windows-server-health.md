@@ -18,8 +18,7 @@ NRPEServer  = enabled   ; if using NRPE (active monitoring)
 Or activate them from the command line:
 
 ```
-nscp settings --activate-module CheckSystem
-nscp settings --activate-module CheckDisk
+nscp settings --activate-module CheckSystem CheckDisk
 ```
 
 ---

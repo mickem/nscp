@@ -1,4 +1,4 @@
-**Check that a remote NSClient++/snclient agent's REST API is reachable:**
+**Check that a remote NSClient++ agent's REST API is reachable:**
 
 ```
 check_nsclient_web_online url=https://192.168.56.10:8443 password=secret
