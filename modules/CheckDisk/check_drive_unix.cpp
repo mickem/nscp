@@ -474,7 +474,7 @@ void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Com
     ("drive", po::value<std::vector<std::string>>(&drives),
       "The drives to check.\nMultiple options can be used to check more than one mount or wildcards can be used to indicate multiple drives to check. Examples: drive=/, drive=/home, drive=*, drive=all-drives")
     ("exclude", po::value<std::vector<std::string>>(&excludes), "A list of drives (mount points) not to check")
-    ("total", po::bool_switch(&total), "Include the total of all matching drives")
+    ("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching drives")
     ;
   // clang-format on
 

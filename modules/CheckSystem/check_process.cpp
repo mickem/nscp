@@ -277,7 +277,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     ("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
     ("delta", po::value<bool>(&delta_scan), "Measure CPU usage as a delta over a one second interval.\nThe check samples process and system CPU times, sleeps for one second, then samples again. With delta=true the 'time' (and 'kernel'/'user') fields report the process CPU usage during that second as a whole percentage of total CPU, instead of cumulative CPU seconds.")
     ("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
-    ("total", po::bool_switch(&total), "Include the total of all matching files")
+    ("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching files")
     ;
   // clang-format on
 

@@ -292,7 +292,7 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
     ("type", po::value<std::string>(&type)->default_value("A"), "DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.")
     ("server", po::value<std::string>(&server), "DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf otherwise).")
     ("port", po::value<unsigned short>(&port)->default_value(53), "UDP port of the DNS server.")
-    ("norecursion", po::bool_switch(&norec), "Do not request recursion (RD=0).")
+    ("norecursion", po::value<bool>(&norec)->implicit_value(true)->default_value(false), "Do not request recursion (RD=0).")
     ("timeout", po::value<int>(&timeout_ms)->default_value(5000), "Timeout in milliseconds.")
     ("expected-address", po::value<std::vector<std::string> >(&expected),
         "Record that must be present in the answer (may be given multiple times).")

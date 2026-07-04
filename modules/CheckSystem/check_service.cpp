@@ -159,12 +159,12 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
     ("exclude", po::value<std::vector<std::string>>(&excludes), "A list of services to ignore (mainly useful in combination with service=*)")
     ("type", po::value<std::string>(&type)->default_value("service"), "The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process")
     ("state", po::value<std::string>(&state)->default_value("all"), "The types of services to enumerate available states are active, inactive or all")
-    ("only-essential", po::bool_switch(&class_e), "Set filter to classification = 'essential'")
-    ("only-ignored", po::bool_switch(&class_i), "Set filter to classification = 'ignored'")
-    ("only-role", po::bool_switch(&class_r), "Set filter to classification = 'role'")
-    ("only-supporting", po::bool_switch(&class_s), "Set filter to classification = 'supporting'")
-    ("only-system", po::bool_switch(&class_y), "Set filter to classification = 'system'")
-    ("only-user", po::bool_switch(&class_u), "Set filter to classification = 'user'")
+    ("only-essential", po::value<bool>(&class_e)->implicit_value(true)->default_value(false), "Set filter to classification = 'essential'")
+    ("only-ignored", po::value<bool>(&class_i)->implicit_value(true)->default_value(false), "Set filter to classification = 'ignored'")
+    ("only-role", po::value<bool>(&class_r)->implicit_value(true)->default_value(false), "Set filter to classification = 'role'")
+    ("only-supporting", po::value<bool>(&class_s)->implicit_value(true)->default_value(false), "Set filter to classification = 'supporting'")
+    ("only-system", po::value<bool>(&class_y)->implicit_value(true)->default_value(false), "Set filter to classification = 'system'")
+    ("only-user", po::value<bool>(&class_u)->implicit_value(true)->default_value(false), "Set filter to classification = 'user'")
     ;
   // clang-format on
 

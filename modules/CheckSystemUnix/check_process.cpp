@@ -442,7 +442,7 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
   filter_helper.get_desc().add_options()
     ("process", po::value<std::vector<std::string>>(&processes), "The process to check, set this to * to check all processes")
     ("delta", po::value<bool>(&delta_scan), "Measure CPU usage as a delta over a one second interval.\nThe check samples process and system CPU times, sleeps for one second, then samples again. With delta=true the 'time' (and 'kernel'/'user') fields report the process CPU usage during that second as a whole percentage of total CPU, instead of cumulative CPU seconds.")
-    ("total", po::bool_switch(&total), "Include the total of all matching processes")
+    ("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching processes")
     ;
   // clang-format on
 

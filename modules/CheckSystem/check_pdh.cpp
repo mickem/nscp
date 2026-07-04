@@ -215,14 +215,14 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
   filter_helper.add_syntax("${status}: ${list}", "${alias} = ${value}", "${alias}", "", "");
   filter_helper.get_desc().add_options()
     ("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check")
-    ("expand-index", po::bool_switch(&expand_index), "Expand indexes in counter strings")
-    ("instances", po::bool_switch(&expand_instance), "Expand wildcards and fetch all instances")
-    ("reload", po::bool_switch(&reload), "Reload counters on errors (useful to check counters which are not added at boot)")
-    ("averages", po::bool_switch(&check_average), "Check average values (ie. wait for 1 second to collecting two samples)")
+    ("expand-index", po::value<bool>(&expand_index)->implicit_value(true)->default_value(false), "Expand indexes in counter strings")
+    ("instances", po::value<bool>(&expand_instance)->implicit_value(true)->default_value(false), "Expand wildcards and fetch all instances")
+    ("reload", po::value<bool>(&reload)->implicit_value(true)->default_value(false), "Reload counters on errors (useful to check counters which are not added at boot)")
+    ("averages", po::value<bool>(&check_average)->implicit_value(true)->default_value(false), "Check average values (ie. wait for 1 second to collecting two samples)")
     ("time", po::value<std::vector<std::string>>(&times), "Timeframe to use for named rrd counters")
     ("flags", po::value<std::string>(&flags), "Extra flags to configure the counter (nocap100, 1000, noscale)")
     ("type", po::value<std::string>(&type)->default_value("large"), "Format of value (double, long, large)")
-    ("ignore-errors", po::bool_switch(&ignore_errors), "If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors")
+    ("ignore-errors", po::value<bool>(&ignore_errors)->implicit_value(true)->default_value(false), "If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors")
   ;
   // clang-format on
 

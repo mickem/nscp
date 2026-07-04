@@ -370,6 +370,23 @@ describe("CheckNet commands", () => {
     expect(messageOf(q)).toMatch(/93\.184\.216\.34/);
   });
 
+  // Regression: `norecursion` is a boolean option passed over REST as the token
+  // `norecursion=true`. It must be po::value<bool>()->implicit_value(true), not
+  // po::bool_switch, which rejects a value with "option '--norecursion' does not
+  // take any arguments". See docs/design/icinga-windows-parity.md §4.2.
+  it("check_dns accepts norecursion=true as a valued boolean over REST", async () => {
+    const s = await startDnsResponder([93, 184, 216, 34]);
+    const q = await executeQuery(key, "check_dns", {
+      host: "example.com",
+      type: "A",
+      server: "127.0.0.1",
+      port: String(s.port),
+      norecursion: "true",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments/);
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_nsclient_web_online -------------------------------------------
 
   it("check_nsclient_web_online reports a reachable REST API", async () => {

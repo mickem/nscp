@@ -67,7 +67,7 @@ void CheckTaskSched::CheckTaskSched_(PB::Commands::QueryRequestMessage::Request 
 		("syntax", po::value<std::string>(&syntax), "Syntax (same as detail-syntax in the check_tasksched check)")
 		("master-syntax", po::value<std::string>(&topSyntax), "Master Syntax (same as top-syntax in the check_tasksched check)")
 		("filter", po::value<std::string>(&filter), "Filter (same as filter in the check_tasksched check)")
-		("debug", po::bool_switch(&debug), "Filter (same as filter in the check_tasksched check)")
+		("debug", po::value<bool>(&debug)->implicit_value(true)->default_value(false), "Filter (same as filter in the check_tasksched check)")
 		;
   // clang-format on
 
@@ -120,7 +120,7 @@ void CheckTaskSched::check_tasksched(const PB::Commands::QueryRequestMessage::Re
                            "%(status): All tasks are ok");
   // clang-format off
 	filter_helper.get_desc().add_options()
-		("force-old", po::bool_switch(&old), "The name of the computer that you want to connect to.")
+		("force-old", po::value<bool>(&old)->implicit_value(true)->default_value(false), "The name of the computer that you want to connect to.")
 		("computer", po::value<std::string>(&computer), "The name of the computer that you want to connect to.")
 		("user", po::value<std::string>(&user), "The user name that is used during the connection to the computer.")
 		("domain", po::value<std::string>(&domain), "The domain of the user specified in the user parameter.")

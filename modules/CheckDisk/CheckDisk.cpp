@@ -227,7 +227,7 @@ void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, 
     ("path", po::value<std::string>(&path), "The file or path to check")
     ("pattern", po::value<std::string>(&pattern), "Deprecated and ignored")
     ("alias", po::value<std::string>(), "Deprecated and ignored")
-    ("debug", po::bool_switch(&debug), "Debug")
+    ("debug", po::value<bool>(&debug)->implicit_value(true)->default_value(false), "Debug")
     ("max-dir-depth", po::value<int>(&maxDepth), "The maximum level to recurse")
     ("filter", po::value<std::string>(&filter), "The filter to use when including files in the check")
     ("warn", po::value<std::string>(&warn2), "Deprecated and ignored")
