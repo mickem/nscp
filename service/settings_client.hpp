@@ -20,6 +20,7 @@
 #pragma once
 #include <settings/settings_core.hpp>
 #include <string>
+#include <vector>
 
 #include "NSClient++.h"
 
@@ -62,6 +63,6 @@ class settings_client {
   void debug_msg(const char* file, const int line, std::string msg);
 
   void list_settings_info();
-  void activate(const std::string& module);
+  int activate(const std::vector<std::string>& modules);
 };
 }  // namespace nsclient_core

@@ -202,14 +202,20 @@ void nsclient_core::settings_client::list_settings_info() {
   std::cout << "Current settings instance loaded: " << std::endl;
   list_settings_context_info(2, settings_manager::get_settings());
 }
-void nsclient_core::settings_client::activate(const std::string &module) {
-  if (!core_->boot_load_single_plugin(module)) {
-    std::cerr << "Failed to load module (Wont activate): " << module << std::endl;
+int nsclient_core::settings_client::activate(const std::vector<std::string> &modules) {
+  int ret = 0;
+  for (const std::string &module : modules) {
+    if (!core_->boot_load_single_plugin(module)) {
+      std::cerr << "Failed to load module (Wont activate): " << module << std::endl;
+      ret = -1;
+      continue;
+    }
+    get_core()->get()->set_string(MAIN_MODULES_SECTION, module, "enabled");
   }
   core_->boot_start_plugins(false);
-  get_core()->get()->set_string(MAIN_MODULES_SECTION, module, "enabled");
   if (default_) {
     get_core()->update_defaults();
   }
   get_core()->get()->save(false);
+  return ret;
 }
