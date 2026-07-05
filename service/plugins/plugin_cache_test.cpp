@@ -1,8 +1,6 @@
-﻿/*
- * Copyright (C) 2004-2016 Michael Medin
- *
- * This file is part of NSClient++ - https://nsclient.org
- */
+﻿// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
 #include "plugin_cache.hpp"
 
 #include <gtest/gtest.h>
