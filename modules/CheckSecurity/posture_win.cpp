@@ -27,6 +27,7 @@
 #include <netlistmgr.h>
 
 #include <str/utf8.hpp>
+#include <win/registry.hpp>
 #include <win/wmi/wmi_query.hpp>
 
 #include "check_antivirus.hpp"
@@ -140,13 +141,11 @@ namespace secureboot_source {
 
 void gather(std::vector<secureboot_filter::filter_obj_ptr> &out, std::string & /*error*/) {
   auto o = std::make_shared<secureboot_filter::filter_obj>();
-  DWORD value = 0;
-  DWORD size = sizeof(value);
-  const LSTATUS st = RegGetValueW(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\SecureBoot\\State", L"UEFISecureBootEnabled", RRF_RT_REG_DWORD,
-                                  nullptr, &value, &size);
-  if (st == ERROR_SUCCESS) {
+  const win_registry::value_info vi =
+      win_registry::read_value(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\SecureBoot\\State", "UEFISecureBootEnabled");
+  if (vi.exists && vi.type == REG_DWORD) {
     o->supported = 1;
-    o->enabled = (value == 1) ? 1 : 0;
+    o->enabled = (vi.int_value == 1) ? 1 : 0;
   } else {
     // No value: legacy BIOS or the platform does not expose it.
     o->supported = 0;
