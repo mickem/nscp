@@ -34,30 +34,16 @@ if(WIN32)
         ${NSCP_DEF_PLUGIN_HPP}
     )
 else()
-    if(NSCP_BOOST_PYTHON_VERSION STREQUAL "python313")
+    # Derive the runtime python library name (the default of the "python lib"
+    # setting) from the Boost.Python component name, e.g. python314 ->
+    # libpython3.14.so.1.0, so new python releases work without touching this
+    # list. Use the soname: the bare .so symlink only exists on systems with
+    # the python development package installed, while the soname is shipped
+    # with the runtime library the module already links against.
+    if(NSCP_BOOST_PYTHON_VERSION MATCHES "^python3([0-9]+)$")
         add_definitions(
             ${NSCP_GLOBAL_DEFINES}
-            -DDEFAULT_PYTHON_LIB="libpython3.13.so"
-        )
-    elseif(NSCP_BOOST_PYTHON_VERSION STREQUAL "python312")
-        add_definitions(
-            ${NSCP_GLOBAL_DEFINES}
-            -DDEFAULT_PYTHON_LIB="libpython3.12.so"
-        )
-    elseif(NSCP_BOOST_PYTHON_VERSION STREQUAL "python311")
-        add_definitions(
-            ${NSCP_GLOBAL_DEFINES}
-            -DDEFAULT_PYTHON_LIB="libpython3.11.so"
-        )
-    elseif(NSCP_BOOST_PYTHON_VERSION STREQUAL "python310")
-        add_definitions(
-            ${NSCP_GLOBAL_DEFINES}
-            -DDEFAULT_PYTHON_LIB="libpython3.10.so"
-        )
-    elseif(NSCP_BOOST_PYTHON_VERSION STREQUAL "python39")
-        add_definitions(
-            ${NSCP_GLOBAL_DEFINES}
-            -DDEFAULT_PYTHON_LIB="libpython3.9.so"
+            -DDEFAULT_PYTHON_LIB="libpython3.${CMAKE_MATCH_1}.so.1.0"
         )
     else()
         message(
