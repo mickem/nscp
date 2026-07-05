@@ -19,7 +19,8 @@ const onLinux = process.platform === "linux" ? describe : describe.skip;
 
 onLinux("CheckSecurity", () => {
   let nscp: NscpInstance;
-  let validCert: string; // ~800 days
+  let validCert: string; // ~800 days, leaf signed by caCert
+  let caCert: string; // the CA that signed validCert
   let soonCert: string; //  5 days (inside the default 10-day critical window)
   let expiredCert: string; // already expired
   let bundleDir: string; // dir holding the valid cert + its CA (2 certs)
@@ -35,7 +36,9 @@ onLinux("CheckSecurity", () => {
   beforeAll(() => {
     nscp = new NscpInstance();
     bundleDir = nscp.scratch("cs_valid");
-    validCert = generateCertChain({ outDir: bundleDir, days: 800, signed: { valid: { commonName: "valid.example.com" } } }).signed.valid.certPath;
+    const bundle = generateCertChain({ outDir: bundleDir, days: 800, signed: { valid: { commonName: "valid.example.com" } } });
+    validCert = bundle.signed.valid.certPath; // leaf, signed by the CA below
+    caCert = bundle.ca.certPath;
     soonCert = generateCertChain({ outDir: nscp.scratch("cs_soon"), days: 5, signed: { soon: { commonName: "soon.example.com" } } }).signed.soon.certPath;
     expiredCert = generateCertChain({ outDir: nscp.scratch("cs_expired"), days: -10, signed: { old: { commonName: "old.example.com" } } }).signed.old.certPath;
   });
@@ -82,6 +85,26 @@ onLinux("CheckSecurity", () => {
   it("returns UNKNOWN for a missing file rather than a silent OK", async () => {
     const out = await query("check_certificate", ["file=/no/such/cert.pem"]);
     expect(out).toMatch(/No certificates found|not found/i);
+  });
+
+  it("exposes certificate security fields", async () => {
+    const out = await query("check_certificate", [
+      `file=${validCert}`,
+      "detail-syntax=key=${key_type}/${key_size} self=${self_signed} sig=${signature_algorithm}",
+      "top-syntax=${list}",
+    ]);
+    expect(out).toMatch(/key=RSA\/\d+/);
+    expect(out).toMatch(/self=0/); // leaf is signed by the CA, not self-signed
+    expect(out).toMatch(/sig=\S+/);
+  });
+
+  it("evaluates trust against a CA bundle", async () => {
+    // The leaf's issuing CA is not in the system trust store...
+    const untrusted = await query("check_certificate", [`file=${validCert}`, "crit=not trusted"]);
+    expect(untrusted).toMatch(/^CRITICAL/m);
+    // ...but it chains to the CA when that CA bundle is supplied.
+    const trusted = await query("check_certificate", [`file=${validCert}`, `ca=${caCert}`, "crit=not trusted"]);
+    expect(trusted).toMatch(/^OK/m);
   });
 
   it("rejects the Windows certificate store on this platform", async () => {

@@ -39,6 +39,38 @@ check_certificate file=/etc/pki/tls/certs critical=expired=1
 L        cli OK: all 4 certificate(s) are ok
 ```
 
+#### Flag weak keys or signatures (TLS hygiene)
+
+```
+check_certificate file=/etc/ssl/certs/mysite.pem "crit=weak_signature = 1 or weak_key = 1"
+L        cli CRITICAL: /CN=legacy.example.com expires in 40d (2026-08-14 00:00:00)
+```
+
+Show the crypto detail for an audit:
+
+```
+check_certificate file=/etc/ssl/certs/mysite.pem "top-syntax=${list}" "detail-syntax=${subject}: ${signature_algorithm}, ${key_type}/${key_size}"
+L        cli OK: /CN=mysite.example.com: sha256WithRSAEncryption, RSA/2048
+```
+
+#### Verify the certificate is trusted
+
+`trusted` checks that the chain resolves to a trusted CA (time validity is
+ignored — combine with `expired`). Point `ca=` at a bundle, or omit it to use the
+system trust store:
+
+```
+check_certificate file=/etc/nginx/fullchain.pem "crit=not trusted or expired = 1"
+check_certificate file=/etc/ssl/leaf.pem ca=/etc/ssl/corp-ca.pem "crit=not trusted"
+```
+
+#### Read a PKCS#12 (.pfx) file
+
+```
+check_certificate file=/opt/app/keystore.pfx password=changeit "crit=expires_in < 14"
+L        cli OK: all 1 certificate(s) are ok
+```
+
 #### Windows certificate store (Windows only)
 
 On Windows, `store=` enumerates a system certificate store; `location=` selects

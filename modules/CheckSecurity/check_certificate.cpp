@@ -44,6 +44,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   bool recursive = false;
   std::string store;
   std::string location = "LocalMachine";
+  std::string ca_file;
+  std::string password;
 
   cert_filter::filter filter;
   // Default thresholds mirror Icinga's check_certificate (warn 30d, crit 10d).
@@ -55,6 +57,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     ("file", po::value<std::vector<std::string>>(&paths), "A certificate file (PEM or DER) or a directory of them. Can be given multiple times.")
     ("path", po::value<std::vector<std::string>>(&paths), "Alias for file.")
     ("recursive", po::value<bool>(&recursive)->implicit_value(true)->default_value(false), "Recurse into directories given via file=/path=.")
+    ("password", po::value<std::string>(&password), "Password for PKCS#12 (.pfx/.p12) files.")
+    ("ca", po::value<std::string>(&ca_file), "CA bundle to evaluate the 'trusted' keyword against (defaults to the system trust store).")
     ("store", po::value<std::string>(&store), "Windows certificate store to enumerate (e.g. My, Root, CA). Windows only.")
     ("location", po::value<std::string>(&location)->default_value("LocalMachine"), "Windows store location: LocalMachine or CurrentUser. Windows only.")
     ;
@@ -66,12 +70,12 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   std::vector<cert_filter::filter_obj_ptr> certs;
   std::vector<std::string> errors;
 
-  if (!paths.empty()) cert_source::load_files(paths, recursive, certs, errors);
+  if (!paths.empty()) cert_source::load_files(paths, recursive, ca_file, password, certs, errors);
 
   if (!store.empty()) {
 #ifdef WIN32
     std::string store_error;
-    cert_source::load_store(store, location, certs, store_error);
+    cert_source::load_store(store, location, ca_file, certs, store_error);
     if (!store_error.empty()) errors.push_back(store_error);
 #else
     return nscapi::protobuf::functions::set_response_bad(*response, "store= (certificate store) is only supported on Windows; use file= on this platform");

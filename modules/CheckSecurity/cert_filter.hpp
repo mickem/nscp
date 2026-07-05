@@ -34,7 +34,7 @@ namespace cert_filter {
 // fields and field registration are identical on both platforms; only the
 // enumeration (cert_source_openssl.cpp vs cert_source_win.cpp) differs.
 struct filter_obj {
-  filter_obj() : not_before(0), not_after(0) {}
+  filter_obj() : not_before(0), not_after(0), key_size(0), self_signed(0), trusted(0), weak_signature(0), weak_key(0) {}
 
   std::string get_subject() const { return subject; }
   std::string get_issuer() const { return issuer; }
@@ -42,6 +42,14 @@ struct filter_obj {
   std::string get_serial() const { return serial; }
   std::string get_source() const { return source; }
   std::string get_store() const { return store; }
+
+  std::string get_signature_algorithm() const { return signature_algorithm; }
+  std::string get_key_type() const { return key_type; }
+  long long get_key_size() const { return key_size; }
+  long long get_self_signed() const { return self_signed; }
+  long long get_trusted() const { return trusted; }
+  long long get_weak_signature() const { return weak_signature; }
+  long long get_weak_key() const { return weak_key; }
 
   long long get_not_before() const { return not_before; }
   long long get_not_after() const { return not_after; }
@@ -69,6 +77,14 @@ struct filter_obj {
   std::string store;       // "file" or e.g. "LocalMachine\\My"
   long long not_before;    // unix epoch seconds
   long long not_after;     // unix epoch seconds
+
+  std::string signature_algorithm;  // e.g. "sha256WithRSAEncryption"
+  std::string key_type;             // "RSA" / "EC" / "DSA" / ...
+  long long key_size;               // public key size in bits
+  long long self_signed;            // 1 if issuer == subject and self-issued
+  long long trusted;                // 1 if it chains to a trusted CA (time ignored)
+  long long weak_signature;         // 1 if signed with MD5/SHA-1
+  long long weak_key;               // 1 if RSA/DSA < 2048 or EC < 256 bits
 };
 
 typedef std::shared_ptr<filter_obj> filter_obj_ptr;

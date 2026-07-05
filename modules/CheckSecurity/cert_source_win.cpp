@@ -30,7 +30,8 @@
 
 namespace cert_source {
 
-void load_store(const std::string &store, const std::string &location, std::vector<cert_filter::filter_obj_ptr> &out, std::string &error) {
+void load_store(const std::string &store, const std::string &location, const std::string &ca_file, std::vector<cert_filter::filter_obj_ptr> &out,
+                std::string &error) {
   DWORD flags = CERT_SYSTEM_STORE_LOCAL_MACHINE;
   std::string loc = location.empty() ? "LocalMachine" : location;
   if (loc == "CurrentUser" || loc == "currentuser") {
@@ -49,15 +50,22 @@ void load_store(const std::string &store, const std::string &location, std::vect
     return;
   }
 
+  // Collect raw DER blobs and let the shared OpenSSL path parse + evaluate trust,
+  // so this file stays crypt32-only and there is one cert-parsing code path.
   const std::string descriptor = loc + "\\" + (store.empty() ? "My" : store);
+  std::vector<der_cert> ders;
   PCCERT_CONTEXT pCtx = nullptr;
   while ((pCtx = CertEnumCertificatesInStore(hStore, pCtx)) != nullptr) {
-    std::string perr;
-    cert_filter::filter_obj_ptr obj = parse_der(pCtx->pbCertEncoded, pCtx->cbCertEncoded, descriptor, descriptor, perr);
-    if (obj) out.push_back(obj);
+    der_cert d;
+    d.der.assign(pCtx->pbCertEncoded, pCtx->pbCertEncoded + pCtx->cbCertEncoded);
+    d.source = descriptor;
+    d.store = descriptor;
+    ders.push_back(std::move(d));
   }
-
   CertCloseStore(hStore, 0);
+
+  std::vector<std::string> errors;
+  finalize_der_batch(ders, ca_file, out, errors);
 }
 
 }  // namespace cert_source

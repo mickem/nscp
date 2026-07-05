@@ -1,11 +1,13 @@
 #### About `check_certificate`
 
 `check_certificate` inspects X.509 certificates **at rest** and alerts on
-expiry and validity. It reads certificates from:
+expiry, validity and TLS hygiene (weak keys/signatures, trust). It reads
+certificates from:
 
 * **Files on disk** (`file=`/`path=`) — PEM (including multi-certificate
-  bundles) and DER. A directory is scanned (add `recursive=true` to descend).
-  This works on **all platforms** (parsing is OpenSSL-based).
+  bundles), DER, and PKCS#12 (`.pfx`/`.p12`, with `password=`). A directory is
+  scanned (add `recursive=true` to descend). This works on **all platforms**
+  (parsing is OpenSSL-based).
 * **The Windows certificate store** (`store=`, e.g. `My`, `Root`, `CA`) at a
   `location=` of `LocalMachine` (default) or `CurrentUser`. **Windows only** —
   on other platforms `store=` returns a clear "not supported" message.
@@ -33,9 +35,21 @@ Filter/threshold keywords:
 | `serial`                         | string | Serial number (hex).                                                           |
 | `source`                         | string | File path or store descriptor the cert came from.                              |
 | `store`                          | string | `file` or the Windows store descriptor.                                        |
+| `trusted`                        | bool   | True if the cert chains to a trusted CA (`ca=` bundle, else the system store). Time validity is **ignored** here — use `expired`/`not_yet_valid` for that. |
+| `self_signed`                    | bool   | True if the certificate is self-signed.                                        |
+| `signature_algorithm`            | string | e.g. `sha256WithRSAEncryption`.                                                |
+| `weak_signature`                 | bool   | True if signed with MD5 or SHA-1.                                              |
+| `key_type`                       | string | Public key type (`RSA`, `EC`, `DSA`, …).                                       |
+| `key_size`                       | int    | Public key size in bits.                                                       |
+| `weak_key`                       | bool   | True if RSA/DSA < 2048 bits, or EC < 256 bits.                                 |
 
-When neither `file=` nor `store=` is given, or nothing matches, the check
-returns UNKNOWN rather than a silent OK.
+Options: `ca=` supplies a CA bundle for the `trusted` check (defaults to the
+system trust store); `password=` unlocks a PKCS#12 file. When neither `file=`
+nor `store=` is given, or nothing matches, the check returns UNKNOWN rather than
+a silent OK.
 
-> **Note:** chain/trust validation (`trusted`) is not yet implemented; this
-> release focuses on expiry and validity.
+> **Trust caveat:** `trusted` requires the issuing chain to be resolvable —
+> either present in the same file/batch (e.g. a full-chain PEM or a `.pfx` that
+> bundles its CA) or reachable from the `ca=`/system store. A lone leaf whose
+> intermediates are absent will read as `trusted=0`. Chain time validity is not
+> checked here by design; combine with `expired`.
