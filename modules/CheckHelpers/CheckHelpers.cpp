@@ -598,7 +598,7 @@ void CheckHelpers::render_perf(const PB::Commands::QueryRequestMessage::Request 
   filter_helper.get_desc().add_options()
     ("command", po::value<std::string>(&command), "Wrapped command to execute")
     ("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
-    ("remove-perf", po::bool_switch(&remove_perf), "List of arguments (for wrapped command)")
+    ("remove-perf", po::value<bool>(&remove_perf)->implicit_value(true)->default_value(false), "List of arguments (for wrapped command)")
     ;
   // clang-format on
 

@@ -224,6 +224,13 @@ struct process_info {
   }
 
   process_info &operator+=(const process_info &other) {
+    // State: the total row reports "started" if any aggregated process is
+    // started and "hung" if any is hung (hung takes precedence in
+    // get_state_s/get_state_i). Without this the total is always "stopped",
+    // which trips the default critical filter `state = 'stopped'`.
+    if (other.started) started = true;
+    if (other.hung.get()) hung = true;
+
     // Handles
     handleCount += other.handleCount.get();
     gdiHandleCount += other.gdiHandleCount.get();

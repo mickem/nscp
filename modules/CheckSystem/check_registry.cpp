@@ -93,7 +93,7 @@ void registry_key_checks::check(const PB::Commands::QueryRequestMessage::Request
                   "Remote computer to connect to (empty = local)")
     ("view",      po::value<std::string>(&view)->default_value("default"),
                   "Registry view: 'default', '32' (KEY_WOW64_32KEY), or '64' (KEY_WOW64_64KEY)")
-    ("recursive", po::bool_switch(&recursive),
+    ("recursive", po::value<bool>(&recursive)->implicit_value(true)->default_value(false),
                   "Recursively enumerate all sub-keys below each starting key")
     ("max-depth", po::value<long long>(&max_depth),
                   "Maximum recursion depth (requires --recursive; -1 = unlimited)")
@@ -241,7 +241,7 @@ void registry_value_checks::check(const PB::Commands::QueryRequestMessage::Reque
                   "Remote computer to connect to (empty = local)")
     ("view",      po::value<std::string>(&view)->default_value("default"),
                   "Registry view: 'default', '32' (KEY_WOW64_32KEY), or '64' (KEY_WOW64_64KEY)")
-    ("recursive", po::bool_switch(&recursive),
+    ("recursive", po::value<bool>(&recursive)->implicit_value(true)->default_value(false),
                   "Recursively enumerate values in all sub-keys")
     ("max-depth", po::value<long long>(&max_depth),
                   "Maximum recursion depth for --recursive (-1 = unlimited)")

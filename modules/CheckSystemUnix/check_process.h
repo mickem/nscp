@@ -140,6 +140,10 @@ struct filter_obj {
 
   // For aggregation
   filter_obj &operator+=(const filter_obj &other) {
+    // State: the total row reports "started" if any aggregated process is.
+    // Without this the total is always "stopped", which trips the default
+    // critical filter `state = 'stopped'`.
+    started = started || other.started;
     virtual_size += other.virtual_size;
     peak_virtual_size += other.peak_virtual_size;
     working_set += other.working_set;

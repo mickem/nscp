@@ -68,7 +68,7 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
   // clang-format off
   filter_helper.get_desc().add_options()
     ("host", po::value<std::vector<std::string> >(&hosts), "The host to check (or multiple hosts).")
-    ("total", po::bool_switch(&total), "Include the total of all matching hosts")
+    ("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching hosts")
     ("hosts", po::value<std::string>(&hosts_string), "The host to check (or multiple hosts).")
     ("count", po::value<int>(&count)->default_value(1), "Number of packets to send.")
     ("timeout", po::value<int>(&timeout)->default_value(500), "Timeout in milliseconds.")

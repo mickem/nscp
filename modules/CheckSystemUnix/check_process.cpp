@@ -442,7 +442,7 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
   filter_helper.get_desc().add_options()
     ("process", po::value<std::vector<std::string>>(&processes), "The process to check, set this to * to check all processes")
     ("delta", po::value<bool>(&delta_scan), "Measure CPU usage as a delta over a one second interval.\nThe check samples process and system CPU times, sleeps for one second, then samples again. With delta=true the 'time' (and 'kernel'/'user') fields report the process CPU usage during that second as a whole percentage of total CPU, instead of cumulative CPU seconds.")
-    ("total", po::bool_switch(&total), "Include the total of all matching processes")
+    ("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching processes")
     ;
   // clang-format on
 
@@ -463,6 +463,12 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
       procs.insert(process);
   }
 
+  std::shared_ptr<check_proc_filter::filter_obj> total_obj;
+  if (total) {
+    total_obj = std::shared_ptr<check_proc_filter::filter_obj>(new check_proc_filter::filter_obj());
+    total_obj->exe = "total";
+  }
+
   std::vector<std::string> matched;
   std::vector<check_proc_filter::filter_obj> process_list =
       delta_scan ? check_proc_filter::enumerate_processes_delta() : check_proc_filter::enumerate_processes();
@@ -471,7 +477,10 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
     bool wanted = procs.count(info.exe) > 0;
     if (all || wanted) {
       std::shared_ptr<check_proc_filter::filter_obj> record(new check_proc_filter::filter_obj(info));
-      filter.match(record);
+      modern_filter::match_result ret = filter.match(record);
+      if (total_obj && ret.matched_filter) {
+        *total_obj += *record;
+      }
     }
     if (wanted) {
       matched.push_back(info.exe);
@@ -484,12 +493,6 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
   }
 
   // For any process that wasn't found, create a "stopped" entry
-  std::shared_ptr<check_proc_filter::filter_obj> total_obj;
-  if (total) {
-    total_obj = std::shared_ptr<check_proc_filter::filter_obj>(new check_proc_filter::filter_obj());
-    total_obj->exe = "total";
-  }
-
   for (const std::string &proc : procs) {
     std::shared_ptr<check_proc_filter::filter_obj> record(new check_proc_filter::filter_obj(proc));
     record->started = false;

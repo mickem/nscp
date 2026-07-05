@@ -74,6 +74,17 @@ onLinux("CheckDisk (Unix)", () => {
     expect(out).toMatch(/not be found|not found|was not found/i);
   });
 
+  // Regression: `total` is a boolean option passed as the token `total=true`
+  // (same as REST). It must be po::value<bool>()->implicit_value(true), not
+  // po::bool_switch, which rejects a value with "option '--total' does not take
+  // any arguments". See docs/design/icinga-windows-parity.md §4.2.
+  it("accepts total=true and emits a total aggregate row", async () => {
+    const out = await query("check_drivesize", ["drive=/", "warning=used>99%", "critical=used>99%", "total=true"]);
+    expect(out).not.toMatch(/does not take any arguments/);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/'total used'=/);
+  });
+
   // --- check_files ---------------------------------------------------------
 
   it("scans a directory and exposes size / line_count / age", async () => {

@@ -819,13 +819,13 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 	filter_helper.get_desc().add_options()
 		("drive", po::value<std::vector<std::string>>(&drives),
 			"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")
-		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
+		("ignore-unreadable", po::value<bool>(&ignore_unreadable)->implicit_value(true)->default_value(false),
 			"DEPRECATED (manually set filter instead) Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
-		("mounted", po::bool_switch(&only_mounted)->implicit_value(true),
+		("mounted", po::value<bool>(&only_mounted)->implicit_value(true)->default_value(false),
 			"DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.")
 		("magic", po::value<double>(&magic), "Magic number for use with scaling drive sizes.")
 		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of drives not to check")
-		("total", po::bool_switch(&total), "Include the total of all matching drives")
+		("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching drives")
 		;
 	add_custom_options(filter_helper.get_desc());
   // clang-format on

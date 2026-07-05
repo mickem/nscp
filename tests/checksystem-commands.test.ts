@@ -146,6 +146,21 @@ describe("CheckSystem commands", () => {
     expect(msg).toMatch(/user=\d+ kernel=\d+/);
   });
 
+  // Regression: `total` is a boolean option passed over REST as the token
+  // `total=true`. It must be declared po::value<bool>()->implicit_value(true),
+  // not po::bool_switch — the latter rejects a value with "option '--total'
+  // does not take any arguments". See docs/design/icinga-windows-parity.md §4.2.
+  it("check_process total=true accepts a valued boolean over REST", async () => {
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      total: "true",
+      "top-syntax": "${total}",
+      "detail-syntax": "${exe}",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments/);
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_process_history -------------------------------------------------
 
   it("check_process_history tracks our process with times_seen=1", async () => {
