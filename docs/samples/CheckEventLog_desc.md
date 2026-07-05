@@ -1,6 +1,5 @@
-### Monitoring event-log
+### Standard event-logs
 
-Monitoring the event-log is a single command away in the form of `check_eventlog`.
 The default command will monitor the application/system/security logs which usually have the generic errors.
 
 ```
@@ -47,7 +46,7 @@ check_eventlog "filter=provider = 'Microsoft-Windows-Security-SPP' and id = 903 
 
 ### Modern windows (channels)
 
-Since version 0.4.2 NSClient++ has had the ability to check all logs on modern windows machines.
+NSClient++ also has had the ability to check all logs on modern windows machines.
 This works out of the box and you specify the path of the channel you want to look for with the file command.
 A slight snag here is that the separator for "folders" is - not \ r / as one might expect this is unfortunately a windows flaw most likely related to the fact that event logs can also be read from the file system.
 

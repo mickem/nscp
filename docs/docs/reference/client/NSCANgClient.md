@@ -2,8 +2,6 @@
 
 NSCA-NG client can be used both from command line and from queries to submit passive checks via NSCA-NG (TLS-based NSCA next generation)
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `NSCANgClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `NSCANgCl
 [/modules]
 NSCANgClient = enabled
 ```
-
 
 ## Queries
 
@@ -26,13 +23,9 @@ A list of all available queries (check commands)
 |-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [submit_nsca_ng](#submit_nsca_ng) | Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention. |
 
-
-
-
 ### submit_nsca_ng
 
 Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention.
-
 
 **Jump to section:**
 
@@ -40,7 +33,8 @@ Submit information to the remote NSCA-NG server. Custom relay commands defined u
 
 
 
-
+<a id="submit_nsca_ng_options"></a>
+#### Command-line Arguments
 
 <a id="submit_nsca_ng_help"></a>
 <a id="submit_nsca_ng_help-pb"></a>
@@ -75,9 +69,6 @@ Submit information to the remote NSCA-NG server. Custom relay commands defined u
 <a id="submit_nsca_ng_insecure"></a>
 <a id="submit_nsca_ng_host-check"></a>
 <a id="submit_nsca_ng_max-output-length"></a>
-<a id="submit_nsca_ng_options"></a>
-#### Command-line Arguments
-
 
 | Option                     | Default Value | Description                                                                                        |
 |----------------------------|---------------|----------------------------------------------------------------------------------------------------|
@@ -125,11 +116,7 @@ Initial an ssl handshake with the server.
 *Default Value:* `1`
 
 
-
-
 ## Configuration
-
-
 
 | Path / Section                                                 | Description               |
 |----------------------------------------------------------------|---------------------------|
@@ -138,13 +125,9 @@ Initial an ssl handshake with the server.
 | [/settings/NSCA-NG/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### NSCA-NG CLIENT SECTION <a id="/settings/NSCA-NG/client"></a>
 
 Section for NSCA-NG passive check module.
-
-
-
 
 | Key                   | Default Value | Description |
 |-----------------------|---------------|-------------|
@@ -152,25 +135,16 @@ Section for NSCA-NG passive check module.
 | [hostname](#hostname) | auto          | HOSTNAME    |
 
 
-
 ```ini
 # Section for NSCA-NG passive check module.
 [/settings/NSCA-NG/client]
 channel=NSCA-NG
 hostname=auto
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/NSCA-NG/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                           |
@@ -188,8 +162,6 @@ The channel to listen to.
 channel=NSCA-NG
 ```
 
-
-
 #### HOSTNAME <a id="/settings/NSCA-NG/client/hostname"></a>
 
 The host name of the monitored computer.
@@ -203,9 +175,6 @@ ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
-
-
-
 
 
 
@@ -223,7 +192,6 @@ ${domain_uc}	Domainname in uppercase
 # HOSTNAME
 hostname=auto
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/NSCA-NG/client/handlers"></a>
 
@@ -297,7 +265,6 @@ use psk=true
 #verify mode=...
 
 ```
-
 
 
 

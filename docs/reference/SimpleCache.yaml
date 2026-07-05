@@ -1,0 +1,166 @@
+common:
+  aliases:
+    checkcache:
+      description: 'Alternative name for: check_cache'
+  info:
+    description: Stores status updates and allows for active checks to retrieve them
+    title: SimpleCache
+  paths:
+    /settings/cache:
+      info:
+        advanced: false
+        description: Section for simple cache module (SimpleCache.dll).
+        subkey: false
+        title: CACHE
+      keys:
+        channel:
+          advanced: false
+          default_value: CACHE
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+        primary index:
+          advanced: false
+          default_value: ${alias-or-command}
+          description: 'Set this to the value you want to use as unique key for the cache.
+
+            Can be any arbitrary string as well as include any of the following special keywords:${command}
+            = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias
+            for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message
+            data (no escape), ${result} = The result status (number).'
+          sample: false
+          title: PRIMARY CACHE INDEX
+  queries:
+    check_cache:
+      info:
+        description: Fetch results from the cache.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The key (will not be parsed)
+        name: key
+        repeatable: false
+        required: false
+        short_description: The key (will not be parsed)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host to look for (translates into the key)
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host to look for (translates into the key)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The command to look for (translates into the key)
+        name: command
+        repeatable: false
+        required: false
+        short_description: The command to look for (translates into the key)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The channel to look for (translates into the key)
+        name: channel
+        repeatable: false
+        required: false
+        short_description: The channel to look for (translates into the key)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The alias to look for (translates into the key)
+        name: alias
+        repeatable: false
+        required: false
+        short_description: The alias to look for (translates into the key)
+      - content_type: 2
+        default_value: Entry not found
+        is_simple: false
+        long_description: The message to display when a message is not found
+        name: not-found-msg
+        repeatable: false
+        required: false
+        short_description: The message to display when a message is not found
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: The return status to return when a message is not found
+        name: not-found-code
+        repeatable: false
+        required: false
+        short_description: The return status to return when a message is not found
+    list_cache:
+      info:
+        description: List all keys in the cache.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+module: SimpleCache
+namespace: generic
+platforms:
+- unix
+- windows

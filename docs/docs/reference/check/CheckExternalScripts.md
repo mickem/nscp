@@ -34,7 +34,6 @@ To enable this module and and allow using the commands you need to ass `CheckExt
 CheckExternalScripts = enabled
 ```
 
-
 ## Samples
 
 _Feel free to add more samples [on this page](https://github.com/mickem/nscp/blob/master/docs/samples/CheckExternalScripts_samples.md)_
@@ -133,8 +132,6 @@ The draw back to this is that the script cannot return any output neither messag
 
 ## Configuration
 
-
-
 | Path / Section                                                 | Description              |
 |----------------------------------------------------------------|--------------------------|
 | [/settings/external scripts](#external-script-settings)        | External script settings |
@@ -144,13 +141,9 @@ The draw back to this is that the script cannot return any output neither messag
 | [/settings/external scripts/wrappings](#script-wrappings)      | Script wrappings         |
 
 
-
 ### External script settings <a id="/settings/external scripts"></a>
 
 General settings for the external scripts module (CheckExternalScripts).
-
-
-
 
 | Key                                                                                    | Default Value | Description                                                 |
 |----------------------------------------------------------------------------------------|---------------|-------------------------------------------------------------|
@@ -162,7 +155,6 @@ General settings for the external scripts module (CheckExternalScripts).
 | [timeout](#command-timeout)                                                            | 60            | Command timeout                                             |
 
 
-
 ```ini
 # General settings for the external scripts module (CheckExternalScripts).
 [/settings/external scripts]
@@ -171,19 +163,11 @@ allow nasty characters=false
 kill tree=false
 script root=${scripts}
 timeout=60
-
 ```
-
-
-
-
 
 #### Allow arguments when executing external scripts <a id="/settings/external scripts/allow arguments"></a>
 
 This option determines whether or not the we will allow clients to specify arguments to commands that are executed.
-
-
-
 
 
 | Key            | Description                                               |
@@ -201,14 +185,9 @@ This option determines whether or not the we will allow clients to specify argum
 allow arguments=false
 ```
 
-
-
 #### Allow certain potentially dangerous characters in arguments <a id="/settings/external scripts/allow nasty characters"></a>
 
 This option determines whether or not the we will allow clients to specify nasty (as in \|\`&><'"\\[]{}) characters in arguments.
-
-
-
 
 
 | Key            | Description                                               |
@@ -226,14 +205,9 @@ This option determines whether or not the we will allow clients to specify nasty
 allow nasty characters=false
 ```
 
-
-
 #### Kill process tree <a id="/settings/external scripts/kill tree"></a>
 
 Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process).
-
-
-
 
 
 | Key            | Description                                               |
@@ -251,15 +225,9 @@ Kill all child processes (notice this might accidentally kill other processes if
 kill tree=false
 ```
 
-
-
 #### Load all scripts in a given folder <a id="/settings/external scripts/script path"></a>
 
 Load all scripts in a given directory and use them as commands.
-
-
-
-
 
 
 | Key            | Description                                               |
@@ -277,14 +245,9 @@ Load all scripts in a given directory and use them as commands.
 script path=
 ```
 
-
-
 #### Script root folder <a id="/settings/external scripts/script root"></a>
 
 Root path where all scripts are contained (You can not upload/download scripts outside this folder).
-
-
-
 
 
 | Key            | Description                                               |
@@ -302,14 +265,9 @@ Root path where all scripts are contained (You can not upload/download scripts o
 script root=${scripts}
 ```
 
-
-
 #### Command timeout <a id="/settings/external scripts/timeout"></a>
 
 The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.
-
-
-
 
 
 | Key            | Description                                               |
@@ -326,7 +284,6 @@ The maximum time in seconds that a command can execute. (if more then this execu
 # Command timeout
 timeout=60
 ```
-
 
 ### Command aliases <a id="/settings/external scripts/alias"></a>
 
@@ -473,7 +430,6 @@ This is a section of objects. This means that you will create objects below this
 *  bat
 *  ps1
 *  vbs
-
 
 
 

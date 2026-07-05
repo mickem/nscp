@@ -1,0 +1,74 @@
+common:
+  info:
+    description: Elastic sends metrics, events and logs to elastic search
+    title: ElasticClient
+  paths:
+    /settings/elastic/client:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        address:
+          advanced: false
+          default_value: ''
+          description: The address to send data to (http://127.0.0.1:9200/_bulk).
+          sample: false
+          title: Elastic address
+        event index:
+          advanced: false
+          default_value: nsclient_event-%(date)
+          description: The elastic index to use for events (log messages).
+          sample: false
+          title: Elastic index used for events
+        event type:
+          advanced: false
+          default_value: eventlog
+          description: The elastic type to use for events (log messages).
+          sample: false
+          title: Elastic type used for events
+        events:
+          advanced: false
+          default_value: eventlog:*,logfile:*
+          description: The events to subscribe to such as eventlog:* or logfile:mylog.
+          sample: false
+          title: Event
+        hostname:
+          advanced: false
+          default_value: auto
+          description: "The host name of the monitored computer.\nSet this to auto (default) to use the\
+            \ windows name of the computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\nHostname\
+            \ in lowercase\n${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname\
+            \ in lowercase\n${domain_uc}\tDomainname in uppercase\n"
+          sample: false
+          title: HOSTNAME
+        metrics index:
+          advanced: false
+          default_value: nsclient_metrics-%(date)
+          description: The elastic index to use for metrics.
+          sample: false
+          title: Elastic index used for metrics
+        metrics type:
+          advanced: false
+          default_value: metrics
+          description: The elastic type to use for metrics.
+          sample: false
+          title: Elastic type used for metrics
+        nsclient log index:
+          advanced: false
+          default_value: nsclient_log-%(date)
+          description: The elastic index to use for metrics.
+          sample: false
+          title: Elastic index used for metrics
+        nsclient log type:
+          advanced: false
+          default_value: nsclient log
+          description: The elastic type to use for metrics.
+          sample: false
+          title: Elastic type used for metrics
+module: ElasticClient
+namespace: misc
+platforms:
+- unix
+- windows

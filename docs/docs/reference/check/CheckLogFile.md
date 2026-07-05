@@ -2,8 +2,6 @@
 
 File for checking log files and various other forms of updating text files
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckLogFile = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `CheckLog
 [/modules]
 CheckLogFile = enabled
 ```
-
 
 ## Queries
 
@@ -26,21 +23,17 @@ A list of all available queries (check commands)
 |---------------------------------|-------------------------------------------------------------------------|
 | [check_logfile](#check_logfile) | Check for errors in log file or generic pattern matching in text files. |
 
-
 **List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
-
 
 | Command      | Description                       |
 |--------------|-----------------------------------|
 | checklogfile | Alias for: :query:`check_logfile` |
 
-
 ### check_logfile
 
 Check for errors in log file or generic pattern matching in text files.
-
 
 **Jump to section:**
 
@@ -49,7 +42,8 @@ Check for errors in log file or generic pattern matching in text files.
 
 
 
-
+<a id="check_logfile_options"></a>
+#### Command-line Arguments
 
 <a id="check_logfile_warn"></a>
 <a id="check_logfile_crit"></a>
@@ -62,9 +56,6 @@ Check for errors in log file or generic pattern matching in text files.
 <a id="check_logfile_help-short"></a>
 <a id="check_logfile_split"></a>
 <a id="check_logfile_files"></a>
-<a id="check_logfile_options"></a>
-#### Command-line Arguments
-
 
 | Option                                        | Default Value                       | Description                                                                                                      |
 |-----------------------------------------------|-------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -195,10 +186,8 @@ Notice that specifying multiple files will create an aggregate set it will not c
 In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.
 
 
-
 <a id="check_logfile_filter_keys"></a>
 #### Filter keywords
-
 
 | Option   | Description                                   |
 |----------|-----------------------------------------------|
@@ -234,12 +223,7 @@ In other words if one file contains an error the entire check will result in err
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
-
-
 ## Configuration
-
-
 
 | Path / Section                                           | Description         |
 |----------------------------------------------------------|---------------------|
@@ -247,37 +231,24 @@ In other words if one file contains an error the entire check will result in err
 | [/settings/logfile/real-time/checks](#real-time-filters) | Real-time filters   |
 
 
-
 ### Real-time filtering <a id="/settings/logfile/real-time"></a>
 
 A set of options to configure the real time checks
-
-
-
 
 | Key                   | Default Value | Description |
 |-----------------------|---------------|-------------|
 | [enabled](#real-time) | false         | Real time   |
 
 
-
 ```ini
 # A set of options to configure the real time checks
 [/settings/logfile/real-time]
 enabled=false
-
 ```
-
-
-
-
 
 #### Real time <a id="/settings/logfile/real-time/enabled"></a>
 
 Spawns a background thread which waits for file changes.
-
-
-
 
 
 | Key            | Description                                                 |
@@ -294,7 +265,6 @@ Spawns a background thread which waits for file changes.
 # Real time
 enabled=false
 ```
-
 
 ### Real-time filters <a id="/settings/logfile/real-time/checks"></a>
 
@@ -366,7 +336,6 @@ silent period=false
 #warning=...
 
 ```
-
 
 
 

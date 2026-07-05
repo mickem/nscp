@@ -1,26 +1,11 @@
 # CheckEventLog
 
+*Available on Windows only.*
+
 Check for errors and warnings in the event log.
 
+### Standard event-logs
 
-
-## Enable module
-
-To enable this module and and allow using the commands you need to ass `CheckEventLog = enabled` to the `[/modules]` section in nsclient.ini:
-
-```
-[/modules]
-CheckEventLog = enabled
-```
-
-
-## Samples
-
-_Feel free to add more samples [on this page](https://github.com/mickem/nscp/blob/master/docs/samples/CheckEventLog_samples.md)_
-
-### Monitoring event-log
-
-Monitoring the event-log is a single command away in the form of `check_eventlog`.
 The default command will monitor the application/system/security logs which usually have the generic errors.
 
 ```
@@ -67,7 +52,7 @@ check_eventlog "filter=provider = 'Microsoft-Windows-Security-SPP' and id = 903 
 
 ### Modern windows (channels)
 
-Since version 0.4.2 NSClient++ has had the ability to check all logs on modern windows machines.
+NSClient++ also has had the ability to check all logs on modern windows machines.
 This works out of the box and you specify the path of the channel you want to look for with the file command.
 A slight snag here is that the separator for "folders" is - not \ r / as one might expect this is unfortunately a windows flaw most likely related to the fact that event logs can also be read from the file system.
 
@@ -208,6 +193,16 @@ If we check the log we should see something similar to this:
 
 **TODO**
 
+
+## Enable module
+
+To enable this module and and allow using the commands you need to ass `CheckEventLog = enabled` to the `[/modules]` section in nsclient.ini:
+
+```
+[/modules]
+CheckEventLog = enabled
+```
+
 ## Queries
 
 A quick reference for all available queries (check commands) in the CheckEventLog module.
@@ -220,13 +215,9 @@ A list of all available queries (check commands)
 |-----------------------------------|------------------------------------|
 | [check_eventlog](#check_eventlog) | Check for errors in the event log. |
 
-
-
-
 ### check_eventlog
 
 Check for errors in the event log.
-
 
 **Jump to section:**
 
@@ -235,7 +226,8 @@ Check for errors in the event log.
 
 
 
-
+<a id="check_eventlog_options"></a>
+#### Command-line Arguments
 
 <a id="check_eventlog_warn"></a>
 <a id="check_eventlog_crit"></a>
@@ -248,9 +240,6 @@ Check for errors in the event log.
 <a id="check_eventlog_help-short"></a>
 <a id="check_eventlog_log"></a>
 <a id="check_eventlog_truncate-message"></a>
-<a id="check_eventlog_options"></a>
-#### Command-line Arguments
-
 
 | Option                                         | Default Value                                  | Description                                                                                                                                                                                                 |
 |------------------------------------------------|------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -401,7 +390,6 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 <a id="check_eventlog_filter_keys"></a>
 #### Filter keywords
 
-
 | Option      | Description                                                                |
 |-------------|----------------------------------------------------------------------------|
 | category    | TODO                                                                       |
@@ -442,12 +430,7 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
-
-
 ## Configuration
-
-
 
 | Path / Section                                                      | Description                   |
 |---------------------------------------------------------------------|-------------------------------|
@@ -456,13 +439,9 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 | [/settings/eventlog/real-time/filters](#real-time-eventlog-filters) | Real-time eventlog filters    |
 
 
-
 ### Eventlog <a id="/settings/eventlog"></a>
 
 Section for the EventLog Checker (CheckEventLog.dll).
-
-
-
 
 | Key                                    | Default Value | Description           |
 |----------------------------------------|---------------|-----------------------|
@@ -472,26 +451,17 @@ Section for the EventLog Checker (CheckEventLog.dll).
 | [syntax](#default-syntax)              |               | Default syntax        |
 
 
-
 ```ini
 # Section for the EventLog Checker (CheckEventLog.dll).
 [/settings/eventlog]
 buffer size=131072
 debug=false
 lookup names=true
-
 ```
-
-
-
-
 
 #### Default buffer size <a id="/settings/eventlog/buffer size"></a>
 
 The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.
-
-
-
 
 
 | Key            | Description                               |
@@ -509,14 +479,9 @@ The size of the buffer to use when getting messages this affects the speed and m
 buffer size=131072
 ```
 
-
-
 #### Enable debugging <a id="/settings/eventlog/debug"></a>
 
 Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
-
-
-
 
 
 | Key            | Description                               |
@@ -534,14 +499,9 @@ Log more information when filtering (useful to detect issues with filters) not u
 debug=false
 ```
 
-
-
 #### Lookup eventlog names <a id="/settings/eventlog/lookup names"></a>
 
 Lookup the names of eventlog files
-
-
-
 
 
 | Key            | Description                               |
@@ -559,15 +519,9 @@ Lookup the names of eventlog files
 lookup names=true
 ```
 
-
-
 #### Default syntax <a id="/settings/eventlog/syntax"></a>
 
 Set this to use a specific syntax string for all commands (that don't specify one).
-
-
-
-
 
 
 | Key            | Description                               |
@@ -585,13 +539,9 @@ Set this to use a specific syntax string for all commands (that don't specify on
 syntax=
 ```
 
-
 ### Real-time eventlog monitoring <a id="/settings/eventlog/real-time"></a>
 
 A set of options to configure the real time checks
-
-
-
 
 | Key                                         | Default Value      | Description                 |
 |---------------------------------------------|--------------------|-----------------------------|
@@ -601,7 +551,6 @@ A set of options to configure the real time checks
 | [startup age](#read-old-records-at-startup) | 30m                | Read old records at startup |
 
 
-
 ```ini
 # A set of options to configure the real time checks
 [/settings/eventlog/real-time]
@@ -609,19 +558,11 @@ debug=false
 enabled=false
 log=application,system
 startup age=30m
-
 ```
-
-
-
-
 
 #### Enable debugging <a id="/settings/eventlog/real-time/debug"></a>
 
 Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
-
-
-
 
 
 | Key            | Description                                                   |
@@ -639,14 +580,9 @@ Log missed records (useful to detect issues with filters) not useful in producti
 debug=false
 ```
 
-
-
 #### Enable realtime monitoring <a id="/settings/eventlog/real-time/enabled"></a>
 
 Spawns a background thread which detects issues and reports them back instantly.
-
-
-
 
 
 | Key            | Description                                                   |
@@ -664,14 +600,9 @@ Spawns a background thread which detects issues and reports them back instantly.
 enabled=false
 ```
 
-
-
 #### Logs to check <a id="/settings/eventlog/real-time/log"></a>
 
 Comma separated list of logs to check
-
-
-
 
 
 | Key            | Description                                                   |
@@ -689,14 +620,9 @@ Comma separated list of logs to check
 log=application,system
 ```
 
-
-
 #### Read old records at startup <a id="/settings/eventlog/real-time/startup age"></a>
 
 The initial age to scan when starting NSClient++
-
-
-
 
 
 | Key            | Description                                                   |
@@ -713,7 +639,6 @@ The initial age to scan when starting NSClient++
 # Read old records at startup
 startup age=30m
 ```
-
 
 ### Real-time eventlog filters <a id="/settings/eventlog/real-time/filters"></a>
 
@@ -781,7 +706,6 @@ silent period=false
 #warning=...
 
 ```
-
 
 
 

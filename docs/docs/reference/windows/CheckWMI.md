@@ -1,8 +1,8 @@
 # CheckWMI
 
+*Available on Windows only.*
+
 Check status via WMI
-
-
 
 ## Enable module
 
@@ -12,7 +12,6 @@ To enable this module and and allow using the commands you need to ass `CheckWMI
 [/modules]
 CheckWMI = enabled
 ```
-
 
 ## Queries
 
@@ -26,21 +25,17 @@ A list of all available queries (check commands)
 |-------------------------|------------------------------------------------------------------------|
 | [check_wmi](#check_wmi) | Check a set of WMI values and return rows which are matching criteria. |
 
-
 **List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
-
 
 | Command  | Description                   |
 |----------|-------------------------------|
 | checkwmi | Alias for: :query:`check_wmi` |
 
-
 ### check_wmi
 
 Check a set of WMI values and return rows which are matching criteria.
-
 
 **Jump to section:**
 
@@ -51,8 +46,6 @@ Check a set of WMI values and return rows which are matching criteria.
 
 <a id="check_wmi_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckWMI_check_wmi_samples.md)_
 
 Basic check to see/fetch information (no check)::
 
@@ -102,6 +95,9 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 
 
 
+<a id="check_wmi_options"></a>
+#### Command-line Arguments
+
 <a id="check_wmi_warn"></a>
 <a id="check_wmi_crit"></a>
 <a id="check_wmi_debug"></a>
@@ -115,9 +111,6 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 <a id="check_wmi_user"></a>
 <a id="check_wmi_password"></a>
 <a id="check_wmi_query"></a>
-<a id="check_wmi_options"></a>
-#### Command-line Arguments
-
 
 | Option                                    | Default Value | Description                                                                                                      |
 |-------------------------------------------|---------------|------------------------------------------------------------------------------------------------------------------|
@@ -235,8 +228,6 @@ The WMI root namespace to bind to.
 <a id="check_wmi_filter_keys"></a>
 #### Filter keywords
 
-
-
 **Common options for all checks:**
 
 | Option        | Description                                                                    |
@@ -255,17 +246,11 @@ The WMI root namespace to bind to.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
-
-
 ## Configuration
-
-
 
 | Path / Section                                | Description         |
 |-----------------------------------------------|---------------------|
 | [/settings/wmi/targets](#target-list-section) | TARGET LIST SECTION |
-
 
 
 ### TARGET LIST SECTION <a id="/settings/wmi/targets"></a>
@@ -274,7 +259,6 @@ A list of available remote target systems
 
 
 This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
-
 
 
 

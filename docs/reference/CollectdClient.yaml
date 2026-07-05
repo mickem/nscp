@@ -1,0 +1,93 @@
+common:
+  info:
+    description: CollectD client can be used to submit metrics to a collectd server
+    title: CollectdClient
+  paths:
+    /settings/collectd/client:
+      info:
+        advanced: false
+        description: Section for the collectd client; forwards NSClient++ metrics to a collectd server.
+        subkey: false
+        title: COLLECTD CLIENT SECTION
+      keys:
+        hostname:
+          advanced: false
+          default_value: auto
+          description: "The host name reported to collectd.\nSet this to auto (default) to use the name\
+            \ of this computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\tHostname in lowercase\n\
+            ${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname in lowercase\n\
+            ${domain_uc}\tDomainname in uppercase\n"
+          sample: false
+          title: HOSTNAME
+        interval:
+          advanced: false
+          default_value: '10'
+          description: The interval (in seconds) reported to collectd. Should match the core 'metrics
+            interval' so collectd computes rates correctly.
+          sample: false
+          title: METRICS INTERVAL
+    /settings/collectd/client/metrics:
+      info:
+        advanced: false
+        description: Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user).
+          When empty a built-in default set is used.
+        subkey: false
+        title: METRIC MAPPINGS
+    /settings/collectd/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          interval:
+            advanced: false
+            default_value: ''
+            description: The interval (in seconds) reported to collectd for metrics sent to this target.
+              Overrides the client-level interval; should match the core 'metrics interval'.
+            sample: true
+            title: METRICS INTERVAL
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+    /settings/collectd/client/variables:
+      info:
+        advanced: false
+        description: Variables used to expand ${...} placeholders in metric keys. Each value is a regular
+          expression matched against metric names; the captured groups become the variable's values. When
+          empty a built-in default set is used.
+        subkey: false
+        title: VARIABLE DEFINITIONS
+module: CollectdClient
+namespace: misc
+platforms:
+- unix
+- windows

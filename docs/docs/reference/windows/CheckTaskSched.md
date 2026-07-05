@@ -1,8 +1,8 @@
 # CheckTaskSched
 
+*Available on Windows only.*
+
 Check status of your scheduled jobs.
-
-
 
 ## Enable module
 
@@ -12,7 +12,6 @@ To enable this module and and allow using the commands you need to ass `CheckTas
 [/modules]
 CheckTaskSched = enabled
 ```
-
 
 ## Queries
 
@@ -26,13 +25,9 @@ A list of all available queries (check commands)
 |-------------------------------------|---------------------------------|
 | [check_tasksched](#check_tasksched) | Check status of scheduled jobs. |
 
-
-
-
 ### check_tasksched
 
 Check status of scheduled jobs.
-
 
 **Jump to section:**
 
@@ -44,8 +39,6 @@ Check status of scheduled jobs.
 <a id="check_tasksched_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckTaskSched_check_tasksched_samples.md)_
-
 Default check **via NRPE**::
 
 ```
@@ -54,6 +47,9 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 ```
 
 
+
+<a id="check_tasksched_options"></a>
+#### Command-line Arguments
 
 <a id="check_tasksched_warn"></a>
 <a id="check_tasksched_crit"></a>
@@ -64,7 +60,6 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 <a id="check_tasksched_help-pb"></a>
 <a id="check_tasksched_show-default"></a>
 <a id="check_tasksched_help-short"></a>
-<a id="check_tasksched_force-old"></a>
 <a id="check_tasksched_computer"></a>
 <a id="check_tasksched_user"></a>
 <a id="check_tasksched_domain"></a>
@@ -72,9 +67,6 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 <a id="check_tasksched_folder"></a>
 <a id="check_tasksched_recursive"></a>
 <a id="check_tasksched_hidden"></a>
-<a id="check_tasksched_options"></a>
-#### Command-line Arguments
-
 
 | Option                                          | Default Value                         | Description                                                                                                                            |
 |-------------------------------------------------|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
@@ -98,7 +90,7 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 | [empty-syntax](#check_tasksched_empty-syntax)   | %(status): No tasks found             | Empty syntax.                                                                                                                          |
 | [detail-syntax](#check_tasksched_detail-syntax) | ${folder}/${title}: ${exit_code} != 0 | Detail level syntax.                                                                                                                   |
 | [perf-syntax](#check_tasksched_perf-syntax)     | ${title}                              | Performance alias syntax.                                                                                                              |
-| force-old                                       | N/A                                   | The name of the computer that you want to connect to.                                                                                  |
+| [force-old](#check_tasksched_force-old)         | 1)] (=0                               | The name of the computer that you want to connect to.                                                                                  |
 | computer                                        |                                       | The name of the computer that you want to connect to.                                                                                  |
 | user                                            |                                       | The user name that is used during the connection to the computer.                                                                      |
 | domain                                          |                                       | The domain of the user specified in the user parameter.                                                                                |
@@ -191,10 +183,15 @@ This is the syntax for the base names of the performance data.
 
 *Default Value:* `${title}`
 
+<h5 id="check_tasksched_force-old">force-old:</h5>
+
+The name of the computer that you want to connect to.
+
+*Default Value:* `1)] (=0`
+
 
 <a id="check_tasksched_filter_keys"></a>
 #### Filter keywords
-
 
 | Option               | Description                                                             |
 |----------------------|-------------------------------------------------------------------------|
@@ -230,7 +227,4 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
-
-
 

@@ -1,0 +1,319 @@
+common:
+  info:
+    description: SMTP client can be used both from command line and from queries to check remote systems
+      via SMTP
+    title: SMTPClient
+  paths:
+    /settings/SMTP/client:
+      info:
+        advanced: false
+        description: Section for SMTP passive check module.
+        subkey: false
+        title: SMTP CLIENT SECTION
+      keys:
+        channel:
+          advanced: false
+          default_value: SMTP
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+    /settings/SMTP/client/handlers:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: CLIENT HANDLER SECTION
+    /settings/SMTP/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+  queries:
+    submit_smtp:
+      info:
+        description: Submit information to the remote SMTP server.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Same as command
+        name: alias
+        repeatable: false
+        required: false
+        short_description: Same as command
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Message
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+        name: result
+        repeatable: false
+        required: false
+        short_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|result|message'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|result|message'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Envelope sender / From: header.'
+        name: sender
+        repeatable: false
+        required: false
+        short_description: 'Envelope sender / From: header.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Recipient address (one per submission).
+        name: recipient
+        repeatable: false
+        required: false
+        short_description: Recipient address (one per submission).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Subject template; %source% / %message% are substituted.
+        name: subject
+        repeatable: false
+        required: false
+        short_description: Subject template; %source% / %message% are substituted.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Body template; %source% / %message% are substituted.
+        name: template
+        repeatable: false
+        required: false
+        short_description: Body template; %source% / %message% are substituted.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SMTP AUTH username.
+        name: username
+        repeatable: false
+        required: false
+        short_description: SMTP AUTH username.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SMTP AUTH password.
+        name: password
+        repeatable: false
+        required: false
+        short_description: SMTP AUTH password.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Transport security: none | starttls (default) | tls.'
+        name: security
+        repeatable: false
+        required: false
+        short_description: 'Transport security: none | starttls (default) | tls.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Hostname to send in EHLO.
+        name: ehlo-hostname
+        repeatable: false
+        required: false
+        short_description: Hostname to send in EHLO.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Skip TLS certificate validation (test environments only).
+        name: insecure-skip-verify
+        repeatable: false
+        required: false
+        short_description: Skip TLS certificate validation (test environments only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host).
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (alias for --source-host).
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (alias for --source-host).
+module: SMTPClient
+namespace: client
+platforms:
+- unix
+- windows

@@ -2,8 +2,6 @@
 
 NSCP client can be used both from command line and from queries to check remote systems via NSCP (REST)
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `NSCPClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `NSCPClie
 [/modules]
 NSCPClient = enabled
 ```
-
 
 ## Queries
 
@@ -30,13 +27,9 @@ A list of all available queries (check commands)
 | [remote_nscpforward](#remote_nscpforward) | Forward the request as-is to remote host via NSCP. |
 | [submit_remote_nscp](#submit_remote_nscp) | Submit information to remote host via NSCP.        |
 
-
-
-
 ### check_remote_nscp
 
 Request remote information via NSCP.
-
 
 **Jump to section:**
 
@@ -44,7 +37,8 @@ Request remote information via NSCP.
 
 
 
-
+<a id="check_remote_nscp_options"></a>
+#### Command-line Arguments
 
 <a id="check_remote_nscp_help"></a>
 <a id="check_remote_nscp_help-pb"></a>
@@ -71,9 +65,6 @@ Request remote information via NSCP.
 <a id="check_remote_nscp_verify"></a>
 <a id="check_remote_nscp_allowed-ciphers"></a>
 <a id="check_remote_nscp_password"></a>
-<a id="check_remote_nscp_options"></a>
-#### Command-line Arguments
-
 
 | Option                        | Default Value | Description                                                                           |
 |-------------------------------|---------------|---------------------------------------------------------------------------------------|
@@ -117,14 +108,14 @@ Initial an ssl handshake with the server.
 
 Execute remote script via NSCP.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#exec_remote_nscp_options)
 
 
 
-
+<a id="exec_remote_nscp_options"></a>
+#### Command-line Arguments
 
 <a id="exec_remote_nscp_help"></a>
 <a id="exec_remote_nscp_help-pb"></a>
@@ -151,9 +142,6 @@ Execute remote script via NSCP.
 <a id="exec_remote_nscp_verify"></a>
 <a id="exec_remote_nscp_allowed-ciphers"></a>
 <a id="exec_remote_nscp_password"></a>
-<a id="exec_remote_nscp_options"></a>
-#### Command-line Arguments
-
 
 | Option                       | Default Value | Description                                                                           |
 |------------------------------|---------------|---------------------------------------------------------------------------------------|
@@ -197,14 +185,14 @@ Initial an ssl handshake with the server.
 
 Request remote information via NSCP.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#remote_nscp_query_options)
 
 
 
-
+<a id="remote_nscp_query_options"></a>
+#### Command-line Arguments
 
 <a id="remote_nscp_query_help"></a>
 <a id="remote_nscp_query_help-pb"></a>
@@ -231,9 +219,6 @@ Request remote information via NSCP.
 <a id="remote_nscp_query_verify"></a>
 <a id="remote_nscp_query_allowed-ciphers"></a>
 <a id="remote_nscp_query_password"></a>
-<a id="remote_nscp_query_options"></a>
-#### Command-line Arguments
-
 
 | Option                        | Default Value | Description                                                                           |
 |-------------------------------|---------------|---------------------------------------------------------------------------------------|
@@ -277,18 +262,7 @@ Initial an ssl handshake with the server.
 
 Forward the request as-is to remote host via NSCP.
 
-
 **Jump to section:**
-
-* [Command-line Arguments](#remote_nscpforward_options)
-
-
-
-
-
-<a id="remote_nscpforward_options"></a>
-#### Command-line Arguments
-
 
 
 
@@ -298,14 +272,14 @@ Forward the request as-is to remote host via NSCP.
 
 Submit information to remote host via NSCP.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#submit_remote_nscp_options)
 
 
 
-
+<a id="submit_remote_nscp_options"></a>
+#### Command-line Arguments
 
 <a id="submit_remote_nscp_help"></a>
 <a id="submit_remote_nscp_help-pb"></a>
@@ -334,9 +308,6 @@ Submit information to remote host via NSCP.
 <a id="submit_remote_nscp_verify"></a>
 <a id="submit_remote_nscp_allowed-ciphers"></a>
 <a id="submit_remote_nscp_password"></a>
-<a id="submit_remote_nscp_options"></a>
-#### Command-line Arguments
-
 
 | Option                         | Default Value | Description                                                                           |
 |--------------------------------|---------------|---------------------------------------------------------------------------------------|
@@ -378,11 +349,7 @@ Initial an ssl handshake with the server.
 *Default Value:* `1`
 
 
-
-
 ## Configuration
-
-
 
 | Path / Section                                              | Description               |
 |-------------------------------------------------------------|---------------------------|
@@ -391,37 +358,24 @@ Initial an ssl handshake with the server.
 | [/settings/NSCP/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### NSCP CLIENT SECTION <a id="/settings/NSCP/client"></a>
 
 Section for NSCP active/passive check module.
-
-
-
 
 | Key                 | Default Value | Description |
 |---------------------|---------------|-------------|
 | [channel](#channel) | NSCP          | CHANNEL     |
 
 
-
 ```ini
 # Section for NSCP active/passive check module.
 [/settings/NSCP/client]
 channel=NSCP
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/NSCP/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                     |
@@ -438,7 +392,6 @@ The channel to listen to.
 # CHANNEL
 channel=NSCP
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/NSCP/client/handlers"></a>
 
@@ -502,7 +455,6 @@ timeout=30
 #verify mode=...
 
 ```
-
 
 
 

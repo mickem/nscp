@@ -1,0 +1,250 @@
+module: NSClientServer
+namespace: windows
+platforms:
+- windows
+windows:
+  info:
+    description: A server that listens for incoming check_nt connection and processes incoming requests.
+    title: NSClientServer
+  paths:
+    /settings/NSClient/server:
+      info:
+        advanced: false
+        description: Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
+        subkey: false
+        title: NSCLIENT SERVER SECTION
+      keys:
+        allow:
+          advanced: false
+          default_value: any
+          description: 'Comma separated list of which check_nt commands this server will answer. Each
+            entry is a group, the keyword ''any''/''all'', or an individual command name. Groups: ''metrics''
+            (cpuload, uptime, useddiskspace, memuse), ''info'' (clientversion), ''service'' (servicestate),
+            ''process'' (procstate), ''counters'' (counter, instances), ''files'' (fileage). Individual
+            commands: clientversion, cpuload, uptime, useddiskspace, servicestate, procstate, memuse,
+            counter, fileage, instances. Default ''any'' answers everything (full check_nt compatibility).
+            To expose only harmless system metrics use e.g. ''metrics, info''; this denies the arbitrary-read
+            commands (counter, fileage, instances) and the service/process enumeration commands.'
+          sample: false
+          title: ALLOWED COMMANDS
+        allowed ciphers:
+          advanced: true
+          default_value: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
+          description: 'The chipers which are allowed to be used.
+
+            The default here will differ is used in "insecure" mode or not. check_nrpe uses a very old
+            chipers and should preferably not be used. For details of chipers please see the OPEN ssl
+            documentation: https://www.openssl.org/docs/apps/ciphers.html'
+          sample: false
+          title: ALLOWED CIPHERS
+        allowed hosts:
+          advanced: false
+          default_value: 127.0.0.1
+          description: A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
+            create ranges.
+          sample: false
+          title: Allowed hosts
+        bind to:
+          advanced: false
+          default_value: ''
+          description: Allows you to bind server to a specific local address. This has to be a dotted
+            ip address not a host name. Leaving this blank will bind to all available IP addresses.
+          sample: false
+          title: BIND TO ADDRESS
+        ca:
+          advanced: true
+          default_value: ${certificate-path}/ca.pem
+          description: ''
+          sample: false
+          title: CA
+        cache allowed hosts:
+          advanced: false
+          default_value: 'true'
+          description: If host names (DNS entries) should be cached, improves speed and security somewhat
+            but won't allow you to have dynamic IPs for your Nagios server.
+          sample: false
+          title: Cache list of allowed hosts
+        certificate:
+          advanced: true
+          default_value: ${certificate-path}/certificate.pem
+          description: ''
+          sample: false
+          title: SSL CERTIFICATE
+        certificate format:
+          advanced: true
+          default_value: PEM
+          description: ''
+          sample: false
+          title: CERTIFICATE FORMAT
+        certificate key:
+          advanced: true
+          default_value: ''
+          description: ''
+          sample: false
+          title: SSL CERTIFICATE
+        debug verify:
+          advanced: true
+          default_value: 'false'
+          description: Set this to tru to output certificate verification errors, these are outputed to
+            stdout (not the log).
+          sample: false
+          title: Debug peer certificate verification
+        dh:
+          advanced: true
+          default_value: ''
+          description: ''
+          sample: false
+          title: DH KEY
+        password:
+          advanced: false
+          default_value: ''
+          description: Password used to authenticate against server
+          sample: false
+          title: Password
+        performance data:
+          advanced: false
+          default_value: 'true'
+          description: Send performance data back to Nagios (set this to 0 to remove all performance data).
+          sample: false
+          title: PERFORMANCE DATA
+        port:
+          advanced: false
+          default_value: '12489'
+          description: Port to use for check_nt.
+          sample: false
+          title: PORT NUMBER
+        socket queue size:
+          advanced: true
+          default_value: '0'
+          description: Number of sockets to queue before starting to refuse new incoming connections.
+            This can be used to tweak the amount of simultaneous sockets that the server accepts.
+          sample: false
+          title: LISTEN QUEUE
+        ssl options:
+          advanced: true
+          default_value: ''
+          description: "Comma separated list of verification flags to set on the SSL socket.\n\ndefault-workarounds\t\
+            Various workarounds for what I understand to be broken ssl implementations\nno-sslv2\tDo not\
+            \ use the SSLv2 protocol (prefer tls version instead).\nno-sslv3\tDo not use the SSLv3 protocol\
+            \ (prefer tls version instead).\nno-tlsv1\tDo not use the TLSv1 protocol (prefer tls version\
+            \ instead).\nno-tlsv1_1\tDo not use the TLSv1.1 protocol (prefer tls version instead).\nno-tlsv1_2\t\
+            Do not use the TLSv1.2 protocol (prefer tls version instead).\nno-tlsv1_3\tDo not use the\
+            \ TLSv1.3 protocol (prefer tls version instead).\nsingle-dh-use\tAlways create a new key when\
+            \ using temporary/ephemeral DH parameters. This option must be used to prevent small subgroup\
+            \ attacks, when the DH parameters were not generated using \"strong\" primes (e.g. when using\
+            \ DSA-parameters).\n\n\n"
+          sample: false
+          title: VERIFY MODE
+        thread pool:
+          advanced: true
+          default_value: '10'
+          description: ''
+          sample: false
+          title: THREAD POOL
+        timeout:
+          advanced: false
+          default_value: '30'
+          description: Timeout (in seconds) when reading packets on incoming sockets. If the data has
+            not arrived within this time we will bail out.
+          sample: false
+          title: TIMEOUT
+        tls version:
+          advanced: true
+          default_value: tlsv1.2+
+          description: Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+,
+            tlsv1.2+, tlsv1.1+, tlsv1.0+, sslv3+ (Which uses the version mentioned and above)
+          sample: false
+          title: TLS version to use
+        use ssl:
+          advanced: false
+          default_value: 'true'
+          description: This option controls if SSL should be enabled.
+          sample: false
+          title: ENABLE SSL ENCRYPTION
+        verify mode:
+          advanced: true
+          default_value: none
+          description: "Comma separated list of verification flags to set on the SSL socket.\n\nnone\t\
+            The server will not send a client certificate request to the client, so the client will not\
+            \ send a certificate.\npeer\tThe server sends a client certificate request to the client and\
+            \ the certificate returned (if any) is checked.\nfail-if-no-cert\tif the client did not return\
+            \ a certificate, the TLS/SSL handshake is immediately terminated. This flag must be used together\
+            \ with peer.\npeer-cert\tAlias for peer and fail-if-no-cert.\nworkarounds\tVarious bug workarounds.\n\
+            single\tAlways create a new key when using tmp_dh parameters.\nclient-once\tOnly request a\
+            \ client certificate on the initial TLS/SSL handshake. This flag must be used together with\
+            \ verify-peer\n\n\n"
+          sample: false
+          title: VERIFY MODE
+    /settings/default:
+      info:
+        advanced: false
+        description: Default values used in other config sections.
+        subkey: false
+        title: Default values
+      keys:
+        allowed hosts:
+          advanced: false
+          default_value: 127.0.0.1
+          description: A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
+            create ranges.
+          sample: false
+          title: Allowed hosts
+        bind to:
+          advanced: false
+          default_value: ''
+          description: Allows you to bind server to a specific local address. This has to be a dotted
+            ip address not a host name. Leaving this blank will bind to all available IP addresses.
+          sample: false
+          title: BIND TO ADDRESS
+        cache allowed hosts:
+          advanced: false
+          default_value: 'true'
+          description: If host names (DNS entries) should be cached, improves speed and security somewhat
+            but won't allow you to have dynamic IPs for your Nagios server.
+          sample: false
+          title: Cache list of allowed hosts
+        encoding:
+          advanced: true
+          default_value: ''
+          description: ''
+          sample: false
+          title: NRPE PAYLOAD ENCODING
+        inbox:
+          advanced: false
+          default_value: inbox
+          description: The default channel to post incoming messages on
+          sample: false
+          title: INBOX
+        password:
+          advanced: false
+          default_value: ''
+          description: Password used to authenticate against server
+          sample: false
+          title: Password
+        socket queue size:
+          advanced: true
+          default_value: '0'
+          description: Number of sockets to queue before starting to refuse new incoming connections.
+            This can be used to tweak the amount of simultaneous sockets that the server accepts.
+          sample: false
+          title: LISTEN QUEUE
+        thread pool:
+          advanced: true
+          default_value: '10'
+          description: ''
+          sample: false
+          title: THREAD POOL
+        timeout:
+          advanced: false
+          default_value: '30'
+          description: Timeout (in seconds) when reading packets on incoming sockets. If the data has
+            not arrived within this time we will bail out.
+          sample: false
+          title: TIMEOUT
+        timezone:
+          advanced: true
+          default_value: local
+          description: Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc',
+            or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
+          sample: false
+          title: Timezone

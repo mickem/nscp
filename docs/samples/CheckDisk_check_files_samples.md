@@ -1,4 +1,4 @@
-#### Performance
+**Performance**
 
 Order is somewhat important but mainly in the fact that some operations are more costly than others.
 For instance line_count requires us to read and count the lines in each file so choosing between the following:
@@ -10,7 +10,7 @@ The first one will be significantly faster if you have a thousand old files and 
 
 On the other hand in this example `filter=creation < -2d and size > 100k` swapping them would not be noticeable.
 
-#### Checking versions of .exe files
+**Checking versions of .exe files**
 
 ```
 check_files path=c:/foo/ pattern=*.exe "filter=version != '1.0'" "detail-syntax=%(filename): %(version)" "warn=count > 1" show-all
@@ -18,7 +18,7 @@ L        cli WARNING: WARNING: 0/11 files (check_nrpe.exe: , nscp.exe: 0.5.0.16,
 L        cli  Performance data: 'count'=11;1;0
 ```
 
-#### Using the line count with limited recursion:
+**Using the line count with limited recursion:**
 
 ```
 check_files path=c:/windows pattern=*.txt max-depth=1 "filter=line_count gt 100" "detail-syntax=%(filename): %(line_count)" "warn=count>0" show-all
@@ -26,7 +26,7 @@ L        cli WARNING: WARNING: 0/1 files (AsChkDev.txt: 328)
 L        cli  Performance data: 'count'=1;0;0
 ```
 
-#### Check file sizes
+**Check file sizes**
 
 ```
 check_files path=c:/windows pattern=*.txt "detail-syntax=%(filename): %(size)" "warn=size>20k" max-depth=1

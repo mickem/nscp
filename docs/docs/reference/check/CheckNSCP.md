@@ -2,8 +2,6 @@
 
 Use this module to check the health and status of NSClient++ it self
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckNSCP = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `CheckNSC
 [/modules]
 CheckNSCP = enabled
 ```
-
 
 ## Queries
 
@@ -28,13 +25,9 @@ A list of all available queries (check commands)
 | [check_nscp_update](#check_nscp_update)   | Check if there is a newer version of NSClient++ available on GitHub. The result is cached (default 24 hours) to avoid hitting the GitHub API rate limit. |
 | [check_nscp_version](#check_nscp_version) | Check the version of NSClient++ which is used.                                                                                                           |
 
-
-
-
 ### check_nscp
 
 Check the internal health of NSClient++.
-
 
 **Jump to section:**
 
@@ -42,15 +35,13 @@ Check the internal health of NSClient++.
 
 
 
-
+<a id="check_nscp_options"></a>
+#### Command-line Arguments
 
 <a id="check_nscp_help"></a>
 <a id="check_nscp_help-pb"></a>
 <a id="check_nscp_show-default"></a>
 <a id="check_nscp_help-short"></a>
-<a id="check_nscp_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -60,12 +51,9 @@ Check the internal health of NSClient++.
 | help-short   | N/A           | Show help screen (short format).              |
 
 
-
-
 ### check_nscp_update
 
 Check if there is a newer version of NSClient++ available on GitHub. The result is cached (default 24 hours) to avoid hitting the GitHub API rate limit.
-
 
 **Jump to section:**
 
@@ -74,7 +62,8 @@ Check if there is a newer version of NSClient++ available on GitHub. The result 
 
 
 
-
+<a id="check_nscp_update_options"></a>
+#### Command-line Arguments
 
 <a id="check_nscp_update_warn"></a>
 <a id="check_nscp_update_crit"></a>
@@ -85,9 +74,6 @@ Check if there is a newer version of NSClient++ available on GitHub. The result 
 <a id="check_nscp_update_help-pb"></a>
 <a id="check_nscp_update_show-default"></a>
 <a id="check_nscp_update_help-short"></a>
-<a id="check_nscp_update_options"></a>
-#### Command-line Arguments
-
 
 | Option                                            | Default Value                          | Description                                                                                                      |
 |---------------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -197,7 +183,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_nscp_update_filter_keys"></a>
 #### Filter keywords
 
-
 | Option           | Description                                                                                                                      |
 |------------------|----------------------------------------------------------------------------------------------------------------------------------|
 | build            | The build component of the installed version (the 3 in 0.1.2.3)                                                                  |
@@ -236,11 +221,9 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
 ### check_nscp_version
 
 Check the version of NSClient++ which is used.
-
 
 **Jump to section:**
 
@@ -249,7 +232,8 @@ Check the version of NSClient++ which is used.
 
 
 
-
+<a id="check_nscp_version_options"></a>
+#### Command-line Arguments
 
 <a id="check_nscp_version_warn"></a>
 <a id="check_nscp_version_crit"></a>
@@ -260,9 +244,6 @@ Check the version of NSClient++ which is used.
 <a id="check_nscp_version_help-pb"></a>
 <a id="check_nscp_version_show-default"></a>
 <a id="check_nscp_version_help-short"></a>
-<a id="check_nscp_version_options"></a>
-#### Command-line Arguments
-
 
 | Option                                             | Default Value        | Description                                                                                                      |
 |----------------------------------------------------|----------------------|------------------------------------------------------------------------------------------------------------------|
@@ -370,7 +351,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_nscp_version_filter_keys"></a>
 #### Filter keywords
 
-
 | Option  | Description                                                                |
 |---------|----------------------------------------------------------------------------|
 | build   | The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0 |
@@ -398,25 +378,16 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
-
-
 ## Configuration
-
-
 
 | Path / Section                               | Description  |
 |----------------------------------------------|--------------|
 | [/settings/nscp/check/update](#update-check) | Update check |
 
 
-
 ### Update check <a id="/settings/nscp/check/update"></a>
 
 Configuration for the check_nscp_update command which checks GitHub for newer NSClient++ releases.
-
-
-
 
 | Key                                         | Default Value                                     | Description             |
 |---------------------------------------------|---------------------------------------------------|-------------------------|
@@ -428,7 +399,6 @@ Configuration for the check_nscp_update command which checks GitHub for newer NS
 | [verify mode](#certificate-verify-mode)     | peer                                              | Certificate verify mode |
 
 
-
 ```ini
 # Configuration for the check_nscp_update command which checks GitHub for newer NSClient++ releases.
 [/settings/nscp/check/update]
@@ -438,19 +408,11 @@ check experimental=false
 tls version=tlsv1.2+
 url=https://api.github.com/repos/mickem/nscp/releases
 verify mode=peer
-
 ```
-
-
-
-
 
 #### CA bundle <a id="/settings/nscp/check/update/ca"></a>
 
 Path to a CA bundle used to verify the update endpoint certificate. Defaults to the trusted system CA store; point at a private bundle when running behind a TLS-inspecting proxy.
-
-
-
 
 
 | Key            | Description                                                 |
@@ -468,14 +430,9 @@ Path to a CA bundle used to verify the update endpoint certificate. Defaults to 
 ca=${ca-path}
 ```
 
-
-
 #### Cache duration <a id="/settings/nscp/check/update/cache hours"></a>
 
 Number of hours to cache the latest version lookup. The GitHub API is queried at most once per cache window to avoid rate limits.
-
-
-
 
 
 | Key            | Description                                                 |
@@ -493,14 +450,9 @@ Number of hours to cache the latest version lookup. The GitHub API is queried at
 cache hours=24
 ```
 
-
-
 #### Include pre-releases <a id="/settings/nscp/check/update/check experimental"></a>
 
 When true, GitHub pre-releases (experimental builds) are also considered when determining the latest available version. When false (default) only stable releases are considered.
-
-
-
 
 
 | Key            | Description                                                 |
@@ -518,14 +470,9 @@ When true, GitHub pre-releases (experimental builds) are also considered when de
 check experimental=false
 ```
 
-
-
 #### Minimum TLS version <a id="/settings/nscp/check/update/tls version"></a>
 
 Minimum TLS protocol version accepted when fetching the GitHub releases endpoint. Defaults to tlsv1.2+ which permits TLS 1.2 and TLS 1.3 only. Allowed values: tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3.
-
-
-
 
 
 | Key            | Description                                                 |
@@ -543,14 +490,9 @@ Minimum TLS protocol version accepted when fetching the GitHub releases endpoint
 tls version=tlsv1.2+
 ```
 
-
-
 #### Update URL <a id="/settings/nscp/check/update/url"></a>
 
 Base URL of the GitHub releases API used to look up the latest NSClient++ version. Point this at a mirror or internal proxy when running in environments without direct GitHub access.
-
-
-
 
 
 | Key            | Description                                                 |
@@ -568,14 +510,9 @@ Base URL of the GitHub releases API used to look up the latest NSClient++ versio
 url=https://api.github.com/repos/mickem/nscp/releases
 ```
 
-
-
 #### Certificate verify mode <a id="/settings/nscp/check/update/verify mode"></a>
 
 TLS certificate verification mode applied to the update endpoint. Defaults to 'peer' so the server certificate chain is validated against the configured CA bundle. Set to 'none' to disable verification (not recommended).
-
-
-
 
 
 | Key            | Description                                                 |
@@ -592,5 +529,3 @@ TLS certificate verification mode applied to the update endpoint. Defaults to 'p
 # Certificate verify mode
 verify mode=peer
 ```
-
-

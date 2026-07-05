@@ -57,6 +57,25 @@ include_directories(${Python3_INCLUDE_DIRS})
 add_library(${TARGET} MODULE ${SRCS})
 NSCP_DEBUG_SYMBOLS(${TARGET})
 
+# Boost.Python's instance_dealloc destroys a holder and THEN dynamic_casts it
+# (post-destruction UB that is benign in practice). With a non-recoverable
+# vptr sanitizer (-fsanitize=undefined -fno-sanitize-recover=all) GCC plants
+# `vptr = nullptr` at the end of every complete destructor, so that
+# dynamic_cast reads offset-to-top through a null vtable and SEGVs at
+# 0xfffffffffffffff0 whenever any wrapped object is destroyed (e.g. a script's
+# shutdown() dropping Settings/Registry/Core). The UB lives in libboost_python,
+# which we cannot rebuild, so exempt this module from the vptr check.
+if(
+        NOT NSCP_SANITIZE
+        STREQUAL
+        "off"
+        AND NSCP_SANITIZE
+        MATCHES
+        "undefined"
+)
+    target_compile_options(${TARGET} PRIVATE -fno-sanitize=vptr)
+endif()
+
 string(TOUPPER ${NSCP_BOOST_PYTHON_VERSION} BOOST_PYTHON_VERSION_UPPER)
 set(BOOST_PYTHON_LIBRARY ${Boost_${BOOST_PYTHON_VERSION_UPPER}_LIBRARY})
 

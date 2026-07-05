@@ -2,8 +2,6 @@
 
 NRPE client can be used both from command line and from queries to check remote systems via NRPE as well as configure the NRPE server
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `NRPEClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `NRPEClie
 [/modules]
 NRPEClient = enabled
 ```
-
 
 ## Queries
 
@@ -30,13 +27,9 @@ A list of all available queries (check commands)
 | [nrpe_query](#nrpe_query)     | Request remote information via NRPE.                                           |
 | [submit_nrpe](#submit_nrpe)   | Submit information to remote host via NRPE. (Most likely you want nrpe_query). |
 
-
-
-
 ### check_nrpe
 
 Request remote information via NRPE.
-
 
 **Jump to section:**
 
@@ -44,7 +37,8 @@ Request remote information via NRPE.
 
 
 
-
+<a id="check_nrpe_options"></a>
+#### Command-line Arguments
 
 <a id="check_nrpe_help"></a>
 <a id="check_nrpe_help-pb"></a>
@@ -73,9 +67,6 @@ Request remote information via NRPE.
 <a id="check_nrpe_payload-length"></a>
 <a id="check_nrpe_version"></a>
 <a id="check_nrpe_buffer-length"></a>
-<a id="check_nrpe_options"></a>
-#### Command-line Arguments
-
 
 | Option                           | Default Value | Description                                                                                                                                                               |
 |----------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -128,14 +119,14 @@ Use insecure legacy mode
 
 Execute remote script via NRPE. (Most likely you want nrpe_query).
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#exec_nrpe_options)
 
 
 
-
+<a id="exec_nrpe_options"></a>
+#### Command-line Arguments
 
 <a id="exec_nrpe_help"></a>
 <a id="exec_nrpe_help-pb"></a>
@@ -164,9 +155,6 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 <a id="exec_nrpe_payload-length"></a>
 <a id="exec_nrpe_version"></a>
 <a id="exec_nrpe_buffer-length"></a>
-<a id="exec_nrpe_options"></a>
-#### Command-line Arguments
-
 
 | Option                          | Default Value | Description                                                                                                                                                               |
 |---------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -219,31 +207,25 @@ Use insecure legacy mode
 
 Forward the request as-is to remote host via NRPE.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#nrpe_forward_options)
 
 
 
-
-
-<a id="nrpe_forward_*"></a>
 <a id="nrpe_forward_options"></a>
 #### Command-line Arguments
 
+<a id="nrpe_forward_*"></a>
 
 | Option | Default Value | Description |
 |--------|---------------|-------------|
 | *      |               |             |
 
 
-
-
 ### nrpe_query
 
 Request remote information via NRPE.
-
 
 **Jump to section:**
 
@@ -251,7 +233,8 @@ Request remote information via NRPE.
 
 
 
-
+<a id="nrpe_query_options"></a>
+#### Command-line Arguments
 
 <a id="nrpe_query_help"></a>
 <a id="nrpe_query_help-pb"></a>
@@ -280,9 +263,6 @@ Request remote information via NRPE.
 <a id="nrpe_query_payload-length"></a>
 <a id="nrpe_query_version"></a>
 <a id="nrpe_query_buffer-length"></a>
-<a id="nrpe_query_options"></a>
-#### Command-line Arguments
-
 
 | Option                           | Default Value | Description                                                                                                                                                               |
 |----------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -335,14 +315,14 @@ Use insecure legacy mode
 
 Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#submit_nrpe_options)
 
 
 
-
+<a id="submit_nrpe_options"></a>
+#### Command-line Arguments
 
 <a id="submit_nrpe_help"></a>
 <a id="submit_nrpe_help-pb"></a>
@@ -373,9 +353,6 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 <a id="submit_nrpe_payload-length"></a>
 <a id="submit_nrpe_version"></a>
 <a id="submit_nrpe_buffer-length"></a>
-<a id="submit_nrpe_options"></a>
-#### Command-line Arguments
-
 
 | Option                            | Default Value | Description                                                                                                                                                               |
 |-----------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -426,11 +403,7 @@ Use insecure legacy mode
 *Default Value:* `1`
 
 
-
-
 ## Configuration
-
-
 
 | Path / Section                                              | Description               |
 |-------------------------------------------------------------|---------------------------|
@@ -439,37 +412,24 @@ Use insecure legacy mode
 | [/settings/NRPE/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### NRPE CLIENT SECTION <a id="/settings/NRPE/client"></a>
 
 Section for NRPE active/passive check module.
-
-
-
 
 | Key                 | Default Value | Description |
 |---------------------|---------------|-------------|
 | [channel](#channel) | NRPE          | CHANNEL     |
 
 
-
 ```ini
 # Section for NRPE active/passive check module.
 [/settings/NRPE/client]
 channel=NRPE
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/NRPE/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                     |
@@ -486,7 +446,6 @@ The channel to listen to.
 # CHANNEL
 channel=NRPE
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/NRPE/client/handlers"></a>
 
@@ -554,7 +513,6 @@ timeout=30
 #version=...
 
 ```
-
 
 
 

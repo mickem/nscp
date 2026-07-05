@@ -1,0 +1,113 @@
+common:
+  info:
+    description: Use this to schedule check commands and jobs in conjunction with for instance passive
+      monitoring through NSCA
+    title: Scheduler
+  paths:
+    /settings/scheduler:
+      info:
+        advanced: false
+        description: Section for the Scheduler module.
+        subkey: false
+        title: Scheduler
+      keys:
+        threads:
+          advanced: false
+          default_value: '5'
+          description: Number of threads to use.
+          sample: false
+          title: Threads
+        timezone:
+          advanced: false
+          default_value: local
+          description: Reference clock for cron expressions. Accepts 'local' (default — standard cron
+            semantics), 'utc'/'gmt' (restores the pre-0.13 behaviour), or any POSIX TZ string such as
+            'EST-05EDT,M3.2.0,M11.1.0'. Unparseable values fall back to UTC and are flagged in the tz
+            label as 'UTC?'.
+          sample: false
+          title: Timezone
+    /settings/scheduler/schedules:
+      info:
+        advanced: false
+        description: Section for the Scheduler module.
+        subkey: true
+        title: Schedules
+      sample:
+        keys:
+          alias:
+            advanced: true
+            default_value: ''
+            description: The alias (service name) to report to server
+            sample: false
+            title: ALIAS
+          channel:
+            advanced: false
+            default_value: ''
+            description: Channel to send results on
+            sample: true
+            title: SCHEDULE CHANNEL
+          command:
+            advanced: false
+            default_value: ''
+            description: Command to execute
+            sample: true
+            title: SCHEDULE COMMAND
+          interval:
+            advanced: true
+            default_value: ''
+            description: Time in seconds between each check
+            sample: true
+            title: SCHEDULE INTERVAL
+          is template:
+            advanced: true
+            default_value: 'false'
+            description: Declare this object as a template (this means it will not be available as a separate
+              object)
+            sample: false
+            title: IS TEMPLATE
+          parent:
+            advanced: true
+            default_value: default
+            description: The parent the target inherits from
+            sample: false
+            title: PARENT
+          randomness:
+            advanced: false
+            default_value: ''
+            description: '% of the interval which should be random to prevent overloading server resources'
+            sample: true
+            title: RANDOMNESS
+          report:
+            advanced: true
+            default_value: ''
+            description: 'What to report to the server (any of the following: all, critical, warning,
+              unknown, ok)'
+            sample: true
+            title: REPORT MODE
+          schedule:
+            advanced: false
+            default_value: ''
+            description: Cron-like statement for when a task is run. Currently limited to only one number
+              i.e. 1 * * * * or * * 1 * * but not 1 1 * * *
+            sample: true
+            title: SCHEDULE
+          source:
+            advanced: true
+            default_value: ''
+            description: The name of the source system, will automatically use the remote system if a
+              remote system is called. Almost most sending systems will replace this with current systems
+              hostname if not present. So use this only if you need specific source systems for specific
+              schedules and not calling remote systems.
+            sample: true
+            title: SOURCE
+          target:
+            advanced: true
+            default_value: ''
+            description: The target to send the message to (will be resolved by the consumer)
+            sample: true
+            title: TARGET
+module: Scheduler
+namespace: generic
+platforms:
+- unix
+- windows

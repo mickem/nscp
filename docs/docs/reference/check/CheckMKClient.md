@@ -2,8 +2,6 @@
 
 check_mk client can be used both from command line and from queries to check remote systems via check_mk
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckMKClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `CheckMKC
 [/modules]
 CheckMKClient = enabled
 ```
-
 
 ## Queries
 
@@ -26,13 +23,9 @@ A list of all available queries (check commands)
 |-----------------------------------|------------------------------------------|
 | [check_mk_query](#check_mk_query) | Request remote information via check_mk. |
 
-
-
-
 ### check_mk_query
 
 Request remote information via check_mk.
-
 
 **Jump to section:**
 
@@ -40,7 +33,8 @@ Request remote information via check_mk.
 
 
 
-
+<a id="check_mk_query_options"></a>
+#### Command-line Arguments
 
 <a id="check_mk_query_help"></a>
 <a id="check_mk_query_help-pb"></a>
@@ -66,9 +60,6 @@ Request remote information via check_mk.
 <a id="check_mk_query_ca"></a>
 <a id="check_mk_query_verify"></a>
 <a id="check_mk_query_allowed-ciphers"></a>
-<a id="check_mk_query_options"></a>
-#### Command-line Arguments
-
 
 | Option                     | Default Value | Description                                                                           |
 |----------------------------|---------------|---------------------------------------------------------------------------------------|
@@ -107,11 +98,7 @@ Initial an ssl handshake with the server.
 *Default Value:* `1`
 
 
-
-
 ## Configuration
-
-
 
 | Path / Section                                                  | Description               |
 |-----------------------------------------------------------------|---------------------------|
@@ -121,37 +108,24 @@ Initial an ssl handshake with the server.
 | [/settings/check_mk/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### CHECK MK CLIENT SECTION <a id="/settings/check_mk/client"></a>
 
 Section for check_mk active/passive check module.
-
-
-
 
 | Key                 | Default Value | Description |
 |---------------------|---------------|-------------|
 | [channel](#channel) | CheckMK       | CHANNEL     |
 
 
-
 ```ini
 # Section for check_mk active/passive check module.
 [/settings/check_mk/client]
 channel=CheckMK
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/check_mk/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                             |
@@ -168,7 +142,6 @@ The channel to listen to.
 # CHANNEL
 channel=CheckMK
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/check_mk/client/handlers"></a>
 
@@ -226,7 +199,6 @@ retries=3
 timeout=30
 
 ```
-
 
 
 

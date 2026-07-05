@@ -2,8 +2,6 @@
 
 CheckSecurity checks host security posture: certificate expiry and (on Windows) the firewall profile state.
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckSecurity = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `CheckSec
 [/modules]
 CheckSecurity = enabled
 ```
-
 
 ## Queries
 
@@ -31,9 +28,6 @@ A list of all available queries (check commands)
 | [check_nla](#check_nla)                 | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.              |
 | [check_secureboot](#check_secureboot)   | Check whether UEFI Secure Boot is enabled. Windows only.                                                     |
 | [check_users](#check_users)             | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                  |
-
-
-
 
 ### check_antivirus
 
@@ -62,7 +56,6 @@ definitions); the raw value is exposed as `product_state` for auditing. Default
 threshold: **critical** if any product has `enabled = 0` or `up_to_date = 0`.
 **Windows only.**
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_antivirus_samples)
@@ -73,9 +66,7 @@ threshold: **critical** if any product has `enabled = 0` or `up_to_date = 0`.
 <a id="check_antivirus_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_antivirus_samples.md)_
-
-#### Check that antivirus is enabled and up to date (Windows)
+**Check that antivirus is enabled and up to date (Windows)**
 
 The default is critical if any registered product has real-time protection off
 or stale definitions.
@@ -90,21 +81,21 @@ check_antivirus
 L        cli CRITICAL: Windows Defender (enabled=1 up_to_date=0)
 ```
 
-#### Only require definitions to be current
+**Only require definitions to be current**
 
 ```
 check_antivirus "crit=up_to_date = 0"
 L        cli OK: 1 antivirus product(s) healthy
 ```
 
-#### Show each product's state
+**Show each product's state**
 
 ```
 check_antivirus "top-syntax=${list}" "detail-syntax=${name}: enabled=${enabled} current=${up_to_date} state=${product_state}"
 L        cli OK: Windows Defender: enabled=1 current=1 state=397568
 ```
 
-#### On non-Windows platforms
+**On non-Windows platforms**
 
 ```
 check_antivirus
@@ -112,6 +103,9 @@ L        cli UNKNOWN: check_antivirus is not supported on this platform (Windows
 ```
 
 
+
+<a id="check_antivirus_options"></a>
+#### Command-line Arguments
 
 <a id="check_antivirus_warn"></a>
 <a id="check_antivirus_crit"></a>
@@ -122,9 +116,6 @@ L        cli UNKNOWN: check_antivirus is not supported on this platform (Windows
 <a id="check_antivirus_help-pb"></a>
 <a id="check_antivirus_show-default"></a>
 <a id="check_antivirus_help-short"></a>
-<a id="check_antivirus_options"></a>
-#### Command-line Arguments
-
 
 | Option                                          | Default Value                                         | Description                                                                                                      |
 |-------------------------------------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -235,7 +226,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_antivirus_filter_keys"></a>
 #### Filter keywords
 
-
 | Option        | Description                               |
 |---------------|-------------------------------------------|
 | enabled       | True if real-time protection is enabled   |
@@ -260,7 +250,6 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
 
 ### check_bitlocker
 
@@ -287,7 +276,6 @@ volumes you care about (e.g. `filter=drive = 'C:'`) to avoid alerting on
 recovery/utility partitions. **Windows only.** Reading this class requires
 elevation, so the agent service must run with sufficient privilege.
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_bitlocker_samples)
@@ -298,9 +286,7 @@ elevation, so the agent service must run with sufficient privilege.
 <a id="check_bitlocker_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_bitlocker_samples.md)_
-
-#### Check that all volumes are BitLocker-protected (Windows)
+**Check that all volumes are BitLocker-protected (Windows)**
 
 The default is critical if any encryptable volume is not protected.
 
@@ -314,21 +300,21 @@ check_bitlocker
 L        cli CRITICAL: D: protected=0
 ```
 
-#### Only require the system drive to be protected
+**Only require the system drive to be protected**
 
 ```
 check_bitlocker "filter=drive = 'C:'" "crit=protected = 0"
 L        cli OK: all 1 volume(s) protected
 ```
 
-#### Show each volume's protection state
+**Show each volume's protection state**
 
 ```
 check_bitlocker "top-syntax=${list}" "detail-syntax=${drive} protected=${protected} status=${protection_status}"
 L        cli OK: C: protected=1 status=1, D: protected=1 status=1
 ```
 
-#### On non-Windows platforms
+**On non-Windows platforms**
 
 ```
 check_bitlocker
@@ -336,6 +322,9 @@ L        cli UNKNOWN: check_bitlocker is not supported on this platform (Windows
 ```
 
 
+
+<a id="check_bitlocker_options"></a>
+#### Command-line Arguments
 
 <a id="check_bitlocker_warn"></a>
 <a id="check_bitlocker_crit"></a>
@@ -346,9 +335,6 @@ L        cli UNKNOWN: check_bitlocker is not supported on this platform (Windows
 <a id="check_bitlocker_help-pb"></a>
 <a id="check_bitlocker_show-default"></a>
 <a id="check_bitlocker_help-short"></a>
-<a id="check_bitlocker_options"></a>
-#### Command-line Arguments
-
 
 | Option                                          | Default Value                               | Description                                                                                                      |
 |-------------------------------------------------|---------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -459,7 +445,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_bitlocker_filter_keys"></a>
 #### Filter keywords
 
-
 | Option            | Description                                           |
 |-------------------|-------------------------------------------------------|
 | conversion_status | Raw conversion status (0 decrypted, 1 encrypted, ...) |
@@ -484,7 +469,6 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
 
 ### check_certificate
 
@@ -546,7 +530,6 @@ a silent OK.
 > intermediates are absent will read as `trusted=0`. Chain time validity is not
 > checked here by design; combine with `expired`.
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_certificate_samples)
@@ -557,9 +540,7 @@ a silent OK.
 <a id="check_certificate_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_certificate_samples.md)_
-
-#### Check a certificate file's expiry (default thresholds)
+**Check a certificate file's expiry (default thresholds)**
 
 The default thresholds warn when a certificate expires within 30 days and go
 critical within 10 days (matching common practice).
@@ -569,14 +550,14 @@ check_certificate file=/etc/ssl/certs/mysite.pem
 L        cli OK: all 1 certificate(s) are ok
 ```
 
-#### A certificate close to expiry trips the default critical
+**A certificate close to expiry trips the default critical**
 
 ```
 check_certificate file=/etc/ssl/certs/soon.pem
 L        cli CRITICAL: /CN=soon.example.com expires in 5d (2026-07-09 19:16:12)
 ```
 
-#### Custom thresholds and perfdata
+**Custom thresholds and perfdata**
 
 `expires_in` is the number of whole days until expiry (negative once expired)
 and is emitted as perfdata (unit `d`).
@@ -586,21 +567,21 @@ check_certificate file=/etc/ssl/certs/mysite.pem warning=expires_in<900
 L        cli  Performance data: '/CN=valid.example.com'=825d;900;10
 ```
 
-#### Scan a directory of certificates
+**Scan a directory of certificates**
 
 ```
 check_certificate file=/etc/ssl/certs recursive=true "detail-syntax=${subject}: ${expires_in}d"
 L        cli OK: all 137 certificate(s) are ok
 ```
 
-#### Alert only on already-expired certificates
+**Alert only on already-expired certificates**
 
 ```
 check_certificate file=/etc/pki/tls/certs critical=expired=1
 L        cli OK: all 4 certificate(s) are ok
 ```
 
-#### Flag weak keys or signatures (TLS hygiene)
+**Flag weak keys or signatures (TLS hygiene)**
 
 ```
 check_certificate file=/etc/ssl/certs/mysite.pem "crit=weak_signature = 1 or weak_key = 1"
@@ -614,7 +595,7 @@ check_certificate file=/etc/ssl/certs/mysite.pem "top-syntax=${list}" "detail-sy
 L        cli OK: /CN=mysite.example.com: sha256WithRSAEncryption, RSA/2048
 ```
 
-#### Verify the certificate is trusted
+**Verify the certificate is trusted**
 
 `trusted` checks that the chain resolves to a trusted CA (time validity is
 ignored — combine with `expired`). Point `ca=` at a bundle, or omit it to use the
@@ -625,14 +606,14 @@ check_certificate file=/etc/nginx/fullchain.pem "crit=not trusted or expired = 1
 check_certificate file=/etc/ssl/leaf.pem ca=/etc/ssl/corp-ca.pem "crit=not trusted"
 ```
 
-#### Read a PKCS#12 (.pfx) file
+**Read a PKCS#12 (.pfx) file**
 
 ```
 check_certificate file=/opt/app/keystore.pfx password=changeit "crit=expires_in < 14"
 L        cli OK: all 1 certificate(s) are ok
 ```
 
-#### Windows certificate store (Windows only)
+**Windows certificate store (Windows only)**
 
 On Windows, `store=` enumerates a system certificate store; `location=` selects
 `LocalMachine` (default) or `CurrentUser`.
@@ -656,6 +637,9 @@ L        cli UNKNOWN: store= (certificate store) is only supported on Windows; u
 
 
 
+<a id="check_certificate_options"></a>
+#### Command-line Arguments
+
 <a id="check_certificate_warn"></a>
 <a id="check_certificate_crit"></a>
 <a id="check_certificate_debug"></a>
@@ -670,9 +654,6 @@ L        cli UNKNOWN: store= (certificate store) is only supported on Windows; u
 <a id="check_certificate_password"></a>
 <a id="check_certificate_ca"></a>
 <a id="check_certificate_store"></a>
-<a id="check_certificate_options"></a>
-#### Command-line Arguments
-
 
 | Option                                            | Default Value                                      | Description                                                                                                      |
 |---------------------------------------------------|----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -803,7 +784,6 @@ Windows store location: LocalMachine or CurrentUser. Windows only.
 <a id="check_certificate_filter_keys"></a>
 #### Filter keywords
 
-
 | Option              | Description                                                                                                                         |
 |---------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | expired             | True if the certificate has already expired                                                                                         |
@@ -847,7 +827,6 @@ Windows store location: LocalMachine or CurrentUser. Windows only.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
 ### check_firewall
 
 Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.
@@ -864,16 +843,26 @@ Each profile is one row with these keywords:
 |------------|--------|------------------------------------------------------------------------|
 | `profile`  | string | Profile name: `Domain`, `Private` or `Public`.                         |
 | `enabled`  | bool   | True if the firewall is enabled for that profile. Emitted as perfdata. |
+| `active`   | bool   | True if the profile is currently applied to a connected network. Emitted as perfdata (`<profile> active`). |
 | `inbound`  | string | Default inbound action (`allow`/`block`).                              |
 | `outbound` | string | Default outbound action (`allow`/`block`).                             |
 
 Default threshold: **critical** if any profile has `enabled = 0`.
 
+`active` reflects which profile(s) Network Location Awareness currently
+applies (`INetFwPolicy2::CurrentProfileTypes`). More than one profile can be
+active when several networks are connected; with **no** connected network
+Windows reports the Public profile as active. Its main use is catching a
+machine silently dropping from `Domain`/`Private` to `Public` after a
+router/adapter change — firewall rules scoped to the domain or private
+profile stop applying and services start getting blocked. This is opt-in via
+a `warn`/`crit` expression (see the samples) since being on the public
+profile is perfectly normal for e.g. laptops.
+
 This check is **Windows only**. It models Windows' fixed three-profile firewall,
 which does not map onto Linux firewalls (firewalld zones, ufw, nftables/iptables
 default policies); on non-Windows platforms it returns UNKNOWN with a clear
 message rather than pretending to check something equivalent.
-
 
 **Jump to section:**
 
@@ -885,9 +874,7 @@ message rather than pretending to check something equivalent.
 <a id="check_firewall_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_firewall_samples.md)_
-
-#### Check that all Windows firewall profiles are enabled (Windows only)
+**Check that all Windows firewall profiles are enabled (Windows only)**
 
 By default the check is critical if any of the three profiles (Domain, Private,
 Public) has its firewall disabled.
@@ -902,21 +889,40 @@ check_firewall
 L        cli CRITICAL: Public=0
 ```
 
-#### Only require a specific profile to be enabled
+**Only require a specific profile to be enabled**
 
 ```
 check_firewall "filter=profile = 'Domain'" crit=enabled=0
 L        cli OK: all 1 firewall profile(s) enabled
 ```
 
-#### Show the default inbound/outbound actions
+**Warn when the machine is on the Public profile**
+
+Network Location Awareness can silently re-categorise a network to *public*
+after a router or connection change; rules scoped to the domain/private
+profiles then stop applying and services get blocked. Warn on that (opt-in —
+on e.g. laptops the public profile is normal):
+
+```
+check_firewall "warn=active = 1 and profile = 'Public'" "detail-syntax=${profile} profile is active"
+L        cli WARNING: Public profile is active
+```
+
+The `active` flags are also available for display and perfdata:
+
+```
+check_firewall "detail-syntax=${profile}: enabled=${enabled} active=${active}" top-syntax=${list}
+L        cli OK: Domain: enabled=1 active=0, Private: enabled=1 active=0, Public: enabled=1 active=1
+```
+
+**Show the default inbound/outbound actions**
 
 ```
 check_firewall "detail-syntax=${profile}: enabled=${enabled} in=${inbound} out=${outbound}" top-syntax=${list}
 L        cli OK: Domain: enabled=1 in=block out=allow, Private: enabled=1 in=block out=allow, Public: enabled=1 in=block out=allow
 ```
 
-#### On non-Windows platforms
+**On non-Windows platforms**
 
 `check_firewall` models the Windows three-profile firewall and is not
 implemented on Linux (whose firewalld/ufw/nftables model differs):
@@ -928,6 +934,9 @@ L        cli UNKNOWN: check_firewall is not supported on this platform (Windows-
 
 
 
+<a id="check_firewall_options"></a>
+#### Command-line Arguments
+
 <a id="check_firewall_warn"></a>
 <a id="check_firewall_crit"></a>
 <a id="check_firewall_debug"></a>
@@ -937,9 +946,6 @@ L        cli UNKNOWN: check_firewall is not supported on this platform (Windows-
 <a id="check_firewall_help-pb"></a>
 <a id="check_firewall_show-default"></a>
 <a id="check_firewall_help-short"></a>
-<a id="check_firewall_options"></a>
-#### Command-line Arguments
-
 
 | Option                                         | Default Value                                       | Description                                                                                                      |
 |------------------------------------------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1050,32 +1056,60 @@ This is the syntax for the base names of the performance data.
 <a id="check_firewall_filter_keys"></a>
 #### Filter keywords
 
+=== "Windows"
 
-| Option   | Description                                       |
-|----------|---------------------------------------------------|
-| enabled  | True if the profile's firewall is enabled         |
-| inbound  | Default inbound action (allow/block)              |
-| outbound | Default outbound action (allow/block)             |
-| profile  | Firewall profile name (Domain, Private or Public) |
+    | Option   | Description                                                                                                                                    |
+    |----------|------------------------------------------------------------------------------------------------------------------------------------------------|
+    | active   | True if the profile is currently applied to a connected network (e.g. NLA re-categorising a network to public makes the Public profile active) |
+    | enabled  | True if the profile's firewall is enabled                                                                                                      |
+    | inbound  | Default inbound action (allow/block)                                                                                                           |
+    | outbound | Default outbound action (allow/block)                                                                                                          |
+    | profile  | Firewall profile name (Domain, Private or Public)                                                                                              |
 
-**Common options for all checks:**
+    **Common options for all checks:**
 
-| Option        | Description                                                                    |
-|---------------|--------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                           |
-| crit_count    | Number of items matched the critical criteria.                                 |
-| crit_list     | A list of all items which matched the critical criteria.                       |
-| detail_list   | A special list with critical, then warning and finally ok.                     |
-| list          | A list of all items which matched the filter.                                  |
-| ok_count      | Number of items matched the ok criteria.                                       |
-| ok_list       | A list of all items which matched the ok criteria.                             |
-| problem_count | Number of items matched either warning or critical criteria.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
-| total         | Total number of items.                                                         |
-| warn_count    | Number of items matched the warning criteria.                                  |
-| warn_list     | A list of all items which matched the warning criteria.                        |
+    | Option        | Description                                                                    |
+    |---------------|--------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                           |
+    | crit_count    | Number of items matched the critical criteria.                                 |
+    | crit_list     | A list of all items which matched the critical criteria.                       |
+    | detail_list   | A special list with critical, then warning and finally ok.                     |
+    | list          | A list of all items which matched the filter.                                  |
+    | ok_count      | Number of items matched the ok criteria.                                       |
+    | ok_list       | A list of all items which matched the ok criteria.                             |
+    | problem_count | Number of items matched either warning or critical criteria.                   |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria. |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+    | total         | Total number of items.                                                         |
+    | warn_count    | Number of items matched the warning criteria.                                  |
+    | warn_list     | A list of all items which matched the warning criteria.                        |
 
+=== "Linux"
+
+    | Option   | Description                                       |
+    |----------|---------------------------------------------------|
+    | enabled  | True if the profile's firewall is enabled         |
+    | inbound  | Default inbound action (allow/block)              |
+    | outbound | Default outbound action (allow/block)             |
+    | profile  | Firewall profile name (Domain, Private or Public) |
+
+    **Common options for all checks:**
+
+    | Option        | Description                                                                    |
+    |---------------|--------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                           |
+    | crit_count    | Number of items matched the critical criteria.                                 |
+    | crit_list     | A list of all items which matched the critical criteria.                       |
+    | detail_list   | A special list with critical, then warning and finally ok.                     |
+    | list          | A list of all items which matched the filter.                                  |
+    | ok_count      | Number of items matched the ok criteria.                                       |
+    | ok_list       | A list of all items which matched the ok criteria.                             |
+    | problem_count | Number of items matched either warning or critical criteria.                   |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria. |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+    | total         | Total number of items.                                                         |
+    | warn_count    | Number of items matched the warning criteria.                                  |
+    | warn_list     | A list of all items which matched the warning criteria.                        |
 
 ### check_nla
 
@@ -1102,7 +1136,6 @@ There is no default threshold — assert the expected posture, e.g.
 platforms it returns UNKNOWN with a clear message (Linux has no equivalent
 network-profile concept).
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_nla_samples)
@@ -1113,9 +1146,7 @@ network-profile concept).
 <a id="check_nla_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_nla_samples.md)_
-
-#### Assert the active network is the domain profile (Windows)
+**Assert the active network is the domain profile (Windows)**
 
 `check_nla` reports each network's Location Awareness category. There is no
 default threshold — assert the posture you expect:
@@ -1125,21 +1156,21 @@ check_nla "crit=connected = 1 and category != 'domain'" "detail-syntax=${network
 L        cli OK: all networks ok
 ```
 
-#### Alert if any connected network is classified Public
+**Alert if any connected network is classified Public**
 
 ```
 check_nla "crit=connected = 1 and category = 'public'"
 L        cli CRITICAL: Wi-Fi=public
 ```
 
-#### List every known network and its category
+**List every known network and its category**
 
 ```
 check_nla "top-syntax=${list}" "detail-syntax=${network}: ${category} (connected=${connected})"
 L        cli OK: Corp.example.com: domain (connected=1), Café-WiFi: public (connected=0)
 ```
 
-#### On non-Windows platforms
+**On non-Windows platforms**
 
 ```
 check_nla
@@ -1147,6 +1178,9 @@ L        cli UNKNOWN: check_nla is not supported on this platform (Windows Netwo
 ```
 
 
+
+<a id="check_nla_options"></a>
+#### Command-line Arguments
 
 <a id="check_nla_warn"></a>
 <a id="check_nla_crit"></a>
@@ -1157,9 +1191,6 @@ L        cli UNKNOWN: check_nla is not supported on this platform (Windows Netwo
 <a id="check_nla_help-pb"></a>
 <a id="check_nla_show-default"></a>
 <a id="check_nla_help-short"></a>
-<a id="check_nla_options"></a>
-#### Command-line Arguments
-
 
 | Option                                    | Default Value              | Description                                                                                                      |
 |-------------------------------------------|----------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1269,7 +1300,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_nla_filter_keys"></a>
 #### Filter keywords
 
-
 | Option    | Description                                 |
 |-----------|---------------------------------------------|
 | category  | Network category: public, private or domain |
@@ -1294,7 +1324,6 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
 ### check_secureboot
 
 Check whether UEFI Secure Boot is enabled. Windows only.
@@ -1317,7 +1346,6 @@ Default threshold: **critical** if `enabled = 0`. On legacy-BIOS machines the
 value is absent, so both `enabled` and `supported` are 0 — use `supported` to
 tell "off" apart from "not applicable" on mixed fleets. **Windows only.**
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_secureboot_samples)
@@ -1328,9 +1356,7 @@ tell "off" apart from "not applicable" on mixed fleets. **Windows only.**
 <a id="check_secureboot_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_secureboot_samples.md)_
-
-#### Check that UEFI Secure Boot is enabled (Windows)
+**Check that UEFI Secure Boot is enabled (Windows)**
 
 The default is critical if Secure Boot is not enabled.
 
@@ -1344,7 +1370,7 @@ check_secureboot
 L        cli CRITICAL: secure boot enabled=0 supported=1
 ```
 
-#### Distinguish "disabled" from "not supported" (legacy BIOS)
+**Distinguish "disabled" from "not supported" (legacy BIOS)**
 
 `supported` is 0 when the platform does not expose a Secure Boot state (legacy
 BIOS boot). Treat that as WARNING rather than CRITICAL if you monitor mixed
@@ -1355,7 +1381,7 @@ check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
 L        cli WARNING: secure boot enabled=0 supported=0
 ```
 
-#### On non-Windows platforms
+**On non-Windows platforms**
 
 ```
 check_secureboot
@@ -1363,6 +1389,9 @@ L        cli UNKNOWN: check_secureboot is not supported on this platform (Window
 ```
 
 
+
+<a id="check_secureboot_options"></a>
+#### Command-line Arguments
 
 <a id="check_secureboot_warn"></a>
 <a id="check_secureboot_crit"></a>
@@ -1373,9 +1402,6 @@ L        cli UNKNOWN: check_secureboot is not supported on this platform (Window
 <a id="check_secureboot_help-pb"></a>
 <a id="check_secureboot_show-default"></a>
 <a id="check_secureboot_help-short"></a>
-<a id="check_secureboot_options"></a>
-#### Command-line Arguments
-
 
 | Option                                           | Default Value                                         | Description                                                                                                      |
 |--------------------------------------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1486,7 +1512,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_secureboot_filter_keys"></a>
 #### Filter keywords
 
-
 | Option    | Description                                             |
 |-----------|---------------------------------------------------------|
 | enabled   | True if UEFI Secure Boot is enabled                     |
@@ -1509,7 +1534,6 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
 
 ### check_users
 
@@ -1539,7 +1563,6 @@ There is **no default threshold** — this is a count/inventory check, so supply
 your own, e.g. `crit=count > 10` or `crit=session_state = 'disconnected'`.
 Sessions with no user (services, the RDP listener) are not counted.
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_users_samples)
@@ -1550,16 +1573,14 @@ Sessions with no user (services, the RDP listener) are not counted.
 <a id="check_users_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_users_samples.md)_
-
-#### Count the logged-on users
+**Count the logged-on users**
 
 ```
 check_users
 L        cli OK: 2 user(s) logged on: mickem, root
 ```
 
-#### Alert when too many sessions are open
+**Alert when too many sessions are open**
 
 `count` is a built-in summary variable.
 
@@ -1568,14 +1589,14 @@ check_users "warn=count > 5" "crit=count > 10"
 L        cli OK: 2 user(s) logged on: mickem, root
 ```
 
-#### Alert on any interactive session (e.g. a locked-down server)
+**Alert on any interactive session (e.g. a locked-down server)**
 
 ```
 check_users "crit=count > 0"
 L        cli CRITICAL: 2 user(s) logged on: mickem, root
 ```
 
-#### Only count RDP / remote sessions
+**Only count RDP / remote sessions**
 
 ```
 check_users "filter=session_type = 'rdp'" "crit=count > 0"
@@ -1588,13 +1609,16 @@ check_users "filter=session_type = 'remote'" "detail-syntax=${user}@${client}" "
 L        cli OK: mickem@10.0.0.5
 ```
 
-#### Alert on a disconnected-but-open RDP session (Windows)
+**Alert on a disconnected-but-open RDP session (Windows)**
 
 ```
 check_users "crit=session_state = 'disconnected'" "detail-syntax=${user} (${session_state})"
 ```
 
 
+
+<a id="check_users_options"></a>
+#### Command-line Arguments
 
 <a id="check_users_warn"></a>
 <a id="check_users_crit"></a>
@@ -1605,9 +1629,6 @@ check_users "crit=session_state = 'disconnected'" "detail-syntax=${user} (${sess
 <a id="check_users_help-pb"></a>
 <a id="check_users_show-default"></a>
 <a id="check_users_help-short"></a>
-<a id="check_users_options"></a>
-#### Command-line Arguments
-
 
 | Option                                      | Default Value                                  | Description                                                                                                      |
 |---------------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1717,7 +1738,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_users_filter_keys"></a>
 #### Filter keywords
 
-
 | Option        | Description                               |
 |---------------|-------------------------------------------|
 | client        | Client name or remote host (may be empty) |
@@ -1742,7 +1762,4 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
-
-
 

@@ -2,8 +2,6 @@
 
 A server that listens for incoming check_mk connection and processes incoming requests.
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckMKServer = enabled` to the `[/modules]` section in nsclient.ini:
@@ -14,11 +12,7 @@ CheckMKServer = enabled
 ```
 
 
-
-
 ## Configuration
-
-
 
 | Path / Section                                                  | Description               |
 |-----------------------------------------------------------------|---------------------------|
@@ -29,13 +23,9 @@ CheckMKServer = enabled
 | [/settings/default](#default-values)                            | Default values            |
 
 
-
 ### CHECK MK SERVER SECTION <a id="/settings/check_mk/server"></a>
 
 Section for check_mk (CheckMKServer.dll) protocol options.
-
-
-
 
 | Key                                                  | Default Value                       | Description                         |
 |------------------------------------------------------|-------------------------------------|-------------------------------------|
@@ -62,7 +52,6 @@ Section for check_mk (CheckMKServer.dll) protocol options.
 | [verify mode](#verify-mode)                          | none                                | VERIFY MODE                         |
 
 
-
 ```ini
 # Section for check_mk (CheckMKServer.dll) protocol options.
 [/settings/check_mk/server]
@@ -83,20 +72,12 @@ timeout=30
 tls version=tlsv1.2+
 use ssl=false
 verify mode=none
-
 ```
-
-
-
-
 
 #### ALLOWED CIPHERS <a id="/settings/check_mk/server/allowed ciphers"></a>
 
 The chipers which are allowed to be used.
 The default here will differ is used in "insecure" mode or not. check_nrpe uses a very old chipers and should preferably not be used. For details of chipers please see the OPEN ssl documentation: https://www.openssl.org/docs/apps/ciphers.html
-
-
-
 
 
 | Key            | Description                                             |
@@ -115,14 +96,9 @@ The default here will differ is used in "insecure" mode or not. check_nrpe uses 
 allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 ```
 
-
-
 #### Allowed hosts <a id="/settings/check_mk/server/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
-
-
-
 
 
 | Key            | Description                                             |
@@ -140,15 +116,9 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 allowed hosts=127.0.0.1
 ```
 
-
-
 #### BIND TO ADDRESS <a id="/settings/check_mk/server/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
-
-
-
-
 
 
 | Key            | Description                                             |
@@ -166,12 +136,7 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 bind to=
 ```
 
-
-
 #### CA <a id="/settings/check_mk/server/ca"></a>
-
-
-
 
 
 
@@ -192,14 +157,9 @@ bind to=
 ca=${certificate-path}/ca.pem
 ```
 
-
-
 #### Cache list of allowed hosts <a id="/settings/check_mk/server/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
-
-
-
 
 
 | Key            | Description                                             |
@@ -217,12 +177,7 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 cache allowed hosts=true
 ```
 
-
-
 #### SSL CERTIFICATE <a id="/settings/check_mk/server/certificate"></a>
-
-
-
 
 
 
@@ -243,12 +198,7 @@ cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 ```
 
-
-
 #### CERTIFICATE FORMAT <a id="/settings/check_mk/server/certificate format"></a>
-
-
-
 
 
 
@@ -269,13 +219,7 @@ certificate=${certificate-path}/certificate.pem
 certificate format=PEM
 ```
 
-
-
 #### SSL CERTIFICATE <a id="/settings/check_mk/server/certificate key"></a>
-
-
-
-
 
 
 
@@ -296,14 +240,9 @@ certificate format=PEM
 certificate key=
 ```
 
-
-
 #### Debug peer certificate verification <a id="/settings/check_mk/server/debug verify"></a>
 
 Set this to tru to output certificate verification errors, these are outputed to stdout (not the log).
-
-
-
 
 
 | Key            | Description                                             |
@@ -322,13 +261,7 @@ Set this to tru to output certificate verification errors, these are outputed to
 debug verify=false
 ```
 
-
-
 #### DH KEY <a id="/settings/check_mk/server/dh"></a>
-
-
-
-
 
 
 
@@ -349,14 +282,9 @@ debug verify=false
 dh=
 ```
 
-
-
 #### LOCAL SUBMISSION CHANNEL <a id="/settings/check_mk/server/local channel"></a>
 
 Channel name passive check results land on to be relayed as cached <<<local>>> entries.
-
-
-
 
 
 | Key            | Description                                             |
@@ -374,14 +302,9 @@ Channel name passive check results land on to be relayed as cached <<<local>>> e
 local channel=check_mk-local
 ```
 
-
-
 #### MRPE SUBMISSION CHANNEL <a id="/settings/check_mk/server/mrpe channel"></a>
 
 Channel name passive check results land on to be relayed as cached <<<mrpe>>> entries.
-
-
-
 
 
 | Key            | Description                                             |
@@ -399,14 +322,9 @@ Channel name passive check results land on to be relayed as cached <<<mrpe>>> en
 mrpe channel=check_mk-mrpe
 ```
 
-
-
 #### PORT NUMBER <a id="/settings/check_mk/server/port"></a>
 
 Port to use for check_mk.
-
-
-
 
 
 | Key            | Description                                             |
@@ -424,14 +342,9 @@ Port to use for check_mk.
 port=6556
 ```
 
-
-
 #### LISTEN QUEUE <a id="/settings/check_mk/server/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
-
-
-
 
 
 | Key            | Description                                             |
@@ -450,8 +363,6 @@ Number of sockets to queue before starting to refuse new incoming connections. T
 socket queue size=0
 ```
 
-
-
 #### VERIFY MODE <a id="/settings/check_mk/server/ssl options"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
@@ -464,10 +375,6 @@ no-tlsv1_1	Do not use the TLSv1.1 protocol (prefer tls version instead).
 no-tlsv1_2	Do not use the TLSv1.2 protocol (prefer tls version instead).
 no-tlsv1_3	Do not use the TLSv1.3 protocol (prefer tls version instead).
 single-dh-use	Always create a new key when using temporary/ephemeral DH parameters. This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using "strong" primes (e.g. when using DSA-parameters).
-
-
-
-
 
 
 
@@ -489,14 +396,9 @@ single-dh-use	Always create a new key when using temporary/ephemeral DH paramete
 ssl options=
 ```
 
-
-
 #### SUBMITTED RESULT TTL <a id="/settings/check_mk/server/submission ttl"></a>
 
 How long (seconds) a submitted check result is advertised as fresh in the cached(...) header. Should be at least the scheduler interval that submits it.
-
-
-
 
 
 | Key            | Description                                             |
@@ -514,12 +416,7 @@ How long (seconds) a submitted check result is advertised as fresh in the cached
 submission ttl=60
 ```
 
-
-
 #### THREAD POOL <a id="/settings/check_mk/server/thread pool"></a>
-
-
-
 
 
 
@@ -540,14 +437,9 @@ submission ttl=60
 thread pool=10
 ```
 
-
-
 #### TIMEOUT <a id="/settings/check_mk/server/timeout"></a>
 
 Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
-
-
-
 
 
 | Key            | Description                                             |
@@ -565,14 +457,9 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 timeout=30
 ```
 
-
-
 #### TLS version to use <a id="/settings/check_mk/server/tls version"></a>
 
 Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+, tlsv1.2+, tlsv1.1+, tlsv1.0+, sslv3+ (Which uses the version mentioned and above)
-
-
-
 
 
 | Key            | Description                                             |
@@ -591,14 +478,9 @@ Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+,
 tls version=tlsv1.2+
 ```
 
-
-
 #### ENABLE SSL ENCRYPTION <a id="/settings/check_mk/server/use ssl"></a>
 
 This option controls if SSL should be enabled.
-
-
-
 
 
 | Key            | Description                                             |
@@ -616,8 +498,6 @@ This option controls if SSL should be enabled.
 use ssl=false
 ```
 
-
-
 #### VERIFY MODE <a id="/settings/check_mk/server/verify mode"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
@@ -629,9 +509,6 @@ peer-cert	Alias for peer and fail-if-no-cert.
 workarounds	Various bug workarounds.
 single	Always create a new key when using tmp_dh parameters.
 client-once	Only request a client certificate on the initial TLS/SSL handshake. This flag must be used together with verify-peer
-
-
-
 
 
 
@@ -652,7 +529,6 @@ client-once	Only request a client certificate on the initial TLS/SSL handshake. 
 # VERIFY MODE
 verify mode=none
 ```
-
 
 ### LOCAL CHECK ENTRIES <a id="/settings/check_mk/server/local"></a>
 
@@ -698,9 +574,6 @@ This is a section of objects. This means that you will create objects below this
 
 Default values used in other config sections.
 
-
-
-
 | Key                                                 | Default Value | Description                 |
 |-----------------------------------------------------|---------------|-----------------------------|
 | [allowed hosts](#allowed-hosts)                     | 127.0.0.1     | Allowed hosts               |
@@ -715,7 +588,6 @@ Default values used in other config sections.
 | [timezone](#timezone)                               | local         | Timezone                    |
 
 
-
 ```ini
 # Default values used in other config sections.
 [/settings/default]
@@ -726,19 +598,11 @@ socket queue size=0
 thread pool=10
 timeout=30
 timezone=local
-
 ```
-
-
-
-
 
 #### Allowed hosts <a id="/settings/default/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
-
-
-
 
 
 | Key            | Description                             |
@@ -756,15 +620,9 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 allowed hosts=127.0.0.1
 ```
 
-
-
 #### BIND TO ADDRESS <a id="/settings/default/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
-
-
-
-
 
 
 | Key            | Description                             |
@@ -782,14 +640,9 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 bind to=
 ```
 
-
-
 #### Cache list of allowed hosts <a id="/settings/default/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
-
-
-
 
 
 | Key            | Description                             |
@@ -807,13 +660,7 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 cache allowed hosts=true
 ```
 
-
-
 #### NRPE PAYLOAD ENCODING <a id="/settings/default/encoding"></a>
-
-
-
-
 
 
 
@@ -834,14 +681,9 @@ cache allowed hosts=true
 encoding=
 ```
 
-
-
 #### INBOX <a id="/settings/default/inbox"></a>
 
 The default channel to post incoming messages on
-
-
-
 
 
 | Key            | Description                             |
@@ -859,15 +701,9 @@ The default channel to post incoming messages on
 inbox=inbox
 ```
 
-
-
 #### Password <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
-
-
-
-
 
 
 | Key            | Description                             |
@@ -885,14 +721,9 @@ Password used to authenticate against server
 password=
 ```
 
-
-
 #### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
-
-
-
 
 
 | Key            | Description                             |
@@ -911,12 +742,7 @@ Number of sockets to queue before starting to refuse new incoming connections. T
 socket queue size=0
 ```
 
-
-
 #### THREAD POOL <a id="/settings/default/thread pool"></a>
-
-
-
 
 
 
@@ -937,14 +763,9 @@ socket queue size=0
 thread pool=10
 ```
 
-
-
 #### TIMEOUT <a id="/settings/default/timeout"></a>
 
 Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
-
-
-
 
 
 | Key            | Description                             |
@@ -962,14 +783,9 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 timeout=30
 ```
 
-
-
 #### Timezone <a id="/settings/default/timezone"></a>
 
 Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc', or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
-
-
-
 
 
 | Key            | Description                             |
@@ -987,5 +803,3 @@ Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc
 # Timezone
 timezone=local
 ```
-
-

@@ -2,8 +2,6 @@
 
 Graphite client can be used to submit graph data to a graphite graphing system
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `GraphiteClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `Graphite
 [/modules]
 GraphiteClient = enabled
 ```
-
 
 ## Queries
 
@@ -26,13 +23,9 @@ A list of all available queries (check commands)
 |-------------------------------------|---------------------------------------------------|
 | [submit_graphite](#submit_graphite) | Submit information to the remote Graphite server. |
 
-
-
-
 ### submit_graphite
 
 Submit information to the remote Graphite server.
-
 
 **Jump to section:**
 
@@ -40,7 +33,8 @@ Submit information to the remote Graphite server.
 
 
 
-
+<a id="submit_graphite_options"></a>
+#### Command-line Arguments
 
 <a id="submit_graphite_help"></a>
 <a id="submit_graphite_help-pb"></a>
@@ -62,9 +56,6 @@ Submit information to the remote Graphite server.
 <a id="submit_graphite_separator"></a>
 <a id="submit_graphite_batch"></a>
 <a id="submit_graphite_path"></a>
-<a id="submit_graphite_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                                                           |
 |--------------|---------------|---------------------------------------------------------------------------------------|
@@ -90,13 +81,7 @@ Submit information to the remote Graphite server.
 | path         |               |                                                                                       |
 
 
-
-
-
-
 ## Configuration
-
-
 
 | Path / Section                                                  | Description               |
 |-----------------------------------------------------------------|---------------------------|
@@ -105,13 +90,9 @@ Submit information to the remote Graphite server.
 | [/settings/graphite/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### GRAPHITE CLIENT SECTION <a id="/settings/graphite/client"></a>
 
 Section for graphite passive check module.
-
-
-
 
 | Key                   | Default Value | Description |
 |-----------------------|---------------|-------------|
@@ -119,25 +100,16 @@ Section for graphite passive check module.
 | [hostname](#hostname) | auto          | HOSTNAME    |
 
 
-
 ```ini
 # Section for graphite passive check module.
 [/settings/graphite/client]
 channel=GRAPHITE
 hostname=auto
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/graphite/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                             |
@@ -155,8 +127,6 @@ The channel to listen to.
 channel=GRAPHITE
 ```
 
-
-
 #### HOSTNAME <a id="/settings/graphite/client/hostname"></a>
 
 The host name of the monitored computer.
@@ -170,9 +140,6 @@ ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
-
-
-
 
 
 
@@ -190,7 +157,6 @@ ${domain_uc}	Domainname in uppercase
 # HOSTNAME
 hostname=auto
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/graphite/client/handlers"></a>
 
@@ -260,7 +226,6 @@ tls version=1.2+
 verify mode=peer
 
 ```
-
 
 
 

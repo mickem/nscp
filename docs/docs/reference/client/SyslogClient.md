@@ -2,8 +2,6 @@
 
 Forward information as syslog messages to a syslog server
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `SyslogClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `SyslogCl
 [/modules]
 SyslogClient = enabled
 ```
-
 
 ## Queries
 
@@ -26,13 +23,9 @@ A list of all available queries (check commands)
 |---------------------------------|-------------------------------------------------|
 | [submit_syslog](#submit_syslog) | Submit information to the remote syslog server. |
 
-
-
-
 ### submit_syslog
 
 Submit information to the remote syslog server.
-
 
 **Jump to section:**
 
@@ -40,7 +33,8 @@ Submit information to the remote syslog server.
 
 
 
-
+<a id="submit_syslog_options"></a>
+#### Command-line Arguments
 
 <a id="submit_syslog_help"></a>
 <a id="submit_syslog_help-pb"></a>
@@ -70,9 +64,6 @@ Submit information to the remote syslog server.
 <a id="submit_syslog_facility"></a>
 <a id="submit_syslog_tag template"></a>
 <a id="submit_syslog_message template"></a>
-<a id="submit_syslog_options"></a>
-#### Command-line Arguments
-
 
 | Option            | Default Value | Description                                                                           |
 |-------------------|---------------|---------------------------------------------------------------------------------------|
@@ -106,13 +97,7 @@ Submit information to the remote syslog server.
 | message template  |               | Message template (TODO)                                                               |
 
 
-
-
-
-
 ## Configuration
-
-
 
 | Path / Section                                                | Description               |
 |---------------------------------------------------------------|---------------------------|
@@ -121,13 +106,9 @@ Submit information to the remote syslog server.
 | [/settings/syslog/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### SYSLOG CLIENT SECTION <a id="/settings/syslog/client"></a>
 
 Section for SYSLOG passive check module.
-
-
-
 
 | Key                   | Default Value | Description |
 |-----------------------|---------------|-------------|
@@ -135,25 +116,16 @@ Section for SYSLOG passive check module.
 | [hostname](#hostname) | auto          | HOSTNAME    |
 
 
-
 ```ini
 # Section for SYSLOG passive check module.
 [/settings/syslog/client]
 channel=syslog
 hostname=auto
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/syslog/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                         |
@@ -171,8 +143,6 @@ The channel to listen to.
 channel=syslog
 ```
 
-
-
 #### HOSTNAME <a id="/settings/syslog/client/hostname"></a>
 
 The host name of the monitored computer.
@@ -186,9 +156,6 @@ ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
-
-
-
 
 
 
@@ -206,7 +173,6 @@ ${domain_uc}	Domainname in uppercase
 # HOSTNAME
 hostname=auto
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/syslog/client/handlers"></a>
 
@@ -252,7 +218,6 @@ retries=3
 timeout=30
 
 ```
-
 
 
 

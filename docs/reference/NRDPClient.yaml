@@ -1,0 +1,398 @@
+common:
+  info:
+    description: NRDP client can be used both from command line and from queries to check remote systems
+      via NRDP
+    title: NRDPClient
+  paths:
+    /settings/NRDP/client:
+      info:
+        advanced: false
+        description: Section for SMTP passive check module.
+        subkey: false
+        title: SMTP CLIENT SECTION
+      keys:
+        channel:
+          advanced: false
+          default_value: NRDP
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+        hostname:
+          advanced: false
+          default_value: auto
+          description: "The host name of the monitored computer.\nSet this to auto (default) to use the\
+            \ windows name of the computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\nHostname\
+            \ in lowercase\n${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname\
+            \ in lowercase\n${domain_uc}\tDomainname in uppercase\n"
+          sample: false
+          title: HOSTNAME
+    /settings/NRDP/client/handlers:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: CLIENT HANDLER SECTION
+    /settings/NRDP/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          ca:
+            advanced: false
+            default_value: ${ca-path}
+            description: Certificate authority to use when verifying certificates. Defaults to ${ca-path}
+              (the auto-generated system ROOT bundle on Windows, the distribution CA store on Linux).
+            sample: true
+            title: Certificate Authority
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          key:
+            advanced: false
+            default_value: ''
+            description: The security token
+            sample: true
+            title: SECURITY TOKEN
+          no proxy:
+            advanced: false
+            default_value: ''
+            description: Comma-separated list of hostnames that bypass the proxy.
+            sample: true
+            title: No-proxy list
+          password:
+            advanced: false
+            default_value: ''
+            description: The security token
+            sample: true
+            title: SECURITY TOKEN
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          proxy:
+            advanced: false
+            default_value: ''
+            description: HTTP proxy to use when submitting checks (e.g. http://user:pass@proxy:3128/).
+            sample: true
+            title: HTTP proxy URL
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+          tls version:
+            advanced: false
+            default_value: '1.3'
+            description: The tls version to use 1.0, 1.1, 1.2, 1.3 or any
+            sample: true
+            title: Tls version
+          token:
+            advanced: false
+            default_value: ''
+            description: The security token
+            sample: true
+            title: SECURITY TOKEN
+          verify mode:
+            advanced: false
+            default_value: peer
+            description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
+              workarounds, single. In general use peer-cert or none for self signed certificates.'
+            sample: true
+            title: TLS peer verify mode
+  queries:
+    submit_nrdp:
+      info:
+        description: Submit information to the remote NRDP Server.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Same as command
+        name: alias
+        repeatable: false
+        required: false
+        short_description: Same as command
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Message
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+        name: result
+        repeatable: false
+        required: false
+        short_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|result|message'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|result|message'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The security token
+        name: key
+        repeatable: false
+        required: false
+        short_description: The security token
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The security token
+        name: password
+        repeatable: false
+        required: false
+        short_description: The security token
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The security token
+        name: token
+        repeatable: false
+        required: false
+        short_description: The security token
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The tls version to use 1.0, 1.1, 1.2, 1.3
+        name: tls-version
+        repeatable: false
+        required: false
+        short_description: The tls version to use 1.0, 1.1, 1.2, 1.3
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Legacy alias for --tls-version (kept for backwards compatibility).
+        name: tls version
+        repeatable: false
+        required: false
+        short_description: Legacy alias for --tls-version (kept for backwards compatibility).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Coma separated list of option none, peer, peer-cert, client-once, fail-if-no-cert,
+          workarounds, single. In general use peer-cert or none for self signed certificates.
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Coma separated list of option none, peer, peer-cert, client-once, fail-if-no-cert,
+          workarounds, single. In general use peer-cert or none for self signed certificates.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Alias for --verify.
+        name: verify-mode
+        repeatable: false
+        required: false
+        short_description: Alias for --verify.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Legacy alias for --verify (kept for backwards compatibility).
+        name: verify mode
+        repeatable: false
+        required: false
+        short_description: Legacy alias for --verify (kept for backwards compatibility).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority to use when verifying certificates.
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority to use when verifying certificates.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: HTTP proxy URL to route requests through (e.g. http://user:pass@proxy:3128/).
+        name: proxy
+        repeatable: false
+        required: false
+        short_description: HTTP proxy URL to route requests through (e.g. http://user:pass@proxy:3128/).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Comma-separated list of hostnames that bypass the proxy.
+        name: no-proxy
+        repeatable: false
+        required: false
+        short_description: Comma-separated list of hostnames that bypass the proxy.
+module: NRDPClient
+namespace: client
+platforms:
+- unix
+- windows

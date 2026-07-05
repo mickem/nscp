@@ -2,8 +2,6 @@
 
 Network related checks such as check_ping, check_tcp, check_dns, check_http, check_connections and check_ntp_offset.
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckNet = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `CheckNet
 [/modules]
 CheckNet = enabled
 ```
-
 
 ## Queries
 
@@ -33,13 +30,9 @@ A list of all available queries (check commands)
 | [check_ssh](#check_ssh)                                 | Connect to an SSH port and verify the server presents a valid SSH banner.                   |
 | [check_tcp](#check_tcp)                                 | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
 
-
-
-
 ### check_connections
 
 Count active TCP/UDP connections and report counts per protocol and TCP state.
-
 
 **Jump to section:**
 
@@ -50,8 +43,6 @@ Count active TCP/UDP connections and report counts per protocol and TCP state.
 
 <a id="check_connections_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_connections_samples.md)_
 
 **Default check (uses the `total` bucket):**
 
@@ -108,6 +99,9 @@ OK: total/all: 231|'total_all_close_wait'=0;0;0 'total_all_closing'=0;0;0 'total
 
 
 
+<a id="check_connections_options"></a>
+#### Command-line Arguments
+
 <a id="check_connections_warn"></a>
 <a id="check_connections_crit"></a>
 <a id="check_connections_debug"></a>
@@ -117,9 +111,6 @@ OK: total/all: 231|'total_all_close_wait'=0;0;0 'total_all_closing'=0;0;0 'total
 <a id="check_connections_help-pb"></a>
 <a id="check_connections_show-default"></a>
 <a id="check_connections_help-short"></a>
-<a id="check_connections_options"></a>
-#### Command-line Arguments
-
 
 | Option                                            | Default Value                  | Description                                                                                                      |
 |---------------------------------------------------|--------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -232,7 +223,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_connections_filter_keys"></a>
 #### Filter keywords
 
-
 | Option      | Description                                                   |
 |-------------|---------------------------------------------------------------|
 | close_wait  | Number of TCP connections in CLOSE_WAIT state (total bucket)  |
@@ -267,11 +257,9 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
 ### check_dns
 
 Resolve a host name and check the response time and resulting addresses.
-
 
 **Jump to section:**
 
@@ -282,8 +270,6 @@ Resolve a host name and check the response time and resulting addresses.
 
 <a id="check_dns_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_dns_samples.md)_
 
 **Default lookup of a hostname:**
 
@@ -366,6 +352,9 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 
 
 
+<a id="check_dns_options"></a>
+#### Command-line Arguments
+
 <a id="check_dns_warn"></a>
 <a id="check_dns_crit"></a>
 <a id="check_dns_debug"></a>
@@ -380,9 +369,6 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 <a id="check_dns_server"></a>
 <a id="check_dns_expected-address"></a>
 <a id="check_dns_expected"></a>
-<a id="check_dns_options"></a>
-#### Command-line Arguments
-
 
 | Option                                    | Default Value                                               | Description                                                                                                      |
 |-------------------------------------------|-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -527,7 +513,6 @@ Timeout in milliseconds.
 <a id="check_dns_filter_keys"></a>
 #### Filter keywords
 
-
 | Option    | Description                                                        |
 |-----------|--------------------------------------------------------------------|
 | addresses | Comma separated list of resolved records                           |
@@ -555,11 +540,9 @@ Timeout in milliseconds.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
 ### check_http
 
 Send an HTTP/HTTPS request and check the response status, time, size and body.
-
 
 **Jump to section:**
 
@@ -570,8 +553,6 @@ Send an HTTP/HTTPS request and check the response status, time, size and body.
 
 <a id="check_http_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_http_samples.md)_
 
 **Default check against a single URL (success):**
 
@@ -696,6 +677,9 @@ OK: cert expires in 58 days
 
 
 
+<a id="check_http_options"></a>
+#### Command-line Arguments
+
 <a id="check_http_warn"></a>
 <a id="check_http_crit"></a>
 <a id="check_http_debug"></a>
@@ -715,9 +699,6 @@ OK: cert expires in 58 days
 <a id="check_http_header"></a>
 <a id="check_http_sni"></a>
 <a id="check_http_json-path"></a>
-<a id="check_http_options"></a>
-#### Command-line Arguments
-
 
 | Option                                     | Default Value                                       | Description                                                                                                                                                                                                                               |
 |--------------------------------------------|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -923,7 +904,6 @@ Path to a CA bundle to use when verifying the server certificate.
 <a id="check_http_filter_keys"></a>
 #### Filter keywords
 
-
 | Option          | Description                                                                                      |
 |-----------------|--------------------------------------------------------------------------------------------------|
 | body            | Body of the response (use with substr/regex matching)                                            |
@@ -955,7 +935,6 @@ Path to a CA bundle to use when verifying the server certificate.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
 
 ### check_nsclient_web_online
 
@@ -997,17 +976,13 @@ By default the remote certificate is **not** verified (`verify=none`) because
 agents commonly present a self-signed certificate; set `verify=peer` with `ca=`
 to enforce verification.
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_nsclient_web_online_samples)
-* [Command-line Arguments](#check_nsclient_web_online_options)
 
 
 <a id="check_nsclient_web_online_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_nsclient_web_online_samples.md)_
 
 **Check that a remote NSClient++ agent's REST API is reachable:**
 
@@ -1053,18 +1028,10 @@ CRITICAL: Failed to reach https://192.168.56.10:9999: Connection refused
 
 
 
-<a id="check_nsclient_web_online_options"></a>
-#### Command-line Arguments
-
-
-
-
-
 
 ### check_ntp_offset
 
 Query an NTP server and check the offset between the local clock and the server.
-
 
 **Jump to section:**
 
@@ -1075,8 +1042,6 @@ Query an NTP server and check the offset between the local clock and the server.
 
 <a id="check_ntp_offset_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_ntp_offset_samples.md)_
 
 **Default check against a single NTP server:**
 
@@ -1129,6 +1094,9 @@ OK: pool.ntp.org offset=1326ms stratum=2| 'pool.ntp.org_offset'=1326;60000;12000
 
 
 
+<a id="check_ntp_offset_options"></a>
+#### Command-line Arguments
+
 <a id="check_ntp_offset_warn"></a>
 <a id="check_ntp_offset_crit"></a>
 <a id="check_ntp_offset_debug"></a>
@@ -1140,9 +1108,6 @@ OK: pool.ntp.org offset=1326ms stratum=2| 'pool.ntp.org_offset'=1326;60000;12000
 <a id="check_ntp_offset_help-short"></a>
 <a id="check_ntp_offset_server"></a>
 <a id="check_ntp_offset_servers"></a>
-<a id="check_ntp_offset_options"></a>
-#### Command-line Arguments
-
 
 | Option                                           | Default Value                                          | Description                                                                                                      |
 |--------------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1270,7 +1235,6 @@ Timeout in milliseconds.
 <a id="check_ntp_offset_filter_keys"></a>
 #### Filter keywords
 
-
 | Option        | Description                                                                      |
 |---------------|----------------------------------------------------------------------------------|
 | offset        | Absolute clock offset between local host and server, in milliseconds             |
@@ -1299,11 +1263,9 @@ Timeout in milliseconds.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
 ### check_ping
 
 Ping another host and check the result.
-
 
 **Jump to section:**
 
@@ -1314,8 +1276,6 @@ Ping another host and check the result.
 
 <a id="check_ping_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_ping_samples.md)_
 
 **Pinging a single host:**
 
@@ -1358,6 +1318,9 @@ OK: All 1 hosts are ok|'192.168.56.1 loss'=0%;5;10 '192.168.56.1 time'=1ms;60;10
 
 
 
+<a id="check_ping_options"></a>
+#### Command-line Arguments
+
 <a id="check_ping_warn"></a>
 <a id="check_ping_crit"></a>
 <a id="check_ping_debug"></a>
@@ -1369,9 +1332,6 @@ OK: All 1 hosts are ok|'192.168.56.1 loss'=0%;5;10 '192.168.56.1 time'=1ms;60;10
 <a id="check_ping_help-short"></a>
 <a id="check_ping_host"></a>
 <a id="check_ping_hosts"></a>
-<a id="check_ping_options"></a>
-#### Command-line Arguments
-
 
 | Option                                     | Default Value                                     | Description                                                                                                      |
 |--------------------------------------------|---------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1513,7 +1473,6 @@ The payload to send in the ping request (default: 'Hello from NSClient++')
 <a id="check_ping_filter_keys"></a>
 #### Filter keywords
 
-
 | Option  | Description                                            |
 |---------|--------------------------------------------------------|
 | host    | The host name or ip address (as given on command line) |
@@ -1541,7 +1500,6 @@ The payload to send in the ping request (default: 'Hello from NSClient++')
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
 
 ### check_ssh
 
@@ -1572,7 +1530,6 @@ Default thresholds: **warning** `time > 1000`, **critical**
 `time > 5000 or result != 'ok'`. A port that answers but is not SSH yields
 `result = no_match` (CRITICAL); a closed port yields `result = refused`.
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_ssh_samples)
@@ -1582,8 +1539,6 @@ Default thresholds: **warning** `time > 1000`, **critical**
 
 <a id="check_ssh_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_ssh_samples.md)_
 
 **Check that an SSH server presents a valid banner:**
 
@@ -1623,6 +1578,9 @@ OK: 192.168.56.10:22 ok in 2ms
 
 
 
+<a id="check_ssh_options"></a>
+#### Command-line Arguments
+
 <a id="check_ssh_warn"></a>
 <a id="check_ssh_crit"></a>
 <a id="check_ssh_debug"></a>
@@ -1638,9 +1596,6 @@ OK: 192.168.56.10:22 ok in 2ms
 <a id="check_ssh_send"></a>
 <a id="check_ssh_expect"></a>
 <a id="check_ssh_ca"></a>
-<a id="check_ssh_options"></a>
-#### Command-line Arguments
-
 
 | Option                                    | Default Value                          | Description                                                                                                      |
 |-------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1786,7 +1741,6 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 <a id="check_ssh_filter_keys"></a>
 #### Filter keywords
 
-
 | Option    | Description                                                                    |
 |-----------|--------------------------------------------------------------------------------|
 | connected | 1 when the connection succeeded, 0 otherwise                                   |
@@ -1814,11 +1768,9 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
 ### check_tcp
 
 Connect to a TCP port and optionally send/expect data to check that a service is reachable.
-
 
 **Jump to section:**
 
@@ -1829,8 +1781,6 @@ Connect to a TCP port and optionally send/expect data to check that a service is
 
 <a id="check_tcp_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckNet_check_tcp_samples.md)_
 
 **Default check against a single host/port:**
 
@@ -1916,6 +1866,9 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 
 
 
+<a id="check_tcp_options"></a>
+#### Command-line Arguments
+
 <a id="check_tcp_warn"></a>
 <a id="check_tcp_crit"></a>
 <a id="check_tcp_debug"></a>
@@ -1932,9 +1885,6 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 <a id="check_tcp_expect"></a>
 <a id="check_tcp_ca"></a>
 <a id="check_tcp_service"></a>
-<a id="check_tcp_options"></a>
-#### Command-line Arguments
-
 
 | Option                                    | Default Value                          | Description                                                                                                                                                          |
 |-------------------------------------------|----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -2081,7 +2031,6 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 <a id="check_tcp_filter_keys"></a>
 #### Filter keywords
 
-
 | Option    | Description                                                                    |
 |-----------|--------------------------------------------------------------------------------|
 | connected | 1 when the connection succeeded, 0 otherwise                                   |
@@ -2108,7 +2057,4 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
-
-
 

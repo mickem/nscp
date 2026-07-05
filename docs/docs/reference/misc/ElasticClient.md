@@ -2,8 +2,6 @@
 
 Elastic sends metrics, events and logs to elastic search
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `ElasticClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -14,22 +12,14 @@ ElasticClient = enabled
 ```
 
 
-
-
 ## Configuration
 
-
-
-| Path / Section                | Description |
-|-------------------------------|-------------|
-| [/settings/elastic/client](#) |             |
-
+| Path / Section                                        | Description |
+|-------------------------------------------------------|-------------|
+| [/settings/elastic/client](#/settings/elastic/client) |             |
 
 
 ### /settings/elastic/client <a id="/settings/elastic/client"></a>
-
-
-
 
 
 
@@ -46,7 +36,6 @@ ElasticClient = enabled
 | [nsclient log type](#elastic-type-used-for-metrics)   | nsclient log             | Elastic type used for metrics  |
 
 
-
 ```ini
 # 
 [/settings/elastic/client]
@@ -58,20 +47,11 @@ metrics index=nsclient_metrics-%(date)
 metrics type=metrics
 nsclient log index=nsclient_log-%(date)
 nsclient log type=nsclient log
-
 ```
-
-
-
-
 
 #### Elastic address <a id="/settings/elastic/client/address"></a>
 
 The address to send data to (http://127.0.0.1:9200/_bulk).
-
-
-
-
 
 
 | Key            | Description                                           |
@@ -89,14 +69,9 @@ The address to send data to (http://127.0.0.1:9200/_bulk).
 address=
 ```
 
-
-
 #### Elastic index used for events <a id="/settings/elastic/client/event index"></a>
 
 The elastic index to use for events (log messages).
-
-
-
 
 
 | Key            | Description                                           |
@@ -114,14 +89,9 @@ The elastic index to use for events (log messages).
 event index=nsclient_event-%(date)
 ```
 
-
-
 #### Elastic type used for events <a id="/settings/elastic/client/event type"></a>
 
 The elastic type to use for events (log messages).
-
-
-
 
 
 | Key            | Description                                           |
@@ -139,14 +109,9 @@ The elastic type to use for events (log messages).
 event type=eventlog
 ```
 
-
-
 #### Event <a id="/settings/elastic/client/events"></a>
 
 The events to subscribe to such as eventlog:* or logfile:mylog.
-
-
-
 
 
 | Key            | Description                                           |
@@ -164,8 +129,6 @@ The events to subscribe to such as eventlog:* or logfile:mylog.
 events=eventlog:*,logfile:*
 ```
 
-
-
 #### HOSTNAME <a id="/settings/elastic/client/hostname"></a>
 
 The host name of the monitored computer.
@@ -179,9 +142,6 @@ ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
-
-
-
 
 
 
@@ -200,14 +160,9 @@ ${domain_uc}	Domainname in uppercase
 hostname=auto
 ```
 
-
-
 #### Elastic index used for metrics <a id="/settings/elastic/client/metrics index"></a>
 
 The elastic index to use for metrics.
-
-
-
 
 
 | Key            | Description                                           |
@@ -225,14 +180,9 @@ The elastic index to use for metrics.
 metrics index=nsclient_metrics-%(date)
 ```
 
-
-
 #### Elastic type used for metrics <a id="/settings/elastic/client/metrics type"></a>
 
 The elastic type to use for metrics.
-
-
-
 
 
 | Key            | Description                                           |
@@ -250,14 +200,9 @@ The elastic type to use for metrics.
 metrics type=metrics
 ```
 
-
-
 #### Elastic index used for metrics <a id="/settings/elastic/client/nsclient log index"></a>
 
 The elastic index to use for metrics.
-
-
-
 
 
 | Key            | Description                                           |
@@ -275,14 +220,9 @@ The elastic index to use for metrics.
 nsclient log index=nsclient_log-%(date)
 ```
 
-
-
 #### Elastic type used for metrics <a id="/settings/elastic/client/nsclient log type"></a>
 
 The elastic type to use for metrics.
-
-
-
 
 
 | Key            | Description                                           |
@@ -299,5 +239,3 @@ The elastic type to use for metrics.
 # Elastic type used for metrics
 nsclient log type=nsclient log
 ```
-
-

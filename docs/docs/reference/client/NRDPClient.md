@@ -2,8 +2,6 @@
 
 NRDP client can be used both from command line and from queries to check remote systems via NRDP
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `NRDPClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `NRDPClie
 [/modules]
 NRDPClient = enabled
 ```
-
 
 ## Queries
 
@@ -26,13 +23,9 @@ A list of all available queries (check commands)
 |-----------------------------|-----------------------------------------------|
 | [submit_nrdp](#submit_nrdp) | Submit information to the remote NRDP Server. |
 
-
-
-
 ### submit_nrdp
 
 Submit information to the remote NRDP Server.
-
 
 **Jump to section:**
 
@@ -40,7 +33,8 @@ Submit information to the remote NRDP Server.
 
 
 
-
+<a id="submit_nrdp_options"></a>
+#### Command-line Arguments
 
 <a id="submit_nrdp_help"></a>
 <a id="submit_nrdp_help-pb"></a>
@@ -74,9 +68,6 @@ Submit information to the remote NRDP Server.
 <a id="submit_nrdp_ca"></a>
 <a id="submit_nrdp_proxy"></a>
 <a id="submit_nrdp_no-proxy"></a>
-<a id="submit_nrdp_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                                                                                                                                            |
 |--------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -114,13 +105,7 @@ Submit information to the remote NRDP Server.
 | no-proxy     |               | Comma-separated list of hostnames that bypass the proxy.                                                                                                               |
 
 
-
-
-
-
 ## Configuration
-
-
 
 | Path / Section                                              | Description               |
 |-------------------------------------------------------------|---------------------------|
@@ -129,13 +114,9 @@ Submit information to the remote NRDP Server.
 | [/settings/NRDP/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### SMTP CLIENT SECTION <a id="/settings/NRDP/client"></a>
 
 Section for SMTP passive check module.
-
-
-
 
 | Key                   | Default Value | Description |
 |-----------------------|---------------|-------------|
@@ -143,25 +124,16 @@ Section for SMTP passive check module.
 | [hostname](#hostname) | auto          | HOSTNAME    |
 
 
-
 ```ini
 # Section for SMTP passive check module.
 [/settings/NRDP/client]
 channel=NRDP
 hostname=auto
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/NRDP/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                     |
@@ -179,8 +151,6 @@ The channel to listen to.
 channel=NRDP
 ```
 
-
-
 #### HOSTNAME <a id="/settings/NRDP/client/hostname"></a>
 
 The host name of the monitored computer.
@@ -194,9 +164,6 @@ ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
-
-
-
 
 
 
@@ -214,7 +181,6 @@ ${domain_uc}	Domainname in uppercase
 # HOSTNAME
 hostname=auto
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/NRDP/client/handlers"></a>
 
@@ -276,7 +242,6 @@ tls version=1.3
 verify mode=peer
 
 ```
-
 
 
 

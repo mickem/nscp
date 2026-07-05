@@ -1,0 +1,1006 @@
+common:
+  info:
+    description: NSCP client can be used both from command line and from queries to check remote systems
+      via NSCP (REST)
+    title: NSCPClient
+  paths:
+    /settings/NSCP/client:
+      info:
+        advanced: false
+        description: Section for NSCP active/passive check module.
+        subkey: false
+        title: NSCP CLIENT SECTION
+      keys:
+        channel:
+          advanced: false
+          default_value: NSCP
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+    /settings/NSCP/client/handlers:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: CLIENT HANDLER SECTION
+    /settings/NSCP/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          allowed ciphers:
+            advanced: false
+            default_value: ''
+            description: 'A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH'
+            sample: true
+            title: ALLOWED CIPHERS
+          ca:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CA
+          certificate:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          certificate format:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CERTIFICATE FORMAT
+          certificate key:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          dh:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: DH KEY
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          password:
+            advanced: false
+            default_value: ''
+            description: The password to use to authenticate towards the server.
+            sample: true
+            title: PASSWORD
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+          use ssl:
+            advanced: false
+            default_value: ''
+            description: This option controls if SSL should be enabled.
+            sample: true
+            title: ENABLE SSL ENCRYPTION
+          verify mode:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: VERIFY MODE
+  queries:
+    check_remote_nscp:
+      info:
+        description: Request remote information via NSCP.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Set command line arguments
+        name: argument
+        repeatable: false
+        required: false
+        short_description: Set command line arguments
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|argument|argument'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|argument|argument'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password
+    exec_remote_nscp:
+      info:
+        description: Execute remote script via NSCP.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Set command line arguments
+        name: argument
+        repeatable: false
+        required: false
+        short_description: Set command line arguments
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|argument|argument'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|argument|argument'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password
+    remote_nscp_query:
+      info:
+        description: Request remote information via NSCP.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Set command line arguments
+        name: argument
+        repeatable: false
+        required: false
+        short_description: Set command line arguments
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|argument|argument'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|argument|argument'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password
+    remote_nscpforward:
+      info:
+        description: Forward the request as-is to remote host via NSCP.
+    submit_remote_nscp:
+      info:
+        description: Submit information to remote host via NSCP.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Same as command
+        name: alias
+        repeatable: false
+        required: false
+        short_description: Same as command
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Message
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+        name: result
+        repeatable: false
+        required: false
+        short_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|result|message'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|result|message'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password
+module: NSCPClient
+namespace: misc
+platforms:
+- unix
+- windows

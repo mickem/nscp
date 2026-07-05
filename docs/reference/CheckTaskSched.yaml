@@ -1,0 +1,395 @@
+module: CheckTaskSched
+namespace: windows
+platforms:
+- windows
+windows:
+  info:
+    description: Check status of your scheduled jobs.
+    title: CheckTaskSched
+  queries:
+    check_tasksched:
+      fields:
+      - generic: false
+        long_description: Retrieves the name of the application that the task is associated with.
+        name: application
+        short_description: ''
+      - generic: false
+        long_description: Retrieves the comment or description for the work item.
+        name: comment
+        short_description: ''
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: false
+        long_description: Retrieves the creator of the work item.
+        name: creator
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: TODO.
+        name: enabled
+        short_description: ''
+      - generic: false
+        long_description: Retrieves the work item's last exit code.
+        name: exit_code
+        short_description: ''
+      - generic: false
+        long_description: The task folder
+        name: folder
+        short_description: ''
+      - generic: false
+        long_description: True if the task has ever executed.
+        name: has_run
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: Retrieves the maximum length of time the task can run.
+        name: max_run_time
+        short_description: ''
+      - generic: false
+        long_description: Retrieves the most recent time the work item began running.
+        name: most_recent_run_time
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: Retrieves the command-line parameters of a task.
+        name: parameters
+        short_description: ''
+      - generic: false
+        long_description: Retrieves the priority for the task.
+        name: priority
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: false
+        long_description: Retrieves the status of the work item.
+        name: task_status
+        short_description: ''
+      - generic: false
+        long_description: The task title
+        name: title
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      - generic: false
+        long_description: Retrieves the working directory of the task.
+        name: working_directory
+        short_description: ''
+      info:
+        description: Check status of scheduled jobs.
+      params:
+      - content_type: 2
+        default_value: enabled = 1
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: exit_code != 0
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: exit_code < 0
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: warning
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${problem_list}'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All tasks are ok'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: '%(status): No tasks found'
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '${folder}/${title}: ${exit_code} != 0'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${title}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: The name of the computer that you want to connect to.
+        name: force-old
+        repeatable: false
+        required: false
+        short_description: The name of the computer that you want to connect to.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the computer that you want to connect to.
+        name: computer
+        repeatable: false
+        required: false
+        short_description: The name of the computer that you want to connect to.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The user name that is used during the connection to the computer.
+        name: user
+        repeatable: false
+        required: false
+        short_description: The user name that is used during the connection to the computer.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The domain of the user specified in the user parameter.
+        name: domain
+        repeatable: false
+        required: false
+        short_description: The domain of the user specified in the user parameter.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The password that is used to connect to the computer. If the user name and password
+          are not specified, then the current token is used.
+        name: password
+        repeatable: false
+        required: false
+        short_description: The password that is used to connect to the computer. If the user name and
+          password are not specified, then the current token is used.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The folder in which the tasks to check reside.
+        name: folder
+        repeatable: false
+        required: false
+        short_description: The folder in which the tasks to check reside.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Recurse sub folder (defaults to true).
+        name: recursive
+        repeatable: false
+        required: false
+        short_description: Recurse sub folder (defaults to true).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Look for hidden tasks.
+        name: hidden
+        repeatable: false
+        required: false
+        short_description: Look for hidden tasks.

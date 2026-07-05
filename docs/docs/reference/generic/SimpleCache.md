@@ -2,8 +2,6 @@
 
 Stores status updates and allows for active checks to retrieve them
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `SimpleCache = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `SimpleCa
 [/modules]
 SimpleCache = enabled
 ```
-
 
 ## Queries
 
@@ -27,21 +24,17 @@ A list of all available queries (check commands)
 | [check_cache](#check_cache) | Fetch results from the cache. |
 | [list_cache](#list_cache)   | List all keys in the cache.   |
 
-
 **List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
-
 
 | Command    | Description                     |
 |------------|---------------------------------|
 | checkcache | Alias for: :query:`check_cache` |
 
-
 ### check_cache
 
 Fetch results from the cache.
-
 
 **Jump to section:**
 
@@ -49,7 +42,8 @@ Fetch results from the cache.
 
 
 
-
+<a id="check_cache_options"></a>
+#### Command-line Arguments
 
 <a id="check_cache_help"></a>
 <a id="check_cache_help-pb"></a>
@@ -60,9 +54,6 @@ Fetch results from the cache.
 <a id="check_cache_command"></a>
 <a id="check_cache_channel"></a>
 <a id="check_cache_alias"></a>
-<a id="check_cache_options"></a>
-#### Command-line Arguments
-
 
 | Option                                        | Default Value   | Description                                             |
 |-----------------------------------------------|-----------------|---------------------------------------------------------|
@@ -97,22 +88,19 @@ The return status to return when a message is not found
 
 List all keys in the cache.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#list_cache_options)
 
 
 
-
+<a id="list_cache_options"></a>
+#### Command-line Arguments
 
 <a id="list_cache_help"></a>
 <a id="list_cache_help-pb"></a>
 <a id="list_cache_show-default"></a>
 <a id="list_cache_help-short"></a>
-<a id="list_cache_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -122,26 +110,16 @@ List all keys in the cache.
 | help-short   | N/A           | Show help screen (short format).              |
 
 
-
-
-
-
 ## Configuration
-
-
 
 | Path / Section            | Description |
 |---------------------------|-------------|
 | [/settings/cache](#cache) | CACHE       |
 
 
-
 ### CACHE <a id="/settings/cache"></a>
 
 Section for simple cache module (SimpleCache.dll).
-
-
-
 
 | Key                                   | Default Value       | Description         |
 |---------------------------------------|---------------------|---------------------|
@@ -149,25 +127,16 @@ Section for simple cache module (SimpleCache.dll).
 | [primary index](#primary-cache-index) | ${alias-or-command} | PRIMARY CACHE INDEX |
 
 
-
 ```ini
 # Section for simple cache module (SimpleCache.dll).
 [/settings/cache]
 channel=CACHE
 primary index=${alias-or-command}
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/cache/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                         |
@@ -185,15 +154,10 @@ The channel to listen to.
 channel=CACHE
 ```
 
-
-
 #### PRIMARY CACHE INDEX <a id="/settings/cache/primary index"></a>
 
 Set this to the value you want to use as unique key for the cache.
 Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} = The result status (number).
-
-
-
 
 
 | Key            | Description                         |
@@ -210,5 +174,3 @@ Can be any arbitrary string as well as include any of the following special keyw
 # PRIMARY CACHE INDEX
 primary index=${alias-or-command}
 ```
-
-

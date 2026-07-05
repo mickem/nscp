@@ -1,0 +1,72 @@
+common:
+  info:
+    description: Write status updates to a text file (A bit like the NSCA server does)
+    title: SimpleFileWriter
+  paths:
+    /settings/writers/file:
+      info:
+        advanced: false
+        description: Section for simple file writer module (SimpleFileWriter.dll).
+        subkey: false
+        title: FILE WRITER
+      keys:
+        channel:
+          advanced: false
+          default_value: FILE
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+        file:
+          advanced: false
+          default_value: output.txt
+          description: The filename to write output to.
+          sample: false
+          title: FILE TO WRITE TO
+        host-syntax:
+          advanced: false
+          default_value: ''
+          description: 'The syntax of the message to write to the line.
+
+            Can be any arbitrary string as well as include any of the following special keywords:${command}
+            = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias
+            for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message
+            data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds
+            since unix epoch, ${time} = time using time-format.'
+          sample: false
+          title: HOST MESSAGE SYNTAX
+        service-syntax:
+          advanced: false
+          default_value: ''
+          description: 'The syntax of the message to write to the line.
+
+            Can be any arbitrary string as well as include any of the following special keywords:${command}
+            = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias
+            for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message
+            data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds
+            since unix epoch, ${time} = time using time-format.'
+          sample: false
+          title: SERVICE MESSAGE SYNTAX
+        syntax:
+          advanced: false
+          default_value: ${alias-or-command} ${result} ${message}
+          description: 'The syntax of the message to write to the line.
+
+            Can be any arbitrary string as well as include any of the following special keywords:${command}
+            = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias
+            for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message
+            data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds
+            since unix epoch, ${time} = time using time-format.'
+          sample: false
+          title: MESSAGE SYNTAX
+        time-syntax:
+          advanced: false
+          default_value: '%Y-%m-%d %H:%M:%S'
+          description: The date format using strftime format flags. This is the time of writing the message
+            as messages currently does not have a source time.
+          sample: false
+          title: TIME SYNTAX
+module: SimpleFileWriter
+namespace: generic
+platforms:
+- unix
+- windows
