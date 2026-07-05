@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
 #ifndef NSCP_CHECK_UPTIME_H
 #define NSCP_CHECK_UPTIME_H
 #include <boost/date_time/posix_time/ptime.hpp>

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
 #include "error_handler.hpp"
 
 void error_handler::add_message(bool is_error, const log_entry &message) {

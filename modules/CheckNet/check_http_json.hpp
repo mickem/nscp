@@ -1,16 +1,5 @@
-/*
- * Copyright (C) 2004-2026 Michael Medin
- *
- * This file is part of NSClient++ - https://nsclient.org
- *
- * NSClient++ is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * JSON response-body value extraction for check_http, kept in its own
- * translation unit so it can be unit-tested without the HTTP/TLS client stack.
- */
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #pragma once
 

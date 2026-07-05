@@ -2,7 +2,7 @@
 
 [![Documentation](https://img.shields.io/badge/docs-docs.nsclient.org-blue)](https://docs.nsclient.org)
 [![Latest release](https://img.shields.io/github/v/release/mickem/nscp?include_prereleases&label=release)](https://github.com/mickem/nscp/releases)
-[![License](https://img.shields.io/badge/license-GPLv2-green.svg)](COPYING)
+[![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20GPL--2.0--only-green.svg)](COPYING)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey)](#supported-platforms)
 
 > A simple, powerful, and secure monitoring agent for Windows and Linux.
@@ -199,8 +199,12 @@ and platform packaging help.
 
 ## License
 
-NSClient++ is licensed under the **GNU General Public License v2.0** — see
-[COPYING](COPYING).
+NSClient++ is dual-licensed — you may use it under **either** the
+**Apache License 2.0** **or** the **GNU General Public License, version 2.0 (only)**,
+at your option (`SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only`). See
+[COPYING](COPYING) for the summary, the [`LICENSES/`](LICENSES) directory for the
+full license texts, and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for
+bundled third-party components.
 
 ### Powered by
 [![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSource)

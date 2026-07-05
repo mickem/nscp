@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
 #define INT_NSCP_ERROR_CONTEXT L"NSCP_ERROR_CONTEXT"
 #define INT_NSCP_ERROR L"NSCP_ERROR"
 #define INT_LAST_LOG L"NSCP_LAST_LOG"

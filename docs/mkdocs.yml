@@ -6,7 +6,7 @@ edit_uri: blob/master/docs/docs
 theme: 
   name: 'material'
   custom_dir: 'custom_theme'
-copyright: "NSClient++ is released under a GPLv2 license"
+copyright: "NSClient++ is dual-licensed under Apache-2.0 OR GPL-2.0-only"
 extra_css: 
   - pygments.css
   - custom.css

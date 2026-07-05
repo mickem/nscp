@@ -8,6 +8,17 @@ copy_single_file(ALL_FILES nrpe_dh_2048.pem security)
 copy_single_file(ALL_FILES old-settings.map .)
 copy_single_test_file(ALL_FILES nsclient.dist .)
 
+# Ship the third-party notices and the full text of every bundled license, so the
+# distributed package reproduces each component's license as its terms require.
+# copy_single_file both stages into the build tree (for the WiX/MSI to pick up via
+# $(var.Source)) and emits an install() rule (for the CPack ZIP/DEB/RPM).
+copy_single_file(ALL_FILES ../THIRD-PARTY-NOTICES.md .)
+file(GLOB _license_texts RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+     ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSES/*.txt)
+foreach(_lic ${_license_texts})
+    copy_single_file(ALL_FILES ${_lic} licenses)
+endforeach()
+
 if(NOT WIN32)
     configure_file(
         unix-nsclient.conf.in

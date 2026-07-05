@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
 #include "storage_manager.hpp"
 
 #include <google/protobuf/io/coded_stream.h>
