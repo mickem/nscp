@@ -443,7 +443,7 @@ void op5_client::thread_proc() {
       }
     }
   } catch (...) {
-    NSC_LOG_ERROR("Unknown exception in thread, op5 will not recieve requests");
+    NSC_LOG_ERROR("Unknown exception in thread, op5 will not receive requests");
   }
 }
 

@@ -239,7 +239,7 @@ void scheduler::thread_proc(const int id) {
           }
         } catch (...) {
           atomic_inc32(&metric_errors);
-          log_error(__FILE__, __LINE__, "UNKNOWN ERROR RUNING TASK: " + item->tag);
+          log_error(__FILE__, __LINE__, "UNKNOWN ERROR RUNNING TASK: " + item->tag);
           reschedule(*item, now_time);
         }
       } else {

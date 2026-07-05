@@ -51,7 +51,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   nscapi::settings_helper::path_extension root_path = settings.path(get_path());
   if (is_sample) root_path.set_sample();
 
-  root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
+  root_path.add_path()("REAL TIME FILTER DEFINITION", "Definition for real time filter: " + get_alias());
   root_path.add_key().add_string("type", sh::string_fun_key([this](auto value) { this->set_data(value); }), "MEMORY TYPE",
                                  "The type of memory to check: physical, committed or virtual", false);
 
@@ -90,7 +90,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
     filter.set_filter_string("core = 'total'");
   }
 
-  root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
+  root_path.add_path()("REAL TIME FILTER DEFINITION", "Definition for real time filter: " + get_alias());
   root_path.add_key().add_string("time", sh::string_fun_key([this](auto value) { this->set_data(value); }), "TIME", "A list of times to check (coma separated)",
                                  true);
 
@@ -124,7 +124,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   nscapi::settings_helper::path_extension root_path = settings.path(get_path());
   if (is_sample) root_path.set_sample();
 
-  root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
+  root_path.add_path()("REAL TIME FILTER DEFINITION", "Definition for real time filter: " + get_alias());
   root_path.add_key().add_string("process", sh::string_fun_key([this](auto value) { this->set_data(value); }), "PROCESS",
                                  "A list of processes to check (or * for all)", false);
 
@@ -169,7 +169,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
 
   // clang-format off
   root_path.add_path()
-    ("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
+    ("REAL TIME FILTER DEFINITION", "Definition for real time filter: " + get_alias())
   ;
   root_path.add_key()
     .add_string("check", sh::string_key(&check, "cpu"),

@@ -56,7 +56,7 @@ void do_matchFirstNumeric(const boost::program_options::variables_map &vm, const
                           const std::string bound, const std::string op) {
   if (vm.count(key)) {
     std::vector<std::string> bounds = vm[key].as<std::vector<std::string> >();
-    if (bounds.size() > 1) NSC_DEBUG_MSG("Multiple boundries of the same kind is not supported");
+    if (bounds.size() > 1) NSC_DEBUG_MSG("Multiple boundaries of the same kind is not supported");
     if (bounds.size() > 0) {
       std::string expr = "";
       std::string value = bounds.front();

@@ -114,7 +114,7 @@ void check(const PB::Commands::QueryRequestMessage::Request& request, PB::Comman
   filter_type filter;
   filter_helper.add_options("container_state != 'running'", "container_state != 'running'", "", filter.get_filter_syntax(), "warning");
   filter_helper.add_syntax("${status}: ${list}", "${names}=${container_state}", "${id}", "", "");
-  filter_helper.get_desc().add_options()("host", po::value<std::string>(&host), "The host or socket of the docker deamon");
+  filter_helper.get_desc().add_options()("host", po::value<std::string>(&host), "The host or socket of the docker daemon");
 
   if (!filter_helper.parse_options()) return;
 
