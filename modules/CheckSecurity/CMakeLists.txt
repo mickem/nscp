@@ -13,6 +13,11 @@ set(SRCS
     "${TARGET}.cpp"
     check_certificate.cpp
     check_firewall.cpp
+    check_users.cpp
+    check_nla.cpp
+    check_antivirus.cpp
+    check_bitlocker.cpp
+    check_secureboot.cpp
     cert_filter.cpp
     cert_source_openssl.cpp
     ${NSCP_DEF_PLUGIN_CPP}
@@ -25,12 +30,20 @@ if(WIN32)
         ${SRCS}
         cert_source_win.cpp
         check_firewall_win.cpp
+        check_users_win.cpp
+        posture_win.cpp
+        ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
         # Headers (for IDE project generation).
         "${TARGET}.h"
         cert_filter.hpp
         cert_source.hpp
         check_certificate.hpp
         check_firewall.hpp
+        check_users.hpp
+        check_nla.hpp
+        check_antivirus.hpp
+        check_bitlocker.hpp
+        check_secureboot.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}
@@ -39,6 +52,8 @@ else()
     set(SRCS
         ${SRCS}
         check_firewall_unix.cpp
+        check_users_unix.cpp
+        posture_unix.cpp
     )
 endif()
 
@@ -49,7 +64,9 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 
 set(EXTRA_LIBS)
 if(WIN32)
-    set(EXTRA_LIBS CRYPT32 ws2_32 ole32 oleaut32)
+    # CRYPT32 (cert store), Wtsapi32 (sessions), ole32/oleaut32/Wbemuuid (COM/WMI
+    # for NLA + Security Center + BitLocker), Advapi32 (registry: Secure Boot).
+    set(EXTRA_LIBS CRYPT32 ws2_32 ole32 oleaut32 Wbemuuid Wtsapi32 Advapi32)
 endif()
 
 target_link_libraries(

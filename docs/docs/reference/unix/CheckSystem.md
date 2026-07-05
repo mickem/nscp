@@ -2134,6 +2134,33 @@ This is the syntax for the base names of the performance data.
 
 Check state/metrics of one or more of the processes running on the computer.
 
+#### Showing only the top processes (sorting and limiting)
+
+`check_process` does not sort or limit its output: every matching process is evaluated and
+returned. To report only the few most interesting processes (for example the 10 biggest
+memory consumers) wrap the check in
+[`filter_perf`](../check/CheckHelpers.md#filter_perf), which post-processes the performance
+data produced by a check, sorting it (`sort=normal`, biggest first) and limiting it
+(`limit=N`).
+
+For example, the top 10 processes by working set (RAM), excluding SQL Server:
+
+```
+filter_perf sort=normal limit=10 command=check_process arguments "filter=working_set > 0 and exe not in ('sqlservr.exe')" "warn=working_set > 3G" "crit=working_set > 5G" "detail-syntax=%(exe) ws=%(working_set)"
+```
+
+The same approach works for CPU usage. Pass `delta=true` so that `%(time)` reports the CPU
+time consumed since the previous check (a percentage-like rate) rather than the total CPU
+time since the process started, for example the top 10 processes by CPU:
+
+```
+filter_perf sort=normal limit=10 command=check_process arguments delta=true "warn=time > 50" "crit=time > 90" "detail-syntax=%(exe) cpu=%(time)%"
+```
+
+Note that `limit` only trims the performance data; the warning/critical status is still
+evaluated against every matching process, so an alert is raised even if the offending
+process is not among the items shown.
+
 
 **Jump to section:**
 
@@ -2206,7 +2233,6 @@ OK all processes are ok.|'csrss.exe state'=1;0;0 'svchost.exe state'=1;0;0 'Avas
 <a id="check_process_show-default"></a>
 <a id="check_process_help-short"></a>
 <a id="check_process_process"></a>
-<a id="check_process_total"></a>
 <a id="check_process_options"></a>
 #### Command-line Arguments
 
@@ -2235,7 +2261,7 @@ OK all processes are ok.|'csrss.exe state'=1;0;0 'svchost.exe state'=1;0;0 'Avas
 | [perf-syntax](#check_process_perf-syntax)     | ${exe}                           | Performance alias syntax.                                                                                        |
 | process                                       |                                  | The process to check, set this to * to check all processes                                                       |
 | [delta](#check_process_delta)                 |                                  | Measure CPU usage as a delta over a one second interval.                                                         |
-| total                                         | N/A                              | Include the total of all matching processes                                                                      |
+| [total](#check_process_total)                 | 1)] (=0                          | Include the total of all matching processes                                                                      |
 
 
 
@@ -2326,6 +2352,12 @@ This is the syntax for the base names of the performance data.
 Measure CPU usage as a delta over a one second interval.
 The check samples process and system CPU times, sleeps for one second, then samples again. With delta=true the 'time' (and 'kernel'/'user') fields report the process CPU usage during that second as a whole percentage of total CPU, instead of cumulative CPU seconds.
 
+
+<h5 id="check_process_total">total:</h5>
+
+Include the total of all matching processes
+
+*Default Value:* `1)] (=0`
 
 
 <a id="check_process_filter_keys"></a>

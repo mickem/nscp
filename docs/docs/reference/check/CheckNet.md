@@ -378,7 +378,6 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 <a id="check_dns_host"></a>
 <a id="check_dns_lookup"></a>
 <a id="check_dns_server"></a>
-<a id="check_dns_norecursion"></a>
 <a id="check_dns_expected-address"></a>
 <a id="check_dns_expected"></a>
 <a id="check_dns_options"></a>
@@ -412,7 +411,7 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 | [type](#check_dns_type)                   | A                                                           | DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.                                                 |
 | server                                    |                                                             | DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf otherwise).                       |
 | [port](#check_dns_port)                   | 53                                                          | UDP port of the DNS server.                                                                                      |
-| norecursion                               | N/A                                                         | Do not request recursion (RD=0).                                                                                 |
+| [norecursion](#check_dns_norecursion)     | 1)] (=0                                                     | Do not request recursion (RD=0).                                                                                 |
 | [timeout](#check_dns_timeout)             | 5000                                                        | Timeout in milliseconds.                                                                                         |
 | expected-address                          |                                                             | Record that must be present in the answer (may be given multiple times).                                         |
 | expected                                  |                                                             | Comma separated list of records that must all be present in the answer.                                          |
@@ -511,6 +510,12 @@ DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.
 UDP port of the DNS server.
 
 *Default Value:* `53`
+
+<h5 id="check_dns_norecursion">norecursion:</h5>
+
+Do not request recursion (RD=0).
+
+*Default Value:* `1)] (=0`
 
 <h5 id="check_dns_timeout">timeout:</h5>
 
@@ -956,8 +961,8 @@ Query the REST API of a remote NSClient++ agent (reachability or a remote check)
 
 #### About `check_nsclient_web_online`
 
-`check_nsclient_web_online` queries the REST API of a **remote** NSClient++ agent
-over HTTPS. It has two modes:
+`check_nsclient_web_online` queries the REST API of a **remote** NSClient++ 
+agent over HTTPS. It has two modes:
 
 * **Reachability probe** (no `command=`): it hits `/api/v1/info` and reports
   **OK** `REST API reachable …` when the agent answers, **CRITICAL** when it
@@ -1361,7 +1366,6 @@ OK: All 1 hosts are ok|'192.168.56.1 loss'=0%;5;10 '192.168.56.1 time'=1ms;60;10
 <a id="check_ping_show-default"></a>
 <a id="check_ping_help-short"></a>
 <a id="check_ping_host"></a>
-<a id="check_ping_total"></a>
 <a id="check_ping_hosts"></a>
 <a id="check_ping_options"></a>
 #### Command-line Arguments
@@ -1390,7 +1394,7 @@ OK: All 1 hosts are ok|'192.168.56.1 loss'=0%;5;10 '192.168.56.1 time'=1ms;60;10
 | [detail-syntax](#check_ping_detail-syntax) | ${ip} Packet loss = ${loss}%, RTA = ${time}ms     | Detail level syntax.                                                                                             |
 | [perf-syntax](#check_ping_perf-syntax)     | ${host}                                           | Performance alias syntax.                                                                                        |
 | host                                       |                                                   | The host to check (or multiple hosts).                                                                           |
-| total                                      | N/A                                               | Include the total of all matching hosts                                                                          |
+| [total](#check_ping_total)                 | 1)] (=0                                           | Include the total of all matching hosts                                                                          |
 | hosts                                      |                                                   | The host to check (or multiple hosts).                                                                           |
 | [count](#check_ping_count)                 | 1                                                 | Number of packets to send.                                                                                       |
 | [timeout](#check_ping_timeout)             | 500                                               | Timeout in milliseconds.                                                                                         |
@@ -1478,6 +1482,12 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 *Default Value:* `${host}`
+
+<h5 id="check_ping_total">total:</h5>
+
+Include the total of all matching hosts
+
+*Default Value:* `1)] (=0`
 
 <h5 id="check_ping_count">count:</h5>
 

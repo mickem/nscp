@@ -112,10 +112,27 @@ onLinux("CheckSecurity", () => {
     expect(out).toMatch(/only supported on Windows/i);
   });
 
-  // --- check_firewall (Windows-only) ---------------------------------------
+  // --- check_users (cross-platform) ----------------------------------------
 
-  it("check_firewall reports not-supported on this platform", async () => {
-    const out = await query("check_firewall", []);
-    expect(out).toMatch(/not supported on this platform/i);
+  it("check_users reports the logged-on sessions", async () => {
+    const out = await query("check_users", []);
+    expect(out).toMatch(/user\(s\) logged on/);
   });
+
+  it("check_users exposes the count summary variable", async () => {
+    // count is always >= 0, so this warning must always trip — a deterministic
+    // way to exercise the count keyword regardless of how many sessions exist.
+    const out = await query("check_users", ["warn=count >= 0"]);
+    expect(out).toMatch(/^WARNING/m);
+  });
+
+  // --- Windows-only posture checks (stubbed on this platform) ---------------
+
+  it.each([["check_firewall"], ["check_nla"], ["check_antivirus"], ["check_bitlocker"], ["check_secureboot"]])(
+    "%s reports not-supported on this platform",
+    async (cmd) => {
+      const out = await query(cmd, []);
+      expect(out).toMatch(/not supported on this platform/i);
+    },
+  );
 });

@@ -42,6 +42,7 @@ nav:
       - Event Log Monitoring: scenarios/event-log.md
       - Performance Counters (PDH): scenarios/counters.md
       - Network Checks: scenarios/network-checks.md
+      - Host Security Posture: scenarios/security-posture.md
       - Active Monitoring with NRPE: scenarios/nrpe.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
       - Passive Monitoring (NSCA-NG): scenarios/passive-monitoring-nsca-ng.md

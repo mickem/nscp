@@ -323,7 +323,7 @@ class root_container(object):
     aliases = {}
     plugins = {}
     windows_modules = ['CheckSystem', 'CheckDisk', 'NSClientServer', 'DotnetPlugins', 'CheckEventLog',  'CheckTaskSched',  'CheckWMI']
-    check_modules = ['CheckExternalScripts',  'CheckHelpers',  'CheckLogFile',  'CheckMKClient',  'CheckMKServer',  'CheckNSCP', 'CheckNet']
+    check_modules = ['CheckExternalScripts',  'CheckHelpers',  'CheckLogFile',  'CheckMKClient',  'CheckMKServer',  'CheckNSCP', 'CheckNet', 'CheckSecurity']
     client_modules = ['GraphiteClient', 'IcingaClient',  'NRDPClient',  'NRPEClient',  'NRPEServer',  'NSCAClient',  'NSCANgClient', 'NSCAServer',  'NSClientServer',  'SMTPClient',  'SyslogClient']
     generic_modules = ['CommandClient',  'DotnetPlugins',  'LUAScript',  'PythonScript',  'Scheduler',  'SimpleCache',  'SimpleFileWriter', 'WEBServer']
     ignored_modules = ['CauseCrashes', 'SamplePluginSimple']

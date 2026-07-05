@@ -40,6 +40,12 @@ Each scenario follows the same structure:
 |-------------------------------------|---------------------------------------------------------------------------------|
 | [Network Checks](network-checks.md) | Ping, TCP/SSH port checks (incl. TLS), HTTP/HTTPS health, DNS, and remote-agent availability |
 
+### Security
+
+| Scenario                                        | Description                                                                     |
+|-------------------------------------------------|---------------------------------------------------------------------------------|
+| [Host Security Posture](security-posture.md)    | Certificate expiry/hygiene and logon sessions (Windows & Linux), plus Windows firewall, antivirus, BitLocker and Secure Boot |
+
 ### Monitoring Server Integration
 
 How NSClient++ exchanges results with your monitoring server — pick the
