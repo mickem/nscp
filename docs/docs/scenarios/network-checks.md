@@ -129,11 +129,13 @@ check_tcp host=mail.example.com service=smtp
 check_tcp host=mail.example.com service=ssmtp   ; SMTP-over-TLS on port 465
 ```
 
-**Wrap the connection in TLS** and (optionally) verify the server certificate:
+**Wrap the connection in TLS** and (optionally) verify the server certificate or
+pin a minimum protocol version (`tls-version` accepts `tlsv1.0`…`tlsv1.3`, `sslv3`):
 
 ```
 check_tcp host=secure.example.com port=443 ssl=true
 check_tcp host=secure.example.com port=443 ssl=true verify=peer ca=/etc/ssl/certs/ca-certificates.crt
+check_tcp host=secure.example.com port=443 ssl=true tls-version=tlsv1.2+
 ```
 
 **Match the peer's banner/response** with a regex via the `response` keyword:
@@ -282,6 +284,24 @@ check_http url=https://myapp.example.com/ "warn=code not in (200,301,302)" "crit
 ```
 check_http url=https://myapp.example.com/ "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 7"
 ```
+
+**Verify the certificate and control the TLS version.** By default `check_http`
+**verifies** the server certificate against the system CA bundle (`verify=peer`)
+and requires **TLS 1.2 or newer** (`tls-version=tlsv1.2+`), so a handshake
+against an untrusted or expired chain fails the check. Point `ca=` at a private
+CA, relax verification for a self-signed endpoint, override the SNI/verification
+hostname, or tighten the negotiated protocol:
+
+```
+check_http url=https://internal.example.com/  ca=/etc/ssl/private/corp-ca.pem
+check_http url=https://self-signed.example.com/  verify=none
+check_http url=https://myapp.example.com/  tls-version=tlsv1.3   ; CRITICAL if the server can't negotiate TLS 1.3
+check_http url=https://vhost.example.com/  sni=canonical.example.com
+```
+
+Accepted `tls-version` values are `tlsv1.0`, `tlsv1.1`, `tlsv1.2`, `tlsv1.2+`
+(default), `tlsv1.3` and `sslv3`. Combine with `ssl_expiry_days` to catch an
+expiring **and** an untrusted or weak-protocol certificate in one check.
 
 **Via NRPE:**
 

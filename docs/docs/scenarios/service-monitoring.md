@@ -1,17 +1,22 @@
 # Service and Process Monitoring
 
-**Goal:** Verify that critical Windows services are running and that specific processes are alive and healthy.
+**Goal:** Verify that critical services — Windows services or Linux `systemd`
+units — are running, and that specific processes are alive and healthy.
 
-Service checks (`check_service`) are Windows-only. Process checks
-(`check_process` and everything in [Monitoring Processes](#monitoring-processes))
-work on **Windows and Linux** — on Linux, match the executable name without an
-extension (`process=sshd` instead of `process=explorer.exe`).
+`check_service` works on **both platforms**: on Windows it inspects the Service
+Control Manager, and on Linux it inspects **systemd** units. Either way the raw
+platform state is mapped to a normalised `state` keyword, so the same thresholds
+read the same on both (see [Monitoring Windows Services](#monitoring-windows-services)
+and [Monitoring Linux Services (systemd)](#monitoring-linux-services-systemd)).
+`check_process` is also cross-platform — on Linux, match the executable name
+without an extension (`process=sshd` instead of `process=explorer.exe`).
 
 ---
 
 ## Prerequisites
 
-Enable the `CheckSystem` module in `nsclient.ini`:
+Enable the `CheckSystem` module in `nsclient.ini` (the module is enabled under
+the same name on both Windows and Linux):
 
 ```ini
 [/modules]
@@ -238,5 +243,6 @@ check_nrpe -H <agent-ip> -c check_process --argument "process=myapp.exe"
 
 - [Event Log Monitoring](event-log.md) — catch service crash events before they are noticed
 - [Windows Server Health](windows-server-health.md) — add service checks to a full health baseline
+- [Linux Server Health](linux-server-health.md) — the same for a Linux host (load, CPU, memory, disk, services)
 - [Checks In Depth: Filters](../concepts/checks.md#3-filters-choosing-what-to-check) — understand how to write filter expressions
 - [Reference: CheckSystem](../reference/windows/CheckSystem.md) — full command reference

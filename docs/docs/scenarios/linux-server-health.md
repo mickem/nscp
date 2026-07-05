@@ -158,15 +158,16 @@ A minimal `nsclient.ini` for a monitored Linux host:
 
 ```ini
 [/modules]
-CheckSystem = enabled
-CheckDisk   = enabled
-NRPEServer  = enabled
+CheckSystem  = enabled
+CheckDisk    = enabled
+CheckHelpers = enabled          ; provides the alias section below
+NRPEServer   = enabled
 
 [/settings/NRPE/server]
 allowed hosts = 10.0.0.1        ; your monitoring server
 allow arguments = false         ; define checks below instead of passing args
 
-[/settings/external scripts/alias]
+[/settings/check helpers/alias]
 alias_load        = check_load "warn=load5 > 4" "crit=load5 > 8"
 alias_cpu         = check_cpu_utilization "warn=total > 90" "crit=total > 95"
 alias_mem         = check_memory "warn=used > 80%" "crit=used > 90%"
