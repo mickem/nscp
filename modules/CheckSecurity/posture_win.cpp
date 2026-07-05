@@ -76,7 +76,7 @@ void gather(std::vector<nla_filter::filter_obj_ptr> &out, std::string &error) {
       NLM_NETWORK_CATEGORY cat = NLM_NETWORK_CATEGORY_PUBLIC;
       if (SUCCEEDED(net->GetCategory(&cat))) o->category = category_name(cat);
       VARIANT_BOOL connected = VARIANT_FALSE;
-      if (SUCCEEDED(net->IsConnected(&connected))) o->connected = (connected != VARIANT_FALSE) ? 1 : 0;
+      if (SUCCEEDED(net->get_IsConnected(&connected))) o->connected = (connected != VARIANT_FALSE) ? 1 : 0;
 
       out.push_back(o);
       net->Release();
