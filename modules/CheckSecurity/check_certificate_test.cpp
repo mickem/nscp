@@ -17,6 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstring>
 #include <ctime>
 #include <string>
 #include <vector>
@@ -44,14 +45,12 @@ namespace fs = boost::filesystem;
 
 // Generate a self-signed certificate valid between now+not_before_days and
 // now+not_after_days, write it to `path` (PEM unless der=true), return success.
-// `bits` sizes the RSA key; `weak_sig` signs with SHA-1 instead of SHA-256.
-bool write_test_cert(const std::string &path, const std::string &cn, long not_before_days, long not_after_days, bool der = false, int bits = 2048,
-                     bool weak_sig = false) {
+bool write_test_cert(const std::string &path, const std::string &cn, long not_before_days, long not_after_days, bool der = false) {
   EVP_PKEY *pkey = nullptr;
   EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
   if (pctx == nullptr) return false;
   EVP_PKEY_keygen_init(pctx);
-  EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, bits);
+  EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, 2048);
   EVP_PKEY_keygen(pctx, &pkey);
   EVP_PKEY_CTX_free(pctx);
   if (pkey == nullptr) return false;
@@ -65,7 +64,7 @@ bool write_test_cert(const std::string &path, const std::string &cn, long not_be
   X509_NAME *name = X509_get_subject_name(x);
   X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char *>(cn.c_str()), -1, -1, 0);
   X509_set_issuer_name(x, name);
-  X509_sign(x, pkey, weak_sig ? EVP_sha1() : EVP_sha256());
+  X509_sign(x, pkey, EVP_sha256());
 
   BIO *bio = BIO_new_file(path.c_str(), "wb");
   bool ok = false;
@@ -75,6 +74,37 @@ bool write_test_cert(const std::string &path, const std::string &cn, long not_be
   }
   X509_free(x);
   EVP_PKEY_free(pkey);
+  return ok;
+}
+
+// Pre-generated 1024-bit RSA, SHA-1-signed, self-signed certificate
+// (CN=weak.example.com, expires 2051). A static fixture rather than generated
+// at runtime: distro crypto policies (e.g. RHEL/Rocky 9) make OpenSSL refuse
+// to CREATE SHA-1 signatures, so X509_sign(..., EVP_sha1()) fails there —
+// but parsing a SHA-1 cert works everywhere, which is all check_certificate does.
+constexpr const char *kWeakCertPem =
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIICFDCCAX2gAwIBAgIUU5ef1fAa6N+gtOMI4hamIGZxQz0wDQYJKoZIhvcNAQEF\n"
+    "BQAwGzEZMBcGA1UEAwwQd2Vhay5leGFtcGxlLmNvbTAgFw0yNjA3MDUwODA3NTFa\n"
+    "GA8yMDUxMDIyNDA4MDc1MVowGzEZMBcGA1UEAwwQd2Vhay5leGFtcGxlLmNvbTCB\n"
+    "nzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAsVUEFyMPRJ+wygLa9c3VeaeNdLe5\n"
+    "CJ3rL+3XKTN5utAA9j8c5wuzdMC4MnMAAeoSub94GKZSPtStVGgK3S8DrMs37VZb\n"
+    "UZIudWAjNUCXLrcGH+sz5UeaGzYk4qoKmIrw6eatGrXyZfY4Qx5RvaY8JDynjuvP\n"
+    "dwoKGtn+1lmYJxMCAwEAAaNTMFEwHQYDVR0OBBYEFJyws1F2d/S6SwjHxP6ODMIa\n"
+    "ntROMB8GA1UdIwQYMBaAFJyws1F2d/S6SwjHxP6ODMIantROMA8GA1UdEwEB/wQF\n"
+    "MAMBAf8wDQYJKoZIhvcNAQEFBQADgYEAIORxeYO1LFuRHwJJpCWgzIXXSHSt3W1z\n"
+    "eqJTZgE0A0/UxBLeuRsjXI6eAZY+z8gUtajFwoqMp2lFbbfbPBaaL/7vgiidKQIo\n"
+    "7eGYSkjMHMGcNjOYEdMMhpQzgjgA7wLDy2UQJZjyR1IeW0hfbCJgkj4GyL3YcpnD\n"
+    "qawI6op8quM=\n"
+    "-----END CERTIFICATE-----\n";
+
+// Write a string fixture to `path`.
+bool write_fixture(const std::string &path, const char *content) {
+  BIO *bio = BIO_new_file(path.c_str(), "wb");
+  if (bio == nullptr) return false;
+  const int len = static_cast<int>(strlen(content));
+  const bool ok = BIO_write(bio, content, len) == len;
+  BIO_free(bio);
   return ok;
 }
 
@@ -177,7 +207,7 @@ TEST_F(CertSourceTest, PopulatesSecurityFieldsForAStrongCert) {
 }
 
 TEST_F(CertSourceTest, FlagsWeakKeyAndWeakSignature) {
-  ASSERT_TRUE(write_test_cert(file("weak.pem"), "weak.example.com", -1, 365, /*der=*/false, /*bits=*/1024, /*weak_sig=*/true));
+  ASSERT_TRUE(write_fixture(file("weak.pem"), kWeakCertPem));
   std::vector<cert_filter::filter_obj_ptr> certs;
   std::vector<std::string> errors;
   cert_source::load_files({file("weak.pem")}, false, "", "", certs, errors);
