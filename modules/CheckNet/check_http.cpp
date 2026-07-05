@@ -49,12 +49,15 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("body", &filter_obj::get_body, "Body of the response (use with substr/regex matching)");
   registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, error, ...)");
   registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port that was used");
-  registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code").add_int_perf("");
+  // Perfdata labels: the record alias is the URL, so `time` (the primary
+  // metric) keeps the bare alias and the others get a distinguishing suffix —
+  // without one they would all collide on the same label.
+  registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code").add_int_perf("", "", "_code");
   registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the request in milliseconds").add_int_perf("ms");
-  registry_.add_int_var("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes").add_int_perf("B");
+  registry_.add_int_var("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes").add_int_perf("B", "", "_size");
   registry_.add_int_var("ssl_expiry_days", parsers::where::type_int, &filter_obj::get_ssl_expiry_days,
                         "Days until the server's TLS certificate expires (-1 for plain http; negative if already expired)")
-      .add_int_perf("");
+      .add_int_perf("", "", "_ssl_expiry_days");
 }
 
 }  // namespace check_http_filter
@@ -285,6 +288,12 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   }
 
   if (!filter_helper.build_filter(f)) return;
+
+  // The default warn/crit expressions reference time and code, which makes
+  // them threshold-derived perfdata; size is not referenced by any default
+  // expression so it must be registered explicitly to be graphed by default
+  // (suppress with perf-config: size(ignored:true)).
+  f.add_manual_perf("size");
 
   for (const auto &u : urls) {
     auto obj = std::make_shared<filter_obj>();

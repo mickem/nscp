@@ -36,14 +36,14 @@ check_ping host=192.168.0.1
 
 ```
 OK: All 1 hosts are ok
-'192.168.0.1 loss'=0%;5;10 '192.168.0.1 time'=2ms;60;100
+'192.168.0.1_loss'=0%;5;10 '192.168.0.1'=2ms;60;100
 ```
 
 ### Expected output (alert)
 
 ```
 CRITICAL: CRITICAL: 192.168.0.1: loss 100%
-'192.168.0.1 loss'=100%;5;10 '192.168.0.1 time'=0ms;60;100
+'192.168.0.1_loss'=100%;5;10 '192.168.0.1'=0ms;60;100
 ```
 
 Default thresholds:
@@ -191,7 +191,7 @@ check_http url=https://myapp.example.com/health
 
 ```
 OK: https://myapp.example.com/health -> 200 ok (1234B in 45ms)
-'https://myapp.example.com/health_code'=200;0;200 'https://myapp.example.com/health_time'=45;5000;0
+'https://myapp.example.com/health_code'=200;0;200 'https://myapp.example.com/health_size'=1234B;0;0 'https://myapp.example.com/health'=45ms;5000;0
 ```
 
 ### Expected output (alert — HTTP 500)
