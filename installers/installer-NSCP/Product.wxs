@@ -72,6 +72,7 @@
           </Component>
           <Component Id="RandomFiles" Guid="E23865C3-C11F-4d11-BE63-C670D60B0CD0" Win64="$(var.Win64)">
             <File Id="License" Name="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="no" KeyPath="yes" />
+            <File Id="ThirdPartyNotices" Name="THIRD-PARTY-NOTICES.md" DiskId="1" Source="$(var.Source)/THIRD-PARTY-NOTICES.md" Vital="no" />
             <File Id="settingsMap" Name="old-settings.map" DiskId="1" Source="$(var.Source)/old-settings.map" Vital="no" />
             <RemoveFile Id="LogFile1" Name="nsclient.log" On="uninstall" />
             <RemoveFile Id="LogFile2" Name="nsc.log" On="uninstall" />
@@ -88,6 +89,18 @@
               <RemoveFile Id="removeCertificate" Name="certificate.pem" On="uninstall" />
               <RemoveFile Id="removeCertificateKey" Name="certificate_key.pem" On="uninstall" />
               <RemoveFile Id="removeCA" Name="ca.pem" On="uninstall" />
+            </Component>
+          </Directory>
+          <Directory Id="INSTALLLOCATION_LICENSES" Name="licenses">
+            <Component Id="LicenseTexts" Guid="2F9E4C7A-1B3D-4E5F-8A6C-9D0E1F2A3B4C" Win64="$(var.Win64)">
+              <File Id="LicApache20" Name="Apache-2.0.txt" DiskId="1" Source="$(var.Source)/licenses/Apache-2.0.txt" Vital="no" KeyPath="yes" />
+              <File Id="LicBsd3Clause" Name="BSD-3-Clause.txt" DiskId="1" Source="$(var.Source)/licenses/BSD-3-Clause.txt" Vital="no" />
+              <File Id="LicBsl10" Name="BSL-1.0.txt" DiskId="1" Source="$(var.Source)/licenses/BSL-1.0.txt" Vital="no" />
+              <File Id="LicCpl10" Name="CPL-1.0.txt" DiskId="1" Source="$(var.Source)/licenses/CPL-1.0.txt" Vital="no" />
+              <File Id="LicGpl20Only" Name="GPL-2.0-only.txt" DiskId="1" Source="$(var.Source)/licenses/GPL-2.0-only.txt" Vital="no" />
+              <File Id="LicMit" Name="MIT.txt" DiskId="1" Source="$(var.Source)/licenses/MIT.txt" Vital="no" />
+              <File Id="LicOfl11" Name="OFL-1.1.txt" DiskId="1" Source="$(var.Source)/licenses/OFL-1.1.txt" Vital="no" />
+              <File Id="LicZlib" Name="Zlib.txt" DiskId="1" Source="$(var.Source)/licenses/Zlib.txt" Vital="no" />
             </Component>
           </Directory>
           <Directory Id="INSTALLLOCATION_MODS" Name="modules">
@@ -203,6 +216,7 @@
           <ComponentRef Id="CheckNSClient" />
         <?endif?>
         <ComponentRef Id="RandomFiles" />
+        <ComponentRef Id="LicenseTexts" />
         <ComponentRef Id="NSCPEXE" />
         <ComponentRef Id="GeneratedCerts" />
         <Feature Id="Shortcuts" Title="Shortcuts" Description="Startmenu shortcuts" Level="1" Absent="allow">

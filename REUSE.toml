@@ -1,0 +1,44 @@
+# REUSE configuration (https://reuse.software) — REUSE spec 3.x
+#
+# Most C/C++ sources carry an inline SPDX header (see tools/license_headers.py).
+# This file supplies license/copyright info for the remaining tracked files that
+# cannot (or do not) carry an inline header — docs, data, images, build files,
+# manifests, scripts, etc. — and records the licenses of bundled third-party
+# files that carry a non-SPDX header REUSE cannot parse.
+#
+# Validate with: reuse lint
+version = 1
+
+SPDX-PackageName = "NSClient++"
+SPDX-PackageSupplier = "Michael Medin <michael@medin.name>"
+SPDX-PackageDownloadLocation = "https://github.com/mickem/nscp"
+
+# --- Project default -----------------------------------------------------------
+# Everything is NSClient++'s own, dual-licensed. precedence = "closest" means a
+# file's own inline SPDX header (when present) wins over this fallback, so the
+# per-file headers and the third-party overrides below are respected.
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2004-2026 Michael Medin"
+SPDX-License-Identifier = "Apache-2.0 OR GPL-2.0-only"
+
+# --- Bundled third-party (see THIRD-PARTY-NOTICES.md) ---------------------------
+# These carry upstream headers that predate SPDX tags, so annotate explicitly.
+[[annotations]]
+path = ["include/net/icmp_header.hpp", "include/net/ipv4_header.hpp"]
+precedence = "override"
+SPDX-FileCopyrightText = "2003-2016 Christopher M. Kohlhoff"
+SPDX-License-Identifier = "BSL-1.0"
+
+[[annotations]]
+path = "include/simpleini/simpleini.h"
+precedence = "override"
+SPDX-FileCopyrightText = "2006-2012 Brodie Thiesfield"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["installers/ui/WixUI_MondoNSCP.wxs", "installers/installer-NSCP/WixUI_en-us.wxl"]
+precedence = "override"
+SPDX-FileCopyrightText = "Microsoft Corporation"
+SPDX-License-Identifier = "CPL-1.0"

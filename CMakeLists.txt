@@ -1257,10 +1257,10 @@ else()
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "adduser, sudo")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Michael Medin <michael@medin.name>")
-    set(CPACK_DEBIAN_PACKAGE_LICENSE "GPL-2.0")
+    set(CPACK_DEBIAN_PACKAGE_LICENSE "Apache-2.0 OR GPL-2.0-only")
 
     # RPM-specific
-    set(CPACK_RPM_PACKAGE_LICENSE "GPL-2.0")
+    set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0 OR GPL-2.0-only")
     set(CPACK_RPM_PACKAGE_REQUIRES "libstdc++, glibc >= 2.17")
 
     if(NOT CPACK_SYSTEM_NAME)
