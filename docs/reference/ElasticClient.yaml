@@ -1,8 +1,4 @@
-module: ElasticClient
-namespace: misc
-platforms:
-- unix
-unix:
+common:
   info:
     description: Elastic sends metrics, events and logs to elastic search
     title: ElasticClient
@@ -71,3 +67,8 @@ unix:
           description: The elastic type to use for metrics.
           sample: false
           title: Elastic type used for metrics
+module: ElasticClient
+namespace: misc
+platforms:
+- unix
+- windows

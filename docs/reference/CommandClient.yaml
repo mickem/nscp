@@ -1,8 +1,9 @@
+common:
+  info:
+    description: A command line client, generally not used except with "nscp test".
+    title: CommandClient
 module: CommandClient
 namespace: generic
 platforms:
 - unix
-unix:
-  info:
-    description: A command line client, generally not used except with "nscp test".
-    title: CommandClient
+- windows

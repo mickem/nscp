@@ -1,44 +1,85 @@
-common:
-  aliases:
-    checklogfile:
-      description: 'Alternative name for: check_logfile'
+module: CheckEventLog
+namespace: windows
+platforms:
+- windows
+windows:
   info:
-    description: File for checking log files and various other forms of updating text files
-    title: CheckLogFile
+    description: Check for errors and warnings in the event log.
+    title: CheckEventLog
   paths:
-    /settings/logfile/real-time:
+    /settings/eventlog:
+      info:
+        advanced: false
+        description: Section for the EventLog Checker (CheckEventLog.dll).
+        subkey: false
+        title: Eventlog
+      keys:
+        buffer size:
+          advanced: false
+          default_value: '131072'
+          description: The size of the buffer to use when getting messages this affects the speed and
+            maximum size of messages you can receive.
+          sample: false
+          title: Default buffer size
+        debug:
+          advanced: false
+          default_value: 'false'
+          description: Log more information when filtering (useful to detect issues with filters) not
+            useful in production as it is a bit of a resource hog.
+          sample: false
+          title: Enable debugging
+        lookup names:
+          advanced: false
+          default_value: 'true'
+          description: Lookup the names of eventlog files
+          sample: false
+          title: Lookup eventlog names
+        syntax:
+          advanced: false
+          default_value: ''
+          description: Set this to use a specific syntax string for all commands (that don't specify one).
+          sample: false
+          title: Default syntax
+    /settings/eventlog/real-time:
       info:
         advanced: false
         description: A set of options to configure the real time checks
         subkey: false
-        title: Real-time filtering
+        title: Real-time eventlog monitoring
       keys:
+        debug:
+          advanced: false
+          default_value: 'false'
+          description: Log missed records (useful to detect issues with filters) not useful in production
+            as it is a bit of a resource hog.
+          sample: false
+          title: Enable debugging
         enabled:
           advanced: false
           default_value: 'false'
-          description: Spawns a background thread which waits for file changes.
+          description: Spawns a background thread which detects issues and reports them back instantly.
           sample: false
-          title: Real time
-    /settings/logfile/real-time/checks:
+          title: Enable realtime monitoring
+        log:
+          advanced: false
+          default_value: application,system
+          description: Comma separated list of logs to check
+          sample: false
+          title: Logs to check
+        startup age:
+          advanced: false
+          default_value: 30m
+          description: The initial age to scan when starting NSClient++
+          sample: false
+          title: Read old records at startup
+    /settings/eventlog/real-time/filters:
       info:
         advanced: false
         description: A set of filters to use in real-time mode
         subkey: true
-        title: Real-time filters
+        title: Real-time eventlog filters
       sample:
         keys:
-          column split:
-            advanced: false
-            default_value: ''
-            description: THe character(s) to use when splitting on column level
-            sample: true
-            title: COLUMN SPLIT
-          column-split:
-            advanced: true
-            default_value: ''
-            description: Alias for column split
-            sample: true
-            title: COLUMN SPLIT
           command:
             advanced: true
             default_value: ''
@@ -83,24 +124,24 @@ common:
             description: Escape HTML characters (< and >).
             sample: true
             title: ESCAPE HTML
-          file:
-            advanced: false
-            default_value: ''
-            description: The file check
-            sample: true
-            title: FILE
-          files:
-            advanced: true
-            default_value: ''
-            description: Check multiple files
-            sample: true
-            title: FILES
           filter:
             advanced: false
             default_value: ''
             description: Scan files for matching rows for each matching rows an OK message will be submitted
             sample: true
             title: FILTER
+          log:
+            advanced: false
+            default_value: ''
+            description: The eventlog record to filter on (if set to 'all' means all enabled logs)
+            sample: true
+            title: FILE
+          logs:
+            advanced: true
+            default_value: ''
+            description: The eventlog record to filter on (if set to 'all' means all enabled logs)
+            sample: true
+            title: FILES
           maximum age:
             advanced: false
             default_value: 5m
@@ -127,15 +168,6 @@ common:
             description: Performance data configuration
             sample: true
             title: PERF CONFIG
-          read entire file:
-            advanced: true
-            default_value: ''
-            description: When set to `true` the file is read in full on every check. When `false` (the
-              default) the real-time check resumes reading from the position it stopped at the previous
-              time the file was processed, so only newly-appended data is matched. If the file shrinks
-              (for example after log rotation) the next check restarts from the beginning.
-            sample: true
-            title: read entire file
           severity:
             advanced: true
             default_value: ''
@@ -179,6 +211,12 @@ common:
             description: Format string for dates
             sample: true
             title: SYNTAX
+          truncate:
+            advanced: true
+            default_value: ''
+            description: Truncate the eventlog messages, if set to 0 (default) messages will not be truncated
+            sample: true
+            title: Truncate
           warning:
             advanced: false
             default_value: ''
@@ -186,49 +224,15 @@ common:
             sample: true
             title: WARNING FILTER
   queries:
-    check_logfile:
+    check_eventlog:
       fields:
       - generic: false
-        long_description: 'Fetch the value from the given column number.
-
-          Syntax: column(<coulmn number>)'
-        name: column()
+        long_description: TODO
+        name: category
         short_description: ''
       - generic: false
-        long_description: The value in the first column
-        name: column1
-        short_description: ''
-      - generic: false
-        long_description: The value in the second column
-        name: column2
-        short_description: ''
-      - generic: false
-        long_description: The value in the third column
-        name: column3
-        short_description: ''
-      - generic: false
-        long_description: The value in the 4:th column
-        name: column4
-        short_description: ''
-      - generic: false
-        long_description: The value in the 5:th column
-        name: column5
-        short_description: ''
-      - generic: false
-        long_description: The value in the 6:th column
-        name: column6
-        short_description: ''
-      - generic: false
-        long_description: The value in the 7:th column
-        name: column7
-        short_description: ''
-      - generic: false
-        long_description: The value in the 8:th column
-        name: column8
-        short_description: ''
-      - generic: false
-        long_description: The value in the 9:th column
-        name: column9
+        long_description: Which computer generated the message
+        name: computer
         short_description: ''
       - generic: true
         long_description: Number of items matching the filter. Common option for all checks.
@@ -243,26 +247,46 @@ common:
           checks.
         name: crit_list
         short_description: ''
+      - generic: false
+        long_description: TODO
+        name: customer
+        short_description: ''
       - generic: true
         long_description: A special list with critical, then warning and finally ok. Common option for
           all checks.
         name: detail_list
         short_description: ''
       - generic: false
-        long_description: The name of the file
+        long_description: The logfile name
         name: file
         short_description: ''
       - generic: false
-        long_description: The name of the file
-        name: filename
+        long_description: The logfile name
+        name: guid
         short_description: ''
       - generic: false
-        long_description: Match the content of an entire line
-        name: line
+        long_description: Eventlog id
+        name: id
+        short_description: ''
+      - generic: false
+        long_description: The keyword associated with this event
+        name: keyword
+        short_description: ''
+      - generic: false
+        long_description: Severity level (error, warning, info, success, auditSuccess, auditFailure)
+        name: level
         short_description: ''
       - generic: true
         long_description: A list of all items which matched the filter. Common option for all checks.
         name: list
+        short_description: ''
+      - generic: false
+        long_description: alias for file
+        name: log
+        short_description: ''
+      - generic: false
+        long_description: The message rendered as a string.
+        name: message
         short_description: ''
       - generic: true
         long_description: Number of items matched the ok criteria. Common option for all checks.
@@ -271,6 +295,10 @@ common:
       - generic: true
         long_description: A list of all items which matched the ok criteria. Common option for all checks.
         name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: The opcode associated with this event
+        name: opcode
         short_description: ''
       - generic: true
         long_description: Number of items matched either warning or critical criteria. Common option for
@@ -282,13 +310,33 @@ common:
           Common option for all checks.
         name: problem_list
         short_description: ''
+      - generic: false
+        long_description: Source system.
+        name: provider
+        short_description: ''
+      - generic: false
+        long_description: Raw message id (contains many other fields all baked into a single number)
+        name: rawid
+        short_description: ''
+      - generic: false
+        long_description: Source system.
+        name: source
+        short_description: ''
       - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
+      - generic: false
+        long_description: The type of event (task)
+        name: task
+        short_description: ''
       - generic: true
         long_description: Total number of items. Common option for all checks.
         name: total
+        short_description: ''
+      - generic: false
+        long_description: alias for level (old, deprecated)
+        name: type
         short_description: ''
       - generic: true
         long_description: Number of items matched the warning criteria. Common option for all checks.
@@ -299,11 +347,23 @@ common:
           checks.
         name: warn_list
         short_description: ''
+      - generic: false
+        long_description: When the message was written to file
+        name: written
+        short_description: ''
+      - generic: false
+        long_description: When the message was written to file as an absolute date string
+        name: written_str
+        short_description: ''
+      - generic: false
+        long_description: Get event as XML message.
+        name: xml
+        short_description: ''
       info:
-        description: Check for errors in log file or generic pattern matching in text files.
+        description: Check for errors in the event log.
       params:
       - content_type: 2
-        default_value: ''
+        default_value: level in ('warning', 'error', 'critical')
         is_simple: false
         long_description: 'Filter which marks interesting items.
 
@@ -316,7 +376,7 @@ common:
         required: false
         short_description: Filter which marks interesting items.
       - content_type: 2
-        default_value: ''
+        default_value: level = 'warning', problem_count > 0
         is_simple: false
         long_description: 'Filter which marks items which generates a warning state.
 
@@ -336,7 +396,7 @@ common:
         required: false
         short_description: Short alias for warning
       - content_type: 2
-        default_value: ''
+        default_value: level in ('error', 'critical')
         is_simple: false
         long_description: 'Filter which marks items which generates a critical state.
 
@@ -384,7 +444,7 @@ common:
         short_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
       - content_type: 2
-        default_value: ignored
+        default_value: ok
         is_simple: false
         long_description: 'Return status to use when nothing matched filter.
 
@@ -394,7 +454,7 @@ common:
         required: false
         short_description: Return status to use when nothing matched filter.
       - content_type: 2
-        default_value: ''
+        default_value: level(ignored:true)
         is_simple: false
         long_description: 'Performance data generation configuration
 
@@ -444,7 +504,17 @@ common:
         required: false
         short_description: Show help screen (short format).
       - content_type: 2
-        default_value: ${count}/${total} (${problem_list})
+        default_value: ''
+        is_simple: false
+        long_description: 'Unique syntax.
+
+          Used to filter unique items (counted will still increase but messages will not repeated)'
+        name: unique-index
+        repeatable: false
+        required: false
+        short_description: Unique syntax.
+      - content_type: 2
+        default_value: '${status}: ${count} message(s) ${problem_list}'
         is_simple: false
         long_description: 'Top level syntax.
 
@@ -458,7 +528,7 @@ common:
         required: false
         short_description: Top level syntax.
       - content_type: 2
-        default_value: ''
+        default_value: '%(status): Event log seems fine'
         is_simple: false
         long_description: 'ok syntax.
 
@@ -470,7 +540,7 @@ common:
         required: false
         short_description: ok syntax.
       - content_type: 2
-        default_value: '%(status): Nothing found'
+        default_value: '%(status): No entries found'
         is_simple: false
         long_description: 'Empty syntax.
 
@@ -480,7 +550,7 @@ common:
         required: false
         short_description: Empty syntax.
       - content_type: 2
-        default_value: ${column1}
+        default_value: ${file} ${source} (${message})
         is_simple: false
         long_description: 'Detail level syntax.
 
@@ -495,7 +565,7 @@ common:
         required: false
         short_description: Detail level syntax.
       - content_type: 2
-        default_value: ${column1}
+        default_value: ${file}_${source}
         is_simple: false
         long_description: 'Performance alias syntax.
 
@@ -505,48 +575,12 @@ common:
         required: false
         short_description: Performance alias syntax.
       - content_type: 2
-        default_value: \n
-        is_simple: false
-        long_description: 'Character string used to split a file into several lines (default `\n`).
-
-          The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters
-          are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly
-          on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`)
-          makes the entire file content available as a single record, which is useful together with a
-          multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
-
-          `, a trailing carriage return is stripped from each record so that files with CRLF line endings
-          produce clean lines.'
-        name: line-split
-        repeatable: false
-        required: false
-        short_description: Character string used to split a file into several lines (default `\n`).
-      - content_type: 2
-        default_value: \t
-        is_simple: false
-        long_description: Character string to split a line into several columns (default \t)
-        name: column-split
-        repeatable: false
-        required: false
-        short_description: Character string to split a line into several columns (default \t)
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Alias for split-column
-        name: split
-        repeatable: false
-        required: false
-        short_description: Alias for split-column
-      - content_type: 2
         default_value: ''
         is_simple: false
         long_description: 'File to read (can be specified multiple times to check multiple files.
 
-          Notice that specifying multiple files will create an aggregate set it will not check each file
-          individually.
-
-          In other words if one file contains an error the entire check will result in error or if you
-          check the count it is the global count which is used.'
+          Notice that specifying multiple files will create an aggregate set you will not check each file
+          individually.In other words if one file contains an error the entire check will result in error.'
         name: file
         repeatable: false
         required: false
@@ -554,13 +588,51 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: A comma separated list of files to scan (same as file except a list)
-        name: files
+        long_description: Same as file
+        name: log
         repeatable: false
         required: false
-        short_description: A comma separated list of files to scan (same as file except a list)
-module: CheckLogFile
-namespace: check
-platforms:
-- unix
-- windows
+        short_description: Same as file
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Date range to scan.
+
+          A negative value (e.g. -1h) scans backward through historical events; a positive value (e.g.
+          +1h) scans forward into future events. The value is a relative offset from now using the suffixes
+          s (seconds), m (minutes), h (hours), d (days) or w (weeks); a bare number is treated as seconds.
+          This is used as an approximate time window to limit how far the scan walks the log and significantly
+          speeds up large logs, but messages are not guaranteed to be returned in order. Defaults to -24h
+          when omitted.'
+        name: scan-range
+        repeatable: false
+        required: false
+        short_description: Date range to scan.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Maximum length of message for each event log message text.
+        name: truncate-message
+        repeatable: false
+        required: false
+        short_description: Maximum length of message for each event log message text.
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: 'Shorthand for setting default unique index: ${log}-${source}-${id}.'
+        name: unique
+        repeatable: false
+        required: false
+        short_description: 'Shorthand for setting default unique index: ${log}-${source}-${id}.'
+      - content_type: 2
+        default_value: auto
+        is_simple: false
+        long_description: Use bookmarks to only look for messages since last check (with the same bookmark
+          name). If you set this to auto or leave it empty the bookmark name will be derived from your
+          logs, filters, warn and crit.
+        name: bookmark
+        repeatable: false
+        required: false
+        short_description: Use bookmarks to only look for messages since last check (with the same bookmark
+          name). If you set this to auto or leave it empty the bookmark name will be derived from your
+          logs, filters, warn and crit.

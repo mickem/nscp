@@ -1,8 +1,8 @@
 # NSClientServer
 
+*Available on Windows only.*
+
 A server that listens for incoming check_nt connection and processes incoming requests.
-
-
 
 ## Enable module
 
@@ -14,320 +14,17 @@ NSClientServer = enabled
 ```
 
 
-
-
 ## Configuration
-
-
 
 | Path / Section                                        | Description             |
 |-------------------------------------------------------|-------------------------|
-| [/settings/default](#default-values)                  | Default values          |
 | [/settings/NSClient/server](#nsclient-server-section) | NSCLIENT SERVER SECTION |
-
-
-
-### Default values <a id="/settings/default"></a>
-
-Default values used in other config sections.
-
-
-
-
-| Key                                                 | Default Value | Description                 |
-|-----------------------------------------------------|---------------|-----------------------------|
-| [allowed hosts](#allowed-hosts)                     | 127.0.0.1     | Allowed hosts               |
-| [bind to](#bind-to-address)                         |               | BIND TO ADDRESS             |
-| [cache allowed hosts](#cache-list-of-allowed-hosts) | true          | Cache list of allowed hosts |
-| [encoding](#nrpe-payload-encoding)                  |               | NRPE PAYLOAD ENCODING       |
-| [inbox](#inbox)                                     | inbox         | INBOX                       |
-| [password](#password)                               |               | Password                    |
-| [socket queue size](#listen-queue)                  | 0             | LISTEN QUEUE                |
-| [thread pool](#thread-pool)                         | 10            | THREAD POOL                 |
-| [timeout](#timeout)                                 | 30            | TIMEOUT                     |
-| [timezone](#timezone)                               | local         | Timezone                    |
-
-
-
-```ini
-# Default values used in other config sections.
-[/settings/default]
-allowed hosts=127.0.0.1
-cache allowed hosts=true
-inbox=inbox
-socket queue size=0
-thread pool=10
-timeout=30
-timezone=local
-
-```
-
-
-
-
-
-#### Allowed hosts <a id="/settings/default/allowed hosts"></a>
-
-A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | allowed hosts                           |
-| Default value: | `127.0.0.1`                             |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# Allowed hosts
-allowed hosts=127.0.0.1
-```
-
-
-
-#### BIND TO ADDRESS <a id="/settings/default/bind to"></a>
-
-Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
-
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | bind to                                 |
-| Default value: | _N/A_                                   |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# BIND TO ADDRESS
-bind to=
-```
-
-
-
-#### Cache list of allowed hosts <a id="/settings/default/cache allowed hosts"></a>
-
-If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | cache allowed hosts                     |
-| Default value: | `true`                                  |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# Cache list of allowed hosts
-cache allowed hosts=true
-```
-
-
-
-#### NRPE PAYLOAD ENCODING <a id="/settings/default/encoding"></a>
-
-
-
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | encoding                                |
-| Advanced:      | Yes (means it is not commonly used)     |
-| Default value: | _N/A_                                   |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# NRPE PAYLOAD ENCODING
-encoding=
-```
-
-
-
-#### INBOX <a id="/settings/default/inbox"></a>
-
-The default channel to post incoming messages on
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | inbox                                   |
-| Default value: | `inbox`                                 |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# INBOX
-inbox=inbox
-```
-
-
-
-#### Password <a id="/settings/default/password"></a>
-
-Password used to authenticate against server
-
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | password                                |
-| Default value: | _N/A_                                   |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# Password
-password=
-```
-
-
-
-#### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
-
-Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | socket queue size                       |
-| Advanced:      | Yes (means it is not commonly used)     |
-| Default value: | `0`                                     |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# LISTEN QUEUE
-socket queue size=0
-```
-
-
-
-#### THREAD POOL <a id="/settings/default/thread pool"></a>
-
-
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | thread pool                             |
-| Advanced:      | Yes (means it is not commonly used)     |
-| Default value: | `10`                                    |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# THREAD POOL
-thread pool=10
-```
-
-
-
-#### TIMEOUT <a id="/settings/default/timeout"></a>
-
-Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | timeout                                 |
-| Default value: | `30`                                    |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# TIMEOUT
-timeout=30
-```
-
-
-
-#### Timezone <a id="/settings/default/timezone"></a>
-
-Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc', or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
-
-
-
-
-
-| Key            | Description                             |
-|----------------|-----------------------------------------|
-| Path:          | [/settings/default](#/settings/default) |
-| Key:           | timezone                                |
-| Advanced:      | Yes (means it is not commonly used)     |
-| Default value: | `local`                                 |
-
-
-**Sample:**
-
-```
-[/settings/default]
-# Timezone
-timezone=local
-```
+| [/settings/default](#default-values)                  | Default values          |
 
 
 ### NSCLIENT SERVER SECTION <a id="/settings/NSClient/server"></a>
 
 Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
-
-
-
 
 | Key                                                  | Default Value                       | Description                         |
 |------------------------------------------------------|-------------------------------------|-------------------------------------|
@@ -354,7 +51,6 @@ Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 | [verify mode](#verify-mode)                          | none                                | VERIFY MODE                         |
 
 
-
 ```ini
 # Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 [/settings/NSClient/server]
@@ -374,19 +70,11 @@ timeout=30
 tls version=tlsv1.2+
 use ssl=true
 verify mode=none
-
 ```
-
-
-
-
 
 #### ALLOWED COMMANDS <a id="/settings/NSClient/server/allow"></a>
 
 Comma separated list of which check_nt commands this server will answer. Each entry is a group, the keyword 'any'/'all', or an individual command name. Groups: 'metrics' (cpuload, uptime, useddiskspace, memuse), 'info' (clientversion), 'service' (servicestate), 'process' (procstate), 'counters' (counter, instances), 'files' (fileage). Individual commands: clientversion, cpuload, uptime, useddiskspace, servicestate, procstate, memuse, counter, fileage, instances. Default 'any' answers everything (full check_nt compatibility). To expose only harmless system metrics use e.g. 'metrics, info'; this denies the arbitrary-read commands (counter, fileage, instances) and the service/process enumeration commands.
-
-
-
 
 
 | Key            | Description                                             |
@@ -404,15 +92,10 @@ Comma separated list of which check_nt commands this server will answer. Each en
 allow=any
 ```
 
-
-
 #### ALLOWED CIPHERS <a id="/settings/NSClient/server/allowed ciphers"></a>
 
 The chipers which are allowed to be used.
 The default here will differ is used in "insecure" mode or not. check_nrpe uses a very old chipers and should preferably not be used. For details of chipers please see the OPEN ssl documentation: https://www.openssl.org/docs/apps/ciphers.html
-
-
-
 
 
 | Key            | Description                                             |
@@ -431,14 +114,9 @@ The default here will differ is used in "insecure" mode or not. check_nrpe uses 
 allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 ```
 
-
-
 #### Allowed hosts <a id="/settings/NSClient/server/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
-
-
-
 
 
 | Key            | Description                                             |
@@ -456,15 +134,9 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 allowed hosts=127.0.0.1
 ```
 
-
-
 #### BIND TO ADDRESS <a id="/settings/NSClient/server/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
-
-
-
-
 
 
 | Key            | Description                                             |
@@ -482,12 +154,7 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 bind to=
 ```
 
-
-
 #### CA <a id="/settings/NSClient/server/ca"></a>
-
-
-
 
 
 
@@ -508,14 +175,9 @@ bind to=
 ca=${certificate-path}/ca.pem
 ```
 
-
-
 #### Cache list of allowed hosts <a id="/settings/NSClient/server/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
-
-
-
 
 
 | Key            | Description                                             |
@@ -533,12 +195,7 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 cache allowed hosts=true
 ```
 
-
-
 #### SSL CERTIFICATE <a id="/settings/NSClient/server/certificate"></a>
-
-
-
 
 
 
@@ -559,12 +216,7 @@ cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
 ```
 
-
-
 #### CERTIFICATE FORMAT <a id="/settings/NSClient/server/certificate format"></a>
-
-
-
 
 
 
@@ -585,13 +237,7 @@ certificate=${certificate-path}/certificate.pem
 certificate format=PEM
 ```
 
-
-
 #### SSL CERTIFICATE <a id="/settings/NSClient/server/certificate key"></a>
-
-
-
-
 
 
 
@@ -612,14 +258,9 @@ certificate format=PEM
 certificate key=
 ```
 
-
-
 #### Debug peer certificate verification <a id="/settings/NSClient/server/debug verify"></a>
 
 Set this to tru to output certificate verification errors, these are outputed to stdout (not the log).
-
-
-
 
 
 | Key            | Description                                             |
@@ -638,13 +279,7 @@ Set this to tru to output certificate verification errors, these are outputed to
 debug verify=false
 ```
 
-
-
 #### DH KEY <a id="/settings/NSClient/server/dh"></a>
-
-
-
-
 
 
 
@@ -665,15 +300,9 @@ debug verify=false
 dh=
 ```
 
-
-
 #### Password <a id="/settings/NSClient/server/password"></a>
 
 Password used to authenticate against server
-
-
-
-
 
 
 | Key            | Description                                             |
@@ -691,14 +320,9 @@ Password used to authenticate against server
 password=
 ```
 
-
-
 #### PERFORMANCE DATA <a id="/settings/NSClient/server/performance data"></a>
 
 Send performance data back to Nagios (set this to 0 to remove all performance data).
-
-
-
 
 
 | Key            | Description                                             |
@@ -716,14 +340,9 @@ Send performance data back to Nagios (set this to 0 to remove all performance da
 performance data=true
 ```
 
-
-
 #### PORT NUMBER <a id="/settings/NSClient/server/port"></a>
 
 Port to use for check_nt.
-
-
-
 
 
 | Key            | Description                                             |
@@ -741,14 +360,9 @@ Port to use for check_nt.
 port=12489
 ```
 
-
-
 #### LISTEN QUEUE <a id="/settings/NSClient/server/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
-
-
-
 
 
 | Key            | Description                                             |
@@ -767,8 +381,6 @@ Number of sockets to queue before starting to refuse new incoming connections. T
 socket queue size=0
 ```
 
-
-
 #### VERIFY MODE <a id="/settings/NSClient/server/ssl options"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
@@ -781,10 +393,6 @@ no-tlsv1_1	Do not use the TLSv1.1 protocol (prefer tls version instead).
 no-tlsv1_2	Do not use the TLSv1.2 protocol (prefer tls version instead).
 no-tlsv1_3	Do not use the TLSv1.3 protocol (prefer tls version instead).
 single-dh-use	Always create a new key when using temporary/ephemeral DH parameters. This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using "strong" primes (e.g. when using DSA-parameters).
-
-
-
-
 
 
 
@@ -806,12 +414,7 @@ single-dh-use	Always create a new key when using temporary/ephemeral DH paramete
 ssl options=
 ```
 
-
-
 #### THREAD POOL <a id="/settings/NSClient/server/thread pool"></a>
-
-
-
 
 
 
@@ -832,14 +435,9 @@ ssl options=
 thread pool=10
 ```
 
-
-
 #### TIMEOUT <a id="/settings/NSClient/server/timeout"></a>
 
 Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
-
-
-
 
 
 | Key            | Description                                             |
@@ -857,14 +455,9 @@ Timeout (in seconds) when reading packets on incoming sockets. If the data has n
 timeout=30
 ```
 
-
-
 #### TLS version to use <a id="/settings/NSClient/server/tls version"></a>
 
 Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+, tlsv1.2+, tlsv1.1+, tlsv1.0+, sslv3+ (Which uses the version mentioned and above)
-
-
-
 
 
 | Key            | Description                                             |
@@ -883,14 +476,9 @@ Valid options are tlsv1.3, tlsv1.2, tlsv1.1, tlsv1.0, sslv3 as well as tlsv1.3+,
 tls version=tlsv1.2+
 ```
 
-
-
 #### ENABLE SSL ENCRYPTION <a id="/settings/NSClient/server/use ssl"></a>
 
 This option controls if SSL should be enabled.
-
-
-
 
 
 | Key            | Description                                             |
@@ -908,8 +496,6 @@ This option controls if SSL should be enabled.
 use ssl=true
 ```
 
-
-
 #### VERIFY MODE <a id="/settings/NSClient/server/verify mode"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
@@ -921,9 +507,6 @@ peer-cert	Alias for peer and fail-if-no-cert.
 workarounds	Various bug workarounds.
 single	Always create a new key when using tmp_dh parameters.
 client-once	Only request a client certificate on the initial TLS/SSL handshake. This flag must be used together with verify-peer
-
-
-
 
 
 
@@ -945,4 +528,236 @@ client-once	Only request a client certificate on the initial TLS/SSL handshake. 
 verify mode=none
 ```
 
+### Default values <a id="/settings/default"></a>
 
+Default values used in other config sections.
+
+| Key                                                 | Default Value | Description                 |
+|-----------------------------------------------------|---------------|-----------------------------|
+| [allowed hosts](#allowed-hosts)                     | 127.0.0.1     | Allowed hosts               |
+| [bind to](#bind-to-address)                         |               | BIND TO ADDRESS             |
+| [cache allowed hosts](#cache-list-of-allowed-hosts) | true          | Cache list of allowed hosts |
+| [encoding](#nrpe-payload-encoding)                  |               | NRPE PAYLOAD ENCODING       |
+| [inbox](#inbox)                                     | inbox         | INBOX                       |
+| [password](#password)                               |               | Password                    |
+| [socket queue size](#listen-queue)                  | 0             | LISTEN QUEUE                |
+| [thread pool](#thread-pool)                         | 10            | THREAD POOL                 |
+| [timeout](#timeout)                                 | 30            | TIMEOUT                     |
+| [timezone](#timezone)                               | local         | Timezone                    |
+
+
+```ini
+# Default values used in other config sections.
+[/settings/default]
+allowed hosts=127.0.0.1
+cache allowed hosts=true
+inbox=inbox
+socket queue size=0
+thread pool=10
+timeout=30
+timezone=local
+```
+
+#### Allowed hosts <a id="/settings/default/allowed hosts"></a>
+
+A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | allowed hosts                           |
+| Default value: | `127.0.0.1`                             |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# Allowed hosts
+allowed hosts=127.0.0.1
+```
+
+#### BIND TO ADDRESS <a id="/settings/default/bind to"></a>
+
+Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | bind to                                 |
+| Default value: | _N/A_                                   |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# BIND TO ADDRESS
+bind to=
+```
+
+#### Cache list of allowed hosts <a id="/settings/default/cache allowed hosts"></a>
+
+If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | cache allowed hosts                     |
+| Default value: | `true`                                  |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# Cache list of allowed hosts
+cache allowed hosts=true
+```
+
+#### NRPE PAYLOAD ENCODING <a id="/settings/default/encoding"></a>
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | encoding                                |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | _N/A_                                   |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# NRPE PAYLOAD ENCODING
+encoding=
+```
+
+#### INBOX <a id="/settings/default/inbox"></a>
+
+The default channel to post incoming messages on
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | inbox                                   |
+| Default value: | `inbox`                                 |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# INBOX
+inbox=inbox
+```
+
+#### Password <a id="/settings/default/password"></a>
+
+Password used to authenticate against server
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | password                                |
+| Default value: | _N/A_                                   |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# Password
+password=
+```
+
+#### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
+
+Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | socket queue size                       |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `0`                                     |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# LISTEN QUEUE
+socket queue size=0
+```
+
+#### THREAD POOL <a id="/settings/default/thread pool"></a>
+
+
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | thread pool                             |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `10`                                    |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# THREAD POOL
+thread pool=10
+```
+
+#### TIMEOUT <a id="/settings/default/timeout"></a>
+
+Timeout (in seconds) when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | timeout                                 |
+| Default value: | `30`                                    |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# TIMEOUT
+timeout=30
+```
+
+#### Timezone <a id="/settings/default/timezone"></a>
+
+Timezone used to render dates such as boot time. Accepts 'local' (default), 'utc', or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
+
+
+| Key            | Description                             |
+|----------------|-----------------------------------------|
+| Path:          | [/settings/default](#/settings/default) |
+| Key:           | timezone                                |
+| Advanced:      | Yes (means it is not commonly used)     |
+| Default value: | `local`                                 |
+
+
+**Sample:**
+
+```
+[/settings/default]
+# Timezone
+timezone=local
+```

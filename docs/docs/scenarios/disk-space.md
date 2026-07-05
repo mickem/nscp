@@ -243,5 +243,4 @@ check_nrpe -H <agent-ip> -c check_drivesize
 - [Windows Server Health](windows-server-health.md) — add disk checks to a full server health baseline
 - [Checks In Depth: Thresholds](../concepts/checks.md#4-thresholds-choosing-whats-a-problem) — understand warn/crit expressions
 - [Checks In Depth: Performance Data](../concepts/checks.md#7-performance-data) — customise performance data output
-- [Reference: CheckDisk (Windows)](../reference/windows/CheckDisk.md) — full command reference
-- [Reference: CheckDisk (Linux)](../reference/unix/CheckDisk.md) — full command reference
+- [Reference: CheckDisk](../reference/check/CheckDisk.md) — full command reference

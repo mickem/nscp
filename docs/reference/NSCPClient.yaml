@@ -1,8 +1,4 @@
-module: NSCPClient
-namespace: misc
-platforms:
-- unix
-unix:
+common:
   info:
     description: NSCP client can be used both from command line and from queries to check remote systems
       via NSCP (REST)
@@ -1003,3 +999,8 @@ unix:
         repeatable: false
         required: false
         short_description: Password
+module: NSCPClient
+namespace: misc
+platforms:
+- unix
+- windows

@@ -2,8 +2,6 @@
 
 Client for connecting nativly to the Op5 Nortbound API
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `Op5Client = enabled` to the `[/modules]` section in nsclient.ini:
@@ -14,11 +12,7 @@ Op5Client = enabled
 ```
 
 
-
-
 ## Configuration
-
-
 
 | Path / Section                                | Description          |
 |-----------------------------------------------|----------------------|
@@ -26,13 +20,9 @@ Op5Client = enabled
 | [/settings/op5/checks](#op5-passive-commands) | Op5 passive Commands |
 
 
-
 ### Op5 Configuration <a id="/settings/op5"></a>
 
 Section for the Op5 server
-
-
-
 
 | Key                                       | Default Value | Description            |
 |-------------------------------------------|---------------|------------------------|
@@ -51,7 +41,6 @@ Section for the Op5 server
 | [verify mode](#tls-verify-mode)           | peer          | TLS verify mode        |
 
 
-
 ```ini
 # Section for the Op5 server
 [/settings/op5]
@@ -63,19 +52,11 @@ interval=5m
 remove=false
 tls version=1.2+
 verify mode=peer
-
 ```
-
-
-
-
 
 #### Certificate authority <a id="/settings/op5/ca"></a>
 
 The certificate authority bundle used to verify the Op5 server certificate (used when 'verify mode' is not 'none').
-
-
-
 
 
 | Key            | Description                     |
@@ -93,14 +74,9 @@ The certificate authority bundle used to verify the Op5 server certificate (used
 ca=${ca-path}
 ```
 
-
-
 #### CHANNEL <a id="/settings/op5/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                     |
@@ -118,15 +94,9 @@ The channel to listen to.
 channel=op5
 ```
 
-
-
 #### Contact groups <a id="/settings/op5/contactgroups"></a>
 
 A coma separated list of contact groups to add to this host when registering it in monitor
-
-
-
-
 
 
 | Key            | Description                     |
@@ -144,14 +114,9 @@ A coma separated list of contact groups to add to this host when registering it 
 contactgroups=
 ```
 
-
-
 #### Install default checks <a id="/settings/op5/default checks"></a>
 
 Set to false to disable default checks
-
-
-
 
 
 | Key            | Description                     |
@@ -169,15 +134,9 @@ Set to false to disable default checks
 default checks=true
 ```
 
-
-
 #### Host groups <a id="/settings/op5/hostgroups"></a>
 
 A coma separated list of host groups to add to this host when registering it in monitor
-
-
-
-
 
 
 | Key            | Description                     |
@@ -195,8 +154,6 @@ A coma separated list of host groups to add to this host when registering it in 
 hostgroups=
 ```
 
-
-
 #### HOSTNAME <a id="/settings/op5/hostname"></a>
 
 The host name of this monitored computer.
@@ -210,9 +167,6 @@ ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
-
-
-
 
 
 
@@ -231,14 +185,9 @@ ${domain_uc}	Domainname in uppercase
 hostname=auto
 ```
 
-
-
 #### Check interval <a id="/settings/op5/interval"></a>
 
 How often to submit passive check results you can use an optional suffix to denote time (s, m, h)
-
-
-
 
 
 | Key            | Description                     |
@@ -256,15 +205,9 @@ How often to submit passive check results you can use an optional suffix to deno
 interval=5m
 ```
 
-
-
 #### Op5 password <a id="/settings/op5/password"></a>
 
 The password for the user to authenticate as
-
-
-
-
 
 
 | Key            | Description                     |
@@ -282,14 +225,9 @@ The password for the user to authenticate as
 password=
 ```
 
-
-
 #### Remove checks on exit <a id="/settings/op5/remove"></a>
 
 If we should remove all checks when NSClient++ shuts down (for truly elastic scenarios)
-
-
-
 
 
 | Key            | Description                     |
@@ -307,15 +245,9 @@ If we should remove all checks when NSClient++ shuts down (for truly elastic sce
 remove=false
 ```
 
-
-
 #### Op5 base url <a id="/settings/op5/server"></a>
 
 The op5 base url i.e. the url of the Op5 monitor REST API for instance https://monitor.mycompany.com
-
-
-
-
 
 
 | Key            | Description                     |
@@ -333,14 +265,9 @@ The op5 base url i.e. the url of the Op5 monitor REST API for instance https://m
 server=
 ```
 
-
-
 #### TLS version <a id="/settings/op5/tls version"></a>
 
 The TLS version to use when connecting to the Op5 server (1.0, 1.1, 1.2, 1.2+ or 1.3).
-
-
-
 
 
 | Key            | Description                     |
@@ -358,15 +285,9 @@ The TLS version to use when connecting to the Op5 server (1.0, 1.1, 1.2, 1.2+ or
 tls version=1.2+
 ```
 
-
-
 #### Op5 user <a id="/settings/op5/user"></a>
 
 The user to authenticate as
-
-
-
-
 
 
 | Key            | Description                     |
@@ -384,14 +305,9 @@ The user to authenticate as
 user=
 ```
 
-
-
 #### TLS verify mode <a id="/settings/op5/verify mode"></a>
 
 How to verify the Op5 server certificate. 'peer' (the default) validates the certificate chain and hostname against the configured CA. Set to 'none' to disable verification - this is insecure and lets an on-path attacker intercept the Op5 credentials and tamper with data.
-
-
-
 
 
 | Key            | Description                     |
@@ -409,14 +325,12 @@ How to verify the Op5 server certificate. 'peer' (the default) validates the cer
 verify mode=peer
 ```
 
-
 ### Op5 passive Commands <a id="/settings/op5/checks"></a>
 
 
 
 
 This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
-
 
 
 

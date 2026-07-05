@@ -1,8 +1,4 @@
-module: Scheduler
-namespace: generic
-platforms:
-- unix
-unix:
+common:
   info:
     description: Use this to schedule check commands and jobs in conjunction with for instance passive
       monitoring through NSCA
@@ -110,3 +106,8 @@ unix:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET
+module: Scheduler
+namespace: generic
+platforms:
+- unix
+- windows

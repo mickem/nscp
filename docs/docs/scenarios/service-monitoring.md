@@ -245,4 +245,4 @@ check_nrpe -H <agent-ip> -c check_process --argument "process=myapp.exe"
 - [Windows Server Health](windows-server-health.md) — add service checks to a full health baseline
 - [Linux Server Health](linux-server-health.md) — the same for a Linux host (load, CPU, memory, disk, services)
 - [Checks In Depth: Filters](../concepts/checks.md#3-filters-choosing-what-to-check) — understand how to write filter expressions
-- [Reference: CheckSystem](../reference/windows/CheckSystem.md) — full command reference
+- [Reference: CheckSystem](../reference/check/CheckSystem.md) — full command reference

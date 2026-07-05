@@ -1,8 +1,4 @@
-module: Op5Client
-namespace: misc
-platforms:
-- unix
-unix:
+common:
   info:
     description: Client for connecting nativly to the Op5 Nortbound API
     title: Op5Client
@@ -108,3 +104,8 @@ unix:
         description: ''
         subkey: true
         title: Op5 passive Commands
+module: Op5Client
+namespace: misc
+platforms:
+- unix
+- windows

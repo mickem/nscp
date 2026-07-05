@@ -2,8 +2,6 @@
 
 Use this module to detect and monitor docker containers
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckDocker = enabled` to the `[/modules]` section in nsclient.ini:
@@ -13,7 +11,6 @@ To enable this module and and allow using the commands you need to ass `CheckDoc
 CheckDocker = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the CheckDocker module.
@@ -21,13 +18,9 @@ A quick reference for all available queries (check commands) in the CheckDocker 
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                       | Description                                      |
 |-------------------------------|--------------------------------------------------|
 | [check_docker](#check_docker) | Checks that a given docker container is running. |
-
-
-
 
 ### check_docker
 
@@ -194,7 +187,6 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
 
 
 

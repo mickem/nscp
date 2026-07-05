@@ -1,8 +1,4 @@
-module: SMTPClient
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: SMTP client can be used both from command line and from queries to check remote systems
       via SMTP
@@ -316,3 +312,8 @@ unix:
         repeatable: false
         required: false
         short_description: Source/sender host name (alias for --source-host).
+module: SMTPClient
+namespace: client
+platforms:
+- unix
+- windows

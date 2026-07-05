@@ -1,8 +1,4 @@
-module: CheckExternalScripts
-namespace: check
-platforms:
-- unix
-unix:
+common:
   aliases:
     alias_cpu:
       description: 'Alias for: check_cpu'
@@ -267,3 +263,8 @@ unix:
       - bat
       - ps1
       - vbs
+module: CheckExternalScripts
+namespace: check
+platforms:
+- unix
+- windows

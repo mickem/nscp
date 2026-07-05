@@ -2,8 +2,6 @@
 
 File for checking log files and various other forms of updating text files
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckLogFile = enabled` to the `[/modules]` section in nsclient.ini:
@@ -13,7 +11,6 @@ To enable this module and and allow using the commands you need to ass `CheckLog
 CheckLogFile = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the CheckLogFile module.
@@ -21,21 +18,17 @@ A quick reference for all available queries (check commands) in the CheckLogFile
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                         | Description                                                             |
 |---------------------------------|-------------------------------------------------------------------------|
 | [check_logfile](#check_logfile) | Check for errors in log file or generic pattern matching in text files. |
-
 
 **List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
 
-
 | Command      | Description                       |
 |--------------|-----------------------------------|
 | checklogfile | Alias for: :query:`check_logfile` |
-
 
 ### check_logfile
 
@@ -236,10 +229,7 @@ In other words if one file contains an error the entire check will result in err
 
 
 
-
 ## Configuration
-
-
 
 | Path / Section                                           | Description         |
 |----------------------------------------------------------|---------------------|
@@ -247,37 +237,24 @@ In other words if one file contains an error the entire check will result in err
 | [/settings/logfile/real-time/checks](#real-time-filters) | Real-time filters   |
 
 
-
 ### Real-time filtering <a id="/settings/logfile/real-time"></a>
 
 A set of options to configure the real time checks
-
-
-
 
 | Key                   | Default Value | Description |
 |-----------------------|---------------|-------------|
 | [enabled](#real-time) | false         | Real time   |
 
 
-
 ```ini
 # A set of options to configure the real time checks
 [/settings/logfile/real-time]
 enabled=false
-
 ```
-
-
-
-
 
 #### Real time <a id="/settings/logfile/real-time/enabled"></a>
 
 Spawns a background thread which waits for file changes.
-
-
-
 
 
 | Key            | Description                                                 |
@@ -294,7 +271,6 @@ Spawns a background thread which waits for file changes.
 # Real time
 enabled=false
 ```
-
 
 ### Real-time filters <a id="/settings/logfile/real-time/checks"></a>
 
@@ -366,7 +342,6 @@ silent period=false
 #warning=...
 
 ```
-
 
 
 

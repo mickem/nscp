@@ -1,18 +1,24 @@
-common:
+module: CheckWMI
+namespace: windows
+platforms:
+- windows
+windows:
+  aliases:
+    checkwmi:
+      description: 'Alternative name for: check_wmi'
   info:
-    description: Use this module to detect and monitor docker containers
-    title: CheckDocker
+    description: Check status via WMI
+    title: CheckWMI
+  paths:
+    /settings/wmi/targets:
+      info:
+        advanced: false
+        description: A list of available remote target systems
+        subkey: true
+        title: TARGET LIST SECTION
   queries:
-    check_docker:
+    check_wmi:
       fields:
-      - generic: false
-        long_description: Command
-        name: command
-        short_description: ''
-      - generic: false
-        long_description: Container image
-        name: container_state
-        short_description: ''
       - generic: true
         long_description: Number of items matching the filter. Common option for all checks.
         name: count
@@ -31,29 +37,9 @@ common:
           all checks.
         name: detail_list
         short_description: ''
-      - generic: false
-        long_description: Container id
-        name: id
-        short_description: ''
-      - generic: false
-        long_description: Container image
-        name: image
-        short_description: ''
-      - generic: false
-        long_description: Container image id
-        name: image_id
-        short_description: ''
-      - generic: false
-        long_description: IP of container
-        name: ip
-        short_description: ''
       - generic: true
         long_description: A list of all items which matched the filter. Common option for all checks.
         name: list
-        short_description: ''
-      - generic: false
-        long_description: Container image
-        name: names
         short_description: ''
       - generic: true
         long_description: Number of items matched the ok criteria. Common option for all checks.
@@ -91,7 +77,7 @@ common:
         name: warn_list
         short_description: ''
       info:
-        description: Checks that a given docker container is running.
+        description: Check a set of WMI values and return rows which are matching criteria.
       params:
       - content_type: 2
         default_value: ''
@@ -107,7 +93,7 @@ common:
         required: false
         short_description: Filter which marks interesting items.
       - content_type: 2
-        default_value: container_state != 'running'
+        default_value: ''
         is_simple: false
         long_description: 'Filter which marks items which generates a warning state.
 
@@ -127,7 +113,7 @@ common:
         required: false
         short_description: Short alias for warning
       - content_type: 2
-        default_value: container_state != 'running'
+        default_value: ''
         is_simple: false
         long_description: 'Filter which marks items which generates a critical state.
 
@@ -175,7 +161,7 @@ common:
         short_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
       - content_type: 2
-        default_value: warning
+        default_value: ignored
         is_simple: false
         long_description: 'Return status to use when nothing matched filter.
 
@@ -235,7 +221,7 @@ common:
         required: false
         short_description: Show help screen (short format).
       - content_type: 2
-        default_value: '${status}: ${list}'
+        default_value: ${list}
         is_simple: false
         long_description: 'Top level syntax.
 
@@ -271,7 +257,7 @@ common:
         required: false
         short_description: Empty syntax.
       - content_type: 2
-        default_value: ${names}=${container_state}
+        default_value: '%(line)'
         is_simple: false
         long_description: 'Detail level syntax.
 
@@ -286,7 +272,7 @@ common:
         required: false
         short_description: Detail level syntax.
       - content_type: 2
-        default_value: ${id}
+        default_value: ''
         is_simple: false
         long_description: 'Performance alias syntax.
 
@@ -298,13 +284,40 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: The host or socket of the docker deamon
-        name: host
+        long_description: The target to check (for checking remote machines).
+        name: target
         repeatable: false
         required: false
-        short_description: The host or socket of the docker deamon
-module: CheckDocker
-namespace: misc
-platforms:
-- unix
-- windows
+        short_description: The target to check (for checking remote machines).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Remote username when checking remote machines.
+        name: user
+        repeatable: false
+        required: false
+        short_description: Remote username when checking remote machines.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Remote password when checking remote machines.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Remote password when checking remote machines.
+      - content_type: 2
+        default_value: root\cimv2
+        is_simple: false
+        long_description: The WMI root namespace to bind to.
+        name: namespace
+        repeatable: false
+        required: false
+        short_description: The WMI root namespace to bind to.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The WMI query to execute.
+        name: query
+        repeatable: false
+        required: false
+        short_description: The WMI query to execute.

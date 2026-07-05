@@ -1,8 +1,4 @@
-module: NSCAClient
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: NSCA client can be used both from command line and from queries to submit passive checks
       via NSCA
@@ -519,3 +515,8 @@ unix:
         required: false
         short_description: Reference timezone for wire timestamps (default 'utc'; use 'local' only for
           legacy peers that emit local-clock-as-Unix-time)
+module: NSCAClient
+namespace: client
+platforms:
+- unix
+- windows

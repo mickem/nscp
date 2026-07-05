@@ -1,8 +1,4 @@
-module: CheckNet
-namespace: check
-platforms:
-- unix
-unix:
+common:
   info:
     description: Network related checks such as check_ping, check_tcp, check_dns, check_http, check_connections
       and check_ntp_offset.
@@ -2609,3 +2605,8 @@ unix:
         required: false
         short_description: 'Service preset (ftp, pop, imap, smtp, ssh, spop, simap, ssmtp): sets a default
           port, greeting and expected-response regex. The s-prefixed variants use implicit TLS.'
+module: CheckNet
+namespace: check
+platforms:
+- unix
+- windows

@@ -2,8 +2,6 @@
 
 Icinga 2 client submits passive check results to an Icinga 2 server via the REST API
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `IcingaClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -13,7 +11,6 @@ To enable this module and and allow using the commands you need to ass `IcingaCl
 IcingaClient = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the IcingaClient module.
@@ -21,13 +18,9 @@ A quick reference for all available queries (check commands) in the IcingaClient
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                         | Description                                       |
 |---------------------------------|---------------------------------------------------|
 | [submit_icinga](#submit_icinga) | Submit information to the remote Icinga 2 Server. |
-
-
-
 
 ### submit_icinga
 
@@ -123,10 +116,7 @@ The TLS version to use 1.0, 1.1, 1.2, 1.3 or any
 
 
 
-
 ## Configuration
-
-
 
 | Path / Section                                                | Description               |
 |---------------------------------------------------------------|---------------------------|
@@ -134,13 +124,9 @@ The TLS version to use 1.0, 1.1, 1.2, 1.3 or any
 | [/settings/icinga/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### Icinga 2 client <a id="/settings/icinga/client"></a>
 
 Section for Icinga 2 (Icinga REST API) passive check submission.
-
-
-
 
 | Key                   | Default Value | Description |
 |-----------------------|---------------|-------------|
@@ -148,25 +134,16 @@ Section for Icinga 2 (Icinga REST API) passive check submission.
 | [hostname](#hostname) | auto          | HOSTNAME    |
 
 
-
 ```ini
 # Section for Icinga 2 (Icinga REST API) passive check submission.
 [/settings/icinga/client]
 channel=ICINGA
 hostname=auto
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/icinga/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                         |
@@ -184,8 +161,6 @@ The channel to listen to.
 channel=ICINGA
 ```
 
-
-
 #### HOSTNAME <a id="/settings/icinga/client/hostname"></a>
 
 The host name of the monitored computer.
@@ -199,9 +174,6 @@ ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
-
-
-
 
 
 
@@ -219,7 +191,6 @@ ${domain_uc}	Domainname in uppercase
 # HOSTNAME
 hostname=auto
 ```
-
 
 ### REMOTE TARGET DEFINITIONS <a id="/settings/icinga/client/targets"></a>
 
@@ -273,7 +244,6 @@ tls version=1.3
 verify mode=peer
 
 ```
-
 
 
 

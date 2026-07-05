@@ -1,8 +1,8 @@
 # CheckEventLog
 
+*Available on Windows only.*
+
 Check for errors and warnings in the event log.
-
-
 
 ## Enable module
 
@@ -12,7 +12,6 @@ To enable this module and and allow using the commands you need to ass `CheckEve
 [/modules]
 CheckEventLog = enabled
 ```
-
 
 ## Samples
 
@@ -208,6 +207,7 @@ If we check the log we should see something similar to this:
 
 **TODO**
 
+
 ## Queries
 
 A quick reference for all available queries (check commands) in the CheckEventLog module.
@@ -215,13 +215,9 @@ A quick reference for all available queries (check commands) in the CheckEventLo
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                           | Description                        |
 |-----------------------------------|------------------------------------|
 | [check_eventlog](#check_eventlog) | Check for errors in the event log. |
-
-
-
 
 ### check_eventlog
 
@@ -444,10 +440,7 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 
 
 
-
 ## Configuration
-
-
 
 | Path / Section                                                      | Description                   |
 |---------------------------------------------------------------------|-------------------------------|
@@ -456,13 +449,9 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 | [/settings/eventlog/real-time/filters](#real-time-eventlog-filters) | Real-time eventlog filters    |
 
 
-
 ### Eventlog <a id="/settings/eventlog"></a>
 
 Section for the EventLog Checker (CheckEventLog.dll).
-
-
-
 
 | Key                                    | Default Value | Description           |
 |----------------------------------------|---------------|-----------------------|
@@ -472,26 +461,17 @@ Section for the EventLog Checker (CheckEventLog.dll).
 | [syntax](#default-syntax)              |               | Default syntax        |
 
 
-
 ```ini
 # Section for the EventLog Checker (CheckEventLog.dll).
 [/settings/eventlog]
 buffer size=131072
 debug=false
 lookup names=true
-
 ```
-
-
-
-
 
 #### Default buffer size <a id="/settings/eventlog/buffer size"></a>
 
 The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.
-
-
-
 
 
 | Key            | Description                               |
@@ -509,14 +489,9 @@ The size of the buffer to use when getting messages this affects the speed and m
 buffer size=131072
 ```
 
-
-
 #### Enable debugging <a id="/settings/eventlog/debug"></a>
 
 Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
-
-
-
 
 
 | Key            | Description                               |
@@ -534,14 +509,9 @@ Log more information when filtering (useful to detect issues with filters) not u
 debug=false
 ```
 
-
-
 #### Lookup eventlog names <a id="/settings/eventlog/lookup names"></a>
 
 Lookup the names of eventlog files
-
-
-
 
 
 | Key            | Description                               |
@@ -559,15 +529,9 @@ Lookup the names of eventlog files
 lookup names=true
 ```
 
-
-
 #### Default syntax <a id="/settings/eventlog/syntax"></a>
 
 Set this to use a specific syntax string for all commands (that don't specify one).
-
-
-
-
 
 
 | Key            | Description                               |
@@ -585,13 +549,9 @@ Set this to use a specific syntax string for all commands (that don't specify on
 syntax=
 ```
 
-
 ### Real-time eventlog monitoring <a id="/settings/eventlog/real-time"></a>
 
 A set of options to configure the real time checks
-
-
-
 
 | Key                                         | Default Value      | Description                 |
 |---------------------------------------------|--------------------|-----------------------------|
@@ -601,7 +561,6 @@ A set of options to configure the real time checks
 | [startup age](#read-old-records-at-startup) | 30m                | Read old records at startup |
 
 
-
 ```ini
 # A set of options to configure the real time checks
 [/settings/eventlog/real-time]
@@ -609,19 +568,11 @@ debug=false
 enabled=false
 log=application,system
 startup age=30m
-
 ```
-
-
-
-
 
 #### Enable debugging <a id="/settings/eventlog/real-time/debug"></a>
 
 Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
-
-
-
 
 
 | Key            | Description                                                   |
@@ -639,14 +590,9 @@ Log missed records (useful to detect issues with filters) not useful in producti
 debug=false
 ```
 
-
-
 #### Enable realtime monitoring <a id="/settings/eventlog/real-time/enabled"></a>
 
 Spawns a background thread which detects issues and reports them back instantly.
-
-
-
 
 
 | Key            | Description                                                   |
@@ -664,14 +610,9 @@ Spawns a background thread which detects issues and reports them back instantly.
 enabled=false
 ```
 
-
-
 #### Logs to check <a id="/settings/eventlog/real-time/log"></a>
 
 Comma separated list of logs to check
-
-
-
 
 
 | Key            | Description                                                   |
@@ -689,14 +630,9 @@ Comma separated list of logs to check
 log=application,system
 ```
 
-
-
 #### Read old records at startup <a id="/settings/eventlog/real-time/startup age"></a>
 
 The initial age to scan when starting NSClient++
-
-
-
 
 
 | Key            | Description                                                   |
@@ -713,7 +649,6 @@ The initial age to scan when starting NSClient++
 # Read old records at startup
 startup age=30m
 ```
-
 
 ### Real-time eventlog filters <a id="/settings/eventlog/real-time/filters"></a>
 
@@ -781,7 +716,6 @@ silent period=false
 #warning=...
 
 ```
-
 
 
 

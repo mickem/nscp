@@ -1,8 +1,4 @@
-module: SimpleCache
-namespace: generic
-platforms:
-- unix
-unix:
+common:
   aliases:
     checkcache:
       description: 'Alternative name for: check_cache'
@@ -163,3 +159,8 @@ unix:
         repeatable: false
         required: false
         short_description: Show help screen (short format).
+module: SimpleCache
+namespace: generic
+platforms:
+- unix
+- windows

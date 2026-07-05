@@ -2,8 +2,6 @@
 
 CheckSecurity checks host security posture: certificate expiry and (on Windows) the firewall profile state.
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckSecurity = enabled` to the `[/modules]` section in nsclient.ini:
@@ -13,7 +11,6 @@ To enable this module and and allow using the commands you need to ass `CheckSec
 CheckSecurity = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the CheckSecurity module.
@@ -21,7 +18,6 @@ A quick reference for all available queries (check commands) in the CheckSecurit
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                                 | Description                                                                                                  |
 |-----------------------------------------|--------------------------------------------------------------------------------------------------------------|
 | [check_antivirus](#check_antivirus)     | Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.       |
@@ -31,9 +27,6 @@ A list of all available queries (check commands)
 | [check_nla](#check_nla)                 | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.              |
 | [check_secureboot](#check_secureboot)   | Check whether UEFI Secure Boot is enabled. Windows only.                                                     |
 | [check_users](#check_users)             | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                  |
-
-
-
 
 ### check_antivirus
 
@@ -262,6 +255,7 @@ This is the syntax for the base names of the performance data.
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
 
+
 ### check_bitlocker
 
 Check BitLocker drive-encryption protection status per volume. Windows only.
@@ -484,6 +478,7 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
+
 
 
 ### check_certificate
@@ -848,234 +843,525 @@ Windows store location: LocalMachine or CurrentUser. Windows only.
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
 
+
 ### check_firewall
 
-Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.
+=== "Windows"
 
-#### About `check_firewall`
+    Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.
 
-`check_firewall` reports the state of the **Windows firewall profiles**
-(Domain, Private, Public), the same data `Get-NetFirewallProfile` exposes. It
-reads them through the `INetFwPolicy2` COM interface, so it needs no WMI.
+    #### About `check_firewall`
 
-Each profile is one row with these keywords:
+    `check_firewall` reports the state of the **Windows firewall profiles**
+    (Domain, Private, Public), the same data `Get-NetFirewallProfile` exposes. It
+    reads them through the `INetFwPolicy2` COM interface, so it needs no WMI.
 
-| Keyword    | Type   | Meaning                                                                |
-|------------|--------|------------------------------------------------------------------------|
-| `profile`  | string | Profile name: `Domain`, `Private` or `Public`.                         |
-| `enabled`  | bool   | True if the firewall is enabled for that profile. Emitted as perfdata. |
-| `inbound`  | string | Default inbound action (`allow`/`block`).                              |
-| `outbound` | string | Default outbound action (`allow`/`block`).                             |
+    Each profile is one row with these keywords:
 
-Default threshold: **critical** if any profile has `enabled = 0`.
+    | Keyword    | Type   | Meaning                                                                |
+    |------------|--------|------------------------------------------------------------------------|
+    | `profile`  | string | Profile name: `Domain`, `Private` or `Public`.                         |
+    | `enabled`  | bool   | True if the firewall is enabled for that profile. Emitted as perfdata. |
+    | `active`   | bool   | True if the profile is currently applied to a connected network. Emitted as perfdata (`<profile> active`). |
+    | `inbound`  | string | Default inbound action (`allow`/`block`).                              |
+    | `outbound` | string | Default outbound action (`allow`/`block`).                             |
 
-This check is **Windows only**. It models Windows' fixed three-profile firewall,
-which does not map onto Linux firewalls (firewalld zones, ufw, nftables/iptables
-default policies); on non-Windows platforms it returns UNKNOWN with a clear
-message rather than pretending to check something equivalent.
+    Default threshold: **critical** if any profile has `enabled = 0`.
 
+    `active` reflects which profile(s) Network Location Awareness currently
+    applies (`INetFwPolicy2::CurrentProfileTypes`). More than one profile can be
+    active when several networks are connected; with **no** connected network
+    Windows reports the Public profile as active. Its main use is catching a
+    machine silently dropping from `Domain`/`Private` to `Public` after a
+    router/adapter change — firewall rules scoped to the domain or private
+    profile stop applying and services start getting blocked. This is opt-in via
+    a `warn`/`crit` expression (see the samples) since being on the public
+    profile is perfectly normal for e.g. laptops.
 
-**Jump to section:**
+    This check is **Windows only**. It models Windows' fixed three-profile firewall,
+    which does not map onto Linux firewalls (firewalld zones, ufw, nftables/iptables
+    default policies); on non-Windows platforms it returns UNKNOWN with a clear
+    message rather than pretending to check something equivalent.
 
-* [Sample Commands](#check_firewall_samples)
-* [Command-line Arguments](#check_firewall_options)
-* [Filter keywords](#check_firewall_filter_keys)
 
+    **Jump to section:**
 
-<a id="check_firewall_samples"></a>
-#### Sample Commands
+    * [Sample Commands](#check_firewall_samples)
+    * [Command-line Arguments](#check_firewall_options)
+    * [Filter keywords](#check_firewall_filter_keys)
+
+
+    <a id="check_firewall_samples"></a>
+    #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_firewall_samples.md)_
+    _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_firewall_samples.md)_
 
-#### Check that all Windows firewall profiles are enabled (Windows only)
+    #### Check that all Windows firewall profiles are enabled (Windows only)
 
-By default the check is critical if any of the three profiles (Domain, Private,
-Public) has its firewall disabled.
+    By default the check is critical if any of the three profiles (Domain, Private,
+    Public) has its firewall disabled.
 
-```
-check_firewall
-L        cli OK: all 3 firewall profile(s) enabled
-```
+    ```
+    check_firewall
+    L        cli OK: all 3 firewall profile(s) enabled
+    ```
 
-```
-check_firewall
-L        cli CRITICAL: Public=0
-```
+    ```
+    check_firewall
+    L        cli CRITICAL: Public=0
+    ```
 
-#### Only require a specific profile to be enabled
+    #### Only require a specific profile to be enabled
 
-```
-check_firewall "filter=profile = 'Domain'" crit=enabled=0
-L        cli OK: all 1 firewall profile(s) enabled
-```
+    ```
+    check_firewall "filter=profile = 'Domain'" crit=enabled=0
+    L        cli OK: all 1 firewall profile(s) enabled
+    ```
 
-#### Show the default inbound/outbound actions
+    #### Warn when the machine is on the Public profile
 
-```
-check_firewall "detail-syntax=${profile}: enabled=${enabled} in=${inbound} out=${outbound}" top-syntax=${list}
-L        cli OK: Domain: enabled=1 in=block out=allow, Private: enabled=1 in=block out=allow, Public: enabled=1 in=block out=allow
-```
+    Network Location Awareness can silently re-categorise a network to *public*
+    after a router or connection change; rules scoped to the domain/private
+    profiles then stop applying and services get blocked. Warn on that (opt-in —
+    on e.g. laptops the public profile is normal):
 
-#### On non-Windows platforms
+    ```
+    check_firewall "warn=active = 1 and profile = 'Public'" "detail-syntax=${profile} profile is active"
+    L        cli WARNING: Public profile is active
+    ```
 
-`check_firewall` models the Windows three-profile firewall and is not
-implemented on Linux (whose firewalld/ufw/nftables model differs):
+    The `active` flags are also available for display and perfdata:
 
-```
-check_firewall
-L        cli UNKNOWN: check_firewall is not supported on this platform (Windows-only; the Linux firewall model differs)
-```
+    ```
+    check_firewall "detail-syntax=${profile}: enabled=${enabled} active=${active}" top-syntax=${list}
+    L        cli OK: Domain: enabled=1 active=0, Private: enabled=1 active=0, Public: enabled=1 active=1
+    ```
 
+    #### Show the default inbound/outbound actions
 
+    ```
+    check_firewall "detail-syntax=${profile}: enabled=${enabled} in=${inbound} out=${outbound}" top-syntax=${list}
+    L        cli OK: Domain: enabled=1 in=block out=allow, Private: enabled=1 in=block out=allow, Public: enabled=1 in=block out=allow
+    ```
 
-<a id="check_firewall_warn"></a>
-<a id="check_firewall_crit"></a>
-<a id="check_firewall_debug"></a>
-<a id="check_firewall_show-all"></a>
-<a id="check_firewall_escape-html"></a>
-<a id="check_firewall_help"></a>
-<a id="check_firewall_help-pb"></a>
-<a id="check_firewall_show-default"></a>
-<a id="check_firewall_help-short"></a>
-<a id="check_firewall_options"></a>
-#### Command-line Arguments
+    #### On non-Windows platforms
 
+    `check_firewall` models the Windows three-profile firewall and is not
+    implemented on Linux (whose firewalld/ufw/nftables model differs):
 
-| Option                                         | Default Value                                       | Description                                                                                                      |
-|------------------------------------------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_firewall_filter)               |                                                     | Filter which marks interesting items.                                                                            |
-| [warning](#check_firewall_warning)             |                                                     | Filter which marks items which generates a warning state.                                                        |
-| warn                                           |                                                     | Short alias for warning                                                                                          |
-| [critical](#check_firewall_critical)           | enabled = 0                                         | Filter which marks items which generates a critical state.                                                       |
-| crit                                           |                                                     | Short alias for critical.                                                                                        |
-| [ok](#check_firewall_ok)                       |                                                     | Filter which marks items which generates an ok state.                                                            |
-| debug                                          | N/A                                                 | Show debugging information in the log                                                                            |
-| show-all                                       | N/A                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_firewall_empty-state)     | unknown                                             | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_firewall_perf-config)     |                                                     | Performance data generation configuration                                                                        |
-| escape-html                                    | N/A                                                 | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                           | N/A                                                 | Show help screen (this screen)                                                                                   |
-| help-pb                                        | N/A                                                 | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                   | N/A                                                 | Show default values for a given command                                                                          |
-| help-short                                     | N/A                                                 | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_firewall_top-syntax)       | ${status}: ${problem_list}                          | Top level syntax.                                                                                                |
-| [ok-syntax](#check_firewall_ok-syntax)         | %(status): all %(count) firewall profile(s) enabled | ok syntax.                                                                                                       |
-| [empty-syntax](#check_firewall_empty-syntax)   | No firewall profiles found                          | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_firewall_detail-syntax) | ${profile}=${enabled}                               | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_firewall_perf-syntax)     | ${profile}                                          | Performance alias syntax.                                                                                        |
+    ```
+    check_firewall
+    L        cli UNKNOWN: check_firewall is not supported on this platform (Windows-only; the Linux firewall model differs)
+    ```
 
 
 
-<h5 id="check_firewall_filter">filter:</h5>
+    <a id="check_firewall_warn"></a>
+    <a id="check_firewall_crit"></a>
+    <a id="check_firewall_debug"></a>
+    <a id="check_firewall_show-all"></a>
+    <a id="check_firewall_escape-html"></a>
+    <a id="check_firewall_help"></a>
+    <a id="check_firewall_help-pb"></a>
+    <a id="check_firewall_show-default"></a>
+    <a id="check_firewall_help-short"></a>
+    <a id="check_firewall_options"></a>
+    #### Command-line Arguments
 
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
+    | Option                                         | Default Value                                       | Description                                                                                                      |
+    |------------------------------------------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_firewall_filter)               |                                                     | Filter which marks interesting items.                                                                            |
+    | [warning](#check_firewall_warning)             |                                                     | Filter which marks items which generates a warning state.                                                        |
+    | warn                                           |                                                     | Short alias for warning                                                                                          |
+    | [critical](#check_firewall_critical)           | enabled = 0                                         | Filter which marks items which generates a critical state.                                                       |
+    | crit                                           |                                                     | Short alias for critical.                                                                                        |
+    | [ok](#check_firewall_ok)                       |                                                     | Filter which marks items which generates an ok state.                                                            |
+    | debug                                          | N/A                                                 | Show debugging information in the log                                                                            |
+    | show-all                                       | N/A                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_firewall_empty-state)     | unknown                                             | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_firewall_perf-config)     |                                                     | Performance data generation configuration                                                                        |
+    | escape-html                                    | N/A                                                 | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                           | N/A                                                 | Show help screen (this screen)                                                                                   |
+    | help-pb                                        | N/A                                                 | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                   | N/A                                                 | Show default values for a given command                                                                          |
+    | help-short                                     | N/A                                                 | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_firewall_top-syntax)       | ${status}: ${problem_list}                          | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_firewall_ok-syntax)         | %(status): all %(count) firewall profile(s) enabled | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_firewall_empty-syntax)   | No firewall profiles found                          | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_firewall_detail-syntax) | ${profile}=${enabled}                               | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_firewall_perf-syntax)     | ${profile}                                          | Performance alias syntax.                                                                                        |
 
-<h5 id="check_firewall_warning">warning:</h5>
 
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
 
+    <h5 id="check_firewall_filter">filter:</h5>
 
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
-<h5 id="check_firewall_critical">critical:</h5>
 
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
+    <h5 id="check_firewall_warning">warning:</h5>
 
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
-*Default Value:* `enabled = 0`
 
-<h5 id="check_firewall_ok">ok:</h5>
 
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    <h5 id="check_firewall_critical">critical:</h5>
 
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
-<h5 id="check_firewall_empty-state">empty-state:</h5>
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
+    *Default Value:* `enabled = 0`
 
-*Default Value:* `unknown`
+    <h5 id="check_firewall_ok">ok:</h5>
 
-<h5 id="check_firewall_perf-config">perf-config:</h5>
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
+    <h5 id="check_firewall_empty-state">empty-state:</h5>
 
-<h5 id="check_firewall_top-syntax">top-syntax:</h5>
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    *Default Value:* `unknown`
 
-*Default Value:* `${status}: ${problem_list}`
+    <h5 id="check_firewall_perf-config">perf-config:</h5>
 
-<h5 id="check_firewall_ok-syntax">ok-syntax:</h5>
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
 
-*Default Value:* `%(status): all %(count) firewall profile(s) enabled`
+    <h5 id="check_firewall_top-syntax">top-syntax:</h5>
 
-<h5 id="check_firewall_empty-syntax">empty-syntax:</h5>
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
+    *Default Value:* `${status}: ${problem_list}`
 
-*Default Value:* `No firewall profiles found`
+    <h5 id="check_firewall_ok-syntax">ok-syntax:</h5>
 
-<h5 id="check_firewall_detail-syntax">detail-syntax:</h5>
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    *Default Value:* `%(status): all %(count) firewall profile(s) enabled`
 
-*Default Value:* `${profile}=${enabled}`
+    <h5 id="check_firewall_empty-syntax">empty-syntax:</h5>
 
-<h5 id="check_firewall_perf-syntax">perf-syntax:</h5>
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
+    *Default Value:* `No firewall profiles found`
 
-*Default Value:* `${profile}`
+    <h5 id="check_firewall_detail-syntax">detail-syntax:</h5>
 
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-<a id="check_firewall_filter_keys"></a>
-#### Filter keywords
+    *Default Value:* `${profile}=${enabled}`
 
+    <h5 id="check_firewall_perf-syntax">perf-syntax:</h5>
 
-| Option   | Description                                       |
-|----------|---------------------------------------------------|
-| enabled  | True if the profile's firewall is enabled         |
-| inbound  | Default inbound action (allow/block)              |
-| outbound | Default outbound action (allow/block)             |
-| profile  | Firewall profile name (Domain, Private or Public) |
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
 
-**Common options for all checks:**
+    *Default Value:* `${profile}`
 
-| Option        | Description                                                                    |
-|---------------|--------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                           |
-| crit_count    | Number of items matched the critical criteria.                                 |
-| crit_list     | A list of all items which matched the critical criteria.                       |
-| detail_list   | A special list with critical, then warning and finally ok.                     |
-| list          | A list of all items which matched the filter.                                  |
-| ok_count      | Number of items matched the ok criteria.                                       |
-| ok_list       | A list of all items which matched the ok criteria.                             |
-| problem_count | Number of items matched either warning or critical criteria.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
-| total         | Total number of items.                                                         |
-| warn_count    | Number of items matched the warning criteria.                                  |
-| warn_list     | A list of all items which matched the warning criteria.                        |
 
+    <a id="check_firewall_filter_keys"></a>
+    #### Filter keywords
+
+
+    | Option   | Description                                                                                                                                    |
+    |----------|------------------------------------------------------------------------------------------------------------------------------------------------|
+    | active   | True if the profile is currently applied to a connected network (e.g. NLA re-categorising a network to public makes the Public profile active) |
+    | enabled  | True if the profile's firewall is enabled                                                                                                      |
+    | inbound  | Default inbound action (allow/block)                                                                                                           |
+    | outbound | Default outbound action (allow/block)                                                                                                          |
+    | profile  | Firewall profile name (Domain, Private or Public)                                                                                              |
+
+    **Common options for all checks:**
+
+    | Option        | Description                                                                    |
+    |---------------|--------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                           |
+    | crit_count    | Number of items matched the critical criteria.                                 |
+    | crit_list     | A list of all items which matched the critical criteria.                       |
+    | detail_list   | A special list with critical, then warning and finally ok.                     |
+    | list          | A list of all items which matched the filter.                                  |
+    | ok_count      | Number of items matched the ok criteria.                                       |
+    | ok_list       | A list of all items which matched the ok criteria.                             |
+    | problem_count | Number of items matched either warning or critical criteria.                   |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria. |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+    | total         | Total number of items.                                                         |
+    | warn_count    | Number of items matched the warning criteria.                                  |
+    | warn_list     | A list of all items which matched the warning criteria.                        |
+
+=== "Linux"
+
+    Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.
+
+    #### About `check_firewall`
+
+    `check_firewall` reports the state of the **Windows firewall profiles**
+    (Domain, Private, Public), the same data `Get-NetFirewallProfile` exposes. It
+    reads them through the `INetFwPolicy2` COM interface, so it needs no WMI.
+
+    Each profile is one row with these keywords:
+
+    | Keyword    | Type   | Meaning                                                                |
+    |------------|--------|------------------------------------------------------------------------|
+    | `profile`  | string | Profile name: `Domain`, `Private` or `Public`.                         |
+    | `enabled`  | bool   | True if the firewall is enabled for that profile. Emitted as perfdata. |
+    | `active`   | bool   | True if the profile is currently applied to a connected network. Emitted as perfdata (`<profile> active`). |
+    | `inbound`  | string | Default inbound action (`allow`/`block`).                              |
+    | `outbound` | string | Default outbound action (`allow`/`block`).                             |
+
+    Default threshold: **critical** if any profile has `enabled = 0`.
+
+    `active` reflects which profile(s) Network Location Awareness currently
+    applies (`INetFwPolicy2::CurrentProfileTypes`). More than one profile can be
+    active when several networks are connected; with **no** connected network
+    Windows reports the Public profile as active. Its main use is catching a
+    machine silently dropping from `Domain`/`Private` to `Public` after a
+    router/adapter change — firewall rules scoped to the domain or private
+    profile stop applying and services start getting blocked. This is opt-in via
+    a `warn`/`crit` expression (see the samples) since being on the public
+    profile is perfectly normal for e.g. laptops.
+
+    This check is **Windows only**. It models Windows' fixed three-profile firewall,
+    which does not map onto Linux firewalls (firewalld zones, ufw, nftables/iptables
+    default policies); on non-Windows platforms it returns UNKNOWN with a clear
+    message rather than pretending to check something equivalent.
+
+
+    **Jump to section:**
+
+    * [Sample Commands](#check_firewall_samples)
+    * [Command-line Arguments](#check_firewall_options)
+    * [Filter keywords](#check_firewall_filter_keys)
+
+
+    <a id="check_firewall_samples"></a>
+    #### Sample Commands
+
+    _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSecurity_check_firewall_samples.md)_
+
+    #### Check that all Windows firewall profiles are enabled (Windows only)
+
+    By default the check is critical if any of the three profiles (Domain, Private,
+    Public) has its firewall disabled.
+
+    ```
+    check_firewall
+    L        cli OK: all 3 firewall profile(s) enabled
+    ```
+
+    ```
+    check_firewall
+    L        cli CRITICAL: Public=0
+    ```
+
+    #### Only require a specific profile to be enabled
+
+    ```
+    check_firewall "filter=profile = 'Domain'" crit=enabled=0
+    L        cli OK: all 1 firewall profile(s) enabled
+    ```
+
+    #### Warn when the machine is on the Public profile
+
+    Network Location Awareness can silently re-categorise a network to *public*
+    after a router or connection change; rules scoped to the domain/private
+    profiles then stop applying and services get blocked. Warn on that (opt-in —
+    on e.g. laptops the public profile is normal):
+
+    ```
+    check_firewall "warn=active = 1 and profile = 'Public'" "detail-syntax=${profile} profile is active"
+    L        cli WARNING: Public profile is active
+    ```
+
+    The `active` flags are also available for display and perfdata:
+
+    ```
+    check_firewall "detail-syntax=${profile}: enabled=${enabled} active=${active}" top-syntax=${list}
+    L        cli OK: Domain: enabled=1 active=0, Private: enabled=1 active=0, Public: enabled=1 active=1
+    ```
+
+    #### Show the default inbound/outbound actions
+
+    ```
+    check_firewall "detail-syntax=${profile}: enabled=${enabled} in=${inbound} out=${outbound}" top-syntax=${list}
+    L        cli OK: Domain: enabled=1 in=block out=allow, Private: enabled=1 in=block out=allow, Public: enabled=1 in=block out=allow
+    ```
+
+    #### On non-Windows platforms
+
+    `check_firewall` models the Windows three-profile firewall and is not
+    implemented on Linux (whose firewalld/ufw/nftables model differs):
+
+    ```
+    check_firewall
+    L        cli UNKNOWN: check_firewall is not supported on this platform (Windows-only; the Linux firewall model differs)
+    ```
+
+
+
+    <a id="check_firewall_warn"></a>
+    <a id="check_firewall_crit"></a>
+    <a id="check_firewall_debug"></a>
+    <a id="check_firewall_show-all"></a>
+    <a id="check_firewall_escape-html"></a>
+    <a id="check_firewall_help"></a>
+    <a id="check_firewall_help-pb"></a>
+    <a id="check_firewall_show-default"></a>
+    <a id="check_firewall_help-short"></a>
+    <a id="check_firewall_options"></a>
+    #### Command-line Arguments
+
+
+    | Option                                         | Default Value                                       | Description                                                                                                      |
+    |------------------------------------------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_firewall_filter)               |                                                     | Filter which marks interesting items.                                                                            |
+    | [warning](#check_firewall_warning)             |                                                     | Filter which marks items which generates a warning state.                                                        |
+    | warn                                           |                                                     | Short alias for warning                                                                                          |
+    | [critical](#check_firewall_critical)           | enabled = 0                                         | Filter which marks items which generates a critical state.                                                       |
+    | crit                                           |                                                     | Short alias for critical.                                                                                        |
+    | [ok](#check_firewall_ok)                       |                                                     | Filter which marks items which generates an ok state.                                                            |
+    | debug                                          | N/A                                                 | Show debugging information in the log                                                                            |
+    | show-all                                       | N/A                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_firewall_empty-state)     | unknown                                             | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_firewall_perf-config)     |                                                     | Performance data generation configuration                                                                        |
+    | escape-html                                    | N/A                                                 | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                           | N/A                                                 | Show help screen (this screen)                                                                                   |
+    | help-pb                                        | N/A                                                 | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                   | N/A                                                 | Show default values for a given command                                                                          |
+    | help-short                                     | N/A                                                 | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_firewall_top-syntax)       | ${status}: ${problem_list}                          | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_firewall_ok-syntax)         | %(status): all %(count) firewall profile(s) enabled | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_firewall_empty-syntax)   | No firewall profiles found                          | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_firewall_detail-syntax) | ${profile}=${enabled}                               | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_firewall_perf-syntax)     | ${profile}                                          | Performance alias syntax.                                                                                        |
+
+
+
+    <h5 id="check_firewall_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_firewall_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+
+    <h5 id="check_firewall_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `enabled = 0`
+
+    <h5 id="check_firewall_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_firewall_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_firewall_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_firewall_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${problem_list}`
+
+    <h5 id="check_firewall_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): all %(count) firewall profile(s) enabled`
+
+    <h5 id="check_firewall_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No firewall profiles found`
+
+    <h5 id="check_firewall_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${profile}=${enabled}`
+
+    <h5 id="check_firewall_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${profile}`
+
+
+    <a id="check_firewall_filter_keys"></a>
+    #### Filter keywords
+
+
+    | Option   | Description                                       |
+    |----------|---------------------------------------------------|
+    | enabled  | True if the profile's firewall is enabled         |
+    | inbound  | Default inbound action (allow/block)              |
+    | outbound | Default outbound action (allow/block)             |
+    | profile  | Firewall profile name (Domain, Private or Public) |
+
+    **Common options for all checks:**
+
+    | Option        | Description                                                                    |
+    |---------------|--------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                           |
+    | crit_count    | Number of items matched the critical criteria.                                 |
+    | crit_list     | A list of all items which matched the critical criteria.                       |
+    | detail_list   | A special list with critical, then warning and finally ok.                     |
+    | list          | A list of all items which matched the filter.                                  |
+    | ok_count      | Number of items matched the ok criteria.                                       |
+    | ok_list       | A list of all items which matched the ok criteria.                             |
+    | problem_count | Number of items matched either warning or critical criteria.                   |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria. |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+    | total         | Total number of items.                                                         |
+    | warn_count    | Number of items matched the warning criteria.                                  |
+    | warn_list     | A list of all items which matched the warning criteria.                        |
 
 ### check_nla
 
@@ -1295,6 +1581,7 @@ This is the syntax for the base names of the performance data.
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
 
+
 ### check_secureboot
 
 Check whether UEFI Secure Boot is enabled. Windows only.
@@ -1509,6 +1796,7 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
+
 
 
 ### check_users
@@ -1742,7 +2030,6 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
 
 
 

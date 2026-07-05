@@ -2,8 +2,6 @@
 
 Forward information as syslog messages to a syslog server
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `SyslogClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -13,7 +11,6 @@ To enable this module and and allow using the commands you need to ass `SyslogCl
 SyslogClient = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the SyslogClient module.
@@ -21,13 +18,9 @@ A quick reference for all available queries (check commands) in the SyslogClient
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                         | Description                                     |
 |---------------------------------|-------------------------------------------------|
 | [submit_syslog](#submit_syslog) | Submit information to the remote syslog server. |
-
-
-
 
 ### submit_syslog
 
@@ -109,10 +102,7 @@ Submit information to the remote syslog server.
 
 
 
-
 ## Configuration
-
-
 
 | Path / Section                                                | Description               |
 |---------------------------------------------------------------|---------------------------|
@@ -121,13 +111,9 @@ Submit information to the remote syslog server.
 | [/settings/syslog/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### SYSLOG CLIENT SECTION <a id="/settings/syslog/client"></a>
 
 Section for SYSLOG passive check module.
-
-
-
 
 | Key                   | Default Value | Description |
 |-----------------------|---------------|-------------|
@@ -135,25 +121,16 @@ Section for SYSLOG passive check module.
 | [hostname](#hostname) | auto          | HOSTNAME    |
 
 
-
 ```ini
 # Section for SYSLOG passive check module.
 [/settings/syslog/client]
 channel=syslog
 hostname=auto
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/syslog/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                         |
@@ -171,8 +148,6 @@ The channel to listen to.
 channel=syslog
 ```
 
-
-
 #### HOSTNAME <a id="/settings/syslog/client/hostname"></a>
 
 The host name of the monitored computer.
@@ -186,9 +161,6 @@ ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
-
-
-
 
 
 
@@ -206,7 +178,6 @@ ${domain_uc}	Domainname in uppercase
 # HOSTNAME
 hostname=auto
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/syslog/client/handlers"></a>
 
@@ -252,7 +223,6 @@ retries=3
 timeout=30
 
 ```
-
 
 
 

@@ -1,8 +1,4 @@
-module: NRPEServer
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: A server that listens for incoming NRPE connection and processes incoming requests.
     title: NRPEServer
@@ -280,3 +276,8 @@ unix:
             or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
           sample: false
           title: Timezone
+module: NRPEServer
+namespace: client
+platforms:
+- unix
+- windows

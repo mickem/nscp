@@ -2,8 +2,6 @@
 
 CollectD client can be used to submit metrics to a collectd server
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CollectdClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -14,11 +12,7 @@ CollectdClient = enabled
 ```
 
 
-
-
 ## Configuration
-
-
 
 | Path / Section                                                  | Description               |
 |-----------------------------------------------------------------|---------------------------|
@@ -28,13 +22,9 @@ CollectdClient = enabled
 | [/settings/collectd/client/variables](#variable-definitions)    | VARIABLE DEFINITIONS      |
 
 
-
 ### COLLECTD CLIENT SECTION <a id="/settings/collectd/client"></a>
 
 Section for the collectd client; forwards NSClient++ metrics to a collectd server.
-
-
-
 
 | Key                           | Default Value | Description      |
 |-------------------------------|---------------|------------------|
@@ -42,18 +32,12 @@ Section for the collectd client; forwards NSClient++ metrics to a collectd serve
 | [interval](#metrics-interval) | 10            | METRICS INTERVAL |
 
 
-
 ```ini
 # Section for the collectd client; forwards NSClient++ metrics to a collectd server.
 [/settings/collectd/client]
 hostname=auto
 interval=10
-
 ```
-
-
-
-
 
 #### HOSTNAME <a id="/settings/collectd/client/hostname"></a>
 
@@ -67,9 +51,6 @@ ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
-
-
-
 
 
 
@@ -88,14 +69,9 @@ ${domain_uc}	Domainname in uppercase
 hostname=auto
 ```
 
-
-
 #### METRICS INTERVAL <a id="/settings/collectd/client/interval"></a>
 
 The interval (in seconds) reported to collectd. Should match the core 'metrics interval' so collectd computes rates correctly.
-
-
-
 
 
 | Key            | Description                                             |
@@ -113,25 +89,16 @@ The interval (in seconds) reported to collectd. Should match the core 'metrics i
 interval=10
 ```
 
-
 ### METRIC MAPPINGS <a id="/settings/collectd/client/metrics"></a>
 
 Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user). When empty a built-in default set is used.
 
 
 
-
-
-
-
 ```ini
 # Mapping of collectd keys (e.g. cpu-total/cpu-user) to value expressions (e.g. derive:system.cpu.total.user). When empty a built-in default set is used.
 [/settings/collectd/client/metrics]
-
 ```
-
-
-
 
 ### REMOTE TARGET DEFINITIONS <a id="/settings/collectd/client/targets"></a>
 
@@ -179,16 +146,7 @@ Variables used to expand ${...} placeholders in metric keys. Each value is a reg
 
 
 
-
-
-
-
 ```ini
 # Variables used to expand ${...} placeholders in metric keys. Each value is a regular expression matched against metric names; the captured groups become the variable's values. When empty a built-in default set is used.
 [/settings/collectd/client/variables]
-
 ```
-
-
-
-

@@ -1,15 +1,32 @@
-common:
+module: NSClientServer
+namespace: windows
+platforms:
+- windows
+windows:
   info:
-    description: A server that listens for incoming check_mk connection and processes incoming requests.
-    title: CheckMKServer
+    description: A server that listens for incoming check_nt connection and processes incoming requests.
+    title: NSClientServer
   paths:
-    /settings/check_mk/server:
+    /settings/NSClient/server:
       info:
         advanced: false
-        description: Section for check_mk (CheckMKServer.dll) protocol options.
+        description: Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
         subkey: false
-        title: CHECK MK SERVER SECTION
+        title: NSCLIENT SERVER SECTION
       keys:
+        allow:
+          advanced: false
+          default_value: any
+          description: 'Comma separated list of which check_nt commands this server will answer. Each
+            entry is a group, the keyword ''any''/''all'', or an individual command name. Groups: ''metrics''
+            (cpuload, uptime, useddiskspace, memuse), ''info'' (clientversion), ''service'' (servicestate),
+            ''process'' (procstate), ''counters'' (counter, instances), ''files'' (fileage). Individual
+            commands: clientversion, cpuload, uptime, useddiskspace, servicestate, procstate, memuse,
+            counter, fileage, instances. Default ''any'' answers everything (full check_nt compatibility).
+            To expose only harmless system metrics use e.g. ''metrics, info''; this denies the arbitrary-read
+            commands (counter, fileage, instances) and the service/process enumeration commands.'
+          sample: false
+          title: ALLOWED COMMANDS
         allowed ciphers:
           advanced: true
           default_value: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
@@ -78,23 +95,22 @@ common:
           description: ''
           sample: false
           title: DH KEY
-        local channel:
+        password:
           advanced: false
-          default_value: check_mk-local
-          description: Channel name passive check results land on to be relayed as cached <<<local>>>
-            entries.
+          default_value: ''
+          description: Password used to authenticate against server
           sample: false
-          title: LOCAL SUBMISSION CHANNEL
-        mrpe channel:
+          title: Password
+        performance data:
           advanced: false
-          default_value: check_mk-mrpe
-          description: Channel name passive check results land on to be relayed as cached <<<mrpe>>> entries.
+          default_value: 'true'
+          description: Send performance data back to Nagios (set this to 0 to remove all performance data).
           sample: false
-          title: MRPE SUBMISSION CHANNEL
+          title: PERFORMANCE DATA
         port:
           advanced: false
-          default_value: '6556'
-          description: Port to use for check_mk.
+          default_value: '12489'
+          description: Port to use for check_nt.
           sample: false
           title: PORT NUMBER
         socket queue size:
@@ -119,13 +135,6 @@ common:
             \ DSA-parameters).\n\n\n"
           sample: false
           title: VERIFY MODE
-        submission ttl:
-          advanced: false
-          default_value: '60'
-          description: How long (seconds) a submitted check result is advertised as fresh in the cached(...)
-            header. Should be at least the scheduler interval that submits it.
-          sample: false
-          title: SUBMITTED RESULT TTL
         thread pool:
           advanced: true
           default_value: '10'
@@ -148,7 +157,7 @@ common:
           title: TLS version to use
         use ssl:
           advanced: false
-          default_value: 'false'
+          default_value: 'true'
           description: This option controls if SSL should be enabled.
           sample: false
           title: ENABLE SSL ENCRYPTION
@@ -166,26 +175,6 @@ common:
             \ verify-peer\n\n\n"
           sample: false
           title: VERIFY MODE
-    /settings/check_mk/server/local:
-      info:
-        advanced: false
-        description: "Each key under this path becomes a Checkmk service in <<<local>>> with the value\
-          \ `command=<nscp-command> [args...]`.\nExample:\n  CPU Load = command=check_cpu warn=load>80"
-        subkey: true
-        title: LOCAL CHECK ENTRIES
-    /settings/check_mk/server/mrpe:
-      info:
-        advanced: false
-        description: "Each key under this path becomes a Checkmk service in <<<mrpe>>> with the value\
-          \ `command=<nscp-command> [args...]`.\nExample:\n  Uptime = command=check_uptime warn=uptime<2d"
-        subkey: true
-        title: MRPE ENTRIES
-    /settings/check_mk/server/scripts:
-      info:
-        advanced: false
-        description: ''
-        subkey: true
-        title: REMOTE TARGET DEFINITIONS
     /settings/default:
       info:
         advanced: false
@@ -259,8 +248,3 @@ common:
             or any POSIX TZ string parseable by Boost.Date_time (e.g. 'MST-07' or 'EST-05EDT,M3.2.0,M11.1.0').
           sample: false
           title: Timezone
-module: CheckMKServer
-namespace: check
-platforms:
-- unix
-- windows

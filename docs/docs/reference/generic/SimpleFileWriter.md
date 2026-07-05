@@ -2,8 +2,6 @@
 
 Write status updates to a text file (A bit like the NSCA server does)
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `SimpleFileWriter = enabled` to the `[/modules]` section in nsclient.ini:
@@ -14,24 +12,16 @@ SimpleFileWriter = enabled
 ```
 
 
-
-
 ## Configuration
-
-
 
 | Path / Section                         | Description |
 |----------------------------------------|-------------|
 | [/settings/writers/file](#file-writer) | FILE WRITER |
 
 
-
 ### FILE WRITER <a id="/settings/writers/file"></a>
 
 Section for simple file writer module (SimpleFileWriter.dll).
-
-
-
 
 | Key                                       | Default Value                            | Description            |
 |-------------------------------------------|------------------------------------------|------------------------|
@@ -43,7 +33,6 @@ Section for simple file writer module (SimpleFileWriter.dll).
 | [time-syntax](#time-syntax)               | %Y-%m-%d %H:%M:%S                        | TIME SYNTAX            |
 
 
-
 ```ini
 # Section for simple file writer module (SimpleFileWriter.dll).
 [/settings/writers/file]
@@ -51,19 +40,11 @@ channel=FILE
 file=output.txt
 syntax=${alias-or-command} ${result} ${message}
 time-syntax=%Y-%m-%d %H:%M:%S
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/writers/file/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                       |
@@ -81,14 +62,9 @@ The channel to listen to.
 channel=FILE
 ```
 
-
-
 #### FILE TO WRITE TO <a id="/settings/writers/file/file"></a>
 
 The filename to write output to.
-
-
-
 
 
 | Key            | Description                                       |
@@ -106,16 +82,10 @@ The filename to write output to.
 file=output.txt
 ```
 
-
-
 #### HOST MESSAGE SYNTAX <a id="/settings/writers/file/host-syntax"></a>
 
 The syntax of the message to write to the line.
 Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.
-
-
-
-
 
 
 | Key            | Description                                       |
@@ -133,16 +103,10 @@ Can be any arbitrary string as well as include any of the following special keyw
 host-syntax=
 ```
 
-
-
 #### SERVICE MESSAGE SYNTAX <a id="/settings/writers/file/service-syntax"></a>
 
 The syntax of the message to write to the line.
 Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.
-
-
-
-
 
 
 | Key            | Description                                       |
@@ -160,15 +124,10 @@ Can be any arbitrary string as well as include any of the following special keyw
 service-syntax=
 ```
 
-
-
 #### MESSAGE SYNTAX <a id="/settings/writers/file/syntax"></a>
 
 The syntax of the message to write to the line.
 Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the receiving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherwise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.
-
-
-
 
 
 | Key            | Description                                       |
@@ -186,14 +145,9 @@ Can be any arbitrary string as well as include any of the following special keyw
 syntax=${alias-or-command} ${result} ${message}
 ```
 
-
-
 #### TIME SYNTAX <a id="/settings/writers/file/time-syntax"></a>
 
 The date format using strftime format flags. This is the time of writing the message as messages currently does not have a source time.
-
-
-
 
 
 | Key            | Description                                       |
@@ -210,5 +164,3 @@ The date format using strftime format flags. This is the time of writing the mes
 # TIME SYNTAX
 time-syntax=%Y-%m-%d %H:%M:%S
 ```
-
-

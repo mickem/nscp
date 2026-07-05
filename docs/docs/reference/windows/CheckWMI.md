@@ -1,8 +1,8 @@
 # CheckWMI
 
+*Available on Windows only.*
+
 Check status via WMI
-
-
 
 ## Enable module
 
@@ -13,7 +13,6 @@ To enable this module and and allow using the commands you need to ass `CheckWMI
 CheckWMI = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the CheckWMI module.
@@ -21,21 +20,17 @@ A quick reference for all available queries (check commands) in the CheckWMI mod
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                 | Description                                                            |
 |-------------------------|------------------------------------------------------------------------|
 | [check_wmi](#check_wmi) | Check a set of WMI values and return rows which are matching criteria. |
-
 
 **List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
 
-
 | Command  | Description                   |
 |----------|-------------------------------|
 | checkwmi | Alias for: :query:`check_wmi` |
-
 
 ### check_wmi
 
@@ -257,15 +252,11 @@ The WMI root namespace to bind to.
 
 
 
-
 ## Configuration
-
-
 
 | Path / Section                                | Description         |
 |-----------------------------------------------|---------------------|
 | [/settings/wmi/targets](#target-list-section) | TARGET LIST SECTION |
-
 
 
 ### TARGET LIST SECTION <a id="/settings/wmi/targets"></a>
@@ -274,7 +265,6 @@ A list of available remote target systems
 
 
 This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
-
 
 
 

@@ -1,8 +1,4 @@
-module: IcingaClient
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: Icinga 2 client submits passive check results to an Icinga 2 server via the REST API
     title: IcingaClient
@@ -387,3 +383,8 @@ unix:
         repeatable: false
         required: false
         short_description: Certificate authority to use when verifying certificates.
+module: IcingaClient
+namespace: client
+platforms:
+- unix
+- windows

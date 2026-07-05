@@ -2,8 +2,6 @@
 
 Network related checks such as check_ping, check_tcp, check_dns, check_http, check_connections and check_ntp_offset.
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckNet = enabled` to the `[/modules]` section in nsclient.ini:
@@ -13,7 +11,6 @@ To enable this module and and allow using the commands you need to ass `CheckNet
 CheckNet = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the CheckNet module.
@@ -21,7 +18,6 @@ A quick reference for all available queries (check commands) in the CheckNet mod
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                                                 | Description                                                                                 |
 |---------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | [check_connections](#check_connections)                 | Count active TCP/UDP connections and report counts per protocol and TCP state.              |
@@ -32,9 +28,6 @@ A list of all available queries (check commands)
 | [check_ping](#check_ping)                               | Ping another host and check the result.                                                     |
 | [check_ssh](#check_ssh)                                 | Connect to an SSH port and verify the server presents a valid SSH banner.                   |
 | [check_tcp](#check_tcp)                                 | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
-
-
-
 
 ### check_connections
 
@@ -266,6 +259,7 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
+
 
 
 ### check_dns
@@ -554,6 +548,7 @@ Timeout in milliseconds.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
+
 
 
 ### check_http
@@ -957,6 +952,7 @@ Path to a CA bundle to use when verifying the server certificate.
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
 
+
 ### check_nsclient_web_online
 
 Query the REST API of a remote NSClient++ agent (reachability or a remote check).
@@ -1055,6 +1051,7 @@ CRITICAL: Failed to reach https://192.168.56.10:9999: Connection refused
 
 <a id="check_nsclient_web_online_options"></a>
 #### Command-line Arguments
+
 
 
 
@@ -1300,6 +1297,7 @@ Timeout in milliseconds.
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
 
+
 ### check_ping
 
 Ping another host and check the result.
@@ -1541,6 +1539,7 @@ The payload to send in the ping request (default: 'Hello from NSClient++')
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
+
 
 
 ### check_ssh
@@ -1813,6 +1812,7 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
+
 
 
 ### check_tcp
@@ -2108,7 +2108,6 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
 
 
 

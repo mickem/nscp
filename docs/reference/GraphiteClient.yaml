@@ -1,8 +1,4 @@
-module: GraphiteClient
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: Graphite client can be used to submit graph data to a graphite graphing system
     title: GraphiteClient
@@ -316,3 +312,8 @@ unix:
         repeatable: false
         required: false
         short_description: ''
+module: GraphiteClient
+namespace: client
+platforms:
+- unix
+- windows

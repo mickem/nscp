@@ -1,8 +1,4 @@
-module: NRDPClient
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: NRDP client can be used both from command line and from queries to check remote systems
       via NRDP
@@ -395,3 +391,8 @@ unix:
         repeatable: false
         required: false
         short_description: Comma-separated list of hostnames that bypass the proxy.
+module: NRDPClient
+namespace: client
+platforms:
+- unix
+- windows

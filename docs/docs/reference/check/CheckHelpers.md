@@ -2,8 +2,6 @@
 
 Various helper function to extend other checks.
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckHelpers = enabled` to the `[/modules]` section in nsclient.ini:
@@ -13,7 +11,6 @@ To enable this module and and allow using the commands you need to ass `CheckHel
 CheckHelpers = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the CheckHelpers module.
@@ -21,7 +18,6 @@ A quick reference for all available queries (check commands) in the CheckHelpers
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                                         | Description                                                                         |
 |-------------------------------------------------|-------------------------------------------------------------------------------------|
 | [check_always_critical](#check_always_critical) | Run another check and regardless of its return code return CRITICAL.                |
@@ -39,11 +35,9 @@ A list of all available queries (check commands)
 | [render_perf](#render_perf)                     | Run a check and render the performance data as output message.                      |
 | [xform_perf](#xform_perf)                       | Run a check and transform the performance data in various (currently one) way.      |
 
-
 **List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
-
 
 | Command             | Description                               |
 |---------------------|-------------------------------------------|
@@ -57,7 +51,6 @@ A list of all short hand aliases for queries (check commands)
 | checkwarning        | Alias for: :query:`check_warning`         |
 | negate              | Alias for: :query:`check_negate`          |
 | timeout             | Alias for: :query:`check_timeout`         |
-
 
 ### check_always_critical
 
@@ -86,6 +79,7 @@ Run another check and regardless of its return code return CRITICAL.
 | help-pb      | N/A           | Show help screen as a protocol buffer payload |
 | show-default | N/A           | Show default values for a given command       |
 | help-short   | N/A           | Show help screen (short format).              |
+
 
 
 
@@ -121,6 +115,7 @@ Run another check and regardless of its return code return OK.
 
 
 
+
 ### check_always_warning
 
 Run another check and regardless of its return code return WARNING.
@@ -148,6 +143,7 @@ Run another check and regardless of its return code return WARNING.
 | help-pb      | N/A           | Show help screen as a protocol buffer payload |
 | show-default | N/A           | Show default values for a given command       |
 | help-short   | N/A           | Show help screen (short format).              |
+
 
 
 
@@ -189,6 +185,7 @@ Run a check and forward the result as a passive check.
 
 
 
+
 ### check_critical
 
 Just return CRITICAL (anything passed along will be used as a message).
@@ -225,6 +222,7 @@ Just return CRITICAL (anything passed along will be used as a message).
 Message to return
 
 *Default Value:* `No message`
+
 
 
 ### check_multi
@@ -273,6 +271,7 @@ Separator between messages
 *Default Value:* `, `
 
 
+
 ### check_negate
 
 Run a check and alter the return status codes according to arguments.
@@ -316,6 +315,7 @@ Run a check and alter the return status codes according to arguments.
 
 
 
+
 ### check_ok
 
 Just return OK (anything passed along will be used as a message).
@@ -352,6 +352,7 @@ Just return OK (anything passed along will be used as a message).
 Message to return
 
 *Default Value:* `No message`
+
 
 
 ### check_timeout
@@ -393,6 +394,7 @@ Run a check and timeout after a given amount of time if the check has not return
 
 
 
+
 ### check_version
 
 Just return the NSClient++ version.
@@ -420,6 +422,7 @@ Just return the NSClient++ version.
 | help-pb      | N/A           | Show help screen as a protocol buffer payload |
 | show-default | N/A           | Show default values for a given command       |
 | help-short   | N/A           | Show help screen (short format).              |
+
 
 
 
@@ -460,6 +463,7 @@ Just return WARNING (anything passed along will be used as a message).
 Message to return
 
 *Default Value:* `No message`
+
 
 
 ### filter_perf
@@ -534,6 +538,7 @@ The sort order to use: none, normal or reversed
 The maximum number of items to return (0 returns all items)
 
 *Default Value:* `0`
+
 
 
 ### render_perf
@@ -713,6 +718,7 @@ List of arguments (for wrapped command)
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
 
+
 ### xform_perf
 
 Run a check and transform the performance data in various (currently one) way.
@@ -755,15 +761,11 @@ Run a check and transform the performance data in various (currently one) way.
 
 
 
-
 ## Configuration
-
-
 
 | Path / Section                                    | Description     |
 |---------------------------------------------------|-----------------|
 | [/settings/check helpers/alias](#command-aliases) | Command aliases |
-
 
 
 ### Command aliases <a id="/settings/check helpers/alias"></a>
@@ -774,7 +776,6 @@ Aliases are also available in CheckExternalScripts under [/settings/external scr
 
 
 This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
-
 
 
 

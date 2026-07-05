@@ -1,8 +1,4 @@
-module: SimpleFileWriter
-namespace: generic
-platforms:
-- unix
-unix:
+common:
   info:
     description: Write status updates to a text file (A bit like the NSCA server does)
     title: SimpleFileWriter
@@ -69,3 +65,8 @@ unix:
             as messages currently does not have a source time.
           sample: false
           title: TIME SYNTAX
+module: SimpleFileWriter
+namespace: generic
+platforms:
+- unix
+- windows

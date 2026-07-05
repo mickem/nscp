@@ -54,7 +54,7 @@ nav:
   - Reference:
       - Reference: reference/index.md
       - Check commands:
-        - CheckDisk: reference/windows/CheckDisk.md
+        - CheckDisk: reference/check/CheckDisk.md
         - CheckExternalScripts: reference/check/CheckExternalScripts.md
         - CheckEventLog (Windows): reference/windows/CheckEventLog.md
         - CheckHelpers: reference/check/CheckHelpers.md
@@ -64,7 +64,7 @@ nav:
         - CheckNet: reference/misc/CheckNet.md
         - CheckNSCP: reference/check/CheckNSCP.md
         - CheckSystemUnix (unix): reference/unix/CheckSystemUnix.md
-        - CheckSystem: reference/windows/CheckSystem.md
+        - CheckSystem: reference/check/CheckSystem.md
         - CheckTaskSched (Windows): reference/windows/CheckTaskSched.md
         - CheckWMI (Windows): reference/windows/CheckWMI.md
       - Clients & Servers:

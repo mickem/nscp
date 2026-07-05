@@ -2,8 +2,6 @@
 
 NSCP client can be used both from command line and from queries to check remote systems via NSCP (REST)
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `NSCPClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -13,7 +11,6 @@ To enable this module and and allow using the commands you need to ass `NSCPClie
 NSCPClient = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the NSCPClient module.
@@ -21,7 +18,6 @@ A quick reference for all available queries (check commands) in the NSCPClient m
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                                   | Description                                        |
 |-------------------------------------------|----------------------------------------------------|
 | [check_remote_nscp](#check_remote_nscp)   | Request remote information via NSCP.               |
@@ -29,9 +25,6 @@ A list of all available queries (check commands)
 | [remote_nscp_query](#remote_nscp_query)   | Request remote information via NSCP.               |
 | [remote_nscpforward](#remote_nscpforward) | Forward the request as-is to remote host via NSCP. |
 | [submit_remote_nscp](#submit_remote_nscp) | Submit information to remote host via NSCP.        |
-
-
-
 
 ### check_remote_nscp
 
@@ -111,6 +104,7 @@ Request remote information via NSCP.
 Initial an ssl handshake with the server.
 
 *Default Value:* `1`
+
 
 
 ### exec_remote_nscp
@@ -193,6 +187,7 @@ Initial an ssl handshake with the server.
 *Default Value:* `1`
 
 
+
 ### remote_nscp_query
 
 Request remote information via NSCP.
@@ -273,6 +268,7 @@ Initial an ssl handshake with the server.
 *Default Value:* `1`
 
 
+
 ### remote_nscpforward
 
 Forward the request as-is to remote host via NSCP.
@@ -288,6 +284,7 @@ Forward the request as-is to remote host via NSCP.
 
 <a id="remote_nscpforward_options"></a>
 #### Command-line Arguments
+
 
 
 
@@ -379,10 +376,7 @@ Initial an ssl handshake with the server.
 
 
 
-
 ## Configuration
-
-
 
 | Path / Section                                              | Description               |
 |-------------------------------------------------------------|---------------------------|
@@ -391,37 +385,24 @@ Initial an ssl handshake with the server.
 | [/settings/NSCP/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### NSCP CLIENT SECTION <a id="/settings/NSCP/client"></a>
 
 Section for NSCP active/passive check module.
-
-
-
 
 | Key                 | Default Value | Description |
 |---------------------|---------------|-------------|
 | [channel](#channel) | NSCP          | CHANNEL     |
 
 
-
 ```ini
 # Section for NSCP active/passive check module.
 [/settings/NSCP/client]
 channel=NSCP
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/NSCP/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                     |
@@ -438,7 +419,6 @@ The channel to listen to.
 # CHANNEL
 channel=NSCP
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/NSCP/client/handlers"></a>
 
@@ -502,7 +482,6 @@ timeout=30
 #verify mode=...
 
 ```
-
 
 
 

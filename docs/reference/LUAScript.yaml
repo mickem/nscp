@@ -1,8 +1,4 @@
-module: LUAScript
-namespace: generic
-platforms:
-- unix
-unix:
+common:
   info:
     description: Loads and processes internal Lua scripts
     title: LUAScript
@@ -13,3 +9,8 @@ unix:
         description: A list of scripts available to run from the LuaScript module.
         subkey: true
         title: Lua scripts
+module: LUAScript
+namespace: generic
+platforms:
+- unix
+- windows

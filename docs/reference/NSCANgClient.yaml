@@ -1,8 +1,4 @@
-module: NSCANgClient
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: NSCA-NG client can be used both from command line and from queries to submit passive
       checks via NSCA-NG (TLS-based NSCA next generation)
@@ -450,3 +446,8 @@ unix:
         repeatable: false
         required: false
         short_description: Maximum bytes of plugin output forwarded over the wire (default 65536)
+module: NSCANgClient
+namespace: client
+platforms:
+- unix
+- windows

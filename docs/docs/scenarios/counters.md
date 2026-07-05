@@ -215,5 +215,5 @@ check_nrpe -H <agent-ip> -c check_pdh -a counter=disk_q time=30s
   filter and threshold expressions
 - [FAQ: Failed to open performance counters](../faq.md#13-failed-to-open-performance-counters) —
   rebuilding a broken PDH registry
-- [Reference: CheckSystem](../reference/windows/CheckSystem.md) — full `check_pdh` command
+- [Reference: CheckSystem](../reference/check/CheckSystem.md) — full `check_pdh` command
   reference

@@ -1,8 +1,4 @@
-module: SyslogClient
-namespace: client
-platforms:
-- unix
-unix:
+common:
   info:
     description: Forward information as syslog messages to a syslog server
     title: SyslogClient
@@ -306,3 +302,8 @@ unix:
         repeatable: false
         required: false
         short_description: Message template (TODO)
+module: SyslogClient
+namespace: client
+platforms:
+- unix
+- windows

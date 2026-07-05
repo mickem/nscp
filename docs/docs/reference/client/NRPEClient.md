@@ -2,8 +2,6 @@
 
 NRPE client can be used both from command line and from queries to check remote systems via NRPE as well as configure the NRPE server
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `NRPEClient = enabled` to the `[/modules]` section in nsclient.ini:
@@ -13,7 +11,6 @@ To enable this module and and allow using the commands you need to ass `NRPEClie
 NRPEClient = enabled
 ```
 
-
 ## Queries
 
 A quick reference for all available queries (check commands) in the NRPEClient module.
@@ -21,7 +18,6 @@ A quick reference for all available queries (check commands) in the NRPEClient m
 **List of commands:**
 
 A list of all available queries (check commands)
-
 | Command                       | Description                                                                    |
 |-------------------------------|--------------------------------------------------------------------------------|
 | [check_nrpe](#check_nrpe)     | Request remote information via NRPE.                                           |
@@ -29,9 +25,6 @@ A list of all available queries (check commands)
 | [nrpe_forward](#nrpe_forward) | Forward the request as-is to remote host via NRPE.                             |
 | [nrpe_query](#nrpe_query)     | Request remote information via NRPE.                                           |
 | [submit_nrpe](#submit_nrpe)   | Submit information to remote host via NRPE. (Most likely you want nrpe_query). |
-
-
-
 
 ### check_nrpe
 
@@ -122,6 +115,7 @@ Initial an ssl handshake with the server.
 Use insecure legacy mode
 
 *Default Value:* `1`
+
 
 
 ### exec_nrpe
@@ -215,6 +209,7 @@ Use insecure legacy mode
 *Default Value:* `1`
 
 
+
 ### nrpe_forward
 
 Forward the request as-is to remote host via NRPE.
@@ -236,6 +231,7 @@ Forward the request as-is to remote host via NRPE.
 | Option | Default Value | Description |
 |--------|---------------|-------------|
 | *      |               |             |
+
 
 
 
@@ -329,6 +325,7 @@ Initial an ssl handshake with the server.
 Use insecure legacy mode
 
 *Default Value:* `1`
+
 
 
 ### submit_nrpe
@@ -427,10 +424,7 @@ Use insecure legacy mode
 
 
 
-
 ## Configuration
-
-
 
 | Path / Section                                              | Description               |
 |-------------------------------------------------------------|---------------------------|
@@ -439,37 +433,24 @@ Use insecure legacy mode
 | [/settings/NRPE/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
 
 
-
 ### NRPE CLIENT SECTION <a id="/settings/NRPE/client"></a>
 
 Section for NRPE active/passive check module.
-
-
-
 
 | Key                 | Default Value | Description |
 |---------------------|---------------|-------------|
 | [channel](#channel) | NRPE          | CHANNEL     |
 
 
-
 ```ini
 # Section for NRPE active/passive check module.
 [/settings/NRPE/client]
 channel=NRPE
-
 ```
-
-
-
-
 
 #### CHANNEL <a id="/settings/NRPE/client/channel"></a>
 
 The channel to listen to.
-
-
-
 
 
 | Key            | Description                                     |
@@ -486,7 +467,6 @@ The channel to listen to.
 # CHANNEL
 channel=NRPE
 ```
-
 
 ### CLIENT HANDLER SECTION <a id="/settings/NRPE/client/handlers"></a>
 
@@ -554,7 +534,6 @@ timeout=30
 #version=...
 
 ```
-
 
 
 

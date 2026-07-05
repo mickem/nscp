@@ -1,8 +1,4 @@
-module: CollectdClient
-namespace: misc
-platforms:
-- unix
-unix:
+common:
   info:
     description: CollectD client can be used to submit metrics to a collectd server
     title: CollectdClient
@@ -90,3 +86,8 @@ unix:
           empty a built-in default set is used.
         subkey: false
         title: VARIABLE DEFINITIONS
+module: CollectdClient
+namespace: misc
+platforms:
+- unix
+- windows

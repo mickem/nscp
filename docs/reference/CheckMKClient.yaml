@@ -1,8 +1,4 @@
-module: CheckMKClient
-namespace: check
-platforms:
-- unix
-unix:
+common:
   info:
     description: check_mk client can be used both from command line and from queries to check remote systems
       via check_mk
@@ -280,3 +276,8 @@ unix:
         repeatable: false
         required: false
         short_description: Initial an ssl handshake with the server.
+module: CheckMKClient
+namespace: check
+platforms:
+- unix
+- windows

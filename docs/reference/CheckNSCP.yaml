@@ -1,8 +1,4 @@
-module: CheckNSCP
-namespace: check
-platforms:
-- unix
-unix:
+common:
   info:
     description: Use this module to check the health and status of NSClient++ it self
     title: CheckNSCP
@@ -721,3 +717,8 @@ unix:
         repeatable: false
         required: false
         short_description: Performance alias syntax.
+module: CheckNSCP
+namespace: check
+platforms:
+- unix
+- windows

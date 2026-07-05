@@ -2,8 +2,6 @@
 
 Use this to schedule check commands and jobs in conjunction with for instance passive monitoring through NSCA
 
-
-
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `Scheduler = enabled` to the `[/modules]` section in nsclient.ini:
@@ -12,7 +10,6 @@ To enable this module and and allow using the commands you need to ass `Schedule
 [/modules]
 Scheduler = enabled
 ```
-
 
 ## Samples
 
@@ -93,21 +90,15 @@ The syntax of the schedule is similar to a cron expression in that you have:
 
 ## Configuration
 
-
-
 | Path / Section                              | Description |
 |---------------------------------------------|-------------|
 | [/settings/scheduler](#scheduler)           | Scheduler   |
 | [/settings/scheduler/schedules](#schedules) | Schedules   |
 
 
-
 ### Scheduler <a id="/settings/scheduler"></a>
 
 Section for the Scheduler module.
-
-
-
 
 | Key                   | Default Value | Description |
 |-----------------------|---------------|-------------|
@@ -115,25 +106,16 @@ Section for the Scheduler module.
 | [timezone](#timezone) | local         | Timezone    |
 
 
-
 ```ini
 # Section for the Scheduler module.
 [/settings/scheduler]
 threads=5
 timezone=local
-
 ```
-
-
-
-
 
 #### Threads <a id="/settings/scheduler/threads"></a>
 
 Number of threads to use.
-
-
-
 
 
 | Key            | Description                                 |
@@ -151,14 +133,9 @@ Number of threads to use.
 threads=5
 ```
 
-
-
 #### Timezone <a id="/settings/scheduler/timezone"></a>
 
 Reference clock for cron expressions. Accepts 'local' (default — standard cron semantics), 'utc'/'gmt' (restores the pre-0.13 behaviour), or any POSIX TZ string such as 'EST-05EDT,M3.2.0,M11.1.0'. Unparseable values fall back to UTC and are flagged in the tz label as 'UTC?'.
-
-
-
 
 
 | Key            | Description                                 |
@@ -175,7 +152,6 @@ Reference clock for cron expressions. Accepts 'local' (default — standard cron
 # Timezone
 timezone=local
 ```
-
 
 ### Schedules <a id="/settings/scheduler/schedules"></a>
 
@@ -221,7 +197,6 @@ parent=default
 #target=...
 
 ```
-
 
 
 
