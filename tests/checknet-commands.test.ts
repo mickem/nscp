@@ -29,6 +29,7 @@ import {
   executeQuery,
   generateCertChain,
   messageOf,
+  perfValue,
   setupQueryNscp,
 } from "@fixtures/index";
 
@@ -354,6 +355,79 @@ describe("CheckNet commands", () => {
     expect(m).not.toBeNull();
     // The generated cert is valid for 365 days, so a few hundred days remain.
     expect(Number(m?.[1])).toBeGreaterThan(300);
+  });
+
+  it("check_http emits response-time, status-code and size perfdata", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("hello");
+    });
+    const q = await executeQuery(key, "check_http", { url: `http://127.0.0.1:${s.port}/` });
+    expect(q.result).toBe(OK);
+    // Previously these checks emitted no perfdata at all (issue: no graphs).
+    expect(perfValue(q, `http://127.0.0.1:${s.port}/`)).toBeGreaterThanOrEqual(0); // time
+    expect(perfValue(q, `http://127.0.0.1:${s.port}/_code`)).toBe(200);
+    expect(perfValue(q, `http://127.0.0.1:${s.port}/_size`)).toBe(5);
+  });
+
+  // --- check_http --json-path ----------------------------------------------
+
+  it("check_http extracts a numeric JSON value and thresholds on it", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ data: { queue: { length: 150 } } }));
+    });
+    const crit = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "json-path": "qlen:data.queue.length",
+      critical: "qlen > 100",
+    });
+    expect(crit.result).toBe(CRITICAL);
+    // The extracted value is emitted as perfdata.
+    expect(perfValue(crit, `qlen_http://127.0.0.1:${s.port}/`)).toBe(150);
+
+    const ok = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "json-path": "qlen:data.queue.length",
+      critical: "qlen > 1000",
+    });
+    expect(ok.result).toBe(OK);
+  });
+
+  it("check_http matches a string JSON value and honours float precision", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "degraded", ratio: 0.25 }));
+    });
+    // String comparison: status != 'ok' must trip CRITICAL.
+    const str = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "json-path": "st:status",
+      critical: "st != 'ok'",
+    });
+    expect(str.result).toBe(CRITICAL);
+
+    // Float threshold: 0.25 > 0.1 (would be lost if the value were truncated to int).
+    const flt = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "json-path": "ratio:ratio",
+      critical: "ratio > 0.1",
+    });
+    expect(flt.result).toBe(CRITICAL);
+  });
+
+  it("check_http indexes into JSON arrays and quotes dotted keys", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ items: [{ n: "a" }, { n: "b" }], "a.b": { c: 7 } }));
+    });
+    const q = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "json-path": "second:items.1.n",
+      "detail-syntax": "v=${second}",
+      "top-syntax": "${list}",
+    });
+    expect(messageOf(q)).toMatch(/v=b/);
   });
 
   // --- check_dns ------------------------------------------------------------

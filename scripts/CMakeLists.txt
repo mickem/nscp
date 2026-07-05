@@ -65,7 +65,9 @@ foreach(file ${scripts_PYT})
     endif()
 
     # MESSAGE(STATUS " + python - ${filename} - ${relpath} - ${alias}")
-    if(filename MATCHES "^test_" OR ${filename} STREQUAL "docs.py")
+    if(filename MATCHES "^test_"
+       OR ${filename} STREQUAL "docs_extract.py"
+       OR ${filename} STREQUAL "docs_generate.py")
         copy_single_test_file(
             ALL_FILES
             ${relpath}/${filename}

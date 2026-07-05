@@ -469,6 +469,8 @@ struct modern_filters {
       error_handler_->log_error("Failed to register for performance data");
       return;
     }
+    // Threshold-derived entries carry warn/crit values; don't clobber them.
+    if (leaf_performance_data.find(key) != leaf_performance_data.end()) return;
     perf_entry entry;
     entry.current_value = context->create_variable(key, false);
     entry.label = key;

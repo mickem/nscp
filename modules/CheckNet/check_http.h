@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <map>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
@@ -40,10 +41,22 @@ struct filter_obj {
   std::string status_message;
   std::string body;
   std::string result;
+  // Values extracted from the JSON response body via --json-path, keyed by alias.
+  std::map<std::string, double> json_numbers;
+  std::map<std::string, std::string> json_strings;
 
   filter_obj() : port(0), status_code(0), time(0), size(0), ssl_expiry_days(-1) {}
 
   std::string show() const { return url + " (" + std::to_string(status_code) + ", " + result + ")"; }
+
+  double get_json_number(const std::string &alias) const {
+    const auto it = json_numbers.find(alias);
+    return it != json_numbers.end() ? it->second : 0.0;
+  }
+  std::string get_json_string(const std::string &alias) const {
+    const auto it = json_strings.find(alias);
+    return it != json_strings.end() ? it->second : "";
+  }
 
   std::string get_url() const { return url; }
   std::string get_host() const { return host; }

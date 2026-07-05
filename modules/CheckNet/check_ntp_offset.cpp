@@ -41,11 +41,12 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("server", &filter_obj::get_server, "NTP server that was queried");
   registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the query (ok, timeout, error, ...)");
   registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "UDP port the query was sent to");
-  registry_.add_int_var("offset", parsers::where::type_int, &filter_obj::get_offset, "Absolute clock offset between local host and server, in milliseconds");
+  registry_.add_int_var("offset", parsers::where::type_int, &filter_obj::get_offset, "Absolute clock offset between local host and server, in milliseconds")
+      .add_int_perf("ms");
   registry_.add_int_var("offset_signed", parsers::where::type_int, &filter_obj::get_offset_signed,
                         "Signed clock offset (positive = local clock is ahead of server), in milliseconds");
-  registry_.add_int_var("stratum", parsers::where::type_int, &filter_obj::get_stratum, "Stratum reported by the server (0..16)");
-  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Round trip time of the NTP query in milliseconds");
+  registry_.add_int_var("stratum", parsers::where::type_int, &filter_obj::get_stratum, "Stratum reported by the server (0..16)").add_int_perf("");
+  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Round trip time of the NTP query in milliseconds").add_int_perf("ms");
 }
 
 }  // namespace check_ntp_filter
