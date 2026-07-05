@@ -1,0 +1,1072 @@
+module: CheckHelpers
+namespace: check
+platforms:
+- unix
+unix:
+  aliases:
+    checkalwayscritical:
+      description: 'Alternative name for: check_always_critical'
+    checkalwaysok:
+      description: 'Alternative name for: check_always_ok'
+    checkalwayswarning:
+      description: 'Alternative name for: check_always_warning'
+    checkcritical:
+      description: 'Alternative name for: check_critical'
+    checkmultiple:
+      description: 'Alternative name for: check_multi'
+    checkok:
+      description: 'Alternative name for: check_ok'
+    checkversion:
+      description: 'Alternative name for: check_version'
+    checkwarning:
+      description: 'Alternative name for: check_warning'
+    negate:
+      description: 'Alternative name for: check_negate'
+    timeout:
+      description: 'Alternative name for: check_timeout'
+  info:
+    description: Various helper function to extend other checks.
+    title: CheckHelpers
+  paths:
+    /settings/check helpers/alias:
+      info:
+        advanced: false
+        description: 'A list of aliases for already-defined commands (with arguments).
+
+          An alias is an internal command that has been predefined to provide a single command without
+          arguments. Be careful so you don''t create loops (e.g. check_loop=check_a, check_a=check_loop).
+
+          Aliases are also available in CheckExternalScripts under [/settings/external scripts/alias];
+          use this section when you want aliases without enabling external-script execution. If the same
+          alias name is registered by both modules, the last one to load wins - avoid duplicating definitions.'
+        subkey: true
+        title: Command aliases
+  queries:
+    check_always_critical:
+      info:
+        description: Run another check and regardless of its return code return CRITICAL.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+    check_always_ok:
+      info:
+        description: Run another check and regardless of its return code return OK.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+    check_always_warning:
+      info:
+        description: Run another check and regardless of its return code return WARNING.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+    check_and_forward:
+      info:
+        description: Run a check and forward the result as a passive check.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Commands to run (can be used multiple times)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Commands to run (can be used multiple times)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Commands to run (can be used multiple times)
+        name: command
+        repeatable: false
+        required: false
+        short_description: Commands to run (can be used multiple times)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: List of arguments (for wrapped command)
+        name: arguments
+        repeatable: false
+        required: false
+        short_description: List of arguments (for wrapped command)
+    check_critical:
+      info:
+        description: Just return CRITICAL (anything passed along will be used as a message).
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: No message
+        is_simple: false
+        long_description: Message to return
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message to return
+    check_multi:
+      info:
+        description: Run more then one check and return the worst state.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Commands to run (can be used multiple times)
+        name: command
+        repeatable: false
+        required: false
+        short_description: Commands to run (can be used multiple times)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Deprecated alias for command
+        name: arguments
+        repeatable: false
+        required: false
+        short_description: Deprecated alias for command
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: Separator between messages
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator between messages
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Message prefix
+        name: prefix
+        repeatable: false
+        required: false
+        short_description: Message prefix
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Message suffix
+        name: suffix
+        repeatable: false
+        required: false
+        short_description: Message suffix
+    check_negate:
+      info:
+        description: Run a check and alter the return status codes according to arguments.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The state to return instead of OK
+        name: ok
+        repeatable: false
+        required: false
+        short_description: The state to return instead of OK
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The state to return instead of WARNING
+        name: warning
+        repeatable: false
+        required: false
+        short_description: The state to return instead of WARNING
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The state to return instead of CRITICAL
+        name: critical
+        repeatable: false
+        required: false
+        short_description: The state to return instead of CRITICAL
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The state to return instead of UNKNOWN
+        name: unknown
+        repeatable: false
+        required: false
+        short_description: The state to return instead of UNKNOWN
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Wrapped command to execute
+        name: command
+        repeatable: false
+        required: false
+        short_description: Wrapped command to execute
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: List of arguments (for wrapped command)
+        name: arguments
+        repeatable: false
+        required: false
+        short_description: List of arguments (for wrapped command)
+    check_ok:
+      info:
+        description: Just return OK (anything passed along will be used as a message).
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: No message
+        is_simple: false
+        long_description: Message to return
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message to return
+    check_timeout:
+      info:
+        description: Run a check and timeout after a given amount of time if the check has not returned.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The timeout value
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: The timeout value
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Wrapped command to execute
+        name: command
+        repeatable: false
+        required: false
+        short_description: Wrapped command to execute
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: List of arguments (for wrapped command)
+        name: arguments
+        repeatable: false
+        required: false
+        short_description: List of arguments (for wrapped command)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The return status
+        name: return
+        repeatable: false
+        required: false
+        short_description: The return status
+    check_version:
+      info:
+        description: Just return the NSClient++ version.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+    check_warning:
+      info:
+        description: Just return WARNING (anything passed along will be used as a message).
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: No message
+        is_simple: false
+        long_description: Message to return
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message to return
+    filter_perf:
+      info:
+        description: Run a check and filter performance data.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: none
+        is_simple: false
+        long_description: 'The sort order to use: none, normal or reversed'
+        name: sort
+        repeatable: false
+        required: false
+        short_description: 'The sort order to use: none, normal or reversed'
+      - content_type: 2
+        default_value: '0'
+        is_simple: false
+        long_description: The maximum number of items to return (0 returns all items)
+        name: limit
+        repeatable: false
+        required: false
+        short_description: The maximum number of items to return (0 returns all items)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Wrapped command to execute
+        name: command
+        repeatable: false
+        required: false
+        short_description: Wrapped command to execute
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: List of arguments (for wrapped command)
+        name: arguments
+        repeatable: false
+        required: false
+        short_description: List of arguments (for wrapped command)
+    render_perf:
+      fields:
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: false
+        long_description: Major version number
+        name: crit
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: Major version number
+        name: key
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: Major version number
+        name: max
+        short_description: ''
+      - generic: false
+        long_description: Major version number
+        name: message
+        short_description: ''
+      - generic: false
+        long_description: Major version number
+        name: min
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Major version number
+        name: unit
+        short_description: ''
+      - generic: false
+        long_description: Major version number
+        name: value
+        short_description: ''
+      - generic: false
+        long_description: Major version number
+        name: warn
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      info:
+        description: Run a check and render the performance data as output message.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '%(status): %(message) %(list)'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n"
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: '%(key)'
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Wrapped command to execute
+        name: command
+        repeatable: false
+        required: false
+        short_description: Wrapped command to execute
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: List of arguments (for wrapped command)
+        name: arguments
+        repeatable: false
+        required: false
+        short_description: List of arguments (for wrapped command)
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: List of arguments (for wrapped command)
+        name: remove-perf
+        repeatable: false
+        required: false
+        short_description: List of arguments (for wrapped command)
+    xform_perf:
+      info:
+        description: Run a check and transform the performance data in various (currently one) way.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Wrapped command to execute
+        name: command
+        repeatable: false
+        required: false
+        short_description: Wrapped command to execute
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: List of arguments (for wrapped command)
+        name: arguments
+        repeatable: false
+        required: false
+        short_description: List of arguments (for wrapped command)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Transformation mode: extract to fetch data or minmax to add missing min/max'
+        name: mode
+        repeatable: false
+        required: false
+        short_description: 'Transformation mode: extract to fetch data or minmax to add missing min/max'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Field to work with (value, warn, crit, max, min)
+        name: field
+        repeatable: false
+        required: false
+        short_description: Field to work with (value, warn, crit, max, min)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Replace expression for the alias
+        name: replace
+        repeatable: false
+        required: false
+        short_description: Replace expression for the alias

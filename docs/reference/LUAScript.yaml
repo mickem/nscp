@@ -1,0 +1,15 @@
+module: LUAScript
+namespace: generic
+platforms:
+- unix
+unix:
+  info:
+    description: Loads and processes internal Lua scripts
+    title: LUAScript
+  paths:
+    /settings/lua/scripts:
+      info:
+        advanced: false
+        description: A list of scripts available to run from the LuaScript module.
+        subkey: true
+        title: Lua scripts

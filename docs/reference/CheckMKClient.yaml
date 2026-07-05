@@ -1,0 +1,282 @@
+module: CheckMKClient
+namespace: check
+platforms:
+- unix
+unix:
+  info:
+    description: check_mk client can be used both from command line and from queries to check remote systems
+      via check_mk
+    title: CheckMKClient
+  paths:
+    /settings/check_mk/client:
+      info:
+        advanced: false
+        description: Section for check_mk active/passive check module.
+        subkey: false
+        title: CHECK MK CLIENT SECTION
+      keys:
+        channel:
+          advanced: false
+          default_value: CheckMK
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+    /settings/check_mk/client/handlers:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: CLIENT HANDLER SECTION
+    /settings/check_mk/client/scripts:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+    /settings/check_mk/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+  queries:
+    check_mk_query:
+      info:
+        description: Request remote information via check_mk.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Set command line arguments
+        name: argument
+        repeatable: false
+        required: false
+        short_description: Set command line arguments
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|argument|argument'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|argument|argument'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.

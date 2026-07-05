@@ -1,0 +1,389 @@
+module: IcingaClient
+namespace: client
+platforms:
+- unix
+unix:
+  info:
+    description: Icinga 2 client submits passive check results to an Icinga 2 server via the REST API
+    title: IcingaClient
+  paths:
+    /settings/icinga/client:
+      info:
+        advanced: false
+        description: Section for Icinga 2 (Icinga REST API) passive check submission.
+        subkey: false
+        title: Icinga 2 client
+      keys:
+        channel:
+          advanced: false
+          default_value: ICINGA
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+        hostname:
+          advanced: false
+          default_value: auto
+          description: "The host name of the monitored computer.\nSet this to auto (default) to use the\
+            \ windows name of the computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\nHostname\
+            \ in lowercase\n${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname\
+            \ in lowercase\n${domain_uc}\tDomainname in uppercase\n"
+          sample: false
+          title: HOSTNAME
+    /settings/icinga/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          ca:
+            advanced: false
+            default_value: ${ca-path}
+            description: Certificate authority to use when verifying certificates.
+            sample: true
+            title: CERTIFICATE AUTHORITY
+          check command:
+            advanced: false
+            default_value: ''
+            description: 'The Icinga 2 check_command to set on auto-created service objects (default:
+              dummy).'
+            sample: true
+            title: CHECK COMMAND
+          check source:
+            advanced: false
+            default_value: ''
+            description: Override for the check_source field reported to Icinga 2. Defaults to the local
+              hostname when empty.
+            sample: true
+            title: CHECK SOURCE
+          ensure objects:
+            advanced: false
+            default_value: ''
+            description: When true the client will create missing host/service objects in Icinga 2 before
+              submitting check results. Objects are probed with GET first; PUT is only issued for missing
+              objects (Icinga 2 returns HTTP 500 on duplicate creates).
+            sample: true
+            title: ENSURE HOST/SERVICE OBJECTS
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          host template:
+            advanced: false
+            default_value: ''
+            description: 'Comma separated list of Icinga 2 templates used when auto-creating host objects
+              (default: generic-host).'
+            sample: true
+            title: HOST TEMPLATE
+          password:
+            advanced: false
+            default_value: ''
+            description: The password used to authenticate against the Icinga 2 REST API.
+            sample: true
+            title: ICINGA API PASSWORD
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          service template:
+            advanced: false
+            default_value: ''
+            description: 'Comma separated list of Icinga 2 templates used when auto-creating service objects
+              (default: generic-service).'
+            sample: true
+            title: SERVICE TEMPLATE
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+          tls version:
+            advanced: false
+            default_value: '1.3'
+            description: The TLS version to use 1.0, 1.1, 1.2, 1.3
+            sample: true
+            title: TLS VERSION
+          username:
+            advanced: false
+            default_value: ''
+            description: The username used to authenticate against the Icinga 2 REST API.
+            sample: true
+            title: ICINGA API USER
+          verify mode:
+            advanced: false
+            default_value: peer
+            description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
+              workarounds, single. In general use peer-cert or none for self signed certificates.'
+            sample: true
+            title: TLS PEER VERIFY MODE
+  queries:
+    submit_icinga:
+      info:
+        description: Submit information to the remote Icinga 2 Server.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Same as command
+        name: alias
+        repeatable: false
+        required: false
+        short_description: Same as command
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Message
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+        name: result
+        repeatable: false
+        required: false
+        short_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|result|message'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|result|message'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The username used to authenticate against the Icinga 2 REST API.
+        name: username
+        repeatable: false
+        required: false
+        short_description: The username used to authenticate against the Icinga 2 REST API.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The password used to authenticate against the Icinga 2 REST API.
+        name: password
+        repeatable: false
+        required: false
+        short_description: The password used to authenticate against the Icinga 2 REST API.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: hostname
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: 'true'
+        is_simple: false
+        long_description: Create missing host/service objects in Icinga 2 before submitting (true/false).
+        name: ensure-objects
+        repeatable: false
+        required: false
+        short_description: Create missing host/service objects in Icinga 2 before submitting (true/false).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Templates used when auto-creating host objects (default: generic-host).'
+        name: host-template
+        repeatable: false
+        required: false
+        short_description: 'Templates used when auto-creating host objects (default: generic-host).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Templates used when auto-creating service objects (default: generic-service).'
+        name: service-template
+        repeatable: false
+        required: false
+        short_description: 'Templates used when auto-creating service objects (default: generic-service).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'The check_command to set on auto-created service objects (default: dummy).'
+        name: check-command
+        repeatable: false
+        required: false
+        short_description: 'The check_command to set on auto-created service objects (default: dummy).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Override for the check_source field reported to Icinga 2.
+        name: check-source
+        repeatable: false
+        required: false
+        short_description: Override for the check_source field reported to Icinga 2.
+      - content_type: 2
+        default_value: '1.3'
+        is_simple: false
+        long_description: The TLS version to use 1.0, 1.1, 1.2, 1.3 or any
+        name: tls-version
+        repeatable: false
+        required: false
+        short_description: The TLS version to use 1.0, 1.1, 1.2, 1.3 or any
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
+          workarounds, single. In general use peer-cert or none for self signed certificates.'
+        name: verify-mode
+        repeatable: false
+        required: false
+        short_description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
+          workarounds, single. In general use peer-cert or none for self signed certificates.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority to use when verifying certificates.
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority to use when verifying certificates.

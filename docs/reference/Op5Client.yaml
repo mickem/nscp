@@ -1,0 +1,110 @@
+module: Op5Client
+namespace: misc
+platforms:
+- unix
+unix:
+  info:
+    description: Client for connecting nativly to the Op5 Nortbound API
+    title: Op5Client
+  paths:
+    /settings/op5:
+      info:
+        advanced: false
+        description: Section for the Op5 server
+        subkey: false
+        title: Op5 Configuration
+      keys:
+        ca:
+          advanced: false
+          default_value: ${ca-path}
+          description: The certificate authority bundle used to verify the Op5 server certificate (used
+            when 'verify mode' is not 'none').
+          sample: false
+          title: Certificate authority
+        channel:
+          advanced: false
+          default_value: op5
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+        contactgroups:
+          advanced: false
+          default_value: ''
+          description: A coma separated list of contact groups to add to this host when registering it
+            in monitor
+          sample: false
+          title: Contact groups
+        default checks:
+          advanced: false
+          default_value: 'true'
+          description: Set to false to disable default checks
+          sample: false
+          title: Install default checks
+        hostgroups:
+          advanced: false
+          default_value: ''
+          description: A coma separated list of host groups to add to this host when registering it in
+            monitor
+          sample: false
+          title: Host groups
+        hostname:
+          advanced: false
+          default_value: auto
+          description: "The host name of this monitored computer.\nSet this to auto (default) to use the\
+            \ windows name of the computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\nHostname\
+            \ in lowercase\n${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname\
+            \ in lowercase\n${domain_uc}\tDomainname in uppercase\n"
+          sample: false
+          title: HOSTNAME
+        interval:
+          advanced: false
+          default_value: 5m
+          description: How often to submit passive check results you can use an optional suffix to denote
+            time (s, m, h)
+          sample: false
+          title: Check interval
+        password:
+          advanced: false
+          default_value: ''
+          description: The password for the user to authenticate as
+          sample: false
+          title: Op5 password
+        remove:
+          advanced: false
+          default_value: 'false'
+          description: If we should remove all checks when NSClient++ shuts down (for truly elastic scenarios)
+          sample: false
+          title: Remove checks on exit
+        server:
+          advanced: false
+          default_value: ''
+          description: The op5 base url i.e. the url of the Op5 monitor REST API for instance https://monitor.mycompany.com
+          sample: false
+          title: Op5 base url
+        tls version:
+          advanced: false
+          default_value: 1.2+
+          description: The TLS version to use when connecting to the Op5 server (1.0, 1.1, 1.2, 1.2+ or
+            1.3).
+          sample: false
+          title: TLS version
+        user:
+          advanced: false
+          default_value: ''
+          description: The user to authenticate as
+          sample: false
+          title: Op5 user
+        verify mode:
+          advanced: false
+          default_value: peer
+          description: How to verify the Op5 server certificate. 'peer' (the default) validates the certificate
+            chain and hostname against the configured CA. Set to 'none' to disable verification - this
+            is insecure and lets an on-path attacker intercept the Op5 credentials and tamper with data.
+          sample: false
+          title: TLS verify mode
+    /settings/op5/checks:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: Op5 passive Commands

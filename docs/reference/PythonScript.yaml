@@ -1,0 +1,34 @@
+module: PythonScript
+namespace: generic
+platforms:
+- unix
+unix:
+  info:
+    description: Loads and processes internal Python scripts
+    title: PythonScript
+  paths:
+    /settings/python:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        python cache:
+          advanced: false
+          default_value: ''
+          description: Override python cache folder.
+          sample: false
+          title: Python cache
+        python lib:
+          advanced: false
+          default_value: libpython3.12.so
+          description: The python DLL to load
+          sample: false
+          title: Python lib
+    /settings/python/scripts:
+      info:
+        advanced: false
+        description: A list of scripts available to run from the PythonScript module.
+        subkey: true
+        title: Python scripts

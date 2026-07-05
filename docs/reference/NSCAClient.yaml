@@ -1,0 +1,521 @@
+module: NSCAClient
+namespace: client
+platforms:
+- unix
+unix:
+  info:
+    description: NSCA client can be used both from command line and from queries to submit passive checks
+      via NSCA
+    title: NSCAClient
+  paths:
+    /settings/NSCA/client:
+      info:
+        advanced: false
+        description: Section for NSCA passive check module.
+        subkey: false
+        title: NSCA CLIENT SECTION
+      keys:
+        channel:
+          advanced: false
+          default_value: NSCA
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+        encoding:
+          advanced: true
+          default_value: ''
+          description: ''
+          sample: false
+          title: NSCA DATA ENCODING
+        hostname:
+          advanced: false
+          default_value: auto
+          description: "The host name of the monitored computer.\nSet this to auto (default) to use the\
+            \ windows name of the computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\nHostname\
+            \ in lowercase\n${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname\
+            \ in lowercase\n${domain_uc}\tDomainname in uppercase\n"
+          sample: false
+          title: HOSTNAME
+    /settings/NSCA/client/handlers:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: CLIENT HANDLER SECTION
+    /settings/NSCA/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          allowed ciphers:
+            advanced: false
+            default_value: ''
+            description: 'A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH'
+            sample: true
+            title: ALLOWED CIPHERS
+          ca:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CA
+          certificate:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          certificate format:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CERTIFICATE FORMAT
+          certificate key:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          dh:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: DH KEY
+          encoding:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: ENCODING
+          encryption:
+            advanced: false
+            default_value: aes
+            description: 'Name of encryption algorithm to use.
+
+              Has to be the same as your server i using or it wont work at all.This is also independent
+              of SSL and generally used instead of SSL.
+
+              Available encryption algorithms are:
+
+              none = No Encryption (not safe)
+
+              xor = XOR
+
+              des = DES
+
+              3des = DES-EDE3
+
+              cast128 = CAST-128
+
+              xtea = XTEA
+
+              blowfish = Blowfish
+
+              twofish = Twofish
+
+              rc2 = RC2
+
+              aes128 = AES
+
+              aes192 = AES
+
+              aes = AES
+
+              serpent = Serpent
+
+              gost = GOST'
+            sample: true
+            title: ENCRYPTION
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          password:
+            advanced: false
+            default_value: ''
+            description: The password to use. Again has to be the same as the server or it wont work at
+              all.
+            sample: true
+            title: PASSWORD
+          payload length:
+            advanced: true
+            default_value: '512'
+            description: Length of payload to/from the NRPE agent. This is a hard specific value so you
+              have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+            sample: true
+            title: PAYLOAD LENGTH
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          time offset:
+            advanced: true
+            default_value: '0'
+            description: Time offset.
+            sample: true
+            title: TIME OFFSET
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+          timezone:
+            advanced: true
+            default_value: utc
+            description: Reference timezone for the wire timestamp. Default 'utc' matches the protocol
+              specification. Set to 'local' (or any POSIX TZ string) only when interoperating with a legacy
+              server that emits local-clock-as-Unix-time stamps; both ends must agree.
+            sample: true
+            title: TIMEZONE
+          use ssl:
+            advanced: false
+            default_value: ''
+            description: This option controls if SSL should be enabled.
+            sample: true
+            title: ENABLE SSL ENCRYPTION
+          verify mode:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: VERIFY MODE
+  queries:
+    submit_nsca:
+      info:
+        description: Submit information to the remote NSCA server.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Same as command
+        name: alias
+        repeatable: false
+        required: false
+        short_description: Same as command
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Message
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+        name: result
+        repeatable: false
+        required: false
+        short_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|result|message'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|result|message'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Name of encryption algorithm to use.
+
+          Has to be the same as your server i using or it wont work at all.This is also independent of
+          SSL and generally used instead of SSL.
+
+          Available encryption algorithms are:
+
+          none = No Encryption (not safe)
+
+          xor = XOR
+
+          des = DES
+
+          3des = DES-EDE3
+
+          cast128 = CAST-128
+
+          xtea = XTEA
+
+          blowfish = Blowfish
+
+          twofish = Twofish
+
+          rc2 = RC2
+
+          aes128 = AES
+
+          aes192 = AES
+
+          aes = AES
+
+          serpent = Serpent
+
+          gost = GOST'
+        name: encryption
+        repeatable: false
+        required: false
+        short_description: Name of encryption algorithm to use.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload (has to be same as on the server)
+        name: payload-length
+        repeatable: false
+        required: false
+        short_description: Length of payload (has to be same as on the server)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload to/from the NRPE agent. This is a hard specific value so you
+          have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+        name: buffer-length
+        repeatable: false
+        required: false
+        short_description: Length of payload to/from the NRPE agent. This is a hard specific value so
+          you have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Host name to report
+        name: hostname
+        repeatable: false
+        required: false
+        short_description: Host name to report
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: ''
+        name: time-offset
+        repeatable: false
+        required: false
+        short_description: ''
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Reference timezone for wire timestamps (default 'utc'; use 'local' only for
+          legacy peers that emit local-clock-as-Unix-time)
+        name: timezone
+        repeatable: false
+        required: false
+        short_description: Reference timezone for wire timestamps (default 'utc'; use 'local' only for
+          legacy peers that emit local-clock-as-Unix-time)

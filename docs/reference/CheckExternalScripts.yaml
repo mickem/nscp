@@ -1,0 +1,269 @@
+module: CheckExternalScripts
+namespace: check
+platforms:
+- unix
+unix:
+  aliases:
+    alias_cpu:
+      description: 'Alias for: check_cpu'
+    alias_cpu_ex:
+      description: 'Alias for: check_cpu'
+    alias_disk:
+      description: 'Alias for: check_drivesize'
+    alias_disk_loose:
+      description: 'Alias for: check_drivesize'
+    alias_event_log:
+      description: 'Alias for: check_eventlog'
+    alias_file_age:
+      description: 'Alias for: check_files'
+    alias_file_size:
+      description: 'Alias for: check_files'
+    alias_mem:
+      description: 'Alias for: check_memory'
+    alias_process:
+      description: 'Alias for: check_process'
+    alias_process_count:
+      description: 'Alias for: check_process'
+    alias_process_hung:
+      description: 'Alias for: check_process'
+    alias_process_stopped:
+      description: 'Alias for: check_process'
+    alias_sched_all:
+      description: 'Alias for: check_tasksched'
+    alias_sched_long:
+      description: 'Alias for: check_tasksched'
+    alias_sched_task:
+      description: 'Alias for: check_tasksched'
+    alias_service:
+      description: 'Alias for: check_service'
+    alias_service_ex:
+      description: 'Alias for: check_service'
+    alias_top_memory_users:
+      description: 'Alias for: filter_perf'
+    alias_top_memory_users_ex:
+      description: 'Alias for: filter_perf'
+    alias_up:
+      description: 'Alias for: check_uptime'
+    alias_volumes:
+      description: 'Alias for: check_drivesize'
+    alias_volumes_loose:
+      description: 'Alias for: check_drivesize'
+  info:
+    description: Module used to execute external scripts
+    title: CheckExternalScripts
+  paths:
+    /settings/external scripts:
+      info:
+        advanced: false
+        description: General settings for the external scripts module (CheckExternalScripts).
+        subkey: false
+        title: External script settings
+      keys:
+        allow arguments:
+          advanced: false
+          default_value: 'false'
+          description: This option determines whether or not the we will allow clients to specify arguments
+            to commands that are executed.
+          sample: false
+          title: Allow arguments when executing external scripts
+        allow nasty characters:
+          advanced: false
+          default_value: 'false'
+          description: This option determines whether or not the we will allow clients to specify nasty
+            (as in |`&><'"\[]{}) characters in arguments.
+          sample: false
+          title: Allow certain potentially dangerous characters in arguments
+        kill tree:
+          advanced: false
+          default_value: 'false'
+          description: Kill all child processes (notice this might accidentally kill other processes if
+            PIDs are reused when killing the process).
+          sample: false
+          title: Kill process tree
+        script path:
+          advanced: false
+          default_value: ''
+          description: Load all scripts in a given directory and use them as commands.
+          sample: false
+          title: Load all scripts in a given folder
+        script root:
+          advanced: false
+          default_value: ${scripts}
+          description: Root path where all scripts are contained (You can not upload/download scripts
+            outside this folder).
+          sample: false
+          title: Script root folder
+        timeout:
+          advanced: false
+          default_value: '60'
+          description: The maximum time in seconds that a command can execute. (if more then this execution
+            will be aborted). NOTICE this only affects external commands not internal ones.
+          sample: false
+          title: Command timeout
+    /settings/external scripts/alias:
+      info:
+        advanced: false
+        description: 'A list of aliases for already defined commands (with arguments).
+
+          An alias is an internal command that has been predefined to provide a single command without
+          arguments. Be careful so you don''t create loops (ie check_loop=check_a, check_a=check_loop)'
+        subkey: true
+        title: Command aliases
+      objects:
+      - alias_cpu
+      - alias_cpu_ex
+      - alias_disk
+      - alias_disk_loose
+      - alias_event_log
+      - alias_file_age
+      - alias_file_size
+      - alias_mem
+      - alias_process
+      - alias_process_count
+      - alias_process_hung
+      - alias_process_stopped
+      - alias_sched_all
+      - alias_sched_long
+      - alias_sched_task
+      - alias_service
+      - alias_service_ex
+      - alias_top_memory_users
+      - alias_top_memory_users_ex
+      - alias_up
+      - alias_volumes
+      - alias_volumes_loose
+      sample:
+        keys:
+          alias:
+            advanced: true
+            default_value: ''
+            description: The alias (service name) to report to server
+            sample: false
+            title: ALIAS
+          command:
+            advanced: false
+            default_value: ''
+            description: Command to execute
+            sample: true
+            title: COMMAND
+          is template:
+            advanced: true
+            default_value: 'false'
+            description: Declare this object as a template (this means it will not be available as a separate
+              object)
+            sample: false
+            title: IS TEMPLATE
+          parent:
+            advanced: true
+            default_value: default
+            description: The parent the target inherits from
+            sample: false
+            title: PARENT
+    /settings/external scripts/scripts:
+      info:
+        advanced: false
+        description: 'A list of scripts available to run from the CheckExternalScripts module. Syntax
+          is: `command=script arguments`'
+        subkey: true
+        title: External scripts
+      sample:
+        keys:
+          alias:
+            advanced: true
+            default_value: ''
+            description: The alias (service name) to report to server
+            sample: false
+            title: ALIAS
+          capture output:
+            advanced: true
+            default_value: ''
+            description: This should be set to false if you want to run commands which never terminates
+              (i.e. relinquish control from NSClient++). The effect of this is that the command output
+              will not be captured. The main use is to protect from socket reuse issues
+            sample: true
+            title: CAPTURE OUTPUT
+          command:
+            advanced: false
+            default_value: ''
+            description: Command to execute
+            sample: true
+            title: COMMAND
+          display:
+            advanced: true
+            default_value: ''
+            description: Set to true if you want to display the resulting window or not
+            sample: true
+            title: DISPLAY
+          domain:
+            advanced: true
+            default_value: ''
+            description: The user to run the command as
+            sample: true
+            title: DOMAIN
+          encoding:
+            advanced: true
+            default_value: ''
+            description: The encoding to parse the command as
+            sample: true
+            title: ENCODING
+          ignore perfdata:
+            advanced: false
+            default_value: ''
+            description: Do not parse performance data from the output
+            sample: true
+            title: IGNORE PERF DATA
+          is template:
+            advanced: true
+            default_value: 'false'
+            description: Declare this object as a template (this means it will not be available as a separate
+              object)
+            sample: false
+            title: IS TEMPLATE
+          parent:
+            advanced: true
+            default_value: default
+            description: The parent the target inherits from
+            sample: false
+            title: PARENT
+          password:
+            advanced: true
+            default_value: ''
+            description: The user to run the command as
+            sample: true
+            title: PASSWORD
+          session:
+            advanced: true
+            default_value: ''
+            description: Session you want to invoke the client in either the number of current for the
+              one with a UI
+            sample: true
+            title: SESSION
+          user:
+            advanced: true
+            default_value: ''
+            description: The user to run the command as
+            sample: true
+            title: USER
+    /settings/external scripts/wrapped scripts:
+      info:
+        advanced: false
+        description: 'A list of wrapped scripts (ie. script using a template mechanism).
+
+          The template used will be defined by the extension of the script. Thus a foo.ps1 will use the
+          ps1 wrapping from the wrappings section.'
+        subkey: true
+        title: Wrapped scripts
+    /settings/external scripts/wrappings:
+      info:
+        advanced: false
+        description: 'A list of templates for defining script commands.
+
+          Enter any command line here and they will be expanded by scripts placed under the wrapped scripts
+          section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given
+          arguments.'
+        subkey: true
+        title: Script wrappings
+      objects:
+      - bat
+      - ps1
+      - vbs

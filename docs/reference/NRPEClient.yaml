@@ -1,0 +1,1131 @@
+module: NRPEClient
+namespace: client
+platforms:
+- unix
+unix:
+  info:
+    description: NRPE client can be used both from command line and from queries to check remote systems
+      via NRPE as well as configure the NRPE server
+    title: NRPEClient
+  paths:
+    /settings/NRPE/client:
+      info:
+        advanced: false
+        description: Section for NRPE active/passive check module.
+        subkey: false
+        title: NRPE CLIENT SECTION
+      keys:
+        channel:
+          advanced: false
+          default_value: NRPE
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+    /settings/NRPE/client/handlers:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: CLIENT HANDLER SECTION
+    /settings/NRPE/client/targets:
+      info:
+        advanced: false
+        description: ''
+        subkey: true
+        title: REMOTE TARGET DEFINITIONS
+      sample:
+        keys:
+          address:
+            advanced: false
+            default_value: ''
+            description: Target host address
+            sample: true
+            title: TARGET ADDRESS
+          allowed ciphers:
+            advanced: false
+            default_value: ''
+            description: 'A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH'
+            sample: true
+            title: ALLOWED CIPHERS
+          ca:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CA
+          certificate:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          certificate format:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: CERTIFICATE FORMAT
+          certificate key:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: SSL CERTIFICATE
+          dh:
+            advanced: true
+            default_value: ''
+            description: ''
+            sample: true
+            title: DH KEY
+          host:
+            advanced: true
+            default_value: ''
+            description: The target server to report results to.
+            sample: true
+            title: TARGET HOST
+          insecure:
+            advanced: false
+            default_value: ''
+            description: Use insecure legacy mode to connect to old NRPE server
+            sample: true
+            title: Insecure legacy mode
+          payload length:
+            advanced: false
+            default_value: ''
+            description: Length of payload to/from the NRPE agent. This is a hard specific value so you
+              have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+            sample: true
+            title: PAYLOAD LENGTH
+          port:
+            advanced: true
+            default_value: ''
+            description: The target server port
+            sample: true
+            title: TARGET PORT
+          retries:
+            advanced: false
+            default_value: '3'
+            description: Number of times to retry sending.
+            sample: true
+            title: RETRIES
+          timeout:
+            advanced: false
+            default_value: '30'
+            description: Timeout (in seconds) when reading/writing packets to/from sockets.
+            sample: true
+            title: TIMEOUT
+          use ssl:
+            advanced: false
+            default_value: ''
+            description: This option controls if SSL should be enabled.
+            sample: true
+            title: ENABLE SSL ENCRYPTION
+          verify mode:
+            advanced: false
+            default_value: ''
+            description: ''
+            sample: true
+            title: VERIFY MODE
+          version:
+            advanced: false
+            default_value: ''
+            description: The NRPE Version to use (2 or 4).
+            sample: true
+            title: Version
+  queries:
+    check_nrpe:
+      info:
+        description: Request remote information via NRPE.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Set command line arguments
+        name: argument
+        repeatable: false
+        required: false
+        short_description: Set command line arguments
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|argument|argument'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|argument|argument'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Use insecure legacy mode
+        name: insecure
+        repeatable: false
+        required: false
+        short_description: Use insecure legacy mode
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload (has to be same as on the server)
+        name: payload-length
+        repeatable: false
+        required: false
+        short_description: Length of payload (has to be same as on the server)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The NRPE version to use (2 or 4)
+        name: version
+        repeatable: false
+        required: false
+        short_description: The NRPE version to use (2 or 4)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload to/from the NRPE agent. This is a hard specific value so you
+          have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+        name: buffer-length
+        repeatable: false
+        required: false
+        short_description: Length of payload to/from the NRPE agent. This is a hard specific value so
+          you have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+    exec_nrpe:
+      info:
+        description: Execute remote script via NRPE. (Most likely you want nrpe_query).
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Set command line arguments
+        name: argument
+        repeatable: false
+        required: false
+        short_description: Set command line arguments
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|argument|argument'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|argument|argument'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Use insecure legacy mode
+        name: insecure
+        repeatable: false
+        required: false
+        short_description: Use insecure legacy mode
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload (has to be same as on the server)
+        name: payload-length
+        repeatable: false
+        required: false
+        short_description: Length of payload (has to be same as on the server)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The NRPE version to use (2 or 4)
+        name: version
+        repeatable: false
+        required: false
+        short_description: The NRPE version to use (2 or 4)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload to/from the NRPE agent. This is a hard specific value so you
+          have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+        name: buffer-length
+        repeatable: false
+        required: false
+        short_description: Length of payload to/from the NRPE agent. This is a hard specific value so
+          you have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+    nrpe_forward:
+      info:
+        description: Forward the request as-is to remote host via NRPE.
+      params:
+      - content_type: 0
+        default_value: ''
+        is_simple: true
+        long_description: ''
+        name: '*'
+        repeatable: false
+        required: false
+        short_description: This command will forward all arguments to remote system
+    nrpe_query:
+      info:
+        description: Request remote information via NRPE.
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Set command line arguments
+        name: argument
+        repeatable: false
+        required: false
+        short_description: Set command line arguments
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|argument|argument'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|argument|argument'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Use insecure legacy mode
+        name: insecure
+        repeatable: false
+        required: false
+        short_description: Use insecure legacy mode
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload (has to be same as on the server)
+        name: payload-length
+        repeatable: false
+        required: false
+        short_description: Length of payload (has to be same as on the server)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The NRPE version to use (2 or 4)
+        name: version
+        repeatable: false
+        required: false
+        short_description: The NRPE version to use (2 or 4)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload to/from the NRPE agent. This is a hard specific value so you
+          have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+        name: buffer-length
+        repeatable: false
+        required: false
+        short_description: Length of payload to/from the NRPE agent. This is a hard specific value so
+          you have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+    submit_nrpe:
+      info:
+        description: Submit information to remote host via NRPE. (Most likely you want nrpe_query).
+      params:
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host of the host running the server
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The port of the host running the server
+        name: port
+        repeatable: false
+        required: false
+        short_description: The port of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The address (host:port) of the host running the server
+        name: address
+        repeatable: false
+        required: false
+        short_description: The address (host:port) of the host running the server
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of seconds before connection times out (default=10)
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Number of seconds before connection times out (default=10)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Target to use (lookup connection info from config)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Target to use (lookup connection info from config)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Number of times ti retry a failed connection attempt (default=2)
+        name: retry
+        repeatable: false
+        required: false
+        short_description: Number of times ti retry a failed connection attempt (default=2)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: legacy version of retry
+        name: retries
+        repeatable: false
+        required: false
+        short_description: legacy version of retry
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: source-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+        name: sender-host
+        repeatable: false
+        required: false
+        short_description: Source/sender host name (default is auto which means use the name of the actual
+          host)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the command that the remote daemon should run
+        name: command
+        repeatable: false
+        required: false
+        short_description: The name of the command that the remote daemon should run
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Same as command
+        name: alias
+        repeatable: false
+        required: false
+        short_description: Same as command
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Message
+        name: message
+        repeatable: false
+        required: false
+        short_description: Message
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+        name: result
+        repeatable: false
+        required: false
+        short_description: Result code either a number or OK, WARN, CRIT, UNKNOWN
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Separator to use for the batch command (default is |)
+        name: separator
+        repeatable: false
+        required: false
+        short_description: Separator to use for the batch command (default is |)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Add multiple records using the separator format is: command|result|message'
+        name: batch
+        repeatable: false
+        required: false
+        short_description: 'Add multiple records using the separator format is: command|result|message'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: '1'
+        is_simple: false
+        long_description: Use insecure legacy mode
+        name: insecure
+        repeatable: false
+        required: false
+        short_description: Use insecure legacy mode
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload (has to be same as on the server)
+        name: payload-length
+        repeatable: false
+        required: false
+        short_description: Length of payload (has to be same as on the server)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The NRPE version to use (2 or 4)
+        name: version
+        repeatable: false
+        required: false
+        short_description: The NRPE version to use (2 or 4)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Length of payload to/from the NRPE agent. This is a hard specific value so you
+          have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
+        name: buffer-length
+        repeatable: false
+        required: false
+        short_description: Length of payload to/from the NRPE agent. This is a hard specific value so
+          you have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
