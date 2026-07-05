@@ -297,6 +297,9 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
       procs.insert(process);
   }
 
+  std::shared_ptr<win_list_processes::process_info> total_obj;
+  if (total) total_obj = win_list_processes::process_info::get_total();
+
   std::vector<std::string> matched;
   win_list_processes::process_list list = delta_scan ? win_list_processes::enumerate_processes_delta(!unreadable_scan, &err)
                                                      : win_list_processes::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
@@ -304,7 +307,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     bool wanted = procs.count(info.exe);
     if (all || wanted) {
       std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
-      filter.match(record);
+      modern_filter::match_result ret = filter.match(record);
+      if (total_obj && ret.matched_filter) total_obj->operator+=(*record);
     }
     if (wanted) {
       matched.push_back(info.exe);
@@ -313,9 +317,6 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   for (const std::string &proc : matched) {
     procs.erase(proc);
   }
-
-  std::shared_ptr<win_list_processes::process_info> total_obj;
-  if (total) total_obj = win_list_processes::process_info::get_total();
 
   for (const std::string &proc : procs) {
     std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(proc));
