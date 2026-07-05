@@ -58,7 +58,6 @@ nscp/
 ├── files/                    # Package files (deb/rpm scripts)
 ├── resources/                # Icons, resources
 ├── op5/                      # Op5-specific config & scripts
-├── vagrant/                  # Vagrant VM definitions
 └── .github/workflows/        # CI/CD pipelines
 ```
 
@@ -440,9 +439,7 @@ modules/**/*.cpp
 | `build.cmake` | Local build paths & dependency locations |
 | `.clang-format` | C++ code formatting rules |
 | `.gersemirc` | CMake formatting rules |
-| `.gitmodules` | Git submodule definitions |
 | `.gitignore` | Git ignore patterns |
-| `nscp.spec.in` | RPM spec template |
 | `include/config.h.in` | Generated config header template |
 | `include/version.hpp.in` | Generated version header template |
 
