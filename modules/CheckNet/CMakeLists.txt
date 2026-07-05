@@ -13,6 +13,7 @@ set(SRCS
     check_tcp.cpp
     check_dns.cpp
     check_http.cpp
+    check_http_json.cpp
     check_nsclient_web_online.cpp
     check_nsclient_web_online_parse.cpp
     check_connections.cpp
@@ -79,6 +80,8 @@ NSCP_CREATE_TEST(
     check_net_test
     SOURCES
         check_net_test.cpp
+        check_http_json_test.cpp
+        check_http_json.cpp
         filter.cpp
         check_nsclient_web_online_parse.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp

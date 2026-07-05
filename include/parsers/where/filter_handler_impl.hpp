@@ -509,6 +509,19 @@ struct filter_handler_impl : evaluation_context_impl<TObject> {
     if (registry_.has_variable(name)) {
       std::shared_ptr<filter_variable<object_type>> var = registry_.get_variable(name, human_readable);
       if (var) {
+        // A dynamically-typed value (int + float + string accessors all set,
+        // e.g. check_http's --json-path aliases): route each comparison to the
+        // matching accessor so numeric thresholds keep float precision while
+        // string comparisons still work.
+        if (var->i_function && var->f_function && var->s_function) {
+          if (var->int_perf.empty() && var->add_default_perf) {
+            typename filter_variable<object_type>::int_perf_generator_type gen(
+                new simple_number_performance_generator<object_type, long long>("", "", "_" + var->name));
+            var->int_perf.push_back(gen);
+          }
+          return node_type(
+              new dual_variable_node<filter_handler_impl>(name, var->type, var->i_function, var->f_function, var->s_function, var->int_perf));
+        }
         if (var->f_function) {
           if (var->float_perf.empty() && var->add_default_perf) {
             typename filter_variable<object_type>::float_perf_generator_type gen(

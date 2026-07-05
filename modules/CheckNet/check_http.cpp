@@ -32,6 +32,7 @@
 #include <sstream>
 
 #include "check_http_internal.hpp"
+#include "check_http_json.hpp"
 #include "check_net_error.hpp"
 
 namespace po = boost::program_options;
@@ -48,11 +49,12 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("body", &filter_obj::get_body, "Body of the response (use with substr/regex matching)");
   registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, error, ...)");
   registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port that was used");
-  registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code");
-  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the request in milliseconds");
-  registry_.add_int_var("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes");
+  registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code").add_int_perf("");
+  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the request in milliseconds").add_int_perf("ms");
+  registry_.add_int_var("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes").add_int_perf("B");
   registry_.add_int_var("ssl_expiry_days", parsers::where::type_int, &filter_obj::get_ssl_expiry_days,
-                        "Days until the server's TLS certificate expires (-1 for plain http; negative if already expired)");
+                        "Days until the server's TLS certificate expires (-1 for plain http; negative if already expired)")
+      .add_int_perf("");
 }
 
 }  // namespace check_http_filter
@@ -80,6 +82,7 @@ struct http_check_options {
   std::string sni;
   bool follow_redirects = false;
   int max_redirs = 15;
+  std::vector<std::pair<std::string, std::string>> json_paths;  // (alias, dotted path)
 };
 
 // Returns true for the 3xx status codes that carry a Location we should follow.
@@ -148,6 +151,14 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
       out.body = resp.payload_;
       out.size = static_cast<long long>(out.body.size());
 
+      if (!opt.json_paths.empty()) {
+        check_http_json::extraction ex;
+        if (check_http_json::extract(out.body, opt.json_paths, ex)) {
+          out.json_numbers = std::move(ex.numbers);
+          out.json_strings = std::move(ex.strings);
+        }
+      }
+
       if (!opt.expected_body.empty() && out.body.find(opt.expected_body) == std::string::npos) {
         out.result = "no_match";
       } else if (resp.status_code_ >= 200 && resp.status_code_ < 400) {
@@ -187,6 +198,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   bool use_ssl = false;
   std::string onredirect = "ok";
   std::string ca_file;
+  std::vector<std::string> json_paths_raw;
 
   http_check_options opt;
 
@@ -224,10 +236,20 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
     ("verify", po::value<std::string>(&opt.verify_mode)->default_value("peer"),
         "Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.")
     ("ca", po::value<std::string>(&ca_file)->default_value(default_ca_file), "Path to a CA bundle to use when verifying the server certificate.")
+    ("json-path", po::value<std::vector<std::string> >(&json_paths_raw),
+        "Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). "
+        "Numeric segments index arrays; single-quote a segment containing a dot. "
+        "Example: --json-path qlen:data.queue.length \"crit=qlen > 100\".")
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  for (const std::string &jp : json_paths_raw) {
+    const auto pos = jp.find(':');
+    if (pos == std::string::npos || pos == 0) return nscapi::protobuf::functions::set_response_bad(*response, "Invalid --json-path (expected alias:path): " + jp);
+    opt.json_paths.emplace_back(jp.substr(0, pos), jp.substr(pos + 1));
+  }
 
   opt.ca_file = ca_file;
   opt.follow_redirects = boost::algorithm::to_lower_copy(onredirect) == "follow";
@@ -245,6 +267,21 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
     if (!path.empty() && path[0] != '/') built += "/";
     built += path;
     urls.push_back(built);
+  }
+
+  // Register each --json-path alias as a filter keyword on this check's own
+  // handler (the context is per-filter, so this is safe). Numeric comparisons
+  // use the float value, string comparisons the raw value; each alias also
+  // becomes a perfdata metric. Must happen before build_filter parses the
+  // warn/crit expressions that reference these aliases.
+  for (const auto &ap : opt.json_paths) {
+    const std::string alias = ap.first;
+    auto var = std::make_shared<parsers::where::filter_variable<std::shared_ptr<filter_obj> > >(alias, parsers::where::type_float, "JSON value at " + ap.second);
+    var->f_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->get_json_number(alias); };
+    var->i_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return static_cast<long long>(o->get_json_number(alias)); };
+    var->s_function = [alias](std::shared_ptr<filter_obj> o, parsers::where::evaluation_context) { return o->get_json_string(alias); };
+    f.context->registry_.add(var, false);
+    f.context->registry_.add_int_perf("", alias + "_", "");
   }
 
   if (!filter_helper.build_filter(f)) return;

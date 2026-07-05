@@ -46,7 +46,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, refused, timeout, no_match, ...)");
   registry_.add_string_var("response", &filter_obj::get_response, "The data received from the peer (use with 'like'/'regexp' for custom matching)");
   registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port the check connected to");
-  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds");
+  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds").add_int_perf("ms");
   registry_.add_int_var("connected", parsers::where::type_int, &filter_obj::get_connected, "1 when the connection succeeded, 0 otherwise");
 }
 

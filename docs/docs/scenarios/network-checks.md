@@ -303,6 +303,24 @@ Accepted `tls-version` values are `tlsv1.0`, `tlsv1.1`, `tlsv1.2`, `tlsv1.2+`
 (default), `tlsv1.3` and `sslv3`. Combine with `ssl_expiry_days` to catch an
 expiring **and** an untrusted or weak-protocol certificate in one check.
 
+**Assert on values inside a JSON response body** (`--json-path`). Each
+`alias:path` extracts a value from the parsed JSON and turns it into a filter
+keyword you can threshold on (and it is emitted as perfdata). Numeric path
+segments index into arrays; single-quote a segment that itself contains a dot:
+
+```
+check_http url=https://api.example.com/health "json-path=qlen:data.queue.length" "crit=qlen > 100"
+check_http url=https://api.example.com/health "json-path=st:status" "crit=st != 'ok'"
+check_http url=https://api.example.com/health "json-path=err:metrics.error_rate" "warn=err > 0.01" "crit=err > 0.05"
+check_http url=https://api.example.com/health "json-path=first:items.0.name" "json-path=cfg:'a.b'.c"
+```
+
+Numeric values keep full precision (so `err > 0.05` works on `0.06`), string
+values compare and render as strings, and booleans read as `1`/`0`. A path that
+is missing (or a body that is not JSON) leaves the alias empty rather than
+failing the check. Multiple `--json-path` options can be combined with the usual
+`warning=`/`critical=` boolean expressions.
+
 **Via NRPE:**
 
 ```

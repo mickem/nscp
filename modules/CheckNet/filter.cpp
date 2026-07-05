@@ -42,7 +42,9 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("host", &filter_obj::get_host, "The host name or ip address (as given on command line)")
       .add_string_var("ip", &filter_obj::get_ip, "The ip address name");
   registry_.add_int_var_w_context("loss", type_custom_pct, &filter_obj::get_loss, "Packet loss")
+      .add_int_perf("%")
       .add_int_var("time", type_int, &filter_obj::get_time, "Round trip time in ms")
+      .add_int_perf("ms")
       .add_int_var("sent", type_int, &filter_obj::get_sent, "Number of packets sent to the host")
       .add_int_var("recv", type_int, &filter_obj::get_recv, "Number of packets received from the host")
       .add_int_var("timeout", type_int, &filter_obj::get_timeout, "Number of packets which timed out from the host");

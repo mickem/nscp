@@ -498,7 +498,12 @@ struct dual_variable_node : any_node {
   dual_variable_node(const std::string &name, value_type fallback_type, i_function_type i_fun, f_function_type f_fun,
                      std::list<int_performance_generator> perfgen)
       : any_node(type_multi), name_(name), fallback_type(fallback_type), i_fun(i_fun), f_fun(f_fun), perfgen(perfgen) {}
-  // TODO: add c-tors
+  // All three accessors: numeric comparisons use int/float, string comparisons
+  // use the string form, and rendering prefers the string (see to_string). Used
+  // by dynamically-typed values such as check_http's --json-path aliases.
+  dual_variable_node(const std::string &name, value_type fallback_type, i_function_type i_fun, f_function_type f_fun, s_function_type s_fun,
+                     std::list<int_performance_generator> perfgen)
+      : any_node(type_multi), name_(name), fallback_type(fallback_type), i_fun(i_fun), f_fun(f_fun), s_fun(s_fun), perfgen(perfgen) {}
 
   std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
   bool can_evaluate() const override { return true; }
