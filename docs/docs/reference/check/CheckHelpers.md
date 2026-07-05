@@ -561,7 +561,6 @@ Run a check and render the performance data as output message.
 <a id="render_perf_help-short"></a>
 <a id="render_perf_command"></a>
 <a id="render_perf_arguments"></a>
-<a id="render_perf_remove-perf"></a>
 <a id="render_perf_options"></a>
 #### Command-line Arguments
 
@@ -591,7 +590,7 @@ Run a check and render the performance data as output message.
 | [perf-syntax](#render_perf_perf-syntax)     | %(key)                                                 | Performance alias syntax.                                                                                        |
 | command                                     |                                                        | Wrapped command to execute                                                                                       |
 | arguments                                   |                                                        | List of arguments (for wrapped command)                                                                          |
-| remove-perf                                 | N/A                                                    | List of arguments (for wrapped command)                                                                          |
+| [remove-perf](#render_perf_remove-perf)     | 1)] (=0                                                | List of arguments (for wrapped command)                                                                          |
 
 
 
@@ -672,6 +671,12 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 *Default Value:* `%(key)`
+
+<h5 id="render_perf_remove-perf">remove-perf:</h5>
+
+List of arguments (for wrapped command)
+
+*Default Value:* `1)] (=0`
 
 
 <a id="render_perf_filter_keys"></a>

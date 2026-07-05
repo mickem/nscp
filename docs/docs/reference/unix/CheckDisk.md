@@ -533,7 +533,6 @@ The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
 <a id="check_drivesize_show-default"></a>
 <a id="check_drivesize_help-short"></a>
 <a id="check_drivesize_exclude"></a>
-<a id="check_drivesize_total"></a>
 <a id="check_drivesize_options"></a>
 #### Command-line Arguments
 
@@ -562,7 +561,7 @@ The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
 | [perf-syntax](#check_drivesize_perf-syntax)     | ${drive_or_id}                         | Performance alias syntax.                                                                                        |
 | [drive](#check_drivesize_drive)                 |                                        | The drives to check.                                                                                             |
 | exclude                                         |                                        | A list of drives (mount points) not to check                                                                     |
-| total                                           | N/A                                    | Include the total of all matching drives                                                                         |
+| [total](#check_drivesize_total)                 | 1)] (=0                                | Include the total of all matching drives                                                                         |
 
 
 
@@ -653,6 +652,12 @@ This is the syntax for the base names of the performance data.
 The drives to check.
 Multiple options can be used to check more than one mount or wildcards can be used to indicate multiple drives to check. Examples: drive=/, drive=/home, drive=*, drive=all-drives
 
+
+<h5 id="check_drivesize_total">total:</h5>
+
+Include the total of all matching drives
+
+*Default Value:* `1)] (=0`
 
 
 <a id="check_drivesize_filter_keys"></a>

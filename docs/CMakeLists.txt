@@ -6,6 +6,10 @@ if(MKDOCS_FOUND)
     # (Renamed from --path; the old name collided with `settings --path`.)
     if(WIN32)
         set(MODULE_ARG "module-path=\${base-path}/modules")
+        # docs.py imports the generated *_pb2.py, which PythonScript adds to
+        # sys.path from ${scripts}/python/lib. Point ${scripts} at the build tree
+        # (where protoc generated them) so this works without `make install`.
+        set(SCRIPTS_ARG "scripts=\${base-path}/scripts")
         set(COMMAND_LINE
             ${CMAKE_BINARY_DIR}/nscp
             client
@@ -20,6 +24,8 @@ if(MKDOCS_FOUND)
             oneline
             --path-override
             "${MODULE_ARG}"
+            --path-override
+            "${SCRIPTS_ARG}"
             --
             execute
             --script
@@ -33,6 +39,10 @@ if(MKDOCS_FOUND)
         set(MODULE_ARG "module-path=${CMAKE_BINARY_DIR}/modules")
         set(LOG_ARG "log-path=.")
         set(DATA_ARGS "data-path=.")
+        # docs.py imports the generated *_pb2.py, which PythonScript adds to
+        # sys.path from ${scripts}/python/lib. Point ${scripts} at the build tree
+        # (where protoc generated them) so this works without `make install`.
+        set(SCRIPTS_ARG "scripts=${CMAKE_BINARY_DIR}/scripts")
         set(COMMAND_LINE
             ${CMAKE_BINARY_DIR}/nscp
             client
@@ -51,6 +61,8 @@ if(MKDOCS_FOUND)
             "\"${LOG_ARG}\""
             --path-override
             "\"${DATA_ARGS}\""
+            --path-override
+            "\"${SCRIPTS_ARG}\""
             --
             execute
             --script

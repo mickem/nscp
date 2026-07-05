@@ -106,6 +106,7 @@ std::string installer_feature_hint(const std::string &module) {
       {"CheckNSCP", "Check Plugins"},
       {"CheckDisk", "Check Plugins"},
       {"CheckTaskSched", "Check Plugins"},
+      {"CheckSecurity", "Check Plugins"},
       {"SimpleCache", "Check Plugins"},
       {"SimpleFileWriter", "Check Plugins"},
       {"CheckLogFile", "Check Plugins"},

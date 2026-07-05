@@ -1,0 +1,18 @@
+{
+	"module"		: {
+		"title"			: "Security checker",
+		"description"	: "CheckSecurity checks host security posture: certificate expiry and (on Windows) the firewall profile state.",
+		"name"			: "CheckSecurity",
+		"alias"			: "security",
+		"version"		: "auto"
+	},
+	"commands" : {
+		"check_certificate"	: "Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the Windows certificate store.",
+		"check_firewall"	: "Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.",
+		"check_users"		: "Check the count and detail of logged-on / RDP sessions (Windows and Linux).",
+		"check_nla"			: "Check the Network Location Awareness profile (public/private/domain) per network. Windows only.",
+		"check_antivirus"	: "Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.",
+		"check_bitlocker"	: "Check BitLocker drive-encryption protection status per volume. Windows only.",
+		"check_secureboot"	: "Check whether UEFI Secure Boot is enabled. Windows only."
+	}
+}

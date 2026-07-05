@@ -538,6 +538,23 @@ inline std::vector<value_info> enum_values(HKEY base_hkey, const std::string &ke
   return result;
 }
 
+// Read a single named value from a key. Opens the key, reads the value and
+// closes the key again; returns a value_info with exists=false when the key
+// or value is missing. XP-safe (RegOpenKeyExW + RegQueryValueExW only —
+// RegGetValue requires Vista+ and breaks the legacy toolset build).
+inline value_info read_value(HKEY base_hkey, const std::string &key_subpath, const std::string &value_name, const DWORD access_flags = 0) {
+  value_info vi;
+  vi.name = value_name;
+
+  HKEY hKey = nullptr;
+  const std::wstring wsubpath = utf8::cvt<std::wstring>(key_subpath);
+  if (RegOpenKeyExW(base_hkey, wsubpath.empty() ? nullptr : wsubpath.c_str(), 0, KEY_QUERY_VALUE | KEY_READ | access_flags, &hKey) != ERROR_SUCCESS) return vi;
+
+  detail::fill_value(hKey, value_name, 0, vi);
+  RegCloseKey(hKey);
+  return vi;
+}
+
 // Recursively enumerate sub-keys up to max_depth.
 // depth=0 means the key itself is the starting point; children get depth=1.
 // If include_root is true the starting key itself is included in the results.
