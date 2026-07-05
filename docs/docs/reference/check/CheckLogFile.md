@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the CheckLogFile
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                         | Description                                                             |
 |---------------------------------|-------------------------------------------------------------------------|
 | [check_logfile](#check_logfile) | Check for errors in log file or generic pattern matching in text files. |
@@ -34,7 +35,6 @@ A list of all short hand aliases for queries (check commands)
 
 Check for errors in log file or generic pattern matching in text files.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#check_logfile_options)
@@ -42,7 +42,8 @@ Check for errors in log file or generic pattern matching in text files.
 
 
 
-
+<a id="check_logfile_options"></a>
+#### Command-line Arguments
 
 <a id="check_logfile_warn"></a>
 <a id="check_logfile_crit"></a>
@@ -55,9 +56,6 @@ Check for errors in log file or generic pattern matching in text files.
 <a id="check_logfile_help-short"></a>
 <a id="check_logfile_split"></a>
 <a id="check_logfile_files"></a>
-<a id="check_logfile_options"></a>
-#### Command-line Arguments
-
 
 | Option                                        | Default Value                       | Description                                                                                                      |
 |-----------------------------------------------|-------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -188,10 +186,8 @@ Notice that specifying multiple files will create an aggregate set it will not c
 In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.
 
 
-
 <a id="check_logfile_filter_keys"></a>
 #### Filter keywords
-
 
 | Option   | Description                                   |
 |----------|-----------------------------------------------|
@@ -226,8 +222,6 @@ In other words if one file contains an error the entire check will result in err
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
-
 
 ## Configuration
 

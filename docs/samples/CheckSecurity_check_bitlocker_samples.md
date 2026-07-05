@@ -1,4 +1,4 @@
-#### Check that all volumes are BitLocker-protected (Windows)
+**Check that all volumes are BitLocker-protected (Windows)**
 
 The default is critical if any encryptable volume is not protected.
 
@@ -12,21 +12,21 @@ check_bitlocker
 L        cli CRITICAL: D: protected=0
 ```
 
-#### Only require the system drive to be protected
+**Only require the system drive to be protected**
 
 ```
 check_bitlocker "filter=drive = 'C:'" "crit=protected = 0"
 L        cli OK: all 1 volume(s) protected
 ```
 
-#### Show each volume's protection state
+**Show each volume's protection state**
 
 ```
 check_bitlocker "top-syntax=${list}" "detail-syntax=${drive} protected=${protected} status=${protection_status}"
 L        cli OK: C: protected=1 status=1, D: protected=1 status=1
 ```
 
-#### On non-Windows platforms
+**On non-Windows platforms**
 
 ```
 check_bitlocker

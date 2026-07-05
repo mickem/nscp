@@ -36,37 +36,21 @@ PLATFORM_LABEL = {'windows': 'Windows', 'unix': 'Linux'}
 # --- Sub-templates (markup lifted from docs.py's module_template, split so each
 # renderable section can be rendered per-platform and merged). --------------------
 
-# Rendered once per query, WITHOUT the "### <name>" heading (emitted outside so a
-# tabbed body does not duplicate the heading into every tab).
-query_body_template = u"""{{query.info.description}}
+# The query body is split into three renderable content sections (intro, args,
+# filter keywords). Each is rendered per-platform and collapsed independently, so
+# the Windows/Linux tabs land INSIDE a single "#### Command-line Arguments" /
+# "#### Filter keywords" heading rather than duplicating every heading per tab.
+
+# Intro prose (description + extended description). No heading of its own.
+query_intro_template = u"""{{query.info.description}}
 {% if query.ext_desc %}
 {{query.ext_desc}}
-{%- endif %}
+{%- endif %}"""
 
-**Jump to section:**
-
-{% if query.sample -%}
-* [Sample Commands](#{{"samples"|md_prefix_lnk(query.key)}})
-{% endif -%}
-* [Command-line Arguments](#{{"options"|md_prefix_lnk(query.key)}})
-{% if query.fields -%}
-* [Filter keywords](#{{"filter_keys"|md_prefix_lnk(query.key)}})
-{% endif %}
-
-{% if query.sample -%}
-<a id="{{"samples"|md_prefix_lnk(query.key)}}"></a>
-#### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/{{query.sample_source}})_
-
-{{query.sample}}
-{%- endif %}
-
-{% for help in query.params -%}{%- if help.is_simple %}
+# Content of the "Command-line Arguments" section (table + per-option detail),
+# WITHOUT the heading/anchor -- those are emitted once by the layout template.
+query_args_template = u"""{% for help in query.params -%}{%- if help.is_simple %}
 <a id="{{help.name|md_prefix_lnk(query.key)}}"></a>{% endif %}{%- endfor %}
-<a id="{{"options"|md_prefix_lnk(query.key)}}"></a>
-#### Command-line Arguments
-
 {% set table = [] -%}
 {% for help in query.params -%}
     {%- if help.is_simple %}{% if help.content_type == 4 -%}
@@ -86,13 +70,10 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {% if help.default_value %}
 *Default Value:* `{{help.default_value}}`
 {%- endif %}{{'\n'}}
-{%- endif %}{%- endfor %}
+{%- endif %}{%- endfor %}"""
 
-{% if query.fields -%}
-<a id="{{"filter_keys"|md_prefix_lnk(query.key)}}"></a>
-#### Filter keywords
-
-{% set table = [] -%}
+# Content of the "Filter keywords" section, WITHOUT the heading/anchor.
+query_filter_template = u"""{% set table = [] -%}
 {% for help in query.own_fields -%}
     {% do table.append([help.name,help.long_description|firstline]) %}
 {%- endfor %}
@@ -102,9 +83,42 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {% for help in query.generic_fields -%}
     {% do table.append([help.name,help.long_description|replace("Common option for all checks.","")|firstline]) %}
 {%- endfor %}
-{{table|rst_table('Option', 'Description')}}
-{{'\n'}}
-{%- endif %}
+{{table|rst_table('Option', 'Description')}}"""
+
+# Layout scaffold: emits the single sub-headings, anchors and jump list, and drops
+# the already-merged (possibly tabbed) section bodies into place. Rendered once per
+# query, WITHOUT the "### <name>" heading (emitted outside).
+query_layout_template = u"""{{intro}}
+
+**Jump to section:**
+
+{% if has_sample -%}
+* [Sample Commands](#{{"samples"|md_prefix_lnk(query.key)}})
+{% endif -%}
+{% if has_args -%}
+* [Command-line Arguments](#{{"options"|md_prefix_lnk(query.key)}})
+{% endif -%}
+{% if has_fields -%}
+* [Filter keywords](#{{"filter_keys"|md_prefix_lnk(query.key)}})
+{% endif %}
+{% if has_sample %}
+<a id="{{"samples"|md_prefix_lnk(query.key)}}"></a>
+#### Sample Commands
+
+{{query.sample}}
+{% endif %}
+{% if has_args %}
+<a id="{{"options"|md_prefix_lnk(query.key)}}"></a>
+#### Command-line Arguments
+
+{{args}}
+{% endif %}
+{% if has_fields %}
+<a id="{{"filter_keys"|md_prefix_lnk(query.key)}}"></a>
+#### Filter keywords
+
+{{filter}}
+{% endif %}
 """
 
 # Rendered once per configuration path/section (whole block, heading included).
@@ -400,7 +414,6 @@ def prepare_query(qdict, qname, module, sample_folder):
     if os.path.exists(spath):
         with open(spath, encoding='utf-8') as f:
             q['sample'] = f.read()
-            q['sample_source'] = 'samples/%s_%s_samples.md' % (module, qname)
     spath = '%s/samples/%s_%s_desc.md' % (sample_folder, module, qname)
     if os.path.exists(spath):
         with open(spath, encoding='utf-8') as f:
@@ -413,7 +426,10 @@ class DocumentationGenerator(object):
         self.yaml_dir = yaml_dir
         self.sample_folder = sample_folder
         self.env = make_env()
-        self.query_body = self.env.from_string(query_body_template)
+        self.query_intro = self.env.from_string(query_intro_template)
+        self.query_args = self.env.from_string(query_args_template)
+        self.query_filter = self.env.from_string(query_filter_template)
+        self.query_layout = self.env.from_string(query_layout_template)
         self.path_block = self.env.from_string(path_block_template)
         self.index = self.env.from_string(index_template)
 
@@ -461,7 +477,7 @@ class DocumentationGenerator(object):
         out = ['## Queries\n',
                'A quick reference for all available queries (check commands) in the %s module.\n' % module,
                '**List of commands:**\n',
-               'A list of all available queries (check commands)']
+               'A list of all available queries (check commands)\n']
 
         # Command list table (union; description from any present platform).
         rows = []
@@ -505,7 +521,9 @@ class DocumentationGenerator(object):
                 rows.append([name, cell])
             out.append(render_rst_table(rows, 'Command', 'Description'))
 
-        # Per-query sections.
+        # Per-query sections. Each content section (intro / args / filter keywords)
+        # is merged across platforms independently, so the Windows/Linux tabs land
+        # inside a single sub-heading instead of duplicating every heading per tab.
         for name in sorted(names):
             qpresent = [p for p in present if name in slices[p].get('queries', {})]
             out.append('### %s\n' % name)
@@ -513,10 +531,34 @@ class DocumentationGenerator(object):
             if note:
                 out.append(note)
 
-            def render_one(p, _name=name):
-                q = prepare_query(slices[p]['queries'][_name], _name, module, self.sample_folder)
-                return self.query_body.render(query=q)
-            out.append(per_platform(qpresent, render_one))
+            prepared = {p: prepare_query(slices[p]['queries'][name], name,
+                                         module, self.sample_folder)
+                        for p in qpresent}
+            has_sample = bool(prepared[qpresent[0]].get('sample'))
+            # Select the platforms to render each section for by whether that
+            # platform actually carries the section's data. This skips empty stubs
+            # (e.g. a command registered on a platform but with no arguments), which
+            # would otherwise produce a broken, empty content tab.
+            apresent = [p for p in qpresent if prepared[p].get('params')]
+            fpresent = [p for p in qpresent if prepared[p].get('fields')]
+
+            intro = per_platform(qpresent,
+                                 lambda p: self.query_intro.render(query=prepared[p]))
+            args = per_platform(apresent,
+                                lambda p: self.query_args.render(query=prepared[p])) \
+                if apresent else ''
+            filt = per_platform(fpresent,
+                                lambda p: self.query_filter.render(query=prepared[p])) \
+                if fpresent else ''
+
+            out.append(self.query_layout.render(
+                query=prepared[qpresent[0]],
+                intro=intro.strip('\n'),
+                args=args.strip('\n'),
+                filter=filt.strip('\n'),
+                has_sample=has_sample,
+                has_args=bool(apresent),
+                has_fields=bool(fpresent)))
         return '\n'.join(out)
 
     def render_config(self, module, slices, present):

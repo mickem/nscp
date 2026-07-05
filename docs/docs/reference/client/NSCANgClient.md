@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the NSCANgClient
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                           | Description                                                                                                                                                                                              |
 |-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [submit_nsca_ng](#submit_nsca_ng) | Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention. |
@@ -26,14 +27,14 @@ A list of all available queries (check commands)
 
 Submit information to the remote NSCA-NG server. Custom relay commands defined under [/settings/NSCA-NG/client/handlers] are registered automatically using the same `submit_<alias>` naming convention.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#submit_nsca_ng_options)
 
 
 
-
+<a id="submit_nsca_ng_options"></a>
+#### Command-line Arguments
 
 <a id="submit_nsca_ng_help"></a>
 <a id="submit_nsca_ng_help-pb"></a>
@@ -68,9 +69,6 @@ Submit information to the remote NSCA-NG server. Custom relay commands defined u
 <a id="submit_nsca_ng_insecure"></a>
 <a id="submit_nsca_ng_host-check"></a>
 <a id="submit_nsca_ng_max-output-length"></a>
-<a id="submit_nsca_ng_options"></a>
-#### Command-line Arguments
-
 
 | Option                     | Default Value | Description                                                                                        |
 |----------------------------|---------------|----------------------------------------------------------------------------------------------------|
@@ -116,7 +114,6 @@ Submit information to the remote NSCA-NG server. Custom relay commands defined u
 Initial an ssl handshake with the server.
 
 *Default Value:* `1`
-
 
 
 ## Configuration

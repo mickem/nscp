@@ -20,6 +20,7 @@ A quick reference for all available queries (check commands) in the CheckWMI mod
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                 | Description                                                            |
 |-------------------------|------------------------------------------------------------------------|
 | [check_wmi](#check_wmi) | Check a set of WMI values and return rows which are matching criteria. |
@@ -36,7 +37,6 @@ A list of all short hand aliases for queries (check commands)
 
 Check a set of WMI values and return rows which are matching criteria.
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_wmi_samples)
@@ -46,8 +46,6 @@ Check a set of WMI values and return rows which are matching criteria.
 
 <a id="check_wmi_samples"></a>
 #### Sample Commands
-
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckWMI_check_wmi_samples.md)_
 
 Basic check to see/fetch information (no check)::
 
@@ -97,6 +95,9 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 
 
 
+<a id="check_wmi_options"></a>
+#### Command-line Arguments
+
 <a id="check_wmi_warn"></a>
 <a id="check_wmi_crit"></a>
 <a id="check_wmi_debug"></a>
@@ -110,9 +111,6 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 <a id="check_wmi_user"></a>
 <a id="check_wmi_password"></a>
 <a id="check_wmi_query"></a>
-<a id="check_wmi_options"></a>
-#### Command-line Arguments
-
 
 | Option                                    | Default Value | Description                                                                                                      |
 |-------------------------------------------|---------------|------------------------------------------------------------------------------------------------------------------|
@@ -230,8 +228,6 @@ The WMI root namespace to bind to.
 <a id="check_wmi_filter_keys"></a>
 #### Filter keywords
 
-
-
 **Common options for all checks:**
 
 | Option        | Description                                                                    |
@@ -249,8 +245,6 @@ The WMI root namespace to bind to.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
-
 
 ## Configuration
 

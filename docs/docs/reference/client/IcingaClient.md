@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the IcingaClient
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                         | Description                                       |
 |---------------------------------|---------------------------------------------------|
 | [submit_icinga](#submit_icinga) | Submit information to the remote Icinga 2 Server. |
@@ -26,14 +27,14 @@ A list of all available queries (check commands)
 
 Submit information to the remote Icinga 2 Server.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#submit_icinga_options)
 
 
 
-
+<a id="submit_icinga_options"></a>
+#### Command-line Arguments
 
 <a id="submit_icinga_help"></a>
 <a id="submit_icinga_help-pb"></a>
@@ -63,9 +64,6 @@ Submit information to the remote Icinga 2 Server.
 <a id="submit_icinga_check-source"></a>
 <a id="submit_icinga_verify-mode"></a>
 <a id="submit_icinga_ca"></a>
-<a id="submit_icinga_options"></a>
-#### Command-line Arguments
-
 
 | Option                                          | Default Value | Description                                                                                                                                                               |
 |-------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -113,7 +111,6 @@ Create missing host/service objects in Icinga 2 before submitting (true/false).
 The TLS version to use 1.0, 1.1, 1.2, 1.3 or any
 
 *Default Value:* `1.3`
-
 
 
 ## Configuration

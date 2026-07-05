@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the NRPEClient m
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                       | Description                                                                    |
 |-------------------------------|--------------------------------------------------------------------------------|
 | [check_nrpe](#check_nrpe)     | Request remote information via NRPE.                                           |
@@ -30,14 +31,14 @@ A list of all available queries (check commands)
 
 Request remote information via NRPE.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#check_nrpe_options)
 
 
 
-
+<a id="check_nrpe_options"></a>
+#### Command-line Arguments
 
 <a id="check_nrpe_help"></a>
 <a id="check_nrpe_help-pb"></a>
@@ -66,9 +67,6 @@ Request remote information via NRPE.
 <a id="check_nrpe_payload-length"></a>
 <a id="check_nrpe_version"></a>
 <a id="check_nrpe_buffer-length"></a>
-<a id="check_nrpe_options"></a>
-#### Command-line Arguments
-
 
 | Option                           | Default Value | Description                                                                                                                                                               |
 |----------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -117,11 +115,9 @@ Use insecure legacy mode
 *Default Value:* `1`
 
 
-
 ### exec_nrpe
 
 Execute remote script via NRPE. (Most likely you want nrpe_query).
-
 
 **Jump to section:**
 
@@ -129,7 +125,8 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 
 
 
-
+<a id="exec_nrpe_options"></a>
+#### Command-line Arguments
 
 <a id="exec_nrpe_help"></a>
 <a id="exec_nrpe_help-pb"></a>
@@ -158,9 +155,6 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 <a id="exec_nrpe_payload-length"></a>
 <a id="exec_nrpe_version"></a>
 <a id="exec_nrpe_buffer-length"></a>
-<a id="exec_nrpe_options"></a>
-#### Command-line Arguments
-
 
 | Option                          | Default Value | Description                                                                                                                                                               |
 |---------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -209,11 +203,9 @@ Use insecure legacy mode
 *Default Value:* `1`
 
 
-
 ### nrpe_forward
 
 Forward the request as-is to remote host via NRPE.
-
 
 **Jump to section:**
 
@@ -221,25 +213,19 @@ Forward the request as-is to remote host via NRPE.
 
 
 
-
-
-<a id="nrpe_forward_*"></a>
 <a id="nrpe_forward_options"></a>
 #### Command-line Arguments
 
+<a id="nrpe_forward_*"></a>
 
 | Option | Default Value | Description |
 |--------|---------------|-------------|
 | *      |               |             |
 
 
-
-
-
 ### nrpe_query
 
 Request remote information via NRPE.
-
 
 **Jump to section:**
 
@@ -247,7 +233,8 @@ Request remote information via NRPE.
 
 
 
-
+<a id="nrpe_query_options"></a>
+#### Command-line Arguments
 
 <a id="nrpe_query_help"></a>
 <a id="nrpe_query_help-pb"></a>
@@ -276,9 +263,6 @@ Request remote information via NRPE.
 <a id="nrpe_query_payload-length"></a>
 <a id="nrpe_query_version"></a>
 <a id="nrpe_query_buffer-length"></a>
-<a id="nrpe_query_options"></a>
-#### Command-line Arguments
-
 
 | Option                           | Default Value | Description                                                                                                                                                               |
 |----------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -327,11 +311,9 @@ Use insecure legacy mode
 *Default Value:* `1`
 
 
-
 ### submit_nrpe
 
 Submit information to remote host via NRPE. (Most likely you want nrpe_query).
-
 
 **Jump to section:**
 
@@ -339,7 +321,8 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 
 
 
-
+<a id="submit_nrpe_options"></a>
+#### Command-line Arguments
 
 <a id="submit_nrpe_help"></a>
 <a id="submit_nrpe_help-pb"></a>
@@ -370,9 +353,6 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 <a id="submit_nrpe_payload-length"></a>
 <a id="submit_nrpe_version"></a>
 <a id="submit_nrpe_buffer-length"></a>
-<a id="submit_nrpe_options"></a>
-#### Command-line Arguments
-
 
 | Option                            | Default Value | Description                                                                                                                                                               |
 |-----------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -421,7 +401,6 @@ Initial an ssl handshake with the server.
 Use insecure legacy mode
 
 *Default Value:* `1`
-
 
 
 ## Configuration

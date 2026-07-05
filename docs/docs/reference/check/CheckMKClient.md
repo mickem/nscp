@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the CheckMKClien
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                           | Description                              |
 |-----------------------------------|------------------------------------------|
 | [check_mk_query](#check_mk_query) | Request remote information via check_mk. |
@@ -26,14 +27,14 @@ A list of all available queries (check commands)
 
 Request remote information via check_mk.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#check_mk_query_options)
 
 
 
-
+<a id="check_mk_query_options"></a>
+#### Command-line Arguments
 
 <a id="check_mk_query_help"></a>
 <a id="check_mk_query_help-pb"></a>
@@ -59,9 +60,6 @@ Request remote information via check_mk.
 <a id="check_mk_query_ca"></a>
 <a id="check_mk_query_verify"></a>
 <a id="check_mk_query_allowed-ciphers"></a>
-<a id="check_mk_query_options"></a>
-#### Command-line Arguments
-
 
 | Option                     | Default Value | Description                                                                           |
 |----------------------------|---------------|---------------------------------------------------------------------------------------|
@@ -98,7 +96,6 @@ Request remote information via check_mk.
 Initial an ssl handshake with the server.
 
 *Default Value:* `1`
-
 
 
 ## Configuration

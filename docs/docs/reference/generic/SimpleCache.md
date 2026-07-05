@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the SimpleCache 
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                     | Description                   |
 |-----------------------------|-------------------------------|
 | [check_cache](#check_cache) | Fetch results from the cache. |
@@ -35,14 +36,14 @@ A list of all short hand aliases for queries (check commands)
 
 Fetch results from the cache.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#check_cache_options)
 
 
 
-
+<a id="check_cache_options"></a>
+#### Command-line Arguments
 
 <a id="check_cache_help"></a>
 <a id="check_cache_help-pb"></a>
@@ -53,9 +54,6 @@ Fetch results from the cache.
 <a id="check_cache_command"></a>
 <a id="check_cache_channel"></a>
 <a id="check_cache_alias"></a>
-<a id="check_cache_options"></a>
-#### Command-line Arguments
-
 
 | Option                                        | Default Value   | Description                                             |
 |-----------------------------------------------|-----------------|---------------------------------------------------------|
@@ -86,11 +84,9 @@ The return status to return when a message is not found
 *Default Value:* `unknown`
 
 
-
 ### list_cache
 
 List all keys in the cache.
-
 
 **Jump to section:**
 
@@ -98,15 +94,13 @@ List all keys in the cache.
 
 
 
-
+<a id="list_cache_options"></a>
+#### Command-line Arguments
 
 <a id="list_cache_help"></a>
 <a id="list_cache_help-pb"></a>
 <a id="list_cache_show-default"></a>
 <a id="list_cache_help-short"></a>
-<a id="list_cache_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -114,9 +108,6 @@ List all keys in the cache.
 | help-pb      | N/A           | Show help screen as a protocol buffer payload |
 | show-default | N/A           | Show default values for a given command       |
 | help-short   | N/A           | Show help screen (short format).              |
-
-
-
 
 
 ## Configuration

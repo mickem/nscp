@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the CheckDocker 
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                       | Description                                      |
 |-------------------------------|--------------------------------------------------|
 | [check_docker](#check_docker) | Checks that a given docker container is running. |
@@ -26,7 +27,6 @@ A list of all available queries (check commands)
 
 Checks that a given docker container is running.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#check_docker_options)
@@ -34,7 +34,8 @@ Checks that a given docker container is running.
 
 
 
-
+<a id="check_docker_options"></a>
+#### Command-line Arguments
 
 <a id="check_docker_warn"></a>
 <a id="check_docker_crit"></a>
@@ -46,9 +47,6 @@ Checks that a given docker container is running.
 <a id="check_docker_show-default"></a>
 <a id="check_docker_help-short"></a>
 <a id="check_docker_host"></a>
-<a id="check_docker_options"></a>
-#### Command-line Arguments
-
 
 | Option                                       | Default Value                | Description                                                                                                      |
 |----------------------------------------------|------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -159,7 +157,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_docker_filter_keys"></a>
 #### Filter keywords
 
-
 | Option          | Description        |
 |-----------------|--------------------|
 | command         | Command            |
@@ -187,6 +184,4 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
-
 

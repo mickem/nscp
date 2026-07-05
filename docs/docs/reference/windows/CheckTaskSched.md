@@ -20,6 +20,7 @@ A quick reference for all available queries (check commands) in the CheckTaskSch
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                             | Description                     |
 |-------------------------------------|---------------------------------|
 | [check_tasksched](#check_tasksched) | Check status of scheduled jobs. |
@@ -27,7 +28,6 @@ A list of all available queries (check commands)
 ### check_tasksched
 
 Check status of scheduled jobs.
-
 
 **Jump to section:**
 
@@ -39,8 +39,6 @@ Check status of scheduled jobs.
 <a id="check_tasksched_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckTaskSched_check_tasksched_samples.md)_
-
 Default check **via NRPE**::
 
 ```
@@ -49,6 +47,9 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 ```
 
 
+
+<a id="check_tasksched_options"></a>
+#### Command-line Arguments
 
 <a id="check_tasksched_warn"></a>
 <a id="check_tasksched_crit"></a>
@@ -66,9 +67,6 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 <a id="check_tasksched_folder"></a>
 <a id="check_tasksched_recursive"></a>
 <a id="check_tasksched_hidden"></a>
-<a id="check_tasksched_options"></a>
-#### Command-line Arguments
-
 
 | Option                                          | Default Value                         | Description                                                                                                                            |
 |-------------------------------------------------|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
@@ -195,7 +193,6 @@ The name of the computer that you want to connect to.
 <a id="check_tasksched_filter_keys"></a>
 #### Filter keywords
 
-
 | Option               | Description                                                             |
 |----------------------|-------------------------------------------------------------------------|
 | application          | Retrieves the name of the application that the task is associated with. |
@@ -230,6 +227,4 @@ The name of the computer that you want to connect to.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
-
 

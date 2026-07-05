@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the NSCAClient m
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                     | Description                                   |
 |-----------------------------|-----------------------------------------------|
 | [submit_nsca](#submit_nsca) | Submit information to the remote NSCA server. |
@@ -26,14 +27,14 @@ A list of all available queries (check commands)
 
 Submit information to the remote NSCA server.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#submit_nsca_options)
 
 
 
-
+<a id="submit_nsca_options"></a>
+#### Command-line Arguments
 
 <a id="submit_nsca_help"></a>
 <a id="submit_nsca_help-pb"></a>
@@ -67,9 +68,6 @@ Submit information to the remote NSCA server.
 <a id="submit_nsca_hostname"></a>
 <a id="submit_nsca_time-offset"></a>
 <a id="submit_nsca_timezone"></a>
-<a id="submit_nsca_options"></a>
-#### Command-line Arguments
-
 
 | Option                                | Default Value | Description                                                                                                                                                               |
 |---------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -135,8 +133,6 @@ aes192 = AES
 aes = AES
 serpent = Serpent
 gost = GOST
-
-
 
 
 ## Configuration

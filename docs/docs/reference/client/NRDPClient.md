@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the NRDPClient m
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                     | Description                                   |
 |-----------------------------|-----------------------------------------------|
 | [submit_nrdp](#submit_nrdp) | Submit information to the remote NRDP Server. |
@@ -26,14 +27,14 @@ A list of all available queries (check commands)
 
 Submit information to the remote NRDP Server.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#submit_nrdp_options)
 
 
 
-
+<a id="submit_nrdp_options"></a>
+#### Command-line Arguments
 
 <a id="submit_nrdp_help"></a>
 <a id="submit_nrdp_help-pb"></a>
@@ -67,9 +68,6 @@ Submit information to the remote NRDP Server.
 <a id="submit_nrdp_ca"></a>
 <a id="submit_nrdp_proxy"></a>
 <a id="submit_nrdp_no-proxy"></a>
-<a id="submit_nrdp_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                                                                                                                                            |
 |--------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -105,9 +103,6 @@ Submit information to the remote NRDP Server.
 | ca           |               | Certificate authority to use when verifying certificates.                                                                                                              |
 | proxy        |               | HTTP proxy URL to route requests through (e.g. http://user:pass@proxy:3128/).                                                                                          |
 | no-proxy     |               | Comma-separated list of hostnames that bypass the proxy.                                                                                                               |
-
-
-
 
 
 ## Configuration

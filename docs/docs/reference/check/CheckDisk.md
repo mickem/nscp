@@ -28,6 +28,7 @@ A quick reference for all available queries (check commands) in the CheckDisk mo
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                                 | Description                                                                                                                                                       |
 |-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [check_disk_health](#check_disk_health) | Combined per-drive health check (free space + I/O metrics).                                                                                                       |
@@ -41,7 +42,6 @@ A list of all available queries (check commands)
 
 Combined per-drive health check (free space + I/O metrics).
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#check_disk_health_options)
@@ -49,7 +49,8 @@ Combined per-drive health check (free space + I/O metrics).
 
 
 
-
+<a id="check_disk_health_options"></a>
+#### Command-line Arguments
 
 <a id="check_disk_health_warn"></a>
 <a id="check_disk_health_crit"></a>
@@ -60,9 +61,6 @@ Combined per-drive health check (free space + I/O metrics).
 <a id="check_disk_health_help-pb"></a>
 <a id="check_disk_health_show-default"></a>
 <a id="check_disk_health_help-short"></a>
-<a id="check_disk_health_options"></a>
-#### Command-line Arguments
-
 
 | Option                                            | Default Value                                                                          | Description                                                                                                      |
 |---------------------------------------------------|----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -174,7 +172,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_disk_health_filter_keys"></a>
 #### Filter keywords
 
-
 | Option              | Description                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------|
 | free                | Free disk space in bytes                                                                                       |
@@ -213,12 +210,9 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
-
 ### check_disk_io
 
 Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
-
 
 **Jump to section:**
 
@@ -227,7 +221,8 @@ Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
 
 
 
-
+<a id="check_disk_io_options"></a>
+#### Command-line Arguments
 
 <a id="check_disk_io_warn"></a>
 <a id="check_disk_io_crit"></a>
@@ -238,9 +233,6 @@ Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
 <a id="check_disk_io_help-pb"></a>
 <a id="check_disk_io_show-default"></a>
 <a id="check_disk_io_help-short"></a>
-<a id="check_disk_io_options"></a>
-#### Command-line Arguments
-
 
 | Option                                        | Default Value                                                                                                        | Description                                                                                                      |
 |-----------------------------------------------|----------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -352,7 +344,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_disk_io_filter_keys"></a>
 #### Filter keywords
 
-
 | Option              | Description                             |
 |---------------------|-----------------------------------------|
 | iops                | Total IOPS (reads + writes)             |
@@ -385,142 +376,140 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
-
 ### check_drivesize
 
+Check the size (free-space) of a drive or volume.
+
+**Jump to section:**
+
+* [Sample Commands](#check_drivesize_samples)
+* [Command-line Arguments](#check_drivesize_options)
+* [Filter keywords](#check_drivesize_filter_keys)
+
+
+<a id="check_drivesize_samples"></a>
+#### Sample Commands
+
+To check the size of **the C:\ drive** and **make sure it has at least 10% free** space:
+
+```
+check_drivesize "crit=free<10%" drive=c:
+L     client CRITICAL: c:: 205GB/223GB used
+L     client  Performance data: 'c: free'=18GB;0;22;0;223 'c: free %'=8%;0;9;0;100
+```
+
+To check the size of **all the drives** and make sure it has at least 10% free space:
+
+```
+check_drivesize "crit=free<10%" drive=*
+L     client OK: All drives ok
+L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
+```
+
+To check the size of all the drives and **display all values, not just problems**:
+
+```
+check_drivesize drive=* --show-all
+L     client CRITICAL: c:: 205GB/223GB used
+L     client  Performance data: 'c: free'=18GB;0;22;0;223 'c: free %'=8%;0;9;0;100
+```
+
+To check the size of all the drives and **return the value in gigabytes**. 
+By default, units on performance data will be scaled to "something appropriate":
+
+```
+check_drivesize "perf-config=*(unit:g)"
+L        cli CRITICAL: CRITICAL C:\\: 208.147GB/223.471GB used, D:\\: 399.607GB/465.759GB used
+L        cli  Performance data: 'C:\ used'=0.00019g;0.00017;0.00019;0;0.00021 'C:\ used %'=93%;79;89;0;100 'D:\ used'=0.00038g;0.00035;0.00039;0;0.00044 'D:\ used %'=85%;79;89;0;100 'E:\ used'=0g;0;0;0;0 '\\?\Volume{d458535f-27c7-11e4-be66-806e6f6e6963}\ used'=0g;0;0;0;0 '\\?\Volume{d458535f-27c7-11e4-be66-806e6f6e6963}\ used %'=33%;79;89;0;100
+```
+
+To check the size of **a mounted volume** (c:\volume_test) and **make sure it has 1M free** space **warn if free space is less than 10M**:
+
+```
+   check_drivesize "crit=free<1M" "warn=free<10M" drive=c:\\volume_test
+   C:: Total: 74.5G - Used: 71.2G (95%) - Free: 3.28G (5%) < critical,C:;5%;10;5;
+```
+
+To check the size of **all volumes** and **make sure they have 1M space free**:
+
+```
+check_drivesize "crit=free<1M" drive=all-volumes
+L     client OK: All drives ok
+L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'E:\ free'=0B;0;0;0;0 'F:\ free'=0B;0;0;0;0
+```
+
+To check the size of **all fixed and network drives** and make sure they have at least 1gig free space:
+
+```
+check_drivesize "crit=free<1g" drive=* "filter=type in ('fixed', 'remote')"
+L     client OK: All drives ok
+L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
+```
+
+
+To check **all fixed and network drives but ignore C and F**:
+
+```
+check_drivesize "crit=free<1g" drive=* "filter=type in ('fixed', 'remote')" exclude=C:\\ exclude=D:\\
+L     client OK: All drives ok
+L     client  Performance data: 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
+```
+
+To **restrict by filesystem type** — for example, only NTFS volumes — use the
+`filesystem` keyword (alias `fs`). The value compared against is whatever the
+OS reports via `GetVolumeInformation`, typically uppercase: `NTFS`, `FAT32`,
+`exFAT`, `ReFS`, `CDFS`, `UDF`. Empty string is reported for unmounted or
+unreadable volumes.
+
+```
+check_drivesize drive=* "filter=fs = 'NTFS'"
+L     client OK: All drives ok
+L     client  Performance data: 'C:\ used'=205GB;...
+```
+
+Combine with `type` to scope further — for example, only **fixed** disks that
+are **NTFS or ReFS**:
+
+```
+check_drivesize drive=* "filter=type = 'fixed' and fs in ('NTFS', 'ReFS')"
+```
+
+Use `like` for **case-insensitive** matching, since the OS reports uppercase
+but a recipe written as `'ntfs'` should still work:
+
+```
+check_drivesize drive=* "filter=filesystem like 'ntfs'"
+```
+
+Drop volumes whose filesystem could not be read (e.g. an empty CD/DVD drive):
+
+```
+check_drivesize drive=* "filter=fs != ''"
+```
+
+Default via NRPE:
+
+```
+check_nrpe --host 192.168.56.103 --command check_drivesize
+C:\: 205GB/223GB used, D:\: 448GB/466GB used, M:\: 2.6TB/2.68TB used|'C:\ used'=204GB;44;22;0;223 'C:\ used %'=91%;19;9;0;100 'D:\ used'=447GB;93;46;0;465...
+```
+
+**Check inode exhaustion (Linux) — a filesystem can be "not full" on bytes yet out of inodes:**
+
+```
+check_drivesize drive=/ "warn=inodes_used_pct > 85" "crit=inodes_used_pct > 95" "detail-syntax=${drive} inodes ${inodes_used}/${inodes_total} (${inodes_used_pct}%)"
+OK: / inodes 350474/67108864 (1%)
+```
+
+The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
+`inodes_free_pct` and `inodes_used_pct`.
+
+
+
+<a id="check_drivesize_options"></a>
+#### Command-line Arguments
+
 === "Windows"
-
-    Check the size (free-space) of a drive or volume.
-
-
-    **Jump to section:**
-
-    * [Sample Commands](#check_drivesize_samples)
-    * [Command-line Arguments](#check_drivesize_options)
-    * [Filter keywords](#check_drivesize_filter_keys)
-
-
-    <a id="check_drivesize_samples"></a>
-    #### Sample Commands
-
-    _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_drivesize_samples.md)_
-
-    To check the size of **the C:\ drive** and **make sure it has at least 10% free** space:
-
-    ```
-    check_drivesize "crit=free<10%" drive=c:
-    L     client CRITICAL: c:: 205GB/223GB used
-    L     client  Performance data: 'c: free'=18GB;0;22;0;223 'c: free %'=8%;0;9;0;100
-    ```
-
-    To check the size of **all the drives** and make sure it has at least 10% free space:
-
-    ```
-    check_drivesize "crit=free<10%" drive=*
-    L     client OK: All drives ok
-    L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
-    ```
-
-    To check the size of all the drives and **display all values, not just problems**:
-
-    ```
-    check_drivesize drive=* --show-all
-    L     client CRITICAL: c:: 205GB/223GB used
-    L     client  Performance data: 'c: free'=18GB;0;22;0;223 'c: free %'=8%;0;9;0;100
-    ```
-
-    To check the size of all the drives and **return the value in gigabytes**. 
-    By default, units on performance data will be scaled to "something appropriate":
-
-    ```
-    check_drivesize "perf-config=*(unit:g)"
-    L        cli CRITICAL: CRITICAL C:\\: 208.147GB/223.471GB used, D:\\: 399.607GB/465.759GB used
-    L        cli  Performance data: 'C:\ used'=0.00019g;0.00017;0.00019;0;0.00021 'C:\ used %'=93%;79;89;0;100 'D:\ used'=0.00038g;0.00035;0.00039;0;0.00044 'D:\ used %'=85%;79;89;0;100 'E:\ used'=0g;0;0;0;0 '\\?\Volume{d458535f-27c7-11e4-be66-806e6f6e6963}\ used'=0g;0;0;0;0 '\\?\Volume{d458535f-27c7-11e4-be66-806e6f6e6963}\ used %'=33%;79;89;0;100
-    ```
-
-    To check the size of **a mounted volume** (c:\volume_test) and **make sure it has 1M free** space **warn if free space is less than 10M**:
-
-    ```
-       check_drivesize "crit=free<1M" "warn=free<10M" drive=c:\\volume_test
-       C:: Total: 74.5G - Used: 71.2G (95%) - Free: 3.28G (5%) < critical,C:;5%;10;5;
-    ```
-
-    To check the size of **all volumes** and **make sure they have 1M space free**:
-
-    ```
-    check_drivesize "crit=free<1M" drive=all-volumes
-    L     client OK: All drives ok
-    L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'E:\ free'=0B;0;0;0;0 'F:\ free'=0B;0;0;0;0
-    ```
-
-    To check the size of **all fixed and network drives** and make sure they have at least 1gig free space:
-
-    ```
-    check_drivesize "crit=free<1g" drive=* "filter=type in ('fixed', 'remote')"
-    L     client OK: All drives ok
-    L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
-    ```
-
-
-    To check **all fixed and network drives but ignore C and F**:
-
-    ```
-    check_drivesize "crit=free<1g" drive=* "filter=type in ('fixed', 'remote')" exclude=C:\\ exclude=D:\\
-    L     client OK: All drives ok
-    L     client  Performance data: 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
-    ```
-
-    To **restrict by filesystem type** — for example, only NTFS volumes — use the
-    `filesystem` keyword (alias `fs`). The value compared against is whatever the
-    OS reports via `GetVolumeInformation`, typically uppercase: `NTFS`, `FAT32`,
-    `exFAT`, `ReFS`, `CDFS`, `UDF`. Empty string is reported for unmounted or
-    unreadable volumes.
-
-    ```
-    check_drivesize drive=* "filter=fs = 'NTFS'"
-    L     client OK: All drives ok
-    L     client  Performance data: 'C:\ used'=205GB;...
-    ```
-
-    Combine with `type` to scope further — for example, only **fixed** disks that
-    are **NTFS or ReFS**:
-
-    ```
-    check_drivesize drive=* "filter=type = 'fixed' and fs in ('NTFS', 'ReFS')"
-    ```
-
-    Use `like` for **case-insensitive** matching, since the OS reports uppercase
-    but a recipe written as `'ntfs'` should still work:
-
-    ```
-    check_drivesize drive=* "filter=filesystem like 'ntfs'"
-    ```
-
-    Drop volumes whose filesystem could not be read (e.g. an empty CD/DVD drive):
-
-    ```
-    check_drivesize drive=* "filter=fs != ''"
-    ```
-
-    Default via NRPE:
-
-    ```
-    check_nrpe --host 192.168.56.103 --command check_drivesize
-    C:\: 205GB/223GB used, D:\: 448GB/466GB used, M:\: 2.6TB/2.68TB used|'C:\ used'=204GB;44;22;0;223 'C:\ used %'=91%;19;9;0;100 'D:\ used'=447GB;93;46;0;465...
-    ```
-
-    **Check inode exhaustion (Linux) — a filesystem can be "not full" on bytes yet out of inodes:**
-
-    ```
-    check_drivesize drive=/ "warn=inodes_used_pct > 85" "crit=inodes_used_pct > 95" "detail-syntax=${drive} inodes ${inodes_used}/${inodes_total} (${inodes_used_pct}%)"
-    OK: / inodes 350474/67108864 (1%)
-    ```
-
-    The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
-    `inodes_free_pct` and `inodes_used_pct`.
-
-
 
     <a id="check_drivesize_warn"></a>
     <a id="check_drivesize_crit"></a>
@@ -533,9 +522,6 @@ This is the syntax for the base names of the performance data.
     <a id="check_drivesize_help-short"></a>
     <a id="check_drivesize_magic"></a>
     <a id="check_drivesize_exclude"></a>
-    <a id="check_drivesize_options"></a>
-    #### Command-line Arguments
-
 
     | Option                                                  | Default Value                          | Description                                                                                                      |
     |---------------------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -675,194 +661,7 @@ This is the syntax for the base names of the performance data.
 
     *Default Value:* `1)] (=0`
 
-
-    <a id="check_drivesize_filter_keys"></a>
-    #### Filter keywords
-
-
-    | Option         | Description                                                           |
-    |----------------|-----------------------------------------------------------------------|
-    | drive          | Technical name of drive                                               |
-    | drive_or_id    | Drive letter if present if not use id                                 |
-    | drive_or_name  | Drive letter if present if not use name                               |
-    | erasable       | 1 (true) if drive is erasable                                         |
-    | filesystem     | Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS) |
-    | flags          | String representation of flags                                        |
-    | free           | Shorthand for total_free (Number of free bytes)                       |
-    | free_pct       | Shorthand for total_free_pct (% free space)                           |
-    | fs             | Shorthand alias for filesystem                                        |
-    | hotplug        | 1 (true) if drive is hotplugable                                      |
-    | id             | Drive or id of drive                                                  |
-    | letter         | Letter the drive is mountedd on                                       |
-    | media_type     | Get the media type                                                    |
-    | mounted        | Check if a drive is mounted                                           |
-    | name           | Descriptive name of drive                                             |
-    | readable       | 1 (true) if drive is readable                                         |
-    | removable      | 1 (true) if drive is removable                                        |
-    | size           | Total size of drive                                                   |
-    | total_free     | Number of free bytes                                                  |
-    | total_free_pct | % free space                                                          |
-    | total_used     | Number of used bytes                                                  |
-    | total_used_pct | % used space                                                          |
-    | type           | Type of drive                                                         |
-    | used           | Number of used bytes                                                  |
-    | used_pct       | Shorthand for total_used_pct (% used space)                           |
-    | user_free      | Free space available to user (which runs NSClient++)                  |
-    | user_free_pct  | % free space available to user                                        |
-    | user_used      | Number of used bytes (related to user)                                |
-    | user_used_pct  | % used space available to user                                        |
-    | writable       | 1 (true) if drive is writable                                         |
-
-    **Common options for all checks:**
-
-    | Option        | Description                                                                    |
-    |---------------|--------------------------------------------------------------------------------|
-    | count         | Number of items matching the filter.                                           |
-    | crit_count    | Number of items matched the critical criteria.                                 |
-    | crit_list     | A list of all items which matched the critical criteria.                       |
-    | detail_list   | A special list with critical, then warning and finally ok.                     |
-    | list          | A list of all items which matched the filter.                                  |
-    | ok_count      | Number of items matched the ok criteria.                                       |
-    | ok_list       | A list of all items which matched the ok criteria.                             |
-    | problem_count | Number of items matched either warning or critical criteria.                   |
-    | problem_list  | A list of all items which matched either the critical or the warning criteria. |
-    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
-    | total         | Total number of items.                                                         |
-    | warn_count    | Number of items matched the warning criteria.                                  |
-    | warn_list     | A list of all items which matched the warning criteria.                        |
-
 === "Linux"
-
-    Check the size (free-space) of a drive or volume.
-
-
-    **Jump to section:**
-
-    * [Sample Commands](#check_drivesize_samples)
-    * [Command-line Arguments](#check_drivesize_options)
-    * [Filter keywords](#check_drivesize_filter_keys)
-
-
-    <a id="check_drivesize_samples"></a>
-    #### Sample Commands
-
-    _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_drivesize_samples.md)_
-
-    To check the size of **the C:\ drive** and **make sure it has at least 10% free** space:
-
-    ```
-    check_drivesize "crit=free<10%" drive=c:
-    L     client CRITICAL: c:: 205GB/223GB used
-    L     client  Performance data: 'c: free'=18GB;0;22;0;223 'c: free %'=8%;0;9;0;100
-    ```
-
-    To check the size of **all the drives** and make sure it has at least 10% free space:
-
-    ```
-    check_drivesize "crit=free<10%" drive=*
-    L     client OK: All drives ok
-    L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
-    ```
-
-    To check the size of all the drives and **display all values, not just problems**:
-
-    ```
-    check_drivesize drive=* --show-all
-    L     client CRITICAL: c:: 205GB/223GB used
-    L     client  Performance data: 'c: free'=18GB;0;22;0;223 'c: free %'=8%;0;9;0;100
-    ```
-
-    To check the size of all the drives and **return the value in gigabytes**. 
-    By default, units on performance data will be scaled to "something appropriate":
-
-    ```
-    check_drivesize "perf-config=*(unit:g)"
-    L        cli CRITICAL: CRITICAL C:\\: 208.147GB/223.471GB used, D:\\: 399.607GB/465.759GB used
-    L        cli  Performance data: 'C:\ used'=0.00019g;0.00017;0.00019;0;0.00021 'C:\ used %'=93%;79;89;0;100 'D:\ used'=0.00038g;0.00035;0.00039;0;0.00044 'D:\ used %'=85%;79;89;0;100 'E:\ used'=0g;0;0;0;0 '\\?\Volume{d458535f-27c7-11e4-be66-806e6f6e6963}\ used'=0g;0;0;0;0 '\\?\Volume{d458535f-27c7-11e4-be66-806e6f6e6963}\ used %'=33%;79;89;0;100
-    ```
-
-    To check the size of **a mounted volume** (c:\volume_test) and **make sure it has 1M free** space **warn if free space is less than 10M**:
-
-    ```
-       check_drivesize "crit=free<1M" "warn=free<10M" drive=c:\\volume_test
-       C:: Total: 74.5G - Used: 71.2G (95%) - Free: 3.28G (5%) < critical,C:;5%;10;5;
-    ```
-
-    To check the size of **all volumes** and **make sure they have 1M space free**:
-
-    ```
-    check_drivesize "crit=free<1M" drive=all-volumes
-    L     client OK: All drives ok
-    L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'E:\ free'=0B;0;0;0;0 'F:\ free'=0B;0;0;0;0
-    ```
-
-    To check the size of **all fixed and network drives** and make sure they have at least 1gig free space:
-
-    ```
-    check_drivesize "crit=free<1g" drive=* "filter=type in ('fixed', 'remote')"
-    L     client OK: All drives ok
-    L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
-    ```
-
-
-    To check **all fixed and network drives but ignore C and F**:
-
-    ```
-    check_drivesize "crit=free<1g" drive=* "filter=type in ('fixed', 'remote')" exclude=C:\\ exclude=D:\\
-    L     client OK: All drives ok
-    L     client  Performance data: 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
-    ```
-
-    To **restrict by filesystem type** — for example, only NTFS volumes — use the
-    `filesystem` keyword (alias `fs`). The value compared against is whatever the
-    OS reports via `GetVolumeInformation`, typically uppercase: `NTFS`, `FAT32`,
-    `exFAT`, `ReFS`, `CDFS`, `UDF`. Empty string is reported for unmounted or
-    unreadable volumes.
-
-    ```
-    check_drivesize drive=* "filter=fs = 'NTFS'"
-    L     client OK: All drives ok
-    L     client  Performance data: 'C:\ used'=205GB;...
-    ```
-
-    Combine with `type` to scope further — for example, only **fixed** disks that
-    are **NTFS or ReFS**:
-
-    ```
-    check_drivesize drive=* "filter=type = 'fixed' and fs in ('NTFS', 'ReFS')"
-    ```
-
-    Use `like` for **case-insensitive** matching, since the OS reports uppercase
-    but a recipe written as `'ntfs'` should still work:
-
-    ```
-    check_drivesize drive=* "filter=filesystem like 'ntfs'"
-    ```
-
-    Drop volumes whose filesystem could not be read (e.g. an empty CD/DVD drive):
-
-    ```
-    check_drivesize drive=* "filter=fs != ''"
-    ```
-
-    Default via NRPE:
-
-    ```
-    check_nrpe --host 192.168.56.103 --command check_drivesize
-    C:\: 205GB/223GB used, D:\: 448GB/466GB used, M:\: 2.6TB/2.68TB used|'C:\ used'=204GB;44;22;0;223 'C:\ used %'=91%;19;9;0;100 'D:\ used'=447GB;93;46;0;465...
-    ```
-
-    **Check inode exhaustion (Linux) — a filesystem can be "not full" on bytes yet out of inodes:**
-
-    ```
-    check_drivesize drive=/ "warn=inodes_used_pct > 85" "crit=inodes_used_pct > 95" "detail-syntax=${drive} inodes ${inodes_used}/${inodes_total} (${inodes_used_pct}%)"
-    OK: / inodes 350474/67108864 (1%)
-    ```
-
-    The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
-    `inodes_free_pct` and `inodes_used_pct`.
-
-
 
     <a id="check_drivesize_warn"></a>
     <a id="check_drivesize_crit"></a>
@@ -874,9 +673,6 @@ This is the syntax for the base names of the performance data.
     <a id="check_drivesize_show-default"></a>
     <a id="check_drivesize_help-short"></a>
     <a id="check_drivesize_exclude"></a>
-    <a id="check_drivesize_options"></a>
-    #### Command-line Arguments
-
 
     | Option                                          | Default Value                          | Description                                                                                                      |
     |-------------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1001,9 +797,63 @@ This is the syntax for the base names of the performance data.
     *Default Value:* `1)] (=0`
 
 
-    <a id="check_drivesize_filter_keys"></a>
-    #### Filter keywords
+<a id="check_drivesize_filter_keys"></a>
+#### Filter keywords
 
+=== "Windows"
+
+    | Option         | Description                                                           |
+    |----------------|-----------------------------------------------------------------------|
+    | drive          | Technical name of drive                                               |
+    | drive_or_id    | Drive letter if present if not use id                                 |
+    | drive_or_name  | Drive letter if present if not use name                               |
+    | erasable       | 1 (true) if drive is erasable                                         |
+    | filesystem     | Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS) |
+    | flags          | String representation of flags                                        |
+    | free           | Shorthand for total_free (Number of free bytes)                       |
+    | free_pct       | Shorthand for total_free_pct (% free space)                           |
+    | fs             | Shorthand alias for filesystem                                        |
+    | hotplug        | 1 (true) if drive is hotplugable                                      |
+    | id             | Drive or id of drive                                                  |
+    | letter         | Letter the drive is mountedd on                                       |
+    | media_type     | Get the media type                                                    |
+    | mounted        | Check if a drive is mounted                                           |
+    | name           | Descriptive name of drive                                             |
+    | readable       | 1 (true) if drive is readable                                         |
+    | removable      | 1 (true) if drive is removable                                        |
+    | size           | Total size of drive                                                   |
+    | total_free     | Number of free bytes                                                  |
+    | total_free_pct | % free space                                                          |
+    | total_used     | Number of used bytes                                                  |
+    | total_used_pct | % used space                                                          |
+    | type           | Type of drive                                                         |
+    | used           | Number of used bytes                                                  |
+    | used_pct       | Shorthand for total_used_pct (% used space)                           |
+    | user_free      | Free space available to user (which runs NSClient++)                  |
+    | user_free_pct  | % free space available to user                                        |
+    | user_used      | Number of used bytes (related to user)                                |
+    | user_used_pct  | % used space available to user                                        |
+    | writable       | 1 (true) if drive is writable                                         |
+
+    **Common options for all checks:**
+
+    | Option        | Description                                                                    |
+    |---------------|--------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                           |
+    | crit_count    | Number of items matched the critical criteria.                                 |
+    | crit_list     | A list of all items which matched the critical criteria.                       |
+    | detail_list   | A special list with critical, then warning and finally ok.                     |
+    | list          | A list of all items which matched the filter.                                  |
+    | ok_count      | Number of items matched the ok criteria.                                       |
+    | ok_list       | A list of all items which matched the ok criteria.                             |
+    | problem_count | Number of items matched either warning or critical criteria.                   |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria. |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+    | total         | Total number of items.                                                         |
+    | warn_count    | Number of items matched the warning criteria.                                  |
+    | warn_list     | A list of all items which matched the warning criteria.                        |
+
+=== "Linux"
 
     | Option          | Description                                                        |
     |-----------------|--------------------------------------------------------------------|
@@ -1065,7 +915,6 @@ This is the syntax for the base names of the performance data.
 
 Check various aspects of a file and/or folder.
 
-
 **Jump to section:**
 
 * [Sample Commands](#check_files_samples)
@@ -1076,9 +925,7 @@ Check various aspects of a file and/or folder.
 <a id="check_files_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_files_samples.md)_
-
-#### Performance
+**Performance**
 
 Order is somewhat important but mainly in the fact that some operations are more costly than others.
 For instance line_count requires us to read and count the lines in each file so choosing between the following:
@@ -1090,7 +937,7 @@ The first one will be significantly faster if you have a thousand old files and 
 
 On the other hand in this example `filter=creation < -2d and size > 100k` swapping them would not be noticeable.
 
-#### Checking versions of .exe files
+**Checking versions of .exe files**
 
 ```
 check_files path=c:/foo/ pattern=*.exe "filter=version != '1.0'" "detail-syntax=%(filename): %(version)" "warn=count > 1" show-all
@@ -1098,7 +945,7 @@ L        cli WARNING: WARNING: 0/11 files (check_nrpe.exe: , nscp.exe: 0.5.0.16,
 L        cli  Performance data: 'count'=11;1;0
 ```
 
-#### Using the line count with limited recursion:
+**Using the line count with limited recursion:**
 
 ```
 check_files path=c:/windows pattern=*.txt max-depth=1 "filter=line_count gt 100" "detail-syntax=%(filename): %(line_count)" "warn=count>0" show-all
@@ -1106,7 +953,7 @@ L        cli WARNING: WARNING: 0/1 files (AsChkDev.txt: 328)
 L        cli  Performance data: 'count'=1;0;0
 ```
 
-#### Check file sizes
+**Check file sizes**
 
 ```
 check_files path=c:/windows pattern=*.txt "detail-syntax=%(filename): %(size)" "warn=size>20k" max-depth=1
@@ -1133,6 +980,9 @@ Checksums are computed lazily — they are only calculated when a
 
 
 
+<a id="check_files_options"></a>
+#### Command-line Arguments
+
 <a id="check_files_warn"></a>
 <a id="check_files_crit"></a>
 <a id="check_files_debug"></a>
@@ -1145,9 +995,6 @@ Checksums are computed lazily — they are only calculated when a
 <a id="check_files_file"></a>
 <a id="check_files_paths"></a>
 <a id="check_files_max-depth"></a>
-<a id="check_files_options"></a>
-#### Command-line Arguments
-
 
 | Option                                      | Default Value                                                | Description                                                                                                      |
 |---------------------------------------------|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1281,7 +1128,6 @@ Include the total of either (filter) all files matching the filter or (all) all 
 <a id="check_files_filter_keys"></a>
 #### Filter keywords
 
-
 | Option          | Description                                  |
 |-----------------|----------------------------------------------|
 | access          | Last access time                             |
@@ -1328,360 +1174,254 @@ Include the total of either (filter) all files matching the filter or (all) all 
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
-
 ### check_mount
 
-=== "Windows"
+Check that a filesystem is mounted with the expected fstype and options.
 
-    Check that a filesystem is mounted with the expected fstype and options.
+#### About `check_mount`
 
-    #### About `check_mount`
+`check_mount` verifies that filesystems are mounted, and optionally that they
+are mounted with the expected filesystem type and options. It reads the live
+mount table (`/proc/self/mounts` via `getmntent`) so it reflects the actual
+running state, not `/etc/fstab`. It is implemented on **Unix only**; on Windows
+it reports that it is not supported.
 
-    `check_mount` verifies that filesystems are mounted, and optionally that they
-    are mounted with the expected filesystem type and options. It reads the live
-    mount table (`/proc/self/mounts` via `getmntent`) so it reflects the actual
-    running state, not `/etc/fstab`. It is implemented on **Unix only**; on Windows
-    it reports that it is not supported.
+Behaviour at a glance:
 
-    Behaviour at a glance:
+* With no `mount=` it inspects every *real* mount (pseudo-filesystems such as
+  `proc`, `sysfs`, `cgroup`, `tmpfs` overlays … are skipped).
+* With `mount=<path>` it inspects only that mount point, and reports
+  **CRITICAL** `not mounted` when nothing is mounted there.
+* `fstype=<type>` requires the mount to use that filesystem type; a mismatch is
+  flagged as an `expected fstype differs` issue.
+* `options=<a,b,c>` requires each listed mount option to be present; any missing
+  option is flagged as a `missing options` issue.
+
+Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
+
+| Keyword      | Description                                             |
+|--------------|--------------------------------------------------------|
+| `mount`      | Path of the mounted folder                             |
+| `device`     | Device backing this mount                              |
+| `fstype`     | Filesystem type of this mount                          |
+| `options`    | Mount options (comma separated)                        |
+| `issues`     | Human-readable description of any problems found       |
+| `has_issues` | `1` when this mount has one or more issues, else `0`   |
+
+Default thresholds: **warning** `has_issues = 1`, **critical**
+`issues like 'not mounted'`. So a missing filesystem is CRITICAL while a
+fstype/options mismatch is WARNING out of the box; override `warning=` /
+`critical=` to change that.
+
+**Jump to section:**
+
+* [Sample Commands](#check_mount_samples)
+* [Command-line Arguments](#check_mount_options)
+* [Filter keywords](#check_mount_filter_keys)
+
+
+<a id="check_mount_samples"></a>
+#### Sample Commands
+
+**Check that every real filesystem is mounted as expected:**
 
-    * With no `mount=` it inspects every *real* mount (pseudo-filesystems such as
-      `proc`, `sysfs`, `cgroup`, `tmpfs` overlays … are skipped).
-    * With `mount=<path>` it inspects only that mount point, and reports
-      **CRITICAL** `not mounted` when nothing is mounted there.
-    * `fstype=<type>` requires the mount to use that filesystem type; a mismatch is
-      flagged as an `expected fstype differs` issue.
-    * `options=<a,b,c>` requires each listed mount option to be present; any missing
-      option is flagged as a `missing options` issue.
+```
+check_mount
+OK: mounts are as expected
+```
 
-    Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
+**Check a single mount point:**
 
-    | Keyword      | Description                                             |
-    |--------------|--------------------------------------------------------|
-    | `mount`      | Path of the mounted folder                             |
-    | `device`     | Device backing this mount                              |
-    | `fstype`     | Filesystem type of this mount                          |
-    | `options`    | Mount options (comma separated)                        |
-    | `issues`     | Human-readable description of any problems found       |
-    | `has_issues` | `1` when this mount has one or more issues, else `0`   |
+```
+check_mount mount=/
+OK: mounts are as expected
+```
 
-    Default thresholds: **warning** `has_issues = 1`, **critical**
-    `issues like 'not mounted'`. So a missing filesystem is CRITICAL while a
-    fstype/options mismatch is WARNING out of the box; override `warning=` /
-    `critical=` to change that.
+**Require a specific filesystem type (warns when it differs):**
 
+```
+check_mount mount=/ fstype=zfs
+WARNING: mount / expected fstype differs: zfs != ext4
+```
 
-    **Jump to section:**
+**Require specific mount options (e.g. that `/` is mounted read-write with `noatime`):**
 
-    * [Sample Commands](#check_mount_samples)
-    * [Command-line Arguments](#check_mount_options)
+```
+check_mount mount=/ options=rw,noatime
+WARNING: mount / missing options: noatime
+```
 
+**A mount point that is not mounted is CRITICAL:**
 
-    <a id="check_mount_samples"></a>
-    #### Sample Commands
+```
+check_mount mount=/does/not/exist
+CRITICAL: mount /does/not/exist not mounted
+```
 
-    _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_mount_samples.md)_
+**Check via NRPE:**
 
-    **Check that every real filesystem is mounted as expected:**
+```
+check_nscp_client --host 192.168.56.103 --command check_mount --argument "mount=/data" --argument "fstype=ext4"
+OK: mounts are as expected
+```
 
-    ```
-    check_mount
-    OK: mounts are as expected
-    ```
 
-    **Check a single mount point:**
 
-    ```
-    check_mount mount=/
-    OK: mounts are as expected
-    ```
+<a id="check_mount_options"></a>
+#### Command-line Arguments
 
-    **Require a specific filesystem type (warns when it differs):**
+<a id="check_mount_warn"></a>
+<a id="check_mount_crit"></a>
+<a id="check_mount_debug"></a>
+<a id="check_mount_show-all"></a>
+<a id="check_mount_escape-html"></a>
+<a id="check_mount_help"></a>
+<a id="check_mount_help-pb"></a>
+<a id="check_mount_show-default"></a>
+<a id="check_mount_help-short"></a>
+<a id="check_mount_mount"></a>
+<a id="check_mount_options"></a>
+<a id="check_mount_fstype"></a>
 
-    ```
-    check_mount mount=/ fstype=zfs
-    WARNING: mount / expected fstype differs: zfs != ext4
-    ```
+| Option                                      | Default Value                                  | Description                                                                                                      |
+|---------------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_mount_filter)               |                                                | Filter which marks interesting items.                                                                            |
+| [warning](#check_mount_warning)             | has_issues = 1                                 | Filter which marks items which generates a warning state.                                                        |
+| warn                                        |                                                | Short alias for warning                                                                                          |
+| [critical](#check_mount_critical)           | issues like 'not mounted'                      | Filter which marks items which generates a critical state.                                                       |
+| crit                                        |                                                | Short alias for critical.                                                                                        |
+| [ok](#check_mount_ok)                       |                                                | Filter which marks items which generates an ok state.                                                            |
+| debug                                       | N/A                                            | Show debugging information in the log                                                                            |
+| show-all                                    | N/A                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_mount_empty-state)     | unknown                                        | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_mount_perf-config)     |                                                | Performance data generation configuration                                                                        |
+| escape-html                                 | N/A                                            | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                        | N/A                                            | Show help screen (this screen)                                                                                   |
+| help-pb                                     | N/A                                            | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                | N/A                                            | Show default values for a given command                                                                          |
+| help-short                                  | N/A                                            | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_mount_top-syntax)       | ${status}: ${problem_list}                     | Top level syntax.                                                                                                |
+| [ok-syntax](#check_mount_ok-syntax)         | %(status): mounts are as expected              | ok syntax.                                                                                                       |
+| [empty-syntax](#check_mount_empty-syntax)   | check_mount found nothing matching this filter | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_mount_detail-syntax) | mount ${mount} ${issues}                       | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_mount_perf-syntax)     | ${mount}                                       | Performance alias syntax.                                                                                        |
+| mount                                       |                                                | The mount point to check (omit to check all real mounts)                                                         |
+| options                                     |                                                | The mount options to expect (comma separated)                                                                    |
+| fstype                                      |                                                | The filesystem type to expect                                                                                    |
 
-    **Require specific mount options (e.g. that `/` is mounted read-write with `noatime`):**
 
-    ```
-    check_mount mount=/ options=rw,noatime
-    WARNING: mount / missing options: noatime
-    ```
 
-    **A mount point that is not mounted is CRITICAL:**
+<h5 id="check_mount_filter">filter:</h5>
 
-    ```
-    check_mount mount=/does/not/exist
-    CRITICAL: mount /does/not/exist not mounted
-    ```
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
-    **Check via NRPE:**
 
-    ```
-    check_nscp_client --host 192.168.56.103 --command check_mount --argument "mount=/data" --argument "fstype=ext4"
-    OK: mounts are as expected
-    ```
+<h5 id="check_mount_warning">warning:</h5>
 
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
 
 
-    <a id="check_mount_options"></a>
-    #### Command-line Arguments
+*Default Value:* `has_issues = 1`
 
-=== "Linux"
+<h5 id="check_mount_critical">critical:</h5>
 
-    Check that a filesystem is mounted with the expected fstype and options.
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
 
-    #### About `check_mount`
 
-    `check_mount` verifies that filesystems are mounted, and optionally that they
-    are mounted with the expected filesystem type and options. It reads the live
-    mount table (`/proc/self/mounts` via `getmntent`) so it reflects the actual
-    running state, not `/etc/fstab`. It is implemented on **Unix only**; on Windows
-    it reports that it is not supported.
+*Default Value:* `issues like 'not mounted'`
 
-    Behaviour at a glance:
+<h5 id="check_mount_ok">ok:</h5>
 
-    * With no `mount=` it inspects every *real* mount (pseudo-filesystems such as
-      `proc`, `sysfs`, `cgroup`, `tmpfs` overlays … are skipped).
-    * With `mount=<path>` it inspects only that mount point, and reports
-      **CRITICAL** `not mounted` when nothing is mounted there.
-    * `fstype=<type>` requires the mount to use that filesystem type; a mismatch is
-      flagged as an `expected fstype differs` issue.
-    * `options=<a,b,c>` requires each listed mount option to be present; any missing
-      option is flagged as a `missing options` issue.
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
 
-    Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-    | Keyword      | Description                                             |
-    |--------------|--------------------------------------------------------|
-    | `mount`      | Path of the mounted folder                             |
-    | `device`     | Device backing this mount                              |
-    | `fstype`     | Filesystem type of this mount                          |
-    | `options`    | Mount options (comma separated)                        |
-    | `issues`     | Human-readable description of any problems found       |
-    | `has_issues` | `1` when this mount has one or more issues, else `0`   |
-
-    Default thresholds: **warning** `has_issues = 1`, **critical**
-    `issues like 'not mounted'`. So a missing filesystem is CRITICAL while a
-    fstype/options mismatch is WARNING out of the box; override `warning=` /
-    `critical=` to change that.
-
-
-    **Jump to section:**
-
-    * [Sample Commands](#check_mount_samples)
-    * [Command-line Arguments](#check_mount_options)
-    * [Filter keywords](#check_mount_filter_keys)
-
-
-    <a id="check_mount_samples"></a>
-    #### Sample Commands
 
-    _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_mount_samples.md)_
-
-    **Check that every real filesystem is mounted as expected:**
+<h5 id="check_mount_empty-state">empty-state:</h5>
 
-    ```
-    check_mount
-    OK: mounts are as expected
-    ```
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
 
-    **Check a single mount point:**
+*Default Value:* `unknown`
 
-    ```
-    check_mount mount=/
-    OK: mounts are as expected
-    ```
+<h5 id="check_mount_perf-config">perf-config:</h5>
 
-    **Require a specific filesystem type (warns when it differs):**
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-    ```
-    check_mount mount=/ fstype=zfs
-    WARNING: mount / expected fstype differs: zfs != ext4
-    ```
 
-    **Require specific mount options (e.g. that `/` is mounted read-write with `noatime`):**
+<h5 id="check_mount_top-syntax">top-syntax:</h5>
 
-    ```
-    check_mount mount=/ options=rw,noatime
-    WARNING: mount / missing options: noatime
-    ```
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-    **A mount point that is not mounted is CRITICAL:**
+*Default Value:* `${status}: ${problem_list}`
 
-    ```
-    check_mount mount=/does/not/exist
-    CRITICAL: mount /does/not/exist not mounted
-    ```
+<h5 id="check_mount_ok-syntax">ok-syntax:</h5>
 
-    **Check via NRPE:**
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
 
-    ```
-    check_nscp_client --host 192.168.56.103 --command check_mount --argument "mount=/data" --argument "fstype=ext4"
-    OK: mounts are as expected
-    ```
+*Default Value:* `%(status): mounts are as expected`
 
+<h5 id="check_mount_empty-syntax">empty-syntax:</h5>
 
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
 
-    <a id="check_mount_warn"></a>
-    <a id="check_mount_crit"></a>
-    <a id="check_mount_debug"></a>
-    <a id="check_mount_show-all"></a>
-    <a id="check_mount_escape-html"></a>
-    <a id="check_mount_help"></a>
-    <a id="check_mount_help-pb"></a>
-    <a id="check_mount_show-default"></a>
-    <a id="check_mount_help-short"></a>
-    <a id="check_mount_mount"></a>
-    <a id="check_mount_options"></a>
-    <a id="check_mount_fstype"></a>
-    <a id="check_mount_options"></a>
-    #### Command-line Arguments
+*Default Value:* `check_mount found nothing matching this filter`
 
+<h5 id="check_mount_detail-syntax">detail-syntax:</h5>
 
-    | Option                                      | Default Value                                  | Description                                                                                                      |
-    |---------------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_mount_filter)               |                                                | Filter which marks interesting items.                                                                            |
-    | [warning](#check_mount_warning)             | has_issues = 1                                 | Filter which marks items which generates a warning state.                                                        |
-    | warn                                        |                                                | Short alias for warning                                                                                          |
-    | [critical](#check_mount_critical)           | issues like 'not mounted'                      | Filter which marks items which generates a critical state.                                                       |
-    | crit                                        |                                                | Short alias for critical.                                                                                        |
-    | [ok](#check_mount_ok)                       |                                                | Filter which marks items which generates an ok state.                                                            |
-    | debug                                       | N/A                                            | Show debugging information in the log                                                                            |
-    | show-all                                    | N/A                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-    | [empty-state](#check_mount_empty-state)     | unknown                                        | Return status to use when nothing matched filter.                                                                |
-    | [perf-config](#check_mount_perf-config)     |                                                | Performance data generation configuration                                                                        |
-    | escape-html                                 | N/A                                            | Escape any < and > characters to prevent HTML encoding                                                           |
-    | help                                        | N/A                                            | Show help screen (this screen)                                                                                   |
-    | help-pb                                     | N/A                                            | Show help screen as a protocol buffer payload                                                                    |
-    | show-default                                | N/A                                            | Show default values for a given command                                                                          |
-    | help-short                                  | N/A                                            | Show help screen (short format).                                                                                 |
-    | [top-syntax](#check_mount_top-syntax)       | ${status}: ${problem_list}                     | Top level syntax.                                                                                                |
-    | [ok-syntax](#check_mount_ok-syntax)         | %(status): mounts are as expected              | ok syntax.                                                                                                       |
-    | [empty-syntax](#check_mount_empty-syntax)   | check_mount found nothing matching this filter | Empty syntax.                                                                                                    |
-    | [detail-syntax](#check_mount_detail-syntax) | mount ${mount} ${issues}                       | Detail level syntax.                                                                                             |
-    | [perf-syntax](#check_mount_perf-syntax)     | ${mount}                                       | Performance alias syntax.                                                                                        |
-    | mount                                       |                                                | The mount point to check (omit to check all real mounts)                                                         |
-    | options                                     |                                                | The mount options to expect (comma separated)                                                                    |
-    | fstype                                      |                                                | The filesystem type to expect                                                                                    |
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
+*Default Value:* `mount ${mount} ${issues}`
 
+<h5 id="check_mount_perf-syntax">perf-syntax:</h5>
 
-    <h5 id="check_mount_filter">filter:</h5>
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
 
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+*Default Value:* `${mount}`
 
 
-    <h5 id="check_mount_warning">warning:</h5>
+<a id="check_mount_filter_keys"></a>
+#### Filter keywords
 
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
+| Option     | Description                                        |
+|------------|----------------------------------------------------|
+| device     | Device backing this mount                          |
+| fstype     | Filesystem type of this mount                      |
+| has_issues | 1 when any issue was found, else 0                 |
+| issues     | Issues found (empty when the mount is as expected) |
+| mount      | Path of the mounted folder                         |
+| options    | Mount options                                      |
 
+**Common options for all checks:**
 
-    *Default Value:* `has_issues = 1`
-
-    <h5 id="check_mount_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-    *Default Value:* `issues like 'not mounted'`
-
-    <h5 id="check_mount_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_mount_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `unknown`
-
-    <h5 id="check_mount_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_mount_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${problem_list}`
-
-    <h5 id="check_mount_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-    *Default Value:* `%(status): mounts are as expected`
-
-    <h5 id="check_mount_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `check_mount found nothing matching this filter`
-
-    <h5 id="check_mount_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `mount ${mount} ${issues}`
-
-    <h5 id="check_mount_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${mount}`
-
-
-    <a id="check_mount_filter_keys"></a>
-    #### Filter keywords
-
-
-    | Option     | Description                                        |
-    |------------|----------------------------------------------------|
-    | device     | Device backing this mount                          |
-    | fstype     | Filesystem type of this mount                      |
-    | has_issues | 1 when any issue was found, else 0                 |
-    | issues     | Issues found (empty when the mount is as expected) |
-    | mount      | Path of the mounted folder                         |
-    | options    | Mount options                                      |
-
-    **Common options for all checks:**
-
-    | Option        | Description                                                                    |
-    |---------------|--------------------------------------------------------------------------------|
-    | count         | Number of items matching the filter.                                           |
-    | crit_count    | Number of items matched the critical criteria.                                 |
-    | crit_list     | A list of all items which matched the critical criteria.                       |
-    | detail_list   | A special list with critical, then warning and finally ok.                     |
-    | list          | A list of all items which matched the filter.                                  |
-    | ok_count      | Number of items matched the ok criteria.                                       |
-    | ok_list       | A list of all items which matched the ok criteria.                             |
-    | problem_count | Number of items matched either warning or critical criteria.                   |
-    | problem_list  | A list of all items which matched either the critical or the warning criteria. |
-    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
-    | total         | Total number of items.                                                         |
-    | warn_count    | Number of items matched the warning criteria.                                  |
-    | warn_list     | A list of all items which matched the warning criteria.                        |
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 ### check_single_file
 
@@ -1704,8 +1444,6 @@ Behaviour at a glance:
   decide the status. With no thresholds the result is **OK** confirming
   the file exists.
 
-
-
 **Jump to section:**
 
 * [Sample Commands](#check_single_file_samples)
@@ -1716,37 +1454,35 @@ Behaviour at a glance:
 <a id="check_single_file_samples"></a>
 #### Sample Commands
 
-_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckDisk_check_single_file_samples.md)_
-
-#### Confirm a file exists (no thresholds)
+**Confirm a file exists (no thresholds)**
 
 ```
 check_single_file file=C:/Windows/System32/notepad.exe
 L        cli OK: notepad.exe (size=201728, age=12345)
 ```
 
-#### Warn when a log file grows too large
+**Warn when a log file grows too large**
 
 ```
 check_single_file file=C:/logs/app.log "warn=size > 10M" "crit=size > 100M"
 L        cli OK: app.log (size=524288, age=42)
 ```
 
-#### Warn when a file becomes stale (age in seconds)
+**Warn when a file becomes stale (age in seconds)**
 
 ```
 check_single_file file=C:/windows/WindowsUpdate.log "warn=age > 5m" "crit=age > 1h"
 L        cli CRITICAL: WindowsUpdate.log (size=276, age=917)
 ```
 
-#### Check a specific binary's version
+**Check a specific binary's version**
 
 ```
 check_single_file file="C:/Windows/System32/notepad.exe" "crit=version != '1.2.3.4'" "detail-syntax=%(filename): %(version)"
 L        cli CRITICAL: notepad.exe: 6.2.26100.8115
 ```
 
-#### Custom output formatting
+**Custom output formatting**
 
 The same `top-syntax` / `detail-syntax` / `ok-syntax` keys as `check_files`
 are accepted. Because there is exactly one item, `%(list)` in the top
@@ -1757,7 +1493,7 @@ check_single_file file=C:/windows/WindowsUpdate.log "warn=size > 1M" "top-syntax
 L        cli OK: OK WindowsUpdate.log is 276 bytes, last written 2026-04-30 11:42:36
 ```
 
-#### `path=` works as an alias for `file=`
+**`path=` works as an alias for `file=`**
 
 This makes it easy to migrate command lines from `check_files`:
 
@@ -1768,6 +1504,9 @@ L        cli OK: win.ini (size=92, age=873123)
 
 
 
+
+<a id="check_single_file_options"></a>
+#### Command-line Arguments
 
 <a id="check_single_file_warn"></a>
 <a id="check_single_file_crit"></a>
@@ -1780,9 +1519,6 @@ L        cli OK: win.ini (size=92, age=873123)
 <a id="check_single_file_help-short"></a>
 <a id="check_single_file_file"></a>
 <a id="check_single_file_path"></a>
-<a id="check_single_file_options"></a>
-#### Command-line Arguments
-
 
 | Option                                            | Default Value                          | Description                                                                                                      |
 |---------------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -1894,7 +1630,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_single_file_filter_keys"></a>
 #### Filter keywords
 
-
 | Option          | Description                                  |
 |-----------------|----------------------------------------------|
 | access          | Last access time                             |
@@ -1940,8 +1675,6 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
-
 
 ## Configuration
 

@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the SyslogClient
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                         | Description                                     |
 |---------------------------------|-------------------------------------------------|
 | [submit_syslog](#submit_syslog) | Submit information to the remote syslog server. |
@@ -26,14 +27,14 @@ A list of all available queries (check commands)
 
 Submit information to the remote syslog server.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#submit_syslog_options)
 
 
 
-
+<a id="submit_syslog_options"></a>
+#### Command-line Arguments
 
 <a id="submit_syslog_help"></a>
 <a id="submit_syslog_help-pb"></a>
@@ -63,9 +64,6 @@ Submit information to the remote syslog server.
 <a id="submit_syslog_facility"></a>
 <a id="submit_syslog_tag template"></a>
 <a id="submit_syslog_message template"></a>
-<a id="submit_syslog_options"></a>
-#### Command-line Arguments
-
 
 | Option            | Default Value | Description                                                                           |
 |-------------------|---------------|---------------------------------------------------------------------------------------|
@@ -97,9 +95,6 @@ Submit information to the remote syslog server.
 | facility          |               | Facility of error message                                                             |
 | tag template      |               | Tag template (TODO)                                                                   |
 | message template  |               | Message template (TODO)                                                               |
-
-
-
 
 
 ## Configuration

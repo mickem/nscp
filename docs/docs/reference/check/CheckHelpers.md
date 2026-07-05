@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the CheckHelpers
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                                         | Description                                                                         |
 |-------------------------------------------------|-------------------------------------------------------------------------------------|
 | [check_always_critical](#check_always_critical) | Run another check and regardless of its return code return CRITICAL.                |
@@ -56,22 +57,19 @@ A list of all short hand aliases for queries (check commands)
 
 Run another check and regardless of its return code return CRITICAL.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#check_always_critical_options)
 
 
 
-
+<a id="check_always_critical_options"></a>
+#### Command-line Arguments
 
 <a id="check_always_critical_help"></a>
 <a id="check_always_critical_help-pb"></a>
 <a id="check_always_critical_show-default"></a>
 <a id="check_always_critical_help-short"></a>
-<a id="check_always_critical_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -81,13 +79,9 @@ Run another check and regardless of its return code return CRITICAL.
 | help-short   | N/A           | Show help screen (short format).              |
 
 
-
-
-
 ### check_always_ok
 
 Run another check and regardless of its return code return OK.
-
 
 **Jump to section:**
 
@@ -95,15 +89,13 @@ Run another check and regardless of its return code return OK.
 
 
 
-
+<a id="check_always_ok_options"></a>
+#### Command-line Arguments
 
 <a id="check_always_ok_help"></a>
 <a id="check_always_ok_help-pb"></a>
 <a id="check_always_ok_show-default"></a>
 <a id="check_always_ok_help-short"></a>
-<a id="check_always_ok_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -113,13 +105,9 @@ Run another check and regardless of its return code return OK.
 | help-short   | N/A           | Show help screen (short format).              |
 
 
-
-
-
 ### check_always_warning
 
 Run another check and regardless of its return code return WARNING.
-
 
 **Jump to section:**
 
@@ -127,15 +115,13 @@ Run another check and regardless of its return code return WARNING.
 
 
 
-
+<a id="check_always_warning_options"></a>
+#### Command-line Arguments
 
 <a id="check_always_warning_help"></a>
 <a id="check_always_warning_help-pb"></a>
 <a id="check_always_warning_show-default"></a>
 <a id="check_always_warning_help-short"></a>
-<a id="check_always_warning_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -145,13 +131,9 @@ Run another check and regardless of its return code return WARNING.
 | help-short   | N/A           | Show help screen (short format).              |
 
 
-
-
-
 ### check_and_forward
 
 Run a check and forward the result as a passive check.
-
 
 **Jump to section:**
 
@@ -159,7 +141,8 @@ Run a check and forward the result as a passive check.
 
 
 
-
+<a id="check_and_forward_options"></a>
+#### Command-line Arguments
 
 <a id="check_and_forward_help"></a>
 <a id="check_and_forward_help-pb"></a>
@@ -168,9 +151,6 @@ Run a check and forward the result as a passive check.
 <a id="check_and_forward_target"></a>
 <a id="check_and_forward_command"></a>
 <a id="check_and_forward_arguments"></a>
-<a id="check_and_forward_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -183,13 +163,9 @@ Run a check and forward the result as a passive check.
 | arguments    |               | List of arguments (for wrapped command)       |
 
 
-
-
-
 ### check_critical
 
 Just return CRITICAL (anything passed along will be used as a message).
-
 
 **Jump to section:**
 
@@ -197,15 +173,13 @@ Just return CRITICAL (anything passed along will be used as a message).
 
 
 
-
+<a id="check_critical_options"></a>
+#### Command-line Arguments
 
 <a id="check_critical_help"></a>
 <a id="check_critical_help-pb"></a>
 <a id="check_critical_show-default"></a>
 <a id="check_critical_help-short"></a>
-<a id="check_critical_options"></a>
-#### Command-line Arguments
-
 
 | Option                             | Default Value | Description                                   |
 |------------------------------------|---------------|-----------------------------------------------|
@@ -224,11 +198,9 @@ Message to return
 *Default Value:* `No message`
 
 
-
 ### check_multi
 
 Run more then one check and return the worst state.
-
 
 **Jump to section:**
 
@@ -236,7 +208,8 @@ Run more then one check and return the worst state.
 
 
 
-
+<a id="check_multi_options"></a>
+#### Command-line Arguments
 
 <a id="check_multi_help"></a>
 <a id="check_multi_help-pb"></a>
@@ -246,9 +219,6 @@ Run more then one check and return the worst state.
 <a id="check_multi_arguments"></a>
 <a id="check_multi_prefix"></a>
 <a id="check_multi_suffix"></a>
-<a id="check_multi_options"></a>
-#### Command-line Arguments
-
 
 | Option                              | Default Value | Description                                   |
 |-------------------------------------|---------------|-----------------------------------------------|
@@ -271,11 +241,9 @@ Separator between messages
 *Default Value:* `, `
 
 
-
 ### check_negate
 
 Run a check and alter the return status codes according to arguments.
-
 
 **Jump to section:**
 
@@ -283,7 +251,8 @@ Run a check and alter the return status codes according to arguments.
 
 
 
-
+<a id="check_negate_options"></a>
+#### Command-line Arguments
 
 <a id="check_negate_help"></a>
 <a id="check_negate_help-pb"></a>
@@ -295,9 +264,6 @@ Run a check and alter the return status codes according to arguments.
 <a id="check_negate_unknown"></a>
 <a id="check_negate_command"></a>
 <a id="check_negate_arguments"></a>
-<a id="check_negate_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -313,13 +279,9 @@ Run a check and alter the return status codes according to arguments.
 | arguments    |               | List of arguments (for wrapped command)       |
 
 
-
-
-
 ### check_ok
 
 Just return OK (anything passed along will be used as a message).
-
 
 **Jump to section:**
 
@@ -327,15 +289,13 @@ Just return OK (anything passed along will be used as a message).
 
 
 
-
+<a id="check_ok_options"></a>
+#### Command-line Arguments
 
 <a id="check_ok_help"></a>
 <a id="check_ok_help-pb"></a>
 <a id="check_ok_show-default"></a>
 <a id="check_ok_help-short"></a>
-<a id="check_ok_options"></a>
-#### Command-line Arguments
-
 
 | Option                       | Default Value | Description                                   |
 |------------------------------|---------------|-----------------------------------------------|
@@ -354,11 +314,9 @@ Message to return
 *Default Value:* `No message`
 
 
-
 ### check_timeout
 
 Run a check and timeout after a given amount of time if the check has not returned.
-
 
 **Jump to section:**
 
@@ -366,7 +324,8 @@ Run a check and timeout after a given amount of time if the check has not return
 
 
 
-
+<a id="check_timeout_options"></a>
+#### Command-line Arguments
 
 <a id="check_timeout_help"></a>
 <a id="check_timeout_help-pb"></a>
@@ -376,9 +335,6 @@ Run a check and timeout after a given amount of time if the check has not return
 <a id="check_timeout_command"></a>
 <a id="check_timeout_arguments"></a>
 <a id="check_timeout_return"></a>
-<a id="check_timeout_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -392,13 +348,9 @@ Run a check and timeout after a given amount of time if the check has not return
 | return       |               | The return status                             |
 
 
-
-
-
 ### check_version
 
 Just return the NSClient++ version.
-
 
 **Jump to section:**
 
@@ -406,15 +358,13 @@ Just return the NSClient++ version.
 
 
 
-
+<a id="check_version_options"></a>
+#### Command-line Arguments
 
 <a id="check_version_help"></a>
 <a id="check_version_help-pb"></a>
 <a id="check_version_show-default"></a>
 <a id="check_version_help-short"></a>
-<a id="check_version_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -424,13 +374,9 @@ Just return the NSClient++ version.
 | help-short   | N/A           | Show help screen (short format).              |
 
 
-
-
-
 ### check_warning
 
 Just return WARNING (anything passed along will be used as a message).
-
 
 **Jump to section:**
 
@@ -438,15 +384,13 @@ Just return WARNING (anything passed along will be used as a message).
 
 
 
-
+<a id="check_warning_options"></a>
+#### Command-line Arguments
 
 <a id="check_warning_help"></a>
 <a id="check_warning_help-pb"></a>
 <a id="check_warning_show-default"></a>
 <a id="check_warning_help-short"></a>
-<a id="check_warning_options"></a>
-#### Command-line Arguments
-
 
 | Option                            | Default Value | Description                                   |
 |-----------------------------------|---------------|-----------------------------------------------|
@@ -463,7 +407,6 @@ Just return WARNING (anything passed along will be used as a message).
 Message to return
 
 *Default Value:* `No message`
-
 
 
 ### filter_perf
@@ -495,14 +438,14 @@ L        cli WARNING: WARNING: clion64.exe=started
 L        cli  Performance data: 'clion64.exe ws_size'=3.30852GB;3;5 'Rider.Backend.exe ws_size'=1.80017GB;3;5 'clangd.exe ws_size'=1.4822GB;3;5 'devenv.exe ws_size'=1.14938GB;3;5 'msedge.exe ws_size'=0.5757GB;3;5
 ```
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#filter_perf_options)
 
 
 
-
+<a id="filter_perf_options"></a>
+#### Command-line Arguments
 
 <a id="filter_perf_help"></a>
 <a id="filter_perf_help-pb"></a>
@@ -510,9 +453,6 @@ L        cli  Performance data: 'clion64.exe ws_size'=3.30852GB;3;5 'Rider.Backe
 <a id="filter_perf_help-short"></a>
 <a id="filter_perf_command"></a>
 <a id="filter_perf_arguments"></a>
-<a id="filter_perf_options"></a>
-#### Command-line Arguments
-
 
 | Option                      | Default Value | Description                                                 |
 |-----------------------------|---------------|-------------------------------------------------------------|
@@ -540,11 +480,9 @@ The maximum number of items to return (0 returns all items)
 *Default Value:* `0`
 
 
-
 ### render_perf
 
 Run a check and render the performance data as output message.
-
 
 **Jump to section:**
 
@@ -553,7 +491,8 @@ Run a check and render the performance data as output message.
 
 
 
-
+<a id="render_perf_options"></a>
+#### Command-line Arguments
 
 <a id="render_perf_warn"></a>
 <a id="render_perf_crit"></a>
@@ -566,9 +505,6 @@ Run a check and render the performance data as output message.
 <a id="render_perf_help-short"></a>
 <a id="render_perf_command"></a>
 <a id="render_perf_arguments"></a>
-<a id="render_perf_options"></a>
-#### Command-line Arguments
-
 
 | Option                                      | Default Value                                          | Description                                                                                                      |
 |---------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -687,7 +623,6 @@ List of arguments (for wrapped command)
 <a id="render_perf_filter_keys"></a>
 #### Filter keywords
 
-
 | Option  | Description          |
 |---------|----------------------|
 | crit    | Major version number |
@@ -717,12 +652,9 @@ List of arguments (for wrapped command)
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
-
 ### xform_perf
 
 Run a check and transform the performance data in various (currently one) way.
-
 
 **Jump to section:**
 
@@ -730,7 +662,8 @@ Run a check and transform the performance data in various (currently one) way.
 
 
 
-
+<a id="xform_perf_options"></a>
+#### Command-line Arguments
 
 <a id="xform_perf_help"></a>
 <a id="xform_perf_help-pb"></a>
@@ -741,9 +674,6 @@ Run a check and transform the performance data in various (currently one) way.
 <a id="xform_perf_mode"></a>
 <a id="xform_perf_field"></a>
 <a id="xform_perf_replace"></a>
-<a id="xform_perf_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                                                 |
 |--------------|---------------|-----------------------------------------------------------------------------|
@@ -756,9 +686,6 @@ Run a check and transform the performance data in various (currently one) way.
 | mode         |               | Transformation mode: extract to fetch data or minmax to add missing min/max |
 | field        |               | Field to work with (value, warn, crit, max, min)                            |
 | replace      |               | Replace expression for the alias                                            |
-
-
-
 
 
 ## Configuration

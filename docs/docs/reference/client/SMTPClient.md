@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the SMTPClient m
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                     | Description                                   |
 |-----------------------------|-----------------------------------------------|
 | [submit_smtp](#submit_smtp) | Submit information to the remote SMTP server. |
@@ -26,14 +27,14 @@ A list of all available queries (check commands)
 
 Submit information to the remote SMTP server.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#submit_smtp_options)
 
 
 
-
+<a id="submit_smtp_options"></a>
+#### Command-line Arguments
 
 <a id="submit_smtp_help"></a>
 <a id="submit_smtp_help-pb"></a>
@@ -65,9 +66,6 @@ Submit information to the remote SMTP server.
 <a id="submit_smtp_insecure-skip-verify"></a>
 <a id="submit_smtp_source-host"></a>
 <a id="submit_smtp_sender-host"></a>
-<a id="submit_smtp_options"></a>
-#### Command-line Arguments
-
 
 | Option               | Default Value | Description                                                                            |
 |----------------------|---------------|----------------------------------------------------------------------------------------|
@@ -101,9 +99,6 @@ Submit information to the remote SMTP server.
 | insecure-skip-verify | N/A           | Skip TLS certificate validation (test environments only).                              |
 | source-host          |               | Source/sender host name (default is auto which means use the name of the actual host). |
 | sender-host          |               | Source/sender host name (alias for --source-host).                                     |
-
-
-
 
 
 ## Configuration

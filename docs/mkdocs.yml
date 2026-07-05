@@ -61,9 +61,9 @@ nav:
         - CheckLogFile: reference/check/CheckLogFile.md
         - CheckMKClient: reference/check/CheckMKClient.md
         - CheckMKServer: reference/check/CheckMKServer.md
-        - CheckNet: reference/misc/CheckNet.md
+        - CheckNet: reference/check/CheckNet.md
         - CheckNSCP: reference/check/CheckNSCP.md
-        - CheckSystemUnix (unix): reference/unix/CheckSystemUnix.md
+        - CheckSecurity: reference/check/CheckSecurity.md
         - CheckSystem: reference/check/CheckSystem.md
         - CheckTaskSched (Windows): reference/windows/CheckTaskSched.md
         - CheckWMI (Windows): reference/windows/CheckWMI.md

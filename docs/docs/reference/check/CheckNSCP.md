@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the CheckNSCP mo
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                                   | Description                                                                                                                                              |
 |-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [check_nscp](#check_nscp)                 | Check the internal health of NSClient++.                                                                                                                 |
@@ -28,22 +29,19 @@ A list of all available queries (check commands)
 
 Check the internal health of NSClient++.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#check_nscp_options)
 
 
 
-
+<a id="check_nscp_options"></a>
+#### Command-line Arguments
 
 <a id="check_nscp_help"></a>
 <a id="check_nscp_help-pb"></a>
 <a id="check_nscp_show-default"></a>
 <a id="check_nscp_help-short"></a>
-<a id="check_nscp_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                   |
 |--------------|---------------|-----------------------------------------------|
@@ -53,13 +51,9 @@ Check the internal health of NSClient++.
 | help-short   | N/A           | Show help screen (short format).              |
 
 
-
-
-
 ### check_nscp_update
 
 Check if there is a newer version of NSClient++ available on GitHub. The result is cached (default 24 hours) to avoid hitting the GitHub API rate limit.
-
 
 **Jump to section:**
 
@@ -68,7 +62,8 @@ Check if there is a newer version of NSClient++ available on GitHub. The result 
 
 
 
-
+<a id="check_nscp_update_options"></a>
+#### Command-line Arguments
 
 <a id="check_nscp_update_warn"></a>
 <a id="check_nscp_update_crit"></a>
@@ -79,9 +74,6 @@ Check if there is a newer version of NSClient++ available on GitHub. The result 
 <a id="check_nscp_update_help-pb"></a>
 <a id="check_nscp_update_show-default"></a>
 <a id="check_nscp_update_help-short"></a>
-<a id="check_nscp_update_options"></a>
-#### Command-line Arguments
-
 
 | Option                                            | Default Value                          | Description                                                                                                      |
 |---------------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -191,7 +183,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_nscp_update_filter_keys"></a>
 #### Filter keywords
 
-
 | Option           | Description                                                                                                                      |
 |------------------|----------------------------------------------------------------------------------------------------------------------------------|
 | build            | The build component of the installed version (the 3 in 0.1.2.3)                                                                  |
@@ -230,12 +221,9 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
 
-
-
 ### check_nscp_version
 
 Check the version of NSClient++ which is used.
-
 
 **Jump to section:**
 
@@ -244,7 +232,8 @@ Check the version of NSClient++ which is used.
 
 
 
-
+<a id="check_nscp_version_options"></a>
+#### Command-line Arguments
 
 <a id="check_nscp_version_warn"></a>
 <a id="check_nscp_version_crit"></a>
@@ -255,9 +244,6 @@ Check the version of NSClient++ which is used.
 <a id="check_nscp_version_help-pb"></a>
 <a id="check_nscp_version_show-default"></a>
 <a id="check_nscp_version_help-short"></a>
-<a id="check_nscp_version_options"></a>
-#### Command-line Arguments
-
 
 | Option                                             | Default Value        | Description                                                                                                      |
 |----------------------------------------------------|----------------------|------------------------------------------------------------------------------------------------------------------|
@@ -365,7 +351,6 @@ This is the syntax for the base names of the performance data.
 <a id="check_nscp_version_filter_keys"></a>
 #### Filter keywords
 
-
 | Option  | Description                                                                |
 |---------|----------------------------------------------------------------------------|
 | build   | The build (the 3 in 0.1.2.3) not available in release versions after 0.6.0 |
@@ -392,8 +377,6 @@ This is the syntax for the base names of the performance data.
 | total         | Total number of items.                                                         |
 | warn_count    | Number of items matched the warning criteria.                                  |
 | warn_list     | A list of all items which matched the warning criteria.                        |
-
-
 
 ## Configuration
 

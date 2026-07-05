@@ -18,6 +18,7 @@ A quick reference for all available queries (check commands) in the GraphiteClie
 **List of commands:**
 
 A list of all available queries (check commands)
+
 | Command                             | Description                                       |
 |-------------------------------------|---------------------------------------------------|
 | [submit_graphite](#submit_graphite) | Submit information to the remote Graphite server. |
@@ -26,14 +27,14 @@ A list of all available queries (check commands)
 
 Submit information to the remote Graphite server.
 
-
 **Jump to section:**
 
 * [Command-line Arguments](#submit_graphite_options)
 
 
 
-
+<a id="submit_graphite_options"></a>
+#### Command-line Arguments
 
 <a id="submit_graphite_help"></a>
 <a id="submit_graphite_help-pb"></a>
@@ -55,9 +56,6 @@ Submit information to the remote Graphite server.
 <a id="submit_graphite_separator"></a>
 <a id="submit_graphite_batch"></a>
 <a id="submit_graphite_path"></a>
-<a id="submit_graphite_options"></a>
-#### Command-line Arguments
-
 
 | Option       | Default Value | Description                                                                           |
 |--------------|---------------|---------------------------------------------------------------------------------------|
@@ -81,9 +79,6 @@ Submit information to the remote Graphite server.
 | separator    |               | Separator to use for the batch command (default is |)                                 |
 | batch        |               | Add multiple records using the separator format is: command|result|message            |
 | path         |               |                                                                                       |
-
-
-
 
 
 ## Configuration
