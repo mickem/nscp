@@ -35,6 +35,11 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("inbound", &filter_obj::get_inbound, "Default inbound action (allow/block)")
       .add_string_var("outbound", &filter_obj::get_outbound, "Default outbound action (allow/block)");
   registry_.add_int_var("enabled", type_bool, &filter_obj::get_enabled, "True if the profile's firewall is enabled").add_int_perf("");
+  registry_
+      .add_int_var("active", type_bool, &filter_obj::get_active,
+                   "True if the profile is currently applied to a connected network (e.g. NLA re-categorising a network to public makes the Public profile "
+                   "active)")
+      .add_int_perf("", "", " active");
 }
 
 }  // namespace firewall_filter

@@ -29,9 +29,10 @@ namespace firewall_source {
 
 namespace {
 
-firewall_filter::filter_obj_ptr make_profile(INetFwPolicy2 *policy, NET_FW_PROFILE_TYPE2 type, const std::string &name) {
+firewall_filter::filter_obj_ptr make_profile(INetFwPolicy2 *policy, NET_FW_PROFILE_TYPE2 type, const std::string &name, long active_types) {
   auto obj = std::make_shared<firewall_filter::filter_obj>();
   obj->profile = name;
+  obj->active = (active_types & type) != 0 ? 1 : 0;
 
   VARIANT_BOOL enabled = VARIANT_FALSE;
   if (SUCCEEDED(policy->get_FirewallEnabled(type, &enabled))) obj->enabled = (enabled != VARIANT_FALSE) ? 1 : 0;
@@ -55,9 +56,14 @@ void gather(std::vector<firewall_filter::filter_obj_ptr> &out, std::string &erro
     return;
   }
 
-  out.push_back(make_profile(policy, NET_FW_PROFILE2_DOMAIN, "Domain"));
-  out.push_back(make_profile(policy, NET_FW_PROFILE2_PRIVATE, "Private"));
-  out.push_back(make_profile(policy, NET_FW_PROFILE2_PUBLIC, "Public"));
+  // Which profile(s) NLA currently applies (bitmask; with no connected
+  // network Windows reports Public).
+  long active_types = 0;
+  if (FAILED(policy->get_CurrentProfileTypes(&active_types))) active_types = 0;
+
+  out.push_back(make_profile(policy, NET_FW_PROFILE2_DOMAIN, "Domain", active_types));
+  out.push_back(make_profile(policy, NET_FW_PROFILE2_PRIVATE, "Private", active_types));
+  out.push_back(make_profile(policy, NET_FW_PROFILE2_PUBLIC, "Public", active_types));
 
   policy->Release();
   if (com_inited) CoUninitialize();

@@ -31,16 +31,18 @@ namespace firewall_filter {
 
 // One Windows firewall profile (Domain / Private / Public).
 struct filter_obj {
-  filter_obj() : enabled(0) {}
+  filter_obj() : enabled(0), active(0) {}
 
   std::string get_profile() const { return profile; }
   long long get_enabled() const { return enabled; }
+  long long get_active() const { return active; }
   std::string get_inbound() const { return inbound; }
   std::string get_outbound() const { return outbound; }
   std::string show() const { return profile; }
 
   std::string profile;
   long long enabled;  // 1 = enabled, 0 = disabled
+  long long active;   // 1 = profile is currently applied to a connected network
   std::string inbound;
   std::string outbound;
 };
