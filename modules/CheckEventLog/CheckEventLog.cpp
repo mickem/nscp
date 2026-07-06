@@ -56,7 +56,7 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
           ("real-time/filters", sh::fun_values_path([this](auto key, auto value) {
              thread_->add_realtime_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value);
            }),
-           "Real-time eventlog filters", "A set of filters to use in real-time mode", "FILTER DEFENITION",
+           "Real-time eventlog filters", "A set of filters to use in real-time mode", "FILTER DEFINITION",
            "For more configuration options add a dedicated section");
 
   settings.alias()

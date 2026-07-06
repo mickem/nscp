@@ -81,7 +81,7 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
     if (is_sample) root_path.set_sample();
     if (oneliner) return;
 
-    root_path.add_path()("SCHEDULE DEFENITION", "Schedule definition for: " + get_alias());
+    root_path.add_path()("SCHEDULE DEFINITION", "Schedule definition for: " + get_alias());
 
     root_path
         .add_key()

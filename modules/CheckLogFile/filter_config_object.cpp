@@ -42,7 +42,7 @@ void filter_config_object::read(nscapi::settings_helper::settings_impl_interface
   if (is_sample) root_path.set_sample();
 
   if (oneliner) return;
-  root_path.add_path()("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias());
+  root_path.add_path()("REAL TIME FILTER DEFINITION", "Definition for real time filter: " + get_alias());
 
   root_path.add_key()
       .add_string("file", sh::string_fun_key([this](auto key) { this->set_file(key); }), "FILE", "The file check", false)

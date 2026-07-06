@@ -292,7 +292,7 @@ struct cli_helper : boost::noncopyable {
     const std::string dk =
         "Detail level syntax.\n"
         "Used to format each resulting item in the message.\n"
-        "%(list) will be replaced with all the items formated by this syntax string in the top-syntax.\n"
+        "%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.\n"
         "To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be "
         "difficult to escape on linux).";
     const std::string pk =

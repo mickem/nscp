@@ -234,7 +234,7 @@ bool NSCSettingsImpl::create_context(const std::string &key) {
     get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
     return false;
   } catch (...) {
-    get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+    get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
     return false;
   }
   return true;
@@ -248,7 +248,7 @@ void NSCSettingsImpl::change_context(const std::string &context) {
   } catch (settings::settings_exception &e) {
     get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
-    get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+    get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
   }
 }
 
@@ -265,7 +265,7 @@ bool init_settings(provider_interface *provider, const std::string &context) {
     get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
     return false;
   } catch (...) {
-    get_core()->get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+    get_core()->get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
     return false;
   }
   return true;
@@ -285,7 +285,7 @@ bool init_installer_settings(provider_interface *provider, const std::string &co
     get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
     return false;
   } catch (...) {
-    get_core()->get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+    get_core()->get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
     return false;
   }
   return true;

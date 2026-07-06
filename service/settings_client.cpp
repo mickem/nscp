@@ -61,7 +61,7 @@ int nsclient_core::settings_client::migrate_from(std::string src) {
   } catch (settings::settings_exception &e) {
     error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
-    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
   }
   return -1;
 }
@@ -73,7 +73,7 @@ int nsclient_core::settings_client::migrate_to(std::string target) {
   } catch (const settings::settings_exception &e) {
     error_msg(e.file(), e.line(), "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
-    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
   }
   return -1;
 }
@@ -111,7 +111,7 @@ int nsclient_core::settings_client::generate(std::string target) {
     error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
     return 1;
   } catch (...) {
-    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
     return 1;
   }
 }
@@ -146,7 +146,7 @@ int nsclient_core::settings_client::list(std::string path) {
   } catch (settings::settings_exception &e) {
     error_msg(__FILE__, __LINE__, "Settings error: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
-    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
   }
 
   return 0;
@@ -170,7 +170,7 @@ int nsclient_core::settings_client::sort() {
   } catch (std::exception &e) {
     error_msg(__FILE__, __LINE__, "Failed to sort settings: " + utf8::utf8_from_native(e.what()));
   } catch (...) {
-    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
   }
   return 1;
 }
