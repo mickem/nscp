@@ -60,10 +60,17 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
       .add_int_var("priority", &filter_obj::get_priority, "Retrieves the priority for the task.")
       .add_int_var("task_status", type_custom_state, &filter_obj::get_status, "Retrieves the status of the work item.")
       .add_int_var("most_recent_run_time", type_date, &filter_obj::get_most_recent_run_time, "Retrieves the most recent time the work item began running.")
-      .add_int_var("has_run", type_bool, &filter_obj::get_has_run, "True if the task has ever executed.");
+      .add_int_var("has_run", type_bool, &filter_obj::get_has_run, "True if the task has ever executed.")
+      .add_int_var("next_run_time", type_date, &filter_obj::get_next_run_time,
+                   "The next time the task is scheduled to run (0 / rendered as 'none' if it has no upcoming run).")
+      .add_int_var("number_of_missed_runs", &filter_obj::get_number_of_missed_runs,
+                   "Number of times the task was scheduled to run but did not (0 on the legacy ITask API).")
+      .add_int_var("last_run_age", &filter_obj::get_last_run_age,
+                   "Seconds since the task last ran (-1 if it has never run). Use e.g. last_run_age > 86400 to alert on stale tasks.");
 
   registry_.add_human_string("task_status", &filter_obj::get_status_s, "")
-      .add_human_string("most_recent_run_time", &filter_obj::get_most_recent_run_time_s, "");
+      .add_human_string("most_recent_run_time", &filter_obj::get_most_recent_run_time_s, "")
+      .add_human_string("next_run_time", &filter_obj::get_next_run_time_s, "");
 
   registry_.add_converter(type_custom_state, &fun_convert_status);
 }
@@ -104,7 +111,8 @@ old_filter_obj::old_filter_obj(ITask* task, std::string title)
       max_run_time(&ITask::GetMaxRunTime),
       priority(&ITask::GetPriority),
       status(&ITask::GetStatus),
-      most_recent_run_time(&ITask::GetMostRecentRunTime) {}
+      most_recent_run_time(&ITask::GetMostRecentRunTime),
+      next_run_time(&ITask::GetNextRunTime) {}
 
 new_filter_obj::new_filter_obj(IRegisteredTask* task, std::string folder)
     : task(task),
@@ -114,6 +122,8 @@ new_filter_obj::new_filter_obj(IRegisteredTask* task, std::string folder)
       status(&IRegisteredTask::get_State),
       enabled(&IRegisteredTask::get_Enabled),
       most_recent_run_time(&IRegisteredTask::get_LastRunTime),
+      next_run_time(&IRegisteredTask::get_NextRunTime),
+      number_of_missed_runs(&IRegisteredTask::get_NumberOfMissedRuns),
       comment(&IRegistrationInfo::get_Description),
       creator(&IRegistrationInfo::get_Author),
       priority(&ITaskSettings::get_Priority),

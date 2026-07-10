@@ -14,6 +14,7 @@
 #include <memory>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <parsers/helpers.hpp>
 #include <parsers/where/engine.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/node.hpp>
@@ -102,6 +103,19 @@ struct date_traits : public fetch_traits<TRawType, task_sched_date, TObject> {
     return task_sched_date(convert_time(value));
   }
 };
+// Next-run time is special: a task with no upcoming run (disabled, no more
+// triggers, on-demand only) makes get_NextRunTime return a non-S_OK HRESULT
+// (e.g. SCHED_S_TASK_NO_MORE_RUNS) or leave the DATE unset. Treat any non-S_OK
+// result as "no next run" (the never_ sentinel) instead of throwing, so one
+// such task does not abort a wildcard check over many tasks.
+template <typename TRawType, typename TObject>
+struct next_run_date_traits : public date_traits<TRawType, TObject> {
+  static bool has_failed(HRESULT) { return false; }
+  static task_sched_date convert(HRESULT hr, TRawType &value) {
+    if (hr != S_OK) return task_sched_date(true);
+    return task_sched_date(date_traits<TRawType, TObject>::convert_time(value));
+  }
+};
 template <typename TTarget, typename TReturn, typename TObject>
 struct bool_traits : public fetch_traits<TTarget, TReturn, TObject> {
   static TReturn get_default() { return false; }
@@ -173,6 +187,10 @@ struct filter_obj {
   virtual long long get_most_recent_run_time() = 0;
   virtual std::string get_most_recent_run_time_s() = 0;
   virtual bool get_has_run() = 0;
+  virtual long long get_next_run_time() = 0;
+  virtual std::string get_next_run_time_s() = 0;
+  virtual long long get_number_of_missed_runs() = 0;
+  virtual long long get_last_run_age() = 0;
 };
 
 struct old_filter_obj : public filter_obj {
@@ -181,6 +199,7 @@ struct old_filter_obj : public filter_obj {
   typedef helpers::com_variable<helpers::word_traits<DWORD, long long, ITask> > dword_variable;
   typedef helpers::com_variable<helpers::word_traits<HRESULT, long long, ITask> > hresult_variable;
   typedef helpers::com_variable<helpers::date_traits<SYSTEMTIME, ITask> > date_variable;
+  typedef helpers::com_variable<helpers::next_run_date_traits<SYSTEMTIME, ITask> > next_run_date_variable;
 
   ITask *task;
   std::string title;
@@ -198,6 +217,7 @@ struct old_filter_obj : public filter_obj {
 
   hresult_variable status;
   date_variable most_recent_run_time;
+  next_run_date_variable next_run_time;
 
   old_filter_obj(ITask *task, std::string title);
 
@@ -237,6 +257,18 @@ struct old_filter_obj : public filter_obj {
   long long get_most_recent_run_time() { return most_recent_run_time(task, title); }
   std::string get_most_recent_run_time_s() { return str::format::format_date(get_most_recent_run_time()); }
   bool get_has_run() { return most_recent_run_time(task, title).has_run(); }
+  long long get_next_run_time() { return next_run_time(task, title); }
+  std::string get_next_run_time_s() {
+    const long long t = get_next_run_time();
+    return t == 0 ? "none" : str::format::format_date(t);
+  }
+  // The legacy ITask API has no missed-runs counter; report 0 rather than
+  // throwing, so the field can appear in default output on downlevel systems.
+  long long get_number_of_missed_runs() { return 0; }
+  long long get_last_run_age() {
+    if (!get_has_run()) return -1;
+    return parsers::where::constants::get_now() - get_most_recent_run_time();
+  }
 };
 
 struct new_filter_obj : public filter_obj {
@@ -247,6 +279,7 @@ struct new_filter_obj : public filter_obj {
   typedef helpers::com_variable<helpers::word_traits<TASK_STATE, long long, IRegisteredTask> > state_variable;
   typedef helpers::com_variable<helpers::word_traits<HRESULT, long long, IRegisteredTask> > hresult_variable;
   typedef helpers::com_variable<helpers::date_traits<DATE, IRegisteredTask> > date_variable;
+  typedef helpers::com_variable<helpers::next_run_date_traits<DATE, IRegisteredTask> > next_run_date_variable;
   typedef helpers::com_variable<helpers::bool_traits<VARIANT_BOOL, bool, IRegisteredTask> > bool_variable;
   typedef helpers::com_variable<helpers::bstr_traits<IRegistrationInfo> > info_string_variable;
   typedef helpers::com_variable<helpers::word_traits<int, long long, ITaskSettings> > settings_int_variable;
@@ -263,6 +296,8 @@ struct new_filter_obj : public filter_obj {
   state_variable status;
   bool_variable enabled;
   date_variable most_recent_run_time;
+  next_run_date_variable next_run_time;
+  long_variable number_of_missed_runs;
   info_string_variable comment;
   info_string_variable creator;
   settings_int_variable priority;
@@ -312,6 +347,18 @@ struct new_filter_obj : public filter_obj {
   long long get_most_recent_run_time() { return most_recent_run_time(task, get_title()); }
   std::string get_most_recent_run_time_s() { return str::format::format_date(get_most_recent_run_time()); }
   bool get_has_run() { return most_recent_run_time(task, get_title()).has_run(); }
+  long long get_next_run_time() { return next_run_time(task, get_title()); }
+  std::string get_next_run_time_s() {
+    const long long t = get_next_run_time();
+    return t == 0 ? "none" : str::format::format_date(t);
+  }
+  long long get_number_of_missed_runs() { return number_of_missed_runs(task, get_title()); }
+  // Seconds since the task last ran; -1 when it has never run so a naive
+  // now-minus-zero does not read as a ~55-year age.
+  long long get_last_run_age() {
+    if (!get_has_run()) return -1;
+    return parsers::where::constants::get_now() - get_most_recent_run_time();
+  }
 
   long long convert_runtime(const std::string &) { return 0; }
 };
