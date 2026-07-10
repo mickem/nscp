@@ -198,6 +198,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   pdh_checker.counters_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
   if (!pdh_checker.counters_.has_object("disk_queue_length")) add_counter("disk_queue_length", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
+  if (!pdh_checker.counters_.has_object("memory_pages_sec")) add_counter("memory_pages_sec", "\\Memory\\Pages/sec");
   if (collector->use_pdh_for_cpu) {
     if (!pdh_checker.counters_.has_object("cpu_total")) add_rrd_counter("cpu_total", "\\Processor Information($INSTANCE$)\\% Processor Utility");
     if (!pdh_checker.counters_.has_object("cpu_kernel")) add_rrd_counter("cpu_kernel", "\\Processor Information($INSTANCE$)\\% Privileged Utility");
