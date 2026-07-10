@@ -19,6 +19,8 @@
 #include <win/sysinfo/win_sysinfo.hpp>
 #include <win/win_defines.hpp>
 #include <win/windows.hpp>
+// tlhelp32.h depends on windows.h types, so it must follow win/windows.hpp.
+#include <tlhelp32.h>
 
 // Defensive define for SDKs older than Windows Vista (NT 6.0). The constant
 // is just a numeric flag passed to OpenProcess; the kernel decides whether
@@ -307,6 +309,45 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
   return entry;
 }
 
+namespace {
+// One system-wide thread snapshot -> per-PID thread count. Cheaper than a
+// per-PID snapshot (O(threads) once vs O(pids*threads)). Empty on failure, in
+// which case thread_count stays 0.
+std::map<DWORD, long long> snapshot_thread_counts() {
+  std::map<DWORD, long long> counts;
+  const HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+  if (snap == INVALID_HANDLE_VALUE) return counts;
+  THREADENTRY32 te;
+  te.dwSize = sizeof(te);
+  if (Thread32First(snap, &te)) {
+    do {
+      counts[te.th32OwnerProcessID]++;
+    } while (Thread32Next(snap, &te));
+  }
+  CloseHandle(snap);
+  return counts;
+}
+
+// System-wide memory totals used as the base for working_set_pct / pagefile_pct.
+void read_memory_totals(unsigned long long &total_phys, unsigned long long &total_pagefile) {
+  MEMORYSTATUSEX ms;
+  ms.dwLength = sizeof(ms);
+  if (GlobalMemoryStatusEx(&ms)) {
+    total_phys = ms.ullTotalPhys;
+    total_pagefile = ms.ullTotalPageFile;
+  }
+}
+
+// Stamp the system-wide gauges (thread count + memory totals) onto one process.
+void apply_system_gauges(process_info &entry, const std::map<DWORD, long long> &thread_counts, unsigned long long total_phys,
+                         unsigned long long total_pagefile) {
+  const auto it = thread_counts.find(entry.pid.get());
+  if (it != thread_counts.end()) entry.threadCount = it->second;
+  entry.total_physical_memory = total_phys;
+  entry.total_pagefile = total_pagefile;
+}
+}  // namespace
+
 process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool deep_scan, error_reporter *error_interface, unsigned int buffer_size) {
   try {
     enable_token_privilege(SE_DEBUG_NAME, true);
@@ -365,11 +406,15 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
   }
 
   std::vector<DWORD> hung_pids = find_crashed_pids(error_interface);
+  const std::map<DWORD, long long> thread_counts = snapshot_thread_counts();
+  unsigned long long total_phys = 0, total_pagefile = 0;
+  read_memory_totals(total_phys, total_pagefile);
   for (auto entry = ret.begin(); entry != ret.end(); ++entry) {
     if (std::find(hung_pids.begin(), hung_pids.end(), entry->pid) != hung_pids.end())
       entry->hung = true;
     else
       entry->hung = false;
+    apply_system_gauges(*entry, thread_counts, total_phys, total_pagefile);
   }
 
   delete[] dwPIDs;
@@ -418,6 +463,12 @@ process_map get_process_data(bool ignore_unreadable, error_reporter *error_inter
     }
   }
   delete[] dwPIDs;
+  const std::map<DWORD, long long> thread_counts = snapshot_thread_counts();
+  unsigned long long total_phys = 0, total_pagefile = 0;
+  read_memory_totals(total_phys, total_pagefile);
+  for (auto &v : ret) {
+    apply_system_gauges(v.second, thread_counts, total_phys, total_pagefile);
+  }
   return ret;
 }
 

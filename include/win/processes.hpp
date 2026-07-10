@@ -131,6 +131,10 @@ struct process_info {
   INT_GETTER(gdiHandleCount);
   INT_GETTER(userHandleCount);
 
+  // Thread count. Populated from a single system-wide thread snapshot during enumeration.
+  ll_var threadCount;
+  INT_GETTER(threadCount);
+
   // Times
   ull_var creation_time;
   ull_var kernel_time;
@@ -181,6 +185,20 @@ struct process_info {
   INT_GETTER(PeakPageFileUsage);
   HUMAN_SIZE_GETTER(PeakPageFileUsage);
 
+  // System-wide totals captured once during enumeration, used as the base for
+  // the percentage getters below so users get MemoryWarning '10%'
+  // ergonomics instead of only absolute bytes. total_physical_memory is
+  // GlobalMemoryStatusEx ullTotalPhys; total_pagefile is ullTotalPageFile
+  // (the commit limit = RAM + pagefile).
+  unsigned long long total_physical_memory{};
+  unsigned long long total_pagefile{};
+  // Working set as a percentage of total physical RAM.
+  long long get_working_set_pct() const {
+    return total_physical_memory ? static_cast<long long>(to_percent(WorkingSetSize.get(), total_physical_memory)) : 0;
+  }
+  // Pagefile (commit) usage as a percentage of the system commit limit.
+  long long get_pagefile_pct() const { return total_pagefile ? static_cast<long long>(to_percent(PageFileUsage.get(), total_pagefile)) : 0; }
+
   void set_error(const std::string &msg) {
     has_error = true;
     error = msg;
@@ -219,6 +237,12 @@ struct process_info {
     handleCount += other.handleCount.get();
     gdiHandleCount += other.gdiHandleCount.get();
     userHandleCount += other.userHandleCount.get();
+    threadCount += other.threadCount.get();
+
+    // System-wide totals are constants shared by every process; carry them onto
+    // the aggregate row (don't sum) so working_set_pct/pagefile_pct stay correct.
+    if (other.total_physical_memory) total_physical_memory = other.total_physical_memory;
+    if (other.total_pagefile) total_pagefile = other.total_pagefile;
 
     // TImes
     creation_time += other.creation_time.get();
@@ -256,6 +280,8 @@ struct process_info {
     handleCount -= other.handleCount.get();
     gdiHandleCount -= other.gdiHandleCount.get();
     userHandleCount -= other.userHandleCount.get();
+    // threadCount is intentionally NOT subtracted: like the CPU counters it is an
+    // absolute gauge, so the delta path keeps the current snapshot's value.
 
     // Times. The CPU time counters are intentionally NOT subtracted here: the
     // per-process CPU delta (together with its guards against PID reuse) is
