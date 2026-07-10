@@ -58,6 +58,9 @@ struct filter_obj {
   long long get_free() const { return info.size - info.usage; }
   long long get_used_pct() const { return str::format::calc_pct_round(get_used(), get_total()); }
   long long get_free_pct() const { return str::format::calc_pct_round(get_free(), get_total()); }
+  long long get_peak_used_pct() const { return str::format::calc_pct_round(get_peak(), get_total()); }
+  std::string get_peak_human() const { return str::format::format_byte_units(get_peak()); }
+  std::string get_peak_used_pct_human() const { return str::format::format_pct(get_peak(), get_total()); }
   std::string get_used_pct_human() const { return str::format::format_pct(get_used(), get_total()); }
   std::string get_free_pct_human() const { return str::format::format_pct(get_free(), get_total()); }
   std::string get_name() const { return info.name; }

@@ -35,7 +35,12 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
       .add_int_perf("%")
       .add_int_var("idle", &filter_obj::get_idle, "The current idle load for a given core")
+      .add_int_perf("%")
       .add_int_var("system", &filter_obj::get_kernel, "The current load used by the system (kernel)")
+      .add_int_perf("%")
+      // kernel is a deprecated alias of system and reports the same value; it is
+      // intentionally left without perf so we do not emit a duplicate perf
+      // column for the same metric (the value is already graphed as system).
       .add_int_var("kernel", &filter_obj::get_kernel, "deprecated (use system instead)");
 
   registry_.add_converter(type_custom_pct, &calculate_load);
@@ -72,13 +77,21 @@ filter_obj_handler::filter_obj_handler() {
       .add_scaled_byte([](auto obj, auto context) { return get_zero(); }, [](auto obj, auto context) { return obj->get_total(); })
       .add_percentage([](auto obj, auto context) { return obj->get_total(); }, "", " %")
       .add_int("free_pct", &filter_obj::get_free_pct, "% free memory")
-      .add_int("used_pct", &filter_obj::get_used_pct, "% used memory");
+      .add_int("used_pct", &filter_obj::get_used_pct, "% used memory")
+      // Peak commit charge for this pagefile since boot (Win32_PageFileUsage.PeakUsage
+      // equivalent, sourced from SystemPageFileInformation). Lets admins alert on the
+      // high-water mark, not just the instantaneous usage.
+      .add_int("peak_used", &filter_obj::get_peak, "Peak used memory in bytes (g,m,k,b) since boot")
+      .add_scaled_byte([](auto obj, auto context) { return get_zero(); }, [](auto obj, auto context) { return obj->get_total(); })
+      .add_int("peak_used_pct", &filter_obj::get_peak_used_pct, "% peak used memory since boot");
   registry_.add_human_string("size", &filter_obj::get_total_human, "")
       .add_human_string("free", &filter_obj::get_free_human, "")
       .add_human_string("used", &filter_obj::get_used_human, "")
       // Issue #595: render percentages with two decimals via human-string
       .add_human_string("used_pct", &filter_obj::get_used_pct_human, "")
-      .add_human_string("free_pct", &filter_obj::get_free_pct_human, "");
+      .add_human_string("free_pct", &filter_obj::get_free_pct_human, "")
+      .add_human_string("peak_used", &filter_obj::get_peak_human, "")
+      .add_human_string("peak_used_pct", &filter_obj::get_peak_used_pct_human, "");
 
   registry_.add_converter(type_custom_free, &calculate_free).add_converter(type_custom_used, &calculate_free);
 }
