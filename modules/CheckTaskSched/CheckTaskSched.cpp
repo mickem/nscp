@@ -102,6 +102,10 @@ void CheckTaskSched::check_tasksched(const PB::Commands::QueryRequestMessage::Re
   filter_helper.add_options("exit_code != 0", "exit_code < 0", "enabled = 1", filter.get_filter_syntax(), "warning");
   filter_helper.add_syntax("${status}: ${problem_list}", "${folder}/${title}: ${exit_code} != 0", "${title}", "%(status): No tasks found",
                            "%(status): All tasks are ok");
+  // Emit per-task state and missed-run counters as perfdata by default.
+  // exit_code (lasttaskresult) is already emitted
+  // because it drives the default warn/crit thresholds.
+  filter_helper.set_default_perf_config("extra(task_status;number_of_missed_runs)");
   // clang-format off
 	filter_helper.get_desc().add_options()
 		("force-old", po::value<bool>(&old)->implicit_value(true)->default_value(false), "The name of the computer that you want to connect to.")
