@@ -31,7 +31,18 @@ struct file_object_exception : std::exception {
 // both platforms; only the platform builders and the (Windows-only) version
 // lookup differ.
 struct filter_obj {
-  filter_obj() : ullSize(0), creation_time(0), access_time(0), write_time(0), now(0), is_total_(false), is_dir_(false) {}
+  filter_obj()
+      : ullSize(0),
+        creation_time(0),
+        access_time(0),
+        write_time(0),
+        now(0),
+        is_total_(false),
+        is_dir_(false),
+        agg_smallest_(0),
+        agg_largest_(0),
+        agg_count_(0),
+        agg_folders_(0) {}
 
   std::string get_filename() const { return filename; }
   std::string get_path() const { return path.string(); }
@@ -71,9 +82,26 @@ struct filter_obj {
   std::string get_sha384();
   std::string get_sha512();
 
-  void add(const std::shared_ptr<filter_obj>& info) { ullSize += info->ullSize; }
+  // Accumulate one matched item into the total/aggregate object. Beyond the
+  // summed size this also tracks smallest/largest/average file size and the
+  // folder count, so Directory-style thresholds on the largest or average file
+  // are expressible via the `total` object.
+  void add(const std::shared_ptr<filter_obj>& info) {
+    if (agg_count_ == 0 || info->ullSize < agg_smallest_) agg_smallest_ = info->ullSize;
+    if (info->ullSize > agg_largest_) agg_largest_ = info->ullSize;
+    ullSize += info->ullSize;
+    ++agg_count_;
+    if (info->is_dir_) ++agg_folders_;
+  }
   void make_total() { is_total_ = true; }
   bool is_total() const { return is_total_; }
+
+  // Aggregate accessors (meaningful on the `total` object; 0 on an item that
+  // never had anything add()-ed into it).
+  unsigned long long get_smallest_size() const { return agg_smallest_; }
+  unsigned long long get_largest_size() const { return agg_largest_; }
+  unsigned long long get_average_size() const { return agg_count_ == 0 ? 0 : ullSize / agg_count_; }
+  long long get_folder_count() const { return agg_folders_; }
 
 #ifdef WIN32
   static std::shared_ptr<filter_obj> get(unsigned long long now, const WIN32_FIND_DATA& info, boost::filesystem::path path);
@@ -91,6 +119,11 @@ struct filter_obj {
   std::string filename;
   bool is_total_;
   bool is_dir_;
+  // Aggregate state, populated by add() on the total object.
+  unsigned long long agg_smallest_;
+  unsigned long long agg_largest_;
+  long long agg_count_;
+  long long agg_folders_;
   boost::filesystem::path path;
   boost::optional<std::string> cached_version;
   boost::optional<unsigned long> cached_count;
