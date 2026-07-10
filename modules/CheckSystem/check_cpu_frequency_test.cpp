@@ -112,8 +112,25 @@ TEST(CpuFrequency, BuildMetrics) {
   PB::Metrics::MetricsBundle section;
   c.build_metrics(&section);
 
-  // Should produce 5 metrics: current_mhz, max_mhz, frequency_pct, cores, logical_processors
-  EXPECT_EQ(section.value_size(), 5);
+  // Should produce 6 metrics: current_mhz, max_mhz, frequency_pct, cores, logical_processors, load_pct
+  EXPECT_EQ(section.value_size(), 6);
+}
+
+TEST(CpuFrequency, SocketAndLoadAccessors) {
+  cpu_frequency_check::cpu_frequency c;
+  c.socket_id = "CPU0";
+  c.socket = "CPU 1";
+  c.load_pct = 42;
+  EXPECT_EQ(c.get_socket_id(), "CPU0");
+  EXPECT_EQ(c.get_socket(), "CPU 1");
+  EXPECT_EQ(c.get_load_pct(), 42);
+}
+
+TEST(CpuFrequency, SocketDefaultsEmpty) {
+  cpu_frequency_check::cpu_frequency c;
+  EXPECT_EQ(c.socket_id, "");
+  EXPECT_EQ(c.socket, "");
+  EXPECT_EQ(c.load_pct, 0);
 }
 
 // ============================================================================
