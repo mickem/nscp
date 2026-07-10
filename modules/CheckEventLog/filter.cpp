@@ -3,6 +3,8 @@
 
 #include "filter.hpp"
 
+#include <sddl.h>  // ConvertSidToStringSidW (must follow Windows.h from filter.hpp)
+
 #include <boost/assign.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
@@ -249,6 +251,16 @@ std::string new_filter_obj::get_guid() const {
   if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemProviderGuid].Type) return "";
   return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderGuid].StringVal);
 }
+std::string new_filter_obj::get_user() const {
+  if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemUserID].Type) return "";
+  PSID sid = buffer.get()[eventlog::api::EvtSystemUserID].SidVal;
+  if (sid == nullptr || !IsValidSid(sid)) return "";
+  LPWSTR sid_str = nullptr;
+  if (!ConvertSidToStringSidW(sid, &sid_str) || sid_str == nullptr) return "";
+  std::string ret = utf8::cvt<std::string>(sid_str);
+  LocalFree(sid_str);
+  return ret;
+}
 long long new_filter_obj::get_category() const {
   if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemTask].Type) return 0;
   return buffer.get()[eventlog::api::EvtSystemTask].UInt16Val;
@@ -316,7 +328,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("task", &filter_obj::get_task, "The type of event (task)")
       .add_string_var("opcode", &filter_obj::get_opcode, "The opcode associated with this event")
       .add_string_var("keyword", &filter_obj::get_keyword, "The keyword associated with this event")
-      .add_string_var("written_str", &filter_obj::get_written_hs, "When the message was written to file as an absolute date string");
+      .add_string_var("written_str", &filter_obj::get_written_hs, "When the message was written to file as an absolute date string")
+      .add_string_var("user", &filter_obj::get_user, "SID of the account associated with the event (e.g. S-1-5-18); empty on the legacy API. Enables filtering by SID.")
+      .add_string_var("sid", &filter_obj::get_user, "Alias for user (the event's account SID)");
 
   registry_.add_int_var("id", &filter_obj::get_id, "Eventlog id")
       .add_int_var("type", type_custom_type, &filter_obj::get_el_type, "alias for level (old, deprecated)")
