@@ -152,12 +152,43 @@ TEST(NetworkInterface, BuildMetricsWithPrd) {
   n.BytesReceivedPersec = 100;
   n.BytesSentPersec = 200;
   n.BytesTotalPersec = 300;
+  n.PacketsReceivedPersec = 10;
+  n.PacketsSentPersec = 20;
+  n.PacketsReceivedErrors = 1;
+  n.PacketsOutboundErrors = 2;
+  n.PacketsReceivedDiscarded = 3;
+  n.PacketsOutboundDiscarded = 4;
 
   PB::Metrics::MetricsBundle section;
   n.build_metrics(&section);
 
-  // With prd data: 5 string metrics + 3 int metrics = 8
-  EXPECT_EQ(section.value_size(), 8);
+  // With prd data: 5 string metrics + 3 byte metrics + 6 packet/error/discard metrics = 14
+  EXPECT_EQ(section.value_size(), 14);
+}
+
+TEST(NetworkInterface, PacketErrorDiscardAccessors) {
+  network_check::network_interface n;
+  n.PacketsReceivedPersec = 11;
+  n.PacketsSentPersec = 22;
+  n.PacketsReceivedErrors = 3;
+  n.PacketsOutboundErrors = 4;
+  n.PacketsReceivedDiscarded = 5;
+  n.PacketsOutboundDiscarded = 6;
+  EXPECT_EQ(n.getPacketsReceivedPersec(), 11);
+  EXPECT_EQ(n.getPacketsSentPersec(), 22);
+  EXPECT_EQ(n.getPacketsReceivedErrors(), 3);
+  EXPECT_EQ(n.getPacketsOutboundErrors(), 4);
+  EXPECT_EQ(n.getPacketsReceivedDiscarded(), 5);
+  EXPECT_EQ(n.getPacketsOutboundDiscarded(), 6);
+}
+
+TEST(NetworkInterface, PacketCountersDefaultZeroAndCopy) {
+  network_check::network_interface n;
+  EXPECT_EQ(n.getPacketsReceivedPersec(), 0);
+  EXPECT_EQ(n.getPacketsOutboundDiscarded(), 0);
+  n.PacketsReceivedErrors = 7;
+  const network_check::network_interface copy(n);  // exercises defaulted copy ctor
+  EXPECT_EQ(copy.getPacketsReceivedErrors(), 7);
 }
 
 // ============================================================================
