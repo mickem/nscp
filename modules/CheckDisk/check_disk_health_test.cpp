@@ -471,3 +471,108 @@ TEST(CheckDiskHealth, LowFreeSpaceStillGoesCritical) {
 
   EXPECT_EQ(run_health_check(disk_health_check::join({}, df)), PB::Common::ResultCode::CRITICAL);
 }
+
+// ============================================================================
+// Physical-disk device state (§4.1) — enum mapping, join, thresholds
+// ============================================================================
+
+TEST(DiskDevice, MediaTypeMapping) {
+  using disk_device_check::disk_device;
+  EXPECT_EQ(disk_device::map_media_type(3), "HDD");
+  EXPECT_EQ(disk_device::map_media_type(4), "SSD");
+  EXPECT_EQ(disk_device::map_media_type(5), "SCM");
+  EXPECT_EQ(disk_device::map_media_type(0), "Unspecified");
+  EXPECT_EQ(disk_device::map_media_type(99), "Unspecified");
+}
+
+TEST(DiskDevice, HealthStatusMapping) {
+  using disk_device_check::disk_device;
+  EXPECT_EQ(disk_device::map_health_status(0), "Healthy");
+  EXPECT_EQ(disk_device::map_health_status(1), "Warning");
+  EXPECT_EQ(disk_device::map_health_status(2), "Unhealthy");
+  EXPECT_EQ(disk_device::map_health_status(5), "Unknown");
+}
+
+TEST(DiskDevice, OperationalStatusDerivation) {
+  disk_device_check::disk_device d;
+  d.health_status = "Healthy";
+  EXPECT_EQ(d.get_operational_status(), "OK");
+  d.is_offline = true;
+  EXPECT_EQ(d.get_operational_status(), "Offline");  // offline wins
+  d.is_offline = false;
+  d.health_status = "Unhealthy";
+  EXPECT_EQ(d.get_operational_status(), "Unhealthy");
+}
+
+TEST(DiskHealthJoin, AppendsDeviceRows) {
+  disk_device_check::devices_type devs;
+  disk_device_check::disk_device dev;
+  dev.number = 0;
+  dev.friendly_name = "Samsung SSD 980";
+  dev.serial = "S1234";
+  dev.media_type = "SSD";
+  dev.health_status = "Healthy";
+  devs.push_back(dev);
+
+  auto result = disk_health_check::join({}, {}, devs);
+  ASSERT_EQ(result.size(), 1u);
+  const auto &h = result.front();
+  EXPECT_EQ(h.name, "Samsung SSD 980");
+  EXPECT_TRUE(h.has_device);
+  EXPECT_FALSE(h.has_space);
+  EXPECT_EQ(h.get_media_type(), "SSD");
+  EXPECT_EQ(h.get_health_status(), "Healthy");
+  EXPECT_EQ(h.get_serial(), "S1234");
+  EXPECT_EQ(h.get_operational_status(), "OK");
+}
+
+TEST(DiskHealthJoin, DeviceRowFallsBackToDiskNumberName) {
+  disk_device_check::devices_type devs;
+  disk_device_check::disk_device dev;
+  dev.number = 2;  // no friendly name
+  devs.push_back(dev);
+  auto result = disk_health_check::join({}, {}, devs);
+  ASSERT_EQ(result.size(), 1u);
+  EXPECT_EQ(result.front().name, "Disk 2");
+}
+
+TEST(CheckDiskHealth, UnhealthyDeviceGoesCritical) {
+  disk_device_check::devices_type devs;
+  disk_device_check::disk_device dev;
+  dev.number = 0;
+  dev.friendly_name = "BadDisk";
+  dev.health_status = "Unhealthy";
+  devs.push_back(dev);
+  EXPECT_EQ(run_health_check(disk_health_check::join({}, {}, devs)), PB::Common::ResultCode::CRITICAL);
+}
+
+TEST(CheckDiskHealth, OfflineDeviceGoesCritical) {
+  disk_device_check::devices_type devs;
+  disk_device_check::disk_device dev;
+  dev.number = 0;
+  dev.friendly_name = "OfflineDisk";
+  dev.health_status = "Healthy";
+  dev.is_offline = true;
+  devs.push_back(dev);
+  EXPECT_EQ(run_health_check(disk_health_check::join({}, {}, devs)), PB::Common::ResultCode::CRITICAL);
+}
+
+TEST(CheckDiskHealth, WarningDeviceGoesWarning) {
+  disk_device_check::devices_type devs;
+  disk_device_check::disk_device dev;
+  dev.number = 0;
+  dev.friendly_name = "WarnDisk";
+  dev.health_status = "Warning";
+  devs.push_back(dev);
+  EXPECT_EQ(run_health_check(disk_health_check::join({}, {}, devs)), PB::Common::ResultCode::WARNING);
+}
+
+TEST(CheckDiskHealth, HealthyDeviceIsOk) {
+  disk_device_check::devices_type devs;
+  disk_device_check::disk_device dev;
+  dev.number = 0;
+  dev.friendly_name = "GoodDisk";
+  dev.health_status = "Healthy";
+  devs.push_back(dev);
+  EXPECT_EQ(run_health_check(disk_health_check::join({}, {}, devs)), PB::Common::ResultCode::OK);
+}
