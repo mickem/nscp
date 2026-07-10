@@ -8,7 +8,9 @@
 #include "check_disk_io.hpp"
 
 #include <boost/thread/locks.hpp>
+#include <map>
 #include <nsclient/nsclient_exception.hpp>
+#include <utility>
 
 namespace disk_io_check {
 
@@ -60,6 +62,54 @@ void disk_io_data::fetch() {
 }
 
 }  // namespace disk_io_check
+
+namespace disk_device_check {
+
+// Best-effort physical-disk device state. MSFT_PhysicalDisk carries
+// media/health/serial/friendly-name; MSFT_Disk carries the offline/read-only
+// flags. We key the MSFT_Disk lookup by disk number == MSFT_PhysicalDisk
+// DeviceId (they line up on standard configurations). Any failure (namespace or
+// class absent, e.g. very old Windows) yields an empty list rather than an error
+// so check_disk_health still reports space + I/O.
+devices_type query() {
+  devices_type devices;
+  std::map<long long, std::pair<bool, bool> > disk_flags;  // number -> (offline, readonly)
+  try {
+    wmi_impl::query dq("select Number, IsOffline, IsReadOnly from MSFT_Disk", "root\\Microsoft\\Windows\\Storage", "", "");
+    wmi_impl::row_enumerator drow = dq.execute();
+    while (drow.has_next()) {
+      const wmi_impl::row r = drow.get_next();
+      disk_flags[r.get_int("Number")] = std::make_pair(r.get_int("IsOffline") != 0, r.get_int("IsReadOnly") != 0);
+    }
+  } catch (const wmi_impl::wmi_exception &) {
+    // MSFT_Disk unavailable: leave the offline/readonly flags at their defaults.
+  }
+  try {
+    wmi_impl::query pq("select DeviceId, FriendlyName, SerialNumber, MediaType, HealthStatus from MSFT_PhysicalDisk", "root\\Microsoft\\Windows\\Storage", "",
+                       "");
+    wmi_impl::row_enumerator prow = pq.execute();
+    while (prow.has_next()) {
+      const wmi_impl::row r = prow.get_next();
+      disk_device d;
+      d.number = r.get_int("DeviceId");
+      d.friendly_name = r.get_string("FriendlyName");
+      d.serial = r.get_string("SerialNumber");
+      d.media_type = disk_device::map_media_type(r.get_int("MediaType"));
+      d.health_status = disk_device::map_health_status(r.get_int("HealthStatus"));
+      const auto it = disk_flags.find(d.number);
+      if (it != disk_flags.end()) {
+        d.is_offline = it->second.first;
+        d.is_readonly = it->second.second;
+      }
+      devices.push_back(d);
+    }
+  } catch (const wmi_impl::wmi_exception &) {
+    // MSFT_PhysicalDisk / the Storage namespace is unavailable: no device rows.
+  }
+  return devices;
+}
+
+}  // namespace disk_device_check
 
 namespace disk_free_check {
 

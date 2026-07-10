@@ -200,6 +200,12 @@ void disk_io_data::fetch() {
 
 }  // namespace disk_io_check
 
+namespace disk_device_check {
+// Physical-disk device state is a Windows Storage-namespace (MSFT_PhysicalDisk)
+// concept; there is no portable Unix equivalent here, so report no device rows.
+devices_type query() { return {}; }
+}  // namespace disk_device_check
+
 namespace disk_free_check {
 
 void disk_free_data::fetch() {
