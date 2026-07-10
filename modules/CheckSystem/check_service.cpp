@@ -131,6 +131,7 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
   std::string state;
   std::string computer;
   bool class_e = false, class_i = false, class_r = false, class_s = false, class_y = false, class_u = false;
+  bool summary = false;
 
   filter_type filter;
   filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "unknown");
@@ -149,6 +150,7 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
     ("only-supporting", po::value<bool>(&class_s)->implicit_value(true)->default_value(false), "Set filter to classification = 'supporting'")
     ("only-system", po::value<bool>(&class_y)->implicit_value(true)->default_value(false), "Set filter to classification = 'system'")
     ("only-user", po::value<bool>(&class_u)->implicit_value(true)->default_value(false), "Set filter to classification = 'user'")
+    ("summary", po::value<bool>(&summary)->implicit_value(true)->default_value(false), "Emit aggregate state-count performance data (running_services/stopped_services/paused_services/pending_services/service_count) across all enumerated services, for dashboard rollups.")
     ;
   // clang-format on
 
@@ -167,11 +169,41 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
   }
   if (!filter_helper.build_filter(filter)) return;
 
+  // Opt-in aggregate rollup (--summary): count every enumerated service by
+  // state so dashboards get running/stopped/paused/pending/total without a
+  // custom top-syntax. Counts all matched services, independent of the
+  // warn/crit filter.
+  long long n_running = 0, n_stopped = 0, n_paused = 0, n_pending = 0, n_total = 0;
+  const auto tally = [&](const win_list_services::service_info &info) {
+    if (!summary) return;
+    ++n_total;
+    switch (info.state) {
+      case SERVICE_RUNNING:
+        ++n_running;
+        break;
+      case SERVICE_STOPPED:
+        ++n_stopped;
+        break;
+      case SERVICE_PAUSED:
+        ++n_paused;
+        break;
+      case SERVICE_START_PENDING:
+      case SERVICE_STOP_PENDING:
+      case SERVICE_CONTINUE_PENDING:
+      case SERVICE_PAUSE_PENDING:
+        ++n_pending;
+        break;
+      default:
+        break;
+    }
+  };
+
   for (const std::string &service : services) {
     if (service == "*") {
       for (const win_list_services::service_info &info :
            win_list_services::enum_services(computer, win_list_services::parse_service_type(type), win_list_services::parse_service_state(state), excludes)) {
         if (std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end()) continue;
+        tally(info);
         std::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
         if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
@@ -179,6 +211,7 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
     } else {
       try {
         win_list_services::service_info info = win_list_services::get_service_info(computer, service);
+        tally(info);
         std::shared_ptr<win_list_services::service_info> record(new win_list_services::service_info(info));
         filter.match(record);
       } catch (const nsclient::nsclient_exception &e) {
@@ -187,4 +220,18 @@ void service_checks::check(const PB::Commands::QueryRequestMessage::Request &req
     }
   }
   filter_helper.post_process(filter);
+
+  if (summary && response->lines_size() > 0) {
+    PB::Commands::QueryResponseMessage::Response::Line *line = response->mutable_lines(0);
+    const auto add_count = [&line](const std::string &alias, long long value) {
+      PB::Common::PerformanceData *perf = line->add_perf();
+      perf->set_alias(alias);
+      perf->mutable_float_value()->set_value(static_cast<double>(value));
+    };
+    add_count("running_services", n_running);
+    add_count("stopped_services", n_stopped);
+    add_count("paused_services", n_paused);
+    add_count("pending_services", n_pending);
+    add_count("service_count", n_total);
+  }
 }
