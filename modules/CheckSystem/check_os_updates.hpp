@@ -20,15 +20,19 @@ struct update_info {
   std::string category;  // Primary category name (e.g. "Security Updates", "Critical Updates")
   bool is_security;      // True for "Security Updates" category
   bool is_critical;      // True for "Critical Updates" category
+  bool is_defender;      // True for Defender/definition updates (churn daily; thresholded separately)
+  bool is_rollup;        // True for monthly/quality "Update Rollup" category
   bool reboot_required;  // True if installing this update requires a reboot
 
-  update_info() : is_security(false), is_critical(false), reboot_required(false) {}
+  update_info() : is_security(false), is_critical(false), is_defender(false), is_rollup(false), reboot_required(false) {}
 
   std::string get_title() const { return title; }
   std::string get_severity() const { return severity; }
   std::string get_category() const { return category; }
   std::string get_is_security() const { return is_security ? "true" : "false"; }
   std::string get_is_critical() const { return is_critical ? "true" : "false"; }
+  std::string get_is_defender() const { return is_defender ? "true" : "false"; }
+  std::string get_is_rollup() const { return is_rollup ? "true" : "false"; }
   std::string get_reboot_required() const { return reboot_required ? "true" : "false"; }
 };
 
@@ -38,18 +42,25 @@ struct os_updates_obj {
   long long security;         // Number of security updates
   long long critical;         // Number of critical updates
   long long important;        // Number of MsrcSeverity == "Important" updates
+  long long defender;         // Number of Defender/definition updates
+  long long rollups;          // Number of update-rollup updates
   long long reboot_required;  // Number of updates requiring a reboot
   bool fetch_succeeded;       // False if the WUA query has not produced any data yet
+  bool reboot_pending;        // System-wide RebootRequired flag (registry), independent of the update list
   std::string error;          // Last error encountered while fetching (if any)
   std::vector<update_info> updates;
 
-  os_updates_obj() : count(0), security(0), critical(0), important(0), reboot_required(0), fetch_succeeded(false) {}
+  os_updates_obj()
+      : count(0), security(0), critical(0), important(0), defender(0), rollups(0), reboot_required(0), fetch_succeeded(false), reboot_pending(false) {}
 
   long long get_count() const { return count; }
   long long get_security() const { return security; }
   long long get_critical() const { return critical; }
   long long get_important() const { return important; }
+  long long get_defender() const { return defender; }
+  long long get_rollups() const { return rollups; }
   long long get_reboot_required() const { return reboot_required; }
+  long long get_reboot_pending() const { return reboot_pending ? 1 : 0; }
   std::string get_titles() const;
   std::string get_update_status() const;
   std::string get_error() const { return error; }

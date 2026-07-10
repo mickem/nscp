@@ -56,8 +56,37 @@ TEST(CheckOsUpdates, classify_empty) {
   classify_update("", "", u);
   EXPECT_FALSE(u.is_security);
   EXPECT_FALSE(u.is_critical);
+  EXPECT_FALSE(u.is_defender);
+  EXPECT_FALSE(u.is_rollup);
   EXPECT_EQ(u.category, "");
   EXPECT_EQ(u.severity, "");
+}
+
+TEST(CheckOsUpdates, classify_defender_definition_updates) {
+  update_info u;
+  classify_update("Definition Updates", "", u);
+  EXPECT_TRUE(u.is_defender);
+  EXPECT_FALSE(u.is_rollup);
+}
+
+TEST(CheckOsUpdates, classify_defender_antivirus) {
+  update_info u;
+  classify_update("Microsoft Defender Antivirus", "", u);
+  EXPECT_TRUE(u.is_defender);
+}
+
+TEST(CheckOsUpdates, classify_rollup) {
+  update_info u;
+  classify_update("Update Rollups", "", u);
+  EXPECT_TRUE(u.is_rollup);
+  EXPECT_FALSE(u.is_defender);
+}
+
+TEST(CheckOsUpdates, classify_defender_is_case_insensitive) {
+  update_info u;
+  classify_update("security updates for microsoft defender antivirus", "", u);
+  EXPECT_TRUE(u.is_defender);
+  EXPECT_TRUE(u.is_security);  // both classifications can apply
 }
 
 // ============================================================================
@@ -171,13 +200,20 @@ TEST(CheckOsUpdates, obj_recompute) {
 
   update_info d;
   d.severity = "Low";
+  d.is_defender = true;
   o.updates.push_back(d);
 
+  update_info e;
+  e.is_rollup = true;
+  o.updates.push_back(e);
+
   o.recompute();
-  EXPECT_EQ(o.count, 4);
+  EXPECT_EQ(o.count, 5);
   EXPECT_EQ(o.security, 2);
   EXPECT_EQ(o.critical, 1);
   EXPECT_EQ(o.important, 2);
+  EXPECT_EQ(o.defender, 1);
+  EXPECT_EQ(o.rollups, 1);
   EXPECT_EQ(o.reboot_required, 2);
 }
 
