@@ -239,3 +239,56 @@ TEST(ProcessInfoMinus, RawCountersStillUsableByMakeCpuDeltaAfterSubtraction) {
   ASSERT_TRUE(later.make_cpu_delta(earlier, 6000000, 4000000));
   EXPECT_EQ(20, later.get_total_time());  // 2,000,000 / 10,000,000
 }
+
+// --- thread_count / working_set_pct / pagefile_pct -----------
+
+TEST(ProcessInfoGauges, ThreadCountAccessor) {
+  process_info p;
+  EXPECT_EQ(0, p.get_threadCount());
+  p.threadCount = 37;
+  EXPECT_EQ(37, p.get_threadCount());
+}
+
+TEST(ProcessInfoGauges, WorkingSetPctUsesTotalPhysicalMemory) {
+  process_info p;
+  p.WorkingSetSize = 2ull * 1024 * 1024 * 1024;         // 2 GB working set
+  p.total_physical_memory = 8ull * 1024 * 1024 * 1024;  // 8 GB RAM
+  EXPECT_EQ(25, p.get_working_set_pct());               // 2/8 = 25%
+}
+
+TEST(ProcessInfoGauges, PagefilePctUsesCommitLimit) {
+  process_info p;
+  p.PageFileUsage = 1ull * 1024 * 1024 * 1024;    // 1 GB committed
+  p.total_pagefile = 10ull * 1024 * 1024 * 1024;  // 10 GB commit limit
+  EXPECT_EQ(10, p.get_pagefile_pct());            // 1/10 = 10%
+}
+
+TEST(ProcessInfoGauges, PctGettersGuardZeroBase) {
+  // No totals captured (e.g. GlobalMemoryStatusEx failed) -> 0, never divide-by-zero.
+  process_info p;
+  p.WorkingSetSize = 4096;
+  p.PageFileUsage = 4096;
+  EXPECT_EQ(0, p.get_working_set_pct());
+  EXPECT_EQ(0, p.get_pagefile_pct());
+}
+
+TEST(ProcessInfoPlus, AggregatesThreadCountAndCarriesTotals) {
+  auto total = process_info::get_total();
+  process_info a;
+  a.threadCount = 10;
+  a.total_physical_memory = 8ull * 1024 * 1024 * 1024;
+  a.total_pagefile = 10ull * 1024 * 1024 * 1024;
+  process_info b;
+  b.threadCount = 15;
+  b.total_physical_memory = 8ull * 1024 * 1024 * 1024;
+  b.total_pagefile = 10ull * 1024 * 1024 * 1024;
+
+  *total += a;
+  *total += b;
+
+  EXPECT_EQ(25, total->get_threadCount());  // summed
+  // Totals are constants carried onto the aggregate, not summed (would otherwise
+  // double the base and halve every percentage).
+  EXPECT_EQ(8ull * 1024 * 1024 * 1024, total->total_physical_memory);
+  EXPECT_EQ(10ull * 1024 * 1024 * 1024, total->total_pagefile);
+}
