@@ -79,9 +79,27 @@ Scenario walkthroughs live in `docs/docs/scenarios/` and must be registered in
 both `docs/mkdocs.yml` (nav) and `docs/docs/scenarios/index.md`.
 
 ## Integration tests
+**Every new check command must have at least one test under `tests/` that
+actually runs it and asserts on its output** — wherever it is at all possible to
+exercise the check deterministically. This is in addition to the `_test.cpp`
+unit test: the unit test covers the check's pure logic (rendering, thresholds,
+parsing) in isolation, while the `tests/` test covers real command dispatch,
+REST-style argument parsing and live data on the target OS. The test does **not**
+have to go over REST — pick the lighter transport when it fits (see below). Add
+the case to the module's existing suite (e.g. `checksystem-commands.test.ts`,
+`checkdisk-commands.test.ts`), guarding OS-specific checks with
+`if (!onWindows) return;` / `if (onWindows) return;`. When the machine may lack
+the underlying data (hardware sensors, empty collectors), assert the documented
+no-data contract (OK/UNKNOWN + message) rather than skipping, and pin
+`warning=`/`critical=` so the result is deterministic regardless of host state.
+
 Integration tests live under `tests/` (jest + ts-jest) and drive commands over
 REST against a long-lived `nscp test` instance. Run them from `tests/`:
-`NSCP_SKIP_DOCKER=1 NSCP_BIN=<path>/nscp npx jest --runInBand <pattern>`.
+`NSCP_SKIP_DOCKER=1 NSCP_BIN=<path>/nscp npx jest --runInBand <pattern>`. Use the
+REST path when the check reads the 1 Hz background collector (cpu, memory,
+network, …) or when you are specifically verifying REST-specific argument
+handling — most importantly that a valued boolean (`x=true`) is accepted (the
+`bool_switch` trap above).
 
 For a check that only needs its command exercised (and where standing up the
 REST web server is undesirable or unavailable), the one-shot **client-query**
