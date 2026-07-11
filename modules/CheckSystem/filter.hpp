@@ -95,20 +95,36 @@ struct filter_obj {
   long long plattform;
   std::string version_s;
   long long version_i;
+  long long ubr;
   std::string suite;
+  std::string arch;
+  std::string kernel_version;
 
-  filter_obj() : major_version(0), minor_version(0), build(0), plattform(0), version_i(0) {}
+  filter_obj() : major_version(0), minor_version(0), build(0), plattform(0), version_i(0), ubr(0) {}
 
   std::string show() const { return version_s; }
   std::string to_string() const { return version_s; }
   long long get_major() const { return major_version; }
   long long get_minor() const { return minor_version; }
   long long get_build() const { return build; }
+  long long get_ubr() const { return ubr; }
   long long get_plattform() const { return plattform; }
   std::string get_version_s() const { return version_s; }
   long long get_version_i() const { return version_i; }
   std::string get_suite_string() const { return suite; }
+  std::string get_arch() const { return arch; }
+  std::string get_kernel_version() const { return kernel_version; }
 };
+
+// Map a Windows PROCESSOR_ARCHITECTURE_* value (SYSTEM_INFO.wProcessorArchitecture
+// from GetNativeSystemInfo) to a short architecture string. Kept here (rather
+// than inline at the call site) so it is platform-neutral and unit-testable.
+std::string arch_from_native(unsigned short processor_architecture);
+
+// Build the kernel-version shorthand as major.minor.build.ubr. Platform-neutral
+// and unit-testable; the caller supplies the UBR (0 when unavailable).
+std::string format_kernel_version(long long major, long long minor, long long build, long long ubr);
+
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 
 struct filter_obj_handler : public native_context {

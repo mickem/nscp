@@ -141,10 +141,34 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("minor", &filter_obj::get_minor, "Minor version number")
       .add_int_perf("")
       .add_int_var("build", &filter_obj::get_build, "Build version number")
-      .add_int_perf("");
+      .add_int_perf("")
+      .add_int_var("ubr", &filter_obj::get_ubr, "Update Build Revision (patch level within a build; 0 when unavailable, e.g. pre-Windows 10)");
   registry_.add_string_var(
       "suite", &filter_obj::get_suite_string,
       "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise "
       "Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)");
+  registry_.add_string_var("arch", &filter_obj::get_arch, "Native processor architecture: x64, x86, arm64, arm, ia64 or unknown")
+      .add_string_var("kernel_version", &filter_obj::get_kernel_version, "NT kernel version as major.minor.build");
+}
+
+std::string arch_from_native(unsigned short processor_architecture) {
+  switch (processor_architecture) {
+    case PROCESSOR_ARCHITECTURE_AMD64:
+      return "x64";
+    case PROCESSOR_ARCHITECTURE_ARM64:
+      return "arm64";
+    case PROCESSOR_ARCHITECTURE_ARM:
+      return "arm";
+    case PROCESSOR_ARCHITECTURE_IA64:
+      return "ia64";
+    case PROCESSOR_ARCHITECTURE_INTEL:
+      return "x86";
+    default:
+      return "unknown";
+  }
+}
+
+std::string format_kernel_version(long long major, long long minor, long long build, long long ubr) {
+  return str::xtos(major) + "." + str::xtos(minor) + "." + str::xtos(build) + "." + str::xtos(ubr);
 }
 }  // namespace os_version_filter

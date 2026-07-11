@@ -129,6 +129,7 @@ NSCP_CREATE_TEST(
         check_process_test.cpp
         check_cpu_frequency_test.cpp
         check_swap_io_test.cpp
+        check_os_version_test.cpp
         check_pdh_test.cpp
         pdh_query_test.cpp
         pdh_objects_test.cpp

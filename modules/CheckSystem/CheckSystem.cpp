@@ -667,7 +667,7 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
 
   filter_type filter;
   filter_helper.add_options("version <= 50", "version <= 50", "", filter.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${list}", "${version} (${major}.${minor}.${build})", "version", "", "");
+  filter_helper.add_syntax("${status}: ${list}", "${version} (${kernel_version}) ${arch}", "version", "", "");
 
   if (!filter_helper.parse_options()) return;
 
@@ -683,6 +683,23 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
   record->version_i = windows::system_info::get_version();
   std::vector<std::string> suites = windows::system_info::get_suite_list();
   record->suite = str::format::join(suites, ",");
+
+  // GetNativeSystemInfo reports the true hardware architecture even for a 32-bit
+  // process under WOW64 (GetSystemInfo would report x86 there).
+  SYSTEM_INFO sysinfo = {};
+  GetNativeSystemInfo(&sysinfo);
+  record->arch = os_version_filter::arch_from_native(sysinfo.wProcessorArchitecture);
+
+  // UBR (Update Build Revision) is the patch level within a build — the ".xxxx"
+  // in "10.0.19045.3803" that dwBuildNumber alone omits. It lives only in the
+  // registry (there is no Win32 API for it) and is absent pre-Windows 10, where
+  // it stays 0. Force the 64-bit view so a 32-bit agent under WOW64 reads it.
+  const win_registry::value_info ubr_val =
+      win_registry::read_value(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "UBR", KEY_WOW64_64KEY);
+  record->ubr = ubr_val.exists ? ubr_val.int_value : 0;
+  // On Windows the NT kernel version is the OS version; expose the full
+  // major.minor.build.ubr as a single shorthand (matches snclient's field).
+  record->kernel_version = os_version_filter::format_kernel_version(info->dwMajorVersion, info->dwMinorVersion, info->dwBuildNumber, record->ubr);
 
   filter.match(record);
 
