@@ -149,7 +149,7 @@ describe("CheckSystem commands", () => {
   // Regression: `total` is a boolean option passed over REST as the token
   // `total=true`. It must be declared po::value<bool>()->implicit_value(true),
   // not po::bool_switch — the latter rejects a value with "option '--total'
-  // does not take any arguments". See docs/design/icinga-windows-parity.md §4.2.
+  // does not take any arguments".
   it("check_process total=true accepts a valued boolean over REST", async () => {
     const q = await executeQuery(key, "check_process", {
       process: SELF_EXE,
@@ -292,6 +292,37 @@ describe("CheckSystem commands", () => {
     );
     expect(q.result).toBe(OK);
     expect(Object.keys(perfOf(q)).length).toBeGreaterThan(0);
+  });
+
+  // --- check_service summary (Windows) ---------------------------------------
+
+  // `summary` is a new opt-in boolean (§4.6). Like every REST boolean it must be
+  // declared po::value<bool>()->implicit_value(true), NOT po::bool_switch, or
+  // REST's `summary=true` token is rejected with "does not take any arguments".
+  it("check_service summary=true emits aggregate state-count perfdata (Windows)", async () => {
+    if (!onWindows) return; // summary was added to the Windows CheckSystem check_service.
+    const q = await executeQuery(key, "check_service", {
+      summary: "true",
+      filter: "none",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments/);
+    const perf = perfOf(q);
+    // The five rollup counters must be present and consistent.
+    expect(perf["service_count"]).toBeDefined();
+    expect(perf["running_services"]).toBeDefined();
+    expect(perf["stopped_services"]).toBeDefined();
+    expect(perf["paused_services"]).toBeDefined();
+    expect(perf["pending_services"]).toBeDefined();
+    const total = perf["service_count"].value as number;
+    const parts =
+      (perf["running_services"].value as number) +
+      (perf["stopped_services"].value as number) +
+      (perf["paused_services"].value as number) +
+      (perf["pending_services"].value as number);
+    expect(total).toBeGreaterThan(0);
+    // Every service falls into one of the tallied buckets (or an untracked state),
+    // so the parts can never exceed the total.
+    expect(parts).toBeLessThanOrEqual(total);
   });
 
   // --- Linux-only checks (no Windows CheckSystem equivalent) ------------------

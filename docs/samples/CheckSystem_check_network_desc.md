@@ -107,3 +107,40 @@ check_network "filter=name = 'Ethernet 1'" \
 Both styles can be combined in a single check by using `filter` to scope
 which interfaces participate, then `warning`/`critical` to set the
 threshold.
+
+#### Packet, error and discard counters
+
+In addition to the byte-rate counters, `check_network` exposes per-second
+packet, error and discard rates. Each is derived from the cumulative 
+`Win32_PerfRawData_Tcpip_Network*` counters, so a healthy NIC reports 
+approximately `0` errors/discards per second and any sustained non-zero 
+rate is an alertable signal. All six emit perfdata.
+
+| Variable       | Description                            |
+|----------------|----------------------------------------|
+| `packets_in`   | Packets received per second.           |
+| `packets_out`  | Packets sent per second.               |
+| `errors_in`    | Inbound packet errors per second.      |
+| `errors_out`   | Outbound packet errors per second.     |
+| `discards_in`  | Inbound packets discarded per second.  |
+| `discards_out` | Outbound packets discarded per second. |
+
+```
+check_network "filter=name = 'Ethernet 1'" \
+              "warning=errors_in > 0 or errors_out > 0" \
+              "critical=discards_in > 10 or discards_out > 10"
+```
+
+#### NIC team membership
+
+When the Windows LBFO WMI provider is available (`ROOT\StandardCimv2\MSFT_NetLbfoTeamMember`),
+each adapter is annotated with its team:
+
+| Variable | Description |
+|---|---|
+| `team` | Name of the NIC team this adapter belongs to. Empty when the adapter is not a team member, or when the LBFO provider is unavailable (client SKUs, older Windows, no teams configured). |
+| `team_status` | The raw `MSFT_NetLbfoTeamMember.OperationalStatus` of this team member, rendered as a string. Empty for non-members. |
+
+Team annotation is best-effort and self-disabling: if the provider or namespace
+is absent, the fields stay empty and the check does not fail. Use `team != ''`
+to scope a check to teamed adapters.

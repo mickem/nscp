@@ -30,6 +30,40 @@ If you want to know if the system needs a reboot after installing updates:
 check_os_updates "warning=reboot_required > 0"
 ```
 
+`reboot_required` counts updates that *would* require a reboot once installed.
+To detect a reboot that is *already pending* system-wide — including reboots
+queued by updates that have already been installed (which `reboot_required` no
+longer reflects) — use `reboot_pending`, sourced from the Windows Update
+`RebootRequired` registry key:
+
+```
+check_os_updates "crit=reboot_pending = 1" "detail-syntax=reboot pending: ${reboot_pending}"
+```
+
+**Defender / definition and rollup categories**
+
+Defender/antivirus definition updates churn several times a day, so most admins
+threshold them separately from OS patches. `defender` counts updates in the
+`Definition Updates` / `Microsoft Defender Antivirus` categories, and `rollups`
+counts monthly `Update Rollup` updates:
+
+```
+check_os_updates "warning=count - defender > 0" "detail-syntax=${count} total, ${defender} defender, ${rollups} rollups"
+```
+
+**Filtering by title**
+
+`update-filter=<substring>` restricts the check to updates whose title contains
+the (case-insensitive) substring; all counters (`count`, `security`, …) are then
+recomputed over just the matching subset:
+
+```
+check_os_updates update-filter=".NET" "detail-syntax=${count} .NET updates: ${titles}"
+```
+
+> **Note:** the WUA search criteria is `Type='Software'`, so **driver updates are
+> excluded** by design. This keeps the count focused on OS/application patches.
+
 **Customizing the output**
 
 You can use the syntax options to format the output string:

@@ -42,10 +42,82 @@ A list of all available queries (check commands)
 
 Combined per-drive health check (free space + I/O metrics).
 
+`check_disk_health` is a combined per-disk health check. It reports three kinds
+of row, each judged only on the data that is real for it:
+
+* **Space rows** (`has_space = 1`) — one per mounted filesystem, with
+  `free`/`used`/`free_pct`/`used_pct`/`user_free` and the I/O of the backing
+  device.
+* **I/O rows** (`has_space = 0`, `has_device = 0`) — devices/totals with no
+  mounted filesystem (e.g. `_Total`), judged on `percent_disk_time` and queue.
+* **Device rows** (`has_device = 1`) — one per physical disk (Windows only,
+  from `MSFT_PhysicalDisk` / `MSFT_Disk`), judged on physical-disk health.
+
+### Device-state keywords (Windows)
+
+| Keyword              | Description                                                      |
+|----------------------|------------------------------------------------------------------|
+| `has_device`         | `1` on a physical-disk row, `0` otherwise (guard; no perfdata).  |
+| `friendly_name`      | Physical disk friendly name.                                     |
+| `serial`             | Physical disk serial number.                                     |
+| `media_type`         | `HDD`, `SSD`, `SCM`, or `Unspecified`.                           |
+| `health_status`      | `Healthy`, `Warning`, `Unhealthy`, or `Unknown`.                 |
+| `operational_status` | Synthesised single value: `Offline`, `OK`, or the health string. |
+| `is_offline`         | `1` if the disk is offline.                                      |
+| `is_readonly`        | `1` if the disk is read-only.                                    |
+| `disk_number`        | Physical disk number/index.                                      |
+
+Device rows are best-effort: if the `MSFT_PhysicalDisk` / `MSFT_Disk` WMI classes
+are unavailable (very old Windows, or a system with no Storage provider), no
+device rows are produced and the check still reports space and I/O normally.
+
+### Default thresholds
+
+By default the check is WARNING when a filesystem drops below 20% free, its disk
+is over 80% busy, or a physical disk reports `Warning` health; and CRITICAL below
+10% free, over 95% busy, or when a physical disk is `Unhealthy` or offline.
+
 **Jump to section:**
 
+* [Sample Commands](#check_disk_health_samples)
 * [Command-line Arguments](#check_disk_health_options)
 * [Filter keywords](#check_disk_health_filter_keys)
+
+
+<a id="check_disk_health_samples"></a>
+#### Sample Commands
+
+**Default check:**
+
+```
+check_disk_health
+OK: All disks are healthy.
+'C: free_pct'=61%;20;10 'C: percent_disk_time'=2%;80;95 ...
+```
+
+**Physical-disk device health:**
+
+`check_disk_health` appends one row per physical disk (from `MSFT_PhysicalDisk` /
+`MSFT_Disk`), carrying device state. These rows are identified by `has_device = 1`
+and by default go CRITICAL on an unhealthy or offline disk and WARNING on a disk
+reporting `Warning` health.
+
+```
+check_disk_health "filter=has_device = 1" "detail-syntax=${friendly_name} [${media_type}]: ${health_status}, ${operational_status}"
+OK: Samsung SSD 980 [SSD]: Healthy, OK, WDC WD40 [HDD]: Healthy, OK
+```
+
+Alerting only on SSD wear / disk failure across all physical disks:
+
+```
+check_disk_health "filter=has_device = 1" "crit=health_status != 'Healthy' or is_offline = 1"
+CRITICAL: WDC WD40 [HDD]: Unhealthy, Unhealthy
+```
+
+Device-state keywords (populated on `has_device = 1` rows): `friendly_name`,
+`serial`, `media_type` (HDD/SSD/SCM), `health_status`
+(Healthy/Warning/Unhealthy/Unknown), `operational_status`, `is_offline`,
+`is_readonly`, `disk_number`.
 
 
 
@@ -405,6 +477,20 @@ check_drivesize "crit=free<10%" drive=*
 L     client OK: All drives ok
 L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
 ```
+
+To scan **all drives** but **require that specific drives are present** — going
+CRITICAL if a mandatory drive is missing:
+
+```
+    check_drivesize drive=* require=D: require=E: "crit=free<10%"
+CRITICAL: Required drive(s) not found: E: | OK: All drives ok
+```
+
+`require` (alias `mandatory-drives`) can be repeated and matches by drive letter
+(with or without the trailing colon), volume label, or volume id. It is the one
+`UsedPartitionSpace` feature gap that wildcard scanning alone could not cover:
+`drive=*` silently reports OK when an expected disk has vanished, whereas
+`require=` makes that a hard CRITICAL.
 
 To check the size of all the drives and **display all values, not just problems**:
 
@@ -977,6 +1063,22 @@ OK: All 1 files are ok
 
 Checksums are computed lazily — they are only calculated when a
 `*_checksum` keyword is used in the filter or syntax.
+
+**Folder aggregates on the `total` object (largest/average/smallest file, folder count):**
+
+With `total`, an extra summary row aggregates the matched items. Beyond the
+summed `size`, it now also exposes `smallest_size`, `largest_size`,
+`average_size` and `folder_count`, so thresholds on the  largest or average 
+file are expressible:
+
+```
+check_files path=c:/logs pattern=*.log total "filter=total = 0" "crit=total = 1 and largest_size > 100m" "detail-syntax=largest=${largest_size} avg=${average_size} folders=${folder_count}"
+CRITICAL: largest=250M avg=12M folders=3
+'total largest'=262144000B 'total average'=12582912B 'total folders'=3
+```
+
+These four keywords are meaningful on the `total` object (they aggregate across
+everything `add`-ed into it); on an individual file row they read as 0.
 
 
 

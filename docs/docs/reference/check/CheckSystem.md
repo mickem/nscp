@@ -442,6 +442,18 @@ check_cpu "top-syntax=%(status): Cpu usage is %(list)" time=5m "detail-syntax=%(
 L        cli OK: OK: Cpu usage is 26 %
 ```
 
+**Full user/system/idle breakdown as perfdata (parity with the Linux `check_cpu_utilization` graph):**
+
+`idle` and `system` now emit perfdata (previously only `total`/`user` did), so the
+full breakdown graphs without a custom `top-syntax`. `kernel` is a deprecated alias
+of `system` and intentionally emits no separate perf column.
+
+```
+check_cpu "warn=idle < 5"
+CPU Load ok
+'total 5m load'=7%;80;90 'total 5m user'=4%;;; 'total 5m system'=3%;;; 'total 5m idle'=93%;;; ...
+```
+
 
 
 <a id="check_cpu_options"></a>
@@ -763,14 +775,77 @@ L        cli OK: OK: Cpu usage is 26 %
 
     Check CPU clock frequency (current vs max) per processor.
 
+    Reports per-CPU-socket frequency and load, sourced from the `Win32_Processor`
+    WMI class (one instance per physical socket).
+
+    | Keyword | Description |
+    |---|---|
+    | `name` | CPU name / model string. |
+    | `socket_id` | Socket device id (e.g. `CPU0`); use to filter a single socket. |
+    | `socket` | Socket designation (e.g. `CPU 1`). |
+    | `current_mhz` | Current clock speed in MHz (perf). |
+    | `max_mhz` | Maximum clock speed in MHz (perf). |
+    | `frequency_pct` | Current frequency as a percentage of maximum (perf). |
+    | `load_pct` | Per-socket CPU load from `Win32_Processor.LoadPercentage` (perf). |
+    | `cores` | Number of physical cores. |
+    | `logical_processors` | Number of logical processors (threads). |
+
+    There are no default warning/critical thresholds: modern CPUs legitimately clock
+    far below their maximum at idle, so a `frequency_pct` default would warn on every
+    idle machine. Use `load_pct` for a per-socket utilisation alert.
+
 === "Linux"
 
     Check the CPU clock frequency (current vs max) per core.
 
+    Reports per-CPU-socket frequency and load, sourced from the `Win32_Processor`
+    WMI class (one instance per physical socket).
+
+    | Keyword | Description |
+    |---|---|
+    | `name` | CPU name / model string. |
+    | `socket_id` | Socket device id (e.g. `CPU0`); use to filter a single socket. |
+    | `socket` | Socket designation (e.g. `CPU 1`). |
+    | `current_mhz` | Current clock speed in MHz (perf). |
+    | `max_mhz` | Maximum clock speed in MHz (perf). |
+    | `frequency_pct` | Current frequency as a percentage of maximum (perf). |
+    | `load_pct` | Per-socket CPU load from `Win32_Processor.LoadPercentage` (perf). |
+    | `cores` | Number of physical cores. |
+    | `logical_processors` | Number of logical processors (threads). |
+
+    There are no default warning/critical thresholds: modern CPUs legitimately clock
+    far below their maximum at idle, so a `frequency_pct` default would warn on every
+    idle machine. Use `load_pct` for a per-socket utilisation alert.
+
 **Jump to section:**
 
+* [Sample Commands](#check_cpu_frequency_samples)
 * [Command-line Arguments](#check_cpu_frequency_options)
 * [Filter keywords](#check_cpu_frequency_filter_keys)
+
+
+<a id="check_cpu_frequency_samples"></a>
+#### Sample Commands
+
+**Default check:**
+
+```
+check_cpu_frequency
+OK: Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz: 2900/4800 MHz (60%)
+'Intel...current_mhz'=2900MHz;;; 'Intel...max_mhz'=4800MHz;;; 'Intel...frequency_pct'=60%;;; 'Intel...load_pct'=12%;;;
+```
+
+**Per-socket filtering and load:**
+
+`Win32_Processor` returns one row per physical CPU socket, exposed via `socket_id`
+(DeviceID, e.g. `CPU0`) and `socket` (SocketDesignation, e.g. `CPU 1`). The
+`load_pct` keyword reports `Win32_Processor.LoadPercentage` per socket.
+
+```
+check_cpu_frequency "filter=socket_id = 'CPU0'" "warn=load_pct > 90" "detail-syntax=${socket}: ${load_pct}% @ ${current_mhz}MHz"
+OK: CPU 1: 12% @ 2900MHz
+'CPU0 load_pct'=12%;90;;
+```
 
 
 
@@ -1429,6 +1504,17 @@ Here are the main types:
   This committed memory is guaranteed to be available to the process, meaning Windows has set aside enough resources (either physical RAM or space in the page file) to back that memory.
 * `virtual` Memory: Virtual memory is an abstraction layer created by the operating system (Windows) to provide a larger, contiguous address space to each process than the physical RAM actually available.
 
+#### Memory paging rate (`\Memory\Pages/sec`)
+
+A sustained high hard-page-fault rate is one of the strongest signals of memory
+pressure. NSClient++ collects `\Memory\Pages/sec` by default under the alias
+`memory_pages_sec`, so you can alert on it directly with `check_pdh` without
+declaring the counter yourself:
+
+```
+check_pdh "counter=memory_pages_sec" "warn=value > 1000" "crit=value > 5000"
+```
+
 **Jump to section:**
 
 * [Sample Commands](#check_memory_samples)
@@ -1898,6 +1984,43 @@ page = 8.05G, physical = 7.85G
     which interfaces participate, then `warning`/`critical` to set the
     threshold.
 
+    #### Packet, error and discard counters
+
+    In addition to the byte-rate counters, `check_network` exposes per-second
+    packet, error and discard rates. Each is derived from the cumulative 
+    `Win32_PerfRawData_Tcpip_Network*` counters, so a healthy NIC reports 
+    approximately `0` errors/discards per second and any sustained non-zero 
+    rate is an alertable signal. All six emit perfdata.
+
+    | Variable       | Description                            |
+    |----------------|----------------------------------------|
+    | `packets_in`   | Packets received per second.           |
+    | `packets_out`  | Packets sent per second.               |
+    | `errors_in`    | Inbound packet errors per second.      |
+    | `errors_out`   | Outbound packet errors per second.     |
+    | `discards_in`  | Inbound packets discarded per second.  |
+    | `discards_out` | Outbound packets discarded per second. |
+
+    ```
+    check_network "filter=name = 'Ethernet 1'" \
+                  "warning=errors_in > 0 or errors_out > 0" \
+                  "critical=discards_in > 10 or discards_out > 10"
+    ```
+
+    #### NIC team membership
+
+    When the Windows LBFO WMI provider is available (`ROOT\StandardCimv2\MSFT_NetLbfoTeamMember`),
+    each adapter is annotated with its team:
+
+    | Variable | Description |
+    |---|---|
+    | `team` | Name of the NIC team this adapter belongs to. Empty when the adapter is not a team member, or when the LBFO provider is unavailable (client SKUs, older Windows, no teams configured). |
+    | `team_status` | The raw `MSFT_NetLbfoTeamMember.OperationalStatus` of this team member, rendered as a string. Empty for non-members. |
+
+    Team annotation is best-effort and self-disabling: if the provider or namespace
+    is absent, the fields stay empty and the check does not fail. Use `team != ''`
+    to scope a check to teamed adapters.
+
 === "Linux"
 
     Check network interface status and throughput.
@@ -2011,6 +2134,43 @@ page = 8.05G, physical = 7.85G
     Both styles can be combined in a single check by using `filter` to scope
     which interfaces participate, then `warning`/`critical` to set the
     threshold.
+
+    #### Packet, error and discard counters
+
+    In addition to the byte-rate counters, `check_network` exposes per-second
+    packet, error and discard rates. Each is derived from the cumulative 
+    `Win32_PerfRawData_Tcpip_Network*` counters, so a healthy NIC reports 
+    approximately `0` errors/discards per second and any sustained non-zero 
+    rate is an alertable signal. All six emit perfdata.
+
+    | Variable       | Description                            |
+    |----------------|----------------------------------------|
+    | `packets_in`   | Packets received per second.           |
+    | `packets_out`  | Packets sent per second.               |
+    | `errors_in`    | Inbound packet errors per second.      |
+    | `errors_out`   | Outbound packet errors per second.     |
+    | `discards_in`  | Inbound packets discarded per second.  |
+    | `discards_out` | Outbound packets discarded per second. |
+
+    ```
+    check_network "filter=name = 'Ethernet 1'" \
+                  "warning=errors_in > 0 or errors_out > 0" \
+                  "critical=discards_in > 10 or discards_out > 10"
+    ```
+
+    #### NIC team membership
+
+    When the Windows LBFO WMI provider is available (`ROOT\StandardCimv2\MSFT_NetLbfoTeamMember`),
+    each adapter is annotated with its team:
+
+    | Variable | Description |
+    |---|---|
+    | `team` | Name of the NIC team this adapter belongs to. Empty when the adapter is not a team member, or when the LBFO provider is unavailable (client SKUs, older Windows, no teams configured). |
+    | `team_status` | The raw `MSFT_NetLbfoTeamMember.OperationalStatus` of this team member, rendered as a string. Empty for non-members. |
+
+    Team annotation is best-effort and self-disabling: if the provider or namespace
+    is absent, the fields stay empty and the check does not fail. Use `team != ''`
+    to scope a check to teamed adapters.
 
 **Jump to section:**
 
@@ -2382,6 +2542,40 @@ page = 8.05G, physical = 7.85G
     check_os_updates "warning=reboot_required > 0"
     ```
 
+    `reboot_required` counts updates that *would* require a reboot once installed.
+    To detect a reboot that is *already pending* system-wide — including reboots
+    queued by updates that have already been installed (which `reboot_required` no
+    longer reflects) — use `reboot_pending`, sourced from the Windows Update
+    `RebootRequired` registry key:
+
+    ```
+    check_os_updates "crit=reboot_pending = 1" "detail-syntax=reboot pending: ${reboot_pending}"
+    ```
+
+    **Defender / definition and rollup categories**
+
+    Defender/antivirus definition updates churn several times a day, so most admins
+    threshold them separately from OS patches. `defender` counts updates in the
+    `Definition Updates` / `Microsoft Defender Antivirus` categories, and `rollups`
+    counts monthly `Update Rollup` updates:
+
+    ```
+    check_os_updates "warning=count - defender > 0" "detail-syntax=${count} total, ${defender} defender, ${rollups} rollups"
+    ```
+
+    **Filtering by title**
+
+    `update-filter=<substring>` restricts the check to updates whose title contains
+    the (case-insensitive) substring; all counters (`count`, `security`, …) are then
+    recomputed over just the matching subset:
+
+    ```
+    check_os_updates update-filter=".NET" "detail-syntax=${count} .NET updates: ${titles}"
+    ```
+
+    > **Note:** the WUA search criteria is `Type='Software'`, so **driver updates are
+    > excluded** by design. This keeps the count focused on OS/application patches.
+
     **Customizing the output**
 
     You can use the syntax options to format the output string:
@@ -2425,6 +2619,40 @@ page = 8.05G, physical = 7.85G
     ```
     check_os_updates "warning=reboot_required > 0"
     ```
+
+    `reboot_required` counts updates that *would* require a reboot once installed.
+    To detect a reboot that is *already pending* system-wide — including reboots
+    queued by updates that have already been installed (which `reboot_required` no
+    longer reflects) — use `reboot_pending`, sourced from the Windows Update
+    `RebootRequired` registry key:
+
+    ```
+    check_os_updates "crit=reboot_pending = 1" "detail-syntax=reboot pending: ${reboot_pending}"
+    ```
+
+    **Defender / definition and rollup categories**
+
+    Defender/antivirus definition updates churn several times a day, so most admins
+    threshold them separately from OS patches. `defender` counts updates in the
+    `Definition Updates` / `Microsoft Defender Antivirus` categories, and `rollups`
+    counts monthly `Update Rollup` updates:
+
+    ```
+    check_os_updates "warning=count - defender > 0" "detail-syntax=${count} total, ${defender} defender, ${rollups} rollups"
+    ```
+
+    **Filtering by title**
+
+    `update-filter=<substring>` restricts the check to updates whose title contains
+    the (case-insensitive) substring; all counters (`count`, `security`, …) are then
+    recomputed over just the matching subset:
+
+    ```
+    check_os_updates update-filter=".NET" "detail-syntax=${count} .NET updates: ${titles}"
+    ```
+
+    > **Note:** the WUA search criteria is `Type='Software'`, so **driver updates are
+    > excluded** by design. This keeps the count focused on OS/application patches.
 
     **Customizing the output**
 
@@ -3108,6 +3336,18 @@ Performance data: 'total'=1G;14;19;0;23 'total %'=6%;59;79;0;100
 
 ```
 
+Alerting on the peak commit charge since boot (high-water mark), not just current usage::
+
+```
+check_pagefile "warn=peak_used_pct > 80" "crit=peak_used_pct > 90" "detail-syntax=${name} peak ${peak_used} (${peak_used_pct}%)"
+OK: total peak 3.1G (12%)
+Performance data: 'total peak_used'=3G;... 'total peak_used_pct'=12;80;90
+```
+
+The `peak_used` (bytes, scaled) and `peak_used_pct` keywords expose
+`SystemPageFileInformation`'s PeakUsage — the highest pagefile commit reached
+since boot — so a machine that spiked and recovered still alerts.
+
 Getting help on available options::
 
 ```
@@ -3685,6 +3925,26 @@ List all processes which use **more then 200m virtual memory** Default check **v
 check_nrpe --host 192.168.56.103 --command check_process --arguments "filter=virtual > 200m"
 OK all processes are ok.|'csrss.exe state'=1;0;0 'svchost.exe state'=1;0;0 'AvastSvc.exe state'=1;0;0 ...
 ```
+
+**Thread count**::
+
+```
+check_process process=chrome.exe "warn=thread_count > 400" "detail-syntax=${exe}: ${thread_count} threads"
+OK: chrome.exe: 212 threads
+Performance data: 'chrome.exe threads'=212;400;0
+```
+
+**Percentage-of-RAM / percentage-of-commit** thresholds::
+
+```
+check_process process=sqlservr.exe "warn=working_set_pct > 25" "crit=working_set_pct > 40" "detail-syntax=${exe}: ${working_set_pct}% RAM, ${pagefile_pct}% commit"
+OK: sqlservr.exe: 12% RAM, 8% commit
+Performance data: 'sqlservr.exe ws_pct'=12%;25;40 'sqlservr.exe pf_pct'=8%;;
+```
+
+`working_set_pct` is the process working set as a percentage of total physical
+RAM; `pagefile_pct` is its pagefile (commit) usage as a percentage of the system
+commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 
 
 
@@ -5059,6 +5319,21 @@ WARNING: DPS=stopped (auto), MSDTC=stopped (auto), sppsvc=stopped (auto), UALSVC
 ```
 check_service service=nscp "crit=state = 'started'" warn=none
 ```
+
+**Dashboard rollup with `summary` (aggregate state-count perfdata)**::
+
+Adding `summary` emits per-state counts across all enumerated services as
+performance data, so a dashboard gets running/stopped/paused/pending/total
+rollups without a custom `top-syntax`:
+
+```
+check_service summary "filter=none"
+OK: All 214 service(s) are ok.
+'running_services'=118 'stopped_services'=94 'paused_services'=0 'pending_services'=2 'service_count'=214
+```
+
+The counts cover every matched service regardless of the warning/critical
+filter, so the rollup is stable even when the check itself is OK.
 
 
 

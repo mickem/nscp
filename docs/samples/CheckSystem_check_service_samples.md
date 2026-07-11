@@ -62,3 +62,18 @@ WARNING: DPS=stopped (auto), MSDTC=stopped (auto), sppsvc=stopped (auto), UALSVC
 ```
 check_service service=nscp "crit=state = 'started'" warn=none
 ```
+
+**Dashboard rollup with `summary` (aggregate state-count perfdata)**::
+
+Adding `summary` emits per-state counts across all enumerated services as
+performance data, so a dashboard gets running/stopped/paused/pending/total
+rollups without a custom `top-syntax`:
+
+```
+check_service summary "filter=none"
+OK: All 214 service(s) are ok.
+'running_services'=118 'stopped_services'=94 'paused_services'=0 'pending_services'=2 'service_count'=214
+```
+
+The counts cover every matched service regardless of the warning/critical
+filter, so the rollup is stable even when the check itself is OK.
