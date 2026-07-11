@@ -13,6 +13,13 @@
 #include <win/services.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
 
+// PROCESSOR_ARCHITECTURE_ARM64 (12) is absent from the older Windows SDK paired
+// with the XP-targeting (v141_xp) toolset, so define it when the SDK does not.
+// The win headers above have already pulled in winnt.h by this point.
+#ifndef PROCESSOR_ARCHITECTURE_ARM64
+#define PROCESSOR_ARCHITECTURE_ARM64 12
+#endif
+
 namespace check_cpu_filter {
 struct filter_obj {
   std::string time;
