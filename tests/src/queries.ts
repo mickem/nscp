@@ -99,11 +99,15 @@ export async function setupQueryNscp(
   return login.body.key as string;
 }
 
-/** Execute one query via /api/v1/queries/<cmd>/commands/execute. */
+/** Execute one query via /api/v1/queries/<cmd>/commands/execute.
+ *
+ * An array value repeats the parameter (e.g. `{ file: ["Application", "System"] }`
+ * becomes `file=Application&file=System`), which some checks use to pass an
+ * option multiple times. */
 export async function executeQuery(
   key: string,
   command: string,
-  args: Record<string, string> = {},
+  args: Record<string, string | string[]> = {},
 ): Promise<QueryResult> {
   const res = await request(REST_URL)
     .get(`/api/v1/queries/${command}/commands/execute`)

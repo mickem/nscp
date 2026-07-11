@@ -1,31 +1,40 @@
 /**
- * Exercises CheckEventLog's `bookmark` option end-to-end on Windows.
+ * Exercises CheckEventLog's `bookmark` option end-to-end on Windows. A bookmark
+ * must (a) NOT re-report events an earlier check already saw, and (b) still pick
+ * up events that arrive AFTER the bookmark. (b) is the regression guard for the
+ * reverse-scan bug where the tracking bookmark parked on the OLDEST event read,
+ * so a resume could only ever seek to still-older events and never surfaced
+ * anything new.
  *
- * Focus: the bookmark must advance so a second consecutive check does NOT
- * re-report events the first check already saw — including when the first scan
- * reaches the end of the log (a quiet/empty read) rather than the date
- * boundary. That "advance on empty read" path used to be a no-op
- * (CheckEventLog.cpp logged "Cannot update bookmarks for empty reads yet"), so
- * on a host whose Application log is younger than the default -24h window the
- * bookmark was never persisted and every run rescanned and re-reported the same
- * events.
+ * Events are injected via .NET's EventLog.WriteEntry (through powershell), NOT
+ * `eventcreate`: WriteEntry works WITHOUT elevation as long as the source is
+ * already registered, whereas eventcreate needs Administrator to register a
+ * fresh source. Consequences of using a shared, pre-existing source:
+ *   - We disambiguate our events by a per-run id range (well above real system
+ *     event ids), not by a unique source.
+ *   - `${message}` is not queryable for these events (the source's message DLL
+ *     has no template for our ids), so filters key off `id` + `source` only.
+ *   - Each test PRIMES its bookmark first (one query that advances it past all
+ *     pre-existing events) so tests are independent of one another and of prior
+ *     runs.
  *
- * Queries run over REST against a single long-lived `nscp test` instance so the
- * in-memory bookmark store persists across the three queries below.
- *
- * Determinism: each run uses a UNIQUE event source, so the only `source=<S>`
- * events in the log are the ones this test injects (via the built-in
- * `eventcreate`, the same tool the docs use). That removes historical noise and
- * makes the matched count exact regardless of scan direction:
- *   A: after injecting one event      -> 1 match  (WARNING)
- *   B: immediate re-run, nothing new  -> 0 matches (OK)      <- the regression guard
- *   C: after injecting one more       -> 1 match  (WARNING)
- * With the pre-fix behaviour B re-reports the first event (WARNING) on a
- * short-lived log, so B===OK is what proves the bookmark advanced.
+ * If no writable source can be found (locked-down host, no admin, no .NET), the
+ * suite FAILS in beforeAll instead of silently skipping. A skipped assertion
+ * that still reports "pass" is exactly how the original bug survived green local
+ * runs, so this test refuses to no-op into a false pass.
  */
-import { execFileSync } from "node:child_process";
-
-import { NscpInstance, OK, WARNING, executeQuery, messageOf, setupQueryNscp } from "@fixtures/index";
+import {
+  NscpInstance,
+  OK,
+  WARNING,
+  eventIdAllocator,
+  executeQuery,
+  messageOf,
+  pollQuery,
+  resolveEventLogSource,
+  setupQueryNscp,
+  writeEventLogEntry,
+} from "@fixtures/index";
 
 jest.setTimeout(300_000);
 
@@ -34,40 +43,29 @@ const onWindows = process.platform === "win32" ? describe : describe.skip;
 onWindows("CheckEventLog bookmark", () => {
   let nscp: NscpInstance;
   let key: string;
-  // Unique per run so no events from earlier runs share the source.
-  const source = `NSCP_BM_${Date.now()}`;
+  let source: string;
   const log = "Application";
-  const bookmark = "it-bookmark";
-  // Match only our injected events; alert purely on how many were matched, so
-  // the Nagios status is a direct proxy for "how many new events this run saw".
-  // `filter` overrides the default level filter so we select purely by source;
-  // the injected events are INFORMATION, so the default level-based critical
-  // never fires and `warning=count>0` alone drives the status.
-  const args = {
+  // Per-run id band [40000, ~49000), well above real system event ids and BELOW
+  // the checkeventlog-commands suite's band (50000+), so the two suites — which
+  // share the one Windows event log — never match each other's events.
+  const ids = eventIdAllocator(40000);
+  // A bookmarked query that matches only this run's injected events. The upper
+  // bound keeps the (source-shared) filter inside our band. These tests assert on
+  // count transitions, not severity, so critical=none disables the default
+  // level threshold — otherwise a stray Error event left in the shared log by an
+  // earlier run would flip the result to CRITICAL.
+  const ours = (bookmark: string) => ({
     file: log,
     bookmark,
-    filter: `source = '${source}'`,
+    filter: `id >= ${ids.base} and id <= ${ids.base + 999} and source = '${source}'`,
     warning: "count > 0",
-  };
-
-  /**
-   * Write one INFORMATION event under our unique source via eventcreate.
-   * INFORMATION (not ERROR) so only our explicit `warning=count>0` decides the
-   * status, not the level-based defaults. Returns false if eventcreate is
-   * unavailable / not permitted, so the suite skips rather than false-fails.
-   */
-  function emit(id: number, message: string): boolean {
-    try {
-      execFileSync("eventcreate", ["/ID", String(id), "/L", log, "/T", "INFORMATION", "/SO", source, "/D", message], { stdio: "ignore" });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    critical: "none",
+    "top-syntax": "${count}",
+  });
 
   beforeAll(async () => {
+    // Throws (failing the suite) if injection is impossible — never a silent skip.
+    source = resolveEventLogSource();
     nscp = new NscpInstance();
     key = await setupQueryNscp(nscp, "CheckEventLog");
   });
@@ -76,26 +74,99 @@ onWindows("CheckEventLog bookmark", () => {
     await nscp?.stop();
   });
 
-  it("advances the bookmark so a re-run does not re-report already-seen events", async () => {
-    if (!emit(500, "bookmark-e1")) {
-      console.warn("eventcreate unavailable (permissions?), skipping bookmark assertions");
-      return;
+  /**
+   * Inject one event (unique id) and wait until it is visible to a fresh,
+   * NON-bookmark query, so the next bookmarked query is guaranteed to observe it
+   * without a flaky fixed sleep. The visibility poll deliberately uses a
+   * bookmark-less query on the event's unique id, so it never advances any test
+   * bookmark.
+   */
+  async function inject(message: string): Promise<number> {
+    const id = ids.next();
+    if (!writeEventLogEntry(source, id, "Information", message)) throw new Error(`failed to inject event to '${source}'`);
+    await pollQuery(
+      key,
+      "check_eventlog",
+      { file: log, filter: `id = ${id} and source = '${source}'`, warning: "count > 0", "top-syntax": "${count}" },
+      (r) => r.result === WARNING,
+      20_000,
+    );
+    return id;
+  }
+
+  /**
+   * Advance a bookmark past every currently-existing event, so the test only
+   * sees events it injects AFTER this call — independent of other tests and of
+   * prior runs. (The scan reads and bookmarks every event in the window, not
+   * just filter matches, so this works even when nothing matches yet.)
+   */
+  async function prime(bookmark: string): Promise<void> {
+    await executeQuery(key, "check_eventlog", ours(bookmark));
+  }
+
+  // --- fresh-bookmark path: seed on first run, then resume ---------------------
+
+  it("does not re-report seen events but does pick up new ones (fresh bookmark)", async () => {
+    const bm = "bm-fresh";
+    await inject("e1");
+    // Fresh bookmark: first check sees the event, exercising the no-stored-bookmark
+    // (reverse-window) path that must seed the bookmark at the NEWEST event read.
+    expect((await executeQuery(key, "check_eventlog", ours(bm))).result).toBe(WARNING);
+    // Immediate re-run: bookmark advanced, nothing new -> OK (no re-report).
+    expect((await executeQuery(key, "check_eventlog", ours(bm))).result).toBe(OK);
+    // A new event AFTER the bookmark must be picked up — this is the bug fix.
+    await inject("e2");
+    expect((await executeQuery(key, "check_eventlog", ours(bm))).result).toBe(WARNING);
+  });
+
+  // --- resume path: repeated forward advancement ------------------------------
+
+  it("keeps advancing across several consecutive new events (forward resume)", async () => {
+    const bm = "bm-consecutive";
+    await prime(bm);
+    for (let i = 0; i < 4; i++) {
+      await inject(`round-${i}`);
+      // Each newly-arrived event is picked up...
+      expect((await executeQuery(key, "check_eventlog", ours(bm))).result).toBe(WARNING);
+      // ...and not re-reported on the following run.
+      expect((await executeQuery(key, "check_eventlog", ours(bm))).result).toBe(OK);
     }
-    await sleep(750); // let the write settle in the log
+  });
 
-    // A: fresh bookmark — sees the first event.
-    const a = await executeQuery(key, "check_eventlog", args);
-    expect(a.result).toBe(WARNING); // count > 0
+  it("reports every event that arrived since the last check, not just one", async () => {
+    const bm = "bm-batch";
+    await prime(bm);
+    await inject("b1");
+    await inject("b2");
+    await inject("b3");
+    const q = await executeQuery(key, "check_eventlog", ours(bm));
+    expect(q.result).toBe(WARNING);
+    // All three new events surface in the single resumed read (top-syntax=${count}).
+    expect(messageOf(q)).toBe("3");
+    // Nothing left to report afterwards.
+    expect((await executeQuery(key, "check_eventlog", ours(bm))).result).toBe(OK);
+  });
 
-    // B: same bookmark, nothing new injected — must resume past the first event.
-    const b = await executeQuery(key, "check_eventlog", args);
-    expect(b.result).toBe(OK); // 0 matches; regression guard for advance-on-empty
-    expect(messageOf(b)).not.toMatch(/1 message/);
+  it("tracks distinct bookmark names independently", async () => {
+    const bmA = "bm-indep-a";
+    const bmB = "bm-indep-b";
+    await prime(bmA);
+    await prime(bmB);
+    await inject("shared");
+    // bmA sees the event and advances past it.
+    expect((await executeQuery(key, "check_eventlog", ours(bmA))).result).toBe(WARNING);
+    expect((await executeQuery(key, "check_eventlog", ours(bmA))).result).toBe(OK);
+    // bmB keeps its own position, so it still sees the same event.
+    expect((await executeQuery(key, "check_eventlog", ours(bmB))).result).toBe(WARNING);
+  });
 
-    // C: inject one more, re-run — sees only the new event, not the old one.
-    expect(emit(501, "bookmark-e2")).toBe(true);
-    await sleep(750);
-    const c = await executeQuery(key, "check_eventlog", args);
-    expect(c.result).toBe(WARNING);
+  // --- control: the non-bookmark path is unaffected by the fix ----------------
+
+  it("without a bookmark, re-reports the same event on every run", async () => {
+    const id = await inject("control");
+    const args = { file: log, filter: `id = ${id} and source = '${source}'`, warning: "count > 0", "top-syntax": "${count}" };
+    // No bookmark => no "since last check" position => found on every run.
+    expect((await executeQuery(key, "check_eventlog", args)).result).toBe(WARNING);
+    expect((await executeQuery(key, "check_eventlog", args)).result).toBe(WARNING);
   });
 });

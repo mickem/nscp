@@ -3,6 +3,7 @@
 
 #include "CheckEventLog.h"
 
+#include <climits>
 #include <time.h>
 #include <winevt.h>
 
@@ -247,7 +248,19 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
   enum direction_type { direction_none, direction_forwards, direction_backwards };
   direction_type direction = direction_none;
   DWORD flags = eventlog::api::EvtQueryChannelPath;
-  if (scan_range.size() > 0 && scan_range[0] == L'-') {
+  // Resuming from a previously-stored bookmark: scan FORWARD from it so events
+  // that arrived after the bookmark (i.e. newer than the last-seen event) are
+  // picked up. A reverse scan only ever seeks to positions OLDER than the
+  // bookmark and can never surface new events, so in this mode the scan_range
+  // window and direction are bypassed — the bookmark itself is the start
+  // position and we read forward to the end of the log.
+  const bool resuming = !bookmark.empty() && static_cast<bool>(bookmarks_.get(bookmark));
+  if (resuming) {
+    direction = direction_forwards;
+    flags |= eventlog::api::EvtQueryForwardDirection;
+    start_date = 0;
+    stop_date = LLONG_MAX;
+  } else if (scan_range.size() > 0 && scan_range[0] == L'-') {
     direction = direction_backwards;
     flags |= eventlog::api::EvtQueryReverseDirection;
     stop_date = parse_time(scan_range);
@@ -340,9 +353,16 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
             for (; i < dwReturned; i++) eventlog::EvtClose(hEvents[i]);
             return;
           }
-          // We are consuming this event; advance the tracking bookmark while the
-          // handle is still valid (new_filter_obj closes it when `item` dies).
-          if (hTrackBookmark && nscpEvtUpdateBookmark(hTrackBookmark, hEvents[i])) bookmark_dirty = true;
+          // Advance the tracking bookmark to the NEWEST event read so the next
+          // run resumes strictly after it. Forward scans read oldest-first (the
+          // newest event is the last one, so update on every event); reverse
+          // scans read newest-first (the newest event is the FIRST one, so
+          // update only until the bookmark has been set). Advancing on every
+          // reverse event — the old behaviour — parked the bookmark on the
+          // OLDEST event read, after which a resume (also reverse, pre-fix) could
+          // only ever seek to older events and never picked up anything new.
+          const bool track_this = (direction == direction_forwards) || !bookmark_dirty;
+          if (hTrackBookmark && track_this && nscpEvtUpdateBookmark(hTrackBookmark, hEvents[i])) bookmark_dirty = true;
           if (direction == direction_forwards && item->get_written() < start_date) {
             eventlog::EvtClose(hEvents[i]);
             continue;
