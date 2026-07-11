@@ -199,6 +199,44 @@ describe("CheckDisk commands", () => {
     expect([OK, CRITICAL]).toContain(q.result);
   });
 
+  // --- check_share (§3.6, Windows) ------------------------------------------
+
+  it("check_share lists shares without failing (Windows)", async () => {
+    if (!onWindows) return; // SMB shares are a Windows feature.
+    // List mode: a host may have any number of shares (admin shares like IPC$
+    // are usually present); either way it must return a valid status, not error.
+    const q = await executeQuery(key, "check_share", {});
+    expect(q.result).not.toBe(UNKNOWN);
+    expect(q.result).toBeLessThanOrEqual(CRITICAL);
+  });
+
+  it("check_share goes CRITICAL when a required share is missing (Windows)", async () => {
+    if (!onWindows) return;
+    // A share name that cannot exist -> exists=0 -> default crit=not exists.
+    const q = await executeQuery(key, "check_share", { share: "NSCP_NoSuchShare_zzz" });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/NSCP_NoSuchShare_zzz/);
+    expect(messageOf(q)).toMatch(/exists=0/);
+  });
+
+  it("check_share confirms an always-present admin share exists (Windows)", async () => {
+    if (!onWindows) return;
+    // IPC$ is published by the Server service on essentially every Windows host.
+    // If this host has it, the required-share check passes; if the Server service
+    // is somehow absent it reports missing — accept either, but never UNKNOWN.
+    const q = await executeQuery(key, "check_share", { share: "IPC$" });
+    expect(q.result).not.toBe(UNKNOWN);
+    expect([OK, CRITICAL]).toContain(q.result);
+  });
+
+  it("check_share with a missing share but no crit stays OK (Windows)", async () => {
+    if (!onWindows) return;
+    // Disabling the default crit proves the option parses and exists=0 alone
+    // does not fail the check.
+    const q = await executeQuery(key, "check_share", { share: "NSCP_NoSuchShare_zzz", critical: "none" });
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_uncpath (§3.1, Windows) ----------------------------------------
 
   it("check_uncpath without a path is reported as an error (Windows)", async () => {

@@ -384,6 +384,32 @@ describe("CheckSystem commands", () => {
     expect(perfOf(q)["patch_missing"].value as number).toBe(1);
   });
 
+  // --- check_printqueue (Windows) --------------------------------------------
+
+  it("check_printqueue runs and reports a valid status (Windows)", async () => {
+    if (!onWindows) return; // print queues are a Windows feature.
+    // A host with no printers takes empty-state=ok; hosts with idle printers are
+    // also OK. With thresholds pinned off it must never be UNKNOWN/error.
+    const q = await executeQuery(key, "check_printqueue", {
+      warning: "none",
+      critical: "none",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/printer|ok/i);
+  });
+
+  it("check_printqueue accepts the offline/error/age threshold keywords (Windows)", async () => {
+    if (!onWindows) return;
+    // Regression: the queue keywords must parse in warn/crit expressions and the
+    // thresholds below never trip on a healthy/idle host, so the result is OK.
+    const q = await executeQuery(key, "check_printqueue", {
+      warning: "jobs > 999999 or oldest_job_age > 999999",
+      critical: "error = 1 and offline = 1 and jobs > 999999",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
+    expect(q.result).toBe(OK);
+  });
+
   // --- Linux-only checks (no Windows CheckSystem equivalent) ------------------
 
   it("check_load reports the three load averages (Linux)", async () => {
