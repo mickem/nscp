@@ -15,6 +15,7 @@
 		"check_uncpath"		: "Check free space on a UNC path (server share), with optional alternate credentials.",
 		"check_storagepool"	: "Check Storage Spaces pool health and capacity (Windows).",
 		"check_shadowcopy"	: "Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage per volume (Windows).",
+		"check_share"		: "Check Windows SMB shares: list them, or verify that specific required shares exist (Windows).",
 		"check_mount"		: "Check that a filesystem is mounted with the expected fstype and options.",
 		"checkFiles"		: "Legacy version of check_drivesize",
 		"checkDriveSize"	: "Legacy version of check_drivesize"

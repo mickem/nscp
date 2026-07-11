@@ -19,6 +19,7 @@ set(SRCS
     check_uncpath.cpp
     check_storagepool.cpp
     check_shadowcopy.cpp
+    check_share.cpp
     collector_thread.cpp
     filter.cpp
     ${NSCP_DEF_PLUGIN_CPP}
@@ -47,6 +48,7 @@ if(WIN32)
         check_uncpath.hpp
         check_storagepool.hpp
         check_shadowcopy.hpp
+        check_share.hpp
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
@@ -116,6 +118,7 @@ if(WIN32)
             check_uncpath_test.cpp
             check_storagepool_test.cpp
             check_shadowcopy_test.cpp
+            check_share_test.cpp
             collector_thread_test.cpp
             file_finder_filter_test.cpp
             # Module sources under test.
@@ -128,6 +131,7 @@ if(WIN32)
             check_uncpath.cpp
             check_storagepool.cpp
             check_shadowcopy.cpp
+            check_share.cpp
             collector_thread.cpp
             file_finder_win.cpp
             filter.cpp

@@ -22,6 +22,7 @@
 #include "check_mount.hpp"
 #include "check_single_file.hpp"
 #include "check_shadowcopy.hpp"
+#include "check_share.hpp"
 #include "check_storagepool.hpp"
 #include "check_uncpath.hpp"
 #include "file_finder.hpp"
@@ -108,6 +109,14 @@ void CheckDisk::check_shadowcopy(const PB::Commands::QueryRequestMessage::Reques
     shadowcopy_check::check::check_shadowcopy(request, response);
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to check shadow copies: " + std::string(e.what()));
+  }
+}
+
+void CheckDisk::check_share(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    share_check::check::check_share(request, response);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to check shares: " + std::string(e.what()));
   }
 }
 
