@@ -36,6 +36,7 @@
 		"check_process_history_new"	: "Check for new processes that appeared within a specified time window. Useful for detecting unexpected or unauthorized applications." ,
 		"check_registry_key"	: "Check existence, last-write time, and child counts of one or more Windows registry keys.",
 		"check_registry_value"	: "Check the type, content, and size of one or more Windows registry values.",
+		"check_pending_reboot"	: "Check whether the system is waiting for a reboot, aggregating the servicing, Windows Update, file-rename, computer-rename and domain-join signals.",
 
 		"checkServiceState"	: "Legacy version of check_service",
 		"checkCpu"			: "Legacy version of check_cpu",
