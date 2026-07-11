@@ -220,12 +220,18 @@ void GetVersion() {
       /* Windows 8.1 */
     } else if (majorVersion == 6 && minorVersion == 3) {
       g_windowsVersion = WINDOWS_81;
-      /* Windows 10 */
+      /* Windows 10 / Windows 11 */
     } else if (majorVersion == 10 && minorVersion == 0) {
-      if (buildNumber > 22000) {
+      // Windows 11 shares 10.0 with Windows 10; only client SKUs at build 22000+
+      // are Windows 11. Server SKUs (incl. build >= 22000, e.g. Server 2022/2025)
+      // stay WINDOWS_10 here, matching get_version_string(). Note the `else`: the
+      // previous code set WINDOWS_11 then unconditionally overwrote it with
+      // WINDOWS_10, so Windows 11 was never reported.
+      if (productType == VER_NT_WORKSTATION && buildNumber >= 22000) {
         g_windowsVersion = WINDOWS_11;
+      } else {
+        g_windowsVersion = WINDOWS_10;
       }
-      g_windowsVersion = WINDOWS_10;
     } else if (majorVersion == 10 && minorVersion > 0 || majorVersion > 10) {
       g_windowsVersion = WINDOWS_NEW;
     }
