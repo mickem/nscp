@@ -31,6 +31,7 @@
 #include "check_process_history.hpp"
 #include "check_registry.hpp"
 #include "check_service.h"
+#include "check_swap_io.hpp"
 #include "check_temperature.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
@@ -829,6 +830,10 @@ void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Reques
   filter.match(record);
 
   filter_helper.post_process(filter);
+}
+
+void CheckSystem::check_swap_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  swap_io_check::check_swap_io(request, response);
 }
 
 void CheckSystem::checkMem(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
