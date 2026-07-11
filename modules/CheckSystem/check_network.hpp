@@ -55,6 +55,12 @@ struct network_interface {
   // Win32_PerfRawData_Tcpip_NetworkInterface) or "adapter"
   // (Win32_PerfRawData_Tcpip_NetworkAdapter, which also reports team aggregates).
   std::string source;
+  // NIC-team membership (MSFT_NetLbfoTeamMember in ROOT\StandardCimv2). Empty
+  // when this adapter is not a team member or when the LBFO WMI provider is
+  // unavailable (client SKUs, older Windows). team_status is the raw
+  // MSFT_NetLbfoTeamMember.OperationalStatus value rendered as a string.
+  std::string team;
+  std::string team_status;
   bool has_nif;
   bool has_prd;
   long long oldBytesReceivedPersec;
@@ -63,6 +69,24 @@ struct network_interface {
   long long BytesReceivedPersec;
   long long BytesSentPersec;
   long long BytesTotalPersec;
+  // Packet / error / discard counters (Win32_PerfRawData_Tcpip_Network*). Like
+  // the byte counters, the raw WMI values are cumulative totals; the fields
+  // below hold the computed per-second rate and old* holds the previous
+  // cumulative reading used to derive the delta. errors_*/discards_* are
+  // reported as per-second rates so a healthy NIC reads ~0 and any sustained
+  // rate is an alertable signal.
+  long long oldPacketsReceivedPersec;
+  long long oldPacketsSentPersec;
+  long long oldPacketsReceivedErrors;
+  long long oldPacketsOutboundErrors;
+  long long oldPacketsReceivedDiscarded;
+  long long oldPacketsOutboundDiscarded;
+  long long PacketsReceivedPersec;
+  long long PacketsSentPersec;
+  long long PacketsReceivedErrors;
+  long long PacketsOutboundErrors;
+  long long PacketsReceivedDiscarded;
+  long long PacketsOutboundDiscarded;
 
   network_interface()
       : SpeedBps(0),
@@ -74,44 +98,24 @@ struct network_interface {
         oldBytesTotalPersec(0),
         BytesReceivedPersec(0),
         BytesSentPersec(0),
-        BytesTotalPersec(0) {}
-  network_interface(const network_interface &other)
-      : name(other.name),
-        NetConnectionID(other.NetConnectionID),
-        MACAddress(other.MACAddress),
-        NetConnectionStatus(other.NetConnectionStatus),
-        NetEnabled(other.NetEnabled),
-        Speed(other.Speed),
-        SpeedBps(other.SpeedBps),
-        source(other.source),
-        has_nif(other.has_nif),
-        has_prd(other.has_prd),
-        oldBytesReceivedPersec(other.oldBytesReceivedPersec),
-        oldBytesSentPersec(other.oldBytesSentPersec),
-        oldBytesTotalPersec(other.oldBytesTotalPersec),
-        BytesReceivedPersec(other.BytesReceivedPersec),
-        BytesSentPersec(other.BytesSentPersec),
-        BytesTotalPersec(other.BytesTotalPersec) {}
-
-  const network_interface &operator()(const network_interface &other) {
-    name = other.name;
-    NetConnectionID = other.NetConnectionID;
-    MACAddress = other.MACAddress;
-    NetConnectionStatus = other.NetConnectionStatus;
-    NetEnabled = other.NetEnabled;
-    Speed = other.Speed;
-    SpeedBps = other.SpeedBps;
-    source = other.source;
-    has_nif = other.has_nif;
-    has_prd = other.has_prd;
-    oldBytesReceivedPersec = other.oldBytesReceivedPersec;
-    oldBytesSentPersec = other.oldBytesSentPersec;
-    oldBytesTotalPersec = other.oldBytesTotalPersec;
-    BytesReceivedPersec = other.BytesReceivedPersec;
-    BytesSentPersec = other.BytesSentPersec;
-    BytesTotalPersec = other.BytesTotalPersec;
-    return *this;
-  }
+        BytesTotalPersec(0),
+        oldPacketsReceivedPersec(0),
+        oldPacketsSentPersec(0),
+        oldPacketsReceivedErrors(0),
+        oldPacketsOutboundErrors(0),
+        oldPacketsReceivedDiscarded(0),
+        oldPacketsOutboundDiscarded(0),
+        PacketsReceivedPersec(0),
+        PacketsSentPersec(0),
+        PacketsReceivedErrors(0),
+        PacketsOutboundErrors(0),
+        PacketsReceivedDiscarded(0),
+        PacketsOutboundDiscarded(0) {}
+  // Defaulted copy/assignment: memberwise copy is exactly what the previous
+  // hand-written copy ctor did, and defaulting means new fields can't be
+  // forgotten in the copy (the old explicit list was a maintenance hazard).
+  network_interface(const network_interface &other) = default;
+  network_interface &operator=(const network_interface &other) = default;
 
   std::string show() const { return name + " (" + NetConnectionID + ")"; }
 
@@ -131,10 +135,19 @@ struct network_interface {
   std::string get_NetEnabled() const { return NetEnabled; }
   std::string get_Speed() const { return Speed; }
   std::string get_source() const { return source; }
+  std::string get_team() const { return team; }
+  std::string get_team_status() const { return team_status; }
 
   long long getBytesReceivedPersec() const { return BytesReceivedPersec; }
   long long getBytesSentPersec() const { return BytesSentPersec; }
   long long getBytesTotalPersec() const { return BytesTotalPersec; }
+
+  long long getPacketsReceivedPersec() const { return PacketsReceivedPersec; }
+  long long getPacketsSentPersec() const { return PacketsSentPersec; }
+  long long getPacketsReceivedErrors() const { return PacketsReceivedErrors; }
+  long long getPacketsOutboundErrors() const { return PacketsOutboundErrors; }
+  long long getPacketsReceivedDiscarded() const { return PacketsReceivedDiscarded; }
+  long long getPacketsOutboundDiscarded() const { return PacketsOutboundDiscarded; }
 
   // Best-effort: parsed negotiated link speed in bits/sec. Returns 0 when
   // WMI reported the Speed as Unknown/empty/zero. See the SpeedBps field
@@ -172,6 +185,10 @@ class network_data {
  private:
   void query_nif(netmap_type &netmap);
   void query_prd(netmap_type &netmap, long long delta, const std::string &query, bool allow_insert);
+  // Best-effort: annotate entries in both maps with NIC-team membership. Never
+  // throws — the LBFO provider is absent on many systems and that is not an error.
+  void query_team(netmap_type &if_netmap, netmap_type &ad_netmap);
+  bool fetch_team_ = true;
 };
 
 namespace check {

@@ -14,6 +14,20 @@ L     client OK: All drives ok
 L     client  Performance data: 'C:\ free'=18GB;0;2;0;223 'C:\ free %'=8%;0;0;0;100 'D:\ free'=18GB;0;4;0;465 'D:\ free %'=3%;0;0;0;100 'M:\ free'=83GB;0;27;0;2746 'M:\ free %'=3%;0;0;0;100
 ```
 
+To scan **all drives** but **require that specific drives are present** — going
+CRITICAL if a mandatory drive is missing:
+
+```
+    check_drivesize drive=* require=D: require=E: "crit=free<10%"
+CRITICAL: Required drive(s) not found: E: | OK: All drives ok
+```
+
+`require` (alias `mandatory-drives`) can be repeated and matches by drive letter
+(with or without the trailing colon), volume label, or volume id. It is the one
+`UsedPartitionSpace` feature gap that wildcard scanning alone could not cover:
+`drive=*` silently reports OK when an expected disk has vanished, whereas
+`require=` makes that a hard CRITICAL.
+
 To check the size of all the drives and **display all values, not just problems**:
 
 ```

@@ -136,6 +136,73 @@ check_eventlog filter=none "filter=level = 'informational'"
 
 ---
 
+## Only Alert on New Events (Bookmarks)
+
+**Goal:** report each matching event **once**, instead of re-reporting it on every
+poll until it ages out of the time window.
+
+### The problem with a fixed window
+
+Without a bookmark, every check re-scans a fixed window (default `-24h`), so the
+same event is reported on every run until it falls out of the window — the alert
+never clears on its own:
+
+```
+# 10:00 — an application error is logged
+check_eventlog "filter=provider = 'MyApp' and id = 100" "warn=count > 0"
+WARNING: 1 message(s) ...
+
+# 10:05 — same check, the same (still-recent) event is counted again
+check_eventlog "filter=provider = 'MyApp' and id = 100" "warn=count > 0"
+WARNING: 1 message(s) ...      # re-reported
+```
+
+Shrinking the window (`scan-range=-5m`) reduces re-reporting, but then a delayed
+or skipped poll can miss events entirely.
+
+### The fix
+
+Add `bookmark=<name>` to report only events that have appeared **since the last
+check that used the same bookmark name**:
+
+```
+# First check — reports what is currently in the window and remembers the position
+check_eventlog "filter=provider = 'MyApp' and id = 100" "warn=count > 0" bookmark=myapp_100
+WARNING: 1 message(s) ...
+
+# Next check — nothing new since last time
+check_eventlog "filter=provider = 'MyApp' and id = 100" "warn=count > 0" bookmark=myapp_100
+OK: No entries found
+
+# A new matching event appears -> reported exactly once
+check_eventlog "filter=provider = 'MyApp' and id = 100" "warn=count > 0" bookmark=myapp_100
+WARNING: 1 message(s) ...
+```
+
+### With vs. without bookmarks
+
+| Behaviour              | Without bookmark                            | With `bookmark=<name>`                          |
+|------------------------|---------------------------------------------|-------------------------------------------------|
+| Window                 | fixed (`scan-range`, default `-24h`)        | everything since the last check                 |
+| A matching event       | re-reported on every poll until it ages out | reported once, then clears                      |
+| Delayed / skipped poll | can miss events with a short window         | resumes from the last position — nothing missed |
+| State                  | stateless                                   | remembers a position per bookmark name          |
+
+### Notes
+
+- **Name each check.** Different bookmark names track independent positions, so
+  give every distinct check its own name (e.g. `failed_logons`, `myapp_100`).
+- **Auto-naming.** `bookmark=auto` (or just `bookmark` on its own) derives the
+  name from the log(s), filter, warn and crit. Convenient, but changing any of
+  those starts a fresh bookmark.
+- **Persistence.** The position is held in memory and saved on shutdown, so it
+  survives an agent restart.
+- **First run.** The first check with a new bookmark seeds it from the current
+  `scan-range` window (so it reports what is already there); steady-state checks
+  then report only newly-arrived events.
+
+---
+
 ## Real-Time Monitoring
 
 Polling is simple but can miss brief events between checks. Real-time monitoring catches events the moment they are written to the log and immediately pushes them to the monitoring server (via NSCA/NRDP).

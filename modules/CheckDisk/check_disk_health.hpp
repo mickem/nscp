@@ -33,6 +33,20 @@ struct disk_health {
   long long percent_idle_time;
   long long split_io_per_sec;
 
+  // Physical-disk device state (from disk_device_check, Windows only). Present
+  // only on device rows (has_device=true), which are separate per-physical-disk
+  // rows appended alongside the per-filesystem space/IO rows. On non-device rows
+  // these stay at their empty/false defaults.
+  bool has_device;
+  long long disk_number;
+  std::string friendly_name;
+  std::string serial;
+  std::string media_type;
+  std::string health_status;
+  std::string operational_status;
+  bool is_offline;
+  bool is_readonly;
+
   disk_health()
       : has_space(false),
         total(0),
@@ -45,7 +59,11 @@ struct disk_health {
         queue_length(0),
         percent_disk_time(0),
         percent_idle_time(0),
-        split_io_per_sec(0) {}
+        split_io_per_sec(0),
+        has_device(false),
+        disk_number(0),
+        is_offline(false),
+        is_readonly(false) {}
   disk_health(const disk_health &other) = default;
   disk_health &operator=(const disk_health &other) = default;
 
@@ -71,6 +89,17 @@ struct disk_health {
   long long get_percent_idle_time() const { return percent_idle_time; }
   long long get_split_io_per_sec() const { return split_io_per_sec; }
 
+  // Device-state accessors
+  long long get_has_device() const { return has_device ? 1 : 0; }
+  long long get_disk_number() const { return disk_number; }
+  std::string get_friendly_name() const { return friendly_name; }
+  std::string get_serial() const { return serial; }
+  std::string get_media_type() const { return media_type; }
+  std::string get_health_status() const { return health_status; }
+  std::string get_operational_status() const { return operational_status; }
+  long long get_is_offline() const { return is_offline ? 1 : 0; }
+  long long get_is_readonly() const { return is_readonly ? 1 : 0; }
+
   std::string show() const { return name; }
 };
 
@@ -80,7 +109,8 @@ typedef std::list<disk_health> health_type;
 /// Drives present in only one source get zeroed fields for the missing side;
 /// rows without free-space data are flagged has_space=false so the default
 /// thresholds only judge them on their I/O metrics.
-health_type join(const disk_io_check::disks_type &io_data, const disk_free_check::drives_type &free_data);
+health_type join(const disk_io_check::disks_type &io_data, const disk_free_check::drives_type &free_data,
+                 const disk_device_check::devices_type &device_data = {});
 
 namespace check {
 void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, health_type data);

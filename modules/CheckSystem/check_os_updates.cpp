@@ -55,6 +55,21 @@ struct bstr_holder {
 
 long long now_seconds() { return std::time(nullptr); }
 
+// System-wide pending-reboot signal. Windows Update creates the "RebootRequired"
+// key once a reboot is queued (including for updates already installed, which
+// per-update reboot_required no longer reflects). The key's mere existence is the
+// signal.
+bool system_reboot_pending() {
+  HKEY key = nullptr;
+  const LSTATUS r =
+      RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired", 0, KEY_READ, &key);
+  if (r == ERROR_SUCCESS) {
+    RegCloseKey(key);
+    return true;
+  }
+  return false;
+}
+
 }  // namespace
 
 void classify_update(const std::string &category, const std::string &severity, update_info &out) {
@@ -64,6 +79,11 @@ void classify_update(const std::string &category, const std::string &severity, u
   const std::string lc_sev = boost::to_lower_copy(severity);
   out.is_security = lc_cat.find("security") != std::string::npos;
   out.is_critical = lc_cat.find("critical") != std::string::npos || lc_sev == "critical";
+  // Defender/definition updates churn daily and admins threshold them separately
+  // from OS patches (categories "Definition Updates" / "Microsoft Defender Antivirus").
+  out.is_defender = lc_cat.find("definition") != std::string::npos || lc_cat.find("defender") != std::string::npos;
+  // Monthly quality "Update Rollup" category.
+  out.is_rollup = lc_cat.find("rollup") != std::string::npos;
 }
 
 std::string os_updates_obj::get_titles() const {
@@ -110,6 +130,8 @@ void os_updates_obj::build_metrics(PB::Metrics::MetricsBundle *section) const {
   add_metric(section, "security", security);
   add_metric(section, "critical", critical);
   add_metric(section, "important", important);
+  add_metric(section, "defender", defender);
+  add_metric(section, "rollups", rollups);
   add_metric(section, "reboot_required", reboot_required);
 }
 
@@ -118,11 +140,15 @@ void os_updates_obj::recompute() {
   security = 0;
   critical = 0;
   important = 0;
+  defender = 0;
+  rollups = 0;
   reboot_required = 0;
   for (const auto &u : updates) {
     if (u.is_security) security++;
     if (u.is_critical) critical++;
     if (boost::iequals(u.severity, "Important")) important++;
+    if (u.is_defender) defender++;
+    if (u.is_rollup) rollups++;
     if (u.reboot_required) reboot_required++;
   }
 }
@@ -278,16 +304,26 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
+  // Distinct perf suffixes so each counter renders as its own series
+  // ('updates_count', 'updates_security', ...) rather than collapsing onto the
+  // shared 'updates' perf-syntax alias.
   registry_.add_int_var("count", &filter_obj::get_count, "Total number of available updates")
-      .add_int_perf("")
+      .add_int_perf("", "", "_count")
       .add_int_var("security", &filter_obj::get_security, "Number of security updates")
-      .add_int_perf("")
+      .add_int_perf("", "", "_security")
       .add_int_var("critical", &filter_obj::get_critical, "Number of critical updates")
-      .add_int_perf("")
+      .add_int_perf("", "", "_critical")
       .add_int_var("important", &filter_obj::get_important, "Number of updates with MSRC severity 'Important'")
-      .add_int_perf("")
+      .add_int_perf("", "", "_important")
+      .add_int_var("defender", &filter_obj::get_defender, "Number of Defender/definition updates (churn daily; threshold separately)")
+      .add_int_perf("", "", "_defender")
+      .add_int_var("rollups", &filter_obj::get_rollups, "Number of update-rollup updates")
+      .add_int_perf("", "", "_rollups")
       .add_int_var("reboot_required", &filter_obj::get_reboot_required, "Number of updates requiring a reboot")
-      .add_int_perf("");
+      .add_int_perf("", "", "_reboot_required")
+      .add_int_var("reboot_pending", &filter_obj::get_reboot_pending,
+                   "1 if the system has a pending reboot queued (registry RebootRequired), even from already-installed updates")
+      .add_int_perf("", "", "_reboot_pending");
   registry_.add_string_var("titles", &filter_obj::get_titles, "Semicolon separated list of available update titles")
       .add_string_var("update_status", &filter_obj::get_update_status, "Aggregated status: ok, warning, critical, pending, error")
       .add_string_var("error", &filter_obj::get_error, "Last error message from the WUA search (if any)");
@@ -299,13 +335,35 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
   modern_filter::cli_helper<filter_type> filter_helper(request, response, mdata);
 
   filter_type filter;
+  std::string update_filter;
   filter_helper.add_options("count > 0", "security > 0 or critical > 0", "", filter.get_filter_syntax(), "ok");
   filter_helper.add_syntax("${status}: ${count} updates available (${security} security, ${critical} critical)",
                            "${count} updates (${security} security, ${critical} critical)", "updates", "", "%(status): No updates available.");
+  // clang-format off
+  filter_helper.get_desc().add_options()
+    ("update-filter", boost::program_options::value<std::string>(&update_filter),
+     "Only count updates whose title contains this (case-insensitive) substring. The counters and titles are recomputed over the matching subset.")
+    ;
+  // clang-format on
 
   if (!filter_helper.parse_options()) return;
 
   if (!filter_helper.build_filter(filter)) return;
+
+  // Title include-filter: keep only updates whose title contains the requested
+  // substring, then recompute the aggregate counters over that subset.
+  if (!update_filter.empty()) {
+    const std::string needle = boost::to_lower_copy(update_filter);
+    std::vector<update_info> kept;
+    for (const update_info &u : data.updates) {
+      if (boost::to_lower_copy(u.title).find(needle) != std::string::npos) kept.push_back(u);
+    }
+    data.updates.swap(kept);
+    data.recompute();
+  }
+
+  // System-wide pending-reboot flag (registry), independent of the update list.
+  data.reboot_pending = system_reboot_pending();
 
   const std::shared_ptr<filter_obj> record(new filter_obj(std::move(data)));
   filter.match(record);

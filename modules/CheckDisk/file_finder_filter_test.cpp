@@ -214,6 +214,30 @@ TEST(FileFilterObj, AddAccumulatesOnlySize) {
   EXPECT_EQ(b->get_size(), 50u);
 }
 
+// ----- folder aggregates (smallest/largest/average/folder_count) ------------
+
+TEST(FileFilterObj, AggregatesSmallestLargestAverageAndFolders) {
+  auto total = file_filter::filter_obj::get_total(0);
+  total->add(file_filter::filter_obj::create(boost::filesystem::path("d"), "f1", 100, 0, 0, 0, /*is_dir=*/false, 0));
+  total->add(file_filter::filter_obj::create(boost::filesystem::path("d"), "f2", 500, 0, 0, 0, /*is_dir=*/false, 0));
+  total->add(file_filter::filter_obj::create(boost::filesystem::path("d"), "f3", 300, 0, 0, 0, /*is_dir=*/false, 0));
+  total->add(file_filter::filter_obj::create(boost::filesystem::path("d"), "sub", 0, 0, 0, 0, /*is_dir=*/true, 0));
+
+  EXPECT_EQ(total->get_size(), 900u);          // 100 + 500 + 300 + 0
+  EXPECT_EQ(total->get_smallest_size(), 0u);   // the folder (size 0)
+  EXPECT_EQ(total->get_largest_size(), 500u);
+  EXPECT_EQ(total->get_average_size(), 225u);  // 900 / 4
+  EXPECT_EQ(total->get_folder_count(), 1);     // one dir
+}
+
+TEST(FileFilterObj, AggregatesEmptyAreZero) {
+  auto total = file_filter::filter_obj::get_total(0);
+  EXPECT_EQ(total->get_smallest_size(), 0u);
+  EXPECT_EQ(total->get_largest_size(), 0u);
+  EXPECT_EQ(total->get_average_size(), 0u);  // guarded divide-by-zero
+  EXPECT_EQ(total->get_folder_count(), 0);
+}
+
 // ----- get_type / get_type_su ----------------------------------------------
 
 TEST(FileFilterObj, GetTypeIsDir) {

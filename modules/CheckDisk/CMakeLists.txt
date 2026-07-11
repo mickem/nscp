@@ -16,6 +16,8 @@ set(SRCS
     check_files.cpp
     check_mount.cpp
     check_single_file.cpp
+    check_uncpath.cpp
+    check_storagepool.cpp
     collector_thread.cpp
     filter.cpp
     ${NSCP_DEF_PLUGIN_CPP}
@@ -41,6 +43,8 @@ if(WIN32)
         check_files.hpp
         check_mount.hpp
         check_single_file.hpp
+        check_uncpath.hpp
+        check_storagepool.hpp
         collector_thread.hpp
         file_finder.hpp
         filter.hpp
@@ -107,6 +111,8 @@ if(WIN32)
             check_drive_test.cpp
             check_files_test.cpp
             check_single_file_test.cpp
+            check_uncpath_test.cpp
+            check_storagepool_test.cpp
             collector_thread_test.cpp
             file_finder_filter_test.cpp
             # Module sources under test.
@@ -116,6 +122,8 @@ if(WIN32)
             check_drive_win.cpp
             check_files.cpp
             check_single_file.cpp
+            check_uncpath.cpp
+            check_storagepool.cpp
             collector_thread.cpp
             file_finder_win.cpp
             filter.cpp

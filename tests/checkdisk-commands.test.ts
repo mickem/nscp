@@ -115,6 +115,71 @@ describe("CheckDisk commands", () => {
     expect(messageOf(q)).not.toMatch(/free_pct/); // no threshold annotation on the rows
   });
 
+  // --- check_disk_health physical-disk device rows (Windows) ----------------
+
+  it("check_disk_health exposes physical-disk device state (Windows)", async () => {
+    if (!onWindows) return; // device rows come from MSFT_PhysicalDisk / MSFT_Disk.
+    // has_device rows carry health_status; scope to them and don't trip on
+    // healthy disks. Hosts without the Storage provider select zero rows -> OK.
+    const q = await pollQuery(
+      key,
+      "check_disk_health",
+      {
+        filter: "has_device = 1",
+        warning: "health_status = 'Warning'",
+        critical: "health_status = 'Unhealthy' or is_offline = 1",
+        "detail-syntax": "${friendly_name}: ${health_status} ${media_type}",
+      },
+      (r) => r.result !== UNKNOWN,
+    );
+    expect(q.result).toBe(OK);
+  });
+
+  // --- check_drivesize required-drives (§4.10) ------------------------------
+
+  it("check_drivesize require= goes CRITICAL when a mandatory drive is missing (Windows)", async () => {
+    if (!onWindows) return;
+    // Q: is almost never present; require it while scanning all drives.
+    const q = await executeQuery(key, "check_drivesize", {
+      drive: "*",
+      require: "Q:",
+      warning: "used_pct > 999",
+      critical: "used_pct > 999",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/Required drive/i);
+  });
+
+  it("check_drivesize require= for a present drive does not trip (Windows)", async () => {
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_drivesize", {
+      drive: "*",
+      require: "C:",
+      warning: "used_pct > 999",
+      critical: "used_pct > 999",
+    });
+    expect(q.result).toBe(OK);
+  });
+
+  // --- check_storagepool (§3.2, Windows) ------------------------------------
+
+  it("check_storagepool runs and does not fail without Storage Spaces (Windows)", async () => {
+    if (!onWindows) return; // Storage Spaces is a Windows feature.
+    // A host with no pools returns OK (empty_state=ok); a host with healthy
+    // pools also returns OK. Either way it must not be UNKNOWN/error.
+    const q = await executeQuery(key, "check_storagepool", {});
+    expect(q.result).not.toBe(UNKNOWN);
+  });
+
+  // --- check_uncpath (§3.1, Windows) ----------------------------------------
+
+  it("check_uncpath without a path is reported as an error (Windows)", async () => {
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_uncpath", {});
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/No path specified/i);
+  });
+
   // --- inodes (check_drivesize, Linux) --------------------------------------
 
   it("check_drivesize exposes inode counts (Linux)", async () => {

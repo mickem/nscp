@@ -15,6 +15,18 @@ Performance data: 'total'=1G;14;19;0;23 'total %'=6%;59;79;0;100
 
 ```
 
+Alerting on the peak commit charge since boot (high-water mark), not just current usage::
+
+```
+check_pagefile "warn=peak_used_pct > 80" "crit=peak_used_pct > 90" "detail-syntax=${name} peak ${peak_used} (${peak_used_pct}%)"
+OK: total peak 3.1G (12%)
+Performance data: 'total peak_used'=3G;... 'total peak_used_pct'=12;80;90
+```
+
+The `peak_used` (bytes, scaled) and `peak_used_pct` keywords expose
+`SystemPageFileInformation`'s PeakUsage — the highest pagefile commit reached
+since boot — so a machine that spiked and recovered still alerts.
+
 Getting help on available options::
 
 ```

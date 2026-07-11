@@ -29,6 +29,29 @@ A list of all available queries (check commands)
 
 Check status of scheduled jobs.
 
+Checks the state of Windows Scheduled Tasks. Uses the modern Task Scheduler 2.0
+API (`IRegisteredTask`) by default, falling back to the legacy `ITask` API on
+downlevel systems or when `force-old=true`.
+
+### Run-time keywords
+
+| Keyword                 | Type  | Description                                                                                                                                              |
+|-------------------------|-------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `most_recent_run_time`  | date  | The most recent time the task began running. Comparable to relative times, e.g. `most_recent_run_time < -1d`.                                            |
+| `has_run`               | bool  | True if the task has ever executed.                                                                                                                      |
+| `next_run_time`         | date  | The next time the task is scheduled to run. Rendered as `none` (value `0`) when the task has no upcoming run (disabled, on-demand, or no more triggers). |
+| `number_of_missed_runs` | int   | Number of times the task was scheduled to run but did not. Always `0` on the legacy `ITask` API.                                                         |
+| `last_run_age`          | int   | Seconds since the task last ran, or `-1` if it has never run. Convenient for stale-task alerts, e.g. `last_run_age > 86400`.                             |
+| `task_status`           | state | The task state (`ready`, `running`, `disabled`, `queued`, `unknown`).                                                                                    |
+| `exit_code`             | int   | The task's last run result (`lasttaskresult`).                                                                                                           |
+
+### Default performance data
+
+`check_tasksched` emits `task_status` (state), `number_of_missed_runs`
+(missedruns), and `exit_code` (lasttaskresult) as perfdata by default, one set
+per matched task. Suppress with `perf-config=extra()` / `perf-syntax=none`, or
+narrow the matched set with `filter=`.
+
 **Jump to section:**
 
 * [Sample Commands](#check_tasksched_samples)
@@ -45,6 +68,32 @@ Default check **via NRPE**::
 check_nrpe --host 192.168.56.103 --command check_tasksched
 /test: 1 != 0|'test'=1;0;0
 ```
+
+**Alerting on stale tasks (last run older than a day):**
+
+`last_run_age` is the seconds since the task last ran (`-1` if it has never run),
+so you can alert on tasks that should be running regularly but have gone quiet.
+
+```
+check_tasksched "filter=title = 'Backup'" "crit=last_run_age > 86400" "detail-syntax=${title}: last ran ${most_recent_run_time}"
+CRITICAL: \Backup: last ran 2026-07-04 02:00:00
+```
+
+**Alerting on missed runs and inspecting the next scheduled run:**
+
+`number_of_missed_runs` and `next_run_time` come from the modern Task Scheduler
+API. Both are also emitted as perfdata by default (alongside `task_status` state
+and the `exit_code` last-run result).
+
+```
+check_tasksched "filter=folder = '\\'" "warn=number_of_missed_runs > 0" "detail-syntax=${title}: ${number_of_missed_runs} missed, next ${next_run_time}"
+WARNING: \DailyReport: 2 missed, next 2026-07-07 06:00:00
+'DailyReport task_status'=3;;; 'DailyReport number_of_missed_runs'=2;0;; ...
+```
+
+Equivalent semantics also work against `most_recent_run_time` directly — the
+where-parser understands relative-time thresholds, so
+`crit=most_recent_run_time < -1d` means "last run older than a day".
 
 
 

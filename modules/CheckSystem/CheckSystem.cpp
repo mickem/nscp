@@ -31,6 +31,7 @@
 #include "check_process_history.hpp"
 #include "check_registry.hpp"
 #include "check_service.h"
+#include "check_swap_io.hpp"
 #include "check_temperature.hpp"
 #include "counter_filter.hpp"
 #include "filter.hpp"
@@ -198,6 +199,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   pdh_checker.counters_.add_samples(nscapi::settings_proxy::create(get_id(), get_core()));
 
   if (!pdh_checker.counters_.has_object("disk_queue_length")) add_counter("disk_queue_length", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
+  if (!pdh_checker.counters_.has_object("memory_pages_sec")) add_counter("memory_pages_sec", "\\Memory\\Pages/sec");
   if (collector->use_pdh_for_cpu) {
     if (!pdh_checker.counters_.has_object("cpu_total")) add_rrd_counter("cpu_total", "\\Processor Information($INSTANCE$)\\% Processor Utility");
     if (!pdh_checker.counters_.has_object("cpu_kernel")) add_rrd_counter("cpu_kernel", "\\Processor Information($INSTANCE$)\\% Privileged Utility");
@@ -215,6 +217,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         counter.set_buffer_size(object->buffer_size);
         counter.set_type(object->type);
         counter.add_flags(object->flags);
+        counter.set_resolution(object->resolution);
 
         collector->add_counter(counter);
       } catch (const PDH::pdh_exception &e) {
@@ -657,6 +660,40 @@ void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request 
   filter_helper.post_process(filter);
 }
 
+namespace {
+struct bios_info {
+  std::string serial;
+  std::string version;
+  std::string manufacturer;
+};
+
+// Inventory-only BIOS fields from Win32_BIOS. Best-effort: initialises COM for
+// the call (tolerating an apartment already initialised elsewhere) and returns
+// empty strings on any failure, so check_os_version never fails just because WMI
+// is unavailable or the class cannot be read.
+bios_info fetch_bios_info() {
+  bios_info out;
+  const HRESULT hr_init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  // SUCCEEDED covers S_OK/S_FALSE; RPC_E_CHANGED_MODE (COM already initialised in
+  // another mode) fails SUCCEEDED, so we proceed without uninitialising.
+  const bool needs_uninit = SUCCEEDED(hr_init);
+  try {
+    wmi_impl::query q("SELECT SerialNumber, SMBIOSBIOSVersion, Manufacturer FROM Win32_BIOS", "root\\CIMV2", "", "");
+    wmi_impl::row_enumerator rows = q.execute();
+    if (rows.has_next()) {
+      const wmi_impl::row r = rows.get_next();
+      out.serial = r.get_string("SerialNumber");
+      out.version = r.get_string("SMBIOSBIOSVersion");
+      out.manufacturer = r.get_string("Manufacturer");
+    }
+  } catch (...) {
+    // Inventory only — never fail the check on WMI errors; leave fields empty.
+  }
+  if (needs_uninit) CoUninitialize();
+  return out;
+}
+}  // namespace
+
 void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   typedef os_version_filter::filter filter_type;
   modern_filter::data_container data;
@@ -664,7 +701,7 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
 
   filter_type filter;
   filter_helper.add_options("version <= 50", "version <= 50", "", filter.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${list}", "${version} (${major}.${minor}.${build})", "version", "", "");
+  filter_helper.add_syntax("${status}: ${list}", "${version} (${kernel_version}) ${arch}", "version", "", "");
 
   if (!filter_helper.parse_options()) return;
 
@@ -680,6 +717,29 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
   record->version_i = windows::system_info::get_version();
   std::vector<std::string> suites = windows::system_info::get_suite_list();
   record->suite = str::format::join(suites, ",");
+
+  // GetNativeSystemInfo reports the true hardware architecture even for a 32-bit
+  // process under WOW64 (GetSystemInfo would report x86 there).
+  SYSTEM_INFO sysinfo = {};
+  GetNativeSystemInfo(&sysinfo);
+  record->arch = os_version_filter::arch_from_native(sysinfo.wProcessorArchitecture);
+
+  // UBR (Update Build Revision) is the patch level within a build — the ".xxxx"
+  // in "10.0.19045.3803" that dwBuildNumber alone omits. It lives only in the
+  // registry (there is no Win32 API for it) and is absent pre-Windows 10, where
+  // it stays 0. Force the 64-bit view so a 32-bit agent under WOW64 reads it.
+  const win_registry::value_info ubr_val =
+      win_registry::read_value(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "UBR", KEY_WOW64_64KEY);
+  record->ubr = ubr_val.exists ? ubr_val.int_value : 0;
+  // On Windows the NT kernel version is the OS version; expose the full
+  // major.minor.build.ubr as a single shorthand (matches snclient's field).
+  record->kernel_version = os_version_filter::format_kernel_version(info->dwMajorVersion, info->dwMinorVersion, info->dwBuildNumber, record->ubr);
+
+  // Inventory-only BIOS fields (never alert; empty when WMI is unavailable).
+  const bios_info bios = fetch_bios_info();
+  record->serial = bios.serial;
+  record->bios_version = bios.version;
+  record->manufacturer = bios.manufacturer;
 
   filter.match(record);
 
@@ -827,6 +887,10 @@ void CheckSystem::check_pagefile(const PB::Commands::QueryRequestMessage::Reques
   filter.match(record);
 
   filter_helper.post_process(filter);
+}
+
+void CheckSystem::check_swap_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  swap_io_check::check_swap_io(request, response);
 }
 
 void CheckSystem::checkMem(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

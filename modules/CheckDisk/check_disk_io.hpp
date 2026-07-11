@@ -98,6 +98,74 @@ void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB
 
 }  // namespace disk_io_check
 
+namespace disk_device_check {
+
+// Physical-disk device state (MSFT_PhysicalDisk + MSFT_Disk in
+// root\Microsoft\Windows\Storage). Queried on demand by check_disk_health —
+// device health is essentially static, so it does not need the background
+// collector. Empty on Unix.
+struct disk_device {
+  long long number;
+  std::string friendly_name;
+  std::string serial;
+  std::string media_type;     // HDD / SSD / SCM / Unspecified
+  std::string health_status;  // Healthy / Warning / Unhealthy / Unknown
+  bool is_offline;
+  bool is_readonly;
+
+  disk_device() : number(0), is_offline(false), is_readonly(false) {}
+
+  // MSFT_PhysicalDisk.MediaType (0=Unspecified,3=HDD,4=SSD,5=SCM).
+  static std::string map_media_type(long long v) {
+    switch (v) {
+      case 3:
+        return "HDD";
+      case 4:
+        return "SSD";
+      case 5:
+        return "SCM";
+      default:
+        return "Unspecified";
+    }
+  }
+  // MSFT_PhysicalDisk.HealthStatus (0=Healthy,1=Warning,2=Unhealthy).
+  static std::string map_health_status(long long v) {
+    switch (v) {
+      case 0:
+        return "Healthy";
+      case 1:
+        return "Warning";
+      case 2:
+        return "Unhealthy";
+      default:
+        return "Unknown";
+    }
+  }
+  // Synthesised operational status: MSFT_*.OperationalStatus is a uint16[] which
+  // is awkward to consume in a threshold, so we derive a single friendly value
+  // from the scalar health/offline flags instead.
+  std::string get_operational_status() const {
+    if (is_offline) return "Offline";
+    if (health_status == "Healthy" || health_status.empty()) return "OK";
+    return health_status;
+  }
+
+  long long get_number() const { return number; }
+  std::string get_friendly_name() const { return friendly_name; }
+  std::string get_serial() const { return serial; }
+  std::string get_media_type() const { return media_type; }
+  std::string get_health_status() const { return health_status; }
+  long long get_is_offline() const { return is_offline ? 1 : 0; }
+  long long get_is_readonly() const { return is_readonly ? 1 : 0; }
+};
+
+typedef std::list<disk_device> devices_type;
+
+// Platform-specific: WMI on Windows, empty list on Unix.
+devices_type query();
+
+}  // namespace disk_device_check
+
 namespace disk_free_check {
 
 struct disk_free {

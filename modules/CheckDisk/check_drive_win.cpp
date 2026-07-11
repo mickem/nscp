@@ -791,7 +791,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-  std::vector<std::string> drives, excludes;
+  std::vector<std::string> drives, excludes, require;
   bool ignore_unreadable = false, total = false, only_mounted = false;
   ;
   double magic;
@@ -809,6 +809,9 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 			"DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.")
 		("magic", po::value<double>(&magic), "Magic number for use with scaling drive sizes.")
 		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of drives not to check")
+		("require", po::value<std::vector<std::string>>(&require),
+			"Drives that MUST be present: the check goes CRITICAL if any listed drive is not found, even when scanning wildcards. Alias: mandatory-drives.")
+		("mandatory-drives", po::value<std::vector<std::string>>(&require), "Alias for require.")
 		("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching drives")
 		;
 	add_custom_options(filter_helper.get_desc());
@@ -880,5 +883,40 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
     if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
   }
 
+  // Required-drive assertion: a listed drive
+  // that was not resolved by the scan makes the whole check CRITICAL, even when
+  // the scan itself found no problems. Match by drive letter (with/without the
+  // trailing colon), volume label (name) or volume id.
+  std::vector<std::string> missing_required;
+  for (const std::string &r : require) {
+    std::string letter = r;
+    if (letter.size() == 2 && letter[1] == ':') letter = letter.substr(0, 1);
+    const std::string up_letter = boost::algorithm::to_upper_copy(letter);
+    const std::string up_r = boost::algorithm::to_upper_copy(r);
+    bool found = false;
+    for (const drive_container &drive : resolved) {
+      if (boost::algorithm::to_upper_copy(drive.letter_only) == up_letter || boost::algorithm::to_upper_copy(drive.letter) == up_r ||
+          boost::algorithm::to_upper_copy(drive.name) == up_r || boost::algorithm::to_upper_copy(drive.id) == up_r) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) missing_required.push_back(r);
+  }
+
   filter_helper.post_process(filter);
+
+  if (!missing_required.empty()) {
+    std::string joined;
+    for (const std::string &m : missing_required) {
+      if (!joined.empty()) joined += ", ";
+      joined += m;
+    }
+    const std::string msg = "Required drive(s) not found: " + joined;
+    response->set_result(PB::Common::ResultCode::CRITICAL);
+    if (response->lines_size() > 0)
+      response->mutable_lines(0)->set_message(msg + " | " + response->lines(0).message());
+    else
+      response->add_lines()->set_message(msg);
+  }
 }

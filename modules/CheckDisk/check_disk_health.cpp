@@ -31,7 +31,8 @@ void copy_io(disk_health &h, const disk_io_check::disk_io &io) {
 // free entry against the I/O of that device so each mountpoint row reports both
 // its free space and the I/O of the disk it lives on. I/O rows with no matching
 // filesystem (e.g. "_Total", or an unmounted disk) are emitted as I/O-only rows.
-health_type join(const disk_io_check::disks_type &io_data, const disk_free_check::drives_type &free_data) {
+health_type join(const disk_io_check::disks_type &io_data, const disk_free_check::drives_type &free_data,
+                 const disk_device_check::devices_type &device_data) {
   std::map<std::string, const disk_io_check::disk_io *> io_by_name;
   for (const auto &io : io_data) {
     io_by_name[io.name] = &io;
@@ -65,6 +66,26 @@ health_type join(const disk_io_check::disks_type &io_data, const disk_free_check
     disk_health h;
     h.name = io.name;
     copy_io(h, io);
+    result.push_back(h);
+  }
+
+  // Physical-disk device-state rows (Windows). These are per-physical-disk, not
+  // per-filesystem, so they are appended as their own rows (has_space=false,
+  // has_device=true) rather than joined onto the space/IO rows — mapping a
+  // logical drive back to its physical disk is unreliable across storage
+  // configurations (spanned volumes, storage spaces, dynamic disks).
+  for (const auto &dev : device_data) {
+    disk_health h;
+    h.name = dev.friendly_name.empty() ? ("Disk " + std::to_string(dev.number)) : dev.friendly_name;
+    h.has_device = true;
+    h.disk_number = dev.number;
+    h.friendly_name = dev.friendly_name;
+    h.serial = dev.serial;
+    h.media_type = dev.media_type;
+    h.health_status = dev.health_status;
+    h.operational_status = dev.get_operational_status();
+    h.is_offline = dev.is_offline;
+    h.is_readonly = dev.is_readonly;
     result.push_back(h);
   }
   return result;
@@ -115,6 +136,24 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("%")
       .add_int_var("percent_idle_time", &filter_obj::get_percent_idle_time, "Percent of time the disk is idle")
       .add_int_var("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second");
+
+  // Physical-disk device state (Windows; MSFT_PhysicalDisk / MSFT_Disk). These
+  // populate only on device rows (has_device = 1). has_device is a guard, not a
+  // metric, so it emits no perfdata.
+  registry_
+      .add_int_var("has_device", &filter_obj::get_has_device, "1 if the row carries physical-disk device state (a per-disk row), 0 otherwise")
+      .no_perf();
+  registry_.add_string_var("friendly_name", &filter_obj::get_friendly_name, "Physical disk friendly name (device rows)")
+      .add_string_var("serial", &filter_obj::get_serial, "Physical disk serial number (device rows)")
+      .add_string_var("media_type", &filter_obj::get_media_type, "Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)")
+      .add_string_var("health_status", &filter_obj::get_health_status, "Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)")
+      .add_string_var("operational_status", &filter_obj::get_operational_status, "Physical disk operational status: OK, Offline, ... (device rows)");
+  registry_.add_int_var("disk_number", &filter_obj::get_disk_number, "Physical disk number/index (device rows)")
+      .no_perf()
+      .add_int_var("is_offline", &filter_obj::get_is_offline, "1 if the physical disk is offline (device rows)")
+      .no_perf()
+      .add_int_var("is_readonly", &filter_obj::get_is_readonly, "1 if the physical disk is read-only (device rows)")
+      .no_perf();
 }
 
 void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, health_type data) {
@@ -124,9 +163,15 @@ void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request
   filter_type filter;
   // Only judge free space on rows that actually have space data; I/O-only rows
   // (has_space = 0) would otherwise read as free_pct=0 and falsely go critical.
-  filter_helper.add_options("(has_space = 1 and free_pct < 20) or percent_disk_time > 80", "(has_space = 1 and free_pct < 10) or percent_disk_time > 95",
-                            "name != '_Total'", filter.get_filter_syntax(), "critical");
-  filter_helper.add_syntax("${status}: ${list}", "${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}", "${name}", "",
+  // Device rows (has_device = 1) are judged on physical-disk health/offline
+  // state; space rows on free space; I/O rows on busy time. Each clause is
+  // gated on its row kind so it only applies where that data is real.
+  filter_helper.add_options(
+      "(has_space = 1 and free_pct < 20) or percent_disk_time > 80 or (has_device = 1 and health_status = 'Warning')",
+      "(has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1 and (health_status = 'Unhealthy' or is_offline = 1))",
+      "name != '_Total'", filter.get_filter_syntax(), "critical");
+  filter_helper.add_syntax("${status}: ${list}",
+                           "${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}", "${name}", "",
                            "%(status): All disks are healthy.");
 
   if (!filter_helper.parse_options()) return;

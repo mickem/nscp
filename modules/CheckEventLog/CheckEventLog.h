@@ -36,7 +36,10 @@ class CheckEventLog : public nscapi::impl::simple_plugin {
   void add_filter(const PB::Commands::ExecuteRequestMessage::Request &request, PB::Commands::ExecuteResponseMessage::Response *response);
 
  private:
-  void save_bookmark(const std::string bookmark, eventlog::api::EVT_HANDLE &hResults);
+  // Render an already-positioned bookmark handle to XML and persist it under the
+  // given key. The caller advances the bookmark (via EvtUpdateBookmark) to the
+  // last event it read before calling this.
+  void store_bookmark(const std::string &bookmark, eventlog::api::EVT_HANDLE hBookmark);
   void check_modern(const std::string &logfile, const std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter,
                     std::string bookmark);
 };

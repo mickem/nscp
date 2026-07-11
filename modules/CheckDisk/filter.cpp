@@ -230,6 +230,10 @@ file_filter::filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_int_legacy()
     ("size", type_size, [] (auto obj, auto context) { return obj->get_size(); }, "File size").add_scaled_byte(std::string(""), " size")
+    ("smallest_size", type_size, [] (auto obj, auto context) { return obj->get_smallest_size(); }, "Smallest matched file size (aggregate; use on the total object)").add_scaled_byte(std::string(""), " smallest")
+    ("largest_size", type_size, [] (auto obj, auto context) { return obj->get_largest_size(); }, "Largest matched file size (aggregate; use on the total object)").add_scaled_byte(std::string(""), " largest")
+    ("average_size", type_size, [] (auto obj, auto context) { return obj->get_average_size(); }, "Average matched file size (aggregate; use on the total object)").add_scaled_byte(std::string(""), " average")
+    ("folder_count", [] (auto obj, auto context) { return obj->get_folder_count(); }, "Number of matched folders (aggregate; use on the total object)").add_perf("", "", " folders")
     ("total", type_bool, [] (auto obj, auto context) { return obj->is_total(); }, "True if this is the total object").no_perf();
     ;
   // clang-format on

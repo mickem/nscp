@@ -206,9 +206,11 @@ void GetVersion() {
     } else if (majorVersion == 5 && minorVersion == 2) {
       g_windowsVersion = WINDOWS_SERVER_2003;
       /* Windows Vista, Windows Server 2008 */
-    } else if (majorVersion == 6 && minorVersion == 0 && productType == VER_NT_WORKSTATION) {
-      g_windowsVersion = WINDOWS_VISTA;
-    } else if (majorVersion == 6 && minorVersion == 0 && productType == VER_NT_WORKSTATION) {
+    } else if (majorVersion == 6 && minorVersion == 0) {
+      // Both the client (Vista) and server (Server 2008) SKUs of 6.0 map to the
+      // same version code, matching the 6.1/6.2/6.3 branches below. The previous
+      // code duplicated the workstation-only branch, leaving Server 2008 without
+      // a version code.
       g_windowsVersion = WINDOWS_VISTA;
     }
     /* Windows 7, Windows Server 2008 R2 */
@@ -220,12 +222,18 @@ void GetVersion() {
       /* Windows 8.1 */
     } else if (majorVersion == 6 && minorVersion == 3) {
       g_windowsVersion = WINDOWS_81;
-      /* Windows 10 */
+      /* Windows 10 / Windows 11 */
     } else if (majorVersion == 10 && minorVersion == 0) {
-      if (buildNumber > 22000) {
+      // Windows 11 shares 10.0 with Windows 10; only client SKUs at build 22000+
+      // are Windows 11. Server SKUs (incl. build >= 22000, e.g. Server 2022/2025)
+      // stay WINDOWS_10 here, matching get_version_string(). Note the `else`: the
+      // previous code set WINDOWS_11 then unconditionally overwrote it with
+      // WINDOWS_10, so Windows 11 was never reported.
+      if (productType == VER_NT_WORKSTATION && buildNumber >= 22000) {
         g_windowsVersion = WINDOWS_11;
+      } else {
+        g_windowsVersion = WINDOWS_10;
       }
-      g_windowsVersion = WINDOWS_10;
     } else if (majorVersion == 10 && minorVersion > 0 || majorVersion > 10) {
       g_windowsVersion = WINDOWS_NEW;
     }

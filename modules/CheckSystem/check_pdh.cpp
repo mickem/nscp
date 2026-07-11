@@ -36,7 +36,10 @@ void counter_config_object::read(nscapi::settings_helper::settings_impl_interfac
       .add_string("instances", sh::string_key(&instances), "Interpret instances", "IF we shoul interpret instance (default auto). Values: auto, true, false")
       .add_string("buffer size", sh::string_key(&buffer_size), "BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
       .add_string("type", sh::string_key(&type), "COUNTER TYPE", "The type of counter to use long, large and double")
-      .add_string("flags", sh::string_key(&flags), "FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)");
+      .add_string("flags", sh::string_key(&flags), "FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)")
+      .add_string("resolution", sh::string_key(&resolution), "COUNTER RESOLUTION",
+                  "How to resolve the counter name against the system locale: auto (localized, then English, then index expansion - the default), english "
+                  "(force English counter names regardless of the system language) or index (expand numeric counter indexes to their localized names)");
 
   settings.register_all();
   settings.notify();
@@ -192,6 +195,7 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
   bool ignore_errors = false;
   std::string flags;
   std::string type;
+  std::string resolution;
 
   // clang-format off
   filter_type filter;
@@ -200,6 +204,7 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
   filter_helper.get_desc().add_options()
     ("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check")
     ("expand-index", po::value<bool>(&expand_index)->implicit_value(true)->default_value(false), "Expand indexes in counter strings")
+    ("resolution", po::value<std::string>(&resolution)->default_value("auto"), "How to resolve counter names against the system locale: auto (try the localized name, then the English API, then index expansion - the default), english (force English counter names regardless of the system language) or index (expand numeric counter indexes to their localized names)")
     ("instances", po::value<bool>(&expand_instance)->implicit_value(true)->default_value(false), "Expand wildcards and fetch all instances")
     ("reload", po::value<bool>(&reload)->implicit_value(true)->default_value(false), "Reload counters on errors (useful to check counters which are not added at boot)")
     ("averages", po::value<bool>(&check_average)->implicit_value(true)->default_value(false), "Check average values (ie. wait for 1 second to collecting two samples)")
@@ -252,6 +257,7 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
         obj.set_alias(counter);
         obj.set_strategy_static();
         obj.set_type(type);
+        obj.set_resolution(resolution);
         PDH::pdh_instance instance = PDH::factory::create(obj);
         pdh.addCounter(instance);
         free_counters.push_back(instance);
@@ -286,6 +292,7 @@ void check::check_pdh(std::shared_ptr<pdh_thread> &collector, const PB::Commands
         obj.set_strategy_static();
         obj.set_type(type);
         obj.set_alias(alias);
+        obj.set_resolution(resolution);
         PDH::pdh_instance instance = PDH::factory::create(obj);
         pdh.addCounter(instance);
         free_counters.push_back(instance);

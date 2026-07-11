@@ -15,16 +15,19 @@ namespace cpu_frequency_check {
 
 // Win32_Processor provides per-socket CPU info including current and max clock speed.
 std::string helper::query =
-    "select Name, CurrentClockSpeed, MaxClockSpeed, NumberOfCores, NumberOfLogicalProcessors"
+    "select DeviceId, SocketDesignation, Name, CurrentClockSpeed, MaxClockSpeed, NumberOfCores, NumberOfLogicalProcessors, LoadPercentage"
     " from Win32_Processor";
 std::string helper::ns = "root\\CIMV2";
 
 void cpu_frequency::read_wmi(const wmi_impl::row &r) {
+  socket_id = r.get_string("DeviceId");
+  socket = r.get_string("SocketDesignation");
   name = r.get_string("Name");
   current_mhz = r.get_int("CurrentClockSpeed");
   max_mhz = r.get_int("MaxClockSpeed");
   number_of_cores = r.get_int("NumberOfCores");
   number_of_logical_processors = r.get_int("NumberOfLogicalProcessors");
+  load_pct = r.get_int("LoadPercentage");
 }
 
 void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
@@ -34,6 +37,7 @@ void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
   add_metric(section, name + ".frequency_pct", get_frequency_pct());
   add_metric(section, name + ".cores", number_of_cores);
   add_metric(section, name + ".logical_processors", number_of_logical_processors);
+  add_metric(section, name + ".load_pct", load_pct);
 }
 
 cpus_type cpu_frequency_data::query_wmi() {
@@ -83,13 +87,17 @@ struct filter_obj_handler : native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string_var("name", &filter_obj::get_name, "CPU name / model string");
+  registry_.add_string_var("name", &filter_obj::get_name, "CPU name / model string")
+      .add_string_var("socket_id", &filter_obj::get_socket_id, "Socket device id (e.g. CPU0), for per-socket filtering")
+      .add_string_var("socket", &filter_obj::get_socket, "Socket designation (e.g. \"CPU 1\"), for per-socket filtering");
 
   registry_.add_int_var("current_mhz", &filter_obj::get_current_mhz, "Current clock speed in MHz")
       .add_int_perf("MHz")
       .add_int_var("max_mhz", &filter_obj::get_max_mhz, "Maximum clock speed in MHz")
       .add_int_perf("MHz")
       .add_int_var("frequency_pct", &filter_obj::get_frequency_pct, "Current frequency as percentage of maximum")
+      .add_int_perf("%")
+      .add_int_var("load_pct", &filter_obj::get_load_pct, "Per-socket CPU load as reported by Win32_Processor.LoadPercentage")
       .add_int_perf("%")
       .add_int_var("cores", &filter_obj::get_number_of_cores, "Number of physical cores")
       .add_int_var("logical_processors", &filter_obj::get_number_of_logical_processors, "Number of logical processors (threads)");

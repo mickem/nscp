@@ -53,21 +53,45 @@ void PDHCounter::addToQuery(PDH_HQUERY hQuery) {
   if (hQuery == nullptr) throw pdh_exception(getName(), "addToQuery failed (no query).");
   if (hCounter_ != nullptr) throw pdh_exception(getName(), "addToQuery failed (already opened).");
 
-  const std::wstring path = utf8::cvt<std::wstring>(counter_->get_counter());
-  pdh_error status = add_counter_with_english_fallback(hQuery, path, &hCounter_);
-
-  // If the path still looks wrong, try one more time with numeric counter
-  // indices expanded to their localized names. expand_index is a no-op when
-  // the path contains no digits, so this is cheap when it doesn't apply.
-  if (status.is_possible_locale_mismatch()) {
-    std::string expanded = counter_->get_counter();
-    PDHResolver::expand_index(expanded);
-    status = add_counter_with_english_fallback(hQuery, utf8::cvt<std::wstring>(expanded), &hCounter_);
-    if (status.is_possible_locale_mismatch()) {
+  pdh_error status;
+  switch (counter_->get_resolution()) {
+    case types::resolution_english:
+      // Force English counter names regardless of the system locale.
       hCounter_ = nullptr;
-      throw pdh_exception(expanded + " counter not found", status);
+      status = factory::get_impl()->PdhAddEnglishCounter(hQuery, utf8::cvt<std::wstring>(counter_->get_counter()).c_str(), 0, &hCounter_);
+      break;
+
+    case types::resolution_index: {
+      // Force numeric-index -> localized-name expansion, then add the localized
+      // path. expand_index is a no-op when the path contains no counter indices.
+      std::string expanded = counter_->get_counter();
+      PDHResolver::expand_index(expanded);
+      hCounter_ = nullptr;
+      status = factory::get_impl()->PdhAddCounter(hQuery, utf8::cvt<std::wstring>(expanded).c_str(), 0, &hCounter_);
+      break;
+    }
+
+    case types::resolution_auto:
+    default: {
+      const std::wstring path = utf8::cvt<std::wstring>(counter_->get_counter());
+      status = add_counter_with_english_fallback(hQuery, path, &hCounter_);
+
+      // If the path still looks wrong, try one more time with numeric counter
+      // indices expanded to their localized names. expand_index is a no-op when
+      // the path contains no digits, so this is cheap when it doesn't apply.
+      if (status.is_possible_locale_mismatch()) {
+        std::string expanded = counter_->get_counter();
+        PDHResolver::expand_index(expanded);
+        status = add_counter_with_english_fallback(hQuery, utf8::cvt<std::wstring>(expanded), &hCounter_);
+        if (status.is_possible_locale_mismatch()) {
+          hCounter_ = nullptr;
+          throw pdh_exception(expanded + " counter not found", status);
+        }
+      }
+      break;
     }
   }
+
   if (status.is_error()) {
     hCounter_ = nullptr;
     throw pdh_exception(getName() + " PdhAddCounter failed", status);

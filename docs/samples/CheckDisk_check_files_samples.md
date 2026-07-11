@@ -50,3 +50,19 @@ OK: All 1 files are ok
 
 Checksums are computed lazily — they are only calculated when a
 `*_checksum` keyword is used in the filter or syntax.
+
+**Folder aggregates on the `total` object (largest/average/smallest file, folder count):**
+
+With `total`, an extra summary row aggregates the matched items. Beyond the
+summed `size`, it now also exposes `smallest_size`, `largest_size`,
+`average_size` and `folder_count`, so thresholds on the  largest or average 
+file are expressible:
+
+```
+check_files path=c:/logs pattern=*.log total "filter=total = 0" "crit=total = 1 and largest_size > 100m" "detail-syntax=largest=${largest_size} avg=${average_size} folders=${folder_count}"
+CRITICAL: largest=250M avg=12M folders=3
+'total largest'=262144000B 'total average'=12582912B 'total folders'=3
+```
+
+These four keywords are meaningful on the `total` object (they aggregate across
+everything `add`-ed into it); on an individual file row they read as 0.

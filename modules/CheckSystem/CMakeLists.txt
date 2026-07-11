@@ -25,6 +25,7 @@ set(SRCS
     check_process.cpp
     check_memory.cpp
     check_pdh.cpp
+    check_swap_io.cpp
     check_registry.cpp
     filter_config_object.cpp
     realtime_data.cpp
@@ -72,6 +73,7 @@ if(WIN32)
         check_os_updates.hpp
         check_process_history.hpp
         check_process.hpp
+        check_swap_io.hpp
         check_registry.hpp
         ${NSCP_INCLUDEDIR}/win/registry.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
@@ -126,6 +128,8 @@ NSCP_CREATE_TEST(
         check_process_history_test.cpp
         check_process_test.cpp
         check_cpu_frequency_test.cpp
+        check_swap_io_test.cpp
+        check_os_version_test.cpp
         check_pdh_test.cpp
         pdh_query_test.cpp
         pdh_objects_test.cpp
@@ -143,6 +147,7 @@ NSCP_CREATE_TEST(
         check_os_updates.cpp
         check_process_history.cpp
         check_pdh.cpp
+        check_swap_io.cpp
         check_registry.cpp
         pdh_thread.cpp
         filter_config_object.cpp

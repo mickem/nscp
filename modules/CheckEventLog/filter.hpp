@@ -52,6 +52,11 @@ struct filter_obj : boost::noncopyable {
   virtual long long get_raw_id() const = 0;
   virtual long long get_generated() const = 0;
   virtual bool is_modern() const = 0;
+  // Security identifier (SID) of the account associated with the event, as a
+  // string (e.g. "S-1-5-18"), or "" when unavailable. Only the modern
+  // (EvtSystemUserID) path populates it; the legacy EVENTLOGRECORD path returns
+  // "". Enables filtering by SID.
+  virtual std::string get_user() const { return ""; }
   virtual std::string get_written_s() const {
     unsigned long long time = get_written();
     return str::format::itos_as_time((now_ - time) * 1000);
@@ -142,6 +147,7 @@ struct new_filter_obj : filter_obj {
   long long get_customer() const override { return (get_raw_id_dword() >> 29) & 0x1; }
   long long get_raw_id() const override { return get_raw_id_dword(); }
   long long get_generated() const override { return 0; }
+  std::string get_user() const override;
   bool is_modern() const override { return true; }
   eventlog::evt_handle &get_provider_handle(const std::string &provider);
   std::string to_string() const override { return logfile + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }

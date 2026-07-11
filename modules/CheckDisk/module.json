@@ -12,6 +12,8 @@
 		"check_single_file"	: "Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file.",
 		"check_disk_io"		: "Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).",
 		"check_disk_health"	: "Combined per-drive health check (free space + I/O metrics).",
+		"check_uncpath"		: "Check free space on a UNC path (server share), with optional alternate credentials.",
+		"check_storagepool"	: "Check Storage Spaces pool health and capacity (Windows).",
 		"check_mount"		: "Check that a filesystem is mounted with the expected fstype and options.",
 		"checkFiles"		: "Legacy version of check_drivesize",
 		"checkDriveSize"	: "Legacy version of check_drivesize"

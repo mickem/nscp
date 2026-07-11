@@ -6,6 +6,8 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread/locks.hpp>
+#include <map>
+#include <utility>
 #include <nscapi/nscapi_metrics_helper.hpp>
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -25,8 +27,12 @@ std::string helper::nif_query =
 // Win32_PerfRawData counters are cumulative totals despite the "Persec" suffix.
 // We use PerfRawData (not PerfFormattedData) so we can control the sampling interval
 // and compute the per-second rate ourselves in read_prd().
-std::string helper::prd_query = "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec from Win32_PerfRawData_Tcpip_NetworkInterface";
-std::string helper::prd_adapter_query = "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec from Win32_PerfRawData_Tcpip_NetworkAdapter";
+std::string helper::prd_query =
+    "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec, PacketsReceivedPersec, PacketsSentPersec, PacketsReceivedErrors, "
+    "PacketsOutboundErrors, PacketsReceivedDiscarded, PacketsOutboundDiscarded from Win32_PerfRawData_Tcpip_NetworkInterface";
+std::string helper::prd_adapter_query =
+    "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec, PacketsReceivedPersec, PacketsSentPersec, PacketsReceivedErrors, "
+    "PacketsOutboundErrors, PacketsReceivedDiscarded, PacketsOutboundDiscarded from Win32_PerfRawData_Tcpip_NetworkAdapter";
 
 std::string helper::parse_nif_name(std::string name) { return name; }
 std::string helper::parse_prd_name(std::string name) {
@@ -96,6 +102,12 @@ void network_interface::read_prd(wmi_impl::row r, long long delta) {
     BytesReceivedPersec = 0;
     BytesSentPersec = 0;
     BytesTotalPersec = 0;
+    PacketsReceivedPersec = 0;
+    PacketsSentPersec = 0;
+    PacketsReceivedErrors = 0;
+    PacketsOutboundErrors = 0;
+    PacketsReceivedDiscarded = 0;
+    PacketsOutboundDiscarded = 0;
   } else {
     long long v = r.get_int("BytesReceivedPersec");
     BytesReceivedPersec = (v - oldBytesReceivedPersec) / delta;
@@ -106,6 +118,24 @@ void network_interface::read_prd(wmi_impl::row r, long long delta) {
     v = r.get_int("BytesTotalPersec");
     BytesTotalPersec = (v - oldBytesTotalPersec) / delta;
     oldBytesTotalPersec = v;
+    v = r.get_int("PacketsReceivedPersec");
+    PacketsReceivedPersec = (v - oldPacketsReceivedPersec) / delta;
+    oldPacketsReceivedPersec = v;
+    v = r.get_int("PacketsSentPersec");
+    PacketsSentPersec = (v - oldPacketsSentPersec) / delta;
+    oldPacketsSentPersec = v;
+    v = r.get_int("PacketsReceivedErrors");
+    PacketsReceivedErrors = (v - oldPacketsReceivedErrors) / delta;
+    oldPacketsReceivedErrors = v;
+    v = r.get_int("PacketsOutboundErrors");
+    PacketsOutboundErrors = (v - oldPacketsOutboundErrors) / delta;
+    oldPacketsOutboundErrors = v;
+    v = r.get_int("PacketsReceivedDiscarded");
+    PacketsReceivedDiscarded = (v - oldPacketsReceivedDiscarded) / delta;
+    oldPacketsReceivedDiscarded = v;
+    v = r.get_int("PacketsOutboundDiscarded");
+    PacketsOutboundDiscarded = (v - oldPacketsOutboundDiscarded) / delta;
+    oldPacketsOutboundDiscarded = v;
   }
   has_prd = true;
 }
@@ -123,6 +153,12 @@ void network_interface::build_metrics(PB::Metrics::MetricsBundle *section) const
     add_metric(section, name + ".BytesReceivedPersec", BytesReceivedPersec);
     add_metric(section, name + ".BytesSentPersec", BytesSentPersec);
     add_metric(section, name + ".BytesTotalPersec", BytesTotalPersec);
+    add_metric(section, name + ".PacketsReceivedPersec", PacketsReceivedPersec);
+    add_metric(section, name + ".PacketsSentPersec", PacketsSentPersec);
+    add_metric(section, name + ".PacketsReceivedErrors", PacketsReceivedErrors);
+    add_metric(section, name + ".PacketsOutboundErrors", PacketsOutboundErrors);
+    add_metric(section, name + ".PacketsReceivedDiscarded", PacketsReceivedDiscarded);
+    add_metric(section, name + ".PacketsOutboundDiscarded", PacketsOutboundDiscarded);
   }
 }
 
@@ -166,6 +202,41 @@ void network_data::query_prd(netmap_type &netmap, long long delta, const std::st
       it->second.read_prd(r, delta);
     }
   }
+}
+
+void network_data::query_team(netmap_type &if_netmap, netmap_type &ad_netmap) {
+  if (!fetch_team_) return;
+  // member interface name -> (team name, raw operational status)
+  std::map<std::string, std::pair<std::string, std::string> > members;
+  try {
+    wmi_impl::query q("select Name, Team, OperationalStatus from MSFT_NetLbfoTeamMember", "root\\StandardCimv2", "", "");
+    wmi_impl::row_enumerator row = q.execute();
+    while (row.has_next()) {
+      wmi_impl::row r = row.get_next();
+      members[r.get_string("Name")] = std::make_pair(r.get_string("Team"), str::xtos(r.get_int("OperationalStatus")));
+    }
+  } catch (const wmi_impl::wmi_exception &) {
+    // The LBFO WMI provider / ROOT\StandardCimv2 namespace is absent on many
+    // systems (client SKUs, older Windows) and having no teams is not an error.
+    // Disable so we don't pay the failed query on every fetch; leave team fields empty.
+    fetch_team_ = false;
+    return;
+  }
+  if (members.empty()) return;
+  // MSFT_NetLbfoTeamMember.Name is the member adapter's connection/friendly
+  // name, so match on NetConnectionID first, then fall back to the perf name.
+  auto annotate = [&members](netmap_type &m) {
+    for (netmap_type::value_type &v : m) {
+      std::map<std::string, std::pair<std::string, std::string> >::const_iterator it = members.find(v.second.NetConnectionID);
+      if (it == members.end()) it = members.find(v.second.name);
+      if (it != members.end()) {
+        v.second.team = it->second.first;
+        v.second.team_status = it->second.second;
+      }
+    }
+  };
+  annotate(if_netmap);
+  annotate(ad_netmap);
 }
 
 void network_data::fetch() {
@@ -213,6 +284,18 @@ void network_data::fetch() {
         merged.BytesReceivedPersec = it->second.BytesReceivedPersec;
         merged.BytesSentPersec = it->second.BytesSentPersec;
         merged.BytesTotalPersec = it->second.BytesTotalPersec;
+        merged.oldPacketsReceivedPersec = it->second.oldPacketsReceivedPersec;
+        merged.oldPacketsSentPersec = it->second.oldPacketsSentPersec;
+        merged.oldPacketsReceivedErrors = it->second.oldPacketsReceivedErrors;
+        merged.oldPacketsOutboundErrors = it->second.oldPacketsOutboundErrors;
+        merged.oldPacketsReceivedDiscarded = it->second.oldPacketsReceivedDiscarded;
+        merged.oldPacketsOutboundDiscarded = it->second.oldPacketsOutboundDiscarded;
+        merged.PacketsReceivedPersec = it->second.PacketsReceivedPersec;
+        merged.PacketsSentPersec = it->second.PacketsSentPersec;
+        merged.PacketsReceivedErrors = it->second.PacketsReceivedErrors;
+        merged.PacketsOutboundErrors = it->second.PacketsOutboundErrors;
+        merged.PacketsReceivedDiscarded = it->second.PacketsReceivedDiscarded;
+        merged.PacketsOutboundDiscarded = it->second.PacketsOutboundDiscarded;
         it->second = merged;
       }
     }
@@ -220,6 +303,10 @@ void network_data::fetch() {
     query_prd(if_netmap, delta, helper::prd_query, false);
     // allow_insert=true so the team aggregate (no nif match) surfaces.
     query_prd(ad_netmap, delta, helper::prd_adapter_query, true);
+
+    // Best-effort NIC-team membership annotation (no-op / self-disabling when
+    // the LBFO provider is unavailable).
+    query_team(if_netmap, ad_netmap);
 
     for (netmap_type::value_type &v : if_netmap) {
       if (!v.second.is_compleate()) continue;
@@ -269,7 +356,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("status", &filter_obj::get_NetConnectionStatus, "Network connection status")
       .add_string_var("enabled", &filter_obj::get_NetEnabled, "True if the network interface is enabled")
       .add_string_var("speed", &filter_obj::get_Speed, "The network interface speed (raw WMI value, e.g. \"1000000000\" or \"Unknown\")")
-      .add_string_var("source", &filter_obj::get_source, "WMI source: 'interface' or 'adapter'");
+      .add_string_var("source", &filter_obj::get_source, "WMI source: 'interface' or 'adapter'")
+      .add_string_var("team", &filter_obj::get_team, "NIC team this adapter belongs to (empty if not a team member / LBFO unavailable)")
+      .add_string_var("team_status", &filter_obj::get_team_status,
+                      "Raw MSFT_NetLbfoTeamMember.OperationalStatus of this team member (empty if not a team member)");
 
   // Byte-rate counters. `add_int_perf` is NOT a "register as perf"
   // shorthand - it chains onto the last-registered variable and marks
@@ -285,6 +375,26 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("Bps")
       .add_int_var("total", &filter_obj::getBytesTotalPersec, "Bytes total per second")
       .add_int_perf("Bps");
+
+  // Packet-rate, error-rate and discard-rate counters. All are per-second rates
+  // derived from the cumulative Win32_PerfRawData_Tcpip counters, so a healthy
+  // NIC reports ~0 errors/sec and any sustained rate (errors_in > 0, discards_out
+  // > 0, ...) is an alertable signal. Each emits its own perf entry.
+  // Distinct perf suffixes so co-referenced counters each get their own series
+  // ('<iface>_packets_in', ...) instead of collapsing onto the shared ${name}
+  // perf alias.
+  registry_.add_int_var("packets_in", &filter_obj::getPacketsReceivedPersec, "Packets received per second")
+      .add_int_perf("", "", "_packets_in")
+      .add_int_var("packets_out", &filter_obj::getPacketsSentPersec, "Packets sent per second")
+      .add_int_perf("", "", "_packets_out")
+      .add_int_var("errors_in", &filter_obj::getPacketsReceivedErrors, "Inbound packet errors per second")
+      .add_int_perf("", "", "_errors_in")
+      .add_int_var("errors_out", &filter_obj::getPacketsOutboundErrors, "Outbound packet errors per second")
+      .add_int_perf("", "", "_errors_out")
+      .add_int_var("discards_in", &filter_obj::getPacketsReceivedDiscarded, "Inbound packets discarded per second")
+      .add_int_perf("", "", "_discards_in")
+      .add_int_var("discards_out", &filter_obj::getPacketsOutboundDiscarded, "Outbound packets discarded per second")
+      .add_int_perf("", "", "_discards_out");
 
   // Best-effort negotiated link speed (bits/sec). WMI's Speed property is
   // unreliable on virtual / wireless / NIC-team adapters - see the

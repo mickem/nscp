@@ -21,6 +21,8 @@
 #include "check_files.hpp"
 #include "check_mount.hpp"
 #include "check_single_file.hpp"
+#include "check_storagepool.hpp"
+#include "check_uncpath.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
 
@@ -77,10 +79,26 @@ void CheckDisk::check_disk_health(const PB::Commands::QueryRequestMessage::Reque
     return;
   }
   try {
-    auto data = disk_health_check::join(collector_->get_disk_io(), collector_->get_disk_free());
+    auto data = disk_health_check::join(collector_->get_disk_io(), collector_->get_disk_free(), disk_device_check::query());
     disk_health_check::check::check_disk_health(request, response, data);
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get disk health data: " + std::string(e.what()));
+  }
+}
+
+void CheckDisk::check_uncpath(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    uncpath_check::check::check_uncpath(request, response);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to check UNC path: " + std::string(e.what()));
+  }
+}
+
+void CheckDisk::check_storagepool(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    storagepool_check::check::check_storagepool(request, response);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to check storage pool: " + std::string(e.what()));
   }
 }
 
