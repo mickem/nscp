@@ -209,17 +209,8 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
   CloseEventLog(hLog);
 }
 
-void CheckEventLog::save_bookmark(const std::string bookmark, eventlog::api::EVT_HANDLE &hResults) {
-  if (bookmark.empty()) {
-    return;
-  }
-  eventlog::evt_handle hBookmark = eventlog::EvtCreateBookmark(NULL);
-  if (!hBookmark) {
-    NSC_LOG_ERROR("Failed to create bookmark: " + error::lookup::last_error());
-    return;
-  }
-  if (!nscpEvtUpdateBookmark(hBookmark, hResults)) {
-    NSC_LOG_ERROR("Failed to create bookmark: " + error::lookup::last_error());
+void CheckEventLog::store_bookmark(const std::string &bookmark, eventlog::api::EVT_HANDLE hBookmark) {
+  if (bookmark.empty() || !hBookmark) {
     return;
   }
 
@@ -237,6 +228,9 @@ void CheckEventLog::save_bookmark(const std::string bookmark, eventlog::api::EVT
         NSC_LOG_ERROR("Failed to save bookmark: " + error::lookup::last_error());
         return;
       }
+    } else {
+      NSC_LOG_ERROR("Failed to save bookmark: " + error::lookup::last_error(status));
+      return;
     }
   }
   bookmarks_.add(bookmark, utf8::cvt<std::string>(buffer.get()));
@@ -299,6 +293,23 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
       }
     }
   }
+
+  // Tracking bookmark: advanced to the last event we actually read so the
+  // "since last check" position is persisted even when a scan exhausts the log
+  // (a quiet/empty read) instead of stopping at the date boundary — this closes
+  // the old "Cannot update bookmarks for empty reads" gap and avoids rescanning
+  // the same events every run. It is only stored once at least one event has
+  // been read (bookmark_dirty), so a genuinely empty read leaves the previous
+  // bookmark untouched.
+  eventlog::evt_handle hTrackBookmark(bookmark.empty() ? nullptr : eventlog::EvtCreateBookmark(nullptr));
+  bool bookmark_dirty = false;
+  if (!bookmark.empty() && !hTrackBookmark) {
+    NSC_LOG_ERROR("Failed to create tracking bookmark: " + error::lookup::last_error());
+  }
+  const auto flush_bookmark = [&]() {
+    if (bookmark_dirty && hTrackBookmark) store_bookmark(bookmark, hTrackBookmark);
+  };
+
   while (true) {
     status = ERROR_SUCCESS;
     hlp::buffer<eventlog::api::EVT_HANDLE> hEvents(batch_size);
@@ -311,10 +322,9 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
       if (!eventlog::EvtNext(hResults, batch_size, hEvents, 100, 0, &dwReturned)) {
         status = GetLastError();
         if (status == ERROR_NO_MORE_ITEMS || status == ERROR_TIMEOUT) {
-          if (!bookmark.empty()) {
-            NSC_LOG_ERROR("Cannot update bookmarks for empty reads yet");
-            // save_bookmark(bookmark, hEvents[dwReturned - 1]);
-          }
+          // Reached the end of the log. Persist the position of the last event
+          // read so the next run resumes after it instead of rescanning.
+          flush_bookmark();
           return;
         } else if (status != ERROR_SUCCESS)
           throw nsclient::nsclient_exception("EvtNext failed: " + error::lookup::last_error(status));
@@ -322,20 +332,17 @@ void CheckEventLog::check_modern(const std::string &logfile, const std::string &
       for (DWORD i = 0; i < dwReturned; i++) {
         try {
           filter_type::object_type item(new eventlog_filter::new_filter_obj(ltime, logfile, hEvents[i], hContext, truncate_message));
-          if (direction == direction_backwards && item->get_written() < stop_date) {
-            if (dwReturned > 0) {
-              save_bookmark(bookmark, hEvents[dwReturned - 1]);
-            }
+          if ((direction == direction_backwards && item->get_written() < stop_date) ||
+              (direction == direction_forwards && item->get_written() > stop_date)) {
+            // Past the requested window: stop without consuming this event (it is
+            // picked up on a later run) and persist the position reached so far.
+            flush_bookmark();
             for (; i < dwReturned; i++) eventlog::EvtClose(hEvents[i]);
             return;
           }
-          if (direction == direction_forwards && item->get_written() > stop_date) {
-            if (dwReturned > 0) {
-              save_bookmark(bookmark, hEvents[dwReturned - 1]);
-            }
-            for (; i < dwReturned; i++) eventlog::EvtClose(hEvents[i]);
-            return;
-          }
+          // We are consuming this event; advance the tracking bookmark while the
+          // handle is still valid (new_filter_obj closes it when `item` dies).
+          if (hTrackBookmark && nscpEvtUpdateBookmark(hTrackBookmark, hEvents[i])) bookmark_dirty = true;
           if (direction == direction_forwards && item->get_written() < start_date) {
             eventlog::EvtClose(hEvents[i]);
             continue;

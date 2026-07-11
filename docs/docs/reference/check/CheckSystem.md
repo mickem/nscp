@@ -2970,6 +2970,34 @@ page = 8.05G, physical = 7.85G
 
 Check the version of the underlying OS.
 
+Reports the version of the underlying Windows OS, sourced from the OS version
+information, the registry (UBR), `GetNativeSystemInfo` for the processor
+architecture, and `Win32_BIOS` (WMI) for the inventory fields.
+
+| Keyword          | Description                                                                                                                                                                                                    |
+|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `version`        | System version (numeric for thresholds, e.g. `major*10+minor`; friendly product name in output, e.g. `Windows 11 23H2`).                                                                                       |
+| `major`          | Major version number (perf).                                                                                                                                                                                   |
+| `minor`          | Minor version number (perf).                                                                                                                                                                                   |
+| `build`          | Build number (perf).                                                                                                                                                                                           |
+| `ubr`            | Update Build Revision — the patch level within a build (the `.3803` in `10.0.19045.3803`). Read from the registry; `0` when unavailable (pre-Windows 10).                                                      |
+| `kernel_version` | NT kernel version shorthand as `major.minor.build.ubr` (on Windows the kernel version tracks the OS version).                                                                                                  |
+| `arch`           | Native processor architecture: `x64`, `x86`, `arm64`, `arm`, `ia64` or `unknown`. Reported via `GetNativeSystemInfo`, so a 32-bit agent under WOW64 still reports the true hardware architecture (e.g. `x64`). |
+| `suite`          | Installed suites (Datacenter Edition, Enterprise Edition, Terminal Services, …).                                                                                                                               |
+| `serial`         | BIOS/system serial number (`Win32_BIOS.SerialNumber`). Inventory only.                                                                                                                                         |
+| `bios_version`   | BIOS version (`Win32_BIOS.SMBIOSBIOSVersion`). Inventory only.                                                                                                                                                 |
+| `manufacturer`   | BIOS manufacturer / vendor (`Win32_BIOS.Manufacturer`). Inventory only.                                                                                                                                        |
+
+The default warning/critical thresholds (`version <= 50`, i.e. pre-Windows-XP)
+exist only to flag ancient/unsupported platforms; they never trip on a supported
+OS. Set your own threshold on `build`/`ubr` to alert on a minimum patch level, or
+filter on `arch` to assert a fleet's architecture.
+
+`serial`, `bios_version` and `manufacturer` are **inventory-only**: they are read
+best-effort from WMI, are empty when WMI is unavailable, are not part of the
+default output, and are not intended for alerting. Reference them in a custom
+`detail-syntax` (or `top-syntax`) to pull inventory.
+
 **Jump to section:**
 
 * [Sample Commands](#check_os_version_samples)
@@ -3001,6 +3029,30 @@ Default check **via NRPE**:
 ```
 check_nrpe --host 192.168.56.103 --command check_os_version
 Windows 2012 (6.2.9200)|'version'=62;50;50
+```
+
+**Kernel version and architecture** (the default output is now
+`${version} (${kernel_version}) ${arch}`, where `kernel_version` is the full
+`major.minor.build.ubr`):
+
+```
+check_os_version
+OK: Windows 11 23H2 (10.0.22631.3810) x64|'version'=110;50;50 'major'=10 'minor'=0 'build'=22631
+```
+
+Alert on a minimum patch level using `ubr`, and assert a 64-bit fleet:
+
+```
+check_os_version "warn=ubr < 3800" "crit=arch != 'x64'"
+OK: Windows 11 23H2 (10.0.22631.3810) x64|'version'=110;50;50 'major'=10 'minor'=0 'build'=22631
+```
+
+**Inventory pull** — BIOS serial / version / manufacturer via a custom
+`detail-syntax` (these fields never alert and are empty if WMI is unavailable):
+
+```
+check_os_version "detail-syntax=${serial} / ${manufacturer} BIOS ${bios_version} / ${kernel_version} ${arch}"
+OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'version'=110;50;50 'major'=10 'minor'=0 'build'=22631
 ```
 
 
@@ -5737,10 +5789,65 @@ filter, so the rollup is stable even when the check itself is OK.
 
 Check the swap in/out paging rate.
 
+Reports system paging (swap) I/O **rates**, sourced from the Windows memory
+performance counters `\Memory\Pages Input/sec` and `\Memory\Pages Output/sec`
+(sampled over a ~1 second window). Windows has no per-pagefile I/O counter, so
+this is a single system-wide aggregate row.
+
+The keyword vocabulary matches the Linux `check_swap_io`, so warning/critical
+expressions and detail-syntax port between platforms.
+
+| Keyword          | Description                                                                          |
+|------------------|--------------------------------------------------------------------------------------|
+| `name`           | Always `swap` (single aggregate row).                                                |
+| `swap_count`     | Number of page files on the system.                                                  |
+| `swap_in`        | Pages paged in from disk per second (perf, `io_swap_in`).                            |
+| `swap_out`       | Pages paged out to disk per second (perf, `io_swap_out`).                            |
+| `swap_in_bytes`  | Bytes paged in per second — `swap_in` × system page size (perf, `io_swap_in_bytes`). |
+| `swap_out_bytes` | Bytes paged out per second (perf, `io_swap_out_bytes`).                              |
+
+There are no default warning/critical thresholds: sustained paging is workload
+dependent, and a default would warn on legitimately busy hosts. Set a threshold
+on `swap_in`/`swap_out` (pages/s) or `swap_in_bytes`/`swap_out_bytes` (bytes/s)
+for the host in question.
+
+> Note: on Windows these are system-wide paging rates (pages moved between disk
+> and physical memory) — the correct analogue of Linux swap-in/out — not literal
+> per-pagefile read/write bytes.
+
 **Jump to section:**
 
+* [Sample Commands](#check_swap_io_samples)
 * [Command-line Arguments](#check_swap_io_options)
 * [Filter keywords](#check_swap_io_filter_keys)
+
+
+<a id="check_swap_io_samples"></a>
+#### Sample Commands
+
+**Default check:**
+
+```
+check_swap_io
+OK: 1 page file(s), in 0 pages/s, out 0 pages/s
+'io_swap_in'=0;;; 'io_swap_out'=0;;; 'io_swap_in_bytes'=0B;;; 'io_swap_out_bytes'=0B;;;
+```
+
+**Alert on sustained paging (pages/s):**
+
+```
+check_swap_io "warn=swap_in > 1000" "crit=swap_in > 5000"
+OK: 1 page file(s), in 42 pages/s, out 7 pages/s
+'io_swap_in'=42;1000;5000; 'io_swap_out'=7;;; 'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'=28672B;;;
+```
+
+**Threshold on throughput (bytes/s) with a custom output line:**
+
+```
+check_swap_io "crit=swap_out_bytes > 10485760" "detail-syntax=in ${swap_in_bytes}B/s, out ${swap_out_bytes}B/s"
+OK: in 172032B/s, out 28672B/s
+'io_swap_in_bytes'=172032B;;; 'io_swap_out_bytes'=28672B;;10485760;
+```
 
 
 
