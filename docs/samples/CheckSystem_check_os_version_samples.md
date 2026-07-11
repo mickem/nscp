@@ -37,3 +37,11 @@ check_os_version "warn=ubr < 3800" "crit=arch != 'x64'"
 OK: Windows 11 23H2 (10.0.22631.3810) x64|'version'=110;50;50 'major'=10 'minor'=0 'build'=22631
 ```
 
+**Inventory pull** — BIOS serial / version / manufacturer via a custom
+`detail-syntax` (these fields never alert and are empty if WMI is unavailable):
+
+```
+check_os_version "detail-syntax=${serial} / ${manufacturer} BIOS ${bios_version} / ${kernel_version} ${arch}"
+OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'version'=110;50;50 'major'=10 'minor'=0 'build'=22631
+```
+

@@ -148,7 +148,11 @@ filter_obj_handler::filter_obj_handler() {
       "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise "
       "Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)");
   registry_.add_string_var("arch", &filter_obj::get_arch, "Native processor architecture: x64, x86, arm64, arm, ia64 or unknown")
-      .add_string_var("kernel_version", &filter_obj::get_kernel_version, "NT kernel version as major.minor.build");
+      .add_string_var("kernel_version", &filter_obj::get_kernel_version, "NT kernel version as major.minor.build.ubr");
+  // Inventory-only fields from Win32_BIOS (never alert; empty if WMI is unavailable).
+  registry_.add_string_var("serial", &filter_obj::get_serial, "BIOS/system serial number (Win32_BIOS.SerialNumber)")
+      .add_string_var("bios_version", &filter_obj::get_bios_version, "BIOS version (Win32_BIOS.SMBIOSBIOSVersion)")
+      .add_string_var("manufacturer", &filter_obj::get_manufacturer, "BIOS manufacturer / vendor (Win32_BIOS.Manufacturer)");
 }
 
 std::string arch_from_native(unsigned short processor_architecture) {

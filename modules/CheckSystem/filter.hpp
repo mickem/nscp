@@ -99,6 +99,10 @@ struct filter_obj {
   std::string suite;
   std::string arch;
   std::string kernel_version;
+  // Inventory fields (Win32_BIOS); best-effort, empty when WMI is unavailable.
+  std::string serial;
+  std::string bios_version;
+  std::string manufacturer;
 
   filter_obj() : major_version(0), minor_version(0), build(0), plattform(0), version_i(0), ubr(0) {}
 
@@ -114,6 +118,9 @@ struct filter_obj {
   std::string get_suite_string() const { return suite; }
   std::string get_arch() const { return arch; }
   std::string get_kernel_version() const { return kernel_version; }
+  std::string get_serial() const { return serial; }
+  std::string get_bios_version() const { return bios_version; }
+  std::string get_manufacturer() const { return manufacturer; }
 };
 
 // Map a Windows PROCESSOR_ARCHITECTURE_* value (SYSTEM_INFO.wProcessorArchitecture

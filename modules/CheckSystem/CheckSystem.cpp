@@ -660,6 +660,40 @@ void CheckSystem::check_uptime(const PB::Commands::QueryRequestMessage::Request 
   filter_helper.post_process(filter);
 }
 
+namespace {
+struct bios_info {
+  std::string serial;
+  std::string version;
+  std::string manufacturer;
+};
+
+// Inventory-only BIOS fields from Win32_BIOS. Best-effort: initialises COM for
+// the call (tolerating an apartment already initialised elsewhere) and returns
+// empty strings on any failure, so check_os_version never fails just because WMI
+// is unavailable or the class cannot be read.
+bios_info fetch_bios_info() {
+  bios_info out;
+  const HRESULT hr_init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  // SUCCEEDED covers S_OK/S_FALSE; RPC_E_CHANGED_MODE (COM already initialised in
+  // another mode) fails SUCCEEDED, so we proceed without uninitialising.
+  const bool needs_uninit = SUCCEEDED(hr_init);
+  try {
+    wmi_impl::query q("SELECT SerialNumber, SMBIOSBIOSVersion, Manufacturer FROM Win32_BIOS", "root\\CIMV2", "", "");
+    wmi_impl::row_enumerator rows = q.execute();
+    if (rows.has_next()) {
+      const wmi_impl::row r = rows.get_next();
+      out.serial = r.get_string("SerialNumber");
+      out.version = r.get_string("SMBIOSBIOSVersion");
+      out.manufacturer = r.get_string("Manufacturer");
+    }
+  } catch (...) {
+    // Inventory only — never fail the check on WMI errors; leave fields empty.
+  }
+  if (needs_uninit) CoUninitialize();
+  return out;
+}
+}  // namespace
+
 void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   typedef os_version_filter::filter filter_type;
   modern_filter::data_container data;
@@ -700,6 +734,12 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
   // On Windows the NT kernel version is the OS version; expose the full
   // major.minor.build.ubr as a single shorthand (matches snclient's field).
   record->kernel_version = os_version_filter::format_kernel_version(info->dwMajorVersion, info->dwMinorVersion, info->dwBuildNumber, record->ubr);
+
+  // Inventory-only BIOS fields (never alert; empty when WMI is unavailable).
+  const bios_info bios = fetch_bios_info();
+  record->serial = bios.serial;
+  record->bios_version = bios.version;
+  record->manufacturer = bios.manufacturer;
 
   filter.match(record);
 
