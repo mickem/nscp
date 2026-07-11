@@ -171,6 +171,34 @@ describe("CheckDisk commands", () => {
     expect(q.result).not.toBe(UNKNOWN);
   });
 
+  // --- check_shadowcopy (§3.3, Windows) -------------------------------------
+
+  it("check_shadowcopy runs and reports a valid status (Windows)", async () => {
+    if (!onWindows) return; // VSS shadow copies are a Windows feature.
+    // With thresholds disabled the result is deterministic: a host with no shadow
+    // copies takes empty-state=ok; a host with copies has no threshold to trip.
+    const q = await executeQuery(key, "check_shadowcopy", {
+      warning: "none",
+      critical: "none",
+      "empty-state": "ok",
+    });
+    expect(q.result).toBe(OK);
+    // Either "No shadow copies found" (typical CI) or per-volume "<n> copies" rows.
+    expect(messageOf(q)).toMatch(/shadow|copies/i);
+  });
+
+  it("check_shadowcopy empty-state=critical is honoured (Windows)", async () => {
+    if (!onWindows) return;
+    // A host with no shadow copies goes CRITICAL on the empty state; a host WITH
+    // copies (thresholds disabled) stays OK. Never UNKNOWN/error either way.
+    const q = await executeQuery(key, "check_shadowcopy", {
+      warning: "none",
+      critical: "none",
+      "empty-state": "critical",
+    });
+    expect([OK, CRITICAL]).toContain(q.result);
+  });
+
   // --- check_uncpath (§3.1, Windows) ----------------------------------------
 
   it("check_uncpath without a path is reported as an error (Windows)", async () => {

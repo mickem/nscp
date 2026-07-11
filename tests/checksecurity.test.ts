@@ -133,11 +133,15 @@ onLinux("CheckSecurity", () => {
 
   // --- Windows-only posture checks (stubbed on this platform) ---------------
 
-  it.each([["check_firewall"], ["check_nla"], ["check_antivirus"], ["check_bitlocker"], ["check_secureboot"]])(
-    "%s reports not-supported on this platform",
-    async (cmd) => {
-      const out = await query(cmd, []);
-      expect(out).toMatch(/not supported on this platform/i);
-    },
-  );
+  it.each([
+    ["check_firewall"],
+    ["check_nla"],
+    ["check_antivirus"],
+    ["check_bitlocker"],
+    ["check_secureboot"],
+    ["check_defender"],
+  ])("%s reports not-supported on this platform", async (cmd) => {
+    const out = await query(cmd, []);
+    expect(out).toMatch(/not supported on this platform/i);
+  });
 });

@@ -325,6 +325,65 @@ describe("CheckSystem commands", () => {
     expect(parts).toBeLessThanOrEqual(total);
   });
 
+  // --- check_pending_reboot (Windows) ----------------------------------------
+
+  it("check_pending_reboot returns one aggregate row with perf (Windows)", async () => {
+    if (!onWindows) return; // check_pending_reboot is Windows-only (CheckSystem).
+    // Pin thresholds off so the result is deterministic regardless of the host's
+    // actual reboot state; here we exercise the command and its perfdata.
+    const q = await executeQuery(key, "check_pending_reboot", {
+      warning: "none",
+      critical: "none",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/reboot/i);
+    const perf = perfOf(q);
+    expect(perf["reboot_pending"]).toBeDefined();
+    expect(perf["reboot_count"]).toBeDefined();
+    // pending is a 0/1 flag; count is the number of active signals.
+    expect([0, 1]).toContain(perf["reboot_pending"].value as number);
+    expect(perf["reboot_count"].value as number).toBeGreaterThanOrEqual(0);
+  });
+
+  it("check_pending_reboot accepts per-cause boolean expressions over REST (Windows)", async () => {
+    if (!onWindows) return;
+    // Regression: the bool keywords (servicing/windows_update/…) must parse in
+    // warn/crit expressions and not be rejected as valueless boolean options.
+    const q = await executeQuery(key, "check_pending_reboot", {
+      warning: "none",
+      critical: "servicing = 1 or windows_update = 1",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments/);
+    expect(messageOf(q)).not.toMatch(/invalid|error/i);
+    expect(q.result).toBeLessThanOrEqual(CRITICAL);
+  });
+
+  // --- check_patch_age (Windows) ---------------------------------------------
+
+  it("check_patch_age reports installed hotfixes with perf (Windows)", async () => {
+    if (!onWindows) return; // check_patch_age is Windows-only (CheckSystem).
+    // Default crit=missing>0 is inert without a hotfix= request, so a bare call
+    // is OK and reports the aggregate.
+    const q = await executeQuery(key, "check_patch_age", {});
+    expect(q.result).toBe(OK);
+    const perf = perfOf(q);
+    expect(perf["patch_count"]).toBeDefined();
+    expect(perf["patch_age"]).toBeDefined();
+    expect(perf["patch_missing"]).toBeDefined();
+    // A real Windows host has at least one servicing hotfix and none missing.
+    expect(perf["patch_count"].value as number).toBeGreaterThan(0);
+    expect(perf["patch_missing"].value as number).toBe(0);
+  });
+
+  it("check_patch_age is CRITICAL when a required hotfix is absent (Windows)", async () => {
+    if (!onWindows) return;
+    // KB0000001 cannot exist, so the presence check must flag it as missing.
+    const q = await executeQuery(key, "check_patch_age", { hotfix: "KB0000001" });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/missing: KB0000001/);
+    expect(perfOf(q)["patch_missing"].value as number).toBe(1);
+  });
+
   // --- Linux-only checks (no Windows CheckSystem equivalent) ------------------
 
   it("check_load reports the three load averages (Linux)", async () => {
