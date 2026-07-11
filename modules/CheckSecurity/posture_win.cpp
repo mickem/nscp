@@ -16,6 +16,7 @@
 
 #include "check_antivirus.hpp"
 #include "check_bitlocker.hpp"
+#include "check_defender.hpp"
 #include "check_nla.hpp"
 #include "check_secureboot.hpp"
 
@@ -120,6 +121,66 @@ void gather(std::vector<bitlocker_filter::filter_obj_ptr> &out, std::string &err
 }
 
 }  // namespace bitlocker_source
+
+namespace defender_source {
+
+namespace {
+// Read helpers that tolerate a missing/unreadable property so one absent field
+// (older Defender builds vary) does not blank the whole status.
+long long read_bool(const wmi_impl::row &r, const char *name) {
+  try {
+    return r.get_int(name) != 0 ? 1 : 0;  // WMI VT_BOOL comes back as -1/0 via get_int
+  } catch (...) {
+    return 0;
+  }
+}
+// Ages are uint days; a "never scanned" value is the uint sentinel (~4.29e9),
+// which we normalise to -1 ("unknown/never") so thresholds do not falsely trip.
+long long read_age(const wmi_impl::row &r, const char *name) {
+  try {
+    const long long v = r.get_int(name);
+    return (v < 0 || v > 1000000) ? -1 : v;
+  } catch (...) {
+    return -1;
+  }
+}
+std::string read_str(const wmi_impl::row &r, const char *name) {
+  try {
+    return r.get_string(name);
+  } catch (...) {
+    return {};
+  }
+}
+}  // namespace
+
+void gather(std::vector<defender_filter::filter_obj_ptr> &out, std::string & /*error*/) {
+  try {
+    // SELECT * and read defensively: property availability varies by Defender
+    // version, and a named-column SELECT would fail the whole query if one is absent.
+    wmi_impl::query wmi_q("select * from MSFT_MpComputerStatus", "root\\Microsoft\\Windows\\Defender", "", "");
+    wmi_impl::row_enumerator rows = wmi_q.execute();
+    while (rows.has_next()) {
+      const wmi_impl::row r = rows.get_next();
+      auto o = std::make_shared<defender_filter::filter_obj>();
+      o->enabled = (read_bool(r, "AntivirusEnabled") || read_bool(r, "AMServiceEnabled")) ? 1 : 0;
+      o->realtime_enabled = read_bool(r, "RealTimeProtectionEnabled");
+      o->tamper_protection = read_bool(r, "IsTamperProtected");
+      o->signature_age = read_age(r, "AntivirusSignatureAge");
+      o->quick_scan_age = read_age(r, "QuickScanAge");
+      o->full_scan_age = read_age(r, "FullScanAge");
+      o->engine_version = read_str(r, "AMEngineVersion");
+      o->signature_version = read_str(r, "AntivirusSignatureVersion");
+      o->product_version = read_str(r, "AMProductVersion");
+      out.push_back(o);
+    }
+  } catch (const wmi_impl::wmi_exception &) {
+    // Defender namespace/class unavailable (not installed, or a third-party AV
+    // owns protection): report no rows so the check reports UNKNOWN via
+    // empty-state rather than failing.
+  }
+}
+
+}  // namespace defender_source
 
 namespace secureboot_source {
 

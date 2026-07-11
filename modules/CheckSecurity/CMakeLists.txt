@@ -18,6 +18,7 @@ set(SRCS
     check_antivirus.cpp
     check_bitlocker.cpp
     check_secureboot.cpp
+    check_defender.cpp
     cert_filter.cpp
     cert_source_openssl.cpp
     ${NSCP_DEF_PLUGIN_CPP}
@@ -44,6 +45,7 @@ if(WIN32)
         check_antivirus.hpp
         check_bitlocker.hpp
         check_secureboot.hpp
+        check_defender.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}

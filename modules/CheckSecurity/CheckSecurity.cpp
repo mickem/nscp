@@ -6,6 +6,7 @@
 #include "check_antivirus.hpp"
 #include "check_bitlocker.hpp"
 #include "check_certificate.hpp"
+#include "check_defender.hpp"
 #include "check_firewall.hpp"
 #include "check_nla.hpp"
 #include "check_secureboot.hpp"
@@ -43,4 +44,8 @@ void CheckSecurity::check_bitlocker(const PB::Commands::QueryRequestMessage::Req
 
 void CheckSecurity::check_secureboot(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_secureboot_command::check(request, response);
+}
+
+void CheckSecurity::check_defender(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_defender_command::check(request, response);
 }
