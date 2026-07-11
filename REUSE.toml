@@ -42,3 +42,42 @@ path = ["installers/ui/WixUI_MondoNSCP.wxs", "installers/installer-NSCP/WixUI_en
 precedence = "override"
 SPDX-FileCopyrightText = "Microsoft Corporation"
 SPDX-License-Identifier = "CPL-1.0"
+
+# CMake modules for C#/.NET/Mono, based on the GDCM project's (BSD-3-Clause).
+# override: the attribution line is wrapped mid-sentence, which the reuse
+# parser would otherwise pick up as an empty copyright holder.
+[[annotations]]
+path = [
+    "build/cmake/FindCSharp.cmake",
+    "build/cmake/FindDotNetFrameworkSdk.cmake",
+    "build/cmake/FindMono.cmake",
+    "build/cmake/UseCSharp.cmake",
+    "build/cmake/UseDotNetFrameworkSdk.cmake",
+    "build/cmake/UseMono.cmake",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2006-2010 Mathieu Malaterre <mathieu.malaterre@gmail.com>"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# Protobuf CMake modules; their header points at a COPYING-CMAKE-SCRIPTS file
+# (the stock BSD-3-Clause of KDE's cmake modules) that was never imported —
+# LICENSES/BSD-3-Clause.txt now provides the text.
+[[annotations]]
+path = ["build/cmake/FindProtoBuf.cmake", "build/cmake/GoogleProtoBuf.cmake"]
+precedence = "override"
+SPDX-FileCopyrightText = "2008 Ange Optimization ApS"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# Prebuilt third-party binaries checked into the tree (no readable inline
+# info, so without these the project-default annotation would claim them).
+[[annotations]]
+path = "installers/installer-NSCP/wixca.dll"
+precedence = "override"
+SPDX-FileCopyrightText = "Microsoft Corporation"
+SPDX-License-Identifier = "CPL-1.0"
+
+[[annotations]]
+path = "libs/protobuf_net/Google.Protobuf.dll"
+precedence = "override"
+SPDX-FileCopyrightText = "Google LLC"
+SPDX-License-Identifier = "BSD-3-Clause"

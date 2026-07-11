@@ -201,7 +201,7 @@ and platform packaging help.
 
 NSClient++ is dual-licensed — you may use it under **either** the
 **Apache License 2.0** **or** the **GNU General Public License, version 2.0 (only)**,
-at your option (`SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only`). See
+at your option (SPDX: `Apache-2.0 OR GPL-2.0-only`). See
 [COPYING](COPYING) for the summary, the [`LICENSES/`](LICENSES) directory for the
 full license texts, and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for
 bundled third-party components.
