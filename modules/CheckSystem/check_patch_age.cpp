@@ -12,6 +12,7 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <set>
+#include <str/format.hpp>
 #include <str/xtos.hpp>
 #include <win/wmi/wmi_query.hpp>
 
@@ -20,17 +21,6 @@ namespace po = boost::program_options;
 namespace patch_age_check {
 
 namespace {
-
-// Days from the civil date (Howard Hinnant's algorithm) to 1970-01-01. Valid
-// for any Gregorian date; avoids a boost::date_time link dependency.
-long long days_from_civil(long long y, unsigned m, unsigned d) {
-  y -= m <= 2;
-  const long long era = (y >= 0 ? y : y - 399) / 400;
-  const unsigned yoe = static_cast<unsigned>(y - era * 400);
-  const unsigned doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
-  const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-  return era * 146097 + static_cast<long long>(doe) - 719468;
-}
 
 bool all_digits(const std::string &s) { return !s.empty() && std::all_of(s.begin(), s.end(), [](char c) { return c >= '0' && c <= '9'; }); }
 
@@ -58,7 +48,7 @@ long long parse_installed_on(const std::string &raw) {
         const int day = std::stoi(parts[1]);
         const int year = std::stoi(parts[2]);
         if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1980) {
-          return days_from_civil(year, static_cast<unsigned>(month), static_cast<unsigned>(day)) * 86400LL;
+          return str::format::days_from_civil(year, static_cast<unsigned>(month), static_cast<unsigned>(day)) * 86400LL;
         }
       } catch (...) {
         return 0;
@@ -74,7 +64,7 @@ long long parse_installed_on(const std::string &raw) {
       const int month = std::stoi(s.substr(4, 2));
       const int day = std::stoi(s.substr(6, 2));
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1980) {
-        return days_from_civil(year, static_cast<unsigned>(month), static_cast<unsigned>(day)) * 86400LL;
+        return str::format::days_from_civil(year, static_cast<unsigned>(month), static_cast<unsigned>(day)) * 86400LL;
       }
     } catch (...) {
       return 0;

@@ -43,6 +43,63 @@ inline double calc_pct_double(long long value, long long total) {
   if (total <= 0) return 0.0;
   return static_cast<double>(value) * 100.0 / static_cast<double>(total);
 }
+
+//
+// Calendar / epoch helpers
+//
+// Days from the civil date (year/month/day) to the Unix epoch (1970-01-01),
+// using Howard Hinnant's algorithm. Valid for any proleptic-Gregorian date and
+// has no boost::date_time dependency. `m` is 1..12 and `d` is 1..31.
+inline long long days_from_civil(long long y, unsigned m, unsigned d) {
+  y -= m <= 2;
+  const long long era = (y >= 0 ? y : y - 399) / 400;
+  const unsigned yoe = static_cast<unsigned>(y - era * 400);
+  const unsigned doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+  const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + static_cast<long long>(doe) - 719468;
+}
+
+// Parse a WMI CIM_DATETIME string ("yyyymmddHHMMSS.ffffff±UUU", where UUU is the
+// signed minutes offset from UTC) into Unix epoch seconds (UTC). Returns 0 when
+// the string cannot be parsed. Pure string parsing — no WMI/Windows dependency.
+inline long long parse_cim_datetime(const std::string &s) {
+  const auto has_digits = [](const std::string &v, std::size_t off, std::size_t n) {
+    if (off + n > v.size()) return false;
+    for (std::size_t i = 0; i < n; ++i)
+      if (v[off + i] < '0' || v[off + i] > '9') return false;
+    return true;
+  };
+  const auto num = [](const std::string &v, std::size_t off, std::size_t n) { return std::stoi(v.substr(off, n)); };
+
+  // Need at least the 14 leading date/time digits.
+  if (s.size() < 14 || !has_digits(s, 0, 14)) return 0;
+  try {
+    const int year = num(s, 0, 4);
+    const unsigned month = static_cast<unsigned>(num(s, 4, 2));
+    const unsigned day = static_cast<unsigned>(num(s, 6, 2));
+    const int hour = num(s, 8, 2);
+    const int minute = num(s, 10, 2);
+    const int second = num(s, 12, 2);
+    if (year < 1980 || month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 60) return 0;
+
+    long long epoch = days_from_civil(year, month, day) * 86400LL + hour * 3600LL + minute * 60LL + second;
+
+    // Apply the UTC offset if present: the timestamp is local wall-clock, so
+    // UTC = local - offset. The offset follows the '.' and its 6 fractional
+    // digits, as a signed 3-digit minute count (e.g. "-000", "+060").
+    const std::size_t dot = s.find('.');
+    if (dot != std::string::npos && dot + 7 < s.size()) {
+      const char sign = s[dot + 7];
+      if ((sign == '+' || sign == '-') && has_digits(s, dot + 8, 3)) {
+        const int off_min = num(s, dot + 8, 3);
+        epoch -= (sign == '-' ? -off_min : off_min) * 60LL;
+      }
+    }
+    return epoch;
+  } catch (...) {
+    return 0;
+  }
+}
 // format_pct renders a percentage value with `decimals` decimal places (default 2).
 // Used by `%(used_pct)`/`%(free_pct)` so users can see e.g. "97.34" rather than "97".
 inline std::string format_pct(double pct, int decimals = 2) {

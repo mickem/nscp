@@ -726,3 +726,32 @@ TEST(format, format_pct_uses_dot_decimal_separator) {
 // Negative decimals should not crash; behaviour falls through to whatever
 // std::setprecision does (which is well-defined: precision 0).
 TEST(format, format_pct_negative_decimals_does_not_crash) { EXPECT_NO_THROW((void)str::format::format_pct(97.34, -1)); }
+
+// --- days_from_civil / parse_cim_datetime ------------------------------------
+
+TEST(format, days_from_civil_epoch_anchor) {
+  EXPECT_EQ(str::format::days_from_civil(1970, 1, 1), 0);
+  EXPECT_EQ(str::format::days_from_civil(1970, 1, 2), 1);
+  EXPECT_EQ(str::format::days_from_civil(1969, 12, 31), -1);
+  // 2024-01-15 is 19737 days after the epoch (matches 1705276800 / 86400).
+  EXPECT_EQ(str::format::days_from_civil(2024, 1, 15), 19737);
+}
+
+TEST(format, parse_cim_datetime_utc) {
+  // 2024-01-15 08:30:00, zero UTC offset -> 1705307400.
+  EXPECT_EQ(str::format::parse_cim_datetime("20240115083000.000000-000"), 1705307400LL);
+}
+
+TEST(format, parse_cim_datetime_offset_shifts_to_utc) {
+  const long long utc = str::format::parse_cim_datetime("20240115083000.000000-000");
+  const long long plus1 = str::format::parse_cim_datetime("20240115083000.000000+060");
+  // Same wall clock, +060 (60 min ahead of UTC) => one hour earlier in UTC.
+  EXPECT_EQ(utc - plus1, 3600LL);
+}
+
+TEST(format, parse_cim_datetime_rejects_bad_input) {
+  EXPECT_EQ(str::format::parse_cim_datetime(""), 0);
+  EXPECT_EQ(str::format::parse_cim_datetime("not-a-date"), 0);
+  EXPECT_EQ(str::format::parse_cim_datetime("2024"), 0);
+  EXPECT_EQ(str::format::parse_cim_datetime("20241315083000.000000-000"), 0);  // month 13
+}

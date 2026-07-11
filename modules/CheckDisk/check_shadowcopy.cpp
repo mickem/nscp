@@ -11,6 +11,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <str/format.hpp>
 
 #ifdef WIN32
 #include <win/wmi/wmi_query.hpp>
@@ -18,60 +19,9 @@
 
 namespace shadowcopy_check {
 
-namespace {
-
-// Days from the civil date (Howard Hinnant's algorithm) to 1970-01-01.
-long long days_from_civil(long long y, unsigned m, unsigned d) {
-  y -= m <= 2;
-  const long long era = (y >= 0 ? y : y - 399) / 400;
-  const unsigned yoe = static_cast<unsigned>(y - era * 400);
-  const unsigned doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
-  const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-  return era * 146097 + static_cast<long long>(doe) - 719468;
-}
-
-bool digits(const std::string &s, std::size_t off, std::size_t n) {
-  if (off + n > s.size()) return false;
-  for (std::size_t i = 0; i < n; ++i)
-    if (s[off + i] < '0' || s[off + i] > '9') return false;
-  return true;
-}
-
-int num(const std::string &s, std::size_t off, std::size_t n) { return std::stoi(s.substr(off, n)); }
-
-}  // namespace
-
-long long parse_cim_datetime(const std::string &s) {
-  // CIM_DATETIME: yyyymmddHHMMSS.ffffff±UUU  (UUU = minutes offset from UTC).
-  // We need at least the 14 leading date/time digits.
-  if (s.size() < 14 || !digits(s, 0, 14)) return 0;
-  try {
-    const int year = num(s, 0, 4);
-    const unsigned month = static_cast<unsigned>(num(s, 4, 2));
-    const unsigned day = static_cast<unsigned>(num(s, 6, 2));
-    const int hour = num(s, 8, 2);
-    const int minute = num(s, 10, 2);
-    const int second = num(s, 12, 2);
-    if (year < 1980 || month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 60) return 0;
-
-    long long epoch = days_from_civil(year, month, day) * 86400LL + hour * 3600LL + minute * 60LL + second;
-
-    // Apply the UTC offset if present: the timestamp is local wall-clock, so
-    // UTC = local - offset. Offset sits after the '.' and its 6 fractional
-    // digits, as a signed 3-digit minute count (e.g. "-000", "+060").
-    const std::size_t dot = s.find('.');
-    if (dot != std::string::npos && dot + 7 < s.size()) {
-      const char sign = s[dot + 7];
-      if ((sign == '+' || sign == '-') && digits(s, dot + 8, 3)) {
-        const int off_min = num(s, dot + 8, 3);
-        epoch -= (sign == '-' ? -off_min : off_min) * 60LL;
-      }
-    }
-    return epoch;
-  } catch (...) {
-    return 0;
-  }
-}
+// CIM_DATETIME parsing lives in str::format (shared with other WMI checks); this
+// thin wrapper keeps the check's testable entry point.
+long long parse_cim_datetime(const std::string &s) { return str::format::parse_cim_datetime(s); }
 
 std::string volume_guid(const std::string &path) {
   const std::size_t start = path.find("Volume{");
