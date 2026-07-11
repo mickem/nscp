@@ -206,9 +206,11 @@ void GetVersion() {
     } else if (majorVersion == 5 && minorVersion == 2) {
       g_windowsVersion = WINDOWS_SERVER_2003;
       /* Windows Vista, Windows Server 2008 */
-    } else if (majorVersion == 6 && minorVersion == 0 && productType == VER_NT_WORKSTATION) {
-      g_windowsVersion = WINDOWS_VISTA;
-    } else if (majorVersion == 6 && minorVersion == 0 && productType == VER_NT_WORKSTATION) {
+    } else if (majorVersion == 6 && minorVersion == 0) {
+      // Both the client (Vista) and server (Server 2008) SKUs of 6.0 map to the
+      // same version code, matching the 6.1/6.2/6.3 branches below. The previous
+      // code duplicated the workstation-only branch, leaving Server 2008 without
+      // a version code.
       g_windowsVersion = WINDOWS_VISTA;
     }
     /* Windows 7, Windows Server 2008 R2 */
