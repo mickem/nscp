@@ -216,6 +216,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         counter.set_buffer_size(object->buffer_size);
         counter.set_type(object->type);
         counter.add_flags(object->flags);
+        counter.set_resolution(object->resolution);
 
         collector->add_counter(counter);
       } catch (const PDH::pdh_exception &e) {

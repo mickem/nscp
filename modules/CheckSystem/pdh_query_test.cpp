@@ -27,6 +27,7 @@ class MockPdh : public PDH::impl_interface {
   int open_calls = 0;
   int close_calls = 0;
   int add_counter_calls = 0;
+  int add_english_counter_calls = 0;
   int remove_counter_calls = 0;
 
   // The "open handle count" we track to assert no leaks.
@@ -60,7 +61,19 @@ class MockPdh : public PDH::impl_interface {
     *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x2000 + add_counter_calls));
     return {};
   }
-  PDH::pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY q, LPCWSTR p, DWORD_PTR u, PDH::PDH_HCOUNTER *c) override { return PdhAddCounter(q, p, u, c); }
+  // Tracked separately from PdhAddCounter so resolution-mode tests can assert
+  // which API was used, but it shares add_counter_status as its failure knob so
+  // existing "add fails" tests still fail through both paths.
+  PDH::pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY, LPCWSTR, DWORD_PTR, PDH::PDH_HCOUNTER *phCounter) override {
+    ++add_english_counter_calls;
+    if (add_counter_status != ERROR_SUCCESS) {
+      *phCounter = nullptr;
+      return {add_counter_status};
+    }
+    ++open_counter_handles;
+    *phCounter = reinterpret_cast<PDH::PDH_HCOUNTER>(static_cast<intptr_t>(0x3000 + add_english_counter_calls));
+    return {};
+  }
   PDH::pdh_error PdhRemoveCounter(PDH::PDH_HCOUNTER) override {
     ++remove_counter_calls;
     if (remove_counter_status != ERROR_SUCCESS) return {remove_counter_status};
@@ -105,11 +118,12 @@ class PdhQueryLifecycleTest : public ::testing::Test {
 
   // Build a simple non-wildcard counter; this avoids any PDH enumeration calls
   // during construction.
-  PDH::pdh_instance make_counter(const std::string &alias, const std::string &path) {
+  PDH::pdh_instance make_counter(const std::string &alias, const std::string &path, const std::string &resolution = "auto") {
     PDH::pdh_object obj;
     obj.set_alias(alias);
     obj.set_counter(path);
     obj.set_type(PDH::pdh_object::type_long);
+    obj.set_resolution(resolution);
     return PDH::factory::create(obj);
   }
 };
@@ -272,4 +286,47 @@ TEST_F(PdhQueryLifecycleTest, OpenWhileAlreadyOpenThrows) {
   // perturbed state.
   EXPECT_EQ(mock->open_handles, 1);
   EXPECT_EQ(mock->listener_count, 1);
+}
+
+// ----------------------------------------------------------------------------
+// Counter-name resolution mode (auto / english / index)
+// ----------------------------------------------------------------------------
+
+TEST_F(PdhQueryLifecycleTest, AutoResolutionPrefersLocalizedApi) {
+  // Default resolution: the localized PdhAddCounter succeeds, so the English
+  // API is never consulted.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\Foo\\Bar"));
+  q.open();
+  EXPECT_EQ(mock->add_counter_calls, 1);
+  EXPECT_EQ(mock->add_english_counter_calls, 0);
+  EXPECT_EQ(mock->open_counter_handles, 1);
+}
+
+TEST_F(PdhQueryLifecycleTest, EnglishResolutionForcesEnglishApi) {
+  // resolution=english must go straight to PdhAddEnglishCounter and never touch
+  // the localized PdhAddCounter, regardless of locale.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\Foo\\Bar", "english"));
+  q.open();
+  EXPECT_EQ(mock->add_english_counter_calls, 1);
+  EXPECT_EQ(mock->add_counter_calls, 0);
+  EXPECT_EQ(mock->open_counter_handles, 1);
+}
+
+TEST_F(PdhQueryLifecycleTest, IndexResolutionUsesLocalizedApi) {
+  // resolution=index expands numeric indexes (a no-op for this digit-free path)
+  // then adds via the localized PdhAddCounter — the English API is not used.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("a", "\\Foo\\Bar", "index"));
+  q.open();
+  EXPECT_EQ(mock->add_counter_calls, 1);
+  EXPECT_EQ(mock->add_english_counter_calls, 0);
+  EXPECT_EQ(mock->open_counter_handles, 1);
+}
+
+TEST_F(PdhQueryLifecycleTest, InvalidResolutionValueThrows) {
+  PDH::pdh_object obj;
+  obj.set_counter("\\Foo\\Bar");
+  EXPECT_THROW(obj.set_resolution("nonsense"), PDH::pdh_exception);
 }

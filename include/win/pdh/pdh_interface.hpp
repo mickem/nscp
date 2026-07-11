@@ -74,6 +74,14 @@ namespace types {
 enum data_type_struct { type_int64, type_uint64 };
 enum data_format_struct { format_large };
 enum collection_strategy_struct { rrd, static_value };
+// How a counter path is resolved when added to a query:
+//  - resolution_auto:    try the localized name, fall back to the English API,
+//                        then to numeric-index expansion (the historical default).
+//  - resolution_english: force PdhAddEnglishCounter, i.e. English counter names
+//                        regardless of the system language.
+//  - resolution_index:   expand numeric counter indexes to their localized names
+//                        and add that (the legacy `expand-index` behaviour).
+enum resolution_struct { resolution_auto, resolution_english, resolution_index };
 }  // namespace types
 
 struct pdh_object {
@@ -87,6 +95,7 @@ struct pdh_object {
   long buffer_size;
   unsigned long flags_;
   std::string instances_;
+  types::resolution_struct resolution_;
 
   static constexpr int format_large = 0x00000400;
   static constexpr int format_long = 0x00000100;
@@ -97,7 +106,9 @@ struct pdh_object {
   void set_counter(const std::string &counter) { path = counter; }
   void set_alias(const std::string &alias_) { alias = alias_; }
 
-  pdh_object() : type(types::type_int64), format(types::format_large), strategy_(types::static_value), buffer_size(0), flags_(format_double) {}
+  pdh_object()
+      : type(types::type_int64), format(types::format_large), strategy_(types::static_value), buffer_size(0), flags_(format_double),
+        resolution_(types::resolution_auto) {}
 
   void set_default_buffer_size(const std::string &buffer_size_);
   void set_buffer_size(const std::string &buffer_size_);
@@ -123,6 +134,18 @@ struct pdh_object {
   }
   void set_strategy_static() { strategy_ = types::static_value; }
   void set_instances(const std::string &instances) { instances_ = instances; }
+  void set_resolution(const std::string &resolution) {
+    if (resolution.empty() || resolution == "auto") {
+      resolution_ = types::resolution_auto;
+    } else if (resolution == "english") {
+      resolution_ = types::resolution_english;
+    } else if (resolution == "index") {
+      resolution_ = types::resolution_index;
+    } else {
+      throw pdh_exception("Invalid resolution: " + resolution + " (expected auto, english or index)");
+    }
+  }
+  types::resolution_struct get_resolution() const { return resolution_; }
   bool has_instances() const;
 };
 
@@ -134,6 +157,9 @@ struct pdh_instance_interface {
   virtual double get_float_value() = 0;
   virtual std::string get_name() const = 0;
   virtual std::string get_counter() const = 0;
+  // Non-pure so the only caller that cares (PDHCounter::addToQuery) can read it
+  // while aggregate/container instances keep the default.
+  virtual types::resolution_struct get_resolution() const { return types::resolution_auto; }
 
   virtual bool has_instances() = 0;
   virtual std::list<std::shared_ptr<pdh_instance_interface> > get_instances() = 0;

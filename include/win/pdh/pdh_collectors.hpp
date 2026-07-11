@@ -64,11 +64,14 @@ class base_counter : public pdh_instance_interface {
   std::string alias_;
   std::string path_;
   unsigned long format_;
+  types::resolution_struct resolution_;
 
  public:
-  explicit base_counter(const pdh_object &config) : alias_(config.alias), path_(config.path), format_(config.get_flags()) {}
+  explicit base_counter(const pdh_object &config)
+      : alias_(config.alias), path_(config.path), format_(config.get_flags()), resolution_(config.get_resolution()) {}
   std::string get_name() const override { return alias_; }
   std::string get_counter() const override { return path_; }
+  types::resolution_struct get_resolution() const override { return resolution_; }
   DWORD get_format() override { return format_; }
 
   bool has_instances() override { return false; }
