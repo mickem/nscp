@@ -27,6 +27,7 @@
 #include "check_cpu_frequency.hpp"
 #include "check_memory.hpp"
 #include "check_os_updates.hpp"
+#include "check_patch_age.hpp"
 #include "check_pending_reboot.hpp"
 #include "check_process.hpp"
 #include "check_process_history.hpp"
@@ -1060,6 +1061,10 @@ void CheckSystem::check_registry_value(const PB::Commands::QueryRequestMessage::
 
 void CheckSystem::check_pending_reboot(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   pending_reboot_check::check_pending_reboot(request, response);
+}
+
+void CheckSystem::check_patch_age(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  patch_age_check::check_patch_age(request, response);
 }
 
 void CheckSystem::add_counter(std::string key, std::string query) { pdh_checker.add_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query); }

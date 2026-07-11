@@ -37,6 +37,7 @@
 		"check_registry_key"	: "Check existence, last-write time, and child counts of one or more Windows registry keys.",
 		"check_registry_value"	: "Check the type, content, and size of one or more Windows registry values.",
 		"check_pending_reboot"	: "Check whether the system is waiting for a reboot, aggregating the servicing, Windows Update, file-rename, computer-rename and domain-join signals.",
+		"check_patch_age"		: "Check installed-hotfix hygiene: how long since the newest hotfix was installed and whether specific required hotfixes are present.",
 
 		"checkServiceState"	: "Legacy version of check_service",
 		"checkCpu"			: "Legacy version of check_cpu",
