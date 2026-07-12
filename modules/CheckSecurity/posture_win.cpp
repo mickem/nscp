@@ -2,13 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 // Windows implementations of the posture checks:
-//   check_nla        -> COM INetworkListManager
-//   check_antivirus  -> WMI root\SecurityCenter2 AntiVirusProduct
-//   check_bitlocker  -> WMI root\CIMV2\Security\MicrosoftVolumeEncryption
-//   check_secureboot -> registry SecureBoot\State
+//   check_nla            -> COM INetworkListManager
+//   check_antivirus      -> WMI root\SecurityCenter2 AntiVirusProduct
+//   check_bitlocker      -> WMI root\CIMV2\Security\MicrosoftVolumeEncryption
+//   check_secureboot     -> registry SecureBoot\State
+//   check_defender       -> WMI root\Microsoft\Windows\Defender MSFT_MpComputerStatus
+//   check_local_accounts -> WMI Win32_UserAccount (LocalAccount=TRUE)
+//   check_group_members  -> NetLocalGroupGetMembers
 
 #include <Windows.h>
+#include <lm.h>
 #include <netlistmgr.h>
+#include <sddl.h>
 
 #include <str/utf8.hpp>
 #include <win/registry.hpp>
@@ -17,6 +22,8 @@
 #include "check_antivirus.hpp"
 #include "check_bitlocker.hpp"
 #include "check_defender.hpp"
+#include "check_group_members.hpp"
+#include "check_local_accounts.hpp"
 #include "check_nla.hpp"
 #include "check_secureboot.hpp"
 
@@ -200,3 +207,109 @@ void gather(std::vector<secureboot_filter::filter_obj_ptr> &out, std::string & /
 }
 
 }  // namespace secureboot_source
+
+namespace local_accounts_source {
+
+namespace {
+// WMI VT_BOOL comes back as -1/0 through get_int; normalise to 1/0. Tolerates a
+// missing/unreadable property by returning `def`.
+long long read_bool(const wmi_impl::row &r, const char *name, long long def) {
+  try {
+    return r.get_int(name) != 0 ? 1 : 0;
+  } catch (...) {
+    return def;
+  }
+}
+}  // namespace
+
+void gather(std::vector<local_accounts_filter::filter_obj_ptr> &out, std::string &error) {
+  try {
+    wmi_impl::query wmi_q(
+        "select Name, SID, Disabled, Lockout, PasswordExpires, PasswordRequired from Win32_UserAccount where LocalAccount=TRUE", "root\\CIMV2", "", "");
+    wmi_impl::row_enumerator rows = wmi_q.execute();
+    while (rows.has_next()) {
+      const wmi_impl::row r = rows.get_next();
+      auto o = std::make_shared<local_accounts_filter::filter_obj>();
+      o->name = r.get_string("Name");
+      o->sid = r.get_string("SID");
+      o->disabled = read_bool(r, "Disabled", 0);
+      o->locked = read_bool(r, "Lockout", 0);
+      o->password_expires = read_bool(r, "PasswordExpires", 0);
+      // Default to "required" when unknown, so an unreadable field never fakes a
+      // passwordless-account finding.
+      o->password_required = read_bool(r, "PasswordRequired", 1);
+      o->rid = local_accounts_filter::rid_from_sid(o->sid);
+      out.push_back(o);
+    }
+  } catch (const wmi_impl::wmi_exception &e) {
+    error = std::string("Failed to query local user accounts: ") + e.what();
+  }
+}
+
+}  // namespace local_accounts_source
+
+namespace group_members_source {
+
+namespace {
+std::string sid_usage_to_string(SID_NAME_USE u) {
+  switch (u) {
+    case SidTypeUser:
+      return "user";
+    case SidTypeGroup:
+      return "group";
+    case SidTypeDomain:
+      return "domain";
+    case SidTypeAlias:
+      return "alias";
+    case SidTypeWellKnownGroup:
+      return "wellknown";
+    case SidTypeDeletedAccount:
+      return "deleted";
+    case SidTypeComputer:
+      return "computer";
+    default:
+      return "unknown";
+  }
+}
+}  // namespace
+
+void gather(const std::string &group, std::vector<group_members_filter::filter_obj_ptr> &out, std::string &error) {
+  const std::wstring wgroup = utf8::cvt<std::wstring>(group);
+  LOCALGROUP_MEMBERS_INFO_2 *buf = nullptr;
+  DWORD entries_read = 0, total_entries = 0;
+  DWORD_PTR resume = 0;
+  const NET_API_STATUS status =
+      NetLocalGroupGetMembers(nullptr, wgroup.c_str(), 2, reinterpret_cast<LPBYTE *>(&buf), MAX_PREFERRED_LENGTH, &entries_read, &total_entries, &resume);
+  if (status == NERR_GroupNotFound) {
+    error = "Local group not found: " + group;
+    if (buf) NetApiBufferFree(buf);
+    return;
+  }
+  if (status != NERR_Success && status != ERROR_MORE_DATA) {
+    error = "Failed to read members of local group '" + group + "' (status " + std::to_string(status) + ")";
+    if (buf) NetApiBufferFree(buf);
+    return;
+  }
+  for (DWORD i = 0; i < entries_read; ++i) {
+    auto o = std::make_shared<group_members_filter::filter_obj>();
+    o->group = group;
+    o->member = buf[i].lgrmi2_domainandname ? utf8::cvt<std::string>(buf[i].lgrmi2_domainandname) : std::string();
+    const std::size_t slash = o->member.find('\\');
+    if (slash != std::string::npos) {
+      o->domain = o->member.substr(0, slash);
+      o->name = o->member.substr(slash + 1);
+    } else {
+      o->name = o->member;
+    }
+    o->type = sid_usage_to_string(buf[i].lgrmi2_sidusage);
+    LPWSTR sid_str = nullptr;
+    if (buf[i].lgrmi2_sid && ConvertSidToStringSidW(buf[i].lgrmi2_sid, &sid_str) && sid_str) {
+      o->sid = utf8::cvt<std::string>(sid_str);
+      LocalFree(sid_str);
+    }
+    out.push_back(o);
+  }
+  if (buf) NetApiBufferFree(buf);
+}
+
+}  // namespace group_members_source

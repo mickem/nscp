@@ -140,6 +140,8 @@ onLinux("CheckSecurity", () => {
     ["check_bitlocker"],
     ["check_secureboot"],
     ["check_defender"],
+    ["check_local_accounts"],
+    ["check_group_members"],
   ])("%s reports not-supported on this platform", async (cmd) => {
     const out = await query(cmd, []);
     expect(out).toMatch(/not supported on this platform/i);
@@ -240,5 +242,52 @@ onWindows("CheckSecurity (Windows posture)", () => {
     const out = await query("check_bitlocker", ["critical=none"]);
     expect(out.trim().length).toBeGreaterThan(0);
     expect(out).toMatch(/protect|volume|BitLocker|encrypt|namespace|Failed to query/i);
+  });
+
+  // --- check_local_accounts --------------------------------------------------
+
+  it("check_local_accounts lists local accounts", async () => {
+    // Every Windows host has local accounts; with thresholds off it is OK.
+    const out = await query("check_local_accounts", ["warning=none", "critical=none"]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/account/i);
+  });
+
+  it("check_local_accounts finds the built-in Administrator (RID 500)", async () => {
+    // Exactly one local account has RID 500; scope to it and render the count.
+    const out = await query("check_local_accounts", [
+      "filter=is_builtin_admin = 1",
+      "warning=count > 0",
+      "critical=none",
+      "top-syntax=NBUILTIN=${count}",
+    ]);
+    expect(out).toMatch(/NBUILTIN=1\b/);
+  });
+
+  it("check_local_accounts accepts its hygiene keywords", async () => {
+    const out = await query("check_local_accounts", [
+      "critical=enabled = 1 and password_required = 0",
+      "warning=enabled = 1 and is_builtin_guest = 1",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression|error parsing/i);
+  });
+
+  // --- check_group_members ---------------------------------------------------
+
+  it("check_group_members lists the Administrators group", async () => {
+    // Default group, no allow-list -> every member is expected -> OK.
+    const out = await query("check_group_members", []);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_group_members flags membership drift against an expected list", async () => {
+    // No real member has this name, so every member is unexpected -> CRITICAL.
+    const out = await query("check_group_members", ["expected=NSCP_nobody_zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+  });
+
+  it("check_group_members reports a missing group", async () => {
+    const out = await query("check_group_members", ["group=NSCP_NoSuchGroup_zzz"]);
+    expect(out).toMatch(/not found/i);
   });
 });
