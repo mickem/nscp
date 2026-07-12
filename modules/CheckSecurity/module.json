@@ -13,6 +13,9 @@
 		"check_nla"			: "Check the Network Location Awareness profile (public/private/domain) per network. Windows only.",
 		"check_antivirus"	: "Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.",
 		"check_bitlocker"	: "Check BitLocker drive-encryption protection status per volume. Windows only.",
-		"check_secureboot"	: "Check whether UEFI Secure Boot is enabled. Windows only."
+		"check_secureboot"	: "Check whether UEFI Secure Boot is enabled. Windows only.",
+		"check_defender"	: "Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only.",
+		"check_local_accounts"	: "Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.",
+		"check_group_members"	: "Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only."
 	}
 }

@@ -18,6 +18,9 @@ set(SRCS
     check_antivirus.cpp
     check_bitlocker.cpp
     check_secureboot.cpp
+    check_defender.cpp
+    check_local_accounts.cpp
+    check_group_members.cpp
     cert_filter.cpp
     cert_source_openssl.cpp
     ${NSCP_DEF_PLUGIN_CPP}
@@ -44,6 +47,9 @@ if(WIN32)
         check_antivirus.hpp
         check_bitlocker.hpp
         check_secureboot.hpp
+        check_defender.hpp
+        check_local_accounts.hpp
+        check_group_members.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}
@@ -65,8 +71,9 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 set(EXTRA_LIBS)
 if(WIN32)
     # CRYPT32 (cert store), Wtsapi32 (sessions), ole32/oleaut32/Wbemuuid (COM/WMI
-    # for NLA + Security Center + BitLocker), Advapi32 (registry: Secure Boot).
-    set(EXTRA_LIBS CRYPT32 ws2_32 ole32 oleaut32 Wbemuuid Wtsapi32 Advapi32)
+    # for NLA + Security Center + BitLocker), Advapi32 (registry + ConvertSidToStringSid),
+    # Netapi32 (NetLocalGroupGetMembers for check_group_members).
+    set(EXTRA_LIBS CRYPT32 ws2_32 ole32 oleaut32 Wbemuuid Wtsapi32 Advapi32 Netapi32)
 endif()
 
 target_link_libraries(

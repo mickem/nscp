@@ -27,6 +27,9 @@ set(SRCS
     check_pdh.cpp
     check_swap_io.cpp
     check_registry.cpp
+    check_pending_reboot.cpp
+    check_patch_age.cpp
+    check_printqueue.cpp
     filter_config_object.cpp
     realtime_data.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
@@ -75,6 +78,9 @@ if(WIN32)
         check_process.hpp
         check_swap_io.hpp
         check_registry.hpp
+        check_pending_reboot.hpp
+        check_patch_age.hpp
+        check_printqueue.hpp
         ${NSCP_INCLUDEDIR}/win/registry.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
@@ -129,6 +135,9 @@ NSCP_CREATE_TEST(
         check_process_test.cpp
         check_cpu_frequency_test.cpp
         check_swap_io_test.cpp
+        check_pending_reboot_test.cpp
+        check_patch_age_test.cpp
+        check_printqueue_test.cpp
         check_os_version_test.cpp
         check_pdh_test.cpp
         pdh_query_test.cpp
@@ -149,6 +158,9 @@ NSCP_CREATE_TEST(
         check_pdh.cpp
         check_swap_io.cpp
         check_registry.cpp
+        check_pending_reboot.cpp
+        check_patch_age.cpp
+        check_printqueue.cpp
         pdh_thread.cpp
         filter_config_object.cpp
         realtime_data.cpp

@@ -27,6 +27,9 @@
 #include "check_cpu_frequency.hpp"
 #include "check_memory.hpp"
 #include "check_os_updates.hpp"
+#include "check_patch_age.hpp"
+#include "check_pending_reboot.hpp"
+#include "check_printqueue.hpp"
 #include "check_process.hpp"
 #include "check_process_history.hpp"
 #include "check_registry.hpp"
@@ -1055,6 +1058,22 @@ void CheckSystem::check_registry_key(const PB::Commands::QueryRequestMessage::Re
 
 void CheckSystem::check_registry_value(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   registry_value_checks::check(request, response);
+}
+
+void CheckSystem::check_pending_reboot(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  pending_reboot_check::check_pending_reboot(request, response);
+}
+
+void CheckSystem::check_patch_age(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  patch_age_check::check_patch_age(request, response);
+}
+
+void CheckSystem::check_printqueue(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    printqueue_check::check::check_printqueue(request, response);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to check print queues: " + std::string(e.what()));
+  }
 }
 
 void CheckSystem::add_counter(std::string key, std::string query) { pdh_checker.add_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query); }
