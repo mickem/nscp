@@ -263,7 +263,7 @@ windows:
 
           Used to format each resulting item in the message.
 
-          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
 
           To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
           is no difference between them apart from ${} can be difficult to escape on linux).'

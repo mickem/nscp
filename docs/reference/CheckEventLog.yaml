@@ -319,6 +319,10 @@ windows:
         name: rawid
         short_description: ''
       - generic: false
+        long_description: Alias for user (the event's account SID)
+        name: sid
+        short_description: ''
+      - generic: false
         long_description: Source system.
         name: source
         short_description: ''
@@ -337,6 +341,11 @@ windows:
       - generic: false
         long_description: alias for level (old, deprecated)
         name: type
+        short_description: ''
+      - generic: false
+        long_description: SID of the account associated with the event (e.g. S-1-5-18); empty on the legacy
+          API. Enables filtering by SID.
+        name: user
         short_description: ''
       - generic: true
         long_description: Number of items matched the warning criteria. Common option for all checks.
@@ -556,7 +565,7 @@ windows:
 
           Used to format each resulting item in the message.
 
-          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
 
           To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
           is no difference between them apart from ${} can be difficult to escape on linux).'

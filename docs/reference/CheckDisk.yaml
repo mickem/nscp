@@ -17,6 +17,12 @@ common:
             Please note disabling these will mean part of NSClient++ will no longer function as expected.'
           sample: false
           title: Disable automatic checks
+module: CheckDisk
+namespace: check
+platforms:
+- unix
+- windows
+unix:
   queries:
     check_disk_health:
       fields:
@@ -660,813 +666,6 @@ common:
         repeatable: false
         required: false
         short_description: Performance alias syntax.
-    check_files:
-      fields:
-      - generic: false
-        long_description: Last access time
-        name: access
-        short_description: ''
-      - generic: false
-        long_description: Last access time (local time)
-        name: access_l
-        short_description: ''
-      - generic: false
-        long_description: Last access time (UTC)
-        name: access_u
-        short_description: ''
-      - generic: false
-        long_description: Seconds since file was last written
-        name: age
-        short_description: ''
-      - generic: true
-        long_description: Number of items matching the filter. Common option for all checks.
-        name: count
-        short_description: ''
-      - generic: false
-        long_description: When file was created
-        name: creation
-        short_description: ''
-      - generic: false
-        long_description: When file was created (local time)
-        name: creation_l
-        short_description: ''
-      - generic: false
-        long_description: When file was created (UTC)
-        name: creation_u
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the critical criteria. Common option for all checks.
-        name: crit_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the critical criteria. Common option for all
-          checks.
-        name: crit_list
-        short_description: ''
-      - generic: true
-        long_description: A special list with critical, then warning and finally ok. Common option for
-          all checks.
-        name: detail_list
-        short_description: ''
-      - generic: false
-        long_description: The filename extension
-        name: extension
-        short_description: ''
-      - generic: false
-        long_description: The name of the file
-        name: file
-        short_description: ''
-      - generic: false
-        long_description: The name of the file
-        name: filename
-        short_description: ''
-      - generic: false
-        long_description: Number of lines in the file (text files)
-        name: line_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the filter. Common option for all checks.
-        name: list
-        short_description: ''
-      - generic: false
-        long_description: MD5 checksum of the file content (hex)
-        name: md5_checksum
-        short_description: ''
-      - generic: false
-        long_description: The name of the file
-        name: name
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the ok criteria. Common option for all checks.
-        name: ok_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the ok criteria. Common option for all checks.
-        name: ok_list
-        short_description: ''
-      - generic: false
-        long_description: Path of file
-        name: path
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched either warning or critical criteria. Common option for
-          all checks.
-        name: problem_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched either the critical or the warning criteria.
-          Common option for all checks.
-        name: problem_list
-        short_description: ''
-      - generic: false
-        long_description: SHA-1 checksum of the file content (hex)
-        name: sha1_checksum
-        short_description: ''
-      - generic: false
-        long_description: SHA-256 checksum of the file content (hex)
-        name: sha256_checksum
-        short_description: ''
-      - generic: false
-        long_description: SHA-384 checksum of the file content (hex)
-        name: sha384_checksum
-        short_description: ''
-      - generic: false
-        long_description: SHA-512 checksum of the file content (hex)
-        name: sha512_checksum
-        short_description: ''
-      - generic: false
-        long_description: File size
-        name: size
-        short_description: ''
-      - generic: true
-        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
-        name: status
-        short_description: ''
-      - generic: true
-        long_description: Total number of items. Common option for all checks.
-        name: total
-        short_description: ''
-      - generic: false
-        long_description: Type of item (file or dir)
-        name: type
-        short_description: ''
-      - generic: false
-        long_description: Windows exe/dll file version (empty on Unix)
-        name: version
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the warning criteria. Common option for all checks.
-        name: warn_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the warning criteria. Common option for all
-          checks.
-        name: warn_list
-        short_description: ''
-      - generic: false
-        long_description: Alias for written
-        name: write
-        short_description: ''
-      - generic: false
-        long_description: When file was last written to
-        name: written
-        short_description: ''
-      - generic: false
-        long_description: When file was last written  to (local time)
-        name: written_l
-        short_description: ''
-      - generic: false
-        long_description: When file was last written  to (UTC)
-        name: written_u
-        short_description: ''
-      info:
-        description: Check various aspects of a file and/or folder.
-      params:
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks interesting items.
-
-          Interesting items are items which will be included in the check.
-
-          They do not denote warning or critical state instead it defines which items are relevant and
-          you can remove unwanted items.'
-        name: filter
-        repeatable: false
-        required: false
-        short_description: Filter which marks interesting items.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates a warning state.
-
-          If anything matches this filter the return status will be escalated to warning.
-
-          '
-        name: warning
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a warning state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for warning
-        name: warn
-        repeatable: false
-        required: false
-        short_description: Short alias for warning
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates a critical state.
-
-          If anything matches this filter the return status will be escalated to critical.
-
-          '
-        name: critical
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a critical state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for critical.
-        name: crit
-        repeatable: false
-        required: false
-        short_description: Short alias for critical.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates an ok state.
-
-          If anything matches this any previous state for this item will be reset to ok.'
-        name: ok
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show debugging information in the log
-        name: debug
-        repeatable: false
-        required: false
-        short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-        name: show-all
-        repeatable: false
-        required: false
-        short_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-      - content_type: 2
-        default_value: unknown
-        is_simple: false
-        long_description: 'Return status to use when nothing matched filter.
-
-          If no filter is specified this will never happen unless the file is empty.'
-        name: empty-state
-        repeatable: false
-        required: false
-        short_description: Return status to use when nothing matched filter.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Performance data generation configuration
-
-          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
-        name: perf-config
-        repeatable: false
-        required: false
-        short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Escape any < and > characters to prevent HTML encoding
-        name: escape-html
-        repeatable: false
-        required: false
-        short_description: Escape any < and > characters to prevent HTML encoding
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
-      - content_type: 2
-        default_value: '${status}: ${problem_count}/${count} files (${problem_list})'
-        is_simple: false
-        long_description: 'Top level syntax.
-
-          Used to format the message to return can include text as well as special keywords which will
-          include information from the checks.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: top-syntax
-        repeatable: false
-        required: false
-        short_description: Top level syntax.
-      - content_type: 2
-        default_value: '%(status): All %(count) files are ok'
-        is_simple: false
-        long_description: 'ok syntax.
-
-          DEPRECATED! This is the syntax for when an ok result is returned.
-
-          This value will not be used if your syntax contains %(list) or %(count).'
-        name: ok-syntax
-        repeatable: false
-        required: false
-        short_description: ok syntax.
-      - content_type: 2
-        default_value: No files found
-        is_simple: false
-        long_description: 'Empty syntax.
-
-          DEPRECATED! This is the syntax for when nothing matches the filter.'
-        name: empty-syntax
-        repeatable: false
-        required: false
-        short_description: Empty syntax.
-      - content_type: 2
-        default_value: ${name}
-        is_simple: false
-        long_description: 'Detail level syntax.
-
-          Used to format each resulting item in the message.
-
-          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: detail-syntax
-        repeatable: false
-        required: false
-        short_description: Detail level syntax.
-      - content_type: 2
-        default_value: ${name}
-        is_simple: false
-        long_description: 'Performance alias syntax.
-
-          This is the syntax for the base names of the performance data.'
-        name: perf-syntax
-        repeatable: false
-        required: false
-        short_description: Performance alias syntax.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'The path to search for files under.
-
-          Notice that specifying multiple path will create an aggregate set you will not check each path
-          individually.In other words if one path contains an error the entire check will result in error.'
-        name: path
-        repeatable: false
-        required: false
-        short_description: The path to search for files under.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Alias for path.
-        name: file
-        repeatable: false
-        required: false
-        short_description: Alias for path.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: A comma separated list of paths to scan
-        name: paths
-        repeatable: false
-        required: false
-        short_description: A comma separated list of paths to scan
-      - content_type: 2
-        default_value: '*.*'
-        is_simple: false
-        long_description: The pattern of files to search for (works like a filter but is faster and can
-          be combined with a filter).
-        name: pattern
-        repeatable: false
-        required: false
-        short_description: The pattern of files to search for (works like a filter but is faster and can
-          be combined with a filter).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Maximum depth to recurse
-        name: max-depth
-        repeatable: false
-        required: false
-        short_description: Maximum depth to recurse
-      - content_type: 2
-        default_value: filter
-        is_simple: false
-        long_description: Include the total of either (filter) all files matching the filter or (all)
-          all files regardless of the filter
-        name: total
-        repeatable: false
-        required: false
-        short_description: Include the total of either (filter) all files matching the filter or (all)
-          all files regardless of the filter
-    check_single_file:
-      fields:
-      - generic: false
-        long_description: Last access time
-        name: access
-        short_description: ''
-      - generic: false
-        long_description: Last access time (local time)
-        name: access_l
-        short_description: ''
-      - generic: false
-        long_description: Last access time (UTC)
-        name: access_u
-        short_description: ''
-      - generic: false
-        long_description: Seconds since file was last written
-        name: age
-        short_description: ''
-      - generic: true
-        long_description: Number of items matching the filter. Common option for all checks.
-        name: count
-        short_description: ''
-      - generic: false
-        long_description: When file was created
-        name: creation
-        short_description: ''
-      - generic: false
-        long_description: When file was created (local time)
-        name: creation_l
-        short_description: ''
-      - generic: false
-        long_description: When file was created (UTC)
-        name: creation_u
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the critical criteria. Common option for all checks.
-        name: crit_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the critical criteria. Common option for all
-          checks.
-        name: crit_list
-        short_description: ''
-      - generic: true
-        long_description: A special list with critical, then warning and finally ok. Common option for
-          all checks.
-        name: detail_list
-        short_description: ''
-      - generic: false
-        long_description: The filename extension
-        name: extension
-        short_description: ''
-      - generic: false
-        long_description: The name of the file
-        name: file
-        short_description: ''
-      - generic: false
-        long_description: The name of the file
-        name: filename
-        short_description: ''
-      - generic: false
-        long_description: Number of lines in the file (text files)
-        name: line_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the filter. Common option for all checks.
-        name: list
-        short_description: ''
-      - generic: false
-        long_description: MD5 checksum of the file content (hex)
-        name: md5_checksum
-        short_description: ''
-      - generic: false
-        long_description: The name of the file
-        name: name
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the ok criteria. Common option for all checks.
-        name: ok_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the ok criteria. Common option for all checks.
-        name: ok_list
-        short_description: ''
-      - generic: false
-        long_description: Path of file
-        name: path
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched either warning or critical criteria. Common option for
-          all checks.
-        name: problem_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched either the critical or the warning criteria.
-          Common option for all checks.
-        name: problem_list
-        short_description: ''
-      - generic: false
-        long_description: SHA-1 checksum of the file content (hex)
-        name: sha1_checksum
-        short_description: ''
-      - generic: false
-        long_description: SHA-256 checksum of the file content (hex)
-        name: sha256_checksum
-        short_description: ''
-      - generic: false
-        long_description: SHA-384 checksum of the file content (hex)
-        name: sha384_checksum
-        short_description: ''
-      - generic: false
-        long_description: SHA-512 checksum of the file content (hex)
-        name: sha512_checksum
-        short_description: ''
-      - generic: false
-        long_description: File size
-        name: size
-        short_description: ''
-      - generic: true
-        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
-        name: status
-        short_description: ''
-      - generic: true
-        long_description: Total number of items. Common option for all checks.
-        name: total
-        short_description: ''
-      - generic: false
-        long_description: Type of item (file or dir)
-        name: type
-        short_description: ''
-      - generic: false
-        long_description: Windows exe/dll file version (empty on Unix)
-        name: version
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the warning criteria. Common option for all checks.
-        name: warn_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the warning criteria. Common option for all
-          checks.
-        name: warn_list
-        short_description: ''
-      - generic: false
-        long_description: Alias for written
-        name: write
-        short_description: ''
-      - generic: false
-        long_description: When file was last written to
-        name: written
-        short_description: ''
-      - generic: false
-        long_description: When file was last written  to (local time)
-        name: written_l
-        short_description: ''
-      - generic: false
-        long_description: When file was last written  to (UTC)
-        name: written_u
-        short_description: ''
-      info:
-        description: Check various aspects of a single file (size, age, line count, version, ...). Simpler
-          alternative to check_files when you only need to inspect one specific file.
-      params:
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks interesting items.
-
-          Interesting items are items which will be included in the check.
-
-          They do not denote warning or critical state instead it defines which items are relevant and
-          you can remove unwanted items.'
-        name: filter
-        repeatable: false
-        required: false
-        short_description: Filter which marks interesting items.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates a warning state.
-
-          If anything matches this filter the return status will be escalated to warning.
-
-          '
-        name: warning
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a warning state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for warning
-        name: warn
-        repeatable: false
-        required: false
-        short_description: Short alias for warning
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates a critical state.
-
-          If anything matches this filter the return status will be escalated to critical.
-
-          '
-        name: critical
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a critical state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for critical.
-        name: crit
-        repeatable: false
-        required: false
-        short_description: Short alias for critical.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates an ok state.
-
-          If anything matches this any previous state for this item will be reset to ok.'
-        name: ok
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show debugging information in the log
-        name: debug
-        repeatable: false
-        required: false
-        short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-        name: show-all
-        repeatable: false
-        required: false
-        short_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-      - content_type: 2
-        default_value: ok
-        is_simple: false
-        long_description: 'Return status to use when nothing matched filter.
-
-          If no filter is specified this will never happen unless the file is empty.'
-        name: empty-state
-        repeatable: false
-        required: false
-        short_description: Return status to use when nothing matched filter.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Performance data generation configuration
-
-          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
-        name: perf-config
-        repeatable: false
-        required: false
-        short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Escape any < and > characters to prevent HTML encoding
-        name: escape-html
-        repeatable: false
-        required: false
-        short_description: Escape any < and > characters to prevent HTML encoding
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
-      - content_type: 2
-        default_value: '%(status): %(list)'
-        is_simple: false
-        long_description: 'Top level syntax.
-
-          Used to format the message to return can include text as well as special keywords which will
-          include information from the checks.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: top-syntax
-        repeatable: false
-        required: false
-        short_description: Top level syntax.
-      - content_type: 2
-        default_value: '%(status): %(filename) is ok'
-        is_simple: false
-        long_description: 'ok syntax.
-
-          DEPRECATED! This is the syntax for when an ok result is returned.
-
-          This value will not be used if your syntax contains %(list) or %(count).'
-        name: ok-syntax
-        repeatable: false
-        required: false
-        short_description: ok syntax.
-      - content_type: 2
-        default_value: No file inspected
-        is_simple: false
-        long_description: 'Empty syntax.
-
-          DEPRECATED! This is the syntax for when nothing matches the filter.'
-        name: empty-syntax
-        repeatable: false
-        required: false
-        short_description: Empty syntax.
-      - content_type: 2
-        default_value: '%(filename) (size=%(size), age=%(age))'
-        is_simple: false
-        long_description: 'Detail level syntax.
-
-          Used to format each resulting item in the message.
-
-          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: detail-syntax
-        repeatable: false
-        required: false
-        short_description: Detail level syntax.
-      - content_type: 2
-        default_value: '%(filename)'
-        is_simple: false
-        long_description: 'Performance alias syntax.
-
-          This is the syntax for the base names of the performance data.'
-        name: perf-syntax
-        repeatable: false
-        required: false
-        short_description: Performance alias syntax.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: The file to check.
-        name: file
-        repeatable: false
-        required: false
-        short_description: The file to check.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Alias for file.
-        name: path
-        repeatable: false
-        required: false
-        short_description: Alias for file.
-module: CheckDisk
-namespace: check
-platforms:
-- unix
-- windows
-unix:
-  queries:
     check_drivesize:
       fields:
       - generic: true
@@ -1898,6 +1097,425 @@ unix:
         repeatable: false
         required: false
         short_description: Include the total of all matching drives
+    check_files:
+      fields:
+      - generic: false
+        long_description: Last access time
+        name: access
+        short_description: ''
+      - generic: false
+        long_description: Last access time (local time)
+        name: access_l
+        short_description: ''
+      - generic: false
+        long_description: Last access time (UTC)
+        name: access_u
+        short_description: ''
+      - generic: false
+        long_description: Seconds since file was last written
+        name: age
+        short_description: ''
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: false
+        long_description: When file was created
+        name: creation
+        short_description: ''
+      - generic: false
+        long_description: When file was created (local time)
+        name: creation_l
+        short_description: ''
+      - generic: false
+        long_description: When file was created (UTC)
+        name: creation_u
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: The filename extension
+        name: extension
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: file
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: filename
+        short_description: ''
+      - generic: false
+        long_description: Number of lines in the file (text files)
+        name: line_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: MD5 checksum of the file content (hex)
+        name: md5_checksum
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: Path of file
+        name: path
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: false
+        long_description: SHA-1 checksum of the file content (hex)
+        name: sha1_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-256 checksum of the file content (hex)
+        name: sha256_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-384 checksum of the file content (hex)
+        name: sha384_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-512 checksum of the file content (hex)
+        name: sha512_checksum
+        short_description: ''
+      - generic: false
+        long_description: File size
+        name: size
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Type of item (file or dir)
+        name: type
+        short_description: ''
+      - generic: false
+        long_description: Windows exe/dll file version (empty on Unix)
+        name: version
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      - generic: false
+        long_description: Alias for written
+        name: write
+        short_description: ''
+      - generic: false
+        long_description: When file was last written to
+        name: written
+        short_description: ''
+      - generic: false
+        long_description: When file was last written  to (local time)
+        name: written_l
+        short_description: ''
+      - generic: false
+        long_description: When file was last written  to (UTC)
+        name: written_u
+        short_description: ''
+      info:
+        description: Check various aspects of a file and/or folder.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${problem_count}/${count} files (${problem_list})'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All %(count) files are ok'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: No files found
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'The path to search for files under.
+
+          Notice that specifying multiple path will create an aggregate set you will not check each path
+          individually.In other words if one path contains an error the entire check will result in error.'
+        name: path
+        repeatable: false
+        required: false
+        short_description: The path to search for files under.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Alias for path.
+        name: file
+        repeatable: false
+        required: false
+        short_description: Alias for path.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: A comma separated list of paths to scan
+        name: paths
+        repeatable: false
+        required: false
+        short_description: A comma separated list of paths to scan
+      - content_type: 2
+        default_value: '*.*'
+        is_simple: false
+        long_description: The pattern of files to search for (works like a filter but is faster and can
+          be combined with a filter).
+        name: pattern
+        repeatable: false
+        required: false
+        short_description: The pattern of files to search for (works like a filter but is faster and can
+          be combined with a filter).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Maximum depth to recurse
+        name: max-depth
+        repeatable: false
+        required: false
+        short_description: Maximum depth to recurse
+      - content_type: 2
+        default_value: filter
+        is_simple: false
+        long_description: Include the total of either (filter) all files matching the filter or (all)
+          all files regardless of the filter
+        name: total
+        repeatable: false
+        required: false
+        short_description: Include the total of either (filter) all files matching the filter or (all)
+          all files regardless of the filter
     check_mount:
       fields:
       - generic: true
@@ -2210,8 +1828,1069 @@ unix:
         repeatable: false
         required: false
         short_description: The filesystem type to expect
+    check_single_file:
+      fields:
+      - generic: false
+        long_description: Last access time
+        name: access
+        short_description: ''
+      - generic: false
+        long_description: Last access time (local time)
+        name: access_l
+        short_description: ''
+      - generic: false
+        long_description: Last access time (UTC)
+        name: access_u
+        short_description: ''
+      - generic: false
+        long_description: Seconds since file was last written
+        name: age
+        short_description: ''
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: false
+        long_description: When file was created
+        name: creation
+        short_description: ''
+      - generic: false
+        long_description: When file was created (local time)
+        name: creation_l
+        short_description: ''
+      - generic: false
+        long_description: When file was created (UTC)
+        name: creation_u
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: The filename extension
+        name: extension
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: file
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: filename
+        short_description: ''
+      - generic: false
+        long_description: Number of lines in the file (text files)
+        name: line_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: MD5 checksum of the file content (hex)
+        name: md5_checksum
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: Path of file
+        name: path
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: false
+        long_description: SHA-1 checksum of the file content (hex)
+        name: sha1_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-256 checksum of the file content (hex)
+        name: sha256_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-384 checksum of the file content (hex)
+        name: sha384_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-512 checksum of the file content (hex)
+        name: sha512_checksum
+        short_description: ''
+      - generic: false
+        long_description: File size
+        name: size
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Type of item (file or dir)
+        name: type
+        short_description: ''
+      - generic: false
+        long_description: Windows exe/dll file version (empty on Unix)
+        name: version
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      - generic: false
+        long_description: Alias for written
+        name: write
+        short_description: ''
+      - generic: false
+        long_description: When file was last written to
+        name: written
+        short_description: ''
+      - generic: false
+        long_description: When file was last written  to (local time)
+        name: written_l
+        short_description: ''
+      - generic: false
+        long_description: When file was last written  to (UTC)
+        name: written_u
+        short_description: ''
+      info:
+        description: Check various aspects of a single file (size, age, line count, version, ...). Simpler
+          alternative to check_files when you only need to inspect one specific file.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: ok
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '%(status): %(list)'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): %(filename) is ok'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: No file inspected
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '%(filename) (size=%(size), age=%(age))'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: '%(filename)'
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The file to check.
+        name: file
+        repeatable: false
+        required: false
+        short_description: The file to check.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Alias for file.
+        name: path
+        repeatable: false
+        required: false
+        short_description: Alias for file.
 windows:
   queries:
+    check_disk_health:
+      fields:
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: Physical disk number/index (device rows)
+        name: disk_number
+        short_description: ''
+      - generic: false
+        long_description: Free disk space in bytes
+        name: free
+        short_description: ''
+      - generic: false
+        long_description: Percentage of free disk space
+        name: free_pct
+        short_description: ''
+      - generic: false
+        long_description: Physical disk friendly name (device rows)
+        name: friendly_name
+        short_description: ''
+      - generic: false
+        long_description: 1 if the row carries physical-disk device state (a per-disk row), 0 otherwise
+        name: has_device
+        short_description: ''
+      - generic: false
+        long_description: 1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or
+          a disk with no mounted filesystem)
+        name: has_space
+        short_description: ''
+      - generic: false
+        long_description: 'Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)'
+        name: health_status
+        short_description: ''
+      - generic: false
+        long_description: Total IOPS (reads + writes)
+        name: iops
+        short_description: ''
+      - generic: false
+        long_description: 1 if the physical disk is offline (device rows)
+        name: is_offline
+        short_description: ''
+      - generic: false
+        long_description: 1 if the physical disk is read-only (device rows)
+        name: is_readonly
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: 'Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)'
+        name: media_type
+        short_description: ''
+      - generic: false
+        long_description: Drive name (e.g. C:, D:, _Total)
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: 'Physical disk operational status: OK, Offline, ... (device rows)'
+        name: operational_status
+        short_description: ''
+      - generic: false
+        long_description: Percent of time the disk is busy
+        name: percent_disk_time
+        short_description: ''
+      - generic: false
+        long_description: Percent of time the disk is idle
+        name: percent_idle_time
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: false
+        long_description: Current disk queue length
+        name: queue_length
+        short_description: ''
+      - generic: false
+        long_description: Bytes read per second
+        name: read_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Read IOPS
+        name: reads_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Physical disk serial number (device rows)
+        name: serial
+        short_description: ''
+      - generic: false
+        long_description: Split I/O operations per second
+        name: split_io_per_sec
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Total bytes per second (read + write)
+        name: total_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Used disk space in bytes
+        name: used
+        short_description: ''
+      - generic: false
+        long_description: Percentage of used disk space
+        name: used_pct
+        short_description: ''
+      - generic: false
+        long_description: Free disk space available to current user in bytes
+        name: user_free
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      - generic: false
+        long_description: Bytes written per second
+        name: write_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Write IOPS
+        name: writes_per_sec
+        short_description: ''
+      info:
+        description: Combined per-drive health check (free space + I/O metrics).
+      params:
+      - content_type: 2
+        default_value: name != '_Total'
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: (has_space = 1 and free_pct < 20) or percent_disk_time > 80 or (has_device = 1
+          and health_status = 'Warning')
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: (has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1
+          and (health_status = 'Unhealthy' or is_offline = 1))
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: critical
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${list}'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All disks are healthy.'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+    check_disk_io:
+      fields:
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: Total IOPS (reads + writes)
+        name: iops
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: Logical disk name (e.g. C:, D:, _Total)
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: Percent of time the disk is busy
+        name: percent_disk_time
+        short_description: ''
+      - generic: false
+        long_description: Percent of time the disk is idle
+        name: percent_idle_time
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: false
+        long_description: Current disk queue length
+        name: queue_length
+        short_description: ''
+      - generic: false
+        long_description: Bytes read per second
+        name: read_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Read IOPS
+        name: reads_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Split I/O operations per second
+        name: split_io_per_sec
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Total bytes per second (read + write)
+        name: total_bytes_per_sec
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      - generic: false
+        long_description: Bytes written per second
+        name: write_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Write IOPS
+        name: writes_per_sec
+        short_description: ''
+      info:
+        description: Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
+      params:
+      - content_type: 2
+        default_value: name != '_Total'
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: percent_disk_time > 80
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: percent_disk_time > 95
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: critical
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${list}'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All disk I/O seems ok.'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s
+          q=${queue_length}'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
     check_drivesize:
       fields:
       - generic: true
@@ -2578,7 +3257,7 @@ windows:
 
           Used to format each resulting item in the message.
 
-          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
 
           To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
           is no difference between them apart from ${} can be difficult to escape on linux).'
@@ -2646,6 +3325,24 @@ windows:
         required: false
         short_description: A list of drives not to check
       - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Drives that MUST be present: the check goes CRITICAL if any listed drive is
+          not found, even when scanning wildcards. Alias: mandatory-drives.'
+        name: require
+        repeatable: false
+        required: false
+        short_description: 'Drives that MUST be present: the check goes CRITICAL if any listed drive is
+          not found, even when scanning wildcards. Alias: mandatory-drives.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Alias for require.
+        name: mandatory-drives
+        repeatable: false
+        required: false
+        short_description: Alias for require.
+      - content_type: 2
         default_value: 1)] (=0
         is_simple: false
         long_description: Include the total of all matching drives
@@ -2653,6 +3350,2047 @@ windows:
         repeatable: false
         required: false
         short_description: Include the total of all matching drives
+    check_files:
+      fields:
+      - generic: false
+        long_description: Last access time
+        name: access
+        short_description: ''
+      - generic: false
+        long_description: Last access time (local time)
+        name: access_l
+        short_description: ''
+      - generic: false
+        long_description: Last access time (UTC)
+        name: access_u
+        short_description: ''
+      - generic: false
+        long_description: Seconds since file was last written
+        name: age
+        short_description: ''
+      - generic: false
+        long_description: Average matched file size (aggregate; use on the total object)
+        name: average_size
+        short_description: ''
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: false
+        long_description: When file was created
+        name: creation
+        short_description: ''
+      - generic: false
+        long_description: When file was created (local time)
+        name: creation_l
+        short_description: ''
+      - generic: false
+        long_description: When file was created (UTC)
+        name: creation_u
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: The filename extension
+        name: extension
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: file
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: filename
+        short_description: ''
+      - generic: false
+        long_description: Number of matched folders (aggregate; use on the total object)
+        name: folder_count
+        short_description: ''
+      - generic: false
+        long_description: Largest matched file size (aggregate; use on the total object)
+        name: largest_size
+        short_description: ''
+      - generic: false
+        long_description: Number of lines in the file (text files)
+        name: line_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: MD5 checksum of the file content (hex)
+        name: md5_checksum
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: Path of file
+        name: path
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: false
+        long_description: SHA-1 checksum of the file content (hex)
+        name: sha1_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-256 checksum of the file content (hex)
+        name: sha256_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-384 checksum of the file content (hex)
+        name: sha384_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-512 checksum of the file content (hex)
+        name: sha512_checksum
+        short_description: ''
+      - generic: false
+        long_description: File size
+        name: size
+        short_description: ''
+      - generic: false
+        long_description: Smallest matched file size (aggregate; use on the total object)
+        name: smallest_size
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Type of item (file or dir)
+        name: type
+        short_description: ''
+      - generic: false
+        long_description: Windows exe/dll file version (empty on Unix)
+        name: version
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      - generic: false
+        long_description: Alias for written
+        name: write
+        short_description: ''
+      - generic: false
+        long_description: When file was last written to
+        name: written
+        short_description: ''
+      - generic: false
+        long_description: When file was last written  to (local time)
+        name: written_l
+        short_description: ''
+      - generic: false
+        long_description: When file was last written  to (UTC)
+        name: written_u
+        short_description: ''
+      info:
+        description: Check various aspects of a file and/or folder.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${problem_count}/${count} files (${problem_list})'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All %(count) files are ok'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: No files found
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'The path to search for files under.
+
+          Notice that specifying multiple path will create an aggregate set you will not check each path
+          individually.In other words if one path contains an error the entire check will result in error.'
+        name: path
+        repeatable: false
+        required: false
+        short_description: The path to search for files under.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Alias for path.
+        name: file
+        repeatable: false
+        required: false
+        short_description: Alias for path.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: A comma separated list of paths to scan
+        name: paths
+        repeatable: false
+        required: false
+        short_description: A comma separated list of paths to scan
+      - content_type: 2
+        default_value: '*.*'
+        is_simple: false
+        long_description: The pattern of files to search for (works like a filter but is faster and can
+          be combined with a filter).
+        name: pattern
+        repeatable: false
+        required: false
+        short_description: The pattern of files to search for (works like a filter but is faster and can
+          be combined with a filter).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Maximum depth to recurse
+        name: max-depth
+        repeatable: false
+        required: false
+        short_description: Maximum depth to recurse
+      - content_type: 2
+        default_value: filter
+        is_simple: false
+        long_description: Include the total of either (filter) all files matching the filter or (all)
+          all files regardless of the filter
+        name: total
+        repeatable: false
+        required: false
+        short_description: Include the total of either (filter) all files matching the filter or (all)
+          all files regardless of the filter
     check_mount:
       info:
         description: Check that a filesystem is mounted with the expected fstype and options.
+    check_shadowcopy:
+      fields:
+      - generic: false
+        long_description: Shadow storage currently allocated in bytes
+        name: allocated
+        short_description: ''
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: Shadow storage maximum in bytes (0 if unbounded/unresolved)
+        name: max_size
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the newest shadow copy (-1 if unknown); threshold with durations,
+          e.g. newest > 26h
+        name: newest
+        short_description: ''
+      - generic: false
+        long_description: Timestamp of the newest shadow copy on this volume (UTC)
+        name: newest_date
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Shadow storage used on this volume in bytes
+        name: used
+        short_description: ''
+      - generic: false
+        long_description: Percentage of the shadow-storage maximum in use
+        name: used_pct
+        short_description: ''
+      - generic: false
+        long_description: Volume the shadow copies belong to (VolumeName device path)
+        name: volume
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      info:
+        description: Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage
+          per volume (Windows).
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: newest > 26h
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: newest > 50h
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: ok
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${list}'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All %(count) volume(s) have recent shadow copies.'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: '%(status): No shadow copies found'
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '${volume}: ${count} copies, newest ${newest_date}'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${volume}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+    check_share:
+      fields:
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: false
+        long_description: Share description / comment
+        name: description
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: 1 if the share exists (0 for a requested-but-missing share)
+        name: exists
+        short_description: ''
+      - generic: false
+        long_description: 1 for an administrative share (C$, ADMIN$, IPC$)
+        name: is_admin
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: Share name (e.g. C$, Public)
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: Local path the share maps to (empty for IPC$)
+        name: path
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: 'Share kind: disk, printer, device, ipc or unknown'
+        name: type
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      info:
+        description: 'Check Windows SMB shares: list them, or verify that specific required shares exist
+          (Windows).'
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: not exists
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: ok
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${list}'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All %(count) share(s) ok.'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: '%(status): No shares found'
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: ${name} (type=${type}, path=${path}, exists=${exists})
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Require a specific share to exist (repeatable). The check is CRITICAL when a
+          requested share is missing. When omitted, all shares are listed instead.
+        name: share
+        repeatable: false
+        required: false
+        short_description: Require a specific share to exist (repeatable). The check is CRITICAL when
+          a requested share is missing. When omitted, all shares are listed instead.
+    check_single_file:
+      fields:
+      - generic: false
+        long_description: Last access time
+        name: access
+        short_description: ''
+      - generic: false
+        long_description: Last access time (local time)
+        name: access_l
+        short_description: ''
+      - generic: false
+        long_description: Last access time (UTC)
+        name: access_u
+        short_description: ''
+      - generic: false
+        long_description: Seconds since file was last written
+        name: age
+        short_description: ''
+      - generic: false
+        long_description: Average matched file size (aggregate; use on the total object)
+        name: average_size
+        short_description: ''
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: false
+        long_description: When file was created
+        name: creation
+        short_description: ''
+      - generic: false
+        long_description: When file was created (local time)
+        name: creation_l
+        short_description: ''
+      - generic: false
+        long_description: When file was created (UTC)
+        name: creation_u
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: The filename extension
+        name: extension
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: file
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: filename
+        short_description: ''
+      - generic: false
+        long_description: Number of matched folders (aggregate; use on the total object)
+        name: folder_count
+        short_description: ''
+      - generic: false
+        long_description: Largest matched file size (aggregate; use on the total object)
+        name: largest_size
+        short_description: ''
+      - generic: false
+        long_description: Number of lines in the file (text files)
+        name: line_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: MD5 checksum of the file content (hex)
+        name: md5_checksum
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: Path of file
+        name: path
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: false
+        long_description: SHA-1 checksum of the file content (hex)
+        name: sha1_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-256 checksum of the file content (hex)
+        name: sha256_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-384 checksum of the file content (hex)
+        name: sha384_checksum
+        short_description: ''
+      - generic: false
+        long_description: SHA-512 checksum of the file content (hex)
+        name: sha512_checksum
+        short_description: ''
+      - generic: false
+        long_description: File size
+        name: size
+        short_description: ''
+      - generic: false
+        long_description: Smallest matched file size (aggregate; use on the total object)
+        name: smallest_size
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Type of item (file or dir)
+        name: type
+        short_description: ''
+      - generic: false
+        long_description: Windows exe/dll file version (empty on Unix)
+        name: version
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      - generic: false
+        long_description: Alias for written
+        name: write
+        short_description: ''
+      - generic: false
+        long_description: When file was last written to
+        name: written
+        short_description: ''
+      - generic: false
+        long_description: When file was last written  to (local time)
+        name: written_l
+        short_description: ''
+      - generic: false
+        long_description: When file was last written  to (UTC)
+        name: written_u
+        short_description: ''
+      info:
+        description: Check various aspects of a single file (size, age, line count, version, ...). Simpler
+          alternative to check_files when you only need to inspect one specific file.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: ok
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '%(status): %(list)'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): %(filename) is ok'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: No file inspected
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '%(filename) (size=%(size), age=%(age))'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: '%(filename)'
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The file to check.
+        name: file
+        repeatable: false
+        required: false
+        short_description: The file to check.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Alias for file.
+        name: path
+        repeatable: false
+        required: false
+        short_description: Alias for file.
+    check_storagepool:
+      fields:
+      - generic: false
+        long_description: Total pool capacity in bytes
+        name: capacity
+        short_description: ''
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: Unallocated (free) pool space in bytes
+        name: free
+        short_description: ''
+      - generic: false
+        long_description: Percentage of free pool space
+        name: free_pct
+        short_description: ''
+      - generic: false
+        long_description: 'Pool health: Healthy, Warning, Unhealthy or Unknown'
+        name: health_status
+        short_description: ''
+      - generic: false
+        long_description: 1 if the pool is read-only
+        name: is_readonly
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: Storage pool friendly name
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: 'Pool operational status: OK, ReadOnly, ...'
+        name: operational_status
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Allocated (used) pool space in bytes
+        name: used
+        short_description: ''
+      - generic: false
+        long_description: Percentage of used pool space
+        name: used_pct
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      info:
+        description: Check Storage Spaces pool health and capacity (Windows).
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: health_status = 'Warning' or free_pct < 20
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: health_status = 'Unhealthy' or free_pct < 10
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: ok
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${list}'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All storage pools are healthy.'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: '%(status): No storage pools found'
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '${name}: ${health_status}, ${used}/${capacity} used'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+    check_uncpath:
+      fields:
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: Free space on the share in bytes
+        name: free
+        short_description: ''
+      - generic: false
+        long_description: Percentage of free space
+        name: free_pct
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: false
+        long_description: The UNC path being checked
+        name: path
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: false
+        long_description: Total size of the share in bytes
+        name: size
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: false
+        long_description: Used space on the share in bytes
+        name: used
+        short_description: ''
+      - generic: false
+        long_description: Percentage of used space
+        name: used_pct
+        short_description: ''
+      - generic: false
+        long_description: Free space available to the querying user (quota-aware) in bytes
+        name: user_free
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      info:
+        description: Check free space on a UNC path (server share), with optional alternate credentials.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: used_pct > 80
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: used_pct > 90
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${list}'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All UNC paths are ok.'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: '%(status): No paths checked'
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '${path}: ${used}/${size} used (${free} free)'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${path}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The UNC path(s) to check, e.g. \\server\share. Repeat for multiple.
+        name: path
+        repeatable: false
+        required: false
+        short_description: The UNC path(s) to check, e.g. \\server\share. Repeat for multiple.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Optional user name for alternate credentials (Windows).
+        name: user
+        repeatable: false
+        required: false
+        short_description: Optional user name for alternate credentials (Windows).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Optional password for alternate credentials (Windows).
+        name: password
+        repeatable: false
+        required: false
+        short_description: Optional password for alternate credentials (Windows).

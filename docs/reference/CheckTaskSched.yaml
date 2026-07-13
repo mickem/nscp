@@ -55,6 +55,16 @@ windows:
         long_description: True if the task has ever executed.
         name: has_run
         short_description: ''
+      - generic: false
+        long_description: True if the task is marked hidden (ITaskSettings Hidden flag). Always false
+          on the legacy ITask API.
+        name: hidden
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the task last ran (-1 if it has never run). Use e.g. last_run_age
+          > 86400 to alert on stale tasks.
+        name: last_run_age
+        short_description: ''
       - generic: true
         long_description: A list of all items which matched the filter. Common option for all checks.
         name: list
@@ -66,6 +76,16 @@ windows:
       - generic: false
         long_description: Retrieves the most recent time the work item began running.
         name: most_recent_run_time
+        short_description: ''
+      - generic: false
+        long_description: The next time the task is scheduled to run (0 / rendered as 'none' if it has
+          no upcoming run).
+        name: next_run_time
+        short_description: ''
+      - generic: false
+        long_description: Number of times the task was scheduled to run but did not (0 on the legacy ITask
+          API).
+        name: number_of_missed_runs
         short_description: ''
       - generic: true
         long_description: Number of items matched the ok criteria. Common option for all checks.
@@ -108,6 +128,11 @@ windows:
       - generic: true
         long_description: Total number of items. Common option for all checks.
         name: total
+        short_description: ''
+      - generic: false
+        long_description: The task's full path / URI (e.g. \Microsoft\Windows\Defrag\ScheduledDefrag).
+          Empty on the legacy ITask API.
+        name: uri
         short_description: ''
       - generic: true
         long_description: Number of items matched the warning criteria. Common option for all checks.
@@ -309,7 +334,7 @@ windows:
 
           Used to format each resulting item in the message.
 
-          %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
 
           To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
           is no difference between them apart from ${} can be difficult to escape on linux).'
