@@ -44,6 +44,8 @@ downlevel systems or when `force-old=true`.
 | `last_run_age`          | int   | Seconds since the task last ran, or `-1` if it has never run. Convenient for stale-task alerts, e.g. `last_run_age > 86400`.                             |
 | `task_status`           | state | The task state (`ready`, `running`, `disabled`, `queued`, `unknown`).                                                                                    |
 | `exit_code`             | int   | The task's last run result (`lasttaskresult`).                                                                                                           |
+| `uri`                   | str   | The task's full path / URI (e.g. `\Microsoft\Windows\Defrag\ScheduledDefrag`). Empty on the legacy `ITask` API.                                          |
+| `hidden`                | bool  | True if the task carries the `ITaskSettings` *Hidden* flag. Always `false` on the legacy `ITask` API. See the `hidden` option note below.                |
 
 ### Default performance data
 
@@ -51,6 +53,14 @@ downlevel systems or when `force-old=true`.
 (missedruns), and `exit_code` (lasttaskresult) as perfdata by default, one set
 per matched task. Suppress with `perf-config=extra()` / `perf-syntax=none`, or
 narrow the matched set with `filter=`.
+
+### Hidden tasks
+
+Tasks marked *Hidden* (the `ITaskSettings` Hidden flag) are **excluded from
+enumeration by default** — pass `hidden=true` to include them. The `hidden`
+keyword then reports each task's flag, so `hidden=true "filter=hidden = 1"`
+lists only the hidden tasks. Without `hidden=true` a hidden task is invisible to
+the check regardless of any `hidden` reference in the filter.
 
 **Jump to section:**
 
@@ -94,6 +104,22 @@ WARNING: \DailyReport: 2 missed, next 2026-07-07 06:00:00
 Equivalent semantics also work against `most_recent_run_time` directly — the
 where-parser understands relative-time thresholds, so
 `crit=most_recent_run_time < -1d` means "last run older than a day".
+
+**Reporting the task path (`uri`) and listing hidden tasks:**
+
+`uri` is the task's full path — the same identifier the Task Scheduler UI and
+`schtasks` use. Hidden tasks are skipped unless `hidden=true` is passed; the
+`hidden` keyword then reports the flag.
+
+```
+check_tasksched hidden=true "filter=hidden = 1" "top-syntax=${count} hidden tasks" "detail-syntax=${uri}"
+OK: 7 hidden tasks
+```
+
+```
+check_tasksched "filter=title = 'ScheduledDefrag'" "detail-syntax=${uri} hidden=${hidden}"
+OK: \Microsoft\Windows\Defrag\ScheduledDefrag hidden=0
+```
 
 
 
