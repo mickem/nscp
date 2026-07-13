@@ -131,6 +131,64 @@ describe("CheckSystem commands", () => {
     expect(msg).not.toMatch(/created=0(\s|$)/);
   });
 
+  it("check_process rss is an alias for working_set (Windows)", async () => {
+    if (!onWindows) return; // rss/working_set keywords are the Windows process check.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "rss=${rss} ws=${working_set}",
+    });
+    expect(q.result).toBe(OK);
+    // Both render the same human-readable size (e.g. "20.309MB"); rss is a
+    // straight alias for working_set, so the two must be identical.
+    const m = /rss=(\S+) ws=(\S+)/.exec(messageOf(q));
+    expect(m).not.toBeNull();
+    expect(m![1]).toBe(m![2]);
+  });
+
+  it("check_process accepts 'running' as a synonym for 'started' (Windows)", async () => {
+    if (!onWindows) return;
+    // snclient-style expression: our own process is running, so this stays OK.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      warning: "state != 'running'",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "${exe}=${state}",
+    });
+    expect(q.result).toBe(OK);
+    // The rendered state is still "started" for back-compat.
+    expect(messageOf(q)).toMatch(new RegExp(`${SELF_RE.source}=started`, "i"));
+  });
+
+  it("check_process resolve-owner=true populates username/uid (Windows)", async () => {
+    if (!onWindows) return;
+    // Owner resolution is opt-in. Scoped to our own process, so the lookup is a
+    // single (local) account and fast. Default (no flag) leaves username empty.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "resolve-owner": "true",
+      "top-syntax": "${list}",
+      "detail-syntax": "user=[${username}] uid=[${uid}]",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    // Our process has an owner; both the name and the SID should be non-empty.
+    expect(msg).toMatch(/user=\[[^\]]+\]/);
+    expect(msg).toMatch(/uid=\[S-\d[-\d]+\]/); // a SID string
+  });
+
+  it("check_process leaves username empty without resolve-owner (Windows)", async () => {
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "user=[${username}]",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/user=\[\]/); // owner not resolved by default
+  });
+
   it("check_process delta=true reports CPU as a percentage", async () => {
     const q = await executeQuery(key, "check_process", {
       process: SELF_EXE,

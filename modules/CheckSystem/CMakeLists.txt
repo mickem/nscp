@@ -115,6 +115,7 @@ target_link_libraries(
     psapi
     Wbemuuid.lib
     OleAut32
+    Advapi32
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
@@ -204,6 +205,7 @@ NSCP_CREATE_TEST(
         ole32
         OleAut32
         psapi
+        Advapi32
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}

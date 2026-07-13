@@ -292,3 +292,35 @@ TEST(ProcessInfoPlus, AggregatesThreadCountAndCarriesTotals) {
   EXPECT_EQ(8ull * 1024 * 1024 * 1024, total->total_physical_memory);
   EXPECT_EQ(10ull * 1024 * 1024 * 1024, total->total_pagefile);
 }
+
+// --- state parsing: 'running' is a synonym for 'started' (snclient parity) ---
+
+TEST(ProcessState, RunningIsSynonymForStarted) {
+  EXPECT_EQ(process_info::parse_state("started"), process_info::parse_state("running"));
+  EXPECT_EQ(process_info::state_started, process_info::parse_state("running"));
+  // The other states are unchanged.
+  EXPECT_EQ(process_info::state_stopped, process_info::parse_state("stopped"));
+  EXPECT_EQ(process_info::state_hung, process_info::parse_state("hung"));
+  EXPECT_EQ(process_info::state_unreadable, process_info::parse_state("unreadable"));
+  EXPECT_EQ(process_info::state_unknown, process_info::parse_state("nonsense"));
+}
+
+TEST(ProcessState, StartedProcessStillRendersAsStarted) {
+  // Accepting 'running' as input must not change the rendered value (back-compat).
+  process_info p;
+  p.started = true;
+  EXPECT_EQ("started", p.get_state_s());
+  EXPECT_EQ(process_info::state_started, p.get_state_i());
+}
+
+// --- owner accessors (uid = SID string; empty until resolve-owner runs) ------
+
+TEST(ProcessOwner, DefaultsEmptyAndUidMirrorsSid) {
+  process_info p;
+  EXPECT_EQ("", p.get_username());
+  EXPECT_EQ("", p.get_uid());
+  p.username = "PRICER\\michael.medin";
+  p.sid = "S-1-5-21-1-2-3-1001";
+  EXPECT_EQ("PRICER\\michael.medin", p.get_username());
+  EXPECT_EQ("S-1-5-21-1-2-3-1001", p.get_uid());  // uid is the SID string
+}

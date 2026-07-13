@@ -36,6 +36,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("exe", &filter_obj::get_exe, "The name of the executable")
       .add_string_var("error", &filter_obj::get_error, "Any error messages associated with fetching info")
       .add_string_var("command_line", &filter_obj::get_command_line, "Command line of process (not always available)")
+      .add_string_var("username", &filter_obj::get_username, "Process owner as DOMAIN\\name (empty for processes whose token cannot be read)")
+      .add_string_var("uid", &filter_obj::get_uid, "Process owner SID (the Windows analogue of a Unix uid)")
       .add_string_var("legacy_state", &filter_obj::get_legacy_state_s, "Get process status (for legacy use via check_nt only)");
   registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
       .add_int_var("started", parsers::where::type_bool, &filter_obj::get_started, "Process is started")
@@ -53,6 +55,7 @@ filter_obj_handler::filter_obj_handler() {
     ("page_fault", [](auto obj, auto context) {return obj->get_PageFaultCount(); }, "Page fault count").add_perf("", "", " pf_count")
     ("peak_working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakWorkingSetSize(); }, "Peak working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pws_size")
     ("working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " ws_size")
+    ("rss", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Resident set size; alias for working_set (g,m,k,b), for snclient portability").add_scaled_byte(std::string(""), " rss")
     ("working_set_pct", [](auto obj, auto context) {return obj->get_working_set_pct(); }, "Working set as a percentage of total physical RAM").add_perf("%", "", " ws_pct")
     // 			("qouta", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
     // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
@@ -76,6 +79,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_human_string("virtual", &filter_obj::get_VirtualSize_human, "");
   registry_.add_human_string("peak_working_set", &filter_obj::get_PeakWorkingSetSize_human, "");
   registry_.add_human_string("working_set", &filter_obj::get_WorkingSetSize_human, "");
+  registry_.add_human_string("rss", &filter_obj::get_WorkingSetSize_human, "");
   registry_.add_human_string("peak_pagefile", &filter_obj::get_PageFileUsage_human, "");
   registry_.add_human_string("pagefile", &filter_obj::get_PeakPageFileUsage_human, "");
 
@@ -248,6 +252,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   bool unreadable_scan = true;
   bool delta_scan = false;
   bool total = false;
+  bool resolve_owner = false;
 
   NSC_error err;
   filter_type filter;
@@ -265,6 +270,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     ("delta", po::value<bool>(&delta_scan), "Measure CPU usage as a delta over a one second interval.\nThe check samples process and system CPU times, sleeps for one second, then samples again. With delta=true the 'time' (and 'kernel'/'user') fields report the process CPU usage during that second as a whole percentage of total CPU, instead of cumulative CPU seconds.")
     ("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
     ("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching files")
+    ("resolve-owner", po::value<bool>(&resolve_owner)->implicit_value(true)->default_value(false),
+        "Populate the username/uid keywords with the process owner. Off by default: resolving the owner name can block for seconds on domain / Azure-AD accounts, and is not available with delta=true.")
     ;
   // clang-format on
 
@@ -288,8 +295,9 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   if (total) total_obj = win_list_processes::process_info::get_total();
 
   std::vector<std::string> matched;
-  win_list_processes::process_list list = delta_scan ? win_list_processes::enumerate_processes_delta(!unreadable_scan, &err)
-                                                     : win_list_processes::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
+  win_list_processes::process_list list =
+      delta_scan ? win_list_processes::enumerate_processes_delta(!unreadable_scan, &err)
+                 : win_list_processes::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err, DEFAULT_BUFFER_SIZE, resolve_owner);
   for (const win_list_processes::process_info &info : list) {
     bool wanted = procs.count(info.exe);
     if (all || wanted) {
