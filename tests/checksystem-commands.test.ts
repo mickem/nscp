@@ -206,7 +206,10 @@ describe("CheckSystem commands", () => {
     expect(messageOf(q)).toMatch(/user=\[\]/); // owner not resolved by default
   });
 
-  it("check_process delta=true reports CPU as a percentage", async () => {
+  it("check_process delta=true reports CPU as a percentage (Linux)", async () => {
+    // CheckSystemUnix computes the delta in-line (sample/sleep/sample); Windows
+    // sources it from the background collector, covered in its own describe below.
+    if (onWindows) return;
     const q = await executeQuery(key, "check_process", {
       process: SELF_EXE,
       delta: "true",
@@ -219,6 +222,20 @@ describe("CheckSystem commands", () => {
     expect(cpu).toBeGreaterThanOrEqual(0);
     expect(cpu).toBeLessThanOrEqual(100);
     expect(msg).toMatch(/user=\d+ kernel=\d+/);
+  });
+
+  it("check_process delta=true is UNKNOWN and names the setting when the collector is off (Windows)", async () => {
+    // On Windows the CPU% for delta comes from the 'process cpu' collector,
+    // which is NOT enabled on this instance. delta=true must fail fast telling
+    // the user which flag to set — regardless of whether the CPU fields appear
+    // in the syntax — rather than silently returning OK / cumulative seconds.
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      delta: "true",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/process cpu/i);
   });
 
   // Regression: `total` is a boolean option passed over REST as the token
@@ -581,5 +598,48 @@ describe("CheckSystem commands", () => {
       expect(msg).toMatch(/=(running|oneshot|static|starting|stopped|unknown)\//);
       expect(msg).toMatch(/rss=\d+ tasks=\d+/);
     }
+  });
+});
+
+// The Windows delta=true CPU path is backed by the 'process cpu' background
+// collector. This runs in its own nscp instance (own describe) so the main
+// suite can assert the collector-off contract while this one asserts the
+// collector-on behaviour. Skipped entirely off Windows.
+(onWindows ? describe : describe.skip)("CheckSystem check_process delta with the CPU collector (Windows)", () => {
+  let nscp: NscpInstance;
+  let key: string;
+
+  beforeAll(async () => {
+    nscp = new NscpInstance();
+    key = await setupQueryNscp(nscp, "CheckSystem", {
+      [SYSTEM_PATH]: { "process cpu": true },
+    });
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+  });
+
+  it("reports CPU as a percentage when 'process cpu' is enabled", async () => {
+    // The collector needs two 1 Hz samples before a delta exists. Even before
+    // that a matched process reports 0%, so poll until the field is present and
+    // numeric rather than asserting an exact value.
+    const q = await pollQuery(
+      key,
+      "check_process",
+      {
+        process: SELF_EXE,
+        delta: "true",
+        "top-syntax": "${list}",
+        "detail-syntax": "cpu=${time} user=${user} kernel=${kernel}",
+      },
+      (r) => r.result === OK && /cpu=\d+/.test(messageOf(r)),
+    );
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    const cpu = Number(/cpu=(\d+)/.exec(msg)?.[1]);
+    expect(cpu).toBeGreaterThanOrEqual(0);
+    expect(cpu).toBeLessThanOrEqual(100);
+    expect(msg).toMatch(/user=\d+ kernel=\d+/);
   });
 });

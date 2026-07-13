@@ -15,6 +15,22 @@
 
 namespace process_checks {
 
+// Per-process CPU usage sampled by the CheckSystem background collector (see
+// pdh_thread). The collector diffs two consecutive 1 Hz snapshots of the
+// system-wide process table and publishes a whole-percent CPU reading per PID,
+// so the active check_process path can report CPU% without doing its own
+// sample / sleep / sample. creation_time (unix seconds, matching
+// process_info::get_creation_time) disambiguates a recycled PID: the active
+// check only trusts an entry whose creation time matches the process it found.
+struct cpu_delta {
+  long long kernel_pct{};
+  long long user_pct{};
+  long long total_pct{};
+  unsigned long long creation_time{};
+};
+// Keyed by pid (as long long to keep this header free of <windows.h>).
+typedef std::map<long long, cpu_delta> cpu_delta_map;
+
 namespace realtime {
 
 // Case-insensitive any-of match used by the realtime check_process path.
@@ -43,6 +59,12 @@ struct helper {
 
 namespace active {
 
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+// cpu_deltas is the collector's latest per-PID CPU% snapshot and
+// cpu_collector_enabled reflects whether the background sampler is turned on.
+// When delta=true is requested the check overlays cpu_deltas onto the freshly
+// enumerated processes; if the collector is disabled it returns UNKNOWN asking
+// the user to enable it.
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const cpu_delta_map &cpu_deltas,
+           bool cpu_collector_enabled);
 }
 }  // namespace process_checks

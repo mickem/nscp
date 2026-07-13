@@ -19,6 +19,7 @@
 #include "check_cpu_frequency.hpp"
 #include "check_network.hpp"
 #include "check_os_updates.hpp"
+#include "check_process.hpp"
 #include "check_process_history.hpp"
 #include "check_temperature.hpp"
 #include "filter_config_object.hpp"
@@ -62,6 +63,12 @@ class pdh_thread {
   bool read_core_load;
   bool use_pdh_for_cpu;
   bool process_history_enabled;
+  // When true the collector samples per-process CPU times every tick and
+  // publishes a rolling 1 second CPU% per PID (see sample_process_cpu). This is
+  // what lets `check_process delta=true` report CPU% without doing its own
+  // sample / sleep / sample. Off by default (one extra system-process-table
+  // query per second).
+  bool process_cpu_enabled;
   int min_threshold_;
   std::string subsystem;
   std::string disable_;
@@ -75,6 +82,7 @@ class pdh_thread {
         read_core_load(true),
         use_pdh_for_cpu(false),
         process_history_enabled(false),
+        process_cpu_enabled(false),
         min_threshold_(10) {
     mutex_.lock();
   }
@@ -91,6 +99,9 @@ class pdh_thread {
   battery_check::batteries_type get_battery();
   os_updates_check::os_updates_obj get_os_updates();
   process_history_check::history_type get_process_history();
+  // Latest per-PID CPU% snapshot, or an empty map when process_cpu_enabled is
+  // off or the collector has not yet completed its first two samples.
+  process_checks::cpu_delta_map get_process_cpu_deltas();
   metrics_hash get_metrics();
 
   bool start();
@@ -130,5 +141,22 @@ class pdh_thread {
   filters::legacy::filter_config_handler legacy_filters_;
 
   non_atomic_count_map realtime_filter_counts_;
+
+  // Per-second per-process CPU sampler state (guarded by mutex_ for the
+  // published map only; the prev_* fields are touched solely by thread_proc).
+  struct proc_cpu_raw {
+    unsigned long long creation;  // unix seconds (matches process_info::get_creation_time)
+    unsigned long long kernel;    // cumulative kernel time in 100ns ticks
+    unsigned long long user;      // cumulative user time in 100ns ticks
+  };
+  std::map<DWORD, proc_cpu_raw> prev_proc_cpu_;
+  unsigned long long prev_sys_kernel_ = 0;
+  unsigned long long prev_sys_user_ = 0;
+  bool have_prev_proc_cpu_ = false;
+  process_checks::cpu_delta_map proc_cpu_deltas_;
+  // Diff the current system-process table against the previous tick and publish
+  // a rolling 1 second CPU% per PID into proc_cpu_deltas_.
+  void sample_process_cpu(error_list &errors);
+
   void thread_proc();
 };

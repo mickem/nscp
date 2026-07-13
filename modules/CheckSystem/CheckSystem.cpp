@@ -163,6 +163,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     .add_bool("process history", sh::bool_key(&collector->process_history_enabled, false),
       "Track process history", "Enable tracking of process history for use with check_process_history and check_process_history_new commands.")
 
+    .add_bool("process cpu", sh::bool_key(&collector->process_cpu_enabled, false),
+      "Sample per-process CPU", "Sample per-process CPU usage once a second in the background so that 'check_process delta=true' can report CPU% without stalling the check for a second. Off by default (adds one system-process-table query per second); required for the delta=true CPU fields.")
+
     .add_string("disable", sh::string_key(&collector->disable_, ""),
         "Disable automatic checks", "A comma separated list of checks to disable in the collector: battery,cpu,handles,network,temperature,cpu_frequency,os_updates,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
@@ -1006,7 +1009,7 @@ void CheckSystem::checkProcState(PB::Commands::QueryRequestMessage::Request &req
   check_process(request, response);
 }
 void CheckSystem::check_process(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  process_checks::active::check(request, response);
+  process_checks::active::check(request, response, collector->get_process_cpu_deltas(), collector->process_cpu_enabled);
 }
 
 void CheckSystem::checkCounter(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
