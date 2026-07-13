@@ -312,7 +312,7 @@ TEST(ProcessInfoTime, AggregatesTotalTime) {
   EXPECT_EQ(2963, total->get_total_time());
 }
 
-// --- state parsing: 'running' is a synonym for 'started' (snclient parity) ---
+// --- state parsing: 'running' is a synonym for 'started' ---
 
 TEST(ProcessState, RunningIsSynonymForStarted) {
   EXPECT_EQ(process_info::parse_state("started"), process_info::parse_state("running"));

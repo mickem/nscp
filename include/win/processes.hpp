@@ -227,10 +227,8 @@ struct process_info {
   }
 
   static long long parse_state(const std::string &s) {
-    // "running" is accepted as a synonym for "started" so filter/threshold
-    // expressions written for snclient (which renders the state as "running")
-    // port verbatim. The rendered state string stays "started" for backward
-    // compatibility.
+    // "running" is accepted as a synonym for "started".
+    // The rendered state string stays "started" for backward compatibility.
     if (s == "started" || s == "running") return state_started;
     if (s == "stopped") return state_stopped;
     if (s == "hung") return state_hung;

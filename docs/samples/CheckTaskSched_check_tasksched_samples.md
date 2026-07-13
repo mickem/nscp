@@ -30,3 +30,19 @@ WARNING: \DailyReport: 2 missed, next 2026-07-07 06:00:00
 Equivalent semantics also work against `most_recent_run_time` directly — the
 where-parser understands relative-time thresholds, so
 `crit=most_recent_run_time < -1d` means "last run older than a day".
+
+**Reporting the task path (`uri`) and listing hidden tasks:**
+
+`uri` is the task's full path — the same identifier the Task Scheduler UI and
+`schtasks` use. Hidden tasks are skipped unless `hidden=true` is passed; the
+`hidden` keyword then reports the flag.
+
+```
+check_tasksched hidden=true "filter=hidden = 1" "top-syntax=${count} hidden tasks" "detail-syntax=${uri}"
+OK: 7 hidden tasks
+```
+
+```
+check_tasksched "filter=title = 'ScheduledDefrag'" "detail-syntax=${uri} hidden=${hidden}"
+OK: \Microsoft\Windows\Defrag\ScheduledDefrag hidden=0
+```

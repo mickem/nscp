@@ -738,7 +738,7 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
       win_registry::read_value(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "UBR", KEY_WOW64_64KEY);
   record->ubr = ubr_val.exists ? ubr_val.int_value : 0;
   // On Windows the NT kernel version is the OS version; expose the full
-  // major.minor.build.ubr as a single shorthand (matches snclient's field).
+  // major.minor.build.ubr as a single shorthand.
   record->kernel_version = os_version_filter::format_kernel_version(info->dwMajorVersion, info->dwMinorVersion, info->dwBuildNumber, record->ubr);
 
   // Inventory-only BIOS fields (never alert; empty when WMI is unavailable).

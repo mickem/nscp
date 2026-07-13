@@ -55,7 +55,7 @@ filter_obj_handler::filter_obj_handler() {
     ("page_fault", [](auto obj, auto context) {return obj->get_PageFaultCount(); }, "Page fault count").add_perf("", "", " pf_count")
     ("peak_working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakWorkingSetSize(); }, "Peak working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pws_size")
     ("working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " ws_size")
-    ("rss", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Resident set size; alias for working_set (g,m,k,b), for snclient portability").add_scaled_byte(std::string(""), " rss")
+    ("rss", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Resident set size; alias for working_set (g,m,k,b)").add_scaled_byte(std::string(""), " rss")
     ("working_set_pct", [](auto obj, auto context) {return obj->get_working_set_pct(); }, "Working set as a percentage of total physical RAM").add_perf("%", "", " ws_pct")
     // 			("qouta", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
     // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")

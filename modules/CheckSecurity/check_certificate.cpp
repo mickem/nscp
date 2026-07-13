@@ -32,7 +32,6 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   std::string password;
 
   cert_filter::filter filter;
-  // Default thresholds mirror Icinga's check_certificate (warn 30d, crit 10d).
   filter_helper.add_options("expires_in < 30", "expires_in < 10", "", filter.get_filter_syntax(), "unknown");
   filter_helper.add_syntax("${status}: ${problem_list}", "${subject} expires in ${expires_in}d (${valid_to})", "${subject}", "No certificates found",
                            "%(status): all %(count) certificate(s) are ok");

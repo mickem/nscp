@@ -1,6 +1,6 @@
 #### Process owner and cross-agent portability keywords
 
-For portability with snclient-style checks, `check_process` also exposes:
+For portability `check_process` also exposes:
 
 | Keyword    | Description                                                                           |
 |------------|---------------------------------------------------------------------------------------|

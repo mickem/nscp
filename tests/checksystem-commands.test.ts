@@ -165,7 +165,6 @@ describe("CheckSystem commands", () => {
 
   it("check_process accepts 'running' as a synonym for 'started' (Windows)", async () => {
     if (!onWindows) return;
-    // snclient-style expression: our own process is running, so this stays OK.
     const q = await executeQuery(key, "check_process", {
       process: SELF_EXE,
       warning: "state != 'running'",
