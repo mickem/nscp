@@ -261,6 +261,7 @@ struct process_info {
     creation_time += other.creation_time.get();
     kernel_time += other.kernel_time.get();
     user_time += other.user_time.get();
+    total_time += other.total_time.get();
     kernel_time_raw += other.kernel_time_raw;
     user_time_raw += other.user_time_raw;
 

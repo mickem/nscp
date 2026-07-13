@@ -293,6 +293,12 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, boo
           (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime);
       entry.kernel_time = entry.kernel_time_raw / 10000000;
       entry.user_time = entry.user_time_raw / 10000000;
+      // total_time is the cumulative user+kernel CPU seconds. The delta path
+      // (make_cpu_delta) overwrites all three with whole-percent CPU usage; in
+      // the normal (non-delta) path it must be populated here or the `time`
+      // keyword reads 0 (kernel/user are set individually above but their sum
+      // was never stored).
+      entry.total_time = entry.kernel_time + entry.user_time;
       entry.creation_time = str::format::filetime_to_time(creationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1) +
                                                           static_cast<unsigned long long>(creationTime.dwLowDateTime));
     }

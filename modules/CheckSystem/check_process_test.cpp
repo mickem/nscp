@@ -293,6 +293,25 @@ TEST(ProcessInfoPlus, AggregatesThreadCountAndCarriesTotals) {
   EXPECT_EQ(10ull * 1024 * 1024 * 1024, total->total_pagefile);
 }
 
+// --- total_time (the `time` keyword) is the sum of kernel + user ------------
+
+TEST(ProcessInfoTime, AggregatesTotalTime) {
+  // The total row must sum total_time; otherwise `time` on a total=true row
+  // reads 0 even though the per-process rows have a value (the same class of
+  // bug that left the non-delta `time` keyword at 0 before total_time was
+  // populated during enumeration).
+  auto total = process_info::get_total();
+  process_info a;
+  a.total_time = 1915;
+  process_info b;
+  b.total_time = 1048;
+
+  *total += a;
+  *total += b;
+
+  EXPECT_EQ(2963, total->get_total_time());
+}
+
 // --- state parsing: 'running' is a synonym for 'started' (snclient parity) ---
 
 TEST(ProcessState, RunningIsSynonymForStarted) {

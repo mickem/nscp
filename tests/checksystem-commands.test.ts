@@ -131,6 +131,23 @@ describe("CheckSystem commands", () => {
     expect(msg).not.toMatch(/created=0(\s|$)/);
   });
 
+  it("check_process reports cumulative CPU seconds without delta (time == kernel + user)", async () => {
+    // Without delta the kernel/user/time keywords are cumulative CPU seconds and
+    // need no collector. `time` must equal kernel + user — it used to always read
+    // 0 because total_time was only ever populated by the delta path.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "user=${user} kernel=${kernel} time=${time}",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    const m = /user=(\d+) kernel=(\d+) time=(\d+)/.exec(msg);
+    expect(m).not.toBeNull();
+    const [, user, kernel, time] = m!.map(Number);
+    expect(time).toBe(user + kernel);
+  });
+
   it("check_process rss is an alias for working_set (Windows)", async () => {
     if (!onWindows) return; // rss/working_set keywords are the Windows process check.
     const q = await executeQuery(key, "check_process", {
