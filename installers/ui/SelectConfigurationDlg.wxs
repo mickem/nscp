@@ -19,7 +19,9 @@
                 <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
                 </Control>
                 <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
-                  <Publish Event="DoAction" Value="ImportConfig">1</Publish>
+                  <!-- Must run before the NewDialog events (Order 5-7 in WixUI_MondoNSCP.wxs)
+                       that branch on the CONF_* properties this action computes. -->
+                  <Publish Event="DoAction" Value="ImportConfig" Order="1">1</Publish>
                 </Control>
                 <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
                     <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
