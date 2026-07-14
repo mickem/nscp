@@ -246,7 +246,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 
 Detail level syntax.
 Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${folder}/${title}: ${exit_code} != 0`
@@ -268,22 +268,27 @@ The name of the computer that you want to connect to.
 <a id="check_tasksched_filter_keys"></a>
 #### Filter keywords
 
-| Option               | Description                                                             |
-|----------------------|-------------------------------------------------------------------------|
-| application          | Retrieves the name of the application that the task is associated with. |
-| comment              | Retrieves the comment or description for the work item.                 |
-| creator              | Retrieves the creator of the work item.                                 |
-| enabled              | TODO.                                                                   |
-| exit_code            | Retrieves the work item's last exit code.                               |
-| folder               | The task folder                                                         |
-| has_run              | True if the task has ever executed.                                     |
-| max_run_time         | Retrieves the maximum length of time the task can run.                  |
-| most_recent_run_time | Retrieves the most recent time the work item began running.             |
-| parameters           | Retrieves the command-line parameters of a task.                        |
-| priority             | Retrieves the priority for the task.                                    |
-| task_status          | Retrieves the status of the work item.                                  |
-| title                | The task title                                                          |
-| working_directory    | Retrieves the working directory of the task.                            |
+| Option                | Description                                                                                                      |
+|-----------------------|------------------------------------------------------------------------------------------------------------------|
+| application           | Retrieves the name of the application that the task is associated with.                                          |
+| comment               | Retrieves the comment or description for the work item.                                                          |
+| creator               | Retrieves the creator of the work item.                                                                          |
+| enabled               | TODO.                                                                                                            |
+| exit_code             | Retrieves the work item's last exit code.                                                                        |
+| folder                | The task folder                                                                                                  |
+| has_run               | True if the task has ever executed.                                                                              |
+| hidden                | True if the task is marked hidden (ITaskSettings Hidden flag). Always false on the legacy ITask API.             |
+| last_run_age          | Seconds since the task last ran (-1 if it has never run). Use e.g. last_run_age > 86400 to alert on stale tasks. |
+| max_run_time          | Retrieves the maximum length of time the task can run.                                                           |
+| most_recent_run_time  | Retrieves the most recent time the work item began running.                                                      |
+| next_run_time         | The next time the task is scheduled to run (0 / rendered as 'none' if it has no upcoming run).                   |
+| number_of_missed_runs | Number of times the task was scheduled to run but did not (0 on the legacy ITask API).                           |
+| parameters            | Retrieves the command-line parameters of a task.                                                                 |
+| priority              | Retrieves the priority for the task.                                                                             |
+| task_status           | Retrieves the status of the work item.                                                                           |
+| title                 | The task title                                                                                                   |
+| uri                   | The task's full path / URI (e.g. \Microsoft\Windows\Defrag\ScheduledDefrag). Empty on the legacy ITask API.      |
+| working_directory     | Retrieves the working directory of the task.                                                                     |
 
 **Common options for all checks:**
 

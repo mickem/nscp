@@ -19,15 +19,18 @@ A quick reference for all available queries (check commands) in the CheckSecurit
 
 A list of all available queries (check commands)
 
-| Command                                 | Description                                                                                                  |
-|-----------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| [check_antivirus](#check_antivirus)     | Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.       |
-| [check_bitlocker](#check_bitlocker)     | Check BitLocker drive-encryption protection status per volume. Windows only.                                 |
-| [check_certificate](#check_certificate) | Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the Windows certificate store. |
-| [check_firewall](#check_firewall)       | Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.                      |
-| [check_nla](#check_nla)                 | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.              |
-| [check_secureboot](#check_secureboot)   | Check whether UEFI Secure Boot is enabled. Windows only.                                                     |
-| [check_users](#check_users)             | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                  |
+| Command                                       | Description                                                                                                                    |
+|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| [check_antivirus](#check_antivirus)           | Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.                         |
+| [check_bitlocker](#check_bitlocker)           | Check BitLocker drive-encryption protection status per volume. Windows only.                                                   |
+| [check_certificate](#check_certificate)       | Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the Windows certificate store.                   |
+| [check_defender](#check_defender)             | Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only. |
+| [check_firewall](#check_firewall)             | Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.                                        |
+| [check_group_members](#check_group_members)   | Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.        |
+| [check_local_accounts](#check_local_accounts) | Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.     |
+| [check_nla](#check_nla)                       | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.                                |
+| [check_secureboot](#check_secureboot)         | Check whether UEFI Secure Boot is enabled. Windows only.                                                                       |
+| [check_users](#check_users)                   | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                                    |
 
 ### check_antivirus
 
@@ -107,120 +110,239 @@ L        cli UNKNOWN: check_antivirus is not supported on this platform (Windows
 <a id="check_antivirus_options"></a>
 #### Command-line Arguments
 
-<a id="check_antivirus_warn"></a>
-<a id="check_antivirus_crit"></a>
-<a id="check_antivirus_debug"></a>
-<a id="check_antivirus_show-all"></a>
-<a id="check_antivirus_escape-html"></a>
-<a id="check_antivirus_help"></a>
-<a id="check_antivirus_help-pb"></a>
-<a id="check_antivirus_show-default"></a>
-<a id="check_antivirus_help-short"></a>
+=== "Windows"
 
-| Option                                          | Default Value                                         | Description                                                                                                      |
-|-------------------------------------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_antivirus_filter)               |                                                       | Filter which marks interesting items.                                                                            |
-| [warning](#check_antivirus_warning)             |                                                       | Filter which marks items which generates a warning state.                                                        |
-| warn                                            |                                                       | Short alias for warning                                                                                          |
-| [critical](#check_antivirus_critical)           | enabled = 0 or up_to_date = 0                         | Filter which marks items which generates a critical state.                                                       |
-| crit                                            |                                                       | Short alias for critical.                                                                                        |
-| [ok](#check_antivirus_ok)                       |                                                       | Filter which marks items which generates an ok state.                                                            |
-| debug                                           | N/A                                                   | Show debugging information in the log                                                                            |
-| show-all                                        | N/A                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_antivirus_empty-state)     | unknown                                               | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_antivirus_perf-config)     |                                                       | Performance data generation configuration                                                                        |
-| escape-html                                     | N/A                                                   | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                            | N/A                                                   | Show help screen (this screen)                                                                                   |
-| help-pb                                         | N/A                                                   | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                    | N/A                                                   | Show default values for a given command                                                                          |
-| help-short                                      | N/A                                                   | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_antivirus_top-syntax)       | ${status}: ${list}                                    | Top level syntax.                                                                                                |
-| [ok-syntax](#check_antivirus_ok-syntax)         | ${status}: ${count} antivirus product(s) healthy      | ok syntax.                                                                                                       |
-| [empty-syntax](#check_antivirus_empty-syntax)   | No antivirus product registered                       | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_antivirus_detail-syntax) | ${name} (enabled=${enabled} up_to_date=${up_to_date}) | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_antivirus_perf-syntax)     | ${name}                                               | Performance alias syntax.                                                                                        |
+    <a id="check_antivirus_warn"></a>
+    <a id="check_antivirus_crit"></a>
+    <a id="check_antivirus_debug"></a>
+    <a id="check_antivirus_show-all"></a>
+    <a id="check_antivirus_escape-html"></a>
+    <a id="check_antivirus_help"></a>
+    <a id="check_antivirus_help-pb"></a>
+    <a id="check_antivirus_show-default"></a>
+    <a id="check_antivirus_help-short"></a>
 
-
-
-<h5 id="check_antivirus_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_antivirus_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    | Option                                          | Default Value                                         | Description                                                                                                      |
+    |-------------------------------------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_antivirus_filter)               |                                                       | Filter which marks interesting items.                                                                            |
+    | [warning](#check_antivirus_warning)             |                                                       | Filter which marks items which generates a warning state.                                                        |
+    | warn                                            |                                                       | Short alias for warning                                                                                          |
+    | [critical](#check_antivirus_critical)           | enabled = 0 or up_to_date = 0                         | Filter which marks items which generates a critical state.                                                       |
+    | crit                                            |                                                       | Short alias for critical.                                                                                        |
+    | [ok](#check_antivirus_ok)                       |                                                       | Filter which marks items which generates an ok state.                                                            |
+    | debug                                           | N/A                                                   | Show debugging information in the log                                                                            |
+    | show-all                                        | N/A                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_antivirus_empty-state)     | unknown                                               | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_antivirus_perf-config)     |                                                       | Performance data generation configuration                                                                        |
+    | escape-html                                     | N/A                                                   | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                            | N/A                                                   | Show help screen (this screen)                                                                                   |
+    | help-pb                                         | N/A                                                   | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                    | N/A                                                   | Show default values for a given command                                                                          |
+    | help-short                                      | N/A                                                   | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_antivirus_top-syntax)       | ${status}: ${list}                                    | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_antivirus_ok-syntax)         | ${status}: ${count} antivirus product(s) healthy      | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_antivirus_empty-syntax)   | No antivirus product registered                       | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_antivirus_detail-syntax) | ${name} (enabled=${enabled} up_to_date=${up_to_date}) | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_antivirus_perf-syntax)     | ${name}                                               | Performance alias syntax.                                                                                        |
 
 
 
-<h5 id="check_antivirus_critical">critical:</h5>
+    <h5 id="check_antivirus_filter">filter:</h5>
 
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-*Default Value:* `enabled = 0 or up_to_date = 0`
-
-<h5 id="check_antivirus_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-<h5 id="check_antivirus_empty-state">empty-state:</h5>
+    <h5 id="check_antivirus_warning">warning:</h5>
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="check_antivirus_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_antivirus_top-syntax">top-syntax:</h5>
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_antivirus_critical">critical:</h5>
 
-*Default Value:* `${status}: ${list}`
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
-<h5 id="check_antivirus_ok-syntax">ok-syntax:</h5>
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    *Default Value:* `enabled = 0 or up_to_date = 0`
 
-*Default Value:* `${status}: ${count} antivirus product(s) healthy`
+    <h5 id="check_antivirus_ok">ok:</h5>
 
-<h5 id="check_antivirus_empty-syntax">empty-syntax:</h5>
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
 
-*Default Value:* `No antivirus product registered`
+    <h5 id="check_antivirus_empty-state">empty-state:</h5>
 
-<h5 id="check_antivirus_detail-syntax">detail-syntax:</h5>
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    *Default Value:* `unknown`
 
-*Default Value:* `${name} (enabled=${enabled} up_to_date=${up_to_date})`
+    <h5 id="check_antivirus_perf-config">perf-config:</h5>
 
-<h5 id="check_antivirus_perf-syntax">perf-syntax:</h5>
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
 
-*Default Value:* `${name}`
+    <h5 id="check_antivirus_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${list}`
+
+    <h5 id="check_antivirus_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: ${count} antivirus product(s) healthy`
+
+    <h5 id="check_antivirus_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No antivirus product registered`
+
+    <h5 id="check_antivirus_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${name} (enabled=${enabled} up_to_date=${up_to_date})`
+
+    <h5 id="check_antivirus_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${name}`
+
+=== "Linux"
+
+    <a id="check_antivirus_warn"></a>
+    <a id="check_antivirus_crit"></a>
+    <a id="check_antivirus_debug"></a>
+    <a id="check_antivirus_show-all"></a>
+    <a id="check_antivirus_escape-html"></a>
+    <a id="check_antivirus_help"></a>
+    <a id="check_antivirus_help-pb"></a>
+    <a id="check_antivirus_show-default"></a>
+    <a id="check_antivirus_help-short"></a>
+
+    | Option                                          | Default Value                                         | Description                                                                                                      |
+    |-------------------------------------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_antivirus_filter)               |                                                       | Filter which marks interesting items.                                                                            |
+    | [warning](#check_antivirus_warning)             |                                                       | Filter which marks items which generates a warning state.                                                        |
+    | warn                                            |                                                       | Short alias for warning                                                                                          |
+    | [critical](#check_antivirus_critical)           | enabled = 0 or up_to_date = 0                         | Filter which marks items which generates a critical state.                                                       |
+    | crit                                            |                                                       | Short alias for critical.                                                                                        |
+    | [ok](#check_antivirus_ok)                       |                                                       | Filter which marks items which generates an ok state.                                                            |
+    | debug                                           | N/A                                                   | Show debugging information in the log                                                                            |
+    | show-all                                        | N/A                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_antivirus_empty-state)     | unknown                                               | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_antivirus_perf-config)     |                                                       | Performance data generation configuration                                                                        |
+    | escape-html                                     | N/A                                                   | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                            | N/A                                                   | Show help screen (this screen)                                                                                   |
+    | help-pb                                         | N/A                                                   | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                    | N/A                                                   | Show default values for a given command                                                                          |
+    | help-short                                      | N/A                                                   | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_antivirus_top-syntax)       | ${status}: ${list}                                    | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_antivirus_ok-syntax)         | ${status}: ${count} antivirus product(s) healthy      | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_antivirus_empty-syntax)   | No antivirus product registered                       | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_antivirus_detail-syntax) | ${name} (enabled=${enabled} up_to_date=${up_to_date}) | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_antivirus_perf-syntax)     | ${name}                                               | Performance alias syntax.                                                                                        |
+
+
+
+    <h5 id="check_antivirus_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_antivirus_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+
+    <h5 id="check_antivirus_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `enabled = 0 or up_to_date = 0`
+
+    <h5 id="check_antivirus_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_antivirus_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_antivirus_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_antivirus_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${list}`
+
+    <h5 id="check_antivirus_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: ${count} antivirus product(s) healthy`
+
+    <h5 id="check_antivirus_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No antivirus product registered`
+
+    <h5 id="check_antivirus_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${name} (enabled=${enabled} up_to_date=${up_to_date})`
+
+    <h5 id="check_antivirus_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${name}`
 
 
 <a id="check_antivirus_filter_keys"></a>
@@ -326,120 +448,239 @@ L        cli UNKNOWN: check_bitlocker is not supported on this platform (Windows
 <a id="check_bitlocker_options"></a>
 #### Command-line Arguments
 
-<a id="check_bitlocker_warn"></a>
-<a id="check_bitlocker_crit"></a>
-<a id="check_bitlocker_debug"></a>
-<a id="check_bitlocker_show-all"></a>
-<a id="check_bitlocker_escape-html"></a>
-<a id="check_bitlocker_help"></a>
-<a id="check_bitlocker_help-pb"></a>
-<a id="check_bitlocker_show-default"></a>
-<a id="check_bitlocker_help-short"></a>
+=== "Windows"
 
-| Option                                          | Default Value                               | Description                                                                                                      |
-|-------------------------------------------------|---------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_bitlocker_filter)               |                                             | Filter which marks interesting items.                                                                            |
-| [warning](#check_bitlocker_warning)             |                                             | Filter which marks items which generates a warning state.                                                        |
-| warn                                            |                                             | Short alias for warning                                                                                          |
-| [critical](#check_bitlocker_critical)           | protected = 0                               | Filter which marks items which generates a critical state.                                                       |
-| crit                                            |                                             | Short alias for critical.                                                                                        |
-| [ok](#check_bitlocker_ok)                       |                                             | Filter which marks items which generates an ok state.                                                            |
-| debug                                           | N/A                                         | Show debugging information in the log                                                                            |
-| show-all                                        | N/A                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_bitlocker_empty-state)     | unknown                                     | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_bitlocker_perf-config)     |                                             | Performance data generation configuration                                                                        |
-| escape-html                                     | N/A                                         | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                            | N/A                                         | Show help screen (this screen)                                                                                   |
-| help-pb                                         | N/A                                         | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                    | N/A                                         | Show default values for a given command                                                                          |
-| help-short                                      | N/A                                         | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_bitlocker_top-syntax)       | ${status}: ${list}                          | Top level syntax.                                                                                                |
-| [ok-syntax](#check_bitlocker_ok-syntax)         | ${status}: all ${count} volume(s) protected | ok syntax.                                                                                                       |
-| [empty-syntax](#check_bitlocker_empty-syntax)   | No encryptable volumes found                | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_bitlocker_detail-syntax) | ${drive} protected=${protected}             | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_bitlocker_perf-syntax)     | ${drive}                                    | Performance alias syntax.                                                                                        |
+    <a id="check_bitlocker_warn"></a>
+    <a id="check_bitlocker_crit"></a>
+    <a id="check_bitlocker_debug"></a>
+    <a id="check_bitlocker_show-all"></a>
+    <a id="check_bitlocker_escape-html"></a>
+    <a id="check_bitlocker_help"></a>
+    <a id="check_bitlocker_help-pb"></a>
+    <a id="check_bitlocker_show-default"></a>
+    <a id="check_bitlocker_help-short"></a>
 
-
-
-<h5 id="check_bitlocker_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_bitlocker_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    | Option                                          | Default Value                               | Description                                                                                                      |
+    |-------------------------------------------------|---------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_bitlocker_filter)               |                                             | Filter which marks interesting items.                                                                            |
+    | [warning](#check_bitlocker_warning)             |                                             | Filter which marks items which generates a warning state.                                                        |
+    | warn                                            |                                             | Short alias for warning                                                                                          |
+    | [critical](#check_bitlocker_critical)           | protected = 0                               | Filter which marks items which generates a critical state.                                                       |
+    | crit                                            |                                             | Short alias for critical.                                                                                        |
+    | [ok](#check_bitlocker_ok)                       |                                             | Filter which marks items which generates an ok state.                                                            |
+    | debug                                           | N/A                                         | Show debugging information in the log                                                                            |
+    | show-all                                        | N/A                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_bitlocker_empty-state)     | unknown                                     | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_bitlocker_perf-config)     |                                             | Performance data generation configuration                                                                        |
+    | escape-html                                     | N/A                                         | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                            | N/A                                         | Show help screen (this screen)                                                                                   |
+    | help-pb                                         | N/A                                         | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                    | N/A                                         | Show default values for a given command                                                                          |
+    | help-short                                      | N/A                                         | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_bitlocker_top-syntax)       | ${status}: ${list}                          | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_bitlocker_ok-syntax)         | ${status}: all ${count} volume(s) protected | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_bitlocker_empty-syntax)   | No encryptable volumes found                | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_bitlocker_detail-syntax) | ${drive} protected=${protected}             | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_bitlocker_perf-syntax)     | ${drive}                                    | Performance alias syntax.                                                                                        |
 
 
 
-<h5 id="check_bitlocker_critical">critical:</h5>
+    <h5 id="check_bitlocker_filter">filter:</h5>
 
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-*Default Value:* `protected = 0`
-
-<h5 id="check_bitlocker_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-<h5 id="check_bitlocker_empty-state">empty-state:</h5>
+    <h5 id="check_bitlocker_warning">warning:</h5>
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="check_bitlocker_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_bitlocker_top-syntax">top-syntax:</h5>
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_bitlocker_critical">critical:</h5>
 
-*Default Value:* `${status}: ${list}`
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
-<h5 id="check_bitlocker_ok-syntax">ok-syntax:</h5>
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    *Default Value:* `protected = 0`
 
-*Default Value:* `${status}: all ${count} volume(s) protected`
+    <h5 id="check_bitlocker_ok">ok:</h5>
 
-<h5 id="check_bitlocker_empty-syntax">empty-syntax:</h5>
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
 
-*Default Value:* `No encryptable volumes found`
+    <h5 id="check_bitlocker_empty-state">empty-state:</h5>
 
-<h5 id="check_bitlocker_detail-syntax">detail-syntax:</h5>
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    *Default Value:* `unknown`
 
-*Default Value:* `${drive} protected=${protected}`
+    <h5 id="check_bitlocker_perf-config">perf-config:</h5>
 
-<h5 id="check_bitlocker_perf-syntax">perf-syntax:</h5>
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
 
-*Default Value:* `${drive}`
+    <h5 id="check_bitlocker_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${list}`
+
+    <h5 id="check_bitlocker_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: all ${count} volume(s) protected`
+
+    <h5 id="check_bitlocker_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No encryptable volumes found`
+
+    <h5 id="check_bitlocker_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${drive} protected=${protected}`
+
+    <h5 id="check_bitlocker_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${drive}`
+
+=== "Linux"
+
+    <a id="check_bitlocker_warn"></a>
+    <a id="check_bitlocker_crit"></a>
+    <a id="check_bitlocker_debug"></a>
+    <a id="check_bitlocker_show-all"></a>
+    <a id="check_bitlocker_escape-html"></a>
+    <a id="check_bitlocker_help"></a>
+    <a id="check_bitlocker_help-pb"></a>
+    <a id="check_bitlocker_show-default"></a>
+    <a id="check_bitlocker_help-short"></a>
+
+    | Option                                          | Default Value                               | Description                                                                                                      |
+    |-------------------------------------------------|---------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_bitlocker_filter)               |                                             | Filter which marks interesting items.                                                                            |
+    | [warning](#check_bitlocker_warning)             |                                             | Filter which marks items which generates a warning state.                                                        |
+    | warn                                            |                                             | Short alias for warning                                                                                          |
+    | [critical](#check_bitlocker_critical)           | protected = 0                               | Filter which marks items which generates a critical state.                                                       |
+    | crit                                            |                                             | Short alias for critical.                                                                                        |
+    | [ok](#check_bitlocker_ok)                       |                                             | Filter which marks items which generates an ok state.                                                            |
+    | debug                                           | N/A                                         | Show debugging information in the log                                                                            |
+    | show-all                                        | N/A                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_bitlocker_empty-state)     | unknown                                     | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_bitlocker_perf-config)     |                                             | Performance data generation configuration                                                                        |
+    | escape-html                                     | N/A                                         | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                            | N/A                                         | Show help screen (this screen)                                                                                   |
+    | help-pb                                         | N/A                                         | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                    | N/A                                         | Show default values for a given command                                                                          |
+    | help-short                                      | N/A                                         | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_bitlocker_top-syntax)       | ${status}: ${list}                          | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_bitlocker_ok-syntax)         | ${status}: all ${count} volume(s) protected | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_bitlocker_empty-syntax)   | No encryptable volumes found                | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_bitlocker_detail-syntax) | ${drive} protected=${protected}             | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_bitlocker_perf-syntax)     | ${drive}                                    | Performance alias syntax.                                                                                        |
+
+
+
+    <h5 id="check_bitlocker_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_bitlocker_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+
+    <h5 id="check_bitlocker_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `protected = 0`
+
+    <h5 id="check_bitlocker_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_bitlocker_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_bitlocker_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_bitlocker_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${list}`
+
+    <h5 id="check_bitlocker_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: all ${count} volume(s) protected`
+
+    <h5 id="check_bitlocker_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No encryptable volumes found`
+
+    <h5 id="check_bitlocker_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${drive} protected=${protected}`
+
+    <h5 id="check_bitlocker_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${drive}`
 
 
 <a id="check_bitlocker_filter_keys"></a>
@@ -640,145 +881,289 @@ L        cli UNKNOWN: store= (certificate store) is only supported on Windows; u
 <a id="check_certificate_options"></a>
 #### Command-line Arguments
 
-<a id="check_certificate_warn"></a>
-<a id="check_certificate_crit"></a>
-<a id="check_certificate_debug"></a>
-<a id="check_certificate_show-all"></a>
-<a id="check_certificate_escape-html"></a>
-<a id="check_certificate_help"></a>
-<a id="check_certificate_help-pb"></a>
-<a id="check_certificate_show-default"></a>
-<a id="check_certificate_help-short"></a>
-<a id="check_certificate_file"></a>
-<a id="check_certificate_path"></a>
-<a id="check_certificate_password"></a>
-<a id="check_certificate_ca"></a>
-<a id="check_certificate_store"></a>
+=== "Windows"
 
-| Option                                            | Default Value                                      | Description                                                                                                      |
-|---------------------------------------------------|----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_certificate_filter)               |                                                    | Filter which marks interesting items.                                                                            |
-| [warning](#check_certificate_warning)             | expires_in < 30                                    | Filter which marks items which generates a warning state.                                                        |
-| warn                                              |                                                    | Short alias for warning                                                                                          |
-| [critical](#check_certificate_critical)           | expires_in < 10                                    | Filter which marks items which generates a critical state.                                                       |
-| crit                                              |                                                    | Short alias for critical.                                                                                        |
-| [ok](#check_certificate_ok)                       |                                                    | Filter which marks items which generates an ok state.                                                            |
-| debug                                             | N/A                                                | Show debugging information in the log                                                                            |
-| show-all                                          | N/A                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_certificate_empty-state)     | unknown                                            | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_certificate_perf-config)     |                                                    | Performance data generation configuration                                                                        |
-| escape-html                                       | N/A                                                | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                              | N/A                                                | Show help screen (this screen)                                                                                   |
-| help-pb                                           | N/A                                                | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                      | N/A                                                | Show default values for a given command                                                                          |
-| help-short                                        | N/A                                                | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_certificate_top-syntax)       | ${status}: ${problem_list}                         | Top level syntax.                                                                                                |
-| [ok-syntax](#check_certificate_ok-syntax)         | %(status): all %(count) certificate(s) are ok      | ok syntax.                                                                                                       |
-| [empty-syntax](#check_certificate_empty-syntax)   | No certificates found                              | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_certificate_detail-syntax) | ${subject} expires in ${expires_in}d (${valid_to}) | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_certificate_perf-syntax)     | ${subject}                                         | Performance alias syntax.                                                                                        |
-| file                                              |                                                    | A certificate file (PEM or DER) or a directory of them. Can be given multiple times.                             |
-| path                                              |                                                    | Alias for file.                                                                                                  |
-| [recursive](#check_certificate_recursive)         | 1)] (=0                                            | Recurse into directories given via file=/path=.                                                                  |
-| password                                          |                                                    | Password for PKCS#12 (.pfx/.p12) files.                                                                          |
-| ca                                                |                                                    | CA bundle to evaluate the 'trusted' keyword against (defaults to the system trust store).                        |
-| store                                             |                                                    | Windows certificate store to enumerate (e.g. My, Root, CA). Windows only.                                        |
-| [location](#check_certificate_location)           | LocalMachine                                       | Windows store location: LocalMachine or CurrentUser. Windows only.                                               |
+    <a id="check_certificate_warn"></a>
+    <a id="check_certificate_crit"></a>
+    <a id="check_certificate_debug"></a>
+    <a id="check_certificate_show-all"></a>
+    <a id="check_certificate_escape-html"></a>
+    <a id="check_certificate_help"></a>
+    <a id="check_certificate_help-pb"></a>
+    <a id="check_certificate_show-default"></a>
+    <a id="check_certificate_help-short"></a>
+    <a id="check_certificate_file"></a>
+    <a id="check_certificate_path"></a>
+    <a id="check_certificate_password"></a>
+    <a id="check_certificate_ca"></a>
+    <a id="check_certificate_store"></a>
 
-
-
-<h5 id="check_certificate_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+    | Option                                            | Default Value                                      | Description                                                                                                      |
+    |---------------------------------------------------|----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_certificate_filter)               |                                                    | Filter which marks interesting items.                                                                            |
+    | [warning](#check_certificate_warning)             | expires_in < 30                                    | Filter which marks items which generates a warning state.                                                        |
+    | warn                                              |                                                    | Short alias for warning                                                                                          |
+    | [critical](#check_certificate_critical)           | expires_in < 10                                    | Filter which marks items which generates a critical state.                                                       |
+    | crit                                              |                                                    | Short alias for critical.                                                                                        |
+    | [ok](#check_certificate_ok)                       |                                                    | Filter which marks items which generates an ok state.                                                            |
+    | debug                                             | N/A                                                | Show debugging information in the log                                                                            |
+    | show-all                                          | N/A                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_certificate_empty-state)     | unknown                                            | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_certificate_perf-config)     |                                                    | Performance data generation configuration                                                                        |
+    | escape-html                                       | N/A                                                | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                              | N/A                                                | Show help screen (this screen)                                                                                   |
+    | help-pb                                           | N/A                                                | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                      | N/A                                                | Show default values for a given command                                                                          |
+    | help-short                                        | N/A                                                | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_certificate_top-syntax)       | ${status}: ${problem_list}                         | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_certificate_ok-syntax)         | %(status): all %(count) certificate(s) are ok      | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_certificate_empty-syntax)   | No certificates found                              | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_certificate_detail-syntax) | ${subject} expires in ${expires_in}d (${valid_to}) | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_certificate_perf-syntax)     | ${subject}                                         | Performance alias syntax.                                                                                        |
+    | file                                              |                                                    | A certificate file (PEM or DER) or a directory of them. Can be given multiple times.                             |
+    | path                                              |                                                    | Alias for file.                                                                                                  |
+    | [recursive](#check_certificate_recursive)         | 1)] (=0                                            | Recurse into directories given via file=/path=.                                                                  |
+    | password                                          |                                                    | Password for PKCS#12 (.pfx/.p12) files.                                                                          |
+    | ca                                                |                                                    | CA bundle to evaluate the 'trusted' keyword against (defaults to the system trust store).                        |
+    | store                                             |                                                    | Windows certificate store to enumerate (e.g. My, Root, CA). Windows only.                                        |
+    | [location](#check_certificate_location)           | LocalMachine                                       | Windows store location: LocalMachine or CurrentUser. Windows only.                                               |
 
 
-<h5 id="check_certificate_warning">warning:</h5>
 
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    <h5 id="check_certificate_filter">filter:</h5>
 
-
-*Default Value:* `expires_in < 30`
-
-<h5 id="check_certificate_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Default Value:* `expires_in < 10`
+    <h5 id="check_certificate_warning">warning:</h5>
 
-<h5 id="check_certificate_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_certificate_empty-state">empty-state:</h5>
+    *Default Value:* `expires_in < 30`
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
+    <h5 id="check_certificate_critical">critical:</h5>
 
-*Default Value:* `unknown`
-
-<h5 id="check_certificate_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
 
-<h5 id="check_certificate_top-syntax">top-syntax:</h5>
+    *Default Value:* `expires_in < 10`
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_certificate_ok">ok:</h5>
 
-*Default Value:* `${status}: ${problem_list}`
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-<h5 id="check_certificate_ok-syntax">ok-syntax:</h5>
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    <h5 id="check_certificate_empty-state">empty-state:</h5>
 
-*Default Value:* `%(status): all %(count) certificate(s) are ok`
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-<h5 id="check_certificate_empty-syntax">empty-syntax:</h5>
+    *Default Value:* `unknown`
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
+    <h5 id="check_certificate_perf-config">perf-config:</h5>
 
-*Default Value:* `No certificates found`
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-<h5 id="check_certificate_detail-syntax">detail-syntax:</h5>
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_certificate_top-syntax">top-syntax:</h5>
 
-*Default Value:* `${subject} expires in ${expires_in}d (${valid_to})`
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-<h5 id="check_certificate_perf-syntax">perf-syntax:</h5>
+    *Default Value:* `${status}: ${problem_list}`
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
+    <h5 id="check_certificate_ok-syntax">ok-syntax:</h5>
 
-*Default Value:* `${subject}`
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
 
-<h5 id="check_certificate_recursive">recursive:</h5>
+    *Default Value:* `%(status): all %(count) certificate(s) are ok`
 
-Recurse into directories given via file=/path=.
+    <h5 id="check_certificate_empty-syntax">empty-syntax:</h5>
 
-*Default Value:* `1)] (=0`
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
 
-<h5 id="check_certificate_location">location:</h5>
+    *Default Value:* `No certificates found`
 
-Windows store location: LocalMachine or CurrentUser. Windows only.
+    <h5 id="check_certificate_detail-syntax">detail-syntax:</h5>
 
-*Default Value:* `LocalMachine`
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${subject} expires in ${expires_in}d (${valid_to})`
+
+    <h5 id="check_certificate_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${subject}`
+
+    <h5 id="check_certificate_recursive">recursive:</h5>
+
+    Recurse into directories given via file=/path=.
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_certificate_location">location:</h5>
+
+    Windows store location: LocalMachine or CurrentUser. Windows only.
+
+    *Default Value:* `LocalMachine`
+
+=== "Linux"
+
+    <a id="check_certificate_warn"></a>
+    <a id="check_certificate_crit"></a>
+    <a id="check_certificate_debug"></a>
+    <a id="check_certificate_show-all"></a>
+    <a id="check_certificate_escape-html"></a>
+    <a id="check_certificate_help"></a>
+    <a id="check_certificate_help-pb"></a>
+    <a id="check_certificate_show-default"></a>
+    <a id="check_certificate_help-short"></a>
+    <a id="check_certificate_file"></a>
+    <a id="check_certificate_path"></a>
+    <a id="check_certificate_password"></a>
+    <a id="check_certificate_ca"></a>
+    <a id="check_certificate_store"></a>
+
+    | Option                                            | Default Value                                      | Description                                                                                                      |
+    |---------------------------------------------------|----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_certificate_filter)               |                                                    | Filter which marks interesting items.                                                                            |
+    | [warning](#check_certificate_warning)             | expires_in < 30                                    | Filter which marks items which generates a warning state.                                                        |
+    | warn                                              |                                                    | Short alias for warning                                                                                          |
+    | [critical](#check_certificate_critical)           | expires_in < 10                                    | Filter which marks items which generates a critical state.                                                       |
+    | crit                                              |                                                    | Short alias for critical.                                                                                        |
+    | [ok](#check_certificate_ok)                       |                                                    | Filter which marks items which generates an ok state.                                                            |
+    | debug                                             | N/A                                                | Show debugging information in the log                                                                            |
+    | show-all                                          | N/A                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_certificate_empty-state)     | unknown                                            | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_certificate_perf-config)     |                                                    | Performance data generation configuration                                                                        |
+    | escape-html                                       | N/A                                                | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                              | N/A                                                | Show help screen (this screen)                                                                                   |
+    | help-pb                                           | N/A                                                | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                      | N/A                                                | Show default values for a given command                                                                          |
+    | help-short                                        | N/A                                                | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_certificate_top-syntax)       | ${status}: ${problem_list}                         | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_certificate_ok-syntax)         | %(status): all %(count) certificate(s) are ok      | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_certificate_empty-syntax)   | No certificates found                              | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_certificate_detail-syntax) | ${subject} expires in ${expires_in}d (${valid_to}) | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_certificate_perf-syntax)     | ${subject}                                         | Performance alias syntax.                                                                                        |
+    | file                                              |                                                    | A certificate file (PEM or DER) or a directory of them. Can be given multiple times.                             |
+    | path                                              |                                                    | Alias for file.                                                                                                  |
+    | [recursive](#check_certificate_recursive)         | 1)] (=0                                            | Recurse into directories given via file=/path=.                                                                  |
+    | password                                          |                                                    | Password for PKCS#12 (.pfx/.p12) files.                                                                          |
+    | ca                                                |                                                    | CA bundle to evaluate the 'trusted' keyword against (defaults to the system trust store).                        |
+    | store                                             |                                                    | Windows certificate store to enumerate (e.g. My, Root, CA). Windows only.                                        |
+    | [location](#check_certificate_location)           | LocalMachine                                       | Windows store location: LocalMachine or CurrentUser. Windows only.                                               |
+
+
+
+    <h5 id="check_certificate_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_certificate_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+    *Default Value:* `expires_in < 30`
+
+    <h5 id="check_certificate_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `expires_in < 10`
+
+    <h5 id="check_certificate_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_certificate_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_certificate_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_certificate_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${problem_list}`
+
+    <h5 id="check_certificate_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): all %(count) certificate(s) are ok`
+
+    <h5 id="check_certificate_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No certificates found`
+
+    <h5 id="check_certificate_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${subject} expires in ${expires_in}d (${valid_to})`
+
+    <h5 id="check_certificate_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${subject}`
+
+    <h5 id="check_certificate_recursive">recursive:</h5>
+
+    Recurse into directories given via file=/path=.
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_certificate_location">location:</h5>
+
+    Windows store location: LocalMachine or CurrentUser. Windows only.
+
+    *Default Value:* `LocalMachine`
 
 
 <a id="check_certificate_filter_keys"></a>
@@ -808,6 +1193,268 @@ Windows store location: LocalMachine or CurrentUser. Windows only.
 | valid_to            | Not-after / expiry date (UTC)                                                                                                       |
 | weak_key            | True if the key is weak (RSA/DSA < 2048 bits, or EC < 256 bits)                                                                     |
 | weak_signature      | True if signed with a weak algorithm (MD5 or SHA-1)                                                                                 |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+### check_defender
+
+*Available on Windows only.*
+
+Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only.
+
+#### About `check_defender`
+
+`check_defender` reports Microsoft Defender's own health, read from
+`MSFT_MpComputerStatus` (WMI namespace `root\Microsoft\Windows\Defender`).
+Where `check_antivirus` reads Security Center's coarse "any AV registered /
+enabled / up-to-date" bits for *whatever* product is installed, this exposes the
+Defender-specific depth operators actually threshold on the very common
+Defender-only estate: how old the definitions are, when the machine last
+scanned, and whether real-time and tamper protection are on.
+
+Keywords (a single aggregate row):
+
+| Keyword             | Description                                                        |
+|---------------------|-------------------------------------------------------------------|
+| `enabled`           | 1 if Defender antivirus / service is enabled                      |
+| `realtime_enabled`  | 1 if real-time protection is on                                   |
+| `tamper_protection` | 1 if tamper protection is on                                      |
+| `signature_age`     | Antivirus signature (definition) age in **days** (-1 if unknown)  |
+| `quick_scan_age`    | Days since the last quick scan (-1 if never / unknown)            |
+| `full_scan_age`     | Days since the last full scan (-1 if never / unknown)             |
+| `engine_version`    | Anti-malware engine version                                       |
+| `signature_version` | Antivirus signature (definition) version                          |
+| `product_version`   | Defender platform / product version                               |
+
+Defaults: **WARNING** when `signature_age > 3`, **CRITICAL** when
+`enabled = 0 or realtime_enabled = 0 or signature_age > 7`. A negative
+(unknown / never) age never trips a threshold, so `full_scan_age` / `quick_scan_age`
+are informational unless you add your own thresholds.
+
+**Not-the-active-AV contract:** when a third-party antivirus has taken over,
+Defender's status class is unavailable. The check then returns **UNKNOWN** with
+an explanatory message (via the empty state) rather than a hard error — so it is
+safe to deploy fleet-wide and only alerts where Defender is actually the
+protecting product.
+
+**Jump to section:**
+
+* [Sample Commands](#check_defender_samples)
+* [Command-line Arguments](#check_defender_options)
+* [Filter keywords](#check_defender_filter_keys)
+
+
+<a id="check_defender_samples"></a>
+#### Sample Commands
+
+**Default check (healthy Defender):**
+
+```
+check_defender
+OK: Defender enabled=1 realtime=1 tamper=0 sig_age=0d sig=1.455.84.0 engine=1.1.26060.3008
+```
+
+**Alert only on protection state, ignore signature age:**
+
+```
+check_defender "warning=none" "critical=enabled = 0 or realtime_enabled = 0"
+OK: Defender enabled=1 realtime=1 tamper=0 sig_age=0d sig=1.455.84.0 engine=1.1.26060.3008
+```
+
+**Require tamper protection to be on:**
+
+```
+check_defender "critical=tamper_protection = 0"
+CRITICAL: Defender enabled=1 realtime=1 tamper=0 sig_age=0d sig=1.455.84.0 engine=1.1.26060.3008
+```
+
+**Tighten the signature-age thresholds (warn at 1 day, critical at 3):**
+
+```
+check_defender "warning=signature_age > 1" "critical=signature_age > 3"
+WARNING: Defender enabled=1 realtime=1 tamper=1 sig_age=2d sig=1.455.60.0 engine=1.1.26060.3008
+```
+
+**Also alert if no quick scan has run in the last week:**
+
+```
+check_defender "warning=signature_age > 3 or quick_scan_age > 7"
+OK: Defender enabled=1 realtime=1 tamper=1 sig_age=0d sig=1.455.84.0 engine=1.1.26060.3008
+```
+
+**Custom output listing scan ages and versions:**
+
+```
+check_defender "top-syntax=%(status): %(list)" "detail-syntax=sig=%(signature_age)d quick=%(quick_scan_age)d full=%(full_scan_age)d engine=%(engine_version)"
+OK: sig=0d quick=6d full=-1d engine=1.1.26060.3008
+```
+
+**Where a third-party antivirus is the active product (Defender status unavailable):**
+
+```
+check_defender
+UNKNOWN: Microsoft Defender status unavailable (not installed or another antivirus is active)
+```
+
+**Over NRPE against a remote host:**
+
+```
+check_nscp_client --host 192.168.56.103 --command check_defender --argument "warning=signature_age > 2"
+OK: Defender enabled=1 realtime=1 tamper=1 sig_age=0d sig=1.455.84.0 engine=1.1.26060.3008
+```
+
+
+
+<a id="check_defender_options"></a>
+#### Command-line Arguments
+
+<a id="check_defender_warn"></a>
+<a id="check_defender_crit"></a>
+<a id="check_defender_debug"></a>
+<a id="check_defender_show-all"></a>
+<a id="check_defender_escape-html"></a>
+<a id="check_defender_help"></a>
+<a id="check_defender_help-pb"></a>
+<a id="check_defender_show-default"></a>
+<a id="check_defender_help-short"></a>
+
+| Option                                         | Default Value                                                                                                                                                    | Description                                                                                                      |
+|------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_defender_filter)               |                                                                                                                                                                  | Filter which marks interesting items.                                                                            |
+| [warning](#check_defender_warning)             | signature_age > 3                                                                                                                                                | Filter which marks items which generates a warning state.                                                        |
+| warn                                           |                                                                                                                                                                  | Short alias for warning                                                                                          |
+| [critical](#check_defender_critical)           | enabled = 0 or realtime_enabled = 0 or signature_age > 7                                                                                                         | Filter which marks items which generates a critical state.                                                       |
+| crit                                           |                                                                                                                                                                  | Short alias for critical.                                                                                        |
+| [ok](#check_defender_ok)                       |                                                                                                                                                                  | Filter which marks items which generates an ok state.                                                            |
+| debug                                          | N/A                                                                                                                                                              | Show debugging information in the log                                                                            |
+| show-all                                       | N/A                                                                                                                                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_defender_empty-state)     | unknown                                                                                                                                                          | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_defender_perf-config)     |                                                                                                                                                                  | Performance data generation configuration                                                                        |
+| escape-html                                    | N/A                                                                                                                                                              | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                           | N/A                                                                                                                                                              | Show help screen (this screen)                                                                                   |
+| help-pb                                        | N/A                                                                                                                                                              | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                   | N/A                                                                                                                                                              | Show default values for a given command                                                                          |
+| help-short                                     | N/A                                                                                                                                                              | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_defender_top-syntax)       | ${status}: ${list}                                                                                                                                               | Top level syntax.                                                                                                |
+| [ok-syntax](#check_defender_ok-syntax)         | %(status): Microsoft Defender healthy (signature age ${signature_age}d)                                                                                          | ok syntax.                                                                                                       |
+| [empty-syntax](#check_defender_empty-syntax)   | %(status): Microsoft Defender status unavailable (not installed or another antivirus is active)                                                                  | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_defender_detail-syntax) | Defender enabled=${enabled} realtime=${realtime_enabled} tamper=${tamper_protection} sig_age=${signature_age}d sig=${signature_version} engine=${engine_version} | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_defender_perf-syntax)     | defender                                                                                                                                                         | Performance alias syntax.                                                                                        |
+
+
+
+<h5 id="check_defender_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_defender_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `signature_age > 3`
+
+<h5 id="check_defender_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `enabled = 0 or realtime_enabled = 0 or signature_age > 7`
+
+<h5 id="check_defender_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_defender_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `unknown`
+
+<h5 id="check_defender_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_defender_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_defender_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): Microsoft Defender healthy (signature age ${signature_age}d)`
+
+<h5 id="check_defender_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `%(status): Microsoft Defender status unavailable (not installed or another antivirus is active)`
+
+<h5 id="check_defender_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `Defender enabled=${enabled} realtime=${realtime_enabled} tamper=${tamper_protection} sig_age=${signature_age}d sig=${signature_version} engine=${engine_version}`
+
+<h5 id="check_defender_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `defender`
+
+
+<a id="check_defender_filter_keys"></a>
+#### Filter keywords
+
+| Option            | Description                                          |
+|-------------------|------------------------------------------------------|
+| enabled           | True if Defender antivirus/service is enabled        |
+| engine_version    | Defender anti-malware engine version                 |
+| full_scan_age     | Days since the last full scan (-1 if never/unknown)  |
+| product_version   | Defender platform/product version                    |
+| quick_scan_age    | Days since the last quick scan (-1 if never/unknown) |
+| realtime_enabled  | True if real-time protection is on                   |
+| signature_age     | Antivirus signature age in days (-1 if unknown)      |
+| signature_version | Antivirus signature (definition) version             |
+| tamper_protection | True if tamper protection is on                      |
 
 **Common options for all checks:**
 
@@ -937,120 +1584,239 @@ L        cli UNKNOWN: check_firewall is not supported on this platform (Windows-
 <a id="check_firewall_options"></a>
 #### Command-line Arguments
 
-<a id="check_firewall_warn"></a>
-<a id="check_firewall_crit"></a>
-<a id="check_firewall_debug"></a>
-<a id="check_firewall_show-all"></a>
-<a id="check_firewall_escape-html"></a>
-<a id="check_firewall_help"></a>
-<a id="check_firewall_help-pb"></a>
-<a id="check_firewall_show-default"></a>
-<a id="check_firewall_help-short"></a>
+=== "Windows"
 
-| Option                                         | Default Value                                       | Description                                                                                                      |
-|------------------------------------------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_firewall_filter)               |                                                     | Filter which marks interesting items.                                                                            |
-| [warning](#check_firewall_warning)             |                                                     | Filter which marks items which generates a warning state.                                                        |
-| warn                                           |                                                     | Short alias for warning                                                                                          |
-| [critical](#check_firewall_critical)           | enabled = 0                                         | Filter which marks items which generates a critical state.                                                       |
-| crit                                           |                                                     | Short alias for critical.                                                                                        |
-| [ok](#check_firewall_ok)                       |                                                     | Filter which marks items which generates an ok state.                                                            |
-| debug                                          | N/A                                                 | Show debugging information in the log                                                                            |
-| show-all                                       | N/A                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_firewall_empty-state)     | unknown                                             | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_firewall_perf-config)     |                                                     | Performance data generation configuration                                                                        |
-| escape-html                                    | N/A                                                 | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                           | N/A                                                 | Show help screen (this screen)                                                                                   |
-| help-pb                                        | N/A                                                 | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                   | N/A                                                 | Show default values for a given command                                                                          |
-| help-short                                     | N/A                                                 | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_firewall_top-syntax)       | ${status}: ${problem_list}                          | Top level syntax.                                                                                                |
-| [ok-syntax](#check_firewall_ok-syntax)         | %(status): all %(count) firewall profile(s) enabled | ok syntax.                                                                                                       |
-| [empty-syntax](#check_firewall_empty-syntax)   | No firewall profiles found                          | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_firewall_detail-syntax) | ${profile}=${enabled}                               | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_firewall_perf-syntax)     | ${profile}                                          | Performance alias syntax.                                                                                        |
+    <a id="check_firewall_warn"></a>
+    <a id="check_firewall_crit"></a>
+    <a id="check_firewall_debug"></a>
+    <a id="check_firewall_show-all"></a>
+    <a id="check_firewall_escape-html"></a>
+    <a id="check_firewall_help"></a>
+    <a id="check_firewall_help-pb"></a>
+    <a id="check_firewall_show-default"></a>
+    <a id="check_firewall_help-short"></a>
 
-
-
-<h5 id="check_firewall_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_firewall_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    | Option                                         | Default Value                                       | Description                                                                                                      |
+    |------------------------------------------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_firewall_filter)               |                                                     | Filter which marks interesting items.                                                                            |
+    | [warning](#check_firewall_warning)             |                                                     | Filter which marks items which generates a warning state.                                                        |
+    | warn                                           |                                                     | Short alias for warning                                                                                          |
+    | [critical](#check_firewall_critical)           | enabled = 0                                         | Filter which marks items which generates a critical state.                                                       |
+    | crit                                           |                                                     | Short alias for critical.                                                                                        |
+    | [ok](#check_firewall_ok)                       |                                                     | Filter which marks items which generates an ok state.                                                            |
+    | debug                                          | N/A                                                 | Show debugging information in the log                                                                            |
+    | show-all                                       | N/A                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_firewall_empty-state)     | unknown                                             | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_firewall_perf-config)     |                                                     | Performance data generation configuration                                                                        |
+    | escape-html                                    | N/A                                                 | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                           | N/A                                                 | Show help screen (this screen)                                                                                   |
+    | help-pb                                        | N/A                                                 | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                   | N/A                                                 | Show default values for a given command                                                                          |
+    | help-short                                     | N/A                                                 | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_firewall_top-syntax)       | ${status}: ${problem_list}                          | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_firewall_ok-syntax)         | %(status): all %(count) firewall profile(s) enabled | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_firewall_empty-syntax)   | No firewall profiles found                          | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_firewall_detail-syntax) | ${profile}=${enabled}                               | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_firewall_perf-syntax)     | ${profile}                                          | Performance alias syntax.                                                                                        |
 
 
 
-<h5 id="check_firewall_critical">critical:</h5>
+    <h5 id="check_firewall_filter">filter:</h5>
 
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-*Default Value:* `enabled = 0`
-
-<h5 id="check_firewall_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-<h5 id="check_firewall_empty-state">empty-state:</h5>
+    <h5 id="check_firewall_warning">warning:</h5>
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="check_firewall_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_firewall_top-syntax">top-syntax:</h5>
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_firewall_critical">critical:</h5>
 
-*Default Value:* `${status}: ${problem_list}`
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
-<h5 id="check_firewall_ok-syntax">ok-syntax:</h5>
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    *Default Value:* `enabled = 0`
 
-*Default Value:* `%(status): all %(count) firewall profile(s) enabled`
+    <h5 id="check_firewall_ok">ok:</h5>
 
-<h5 id="check_firewall_empty-syntax">empty-syntax:</h5>
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
 
-*Default Value:* `No firewall profiles found`
+    <h5 id="check_firewall_empty-state">empty-state:</h5>
 
-<h5 id="check_firewall_detail-syntax">detail-syntax:</h5>
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    *Default Value:* `unknown`
 
-*Default Value:* `${profile}=${enabled}`
+    <h5 id="check_firewall_perf-config">perf-config:</h5>
 
-<h5 id="check_firewall_perf-syntax">perf-syntax:</h5>
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
 
-*Default Value:* `${profile}`
+    <h5 id="check_firewall_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${problem_list}`
+
+    <h5 id="check_firewall_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): all %(count) firewall profile(s) enabled`
+
+    <h5 id="check_firewall_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No firewall profiles found`
+
+    <h5 id="check_firewall_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${profile}=${enabled}`
+
+    <h5 id="check_firewall_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${profile}`
+
+=== "Linux"
+
+    <a id="check_firewall_warn"></a>
+    <a id="check_firewall_crit"></a>
+    <a id="check_firewall_debug"></a>
+    <a id="check_firewall_show-all"></a>
+    <a id="check_firewall_escape-html"></a>
+    <a id="check_firewall_help"></a>
+    <a id="check_firewall_help-pb"></a>
+    <a id="check_firewall_show-default"></a>
+    <a id="check_firewall_help-short"></a>
+
+    | Option                                         | Default Value                                       | Description                                                                                                      |
+    |------------------------------------------------|-----------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_firewall_filter)               |                                                     | Filter which marks interesting items.                                                                            |
+    | [warning](#check_firewall_warning)             |                                                     | Filter which marks items which generates a warning state.                                                        |
+    | warn                                           |                                                     | Short alias for warning                                                                                          |
+    | [critical](#check_firewall_critical)           | enabled = 0                                         | Filter which marks items which generates a critical state.                                                       |
+    | crit                                           |                                                     | Short alias for critical.                                                                                        |
+    | [ok](#check_firewall_ok)                       |                                                     | Filter which marks items which generates an ok state.                                                            |
+    | debug                                          | N/A                                                 | Show debugging information in the log                                                                            |
+    | show-all                                       | N/A                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_firewall_empty-state)     | unknown                                             | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_firewall_perf-config)     |                                                     | Performance data generation configuration                                                                        |
+    | escape-html                                    | N/A                                                 | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                           | N/A                                                 | Show help screen (this screen)                                                                                   |
+    | help-pb                                        | N/A                                                 | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                   | N/A                                                 | Show default values for a given command                                                                          |
+    | help-short                                     | N/A                                                 | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_firewall_top-syntax)       | ${status}: ${problem_list}                          | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_firewall_ok-syntax)         | %(status): all %(count) firewall profile(s) enabled | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_firewall_empty-syntax)   | No firewall profiles found                          | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_firewall_detail-syntax) | ${profile}=${enabled}                               | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_firewall_perf-syntax)     | ${profile}                                          | Performance alias syntax.                                                                                        |
+
+
+
+    <h5 id="check_firewall_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_firewall_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+
+    <h5 id="check_firewall_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `enabled = 0`
+
+    <h5 id="check_firewall_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_firewall_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_firewall_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_firewall_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${problem_list}`
+
+    <h5 id="check_firewall_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): all %(count) firewall profile(s) enabled`
+
+    <h5 id="check_firewall_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No firewall profiles found`
+
+    <h5 id="check_firewall_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${profile}=${enabled}`
+
+    <h5 id="check_firewall_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${profile}`
 
 
 <a id="check_firewall_filter_keys"></a>
@@ -1110,6 +1876,522 @@ This is the syntax for the base names of the performance data.
     | total         | Total number of items.                                                         |
     | warn_count    | Number of items matched the warning criteria.                                  |
     | warn_list     | A list of all items which matched the warning criteria.                        |
+
+### check_group_members
+
+*Available on Windows only.*
+
+Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.
+
+#### About `check_group_members`
+
+`check_group_members` reports the membership of a **local group** (default
+`Administrators`) via `NetLocalGroupGetMembers`, and — given an expected
+allow-list — alerts on **membership drift**: any member that is not on the list.
+This is the standard "who is in the local Administrators group, and did that
+change?" check.
+
+Keywords (one row per member):
+
+| Keyword    | Description                                                          |
+|------------|---------------------------------------------------------------------|
+| `group`    | The local group being checked                                       |
+| `member`   | Member as `DOMAIN\name`                                             |
+| `name`     | Member name component                                               |
+| `domain`   | Member domain component (`BUILTIN`, machine name, AD domain, …)     |
+| `sid`      | Member SID                                                          |
+| `type`     | Member type: `user`, `group`, `wellknown`, `alias`, `deleted`, …    |
+| `expected` | `1` if the member is on the `expected=` allow-list (or none given)  |
+
+Options:
+
+| Option      | Description                                                                                 |
+|-------------|---------------------------------------------------------------------------------------------|
+| `group`     | Local group to inspect (default `Administrators`)                                            |
+| `expected`  | An allowed member (repeatable), matched against `DOMAIN\name` or the bare name               |
+
+Default: **CRITICAL** on drift (`expected = 0`). When no `expected=` list is
+given, every member is treated as expected, so the check simply **lists** the
+group's members and is OK. empty-state is **OK**; a group that does not exist is
+reported as an error.
+
+`expected=` entries match case-insensitively against either the full
+`DOMAIN\name` (e.g. `BUILTIN\Administrators`, `MYPC\localadmin`) or just the
+name (`Administrator`, `Domain Admins`).
+
+**Jump to section:**
+
+* [Sample Commands](#check_group_members_samples)
+* [Command-line Arguments](#check_group_members_options)
+* [Filter keywords](#check_group_members_filter_keys)
+
+
+<a id="check_group_members_samples"></a>
+#### Sample Commands
+
+**List the local Administrators group (no allow-list → just enumerate):**
+
+```
+check_group_members
+OK: MYPC\Administrator (user), MYPC\localadmin (user), PRICER\Domain Admins (group)
+```
+
+**Alert if the Administrators group contains anyone unexpected (drift detection):**
+
+```
+check_group_members expected=Administrator "expected=Domain Admins" expected=localadmin
+OK: All 3 member(s) are on the expected list.
+```
+
+**Drift detected — an unexpected member is present:**
+
+```
+check_group_members expected=Administrator "expected=Domain Admins"
+CRITICAL: MYPC\intern (user)
+```
+
+**Check a different group:**
+
+```
+check_group_members group="Remote Desktop Users" expected=helpdesk
+OK: All 1 member(s) are on the expected list.
+```
+
+**Alert if a group should have no direct user members (only groups):**
+
+```
+check_group_members group=Administrators "crit=type = 'user'"
+OK: All 2 member(s) are on the expected list.
+```
+
+**List members with their type and SID:**
+
+```
+check_group_members "top-syntax=%(status): %(list)" "detail-syntax=%(member) [%(type)] %(sid)"
+OK: MYPC\Administrator [user] S-1-5-21-...-500, PRICER\Domain Admins [group] S-1-5-21-...-512
+```
+
+**A group that does not exist is reported as an error:**
+
+```
+check_group_members group=NoSuchGroup
+UNKNOWN: Local group not found: NoSuchGroup
+```
+
+**Over NRPE:**
+
+```
+check_nscp_client --host 192.168.56.103 --command check_group_members --argument "expected=Administrator" --argument "expected=Domain Admins"
+OK: All 2 member(s) are on the expected list.
+```
+
+
+
+<a id="check_group_members_options"></a>
+#### Command-line Arguments
+
+<a id="check_group_members_warn"></a>
+<a id="check_group_members_crit"></a>
+<a id="check_group_members_debug"></a>
+<a id="check_group_members_show-all"></a>
+<a id="check_group_members_escape-html"></a>
+<a id="check_group_members_help"></a>
+<a id="check_group_members_help-pb"></a>
+<a id="check_group_members_show-default"></a>
+<a id="check_group_members_help-short"></a>
+<a id="check_group_members_group"></a>
+<a id="check_group_members_expected"></a>
+
+| Option                                              | Default Value                                               | Description                                                                                                                                                            |
+|-----------------------------------------------------|-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_group_members_filter)               |                                                             | Filter which marks interesting items.                                                                                                                                  |
+| [warning](#check_group_members_warning)             |                                                             | Filter which marks items which generates a warning state.                                                                                                              |
+| warn                                                |                                                             | Short alias for warning                                                                                                                                                |
+| [critical](#check_group_members_critical)           | expected = 0                                                | Filter which marks items which generates a critical state.                                                                                                             |
+| crit                                                |                                                             | Short alias for critical.                                                                                                                                              |
+| [ok](#check_group_members_ok)                       |                                                             | Filter which marks items which generates an ok state.                                                                                                                  |
+| debug                                               | N/A                                                         | Show debugging information in the log                                                                                                                                  |
+| show-all                                            | N/A                                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                       |
+| [empty-state](#check_group_members_empty-state)     | ok                                                          | Return status to use when nothing matched filter.                                                                                                                      |
+| [perf-config](#check_group_members_perf-config)     |                                                             | Performance data generation configuration                                                                                                                              |
+| escape-html                                         | N/A                                                         | Escape any < and > characters to prevent HTML encoding                                                                                                                 |
+| help                                                | N/A                                                         | Show help screen (this screen)                                                                                                                                         |
+| help-pb                                             | N/A                                                         | Show help screen as a protocol buffer payload                                                                                                                          |
+| show-default                                        | N/A                                                         | Show default values for a given command                                                                                                                                |
+| help-short                                          | N/A                                                         | Show help screen (short format).                                                                                                                                       |
+| [top-syntax](#check_group_members_top-syntax)       | ${status}: ${list}                                          | Top level syntax.                                                                                                                                                      |
+| [ok-syntax](#check_group_members_ok-syntax)         | %(status): All %(count) member(s) are on the expected list. | ok syntax.                                                                                                                                                             |
+| [empty-syntax](#check_group_members_empty-syntax)   | %(status): Group is empty                                   | Empty syntax.                                                                                                                                                          |
+| [detail-syntax](#check_group_members_detail-syntax) | ${member} (${type})                                         | Detail level syntax.                                                                                                                                                   |
+| [perf-syntax](#check_group_members_perf-syntax)     | ${member}                                                   | Performance alias syntax.                                                                                                                                              |
+| group                                               |                                                             | Local group to inspect (default: Administrators)                                                                                                                       |
+| expected                                            |                                                             | An allowed member (repeatable), matched against 'DOMAIN\name' or the bare name. Any member NOT on this list is CRITICAL. When omitted, all members are listed instead. |
+
+
+
+<h5 id="check_group_members_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_group_members_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+
+<h5 id="check_group_members_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `expected = 0`
+
+<h5 id="check_group_members_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_group_members_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ok`
+
+<h5 id="check_group_members_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_group_members_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_group_members_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): All %(count) member(s) are on the expected list.`
+
+<h5 id="check_group_members_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `%(status): Group is empty`
+
+<h5 id="check_group_members_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${member} (${type})`
+
+<h5 id="check_group_members_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${member}`
+
+
+<a id="check_group_members_filter_keys"></a>
+#### Filter keywords
+
+| Option   | Description                                                              |
+|----------|--------------------------------------------------------------------------|
+| domain   | Member domain component (BUILTIN, machine, AD domain, ...)               |
+| expected | True if the member is on the expected= allow-list (or no list was given) |
+| group    | The local group being checked                                            |
+| member   | Member as 'DOMAIN\name'                                                  |
+| name     | Member name component                                                    |
+| sid      | Member SID                                                               |
+| type     | Member type: user, group, wellknown, alias, deleted, unknown             |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
+
+### check_local_accounts
+
+*Available on Windows only.*
+
+Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.
+
+#### About `check_local_accounts`
+
+`check_local_accounts` reports **local user account hygiene** — the findings
+security baselines care about — from `Win32_UserAccount` (`LocalAccount=TRUE`).
+It produces one row per local account so you can express your own policy with
+filter expressions.
+
+Keywords (one row per local account):
+
+| Keyword             | Description                                                          |
+|---------------------|---------------------------------------------------------------------|
+| `name`              | Account name                                                        |
+| `sid`               | Account SID                                                         |
+| `disabled`          | `1` if the account is disabled                                      |
+| `enabled`           | `1` if the account is enabled (convenience inverse of `disabled`)   |
+| `locked`            | `1` if the account is locked out                                    |
+| `password_required` | `1` if a password is required to log on                             |
+| `password_expires`  | `1` if the password is set to expire                                |
+| `is_builtin_admin`  | `1` for the built-in Administrator (RID 500)                        |
+| `is_builtin_guest`  | `1` for the built-in Guest (RID 501)                                |
+
+Defaults: **WARNING** if the built-in Guest account is enabled
+(`enabled = 1 and is_builtin_guest = 1`), **CRITICAL** if an enabled account
+requires no password (`enabled = 1 and password_required = 0`). Both are
+low-false-positive on a hardened host. empty-state is **OK**.
+
+Build stricter policies from the keywords, e.g. a password that never expires on
+an enabled account (`enabled = 1 and password_expires = 0`), the built-in
+Administrator being enabled (`is_builtin_admin = 1 and enabled = 1`), or
+locked-out accounts (`locked = 1`). `LocalAccount=TRUE` scopes the query to the
+local SAM, so domain accounts are never enumerated.
+
+**Jump to section:**
+
+* [Sample Commands](#check_local_accounts_samples)
+* [Command-line Arguments](#check_local_accounts_options)
+* [Filter keywords](#check_local_accounts_filter_keys)
+
+
+<a id="check_local_accounts_samples"></a>
+#### Sample Commands
+
+**Default hygiene check:**
+
+```
+check_local_accounts
+OK: All 5 local account(s) ok.
+```
+
+**A finding — an enabled account with no password required (default CRITICAL):**
+
+```
+check_local_accounts
+CRITICAL: kiosk (enabled=1, pw_req=0, pw_exp=0, locked=0)
+```
+
+**Alert if the built-in Administrator account is enabled (hardening baseline):**
+
+```
+check_local_accounts "crit=is_builtin_admin = 1 and enabled = 1"
+OK: All 5 local account(s) ok.
+```
+
+**Alert on enabled accounts whose password never expires:**
+
+```
+check_local_accounts "warn=enabled = 1 and password_expires = 0"
+WARNING: svc_backup (enabled=1, pw_req=1, pw_exp=0, locked=0)
+```
+
+**Report locked-out accounts:**
+
+```
+check_local_accounts "filter=locked = 1" "warn=count > 0" "empty-state=ok"
+OK: No local accounts found
+```
+
+**List every local account with its flags:**
+
+```
+check_local_accounts "warn=none" "crit=none" "top-syntax=%(status): %(list)" "detail-syntax=%(name) enabled=%(enabled) pw_req=%(password_required) pw_exp=%(password_expires)"
+OK: Administrator enabled=0 pw_req=1 pw_exp=0, Guest enabled=0 pw_req=0 pw_exp=0, ...
+```
+
+**Over NRPE:**
+
+```
+check_nscp_client --host 192.168.56.103 --command check_local_accounts --argument "crit=enabled = 1 and password_required = 0"
+OK: All 5 local account(s) ok.
+```
+
+
+
+<a id="check_local_accounts_options"></a>
+#### Command-line Arguments
+
+<a id="check_local_accounts_warn"></a>
+<a id="check_local_accounts_crit"></a>
+<a id="check_local_accounts_debug"></a>
+<a id="check_local_accounts_show-all"></a>
+<a id="check_local_accounts_escape-html"></a>
+<a id="check_local_accounts_help"></a>
+<a id="check_local_accounts_help-pb"></a>
+<a id="check_local_accounts_show-default"></a>
+<a id="check_local_accounts_help-short"></a>
+
+| Option                                               | Default Value                                                                                           | Description                                                                                                      |
+|------------------------------------------------------|---------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_local_accounts_filter)               |                                                                                                         | Filter which marks interesting items.                                                                            |
+| [warning](#check_local_accounts_warning)             | enabled = 1 and is_builtin_guest = 1                                                                    | Filter which marks items which generates a warning state.                                                        |
+| warn                                                 |                                                                                                         | Short alias for warning                                                                                          |
+| [critical](#check_local_accounts_critical)           | enabled = 1 and password_required = 0                                                                   | Filter which marks items which generates a critical state.                                                       |
+| crit                                                 |                                                                                                         | Short alias for critical.                                                                                        |
+| [ok](#check_local_accounts_ok)                       |                                                                                                         | Filter which marks items which generates an ok state.                                                            |
+| debug                                                | N/A                                                                                                     | Show debugging information in the log                                                                            |
+| show-all                                             | N/A                                                                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_local_accounts_empty-state)     | ok                                                                                                      | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_local_accounts_perf-config)     |                                                                                                         | Performance data generation configuration                                                                        |
+| escape-html                                          | N/A                                                                                                     | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                                 | N/A                                                                                                     | Show help screen (this screen)                                                                                   |
+| help-pb                                              | N/A                                                                                                     | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                         | N/A                                                                                                     | Show default values for a given command                                                                          |
+| help-short                                           | N/A                                                                                                     | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_local_accounts_top-syntax)       | ${status}: ${list}                                                                                      | Top level syntax.                                                                                                |
+| [ok-syntax](#check_local_accounts_ok-syntax)         | %(status): All %(count) local account(s) ok.                                                            | ok syntax.                                                                                                       |
+| [empty-syntax](#check_local_accounts_empty-syntax)   | %(status): No local accounts found                                                                      | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_local_accounts_detail-syntax) | ${name} (enabled=${enabled}, pw_req=${password_required}, pw_exp=${password_expires}, locked=${locked}) | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_local_accounts_perf-syntax)     | ${name}                                                                                                 | Performance alias syntax.                                                                                        |
+
+
+
+<h5 id="check_local_accounts_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_local_accounts_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `enabled = 1 and is_builtin_guest = 1`
+
+<h5 id="check_local_accounts_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `enabled = 1 and password_required = 0`
+
+<h5 id="check_local_accounts_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_local_accounts_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ok`
+
+<h5 id="check_local_accounts_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_local_accounts_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_local_accounts_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): All %(count) local account(s) ok.`
+
+<h5 id="check_local_accounts_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `%(status): No local accounts found`
+
+<h5 id="check_local_accounts_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${name} (enabled=${enabled}, pw_req=${password_required}, pw_exp=${password_expires}, locked=${locked})`
+
+<h5 id="check_local_accounts_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${name}`
+
+
+<a id="check_local_accounts_filter_keys"></a>
+#### Filter keywords
+
+| Option            | Description                                           |
+|-------------------|-------------------------------------------------------|
+| disabled          | True if the account is disabled                       |
+| enabled           | True if the account is enabled                        |
+| is_builtin_admin  | True for the built-in Administrator account (RID 500) |
+| is_builtin_guest  | True for the built-in Guest account (RID 501)         |
+| locked            | True if the account is locked out                     |
+| name              | Account name                                          |
+| password_expires  | True if the password is set to expire                 |
+| password_required | True if a password is required to log on              |
+| sid               | Account SID                                           |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                    |
+|---------------|--------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                           |
+| crit_count    | Number of items matched the critical criteria.                                 |
+| crit_list     | A list of all items which matched the critical criteria.                       |
+| detail_list   | A special list with critical, then warning and finally ok.                     |
+| list          | A list of all items which matched the filter.                                  |
+| ok_count      | Number of items matched the ok criteria.                                       |
+| ok_list       | A list of all items which matched the ok criteria.                             |
+| problem_count | Number of items matched either warning or critical criteria.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
+| total         | Total number of items.                                                         |
+| warn_count    | Number of items matched the warning criteria.                                  |
+| warn_list     | A list of all items which matched the warning criteria.                        |
 
 ### check_nla
 
@@ -1182,119 +2464,237 @@ L        cli UNKNOWN: check_nla is not supported on this platform (Windows Netwo
 <a id="check_nla_options"></a>
 #### Command-line Arguments
 
-<a id="check_nla_warn"></a>
-<a id="check_nla_crit"></a>
-<a id="check_nla_debug"></a>
-<a id="check_nla_show-all"></a>
-<a id="check_nla_escape-html"></a>
-<a id="check_nla_help"></a>
-<a id="check_nla_help-pb"></a>
-<a id="check_nla_show-default"></a>
-<a id="check_nla_help-short"></a>
+=== "Windows"
 
-| Option                                    | Default Value              | Description                                                                                                      |
-|-------------------------------------------|----------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_nla_filter)               |                            | Filter which marks interesting items.                                                                            |
-| [warning](#check_nla_warning)             |                            | Filter which marks items which generates a warning state.                                                        |
-| warn                                      |                            | Short alias for warning                                                                                          |
-| [critical](#check_nla_critical)           |                            | Filter which marks items which generates a critical state.                                                       |
-| crit                                      |                            | Short alias for critical.                                                                                        |
-| [ok](#check_nla_ok)                       |                            | Filter which marks items which generates an ok state.                                                            |
-| debug                                     | N/A                        | Show debugging information in the log                                                                            |
-| show-all                                  | N/A                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_nla_empty-state)     | ok                         | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_nla_perf-config)     |                            | Performance data generation configuration                                                                        |
-| escape-html                               | N/A                        | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                      | N/A                        | Show help screen (this screen)                                                                                   |
-| help-pb                                   | N/A                        | Show help screen as a protocol buffer payload                                                                    |
-| show-default                              | N/A                        | Show default values for a given command                                                                          |
-| help-short                                | N/A                        | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_nla_top-syntax)       | ${status}: ${list}         | Top level syntax.                                                                                                |
-| [ok-syntax](#check_nla_ok-syntax)         | ${status}: all networks ok | ok syntax.                                                                                                       |
-| [empty-syntax](#check_nla_empty-syntax)   | No networks found          | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_nla_detail-syntax) | ${network}=${category}     | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_nla_perf-syntax)     | ${network}                 | Performance alias syntax.                                                                                        |
+    <a id="check_nla_warn"></a>
+    <a id="check_nla_crit"></a>
+    <a id="check_nla_debug"></a>
+    <a id="check_nla_show-all"></a>
+    <a id="check_nla_escape-html"></a>
+    <a id="check_nla_help"></a>
+    <a id="check_nla_help-pb"></a>
+    <a id="check_nla_show-default"></a>
+    <a id="check_nla_help-short"></a>
 
-
-
-<h5 id="check_nla_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_nla_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    | Option                                    | Default Value              | Description                                                                                                      |
+    |-------------------------------------------|----------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_nla_filter)               |                            | Filter which marks interesting items.                                                                            |
+    | [warning](#check_nla_warning)             |                            | Filter which marks items which generates a warning state.                                                        |
+    | warn                                      |                            | Short alias for warning                                                                                          |
+    | [critical](#check_nla_critical)           |                            | Filter which marks items which generates a critical state.                                                       |
+    | crit                                      |                            | Short alias for critical.                                                                                        |
+    | [ok](#check_nla_ok)                       |                            | Filter which marks items which generates an ok state.                                                            |
+    | debug                                     | N/A                        | Show debugging information in the log                                                                            |
+    | show-all                                  | N/A                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_nla_empty-state)     | ok                         | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_nla_perf-config)     |                            | Performance data generation configuration                                                                        |
+    | escape-html                               | N/A                        | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                      | N/A                        | Show help screen (this screen)                                                                                   |
+    | help-pb                                   | N/A                        | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                              | N/A                        | Show default values for a given command                                                                          |
+    | help-short                                | N/A                        | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_nla_top-syntax)       | ${status}: ${list}         | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_nla_ok-syntax)         | ${status}: all networks ok | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_nla_empty-syntax)   | No networks found          | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_nla_detail-syntax) | ${network}=${category}     | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_nla_perf-syntax)     | ${network}                 | Performance alias syntax.                                                                                        |
 
 
 
-<h5 id="check_nla_critical">critical:</h5>
+    <h5 id="check_nla_filter">filter:</h5>
 
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-
-<h5 id="check_nla_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-<h5 id="check_nla_empty-state">empty-state:</h5>
+    <h5 id="check_nla_warning">warning:</h5>
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ok`
-
-<h5 id="check_nla_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_nla_top-syntax">top-syntax:</h5>
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_nla_critical">critical:</h5>
 
-*Default Value:* `${status}: ${list}`
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
-<h5 id="check_nla_ok-syntax">ok-syntax:</h5>
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
 
-*Default Value:* `${status}: all networks ok`
+    <h5 id="check_nla_ok">ok:</h5>
 
-<h5 id="check_nla_empty-syntax">empty-syntax:</h5>
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
 
-*Default Value:* `No networks found`
+    <h5 id="check_nla_empty-state">empty-state:</h5>
 
-<h5 id="check_nla_detail-syntax">detail-syntax:</h5>
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    *Default Value:* `ok`
 
-*Default Value:* `${network}=${category}`
+    <h5 id="check_nla_perf-config">perf-config:</h5>
 
-<h5 id="check_nla_perf-syntax">perf-syntax:</h5>
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
 
-*Default Value:* `${network}`
+    <h5 id="check_nla_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${list}`
+
+    <h5 id="check_nla_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: all networks ok`
+
+    <h5 id="check_nla_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No networks found`
+
+    <h5 id="check_nla_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${network}=${category}`
+
+    <h5 id="check_nla_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${network}`
+
+=== "Linux"
+
+    <a id="check_nla_warn"></a>
+    <a id="check_nla_crit"></a>
+    <a id="check_nla_debug"></a>
+    <a id="check_nla_show-all"></a>
+    <a id="check_nla_escape-html"></a>
+    <a id="check_nla_help"></a>
+    <a id="check_nla_help-pb"></a>
+    <a id="check_nla_show-default"></a>
+    <a id="check_nla_help-short"></a>
+
+    | Option                                    | Default Value              | Description                                                                                                      |
+    |-------------------------------------------|----------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_nla_filter)               |                            | Filter which marks interesting items.                                                                            |
+    | [warning](#check_nla_warning)             |                            | Filter which marks items which generates a warning state.                                                        |
+    | warn                                      |                            | Short alias for warning                                                                                          |
+    | [critical](#check_nla_critical)           |                            | Filter which marks items which generates a critical state.                                                       |
+    | crit                                      |                            | Short alias for critical.                                                                                        |
+    | [ok](#check_nla_ok)                       |                            | Filter which marks items which generates an ok state.                                                            |
+    | debug                                     | N/A                        | Show debugging information in the log                                                                            |
+    | show-all                                  | N/A                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_nla_empty-state)     | ok                         | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_nla_perf-config)     |                            | Performance data generation configuration                                                                        |
+    | escape-html                               | N/A                        | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                      | N/A                        | Show help screen (this screen)                                                                                   |
+    | help-pb                                   | N/A                        | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                              | N/A                        | Show default values for a given command                                                                          |
+    | help-short                                | N/A                        | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_nla_top-syntax)       | ${status}: ${list}         | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_nla_ok-syntax)         | ${status}: all networks ok | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_nla_empty-syntax)   | No networks found          | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_nla_detail-syntax) | ${network}=${category}     | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_nla_perf-syntax)     | ${network}                 | Performance alias syntax.                                                                                        |
+
+
+
+    <h5 id="check_nla_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_nla_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+
+    <h5 id="check_nla_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+
+    <h5 id="check_nla_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_nla_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `ok`
+
+    <h5 id="check_nla_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_nla_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${list}`
+
+    <h5 id="check_nla_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: all networks ok`
+
+    <h5 id="check_nla_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No networks found`
+
+    <h5 id="check_nla_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${network}=${category}`
+
+    <h5 id="check_nla_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${network}`
 
 
 <a id="check_nla_filter_keys"></a>
@@ -1393,120 +2793,239 @@ L        cli UNKNOWN: check_secureboot is not supported on this platform (Window
 <a id="check_secureboot_options"></a>
 #### Command-line Arguments
 
-<a id="check_secureboot_warn"></a>
-<a id="check_secureboot_crit"></a>
-<a id="check_secureboot_debug"></a>
-<a id="check_secureboot_show-all"></a>
-<a id="check_secureboot_escape-html"></a>
-<a id="check_secureboot_help"></a>
-<a id="check_secureboot_help-pb"></a>
-<a id="check_secureboot_show-default"></a>
-<a id="check_secureboot_help-short"></a>
+=== "Windows"
 
-| Option                                           | Default Value                                         | Description                                                                                                      |
-|--------------------------------------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_secureboot_filter)               |                                                       | Filter which marks interesting items.                                                                            |
-| [warning](#check_secureboot_warning)             |                                                       | Filter which marks items which generates a warning state.                                                        |
-| warn                                             |                                                       | Short alias for warning                                                                                          |
-| [critical](#check_secureboot_critical)           | enabled = 0                                           | Filter which marks items which generates a critical state.                                                       |
-| crit                                             |                                                       | Short alias for critical.                                                                                        |
-| [ok](#check_secureboot_ok)                       |                                                       | Filter which marks items which generates an ok state.                                                            |
-| debug                                            | N/A                                                   | Show debugging information in the log                                                                            |
-| show-all                                         | N/A                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_secureboot_empty-state)     | unknown                                               | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_secureboot_perf-config)     |                                                       | Performance data generation configuration                                                                        |
-| escape-html                                      | N/A                                                   | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                             | N/A                                                   | Show help screen (this screen)                                                                                   |
-| help-pb                                          | N/A                                                   | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                     | N/A                                                   | Show default values for a given command                                                                          |
-| help-short                                       | N/A                                                   | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_secureboot_top-syntax)       | ${status}: ${list}                                    | Top level syntax.                                                                                                |
-| [ok-syntax](#check_secureboot_ok-syntax)         | ${status}: secure boot is enabled                     | ok syntax.                                                                                                       |
-| [empty-syntax](#check_secureboot_empty-syntax)   | No Secure Boot state                                  | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_secureboot_detail-syntax) | secure boot enabled=${enabled} supported=${supported} | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_secureboot_perf-syntax)     | secureboot                                            | Performance alias syntax.                                                                                        |
+    <a id="check_secureboot_warn"></a>
+    <a id="check_secureboot_crit"></a>
+    <a id="check_secureboot_debug"></a>
+    <a id="check_secureboot_show-all"></a>
+    <a id="check_secureboot_escape-html"></a>
+    <a id="check_secureboot_help"></a>
+    <a id="check_secureboot_help-pb"></a>
+    <a id="check_secureboot_show-default"></a>
+    <a id="check_secureboot_help-short"></a>
 
-
-
-<h5 id="check_secureboot_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_secureboot_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    | Option                                           | Default Value                                         | Description                                                                                                      |
+    |--------------------------------------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_secureboot_filter)               |                                                       | Filter which marks interesting items.                                                                            |
+    | [warning](#check_secureboot_warning)             |                                                       | Filter which marks items which generates a warning state.                                                        |
+    | warn                                             |                                                       | Short alias for warning                                                                                          |
+    | [critical](#check_secureboot_critical)           | enabled = 0                                           | Filter which marks items which generates a critical state.                                                       |
+    | crit                                             |                                                       | Short alias for critical.                                                                                        |
+    | [ok](#check_secureboot_ok)                       |                                                       | Filter which marks items which generates an ok state.                                                            |
+    | debug                                            | N/A                                                   | Show debugging information in the log                                                                            |
+    | show-all                                         | N/A                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_secureboot_empty-state)     | unknown                                               | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_secureboot_perf-config)     |                                                       | Performance data generation configuration                                                                        |
+    | escape-html                                      | N/A                                                   | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                             | N/A                                                   | Show help screen (this screen)                                                                                   |
+    | help-pb                                          | N/A                                                   | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                     | N/A                                                   | Show default values for a given command                                                                          |
+    | help-short                                       | N/A                                                   | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_secureboot_top-syntax)       | ${status}: ${list}                                    | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_secureboot_ok-syntax)         | ${status}: secure boot is enabled                     | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_secureboot_empty-syntax)   | No Secure Boot state                                  | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_secureboot_detail-syntax) | secure boot enabled=${enabled} supported=${supported} | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_secureboot_perf-syntax)     | secureboot                                            | Performance alias syntax.                                                                                        |
 
 
 
-<h5 id="check_secureboot_critical">critical:</h5>
+    <h5 id="check_secureboot_filter">filter:</h5>
 
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-*Default Value:* `enabled = 0`
-
-<h5 id="check_secureboot_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-<h5 id="check_secureboot_empty-state">empty-state:</h5>
+    <h5 id="check_secureboot_warning">warning:</h5>
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="check_secureboot_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_secureboot_top-syntax">top-syntax:</h5>
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_secureboot_critical">critical:</h5>
 
-*Default Value:* `${status}: ${list}`
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
-<h5 id="check_secureboot_ok-syntax">ok-syntax:</h5>
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    *Default Value:* `enabled = 0`
 
-*Default Value:* `${status}: secure boot is enabled`
+    <h5 id="check_secureboot_ok">ok:</h5>
 
-<h5 id="check_secureboot_empty-syntax">empty-syntax:</h5>
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
 
-*Default Value:* `No Secure Boot state`
+    <h5 id="check_secureboot_empty-state">empty-state:</h5>
 
-<h5 id="check_secureboot_detail-syntax">detail-syntax:</h5>
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    *Default Value:* `unknown`
 
-*Default Value:* `secure boot enabled=${enabled} supported=${supported}`
+    <h5 id="check_secureboot_perf-config">perf-config:</h5>
 
-<h5 id="check_secureboot_perf-syntax">perf-syntax:</h5>
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
 
-*Default Value:* `secureboot`
+    <h5 id="check_secureboot_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${list}`
+
+    <h5 id="check_secureboot_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: secure boot is enabled`
+
+    <h5 id="check_secureboot_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No Secure Boot state`
+
+    <h5 id="check_secureboot_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `secure boot enabled=${enabled} supported=${supported}`
+
+    <h5 id="check_secureboot_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `secureboot`
+
+=== "Linux"
+
+    <a id="check_secureboot_warn"></a>
+    <a id="check_secureboot_crit"></a>
+    <a id="check_secureboot_debug"></a>
+    <a id="check_secureboot_show-all"></a>
+    <a id="check_secureboot_escape-html"></a>
+    <a id="check_secureboot_help"></a>
+    <a id="check_secureboot_help-pb"></a>
+    <a id="check_secureboot_show-default"></a>
+    <a id="check_secureboot_help-short"></a>
+
+    | Option                                           | Default Value                                         | Description                                                                                                      |
+    |--------------------------------------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_secureboot_filter)               |                                                       | Filter which marks interesting items.                                                                            |
+    | [warning](#check_secureboot_warning)             |                                                       | Filter which marks items which generates a warning state.                                                        |
+    | warn                                             |                                                       | Short alias for warning                                                                                          |
+    | [critical](#check_secureboot_critical)           | enabled = 0                                           | Filter which marks items which generates a critical state.                                                       |
+    | crit                                             |                                                       | Short alias for critical.                                                                                        |
+    | [ok](#check_secureboot_ok)                       |                                                       | Filter which marks items which generates an ok state.                                                            |
+    | debug                                            | N/A                                                   | Show debugging information in the log                                                                            |
+    | show-all                                         | N/A                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_secureboot_empty-state)     | unknown                                               | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_secureboot_perf-config)     |                                                       | Performance data generation configuration                                                                        |
+    | escape-html                                      | N/A                                                   | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                             | N/A                                                   | Show help screen (this screen)                                                                                   |
+    | help-pb                                          | N/A                                                   | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                     | N/A                                                   | Show default values for a given command                                                                          |
+    | help-short                                       | N/A                                                   | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_secureboot_top-syntax)       | ${status}: ${list}                                    | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_secureboot_ok-syntax)         | ${status}: secure boot is enabled                     | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_secureboot_empty-syntax)   | No Secure Boot state                                  | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_secureboot_detail-syntax) | secure boot enabled=${enabled} supported=${supported} | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_secureboot_perf-syntax)     | secureboot                                            | Performance alias syntax.                                                                                        |
+
+
+
+    <h5 id="check_secureboot_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_secureboot_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+
+    <h5 id="check_secureboot_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `enabled = 0`
+
+    <h5 id="check_secureboot_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_secureboot_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_secureboot_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_secureboot_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${list}`
+
+    <h5 id="check_secureboot_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: secure boot is enabled`
+
+    <h5 id="check_secureboot_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No Secure Boot state`
+
+    <h5 id="check_secureboot_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `secure boot enabled=${enabled} supported=${supported}`
+
+    <h5 id="check_secureboot_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `secureboot`
 
 
 <a id="check_secureboot_filter_keys"></a>
@@ -1620,119 +3139,237 @@ check_users "crit=session_state = 'disconnected'" "detail-syntax=${user} (${sess
 <a id="check_users_options"></a>
 #### Command-line Arguments
 
-<a id="check_users_warn"></a>
-<a id="check_users_crit"></a>
-<a id="check_users_debug"></a>
-<a id="check_users_show-all"></a>
-<a id="check_users_escape-html"></a>
-<a id="check_users_help"></a>
-<a id="check_users_help-pb"></a>
-<a id="check_users_show-default"></a>
-<a id="check_users_help-short"></a>
+=== "Windows"
 
-| Option                                      | Default Value                                  | Description                                                                                                      |
-|---------------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_users_filter)               |                                                | Filter which marks interesting items.                                                                            |
-| [warning](#check_users_warning)             |                                                | Filter which marks items which generates a warning state.                                                        |
-| warn                                        |                                                | Short alias for warning                                                                                          |
-| [critical](#check_users_critical)           |                                                | Filter which marks items which generates a critical state.                                                       |
-| crit                                        |                                                | Short alias for critical.                                                                                        |
-| [ok](#check_users_ok)                       |                                                | Filter which marks items which generates an ok state.                                                            |
-| debug                                       | N/A                                            | Show debugging information in the log                                                                            |
-| show-all                                    | N/A                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_users_empty-state)     | ok                                             | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_users_perf-config)     |                                                | Performance data generation configuration                                                                        |
-| escape-html                                 | N/A                                            | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                        | N/A                                            | Show help screen (this screen)                                                                                   |
-| help-pb                                     | N/A                                            | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                | N/A                                            | Show default values for a given command                                                                          |
-| help-short                                  | N/A                                            | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_users_top-syntax)       | ${status}: ${count} user(s) logged on: ${list} | Top level syntax.                                                                                                |
-| [ok-syntax](#check_users_ok-syntax)         | ${status}: ${count} user(s) logged on          | ok syntax.                                                                                                       |
-| [empty-syntax](#check_users_empty-syntax)   | No users logged on                             | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_users_detail-syntax) | ${user}                                        | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_users_perf-syntax)     | ${user}                                        | Performance alias syntax.                                                                                        |
+    <a id="check_users_warn"></a>
+    <a id="check_users_crit"></a>
+    <a id="check_users_debug"></a>
+    <a id="check_users_show-all"></a>
+    <a id="check_users_escape-html"></a>
+    <a id="check_users_help"></a>
+    <a id="check_users_help-pb"></a>
+    <a id="check_users_show-default"></a>
+    <a id="check_users_help-short"></a>
 
-
-
-<h5 id="check_users_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_users_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    | Option                                      | Default Value                                  | Description                                                                                                      |
+    |---------------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_users_filter)               |                                                | Filter which marks interesting items.                                                                            |
+    | [warning](#check_users_warning)             |                                                | Filter which marks items which generates a warning state.                                                        |
+    | warn                                        |                                                | Short alias for warning                                                                                          |
+    | [critical](#check_users_critical)           |                                                | Filter which marks items which generates a critical state.                                                       |
+    | crit                                        |                                                | Short alias for critical.                                                                                        |
+    | [ok](#check_users_ok)                       |                                                | Filter which marks items which generates an ok state.                                                            |
+    | debug                                       | N/A                                            | Show debugging information in the log                                                                            |
+    | show-all                                    | N/A                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_users_empty-state)     | ok                                             | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_users_perf-config)     |                                                | Performance data generation configuration                                                                        |
+    | escape-html                                 | N/A                                            | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                        | N/A                                            | Show help screen (this screen)                                                                                   |
+    | help-pb                                     | N/A                                            | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                | N/A                                            | Show default values for a given command                                                                          |
+    | help-short                                  | N/A                                            | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_users_top-syntax)       | ${status}: ${count} user(s) logged on: ${list} | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_users_ok-syntax)         | ${status}: ${count} user(s) logged on          | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_users_empty-syntax)   | No users logged on                             | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_users_detail-syntax) | ${user}                                        | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_users_perf-syntax)     | ${user}                                        | Performance alias syntax.                                                                                        |
 
 
 
-<h5 id="check_users_critical">critical:</h5>
+    <h5 id="check_users_filter">filter:</h5>
 
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-
-<h5 id="check_users_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-<h5 id="check_users_empty-state">empty-state:</h5>
+    <h5 id="check_users_warning">warning:</h5>
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ok`
-
-<h5 id="check_users_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_users_top-syntax">top-syntax:</h5>
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_users_critical">critical:</h5>
 
-*Default Value:* `${status}: ${count} user(s) logged on: ${list}`
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
-<h5 id="check_users_ok-syntax">ok-syntax:</h5>
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
 
-*Default Value:* `${status}: ${count} user(s) logged on`
+    <h5 id="check_users_ok">ok:</h5>
 
-<h5 id="check_users_empty-syntax">empty-syntax:</h5>
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
 
-*Default Value:* `No users logged on`
+    <h5 id="check_users_empty-state">empty-state:</h5>
 
-<h5 id="check_users_detail-syntax">detail-syntax:</h5>
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    *Default Value:* `ok`
 
-*Default Value:* `${user}`
+    <h5 id="check_users_perf-config">perf-config:</h5>
 
-<h5 id="check_users_perf-syntax">perf-syntax:</h5>
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
 
-*Default Value:* `${user}`
+    <h5 id="check_users_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${count} user(s) logged on: ${list}`
+
+    <h5 id="check_users_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: ${count} user(s) logged on`
+
+    <h5 id="check_users_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No users logged on`
+
+    <h5 id="check_users_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${user}`
+
+    <h5 id="check_users_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${user}`
+
+=== "Linux"
+
+    <a id="check_users_warn"></a>
+    <a id="check_users_crit"></a>
+    <a id="check_users_debug"></a>
+    <a id="check_users_show-all"></a>
+    <a id="check_users_escape-html"></a>
+    <a id="check_users_help"></a>
+    <a id="check_users_help-pb"></a>
+    <a id="check_users_show-default"></a>
+    <a id="check_users_help-short"></a>
+
+    | Option                                      | Default Value                                  | Description                                                                                                      |
+    |---------------------------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_users_filter)               |                                                | Filter which marks interesting items.                                                                            |
+    | [warning](#check_users_warning)             |                                                | Filter which marks items which generates a warning state.                                                        |
+    | warn                                        |                                                | Short alias for warning                                                                                          |
+    | [critical](#check_users_critical)           |                                                | Filter which marks items which generates a critical state.                                                       |
+    | crit                                        |                                                | Short alias for critical.                                                                                        |
+    | [ok](#check_users_ok)                       |                                                | Filter which marks items which generates an ok state.                                                            |
+    | debug                                       | N/A                                            | Show debugging information in the log                                                                            |
+    | show-all                                    | N/A                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#check_users_empty-state)     | ok                                             | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#check_users_perf-config)     |                                                | Performance data generation configuration                                                                        |
+    | escape-html                                 | N/A                                            | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                        | N/A                                            | Show help screen (this screen)                                                                                   |
+    | help-pb                                     | N/A                                            | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                | N/A                                            | Show default values for a given command                                                                          |
+    | help-short                                  | N/A                                            | Show help screen (short format).                                                                                 |
+    | [top-syntax](#check_users_top-syntax)       | ${status}: ${count} user(s) logged on: ${list} | Top level syntax.                                                                                                |
+    | [ok-syntax](#check_users_ok-syntax)         | ${status}: ${count} user(s) logged on          | ok syntax.                                                                                                       |
+    | [empty-syntax](#check_users_empty-syntax)   | No users logged on                             | Empty syntax.                                                                                                    |
+    | [detail-syntax](#check_users_detail-syntax) | ${user}                                        | Detail level syntax.                                                                                             |
+    | [perf-syntax](#check_users_perf-syntax)     | ${user}                                        | Performance alias syntax.                                                                                        |
+
+
+
+    <h5 id="check_users_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_users_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+
+    <h5 id="check_users_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+
+    <h5 id="check_users_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_users_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `ok`
+
+    <h5 id="check_users_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_users_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${count} user(s) logged on: ${list}`
+
+    <h5 id="check_users_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `${status}: ${count} user(s) logged on`
+
+    <h5 id="check_users_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No users logged on`
+
+    <h5 id="check_users_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${user}`
+
+    <h5 id="check_users_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${user}`
 
 
 <a id="check_users_filter_keys"></a>
