@@ -101,7 +101,7 @@ endmacro()
 
 macro(copy_single_file_755 _TARGET_LIST src destDir)
     copy_single_file_helper(${_TARGET_LIST} ${src} ${destDir} 1)
-    install(FILES ${target_file} DESTINATION ${INSTALL_FILES_BASE}${destDir})
+    install(PROGRAMS ${target_file} DESTINATION ${INSTALL_FILES_BASE}${destDir})
 endmacro()
 
 macro(CREATE_MODULE _SRCS _SOURCE _TARGET)
