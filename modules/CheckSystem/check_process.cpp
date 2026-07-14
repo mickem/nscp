@@ -36,6 +36,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("exe", &filter_obj::get_exe, "The name of the executable")
       .add_string_var("error", &filter_obj::get_error, "Any error messages associated with fetching info")
       .add_string_var("command_line", &filter_obj::get_command_line, "Command line of process (not always available)")
+      .add_string_var("username", &filter_obj::get_username, "Process owner as DOMAIN\\name (empty for processes whose token cannot be read)")
+      .add_string_var("uid", &filter_obj::get_uid, "Process owner SID (the Windows analogue of a Unix uid)")
       .add_string_var("legacy_state", &filter_obj::get_legacy_state_s, "Get process status (for legacy use via check_nt only)");
   registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
       .add_int_var("started", parsers::where::type_bool, &filter_obj::get_started, "Process is started")
@@ -53,6 +55,7 @@ filter_obj_handler::filter_obj_handler() {
     ("page_fault", [](auto obj, auto context) {return obj->get_PageFaultCount(); }, "Page fault count").add_perf("", "", " pf_count")
     ("peak_working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_PeakWorkingSetSize(); }, "Peak working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " pws_size")
     ("working_set", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Working set in bytes (g,m,k,b)").add_scaled_byte(std::string(""), " ws_size")
+    ("rss", parsers::where::type_size, [](auto obj, auto context) {return obj->get_WorkingSetSize(); }, "Resident set size; alias for working_set (g,m,k,b)").add_scaled_byte(std::string(""), " rss")
     ("working_set_pct", [](auto obj, auto context) {return obj->get_working_set_pct(); }, "Working set as a percentage of total physical RAM").add_perf("%", "", " ws_pct")
     // 			("qouta", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
     // 			("virtual_size", parsers::where::type_size, [](auto obj, auto context) {return obj->get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
@@ -63,9 +66,9 @@ filter_obj_handler::filter_obj_handler() {
     ("pagefile_pct", [](auto obj, auto context) {return obj->get_pagefile_pct(); }, "Page file usage as a percentage of the system commit limit").add_perf("%", "", " pf_pct")
 
     ("creation", parsers::where::type_date, [](auto obj, auto context) {return obj->get_creation_time(); }, "Creation time").add_perf("", "", " creation")
-    ("kernel", [](auto obj, auto context) {return obj->get_kernel_time(); }, "Kernel time in seconds").add_perf("", "", " kernel")
-    ("user", [](auto obj, auto context) {return obj->get_user_time(); }, "User time in seconds").add_perf("", "", " user")
-    ("time", [](auto obj, auto context) {return obj->get_total_time(); }, "User-kernel time in seconds").add_perf("", "", " total")
+    ("kernel", [](auto obj, auto context) {return obj->get_kernel_time(); }, "Kernel CPU time: cumulative seconds, or % of total CPU with delta=true").add_perf("", "", " kernel")
+    ("user", [](auto obj, auto context) {return obj->get_user_time(); }, "User CPU time: cumulative seconds, or % of total CPU with delta=true").add_perf("", "", " user")
+    ("time", [](auto obj, auto context) {return obj->get_total_time(); }, "User+kernel CPU time: cumulative seconds, or % of total CPU with delta=true").add_perf("", "", " total")
 
     ("state", type_custom_state, [](auto obj, auto context) {return obj->get_state_i(); }, "The current state (started, stopped hung)").add_perf("", "", " state")
     ;
@@ -76,6 +79,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_human_string("virtual", &filter_obj::get_VirtualSize_human, "");
   registry_.add_human_string("peak_working_set", &filter_obj::get_PeakWorkingSetSize_human, "");
   registry_.add_human_string("working_set", &filter_obj::get_WorkingSetSize_human, "");
+  registry_.add_human_string("rss", &filter_obj::get_WorkingSetSize_human, "");
   registry_.add_human_string("peak_pagefile", &filter_obj::get_PageFileUsage_human, "");
   registry_.add_human_string("pagefile", &filter_obj::get_PeakPageFileUsage_human, "");
 
@@ -216,7 +220,8 @@ namespace active {
 
 namespace po = boost::program_options;
 
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, const cpu_delta_map &cpu_deltas,
+           bool cpu_collector_enabled) {
   // `fetch-only` short-circuits the filter machinery and emits one line per
   // process in `<<<ps>>>` format: (user,vsz_kb,rss_kb,cputime,pid) cmdline.
   // user is left empty here because process_info does not carry it.
@@ -248,6 +253,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   bool unreadable_scan = true;
   bool delta_scan = false;
   bool total = false;
+  bool resolve_owner = false;
 
   NSC_error err;
   filter_type filter;
@@ -262,18 +268,56 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     ("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
     ("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
     ("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
-    ("delta", po::value<bool>(&delta_scan), "Measure CPU usage as a delta over a one second interval.\nThe check samples process and system CPU times, sleeps for one second, then samples again. With delta=true the 'time' (and 'kernel'/'user') fields report the process CPU usage during that second as a whole percentage of total CPU, instead of cumulative CPU seconds.")
+    ("delta", po::value<bool>(&delta_scan)->implicit_value(true)->default_value(false), "Report CPU usage as a percentage of total CPU instead of cumulative seconds.\nWith delta=true the 'time' (and 'kernel'/'user') fields report the process CPU usage over a one second window as a whole percentage of total CPU. The reading is taken from the CheckSystem background collector (no per-check sleep), so it requires 'process cpu = true' under [/settings/system/windows]; without that the check returns UNKNOWN telling you to enable it.")
     ("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
     ("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching files")
+    ("resolve-owner", po::value<bool>(&resolve_owner)->implicit_value(true)->default_value(false),
+        "Populate the username/uid keywords with the process owner. Off by default: resolving the owner name can block for seconds on domain / Azure-AD accounts.")
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
 
+  // delta=true reports CPU as a percentage sourced from the background
+  // collector. It is only meaningful when that collector is running, so fail
+  // fast (rather than silently reporting cumulative seconds or zeroes) when the
+  // flag is off, naming the setting to switch on. Cumulative CPU seconds (delta
+  // omitted) need no collector and are unaffected.
+  if (delta_scan && !cpu_collector_enabled) {
+    return nscapi::protobuf::functions::set_response_bad(
+        *response,
+        "check_process delta=true requires per-process CPU sampling, which is disabled by default. Set 'process cpu = true' under "
+        "[/settings/system/windows] and restart to report kernel/user/time as CPU% over a 1 second window.");
+  }
+
   if (processes.empty()) {
     processes.emplace_back("*");
   }
   if (!filter_helper.build_filter(filter)) return;
+
+  // delta reporting matches the collector's CPU% to each process by PID and
+  // creation time; the creation time is only captured during a deep scan, so a
+  // delta request implies scan-info regardless of how it was set.
+  if (delta_scan) deep_scan = true;
+
+  // Overlay the collector's CPU% (guaranteed enabled past the guard above) onto
+  // a freshly enumerated process, matched by PID + creation time. A process
+  // missing from the snapshot (just started or already gone) reports 0% rather
+  // than leaking its absolute cumulative-seconds value as though it were a
+  // percentage.
+  auto apply_cpu_delta = [&](win_list_processes::process_info &rec) {
+    if (!delta_scan) return;
+    long long kpct = 0, upct = 0, tpct = 0;
+    const auto it = cpu_deltas.find(static_cast<long long>(rec.get_pid()));
+    if (it != cpu_deltas.end() && it->second.creation_time == static_cast<unsigned long long>(rec.get_creation_time())) {
+      kpct = it->second.kernel_pct;
+      upct = it->second.user_pct;
+      tpct = it->second.total_pct;
+    }
+    rec.kernel_time = kpct;
+    rec.user_time = upct;
+    rec.total_time = tpct;
+  };
 
   std::set<std::string, CaseBlindCompare> procs;
   bool all = false;
@@ -288,12 +332,13 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   if (total) total_obj = win_list_processes::process_info::get_total();
 
   std::vector<std::string> matched;
-  win_list_processes::process_list list = delta_scan ? win_list_processes::enumerate_processes_delta(!unreadable_scan, &err)
-                                                     : win_list_processes::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
+  win_list_processes::process_list list =
+      win_list_processes::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err, DEFAULT_BUFFER_SIZE, resolve_owner);
   for (const win_list_processes::process_info &info : list) {
     bool wanted = procs.count(info.exe);
     if (all || wanted) {
       std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(info));
+      apply_cpu_delta(*record);
       modern_filter::match_result ret = filter.match(record);
       if (total_obj && ret.matched_filter) total_obj->operator+=(*record);
     }
@@ -307,6 +352,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   for (const std::string &proc : procs) {
     std::shared_ptr<win_list_processes::process_info> record(new win_list_processes::process_info(proc));
+    apply_cpu_delta(*record);
     modern_filter::match_result ret = filter.match(record);
     if (total_obj && ret.matched_filter) total_obj->operator+=(*record);
   }

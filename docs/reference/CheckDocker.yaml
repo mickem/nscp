@@ -2,6 +2,12 @@ common:
   info:
     description: Use this module to detect and monitor docker containers
     title: CheckDocker
+module: CheckDocker
+namespace: misc
+platforms:
+- unix
+- windows
+unix:
   queries:
     check_docker:
       fields:
@@ -303,8 +309,305 @@ common:
         repeatable: false
         required: false
         short_description: The host or socket of the docker deamon
-module: CheckDocker
-namespace: misc
-platforms:
-- unix
-- windows
+windows:
+  queries:
+    check_docker:
+      fields:
+      - generic: false
+        long_description: Command
+        name: command
+        short_description: ''
+      - generic: false
+        long_description: Container image
+        name: container_state
+        short_description: ''
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: Container id
+        name: id
+        short_description: ''
+      - generic: false
+        long_description: Container image
+        name: image
+        short_description: ''
+      - generic: false
+        long_description: Container image id
+        name: image_id
+        short_description: ''
+      - generic: false
+        long_description: IP of container
+        name: ip
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: Container image
+        name: names
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      info:
+        description: Checks that a given docker container is running.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: container_state != 'running'
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: container_state != 'running'
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: warning
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${list}'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: ${names}=${container_state}
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${id}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The host or socket of the docker daemon
+        name: host
+        repeatable: false
+        required: false
+        short_description: The host or socket of the docker daemon

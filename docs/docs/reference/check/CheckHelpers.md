@@ -494,130 +494,259 @@ Run a check and render the performance data as output message.
 <a id="render_perf_options"></a>
 #### Command-line Arguments
 
-<a id="render_perf_warn"></a>
-<a id="render_perf_crit"></a>
-<a id="render_perf_debug"></a>
-<a id="render_perf_show-all"></a>
-<a id="render_perf_escape-html"></a>
-<a id="render_perf_help"></a>
-<a id="render_perf_help-pb"></a>
-<a id="render_perf_show-default"></a>
-<a id="render_perf_help-short"></a>
-<a id="render_perf_command"></a>
-<a id="render_perf_arguments"></a>
+=== "Windows"
 
-| Option                                      | Default Value                                          | Description                                                                                                      |
-|---------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#render_perf_filter)               |                                                        | Filter which marks interesting items.                                                                            |
-| [warning](#render_perf_warning)             |                                                        | Filter which marks items which generates a warning state.                                                        |
-| warn                                        |                                                        | Short alias for warning                                                                                          |
-| [critical](#render_perf_critical)           |                                                        | Filter which marks items which generates a critical state.                                                       |
-| crit                                        |                                                        | Short alias for critical.                                                                                        |
-| [ok](#render_perf_ok)                       |                                                        | Filter which marks items which generates an ok state.                                                            |
-| debug                                       | N/A                                                    | Show debugging information in the log                                                                            |
-| show-all                                    | N/A                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#render_perf_empty-state)     | unknown                                                | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#render_perf_perf-config)     |                                                        | Performance data generation configuration                                                                        |
-| escape-html                                 | N/A                                                    | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                        | N/A                                                    | Show help screen (this screen)                                                                                   |
-| help-pb                                     | N/A                                                    | Show help screen as a protocol buffer payload                                                                    |
-| show-default                                | N/A                                                    | Show default values for a given command                                                                          |
-| help-short                                  | N/A                                                    | Show help screen (short format).                                                                                 |
-| [top-syntax](#render_perf_top-syntax)       | %(status): %(message) %(list)                          | Top level syntax.                                                                                                |
-| [ok-syntax](#render_perf_ok-syntax)         |                                                        | ok syntax.                                                                                                       |
-| [empty-syntax](#render_perf_empty-syntax)   |                                                        | Empty syntax.                                                                                                    |
-| [detail-syntax](#render_perf_detail-syntax) | %(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
- | Detail level syntax.                                                                                             |
-| [perf-syntax](#render_perf_perf-syntax)     | %(key)                                                 | Performance alias syntax.                                                                                        |
-| command                                     |                                                        | Wrapped command to execute                                                                                       |
-| arguments                                   |                                                        | List of arguments (for wrapped command)                                                                          |
-| [remove-perf](#render_perf_remove-perf)     | 1)] (=0                                                | List of arguments (for wrapped command)                                                                          |
+    <a id="render_perf_warn"></a>
+    <a id="render_perf_crit"></a>
+    <a id="render_perf_debug"></a>
+    <a id="render_perf_show-all"></a>
+    <a id="render_perf_escape-html"></a>
+    <a id="render_perf_help"></a>
+    <a id="render_perf_help-pb"></a>
+    <a id="render_perf_show-default"></a>
+    <a id="render_perf_help-short"></a>
+    <a id="render_perf_command"></a>
+    <a id="render_perf_arguments"></a>
 
-
-
-<h5 id="render_perf_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="render_perf_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    | Option                                      | Default Value                                          | Description                                                                                                      |
+    |---------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#render_perf_filter)               |                                                        | Filter which marks interesting items.                                                                            |
+    | [warning](#render_perf_warning)             |                                                        | Filter which marks items which generates a warning state.                                                        |
+    | warn                                        |                                                        | Short alias for warning                                                                                          |
+    | [critical](#render_perf_critical)           |                                                        | Filter which marks items which generates a critical state.                                                       |
+    | crit                                        |                                                        | Short alias for critical.                                                                                        |
+    | [ok](#render_perf_ok)                       |                                                        | Filter which marks items which generates an ok state.                                                            |
+    | debug                                       | N/A                                                    | Show debugging information in the log                                                                            |
+    | show-all                                    | N/A                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#render_perf_empty-state)     | unknown                                                | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#render_perf_perf-config)     |                                                        | Performance data generation configuration                                                                        |
+    | escape-html                                 | N/A                                                    | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                        | N/A                                                    | Show help screen (this screen)                                                                                   |
+    | help-pb                                     | N/A                                                    | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                | N/A                                                    | Show default values for a given command                                                                          |
+    | help-short                                  | N/A                                                    | Show help screen (short format).                                                                                 |
+    | [top-syntax](#render_perf_top-syntax)       | %(status): %(message) %(list)                          | Top level syntax.                                                                                                |
+    | [ok-syntax](#render_perf_ok-syntax)         |                                                        | ok syntax.                                                                                                       |
+    | [empty-syntax](#render_perf_empty-syntax)   |                                                        | Empty syntax.                                                                                                    |
+    | [detail-syntax](#render_perf_detail-syntax) | %(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
+     | Detail level syntax.                                                                                             |
+    | [perf-syntax](#render_perf_perf-syntax)     | %(key)                                                 | Performance alias syntax.                                                                                        |
+    | command                                     |                                                        | Wrapped command to execute                                                                                       |
+    | arguments                                   |                                                        | List of arguments (for wrapped command)                                                                          |
+    | [remove-perf](#render_perf_remove-perf)     | 1)] (=0                                                | List of arguments (for wrapped command)                                                                          |
 
 
 
-<h5 id="render_perf_critical">critical:</h5>
+    <h5 id="render_perf_filter">filter:</h5>
 
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-
-<h5 id="render_perf_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-<h5 id="render_perf_empty-state">empty-state:</h5>
+    <h5 id="render_perf_warning">warning:</h5>
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="render_perf_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="render_perf_top-syntax">top-syntax:</h5>
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="render_perf_critical">critical:</h5>
 
-*Default Value:* `%(status): %(message) %(list)`
-
-<h5 id="render_perf_ok-syntax">ok-syntax:</h5>
-
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
 
-<h5 id="render_perf_empty-syntax">empty-syntax:</h5>
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
+    <h5 id="render_perf_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
 
-<h5 id="render_perf_detail-syntax">detail-syntax:</h5>
+    <h5 id="render_perf_empty-state">empty-state:</h5>
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-*Default Value:* `%(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
-`
+    *Default Value:* `unknown`
 
-<h5 id="render_perf_perf-syntax">perf-syntax:</h5>
+    <h5 id="render_perf_perf-config">perf-config:</h5>
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-*Default Value:* `%(key)`
 
-<h5 id="render_perf_remove-perf">remove-perf:</h5>
+    <h5 id="render_perf_top-syntax">top-syntax:</h5>
 
-List of arguments (for wrapped command)
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-*Default Value:* `1)] (=0`
+    *Default Value:* `%(status): %(message) %(list)`
+
+    <h5 id="render_perf_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+
+    <h5 id="render_perf_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+    <h5 id="render_perf_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `%(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
+    `
+
+    <h5 id="render_perf_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `%(key)`
+
+    <h5 id="render_perf_remove-perf">remove-perf:</h5>
+
+    List of arguments (for wrapped command)
+
+    *Default Value:* `1)] (=0`
+
+=== "Linux"
+
+    <a id="render_perf_warn"></a>
+    <a id="render_perf_crit"></a>
+    <a id="render_perf_debug"></a>
+    <a id="render_perf_show-all"></a>
+    <a id="render_perf_escape-html"></a>
+    <a id="render_perf_help"></a>
+    <a id="render_perf_help-pb"></a>
+    <a id="render_perf_show-default"></a>
+    <a id="render_perf_help-short"></a>
+    <a id="render_perf_command"></a>
+    <a id="render_perf_arguments"></a>
+
+    | Option                                      | Default Value                                          | Description                                                                                                      |
+    |---------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+    | [filter](#render_perf_filter)               |                                                        | Filter which marks interesting items.                                                                            |
+    | [warning](#render_perf_warning)             |                                                        | Filter which marks items which generates a warning state.                                                        |
+    | warn                                        |                                                        | Short alias for warning                                                                                          |
+    | [critical](#render_perf_critical)           |                                                        | Filter which marks items which generates a critical state.                                                       |
+    | crit                                        |                                                        | Short alias for critical.                                                                                        |
+    | [ok](#render_perf_ok)                       |                                                        | Filter which marks items which generates an ok state.                                                            |
+    | debug                                       | N/A                                                    | Show debugging information in the log                                                                            |
+    | show-all                                    | N/A                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+    | [empty-state](#render_perf_empty-state)     | unknown                                                | Return status to use when nothing matched filter.                                                                |
+    | [perf-config](#render_perf_perf-config)     |                                                        | Performance data generation configuration                                                                        |
+    | escape-html                                 | N/A                                                    | Escape any < and > characters to prevent HTML encoding                                                           |
+    | help                                        | N/A                                                    | Show help screen (this screen)                                                                                   |
+    | help-pb                                     | N/A                                                    | Show help screen as a protocol buffer payload                                                                    |
+    | show-default                                | N/A                                                    | Show default values for a given command                                                                          |
+    | help-short                                  | N/A                                                    | Show help screen (short format).                                                                                 |
+    | [top-syntax](#render_perf_top-syntax)       | %(status): %(message) %(list)                          | Top level syntax.                                                                                                |
+    | [ok-syntax](#render_perf_ok-syntax)         |                                                        | ok syntax.                                                                                                       |
+    | [empty-syntax](#render_perf_empty-syntax)   |                                                        | Empty syntax.                                                                                                    |
+    | [detail-syntax](#render_perf_detail-syntax) | %(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
+     | Detail level syntax.                                                                                             |
+    | [perf-syntax](#render_perf_perf-syntax)     | %(key)                                                 | Performance alias syntax.                                                                                        |
+    | command                                     |                                                        | Wrapped command to execute                                                                                       |
+    | arguments                                   |                                                        | List of arguments (for wrapped command)                                                                          |
+    | [remove-perf](#render_perf_remove-perf)     | 1)] (=0                                                | List of arguments (for wrapped command)                                                                          |
+
+
+
+    <h5 id="render_perf_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="render_perf_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+
+    <h5 id="render_perf_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+
+    <h5 id="render_perf_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="render_perf_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `unknown`
+
+    <h5 id="render_perf_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="render_perf_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `%(status): %(message) %(list)`
+
+    <h5 id="render_perf_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+
+    <h5 id="render_perf_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+    <h5 id="render_perf_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `%(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
+    `
+
+    <h5 id="render_perf_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `%(key)`
+
+    <h5 id="render_perf_remove-perf">remove-perf:</h5>
+
+    List of arguments (for wrapped command)
+
+    *Default Value:* `1)] (=0`
 
 
 <a id="render_perf_filter_keys"></a>

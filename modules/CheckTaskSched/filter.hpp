@@ -191,6 +191,9 @@ struct filter_obj {
   virtual std::string get_next_run_time_s() = 0;
   virtual long long get_number_of_missed_runs() = 0;
   virtual long long get_last_run_age() = 0;
+
+  virtual bool get_hidden() = 0;
+  virtual std::string get_uri() = 0;
 };
 
 struct old_filter_obj : public filter_obj {
@@ -269,6 +272,11 @@ struct old_filter_obj : public filter_obj {
     if (!get_has_run()) return -1;
     return parsers::where::constants::get_now() - get_most_recent_run_time();
   }
+  // The legacy ITask API exposes neither the "hidden" setting nor a task URI;
+  // return inert defaults (like get_number_of_missed_runs) so the keywords still
+  // resolve on downlevel systems instead of aborting a wildcard check.
+  bool get_hidden() { return false; }
+  std::string get_uri() { return ""; }
 };
 
 struct new_filter_obj : public filter_obj {
@@ -284,6 +292,7 @@ struct new_filter_obj : public filter_obj {
   typedef helpers::com_variable<helpers::bstr_traits<IRegistrationInfo> > info_string_variable;
   typedef helpers::com_variable<helpers::word_traits<int, long long, ITaskSettings> > settings_int_variable;
   typedef helpers::com_variable<helpers::bstr_traits<ITaskSettings> > settings_string_variable;
+  typedef helpers::com_variable<helpers::bool_traits<VARIANT_BOOL, bool, ITaskSettings> > settings_bool_variable;
 
   IRegisteredTask *task;
   CComPtr<IRegistrationInfo> reginfo;
@@ -302,6 +311,8 @@ struct new_filter_obj : public filter_obj {
   info_string_variable creator;
   settings_int_variable priority;
   settings_string_variable max_run_time;
+  string_variable uri;
+  settings_bool_variable hidden;
   std::string str_title;
 
   new_filter_obj(IRegisteredTask *task, std::string folder);
@@ -359,6 +370,11 @@ struct new_filter_obj : public filter_obj {
     if (!get_has_run()) return -1;
     return parsers::where::constants::get_now() - get_most_recent_run_time();
   }
+  // Task URI = the registered task's full path (e.g. \Microsoft\Windows\...\Name),
+  // matching MSFT_ScheduledTask's `uri`. hidden is the definition's
+  // ITaskSettings "Hidden" flag (tasks the UI hides by default).
+  std::string get_uri() { return uri(task, get_title()); }
+  bool get_hidden() { return hidden(get_settings(), get_title()); }
 
   long long convert_runtime(const std::string &) { return 0; }
 };

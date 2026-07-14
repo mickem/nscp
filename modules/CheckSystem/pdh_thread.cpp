@@ -8,7 +8,9 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <parsers/filter/realtime_helper.hpp>
+#include <str/format.hpp>
 #include <str/utils_no_boost.hpp>
+#include <win/processes.hpp>
 
 #include "check_memory.hpp"
 #include "check_process.hpp"
@@ -43,6 +45,79 @@ spi_container pdh_thread::fetch_spi(error_list &errors) {
 }
 
 bool first_time = true;
+
+void pdh_thread::sample_process_cpu(error_list &errors) {
+  // The system-wide process table (walked cheaply in a single syscall, as in
+  // fetch_spi) already carries per-process CreateTime/KernelTime/UserTime, so
+  // we can derive a rolling CPU% for every process without opening a single
+  // process handle. This runs every tick (~1 Hz); the previous tick's snapshot
+  // is the earlier sample, so the delta window is naturally ~1 second. The
+  // actual capacity comes from GetSystemTimes bracketing the two reads, which
+  // keeps the percentage correct even if the tick cadence drifts.
+  const auto filetime_to_u64 = [](const FILETIME &ft) -> unsigned long long {
+    return (static_cast<unsigned long long>(ft.dwHighDateTime) << 32) + static_cast<unsigned long long>(ft.dwLowDateTime);
+  };
+
+  std::map<DWORD, proc_cpu_raw> current;
+  try {
+    hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION *> buffer = windows::system_info::get_system_process_information();
+    windows::winapi::SYSTEM_PROCESS_INFORMATION *b = buffer.get();
+    while (b != nullptr) {
+      const DWORD pid = static_cast<DWORD>(reinterpret_cast<ULONG_PTR>(b->UniqueProcessId));
+      proc_cpu_raw r;
+      r.creation = str::format::filetime_to_time(static_cast<unsigned long long>(b->CreateTime.QuadPart));
+      r.kernel = static_cast<unsigned long long>(b->KernelTime.QuadPart);
+      r.user = static_cast<unsigned long long>(b->UserTime.QuadPart);
+      current[pid] = r;
+      if (b->NextEntryOffset == 0) break;
+      b = reinterpret_cast<windows::winapi::SYSTEM_PROCESS_INFORMATION *>(reinterpret_cast<PCHAR>(b) + b->NextEntryOffset);
+    }
+  } catch (...) {
+    errors.emplace_back("Failed to sample process CPU information");
+    return;
+  }
+
+  FILETIME idleTime, kernelTime, userTime;
+  unsigned long long sys_kernel = prev_sys_kernel_;
+  unsigned long long sys_user = prev_sys_user_;
+  if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
+    sys_kernel = filetime_to_u64(kernelTime);
+    sys_user = filetime_to_u64(userTime);
+  }
+
+  if (have_prev_proc_cpu_) {
+    // Capacity = kernel + user consumed system-wide over the window. On Windows
+    // GetSystemTimes folds idle into the kernel figure, so idle is NOT added
+    // again (the same correction as enumerate_processes_delta).
+    const unsigned long long capacity = (sys_kernel - prev_sys_kernel_) + (sys_user - prev_sys_user_);
+    process_checks::cpu_delta_map out;
+    for (const auto &cur : current) {
+      const auto prev = prev_proc_cpu_.find(cur.first);
+      if (prev == prev_proc_cpu_.end()) continue;                  // process is new since last tick
+      if (prev->second.creation != cur.second.creation) continue;  // PID reused by a different process
+      if (cur.second.kernel < prev->second.kernel || cur.second.user < prev->second.user) continue;  // counter went backwards
+      const unsigned long long kd = cur.second.kernel - prev->second.kernel;
+      const unsigned long long ud = cur.second.user - prev->second.user;
+      process_checks::cpu_delta d;
+      d.creation_time = cur.second.creation;
+      d.kernel_pct = static_cast<long long>(win_list_processes::process_info::to_percent(kd, capacity));
+      d.user_pct = static_cast<long long>(win_list_processes::process_info::to_percent(ud, capacity));
+      d.total_pct = static_cast<long long>(win_list_processes::process_info::to_percent(kd + ud, capacity));
+      out[static_cast<long long>(cur.first)] = d;
+    }
+    boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+    if (writeLock.owns_lock()) {
+      proc_cpu_deltas_.swap(out);
+    } else {
+      errors.emplace_back("Failed to get mutex for process CPU deltas");
+    }
+  }
+
+  prev_proc_cpu_.swap(current);
+  prev_sys_kernel_ = sys_kernel;
+  prev_sys_user_ = sys_user;
+  have_prev_proc_cpu_ = true;
+}
 
 bool pdh_thread::try_setup_pdh_counters(PDH::PDHQuery &pdh, bool log_failures_as_errors) {
   counters_.clear();
@@ -367,6 +442,13 @@ void pdh_thread::thread_proc() {
     } catch (...) {
       errors.emplace_back("Failed to get process history");
     }
+    if (process_cpu_enabled) {
+      try {
+        sample_process_cpu(errors);
+      } catch (...) {
+        errors.emplace_back("Failed to sample process CPU");
+      }
+    }
     if (has_realtime && i == (min_threshold_ - 1)) {
       if (has_cpu_realtime) cpu_helper.process_items(this);
       if (has_mem_realtime) memory_helper.check();
@@ -534,6 +616,15 @@ battery_check::batteries_type pdh_thread::get_battery() { return battery.get(); 
 os_updates_check::os_updates_obj pdh_thread::get_os_updates() { return os_updates.get(); }
 
 process_history_check::history_type pdh_thread::get_process_history() { return process_history.get(); }
+
+process_checks::cpu_delta_map pdh_thread::get_process_cpu_deltas() {
+  boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+  if (!readLock.owns_lock()) {
+    NSC_LOG_ERROR("Failed to get Mutex for: process CPU deltas");
+    return process_checks::cpu_delta_map();
+  }
+  return process_checks::cpu_delta_map(proc_cpu_deltas_);
+}
 
 std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load(long seconds) {
   std::map<std::string, windows::system_info::load_entry> ret;

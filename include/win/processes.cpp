@@ -14,6 +14,7 @@
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <vector>
 #include <win/processes.hpp>
 #include <win/psapi.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
@@ -21,6 +22,8 @@
 #include <win/windows.hpp>
 // tlhelp32.h depends on windows.h types, so it must follow win/windows.hpp.
 #include <tlhelp32.h>
+// sddl.h (ConvertSidToStringSid) also depends on windows.h.
+#include <sddl.h>
 
 // Defensive define for SDKs older than Windows Vista (NT 6.0). The constant
 // is just a numeric flag passed to OpenProcess; the kernel decides whether
@@ -38,6 +41,57 @@ struct generic_closer {
 typedef hlp::handle<HANDLE, generic_closer> generic_handle;
 
 namespace win_list_processes {
+
+namespace {
+// Fill the process owner (username = DOMAIN\name, sid = SID string) from the
+// process token. Best-effort: opening the token or resolving the name fails for
+// system/protected processes, leaving the fields empty. SID->name resolution is
+// cached per thread because a SID never changes account, so a host whose
+// processes are all owned by a few accounts (SYSTEM, the logged-in user, service
+// accounts) resolves each name once instead of once per process.
+void fill_process_owner(HANDLE handle, process_info &entry) {
+  static thread_local std::map<std::string, std::string> sid_name_cache;
+
+  generic_handle token;
+  if (!OpenProcessToken(handle, TOKEN_QUERY, token.ref())) return;
+
+  DWORD len = 0;
+  GetTokenInformation(token, TokenUser, nullptr, 0, &len);
+  if (len == 0) return;
+  std::vector<BYTE> buf(len);
+  if (!GetTokenInformation(token, TokenUser, buf.data(), len, &len)) return;
+  PSID psid = reinterpret_cast<TOKEN_USER *>(buf.data())->User.Sid;
+  if (!psid || !IsValidSid(psid)) return;
+
+  LPWSTR sid_str = nullptr;
+  if (ConvertSidToStringSidW(psid, &sid_str) && sid_str) {
+    entry.sid = utf8::cvt<std::string>(sid_str);
+    LocalFree(sid_str);
+  }
+
+  const std::string sid_key = entry.sid.get();
+  if (!sid_key.empty()) {
+    const auto it = sid_name_cache.find(sid_key);
+    if (it != sid_name_cache.end()) {
+      entry.username = it->second;
+      return;
+    }
+  }
+
+  std::string username;
+  WCHAR name[256];
+  WCHAR domain[256];
+  DWORD name_len = 256;
+  DWORD domain_len = 256;
+  SID_NAME_USE use;
+  if (LookupAccountSidW(nullptr, psid, name, &name_len, domain, &domain_len, &use)) {
+    const std::wstring full = domain_len > 0 ? (std::wstring(domain) + L"\\" + name) : std::wstring(name);
+    username = utf8::cvt<std::string>(full);
+    entry.username = username;
+  }
+  if (!sid_key.empty()) sid_name_cache[sid_key] = username;  // cache misses too, so we don't retry
+}
+}  // namespace
 void enable_token_privilege(LPTSTR privilege, bool enable) {
   generic_handle token;
   TOKEN_PRIVILEGES token_privileges;
@@ -132,7 +186,7 @@ void nscpGetCommandLine(const HANDLE hProcess, const LPVOID pebAddress, process_
   delete[] commandLineContents;
 }
 
-process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
+process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable, bool resolve_owner) {
   process_info entry;
   entry.pid = pid;
   entry.started = true;
@@ -239,6 +293,12 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
           (userTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1)) + static_cast<unsigned long long>(userTime.dwLowDateTime);
       entry.kernel_time = entry.kernel_time_raw / 10000000;
       entry.user_time = entry.user_time_raw / 10000000;
+      // total_time is the cumulative user+kernel CPU seconds. The delta path
+      // (make_cpu_delta) overwrites all three with whole-percent CPU usage; in
+      // the normal (non-delta) path it must be populated here or the `time`
+      // keyword reads 0 (kernel/user are set individually above but their sum
+      // was never stored).
+      entry.total_time = entry.kernel_time + entry.user_time;
       entry.creation_time = str::format::filetime_to_time(creationTime.dwHighDateTime * (static_cast<unsigned long long>(MAXDWORD) + 1) +
                                                           static_cast<unsigned long long>(creationTime.dwLowDateTime));
     }
@@ -284,6 +344,12 @@ process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
 
     bool osIsWin64 = windows::winapi::IsWow64(GetCurrentProcess());
     entry.wow64 = windows::winapi::IsWow64(handle, !osIsWin64);
+
+    // Owner resolution is opt-in: LookupAccountSid can block for seconds on
+    // domain / Azure-AD SIDs that need a directory round-trip, so it must not run
+    // on every check_process by default (especially process=* which would resolve
+    // hundreds of owners).
+    if (resolve_owner) fill_process_owner(handle, entry);
 
     if (PebBaseAddress) nscpGetCommandLine(handle, PebBaseAddress, entry);
   }
@@ -348,7 +414,8 @@ void apply_system_gauges(process_info &entry, const std::map<DWORD, long long> &
 }
 }  // namespace
 
-process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool deep_scan, error_reporter *error_interface, unsigned int buffer_size) {
+process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool deep_scan, error_reporter *error_interface, unsigned int buffer_size,
+                                 bool resolve_owner) {
   try {
     enable_token_privilege(SE_DEBUG_NAME, true);
   } catch (const nsclient::nsclient_exception &e) {
@@ -362,7 +429,7 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
   if (cbNeeded >= DEFAULT_BUFFER_SIZE * sizeof(DWORD)) {
     delete[] dwPIDs;
     if (error_interface != nullptr) error_interface->report_debug("Need larger buffer: " + str::xtos(buffer_size));
-    return enumerate_processes(ignore_unreadable, find_16bit, deep_scan, error_interface, buffer_size * 10);
+    return enumerate_processes(ignore_unreadable, find_16bit, deep_scan, error_interface, buffer_size * 10, resolve_owner);
   }
   if (!OK) {
     delete[] dwPIDs;
@@ -375,11 +442,11 @@ process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool d
     entry.hung = false;
     try {
       try {
-        entry = describe_pid(dwPIDs[i], deep_scan, ignore_unreadable);
+        entry = describe_pid(dwPIDs[i], deep_scan, ignore_unreadable, resolve_owner);
       } catch (const nsclient::nsclient_exception &e) {
         if (deep_scan) {
           try {
-            entry = describe_pid(dwPIDs[i], false, ignore_unreadable);
+            entry = describe_pid(dwPIDs[i], false, ignore_unreadable, resolve_owner);
           } catch (const nsclient::nsclient_exception &e2) {
             if (error_interface != nullptr) error_interface->report_debug(e2.reason());
           }
@@ -450,7 +517,9 @@ process_map get_process_data(bool ignore_unreadable, error_reporter *error_inter
     entry.hung = false;
     try {
       try {
-        entry = describe_pid(dwPIDs[i], true, ignore_unreadable);
+        // The delta path is for CPU% sampling and stays fast: owner resolution is
+        // only available on the default (non-delta) scan.
+        entry = describe_pid(dwPIDs[i], true, ignore_unreadable, false);
       } catch (const nsclient::nsclient_exception &e) {
         if (!ignore_unreadable && error_interface != nullptr) error_interface->report_debug(e.reason());
         continue;

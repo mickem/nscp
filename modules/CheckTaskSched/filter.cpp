@@ -52,7 +52,9 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
       .add_string_var("comment", &filter_obj::get_comment, "Retrieves the comment or description for the work item.")
       .add_string_var("creator", &filter_obj::get_creator, "Retrieves the creator of the work item.")
       .add_string_var("parameters", &filter_obj::get_parameters, "Retrieves the command-line parameters of a task.")
-      .add_string_var("working_directory", &filter_obj::get_working_directory, "Retrieves the working directory of the task.");
+      .add_string_var("working_directory", &filter_obj::get_working_directory, "Retrieves the working directory of the task.")
+      .add_string_var("uri", &filter_obj::get_uri,
+                      "The task's full path / URI (e.g. \\Microsoft\\Windows\\Defrag\\ScheduledDefrag). Empty on the legacy ITask API.");
 
   registry_.add_int_var("exit_code", &filter_obj::get_exit_code, "Retrieves the work item's last exit code.")
       .add_int_var("enabled", &filter_obj::is_enabled, "TODO.")
@@ -66,7 +68,9 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
       .add_int_var("number_of_missed_runs", &filter_obj::get_number_of_missed_runs,
                    "Number of times the task was scheduled to run but did not (0 on the legacy ITask API).")
       .add_int_var("last_run_age", &filter_obj::get_last_run_age,
-                   "Seconds since the task last ran (-1 if it has never run). Use e.g. last_run_age > 86400 to alert on stale tasks.");
+                   "Seconds since the task last ran (-1 if it has never run). Use e.g. last_run_age > 86400 to alert on stale tasks.")
+      .add_int_var("hidden", type_bool, &filter_obj::get_hidden,
+                   "True if the task is marked hidden (ITaskSettings Hidden flag). Always false on the legacy ITask API.");
 
   registry_.add_human_string("task_status", &filter_obj::get_status_s, "")
       .add_human_string("most_recent_run_time", &filter_obj::get_most_recent_run_time_s, "")
@@ -127,5 +131,7 @@ new_filter_obj::new_filter_obj(IRegisteredTask* task, std::string folder)
       comment(&IRegistrationInfo::get_Description),
       creator(&IRegistrationInfo::get_Author),
       priority(&ITaskSettings::get_Priority),
-      max_run_time(&ITaskSettings::get_ExecutionTimeLimit) {}
+      max_run_time(&ITaskSettings::get_ExecutionTimeLimit),
+      uri(&IRegisteredTask::get_Path),
+      hidden(&ITaskSettings::get_Hidden) {}
 }  // namespace tasksched_filter

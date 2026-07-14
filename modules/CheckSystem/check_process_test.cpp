@@ -292,3 +292,54 @@ TEST(ProcessInfoPlus, AggregatesThreadCountAndCarriesTotals) {
   EXPECT_EQ(8ull * 1024 * 1024 * 1024, total->total_physical_memory);
   EXPECT_EQ(10ull * 1024 * 1024 * 1024, total->total_pagefile);
 }
+
+// --- total_time (the `time` keyword) is the sum of kernel + user ------------
+
+TEST(ProcessInfoTime, AggregatesTotalTime) {
+  // The total row must sum total_time; otherwise `time` on a total=true row
+  // reads 0 even though the per-process rows have a value (the same class of
+  // bug that left the non-delta `time` keyword at 0 before total_time was
+  // populated during enumeration).
+  auto total = process_info::get_total();
+  process_info a;
+  a.total_time = 1915;
+  process_info b;
+  b.total_time = 1048;
+
+  *total += a;
+  *total += b;
+
+  EXPECT_EQ(2963, total->get_total_time());
+}
+
+// --- state parsing: 'running' is a synonym for 'started' ---
+
+TEST(ProcessState, RunningIsSynonymForStarted) {
+  EXPECT_EQ(process_info::parse_state("started"), process_info::parse_state("running"));
+  EXPECT_EQ(process_info::state_started, process_info::parse_state("running"));
+  // The other states are unchanged.
+  EXPECT_EQ(process_info::state_stopped, process_info::parse_state("stopped"));
+  EXPECT_EQ(process_info::state_hung, process_info::parse_state("hung"));
+  EXPECT_EQ(process_info::state_unreadable, process_info::parse_state("unreadable"));
+  EXPECT_EQ(process_info::state_unknown, process_info::parse_state("nonsense"));
+}
+
+TEST(ProcessState, StartedProcessStillRendersAsStarted) {
+  // Accepting 'running' as input must not change the rendered value (back-compat).
+  process_info p;
+  p.started = true;
+  EXPECT_EQ("started", p.get_state_s());
+  EXPECT_EQ(process_info::state_started, p.get_state_i());
+}
+
+// --- owner accessors (uid = SID string; empty until resolve-owner runs) ------
+
+TEST(ProcessOwner, DefaultsEmptyAndUidMirrorsSid) {
+  process_info p;
+  EXPECT_EQ("", p.get_username());
+  EXPECT_EQ("", p.get_uid());
+  p.username = "PRICER\\michael.medin";
+  p.sid = "S-1-5-21-1-2-3-1001";
+  EXPECT_EQ("PRICER\\michael.medin", p.get_username());
+  EXPECT_EQ("S-1-5-21-1-2-3-1001", p.get_uid());  // uid is the SID string
+}

@@ -380,7 +380,7 @@ DEPRECATED! This is the syntax for when nothing matches the filter.
 
 Detail level syntax.
 Used to format each resulting item in the message.
-%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
 *Default Value:* `${file} ${source} (${message})`
@@ -420,27 +420,29 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 <a id="check_eventlog_filter_keys"></a>
 #### Filter keywords
 
-| Option      | Description                                                                |
-|-------------|----------------------------------------------------------------------------|
-| category    | TODO                                                                       |
-| computer    | Which computer generated the message                                       |
-| customer    | TODO                                                                       |
-| file        | The logfile name                                                           |
-| guid        | The logfile name                                                           |
-| id          | Eventlog id                                                                |
-| keyword     | The keyword associated with this event                                     |
-| level       | Severity level (error, warning, info, success, auditSuccess, auditFailure) |
-| log         | alias for file                                                             |
-| message     | The message rendered as a string.                                          |
-| opcode      | The opcode associated with this event                                      |
-| provider    | Source system.                                                             |
-| rawid       | Raw message id (contains many other fields all baked into a single number) |
-| source      | Source system.                                                             |
-| task        | The type of event (task)                                                   |
-| type        | alias for level (old, deprecated)                                          |
-| written     | When the message was written to file                                       |
-| written_str | When the message was written to file as an absolute date string            |
-| xml         | Get event as XML message.                                                  |
+| Option      | Description                                                                                                      |
+|-------------|------------------------------------------------------------------------------------------------------------------|
+| category    | TODO                                                                                                             |
+| computer    | Which computer generated the message                                                                             |
+| customer    | TODO                                                                                                             |
+| file        | The logfile name                                                                                                 |
+| guid        | The logfile name                                                                                                 |
+| id          | Eventlog id                                                                                                      |
+| keyword     | The keyword associated with this event                                                                           |
+| level       | Severity level (error, warning, info, success, auditSuccess, auditFailure)                                       |
+| log         | alias for file                                                                                                   |
+| message     | The message rendered as a string.                                                                                |
+| opcode      | The opcode associated with this event                                                                            |
+| provider    | Source system.                                                                                                   |
+| rawid       | Raw message id (contains many other fields all baked into a single number)                                       |
+| sid         | Alias for user (the event's account SID)                                                                         |
+| source      | Source system.                                                                                                   |
+| task        | The type of event (task)                                                                                         |
+| type        | alias for level (old, deprecated)                                                                                |
+| user        | SID of the account associated with the event (e.g. S-1-5-18); empty on the legacy API. Enables filtering by SID. |
+| written     | When the message was written to file                                                                             |
+| written_str | When the message was written to file as an absolute date string                                                  |
+| xml         | Get event as XML message.                                                                                        |
 
 **Common options for all checks:**
 

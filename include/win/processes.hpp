@@ -85,6 +85,15 @@ struct process_info {
   STR_GETTER(command_line);
   STR_GETTER(exe);
 
+  // Process owner (populated during deep_scan; best-effort — empty for
+  // system/protected processes we cannot open the token of). `username` is
+  // DOMAIN\name; `sid` (exposed as the keyword `uid`) is the owner SID string,
+  // the closest Windows analogue to a Unix numeric uid.
+  string_var username;
+  string_var sid;
+  STR_GETTER(username);
+  std::string get_uid() const { return sid.get(); }
+
   int_var<DWORD> pid;
   INT_GETTER(pid);
 
@@ -218,7 +227,9 @@ struct process_info {
   }
 
   static long long parse_state(const std::string &s) {
-    if (s == "started") return state_started;
+    // "running" is accepted as a synonym for "started".
+    // The rendered state string stays "started" for backward compatibility.
+    if (s == "started" || s == "running") return state_started;
     if (s == "stopped") return state_stopped;
     if (s == "hung") return state_hung;
     if (s == "unreadable") return state_unreadable;
@@ -248,6 +259,7 @@ struct process_info {
     creation_time += other.creation_time.get();
     kernel_time += other.kernel_time.get();
     user_time += other.user_time.get();
+    total_time += other.total_time.get();
     kernel_time_raw += other.kernel_time_raw;
     user_time_raw += other.user_time_raw;
 
@@ -364,8 +376,10 @@ struct error_reporter {
 };
 
 typedef std::list<process_info> process_list;
+// resolve_owner populates username/uid from each process token (deep_scan only).
+// Off by default because LookupAccountSid can block on domain / Azure-AD SIDs.
 process_list enumerate_processes(bool ignore_unreadable = false, bool find_16bit = false, bool deep_scan = true, error_reporter *error_interface = nullptr,
-                                 unsigned int buffer_size = DEFAULT_BUFFER_SIZE);
+                                 unsigned int buffer_size = DEFAULT_BUFFER_SIZE, bool resolve_owner = false);
 process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *error_interface);
 
 void enable_token_privilege(LPTSTR privilege, bool enable);

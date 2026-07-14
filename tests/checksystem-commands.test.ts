@@ -131,7 +131,84 @@ describe("CheckSystem commands", () => {
     expect(msg).not.toMatch(/created=0(\s|$)/);
   });
 
-  it("check_process delta=true reports CPU as a percentage", async () => {
+  it("check_process reports cumulative CPU seconds without delta (time == kernel + user)", async () => {
+    // Without delta the kernel/user/time keywords are cumulative CPU seconds and
+    // need no collector. `time` must equal kernel + user — it used to always read
+    // 0 because total_time was only ever populated by the delta path.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "user=${user} kernel=${kernel} time=${time}",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    const m = /user=(\d+) kernel=(\d+) time=(\d+)/.exec(msg);
+    expect(m).not.toBeNull();
+    const [, user, kernel, time] = m!.map(Number);
+    expect(time).toBe(user + kernel);
+  });
+
+  it("check_process rss is an alias for working_set (Windows)", async () => {
+    if (!onWindows) return; // rss/working_set keywords are the Windows process check.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "rss=${rss} ws=${working_set}",
+    });
+    expect(q.result).toBe(OK);
+    // Both render the same human-readable size (e.g. "20.309MB"); rss is a
+    // straight alias for working_set, so the two must be identical.
+    const m = /rss=(\S+) ws=(\S+)/.exec(messageOf(q));
+    expect(m).not.toBeNull();
+    expect(m![1]).toBe(m![2]);
+  });
+
+  it("check_process accepts 'running' as a synonym for 'started' (Windows)", async () => {
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      warning: "state != 'running'",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "${exe}=${state}",
+    });
+    expect(q.result).toBe(OK);
+    // The rendered state is still "started" for back-compat.
+    expect(messageOf(q)).toMatch(new RegExp(`${SELF_RE.source}=started`, "i"));
+  });
+
+  it("check_process resolve-owner=true populates username/uid (Windows)", async () => {
+    if (!onWindows) return;
+    // Owner resolution is opt-in. Scoped to our own process, so the lookup is a
+    // single (local) account and fast. Default (no flag) leaves username empty.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "resolve-owner": "true",
+      "top-syntax": "${list}",
+      "detail-syntax": "user=[${username}] uid=[${uid}]",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    // Our process has an owner; both the name and the SID should be non-empty.
+    expect(msg).toMatch(/user=\[[^\]]+\]/);
+    expect(msg).toMatch(/uid=\[S-\d[-\d]+\]/); // a SID string
+  });
+
+  it("check_process leaves username empty without resolve-owner (Windows)", async () => {
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "user=[${username}]",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/user=\[\]/); // owner not resolved by default
+  });
+
+  it("check_process delta=true reports CPU as a percentage (Linux)", async () => {
+    // CheckSystemUnix computes the delta in-line (sample/sleep/sample); Windows
+    // sources it from the background collector, covered in its own describe below.
+    if (onWindows) return;
     const q = await executeQuery(key, "check_process", {
       process: SELF_EXE,
       delta: "true",
@@ -144,6 +221,20 @@ describe("CheckSystem commands", () => {
     expect(cpu).toBeGreaterThanOrEqual(0);
     expect(cpu).toBeLessThanOrEqual(100);
     expect(msg).toMatch(/user=\d+ kernel=\d+/);
+  });
+
+  it("check_process delta=true is UNKNOWN and names the setting when the collector is off (Windows)", async () => {
+    // On Windows the CPU% for delta comes from the 'process cpu' collector,
+    // which is NOT enabled on this instance. delta=true must fail fast telling
+    // the user which flag to set — regardless of whether the CPU fields appear
+    // in the syntax — rather than silently returning OK / cumulative seconds.
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      delta: "true",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/process cpu/i);
   });
 
   // Regression: `total` is a boolean option passed over REST as the token
@@ -506,5 +597,48 @@ describe("CheckSystem commands", () => {
       expect(msg).toMatch(/=(running|oneshot|static|starting|stopped|unknown)\//);
       expect(msg).toMatch(/rss=\d+ tasks=\d+/);
     }
+  });
+});
+
+// The Windows delta=true CPU path is backed by the 'process cpu' background
+// collector. This runs in its own nscp instance (own describe) so the main
+// suite can assert the collector-off contract while this one asserts the
+// collector-on behaviour. Skipped entirely off Windows.
+(onWindows ? describe : describe.skip)("CheckSystem check_process delta with the CPU collector (Windows)", () => {
+  let nscp: NscpInstance;
+  let key: string;
+
+  beforeAll(async () => {
+    nscp = new NscpInstance();
+    key = await setupQueryNscp(nscp, "CheckSystem", {
+      [SYSTEM_PATH]: { "process cpu": true },
+    });
+  });
+
+  afterAll(async () => {
+    await nscp?.stop();
+  });
+
+  it("reports CPU as a percentage when 'process cpu' is enabled", async () => {
+    // The collector needs two 1 Hz samples before a delta exists. Even before
+    // that a matched process reports 0%, so poll until the field is present and
+    // numeric rather than asserting an exact value.
+    const q = await pollQuery(
+      key,
+      "check_process",
+      {
+        process: SELF_EXE,
+        delta: "true",
+        "top-syntax": "${list}",
+        "detail-syntax": "cpu=${time} user=${user} kernel=${kernel}",
+      },
+      (r) => r.result === OK && /cpu=\d+/.test(messageOf(r)),
+    );
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    const cpu = Number(/cpu=(\d+)/.exec(msg)?.[1]);
+    expect(cpu).toBeGreaterThanOrEqual(0);
+    expect(cpu).toBeLessThanOrEqual(100);
+    expect(msg).toMatch(/user=\d+ kernel=\d+/);
   });
 });
