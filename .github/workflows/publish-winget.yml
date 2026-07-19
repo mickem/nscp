@@ -47,7 +47,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Resolve release tag and version
         id: ctx
@@ -110,7 +110,7 @@ jobs:
           python packaging/scripts/verify_manifest_hashes.py winget dist/winget
 
       - name: Upload rendered manifests
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: winget-manifests-${{ steps.ctx.outputs.version }}
           path: dist/winget
