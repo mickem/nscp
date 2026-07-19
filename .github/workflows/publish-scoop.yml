@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Resolve release tag and version
         id: ctx
@@ -145,7 +145,7 @@ jobs:
           PY
 
       - name: Upload rendered manifest
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: scoop-manifest-${{ steps.ctx.outputs.version }}
           path: dist/scoop/nsclient.json

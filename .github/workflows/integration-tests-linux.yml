@@ -95,9 +95,9 @@ jobs:
           retry sh -c 'curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -'
           retry dnf install -y --allowerasing coreutils bash file findutils git boost-devel gtest-devel protobuf-compiler protobuf-devel openssl openssl-devel gmock-devel cryptopp-devel lua-devel cmake gcc-c++ python3-pip rpm-build nodejs python3-devel dbus-devel bash nodejs coreutils procps-ng
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.artifact-name }}
           path: .
