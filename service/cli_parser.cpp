@@ -14,6 +14,11 @@
 #ifndef WIN32
 #include <pid_file.hpp>
 #endif
+#ifdef HAVE_ONBOARDING
+#include <onboarding/onboarding.hpp>
+#endif
+#include <boost/filesystem.hpp>
+#include <fstream>
 #include <settings/settings_core.hpp>
 #include <str/format.hpp>
 
@@ -165,6 +170,7 @@ cli_parser::handler_map cli_parser::get_handlers() {
   handlers["client"] = [this](const int argc, char **argv) { return this->parse_client(argc, argv); };
   handlers["help"] = [this](const int argc, char **argv) { return this->parse_help(argc, argv); };
   handlers["unit"] = [this](const int argc, char **argv) { return this->parse_unittest(argc, argv); };
+  handlers["enroll"] = [this](const int argc, char **argv) { return this->parse_enroll(argc, argv); };
   return handlers;
 }
 
@@ -719,6 +725,109 @@ int cli_parser::parse_unittest(int argc, char *argv[]) {
   }
 }
 
+int cli_parser::parse_enroll(int argc, char *argv[]) {
+#ifdef HAVE_ONBOARDING
+  try {
+    onboarding::enrollment_request request;
+    std::string state_file;
+    bool force = false;
+
+    po::options_description enroll_desc("Enrollment options");
+    // clang-format off
+    enroll_desc.add_options()
+      ("server", po::value<std::string>(&request.server_url), "Fleet server url, e.g. https://fleet.example.com")
+      ("token", po::value<std::string>(&request.bootstrap_token), "One-time bootstrap token from the install command")
+      ("hostname", po::value<std::string>(&request.hostname), "Hostname to report to the fleet server (default: this machine's hostname)")
+      ("os", po::value<std::string>(&request.os), "Operating system to report to the fleet server (default: detected)")
+      ("ca", po::value<std::string>(&request.ca), "CA bundle used to verify the fleet server certificate")
+      ("tls-version", po::value<std::string>(&request.tls_version)->default_value("tlsv1.2+"), "TLS version for the enrollment call")
+      ("verify", po::value<std::string>(&request.verify_mode), "TLS verify mode (default: certificate when --ca is given, none otherwise)")
+      ("retries", po::value<unsigned int>(&request.max_attempts)->default_value(3), "Attempts for transient failures (rate limiting, server errors)")
+      ("state-file", po::value<std::string>(&state_file), "Where to store the enrolled identity (default: ${certificate-path}/agent-state.json)")
+      ("force", po::bool_switch(&force), "Overwrite an existing enrollment state file")
+    ;
+    // clang-format on
+
+    po::options_description all("Allowed options (enroll)");
+    all.add(common_light).add(common).add(enroll_desc);
+
+    po::variables_map vm;
+    po::store(do_parse(argc, argv, all), vm);
+    po::notify(vm);
+
+    if (process_common_options("enroll", all)) return 1;
+
+    if (request.server_url.empty() || request.bootstrap_token.empty()) {
+      std::cerr << "Both --server and --token are required." << std::endl;
+      std::cout << all << std::endl;
+      return 1;
+    }
+
+    // Load paths/settings so ${certificate-path} (and any tokens in a user
+    // supplied --state-file) can be resolved.
+    if (!core_->load_configuration_1()) {
+      std::cerr << "Failed to load configuration" << std::endl;
+      return 1;
+    }
+    if (state_file.empty()) state_file = "${certificate-path}/agent-state.json";
+    state_file = core_->get_path()->expand_path(state_file);
+
+    boost::system::error_code fs_error;
+    if (boost::filesystem::exists(state_file, fs_error) && !force) {
+      std::cerr << "This host is already enrolled (" << state_file << " exists)." << std::endl;
+      std::cerr << "Use --force to discard the existing identity and enroll again." << std::endl;
+      return 1;
+    }
+    const boost::filesystem::path state_dir = boost::filesystem::path(state_file).parent_path();
+    if (!state_dir.empty()) boost::filesystem::create_directories(state_dir, fs_error);
+
+    std::cout << "Enrolling with " << request.server_url << "..." << std::endl;
+    const onboarding::enrolled_identity state = onboarding::enroll(request);
+    onboarding::save_state(state, state_file);
+    std::cout << "Enrollment successful." << std::endl;
+    std::cout << "  Identity stored in: " << state_file << std::endl;
+    std::cout << "  Agent API (mTLS):   " << state.mtls_url << std::endl;
+
+    // The core starts the fleet sync automatically whenever the enrollment
+    // manifest written above exists - no module to enable. Only the include
+    // of the rendered configuration (fleet.ini) needs to be wired into the
+    // active settings store. The token is stored unexpanded so the config
+    // stays relocatable; a placeholder fleet.ini avoids an include error
+    // before the first sync.
+    try {
+      const std::string fleet_ini_token = "${shared-path}/fleet/fleet.ini";
+      const std::string fleet_ini = core_->get_path()->expand_path(fleet_ini_token);
+      const boost::filesystem::path fleet_dir = boost::filesystem::path(fleet_ini).parent_path();
+      if (!fleet_dir.empty()) boost::filesystem::create_directories(fleet_dir, fs_error);
+      if (!boost::filesystem::exists(fleet_ini, fs_error)) {
+        std::ofstream placeholder(fleet_ini.c_str());
+        placeholder << "; Managed by the fleet sync - populated on the first sync." << std::endl;
+      }
+      settings_manager::get_settings()->set_string("/includes", "fleet", fleet_ini_token);
+      settings_manager::get_settings()->save(false);
+      std::cout << "  Fleet configuration sync starts on the next service start." << std::endl;
+    } catch (const std::exception &e) {
+      std::cerr << "Enrolled, but failed to add the fleet.ini include to the configuration: " << utf8::utf8_from_native(e.what()) << std::endl;
+      std::cerr << "Add it manually: [/includes] fleet = ${shared-path}/fleet/fleet.ini" << std::endl;
+    }
+    return 0;
+  } catch (const onboarding::onboarding_error &e) {
+    std::cerr << "Enrollment failed: " << e.what() << std::endl;
+    if (e.retryable()) std::cerr << "This error may be temporary - try again later." << std::endl;
+    return 1;
+  } catch (const std::exception &e) {
+    std::cerr << "Enrollment failed: " << utf8::utf8_from_native(e.what()) << std::endl;
+    return 1;
+  } catch (...) {
+    std::cerr << "Enrollment failed: UNKNOWN" << std::endl;
+    return 1;
+  }
+#else
+  std::cerr << "Enrollment is not available in this build (compiled without OpenSSL)." << std::endl;
+  return 1;
+#endif
+}
+
 std::string cli_parser::get_description(const std::string &key) {
   if (key == "settings") {
     return "Change and list settings as well as load and initialize modules.";
@@ -732,6 +841,8 @@ std::string cli_parser::get_description(const std::string &key) {
     return "Display the help screen.";
   } else if (key == "unit") {
     return "Run unit test scripts.";
+  } else if (key == "enroll") {
+    return "Enroll (onboard) this host with a fleet server using a one-time bootstrap token.";
   } else if (key == "nrpe") {
     return "Use a NRPE client to request information from other systems via NRPE similar to standard NRPE check_nrpe command.";
   } else if (key == "nscp") {

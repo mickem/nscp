@@ -13,6 +13,11 @@
 #include "cli_parser.hpp"
 #include "core_api.h"
 #include "logger/nsclient_logger.hpp"
+#ifdef HAVE_ONBOARDING
+#include <net/socket/socket_helpers.hpp>
+
+#include "fleet_sync.hpp"
+#endif
 #ifdef WIN32
 #include "windows_ca_store.hpp"
 #endif
@@ -333,11 +338,72 @@ bool NSClientT::boot_start_plugins(bool boot) {
     LOG_ERROR_CORE("Unknown exception starting plugins");
     return false;
   }
+  if (boot) {
+    boot_fleet_sync();
+  }
   LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
   return true;
 }
 
+// Start the fleet configuration sync loop - but only when this host has been
+// enrolled, i.e. the enrollment manifest written by `nscp enroll` exists.
+// Un-enrolled hosts pay nothing: no thread, no traffic, just a debug line.
+void NSClientT::boot_fleet_sync() {
+#ifdef HAVE_ONBOARDING
+  try {
+    const std::string path = "/settings/fleet";
+    settings_manager::get_core()->register_path(0xffff, path, "Fleet configuration sync",
+                                                "Settings for keeping this host in sync with an NSClient fleet server (active once the host is "
+                                                "enrolled with `nscp enroll`).",
+                                                true, false);
+    const auto reg_key = [&path](const char *key, const char *title, const char *description, const char *def) {
+      settings_manager::get_core()->register_key(0xffff, path, key, "string", title, description, def, true, false);
+      return settings_manager::get_settings()->get_string(path, key, def);
+    };
+
+    fleet_config config;
+    config.state_file = path_->expand_path(reg_key("state file", "State file",
+                                                   "The enrollment manifest written by `nscp enroll` (certificates, keys and server urls). "
+                                                   "Fleet sync only runs when this file exists.",
+                                                   "${certificate-path}/agent-state.json"));
+    config.managed_path = path_->expand_path(
+        reg_key("managed path", "Managed path", "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept.",
+                "${shared-path}/fleet"));
+    config.hostname = socket_helpers::expand_hostname(
+        reg_key("hostname", "Hostname", "Hostname reported as a tag to the fleet server. Set to auto (default) to use this machine's hostname.", "auto"));
+    config.tls_version = reg_key("tls version", "TLS version", "The TLS version used when connecting to the fleet server.", "tlsv1.2+");
+    const std::string metrics = reg_key("metrics", "Submit metrics", "Submit basic metrics (uptime) to the fleet server on every poll.", "true");
+    config.metrics = metrics != "false" && metrics != "0" && metrics != "no";
+    config.nscp_version = CURRENT_SERVICE_VERSION;
+
+    if (!fleet_sync::has_manifest(config.state_file)) {
+      LOG_DEBUG_CORE_STD("No fleet enrollment manifest (" + config.state_file + "): fleet sync not started");
+      return;
+    }
+    fleet_sync_ = std::make_shared<fleet_sync>(log_instance_, config, [this] { this->reload("delayed,service"); });
+    log_instance_->info("fleet", __FILE__, __LINE__, "Fleet configuration sync started (manifest: " + config.state_file + ")");
+  } catch (const std::exception &e) {
+    LOG_ERROR_CORE_STD("Failed to start fleet sync: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR_CORE("Failed to start fleet sync: UNKNOWN");
+  }
+#endif
+}
+
+void NSClientT::stop_fleet_sync() {
+#ifdef HAVE_ONBOARDING
+  if (fleet_sync_) {
+    LOG_DEBUG_CORE("Stopping fleet sync");
+    fleet_sync_->stop();
+    fleet_sync_.reset();
+  }
+#endif
+}
+
 bool NSClientT::stop_nsclient() {
+  // Stop the fleet sync first: it can request (delayed) reloads, which make
+  // no sense once shutdown has begun.
+  stop_fleet_sync();
   scheduler_.stop();
   LOG_DEBUG_CORE("Attempting to stop all plugins");
   try {

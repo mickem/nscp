@@ -148,6 +148,21 @@ struct tcp_socket final : generic_socket {
   }
 };
 
+// In-memory TLS material for mutual TLS: a client certificate + key presented
+// to the server, and optionally a pinned server certificate used as the only
+// trust root (instead of a CA file / system store). All fields are PEM
+// strings, not paths - callers like the fleet agent keep this material in a
+// state file rather than as loose certificate files.
+struct client_identity {
+  std::string cert_pem;       // client certificate (chain) to present
+  std::string key_pem;        // matching private key
+  std::string pinned_ca_pem;  // if set: the ONLY trusted root for the peer; hostname verification is skipped
+
+  bool has_client_cert() const { return !cert_pem.empty() && !key_pem.empty(); }
+  bool is_pinned() const { return !pinned_ca_pem.empty(); }
+  bool empty() const { return !has_client_cert() && !is_pinned(); }
+};
+
 #ifdef USE_SSL
 struct ssl_socket final : generic_socket {
   boost::asio::ssl::context context_;
@@ -156,18 +171,52 @@ struct ssl_socket final : generic_socket {
   boost::asio::ssl::verify_mode verify_;
   std::string sni_;  // TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
+  bool pinned_;  // pinned peer cert: verify against it only, no hostname check
 
-  explicit ssl_socket(boost::asio::io_context &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
-                      const std::string &ca, std::string sni = std::string(), proxy_config proxy = proxy_config())
-      : context_(method), ssl_socket_(io_service, context_), resolver_(io_service), verify_(verify), sni_(std::move(sni)), proxy_(std::move(proxy)) {
+  // Build the fully-configured TLS context BEFORE any SSL stream exists. OpenSSL's
+  // SSL_new() COPIES the certificate/key state out of the context at creation time
+  // (only the verify store is shared by reference), so a client certificate loaded
+  // into the context after the stream is constructed is silently ignored: the
+  // handshake then presents no certificate at all and an mTLS server answers with
+  // a bare "certificate required" alert. Keep every use_certificate/use_private_key
+  // call in here, never in the ssl_socket constructor body.
+  static boost::asio::ssl::context make_context(const boost::asio::ssl::context::method method, const std::string &ca, const client_identity &identity) {
+    boost::asio::ssl::context context(method);
     if (!ca.empty() && ca != "none") {
       try {
-        context_.load_verify_file(ca);
+        context.load_verify_file(ca);
       } catch (const std::exception &e) {
         throw socket_helpers::socket_exception("Failed to load CA " + ca + ": " + e.what());
       }
     }
+    if (identity.is_pinned()) {
+      try {
+        context.add_certificate_authority(boost::asio::buffer(identity.pinned_ca_pem));
+      } catch (const std::exception &e) {
+        throw socket_helpers::socket_exception(std::string("Failed to load pinned server certificate: ") + e.what());
+      }
+    }
+    if (identity.has_client_cert()) {
+      try {
+        context.use_certificate_chain(boost::asio::buffer(identity.cert_pem));
+        context.use_private_key(boost::asio::buffer(identity.key_pem), boost::asio::ssl::context::pem);
+      } catch (const std::exception &e) {
+        throw socket_helpers::socket_exception(std::string("Failed to load client certificate/key: ") + e.what());
+      }
+    }
+    return context;
   }
+
+  explicit ssl_socket(boost::asio::io_context &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
+                      const std::string &ca, std::string sni = std::string(), proxy_config proxy = proxy_config(),
+                      const client_identity &identity = client_identity())
+      : context_(make_context(method, ca, identity)),
+        ssl_socket_(io_service, context_),
+        resolver_(io_service),
+        verify_(identity.is_pinned() ? boost::asio::ssl::verify_peer : verify),  // the pin IS the peer identity: always verify against it
+        sni_(std::move(sni)),
+        proxy_(std::move(proxy)),
+        pinned_(identity.is_pinned()) {}
 
   ~ssl_socket() override {
     try {
@@ -188,7 +237,11 @@ struct ssl_socket final : generic_socket {
     if (!tls_name.empty()) {
       SSL_set_tlsext_host_name(ssl_socket_.native_handle(), tls_name.c_str());
     }
-    ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
+    // A pinned peer certificate is the identity check itself; its subject
+    // rarely matches the host we dialed, so hostname verification is skipped.
+    if (!pinned_) {
+      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
+    }
 
     ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
   }
@@ -285,7 +338,9 @@ struct ssl_socket final : generic_socket {
     if (!tls_name.empty()) {
       SSL_set_tlsext_host_name(ssl_socket_.native_handle(), tls_name.c_str());
     }
-    ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
+    if (!pinned_) {
+      ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
+    }
     ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
     if (error) {
       throw socket_helpers::socket_exception("TLS handshake via proxy tunnel failed: " + error.message());
@@ -358,6 +413,7 @@ struct http_client_options {
   std::string ca_;
   std::string sni_;  // optional TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
+  client_identity identity_;  // optional mutual-TLS material (in-memory PEM)
 
   http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca, proxy_config proxy = proxy_config())
       : protocol_(std::move(protocol)), tls_version_(std::move(tls_version)), verify_(std::move(verify)), ca_(std::move(ca)), proxy_(std::move(proxy)) {}
@@ -381,7 +437,8 @@ class simple_client {
   explicit simple_client(const http_client_options &options) : options_(options) {
     if (options.is_https()) {
 #ifdef USE_SSL
-      socket_ = std::make_unique<ssl_socket>(io_service_, options.get_method(), options.get_verify(), options.ca_, options.sni_, options.proxy_);
+      socket_ = std::make_unique<ssl_socket>(io_service_, options.get_method(), options.get_verify(), options.ca_, options.sni_, options.proxy_,
+                                             options.identity_);
 #else
       throw socket_helpers::socket_exception("HTTPS requested but this build has no TLS support (compiled without OpenSSL)");
 #endif

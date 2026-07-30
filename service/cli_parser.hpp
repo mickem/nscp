@@ -55,6 +55,7 @@ class cli_parser : public boost::noncopyable {
   int parse_service(int argc, char* argv[]);
   int parse_client(int argc, char* argv[], const std::string& module_ = "");
   int parse_unittest(int argc, char* argv[]);
+  int parse_enroll(int argc, char* argv[]);
   // int exec_client_mode(client_arguments &args);
   static std::string get_description(const std::string& key);
   static std::string describe(const std::string& key);
