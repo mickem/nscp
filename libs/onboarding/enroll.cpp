@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
+#include <algorithm>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/json.hpp>
 #include <chrono>
@@ -38,13 +39,15 @@ unsigned long jitter_ms() {
 }
 
 // Backoff for retryable failures: honor the server's Retry-After when given,
-// otherwise exponential (2s, 4s, 8s, ...), always with jitter so a fleet
-// enrolling at the same time does not hammer the server in lockstep.
+// otherwise exponential (2s, 4s, 8s, ...) capped at 64s, always with jitter so
+// a fleet enrolling at the same time does not hammer the server in lockstep.
+// The cap keeps the shift well-defined (and the wait sane) for large --retries.
 unsigned long backoff_ms(const unsigned int attempt, const boost::optional<unsigned long> &retry_after_seconds) {
   if (retry_after_seconds) {
     return *retry_after_seconds * 1000UL + jitter_ms();
   }
-  return (1UL << attempt) * 1000UL + jitter_ms();
+  const unsigned int max_exponent = 6;
+  return (1UL << std::min(attempt, max_exponent)) * 1000UL + jitter_ms();
 }
 
 boost::optional<unsigned long> get_retry_after(const http::response &response) {

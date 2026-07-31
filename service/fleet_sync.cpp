@@ -403,8 +403,11 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
 
     write_file(staging / "fleet.ini", onboarding::render_ini(merged));
 
-    // Swap: fleet.ini atomically, staged scripts file-by-file.
+    // Swap: fleet.ini atomically, staged scripts file-by-file. The managed
+    // scripts tree is wiped first so scripts dropped from the desired state
+    // (removed bundle, renamed file) actually disappear instead of lingering.
     fs::rename(staging / "fleet.ini", managed / "fleet.ini");
+    fs::remove_all(managed / "scripts", ignored);
     promote_tree(staging / "scripts", managed / "scripts");
     fs::remove_all(staging, ignored);
 

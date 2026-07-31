@@ -14,8 +14,8 @@
 // desired-state parsing, bundle verification (SHA-256 + Ed25519), RFC 7396
 // JSON merge patch, the deterministic JSON -> NSClient INI rendering, and
 // certificate renewal helpers. Everything here is side-effect free so it can
-// be unit tested; the NSClientConfig module owns transport, threading and
-// filesystem staging.
+// be unit tested; the core service's fleet sync loop (service/fleet_sync.cpp)
+// owns transport, threading and filesystem staging.
 namespace onboarding {
 
 // One bundle entry from a desired-state response.

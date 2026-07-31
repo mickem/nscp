@@ -1,7 +1,7 @@
 /**
  * Real-mTLS regression test for the core fleet sync loop.
  *
- * The plain-http suite (nsclientconfig-sync.test.ts) exercises the protocol;
+ * The plain-http suite (fleet-sync.test.ts) exercises the protocol;
  * this one exercises the TLS layer that broke in the field: the agent must
  * actually PRESENT its client certificate during the handshake. (OpenSSL's
  * SSL_new() copies certificate state out of the SSL_CTX at stream-creation
@@ -46,7 +46,7 @@ function findOpenssl(): string | undefined {
 const opensslBin = findOpenssl();
 const describeMtls = opensslBin ? describe : describe.skip;
 if (!opensslBin) {
-  console.warn("[nsclientconfig-mtls] openssl CLI not found (set NSCP_OPENSSL_BIN); skipping real-mTLS suite");
+  console.warn("[fleet-sync-mtls] openssl CLI not found (set NSCP_OPENSSL_BIN); skipping real-mTLS suite");
 }
 
 /** A self-signed server certificate (SAN localhost/127.0.0.1) — the agent

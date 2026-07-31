@@ -138,7 +138,7 @@ std::string onboarding::render_ini(const boost::json::value &config) {
   ini_sections sections;
   collect_ini(config.as_object(), "", sections);
   std::ostringstream out;
-  out << "; Managed by NSClientConfig - DO NOT EDIT, changes are overwritten on the next sync.\n";
+  out << "; Managed by the fleet sync - DO NOT EDIT, changes are overwritten on the next sync.\n";
   for (const ini_sections::value_type &section : sections) {
     out << "\n[" << section.first << "]\n";
     for (const auto &entry : section.second) {

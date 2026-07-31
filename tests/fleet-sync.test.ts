@@ -147,44 +147,70 @@ describe("core fleet sync loop", () => {
   const evilSha = crypto.createHash("sha256").update(evilZip).digest("hex");
   const wrongKeys = crypto.generateKeyPairSync("ed25519");
 
+  // A later revision of the good bundle that drops hello.txt and adds another
+  // script: what the agent must do with scripts that left the desired state.
+  const trimmedZip = makeZip([
+    { name: "bundle.toml", data: 'name = "demo"\nversion = "2.0"\n' },
+    { name: "config.json", data: JSON.stringify({ modules: { CheckHelpers: "enabled" } }) },
+    { name: "scripts/demo/other.txt", data: "other fleet\n" },
+  ]);
+  const trimmedSha = crypto.createHash("sha256").update(trimmedZip).digest("hex");
+
   /** Mutable server behavior: which desired state is currently served. */
-  let phase: "good" | "evil";
+  let phase: "good" | "evil" | "trimmed";
 
   function desiredStateFor(currentHash: string | null): { code: number; body: any } {
-    const active =
-      phase === "good"
-        ? {
-            state_hash: "h-good",
-            next_poll_in_seconds: 1,
-            merged_config_json: {},
-            bundles: [
-              {
-                id: "b-good",
-                name: "demo",
-                version: "1.0",
-                sha256: goodSha,
-                signature: signBundle(signingKeys.privateKey, goodZip),
-                url: "/agent/v1/bundles/b-good",
-                priority: 100,
-              },
-            ],
-          }
-        : {
-            state_hash: "h-evil",
-            next_poll_in_seconds: 1,
-            merged_config_json: {},
-            bundles: [
-              {
-                id: "b-evil",
-                name: "evil",
-                version: "6.6.6",
-                sha256: evilSha,
-                signature: signBundle(wrongKeys.privateKey, evilZip),
-                url: "/agent/v1/bundles/b-evil",
-                priority: 100,
-              },
-            ],
-          };
+    const states = {
+      good: {
+        state_hash: "h-good",
+        next_poll_in_seconds: 1,
+        merged_config_json: {},
+        bundles: [
+          {
+            id: "b-good",
+            name: "demo",
+            version: "1.0",
+            sha256: goodSha,
+            signature: signBundle(signingKeys.privateKey, goodZip),
+            url: "/agent/v1/bundles/b-good",
+            priority: 100,
+          },
+        ],
+      },
+      evil: {
+        state_hash: "h-evil",
+        next_poll_in_seconds: 1,
+        merged_config_json: {},
+        bundles: [
+          {
+            id: "b-evil",
+            name: "evil",
+            version: "6.6.6",
+            sha256: evilSha,
+            signature: signBundle(wrongKeys.privateKey, evilZip),
+            url: "/agent/v1/bundles/b-evil",
+            priority: 100,
+          },
+        ],
+      },
+      trimmed: {
+        state_hash: "h-trimmed",
+        next_poll_in_seconds: 1,
+        merged_config_json: {},
+        bundles: [
+          {
+            id: "b-trimmed",
+            name: "demo",
+            version: "2.0",
+            sha256: trimmedSha,
+            signature: signBundle(signingKeys.privateKey, trimmedZip),
+            url: "/agent/v1/bundles/b-trimmed",
+            priority: 100,
+          },
+        ],
+      },
+    };
+    const active = states[phase];
     if (currentHash === active.state_hash) {
       return { code: 304, body: { next_poll_in_seconds: 1 } };
     }
@@ -235,6 +261,9 @@ describe("core fleet sync loop", () => {
         } else if (parsed.pathname === "/agent/v1/bundles/b-evil") {
           res.writeHead(200, { "Content-Type": "application/zip" });
           res.end(evilZip);
+        } else if (parsed.pathname === "/agent/v1/bundles/b-trimmed") {
+          res.writeHead(200, { "Content-Type": "application/zip" });
+          res.end(trimmedZip);
         } else if (parsed.pathname === "/agent/v1/state-report" || parsed.pathname === "/agent/v1/renew") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end("{}");
@@ -349,5 +378,18 @@ describe("core fleet sync loop", () => {
     expect(applied.state_hash).toBe("h-good");
     // The unverified bundle must never enter the cache.
     expect(fs.existsSync(path.join(workDir, "fleet", "cache", `b-evil-${evilSha.substring(0, 16)}.zip`))).toBe(false);
+  });
+
+  it("drops scripts that left the desired state", async () => {
+    const scripts = path.join(workDir, "fleet", "scripts", "demo");
+    expect(fs.existsSync(path.join(scripts, "hello.txt"))).toBe(true);
+
+    phase = "trimmed";
+    await waitFor("state report with the trimmed hash", () => stateReports().some((r) => r.body?.applied_state_hash === "h-trimmed"));
+
+    // The new bundle's script is there and the one it replaced is gone: a
+    // script removed from a bundle must not linger and keep running.
+    expect(fs.readFileSync(path.join(scripts, "other.txt"), "utf8")).toContain("other fleet");
+    expect(fs.existsSync(path.join(scripts, "hello.txt"))).toBe(false);
   });
 });

@@ -9,6 +9,7 @@
 #include <openssl/x509.h>
 
 #include <algorithm>
+#include <cctype>
 #include <memory>
 
 namespace {
