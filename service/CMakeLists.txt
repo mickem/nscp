@@ -198,6 +198,9 @@ target_link_libraries(
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    # boost::this_thread::sleep_for (fleet_sync's interruptible poll wait) pulls
+    # in boost::chrono::steady_clock, which is not header-only.
+    ${Boost_CHRONO_LIBRARY}
     ${PROTOBUF_LIBRARY}
     ${ICONV_LIBRARIES}
     ${EXTRA_LIBS}
