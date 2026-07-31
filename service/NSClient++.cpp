@@ -372,7 +372,10 @@ void NSClientT::boot_fleet_sync() {
     config.hostname = socket_helpers::expand_hostname(
         reg_key("hostname", "Hostname", "Hostname reported as a tag to the fleet server. Set to auto (default) to use this machine's hostname.", "auto"));
     config.tls_version = reg_key("tls version", "TLS version", "The TLS version used when connecting to the fleet server.", "tlsv1.2+");
-    const std::string metrics = reg_key("metrics", "Submit metrics", "Submit basic metrics (uptime) to the fleet server on every poll.", "true");
+    const std::string metrics = reg_key("metrics", "Submit metrics",
+                                        "Submit metrics to the fleet server on every poll: the agent uptime plus the latest snapshot of the metrics "
+                                        "modules publish (the same set as the REST /api/v2/metrics view, collected every `metrics interval`).",
+                                        "true");
     config.metrics = metrics != "false" && metrics != "0" && metrics != "no";
     config.nscp_version = CURRENT_SERVICE_VERSION;
 
@@ -380,7 +383,11 @@ void NSClientT::boot_fleet_sync() {
       LOG_DEBUG_CORE_STD("No fleet enrollment manifest (" + config.state_file + "): fleet sync not started");
       return;
     }
-    fleet_sync_ = std::make_shared<fleet_sync>(log_instance_, config, [this] { this->reload("delayed,service"); });
+    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, [this] { this->reload("delayed,service"); });
+    {
+      boost::mutex::scoped_lock lock(fleet_sync_mutex_);
+      fleet_sync_ = sync;
+    }
     log_instance_->info("fleet", __FILE__, __LINE__, "Fleet configuration sync started (manifest: " + config.state_file + ")");
   } catch (const std::exception &e) {
     LOG_ERROR_CORE_STD("Failed to start fleet sync: " + utf8::utf8_from_native(e.what()));
@@ -390,12 +397,23 @@ void NSClientT::boot_fleet_sync() {
 #endif
 }
 
+#ifdef HAVE_ONBOARDING
+std::shared_ptr<fleet_sync> NSClientT::get_fleet_sync() const {
+  boost::mutex::scoped_lock lock(fleet_sync_mutex_);
+  return fleet_sync_;
+}
+#endif
+
 void NSClientT::stop_fleet_sync() {
 #ifdef HAVE_ONBOARDING
-  if (fleet_sync_) {
+  std::shared_ptr<fleet_sync> sync;
+  {
+    boost::mutex::scoped_lock lock(fleet_sync_mutex_);
+    sync.swap(fleet_sync_);
+  }
+  if (sync) {
     LOG_DEBUG_CORE("Stopping fleet sync");
-    fleet_sync_->stop();
-    fleet_sync_.reset();
+    sync->stop();
   }
 #endif
 }
@@ -597,7 +615,16 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   }
   return bundle;
 }
-void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
+void NSClientT::process_metrics() {
+  const PB::Metrics::MetricsMessage metrics = plugins_->process_metrics(ownMetricsFetcher());
+#ifdef HAVE_ONBOARDING
+  // The fleet sync loop is not a plugin, so it cannot be a metrics submitter:
+  // hand it the same snapshot the submitters got, to send on its next poll.
+  if (const std::shared_ptr<fleet_sync> fleet = get_fleet_sync()) {
+    fleet->on_metrics(metrics);
+  }
+#endif
+}
 
 #ifdef _WIN32
 void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {}

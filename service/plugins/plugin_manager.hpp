@@ -119,7 +119,10 @@ class plugin_manager : public std::enable_shared_from_this<plugin_manager> {
   NSCAPI::nagiosReturn emit_event(const std::string &request);
 
   bool is_enabled(const std::string module);
-  void process_metrics(PB::Metrics::MetricsBundle bundle);
+  // Fetch metrics from every fetcher, append `bundle` (the core's own) and hand
+  // the result to every submitter. Returns the assembled message so the caller
+  // can feed non-plugin consumers (the fleet sync loop) from the same snapshot.
+  PB::Metrics::MetricsMessage process_metrics(PB::Metrics::MetricsBundle bundle);
 
   bool enable_plugin(std::string name);
   bool disable_plugin(std::string name);

@@ -3,12 +3,14 @@
 
 #pragma once
 
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <chrono>
 #include <functional>
 #include <map>
 #include <memory>
 #include <net/http/http_response.hpp>
+#include <nscapi/protobuf/metrics.hpp>
 #include <nsclient/logger/logger.hpp>
 #include <onboarding/onboarding.hpp>
 #include <onboarding/sync.hpp>
@@ -44,6 +46,13 @@ class fleet_sync {
   fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, reload_function request_reload);
   ~fleet_sync();
   void stop();
+
+  // Take a snapshot of the core metrics set (called from the scheduler thread
+  // every `metrics interval`): the samples are flattened, kept and submitted
+  // by the next poll cycle. Only the latest snapshot is retained - the fleet
+  // server samples at poll resolution, so buffering older values would only
+  // grow the payload.
+  void on_metrics(const PB::Metrics::MetricsMessage &metrics);
 
  private:
   void thread_proc();
@@ -81,6 +90,12 @@ class fleet_sync {
   unsigned long poll_interval_ = 60;
   unsigned int failures_ = 0;
   std::chrono::steady_clock::time_point started_;
+
+  // The latest metrics snapshot, produced on the scheduler thread and consumed
+  // by the poll loop.
+  mutable boost::mutex metrics_mutex_;
+  std::vector<onboarding::metric_sample> metrics_;
+  bool metrics_truncated_logged_ = false;
 
   // Transport state shared by all calls in the loop: once the server is known
   // to be unreachable, secondary traffic (renewal, metrics) is skipped until a

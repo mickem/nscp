@@ -54,8 +54,11 @@ class NSClientT : public nsclient::core::core_interface {
 #ifdef HAVE_ONBOARDING
   // Fleet configuration sync (see service/fleet_sync.hpp). Only running when
   // the enrollment manifest (agent-state.json, written by `nscp enroll`)
-  // exists; survives configuration reloads.
+  // exists; survives configuration reloads. Guarded because the scheduler
+  // thread reads it (to hand over metrics) while boot/shutdown writes it.
   std::shared_ptr<fleet_sync> fleet_sync_;
+  mutable boost::mutex fleet_sync_mutex_;
+  std::shared_ptr<fleet_sync> get_fleet_sync() const;
 #endif
 
  public:
