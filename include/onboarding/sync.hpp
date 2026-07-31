@@ -38,10 +38,35 @@ struct desired_state {
 
 // Parse a 200 desired-state response body. Throws onboarding_error
 // (non-retryable) when required fields are missing or malformed.
+//
+// Every server-supplied field is validated, not just copied - the response is
+// only as trustworthy as the (pinned, mutually authenticated) channel it came
+// over, and these values are used in places where a hostile string would do
+// real damage:
+//   state_hash  a token (<=128 chars, alphanumerics and -._:=+/~) because it
+//               is sent back in a query string
+//   id          a single harmless path component (no separators, no "..")
+//               because it becomes a bundle cache file name
+//   sha256      exactly 64 hex characters
+//   signature   base64 (<=512 chars)
+//   url         a server-relative path ("/..."), no control characters,
+//               spaces or '#', because it is appended to the pinned base url
+// next_poll_in_seconds is clamped to 1..86400 (nonsense values fall back to
+// the 60s default) so a bad response cannot park the agent forever, and a
+// bundles field that is present but not an array is an error rather than
+// "no bundles" - the latter would apply an empty configuration.
 desired_state parse_desired_state(const std::string &body);
 
-// Parse the next_poll_in_seconds hint from a 304 (or 200) body; none when absent.
+// Parse the next_poll_in_seconds hint from a 304 (or 200) body; none when
+// absent, not a number, or not a usable interval (<= 0). Clamped to 86400.
 boost::optional<unsigned long> parse_next_poll(const std::string &body);
+
+// Parse a Retry-After header value (429/503) as RFC 9110 delay-seconds; none
+// for the HTTP-date form and for anything else we cannot act on, in which case
+// the caller falls back to its own backoff. Deliberately strict: strtoul-style
+// parsing accepts "-5" (which wraps to a near-eternal wait) and reads "1e9" as
+// 1, both of which a server can send by accident.
+boost::optional<unsigned long> parse_retry_after(const std::string &header_value);
 
 // Hex-encoded SHA-256 of a byte buffer.
 std::string sha256_hex(const std::string &bytes);
@@ -80,7 +105,9 @@ struct metric_sample {
   boost::optional<long long> ts;  // unix seconds; only for buffered samples
 };
 
-// Build a /agent/v1/metrics body.
+// Build a /agent/v1/metrics body. Samples whose value is not finite (NaN,
+// infinity) are dropped: they have no JSON representation, and including one
+// would make the server reject the whole batch.
 std::string build_metrics(const std::vector<metric_sample> &samples);
 
 // --- transport error classification ------------------------------------------

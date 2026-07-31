@@ -127,6 +127,54 @@ TEST(OnboardingIdentity, GeneratesUniqueKeys) {
   EXPECT_NE(first.csr_pem, second.csr_pem);
 }
 
+TEST(OnboardingIdentity, PrivateKeyIsAnUnencryptedPkcs8Pem) {
+  // The agent has to be able to read this back unattended at boot, so it must
+  // not be passphrase protected - and it must be a private key, not a keypair
+  // dump that would also ship the public half around.
+  const onboarding::identity id = onboarding::generate_identity();
+  EXPECT_NE(id.private_key_pem.find("-----BEGIN PRIVATE KEY-----"), std::string::npos);
+  EXPECT_EQ(id.private_key_pem.find("ENCRYPTED"), std::string::npos);
+  EXPECT_EQ(id.private_key_pem.find("Proc-Type"), std::string::npos);
+  EXPECT_NE(id.csr_pem.find("-----BEGIN CERTIFICATE REQUEST-----"), std::string::npos);
+}
+
+TEST(OnboardingIdentity, CsrIsAVersionOneRequestWithOnlyACommonName) {
+  const onboarding::identity id = onboarding::generate_identity("web-01");
+  const x509_req_ptr req = parse_csr(id.csr_pem);
+  ASSERT_TRUE(req);
+  EXPECT_EQ(X509_REQ_get_version(req.get()), 0L) << "PKCS#10 v1";
+  const X509_NAME *name = X509_REQ_get_subject_name(req.get());
+  EXPECT_EQ(X509_NAME_entry_count(name), 1) << "the server derives the real identity from the token, not from the subject";
+}
+
+TEST(OnboardingIdentity, AnUnusableCommonNameFailsCleanly) {
+  // X.520 caps commonName at 64 characters. Whether this OpenSSL accepts a
+  // longer one or not, the outcome must be an onboarding_error or a CSR with
+  // the name intact - never a silently truncated subject or a raw OpenSSL
+  // exception escaping the library.
+  const std::string long_cn(300, 'n');
+  try {
+    const onboarding::identity id = onboarding::generate_identity(long_cn);
+    const x509_req_ptr req = parse_csr(id.csr_pem);
+    ASSERT_TRUE(req);
+    std::vector<char> buffer(long_cn.size() + 64, 0);
+    ASSERT_GT(X509_NAME_get_text_by_NID(X509_REQ_get_subject_name(req.get()), NID_commonName, buffer.data(), static_cast<int>(buffer.size())), 0);
+    EXPECT_EQ(std::string(buffer.data()), long_cn);
+  } catch (const onboarding::onboarding_error &e) {
+    EXPECT_FALSE(e.retryable());
+  }
+}
+
+TEST(OnboardingIdentity, AnEmptyCommonNameDoesNotCrash) {
+  try {
+    const onboarding::identity id = onboarding::generate_identity("");
+    EXPECT_FALSE(id.csr_pem.empty());
+    EXPECT_TRUE(parse_csr(id.csr_pem));
+  } catch (const onboarding::onboarding_error &e) {
+    EXPECT_FALSE(e.retryable());
+  }
+}
+
 TEST(OnboardingParse, MapsAllFields) {
   const onboarding::enrolled_identity result = onboarding::parse_enroll_response(ok_body, test_identity(), "https://fallback.example.com");
   EXPECT_EQ(result.private_key_pem, "PRIVATE-KEY");
@@ -319,6 +367,275 @@ TEST(OnboardingEnroll, InvalidServerUrlFailsWithoutCallingServer) {
   EXPECT_EQ(calls, 0);
 }
 
+// --- enrollment: hostile / awkward server behaviour --------------------------
+
+TEST(OnboardingEnrollHostile, RetryAfterIsBoundedSoTheInstallerCannotHang) {
+  // Enrollment runs in an installer: honouring an hour long Retry-After would
+  // look like a hang. Five minutes is the cap.
+  std::vector<unsigned long> sleeps;
+  int calls = 0;
+  onboarding::enroll(
+      test_request(), test_identity(),
+      [&](const std::string &, const std::string &) {
+        if (++calls == 1) {
+          http::response response = make_response(429, "slow down");
+          response.add_header("Retry-After", "100000");
+          return response;
+        }
+        return make_response(200, ok_body);
+      },
+      [&](const unsigned long ms) { sleeps.push_back(ms); });
+  ASSERT_EQ(sleeps.size(), 1u);
+  EXPECT_GE(sleeps[0], 300u * 1000u);
+  EXPECT_LT(sleeps[0], 301u * 1000u) << "Retry-After was not clamped";
+}
+
+TEST(OnboardingEnrollHostile, UnusableRetryAfterFallsBackToExponentialBackoff) {
+  for (const char *header : {"Wed, 21 Oct 2026 07:28:00 GMT", "soon", "", "-5", "1e9", "9999999999999999999999"}) {
+    std::vector<unsigned long> sleeps;
+    int calls = 0;
+    onboarding::enroll(
+        test_request(), test_identity(),
+        [&](const std::string &, const std::string &) {
+          if (++calls == 1) {
+            http::response response = make_response(429, "slow down");
+            response.add_header("Retry-After", header);
+            return response;
+          }
+          return make_response(200, ok_body);
+        },
+        [&](const unsigned long ms) { sleeps.push_back(ms); });
+    ASSERT_EQ(sleeps.size(), 1u) << header;
+    // First retry: 2s of exponential backoff plus up to 1s of jitter, and in
+    // no case an hour derived from a number we could not parse.
+    EXPECT_GE(sleeps[0], 2000u) << header;
+    EXPECT_LT(sleeps[0], 3000u) << header;
+  }
+}
+
+TEST(OnboardingEnrollHostile, BackoffStaysBoundedForALargeRetryCount) {
+  // The exponent used to be unbounded: 1UL << attempt is undefined behaviour
+  // once attempt reaches the width of the type, and the sleeps before that are
+  // already absurd (2^20 seconds is twelve days).
+  std::vector<unsigned long> sleeps;
+  onboarding::enrollment_request request = test_request();
+  request.max_attempts = 40;
+  EXPECT_THROW(onboarding::enroll(
+                   request, test_identity(), [&](const std::string &, const std::string &) { return make_response(503, "nope"); },
+                   [&](const unsigned long ms) { sleeps.push_back(ms); }),
+               onboarding::onboarding_error);
+  ASSERT_EQ(sleeps.size(), 39u);
+  for (const unsigned long sleep : sleeps) {
+    EXPECT_GE(sleep, 2000u);
+    EXPECT_LT(sleep, 65u * 1000u) << "backoff exceeded the 64s cap";
+  }
+  EXPECT_LT(sleeps[0], sleeps[3]) << "backoff must still grow before it caps";
+}
+
+TEST(OnboardingEnrollHostile, TransportlessResponsesAreRetryable) {
+  // status 0 is what the client reports when it never got a response.
+  int calls = 0;
+  EXPECT_THROW(onboarding::enroll(
+                   test_request(), test_identity(),
+                   [&](const std::string &, const std::string &) {
+                     ++calls;
+                     return make_response(0, "");
+                   },
+                   no_sleep),
+               onboarding::onboarding_error);
+  EXPECT_EQ(calls, 3);
+}
+
+TEST(OnboardingEnrollHostile, RedirectsAndOtherOddStatusesAreFatal) {
+  for (const unsigned int status : {301u, 302u, 304u, 402u, 404u, 405u, 409u, 418u, 451u}) {
+    int calls = 0;
+    EXPECT_THROW(onboarding::enroll(
+                     test_request(), test_identity(),
+                     [&](const std::string &, const std::string &) {
+                       ++calls;
+                       return make_response(status, "no");
+                     },
+                     no_sleep),
+                 onboarding::onboarding_error)
+        << status;
+    EXPECT_EQ(calls, 1) << "status " << status << " must not be retried";
+  }
+}
+
+TEST(OnboardingEnrollHostile, EveryFiveHundredIsRetriedAndFourOhOneIsNot) {
+  for (const unsigned int status : {500u, 502u, 503u, 504u, 429u}) {
+    int calls = 0;
+    EXPECT_THROW(onboarding::enroll(
+                     test_request(), test_identity(),
+                     [&](const std::string &, const std::string &) {
+                       ++calls;
+                       return make_response(status, "no");
+                     },
+                     no_sleep),
+                 onboarding::onboarding_error);
+    EXPECT_EQ(calls, 3) << "status " << status << " should have been retried";
+  }
+  for (const unsigned int status : {401u, 403u}) {
+    int calls = 0;
+    EXPECT_THROW(onboarding::enroll(
+                     test_request(), test_identity(),
+                     [&](const std::string &, const std::string &) {
+                       ++calls;
+                       return make_response(status, "no");
+                     },
+                     no_sleep),
+                 onboarding::onboarding_error);
+    EXPECT_EQ(calls, 1) << "a burned token must never be retried (status " << status << ")";
+  }
+}
+
+TEST(OnboardingEnrollHostile, ABrokenSuccessBodyIsFatalAndNotRetried) {
+  // 2xx with a body we cannot use is a server bug, not a transient failure:
+  // retrying burns the one-time token for nothing.
+  for (const std::string body : {std::string(""), std::string("not json"), std::string("[]"), std::string("{}"),
+                                 std::string("{\"cert_pem\": \"C\"}"), std::string("{\"cert_pem\": \"\", \"ca_pem\": \"CA\"}")}) {
+    int calls = 0;
+    try {
+      onboarding::enroll(
+          test_request(), test_identity(),
+          [&](const std::string &, const std::string &) {
+            ++calls;
+            return make_response(200, body);
+          },
+          no_sleep);
+      FAIL() << "accepted " << body;
+    } catch (const onboarding::onboarding_error &e) {
+      EXPECT_FALSE(e.retryable()) << body;
+    }
+    EXPECT_EQ(calls, 1) << body;
+  }
+}
+
+TEST(OnboardingEnrollHostile, ANonJsonSuccessBodyIsNotEchoedRaw) {
+  // The failure message ends up in logs and on the console; a body full of
+  // control characters must not go there verbatim.
+  try {
+    onboarding::enroll(
+        test_request(), test_identity(),
+        [&](const std::string &, const std::string &) { return make_response(500, "line1\r\nline2\nline3" + std::string(500, 'x')); }, no_sleep);
+    FAIL() << "expected onboarding_error";
+  } catch (const onboarding::onboarding_error &e) {
+    const std::string message = e.what();
+    EXPECT_EQ(message.find('\n'), std::string::npos) << message;
+    EXPECT_EQ(message.find('\r'), std::string::npos) << message;
+    EXPECT_LT(message.size(), 400u) << "the body snippet is not bounded";
+  }
+}
+
+TEST(OnboardingEnrollHostile, SuccessOnTheFirstAttemptNeverSleeps) {
+  std::vector<unsigned long> sleeps;
+  onboarding::enroll(
+      test_request(), test_identity(), [&](const std::string &, const std::string &) { return make_response(200, ok_body); },
+      [&](const unsigned long ms) { sleeps.push_back(ms); });
+  EXPECT_TRUE(sleeps.empty());
+}
+
+TEST(OnboardingEnrollHostile, ZeroRetriesStillMeansOneAttempt) {
+  int calls = 0;
+  onboarding::enrollment_request request = test_request();
+  request.max_attempts = 0;
+  const onboarding::enrolled_identity result = onboarding::enroll(
+      request, test_identity(),
+      [&](const std::string &, const std::string &) {
+        ++calls;
+        return make_response(200, ok_body);
+      },
+      no_sleep);
+  EXPECT_EQ(calls, 1);
+  EXPECT_EQ(result.cert_pem, "CERT");
+}
+
+TEST(OnboardingEnrollHostile, TheTokenIsJsonEncodedNotConcatenated) {
+  std::string payload;
+  onboarding::enrollment_request request = test_request();
+  request.bootstrap_token = "tok\", \"admin\": true, \"x\": \"\n\\ é";
+  request.hostname = "host\"\n";
+  onboarding::enroll(
+      request, test_identity(),
+      [&](const std::string &, const std::string &body) {
+        payload = body;
+        return make_response(200, ok_body);
+      },
+      no_sleep);
+  json::object sent;
+  ASSERT_NO_THROW(sent = json::parse(payload).as_object()) << payload;
+  EXPECT_EQ(sent.at("bootstrap_token").as_string(), request.bootstrap_token);
+  EXPECT_EQ(sent.at("hostname").as_string(), request.hostname);
+  EXPECT_EQ(sent.if_contains("admin"), nullptr) << "the token escaped its string";
+}
+
+TEST(OnboardingEnrollHostile, HostnameAndOsAreFilledInWhenNotGiven) {
+  std::string payload;
+  onboarding::enrollment_request request = test_request();
+  request.hostname = "";
+  request.os = "";
+  onboarding::enroll(
+      request, test_identity(),
+      [&](const std::string &, const std::string &body) {
+        payload = body;
+        return make_response(200, ok_body);
+      },
+      no_sleep);
+  const json::object sent = json::parse(payload).as_object();
+  ASSERT_NE(sent.if_contains("os"), nullptr);
+  EXPECT_FALSE(sent.at("os").as_string().empty());
+#if defined(_WIN32)
+  EXPECT_EQ(sent.at("os").as_string(), "windows");
+#elif defined(__APPLE__)
+  EXPECT_EQ(sent.at("os").as_string(), "macos");
+#else
+  EXPECT_EQ(sent.at("os").as_string(), "linux");
+#endif
+}
+
+TEST(OnboardingEnrollHostile, TheEnrollUrlIsBuiltFromTheServerUrlWithoutSurprises) {
+  const std::pair<std::string, std::string> cases[] = {
+      {"https://fleet.example.com", "https://fleet.example.com/enroll/v1"},
+      {"https://fleet.example.com/", "https://fleet.example.com/enroll/v1"},
+      {"https://fleet.example.com///", "https://fleet.example.com/enroll/v1"},
+      {"https://fleet.example.com:8443", "https://fleet.example.com:8443/enroll/v1"},
+      {"https://fleet.example.com/base", "https://fleet.example.com/base/enroll/v1"},
+      {"http://fleet.example.com", "http://fleet.example.com/enroll/v1"},
+  };
+  for (const auto &item : cases) {
+    std::string seen;
+    onboarding::enrollment_request request = test_request();
+    request.server_url = item.first;
+    onboarding::enroll(
+        request, test_identity(),
+        [&](const std::string &url, const std::string &) {
+          seen = url;
+          return make_response(200, ok_body);
+        },
+        no_sleep);
+    EXPECT_EQ(seen, item.second);
+  }
+}
+
+TEST(OnboardingEnrollHostile, RefusesToTalkToSomethingThatIsNotAUrl) {
+  for (const std::string url : {std::string(""), std::string("fleet.example.com"), std::string("//fleet.example.com"), std::string("not a url"),
+                                std::string("/enroll")}) {
+    int calls = 0;
+    onboarding::enrollment_request request = test_request();
+    request.server_url = url;
+    EXPECT_THROW(onboarding::enroll(
+                     request, test_identity(),
+                     [&](const std::string &, const std::string &) {
+                       ++calls;
+                       return make_response(200, ok_body);
+                     },
+                     no_sleep),
+                 onboarding::onboarding_error)
+        << url;
+    EXPECT_EQ(calls, 0) << "contacted " << url;
+  }
+}
+
 class OnboardingStateTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -396,4 +713,159 @@ TEST_F(OnboardingStateTest, StateFileIsOwnerOnly) {
   const fs::perms permissions = fs::status(path_).permissions();
   EXPECT_EQ(permissions & fs::perms_mask, fs::owner_read | fs::owner_write);
 }
+
+TEST_F(OnboardingStateTest, SavingOverAWorldReadableFileTightensThePermissions) {
+  // Writing through a temp file + rename is what makes this true: the mode of
+  // the file we replace must not survive, or a key can end up world readable.
+  {
+    std::ofstream out(path_.c_str(), std::ios::binary);
+    out << "{}";
+  }
+  fs::permissions(path_, fs::owner_all | fs::group_read | fs::others_read);
+  onboarding::save_state(test_state(), path_);
+  EXPECT_EQ(fs::status(path_).permissions() & fs::perms_mask, fs::owner_read | fs::owner_write);
+}
 #endif
+
+// The state file IS this host's identity. Anything we cannot fully understand
+// has to be a hard error: a half-loaded identity would have the agent hand
+// OpenSSL an empty key or call an empty url, and "not enrolled" (none) would
+// silently disable fleet sync instead of telling the operator.
+
+TEST_F(OnboardingStateTest, EmptyIdentityFieldsAreRejected) {
+  for (const char *field : {"private_key_pem", "cert_pem", "ca_pem", "bundle_signing_pub_pem", "mtls_url", "mtls_server_cert_pem"}) {
+    json::object root = json::parse(json::serialize(json::object())).as_object();
+    root["version"] = 1;
+    root["private_key_pem"] = "KEY";
+    root["cert_pem"] = "CERT";
+    root["ca_pem"] = "CA";
+    root["bundle_signing_pub_pem"] = "BUNDLE-KEY";
+    root["server_url"] = "https://api.example.com";
+    root["mtls_url"] = "https://mtls.example.com";
+    root["mtls_server_cert_pem"] = "MTLS-CERT";
+    root[field] = "";
+    std::ofstream out(path_.c_str(), std::ios::binary);
+    out << json::serialize(root);
+    out.close();
+    EXPECT_THROW(onboarding::load_state(path_), onboarding::onboarding_error) << "accepted an empty " << field;
+  }
+}
+
+TEST_F(OnboardingStateTest, AnEmptyPublicApiUrlIsAllowed) {
+  // server_url is only informational and enrollment may not have learned one.
+  onboarding::enrolled_identity state = test_state();
+  state.server_url = "";
+  onboarding::save_state(state, path_);
+  const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
+  ASSERT_TRUE(loaded);
+  EXPECT_TRUE(loaded->server_url.empty());
+}
+
+TEST_F(OnboardingStateTest, MalformedFilesThrowInsteadOfLookingUnenrolled) {
+  const std::string bodies[] = {
+      "",                                    // empty file
+      "[]",                                  // array root
+      "null",                                // null root
+      "\"a string\"",                        // string root
+      "42",                                  // number root
+      "{\"version\": 1}",                    // no material at all
+      "{\"version\": \"1\", ...}",            // version as a string
+      "{\"version\": 1.0}",                  // version as a double
+      "{\"version\": 2}",                    // a future version we cannot read
+      "{\"private_key_pem\": \"K\"}",        // no version
+      "{\"version\": 1, \"private_key_pem\": 5, \"cert_pem\": \"C\"}",  // wrong type
+      "{\"version\": 1, \"private_key_pem\": null}",
+      "{\"version\": 1, \"private_key_pem\": {\"pem\": \"K\"}}",
+  };
+  for (const std::string &body : bodies) {
+    std::ofstream out(path_.c_str(), std::ios::binary);
+    out << body;
+    out.close();
+    EXPECT_THROW(onboarding::load_state(path_), onboarding::onboarding_error) << "accepted " << body;
+  }
+}
+
+TEST_F(OnboardingStateTest, TruncatedFileThrows) {
+  const std::string full = [&] {
+    onboarding::save_state(test_state(), path_);
+    std::ifstream in(path_.c_str(), std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+  }();
+  ASSERT_FALSE(full.empty());
+  std::ofstream out(path_.c_str(), std::ios::binary | std::ios::trunc);
+  out << full.substr(0, full.size() / 2);
+  out.close();
+  EXPECT_THROW(onboarding::load_state(path_), onboarding::onboarding_error);
+}
+
+TEST_F(OnboardingStateTest, ExtraFieldsAreIgnored) {
+  // Forward compatibility: a newer server writing more fields (at the same
+  // version) must not brick an older agent.
+  onboarding::save_state(test_state(), path_);
+  std::ifstream in(path_.c_str(), std::ios::binary);
+  json::object root = json::parse(std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>())).as_object();
+  in.close();
+  root["future_field"] = "whatever";
+  std::ofstream out(path_.c_str(), std::ios::binary | std::ios::trunc);
+  out << json::serialize(root);
+  out.close();
+  const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
+  ASSERT_TRUE(loaded);
+  EXPECT_EQ(loaded->cert_pem, "CERT");
+}
+
+TEST_F(OnboardingStateTest, RealPemMaterialSurvivesTheRoundTrip) {
+  onboarding::enrolled_identity state = test_state();
+  state.private_key_pem = onboarding::generate_identity().private_key_pem;
+  state.cert_pem = "-----BEGIN CERTIFICATE-----\r\nMIIB\r\n-----END CERTIFICATE-----\r\n";
+  state.ca_pem = "-----BEGIN CERTIFICATE-----\n\n\nMIIB+/=\n-----END CERTIFICATE-----\n";
+  state.mtls_url = "https://mtls.example.com:8443/tenant/ä-1";
+  onboarding::save_state(state, path_);
+  const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
+  ASSERT_TRUE(loaded);
+  EXPECT_EQ(loaded->private_key_pem, state.private_key_pem);
+  EXPECT_EQ(loaded->cert_pem, state.cert_pem) << "CRLF inside a PEM must not be rewritten";
+  EXPECT_EQ(loaded->ca_pem, state.ca_pem);
+  EXPECT_EQ(loaded->mtls_url, state.mtls_url);
+}
+
+TEST_F(OnboardingStateTest, StringsAreNotTruncatedAtAnEmbeddedNul) {
+  // as_string().c_str() would cut here, which is how a hostile value can look
+  // harmless after validation.
+  json::object root;
+  root["version"] = 1;
+  root["private_key_pem"] = json::string_view("K\0EY", 4);
+  root["cert_pem"] = "CERT";
+  root["ca_pem"] = "CA";
+  root["bundle_signing_pub_pem"] = "BUNDLE-KEY";
+  root["server_url"] = "https://api.example.com";
+  root["mtls_url"] = "https://mtls.example.com";
+  root["mtls_server_cert_pem"] = "MTLS-CERT";
+  std::ofstream out(path_.c_str(), std::ios::binary);
+  out << json::serialize(root);
+  out.close();
+  const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
+  ASSERT_TRUE(loaded);
+  EXPECT_EQ(loaded->private_key_pem.size(), 4u);
+}
+
+TEST_F(OnboardingStateTest, LoadingADirectoryThrows) { EXPECT_THROW(onboarding::load_state(dir_.string()), onboarding::onboarding_error); }
+
+TEST_F(OnboardingStateTest, SavingWhereWeCannotWriteThrowsAndLeavesNothingBehind) {
+  const std::string missing = (dir_ / "no-such-dir" / "agent-state.json").string();
+  EXPECT_THROW(onboarding::save_state(test_state(), missing), onboarding::onboarding_error);
+  EXPECT_FALSE(fs::exists(missing));
+  EXPECT_FALSE(fs::exists(missing + ".tmp"));
+}
+
+TEST_F(OnboardingStateTest, AFailedSaveKeepsThePreviousIdentity) {
+  onboarding::save_state(test_state(), path_);
+  // A directory where the temp file wants to be: the write fails, the existing
+  // (working) identity must still be loadable.
+  fs::create_directories(path_ + ".tmp");
+  EXPECT_THROW(onboarding::save_state(test_state(), path_), onboarding::onboarding_error);
+  fs::remove_all(path_ + ".tmp");
+  const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(path_);
+  ASSERT_TRUE(loaded);
+  EXPECT_EQ(loaded->cert_pem, "CERT");
+}

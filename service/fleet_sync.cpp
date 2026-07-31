@@ -34,6 +34,18 @@ const long renew_threshold_days = 14;
 // per process (or per file system, per interface, ...) can produce a lot of
 // them; the fleet server is not a time series database.
 const std::size_t max_metric_samples = 1000;
+// Longest we will ever sleep between polls, whatever the server asks for
+// (Retry-After on a 429). parse_desired_state clamps its own hint; this covers
+// the header, which nothing else validates.
+const unsigned long max_sleep_seconds = 86400;
+// Staged script limits. Bundles are signed, so this is not the primary
+// defense - but a signed bundle is still a zip, and an agent that unpacks an
+// unbounded archive into memory is a denial of service waiting to happen.
+const std::size_t max_script_bytes = 16u * 1024u * 1024u;
+const std::size_t max_bundle_script_bytes = 64u * 1024u * 1024u;
+
+// Clamp a sleep hint into something we are willing to act on.
+unsigned long clamp_sleep_seconds(const unsigned long seconds) { return std::max(1ul, std::min(seconds, max_sleep_seconds)); }
 
 std::string default_os() {
 #if defined(_WIN32)
@@ -56,11 +68,7 @@ unsigned long with_jitter_ms(const unsigned long seconds) {
 boost::optional<unsigned long> get_retry_after(const http::response &response) {
   const auto it = response.headers_.find("retry-after");
   if (it == response.headers_.end()) return boost::none;
-  try {
-    return static_cast<unsigned long>(std::stoul(it->second));
-  } catch (...) {
-    return boost::none;
-  }
+  return onboarding::parse_retry_after(it->second);
 }
 
 // Reject zip entries that would escape the staging directory.
@@ -78,6 +86,9 @@ void write_file(const fs::path &path, const std::string &data) {
   out.write(data.data(), static_cast<std::streamsize>(data.size()));
   if (!out) throw onboarding::onboarding_error("Failed to write " + path.string(), false);
 }
+
+// Copy a JSON string in full: c_str() would truncate at an embedded nul.
+std::string json_string(const json::string &value) { return std::string(value.data(), value.size()); }
 
 std::string read_file(const fs::path &path) {
   std::ifstream in(path.string().c_str(), std::ios::binary);
@@ -233,7 +244,7 @@ void fleet_sync::load_applied_state() {
     if (!fs::exists(file)) return;
     const json::object root = json::parse(read_file(file)).as_object();
     const json::value *hash = root.if_contains("state_hash");
-    if (hash != nullptr && hash->is_string()) current_hash_ = std::string(hash->as_string().c_str());
+    if (hash != nullptr && hash->is_string()) current_hash_ = json_string(hash->as_string());
     const json::value *bundles = root.if_contains("bundles");
     if (bundles != nullptr && bundles->is_array()) {
       for (const json::value &entry : bundles->as_array()) {
@@ -241,10 +252,10 @@ void fleet_sync::load_applied_state() {
         onboarding::installed_bundle bundle;
         const json::object &o = entry.as_object();
         if (const json::value *v = o.if_contains("id")) {
-          if (v->is_string()) bundle.id = std::string(v->as_string().c_str());
+          if (v->is_string()) bundle.id = json_string(v->as_string());
         }
         if (const json::value *v = o.if_contains("version")) {
-          if (v->is_string()) bundle.version = std::string(v->as_string().c_str());
+          if (v->is_string()) bundle.version = json_string(v->as_string());
         }
         installed_.push_back(bundle);
       }
@@ -441,14 +452,27 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
       }
       // Stage script files; applying in ascending priority order means later
       // (higher-priority) bundles overwrite path collisions.
+      std::size_t staged_bytes = 0;
       for (unsigned int i = 0; i < reader.size(); ++i) {
         bytes::unzip::file_entry entry;
         if (!reader.stat(i, entry)) continue;
         std::string name = entry.filename;
         std::replace(name.begin(), name.end(), '\\', '/');
-        if (name.compare(0, 8, "scripts/") != 0 || name.back() == '/') continue;
+        // Check every entry, not just the ones we would stage: an archive
+        // containing an absolute path or a traversal is malformed however we
+        // would have treated that entry, and rejecting the bundle is the only
+        // answer that cannot be wrong.
         if (!is_safe_entry(name)) {
           errors.push_back("Bundle " + bundle.id + " contains unsafe path: " + entry.filename);
+          return false;
+        }
+        if (name.compare(0, 8, "scripts/") != 0 || name.back() == '/') continue;
+        // Check the declared size before unpacking anything: the point is to
+        // never allocate the archive's claim in the first place.
+        staged_bytes += entry.uncompressed_size;
+        if (entry.uncompressed_size > max_script_bytes || staged_bytes > max_bundle_script_bytes) {
+          errors.push_back("Bundle " + bundle.id + " scripts exceed the size limit (" + str::xtos(max_script_bytes / (1024 * 1024)) + "MB per file, " +
+                           str::xtos(max_bundle_script_bytes / (1024 * 1024)) + "MB per bundle)");
           return false;
         }
         std::string content;
@@ -509,7 +533,7 @@ unsigned long fleet_sync::poll_once() {
   if (response.status_code_ == 429) {
     const boost::optional<unsigned long> retry = get_retry_after(response);
     log_info("Desired-state poll rate limited");
-    return retry ? std::max(1ul, *retry) : poll_interval_;
+    return retry ? clamp_sleep_seconds(*retry) : poll_interval_;
   }
   if (!response.is_2xx()) {
     ++failures_;

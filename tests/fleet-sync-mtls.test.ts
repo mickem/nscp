@@ -232,3 +232,204 @@ describeMtls("core fleet sync over strict mTLS", () => {
     await waitFor("a 304 steady-state poll", () => mtlsRequests.some((r) => r.url === "/agent/v1/desired-state?current_hash=mtls-1"));
   });
 });
+
+/**
+ * The other half of the pin: the agent connects with verify mode "none" and
+ * relies entirely on `mtls_server_cert_pem` being the ONLY trusted root. If the
+ * pin were ignored (or treated as "trust anything"), any host able to answer on
+ * the mtls url - a DNS hijack, a proxy, a rotated-out server - could feed this
+ * agent configuration. So: a server whose certificate is not the pinned one
+ * must never complete a handshake, and an unusable pin must not fall back to
+ * trusting the peer.
+ */
+describeMtls("core fleet sync rejects a server that does not match the pin", () => {
+  interface PinCase {
+    /** What enrollment hands out as mtls_server_cert_pem. */
+    pin: (serverCert: string) => string;
+    what: string;
+    /**
+     * Whether the agent is expected to get as far as a TLS handshake. A
+     * parseable-but-wrong pin means it dials and TLS refuses the peer; a pin
+     * OpenSSL cannot load at all means it never dials. Asserting which of the
+     * two happened is what keeps these cases from passing for the wrong reason
+     * (a crashed agent also serves no requests).
+     */
+    expectHandshake: boolean;
+  }
+
+  const cases: PinCase[] = [
+    { what: "a different self-signed certificate", pin: () => makeSelfSignedServerCert().certPem, expectHandshake: true },
+    {
+      what: "an unrelated CA certificate",
+      pin: () => generateCertChain({ outDir: fs.mkdtempSync(path.join(os.tmpdir(), "nscp-otherca-")), signed: {} }).ca.certPem,
+      expectHandshake: true,
+    },
+    { what: "a garbage pin", pin: () => "-----BEGIN CERTIFICATE-----\nnot a certificate\n-----END CERTIFICATE-----\n", expectHandshake: false },
+  ];
+
+  for (const item of cases) {
+    it(`refuses to talk to the fleet server when the pin is ${item.what}`, async () => {
+      const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-pin-"));
+      const nscp = new NscpInstance({ workDir, pathOverrides: { "shared-path": workDir } });
+      const ca = generateCertChain({ outDir: path.join(workDir, "tenant-ca"), signed: {} }).ca;
+      const serverIdentity = makeSelfSignedServerCert();
+      const signingKeys = crypto.generateKeyPairSync("ed25519");
+      /** Requests that made it through TLS - must stay empty. */
+      const served: string[] = [];
+      /** Handshakes the server rejected or the client aborted. */
+      let handshakeFailures = 0;
+
+      const mtlsServer = https.createServer(
+        { key: serverIdentity.keyPem, cert: serverIdentity.certPem, requestCert: true, rejectUnauthorized: true, ca: [ca.certPem] },
+        (req, res) => {
+          served.push(req.url ?? "");
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end("{}");
+        },
+      );
+      mtlsServer.on("tlsClientError", () => {
+        handshakeFailures++;
+      });
+      await new Promise<void>((resolve) => mtlsServer.listen(0, "127.0.0.1", resolve));
+      const mtlsUrl = `https://127.0.0.1:${(mtlsServer.address() as AddressInfo).port}`;
+
+      let enrollUrl = "";
+      const enrollServer = http.createServer((req, res) => {
+        let raw = "";
+        req.on("data", (c) => (raw += c));
+        req.on("end", () => {
+          (async () => {
+            const body = JSON.parse(raw);
+            const certPem = await signCsr(opensslBin!, workDir, body.csr_pem, ca);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                cert_pem: certPem,
+                ca_pem: ca.certPem,
+                bundle_signing_pub_pem: signingKeys.publicKey.export({ type: "spki", format: "pem" }).toString(),
+                server_url: enrollUrl,
+                mtls_url: mtlsUrl,
+                // The whole point: this is NOT the certificate the mtls
+                // listener presents.
+                mtls_server_cert_pem: item.pin(serverIdentity.certPem),
+              }),
+            );
+          })().catch((err) => {
+            res.writeHead(500);
+            res.end(String(err));
+          });
+        });
+      });
+      await new Promise<void>((resolve) => enrollServer.listen(0, "127.0.0.1", resolve));
+      enrollUrl = `http://127.0.0.1:${(enrollServer.address() as AddressInfo).port}`;
+
+      try {
+        const enrolled = await nscp.run(["enroll", "--server", enrollUrl, "--token", "tok-pin"], { allowFailure: true });
+        expect(enrolled.exitCode).toBe(0);
+        nscp.start();
+
+        // Give the agent several poll cycles' worth of time to get it wrong.
+        await new Promise((r) => setTimeout(r, 8000));
+
+        expect(served).toEqual([]);
+        if (item.expectHandshake) {
+          expect(handshakeFailures).toBeGreaterThan(0);
+        } else {
+          expect(handshakeFailures).toBe(0);
+        }
+      } finally {
+        await nscp.stop();
+        await new Promise<void>((resolve) => enrollServer.close(() => resolve()));
+        await new Promise<void>((resolve) => mtlsServer.close(() => resolve()));
+        fs.rmSync(workDir, { recursive: true, force: true });
+      }
+    });
+  }
+
+  it("still trusts the pinned certificate even though its subject is not the host we dialed", async () => {
+    // Hostname verification is deliberately skipped for a pinned peer (the pin
+    // IS the identity). This asserts the positive side of that choice: a
+    // certificate whose CN/SAN say nothing about 127.0.0.1 is accepted when it
+    // is the pinned one - and by the same token, the previous cases prove a
+    // non-pinned certificate is not.
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-pinok-"));
+    const nscp = new NscpInstance({ workDir, pathOverrides: { "shared-path": workDir } });
+    const ca = generateCertChain({ outDir: path.join(workDir, "tenant-ca"), signed: {} }).ca;
+    const signingKeys = crypto.generateKeyPairSync("ed25519");
+    const served: string[] = [];
+
+    // No SAN for 127.0.0.1 and a CN that is not a hostname at all.
+    const keys = forge.pki.rsa.generateKeyPair(2048);
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = "2002";
+    cert.validity.notBefore = new Date(Date.now() - 3600_000);
+    cert.validity.notAfter = new Date(Date.now() + 30 * 24 * 3600_000);
+    const attrs = [{ name: "commonName", value: "fleet-mtls-endpoint-not-a-host" }];
+    cert.setSubject(attrs);
+    cert.setIssuer(attrs);
+    cert.sign(keys.privateKey, forge.md.sha256.create());
+    const serverCertPem = forge.pki.certificateToPem(cert);
+    const serverKeyPem = forge.pki.privateKeyToPem(keys.privateKey);
+
+    const mtlsServer = https.createServer(
+      { key: serverKeyPem, cert: serverCertPem, requestCert: true, rejectUnauthorized: true, ca: [ca.certPem] },
+      (req, res) => {
+        served.push(req.url ?? "");
+        const parsed = new URL(req.url ?? "/", "http://x");
+        if (parsed.pathname === "/agent/v1/desired-state") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ state_hash: "pin-1", next_poll_in_seconds: 1, merged_config_json: {}, bundles: [] }));
+          return;
+        }
+        res.writeHead(parsed.pathname === "/agent/v1/metrics" ? 204 : 200, { "Content-Type": "application/json" });
+        res.end("{}");
+      },
+    );
+    await new Promise<void>((resolve) => mtlsServer.listen(0, "127.0.0.1", resolve));
+    const mtlsUrl = `https://127.0.0.1:${(mtlsServer.address() as AddressInfo).port}`;
+
+    let enrollUrl = "";
+    const enrollServer = http.createServer((req, res) => {
+      let raw = "";
+      req.on("data", (c) => (raw += c));
+      req.on("end", () => {
+        (async () => {
+          const body = JSON.parse(raw);
+          const certPem = await signCsr(opensslBin!, workDir, body.csr_pem, ca);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              cert_pem: certPem,
+              ca_pem: ca.certPem,
+              bundle_signing_pub_pem: signingKeys.publicKey.export({ type: "spki", format: "pem" }).toString(),
+              server_url: enrollUrl,
+              mtls_url: mtlsUrl,
+              mtls_server_cert_pem: serverCertPem,
+            }),
+          );
+        })().catch((err) => {
+          res.writeHead(500);
+          res.end(String(err));
+        });
+      });
+    });
+    await new Promise<void>((resolve) => enrollServer.listen(0, "127.0.0.1", resolve));
+    enrollUrl = `http://127.0.0.1:${(enrollServer.address() as AddressInfo).port}`;
+
+    try {
+      expect((await nscp.run(["enroll", "--server", enrollUrl, "--token", "tok-pinok"], { allowFailure: true })).exitCode).toBe(0);
+      nscp.start();
+      const started = Date.now();
+      while (!served.some((url) => url.startsWith("/agent/v1/desired-state"))) {
+        if (Date.now() - started > 45_000) throw new Error("Timed out waiting for a poll over the pinned connection");
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    } finally {
+      await nscp.stop();
+      await new Promise<void>((resolve) => enrollServer.close(() => resolve()));
+      await new Promise<void>((resolve) => mtlsServer.close(() => resolve()));
+      fs.rmSync(workDir, { recursive: true, force: true });
+    }
+  });
+});

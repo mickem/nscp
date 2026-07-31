@@ -7,9 +7,12 @@
 #include <chrono>
 #include <net/http/client.hpp>
 #include <onboarding/onboarding.hpp>
+#include <onboarding/sync.hpp>
 #include <random>
 #include <str/xtos.hpp>
 #include <thread>
+
+#include "json_util.hpp"
 
 namespace json = boost::json;
 
@@ -38,13 +41,17 @@ unsigned long jitter_ms() {
   return rd() % 1000;
 }
 
+// Enrollment is interactive (installer / command line), so however patient the
+// server asks us to be, one wait is bounded to five minutes.
+const unsigned long max_retry_after_seconds = 300;
+
 // Backoff for retryable failures: honor the server's Retry-After when given,
 // otherwise exponential (2s, 4s, 8s, ...) capped at 64s, always with jitter so
 // a fleet enrolling at the same time does not hammer the server in lockstep.
 // The cap keeps the shift well-defined (and the wait sane) for large --retries.
 unsigned long backoff_ms(const unsigned int attempt, const boost::optional<unsigned long> &retry_after_seconds) {
   if (retry_after_seconds) {
-    return *retry_after_seconds * 1000UL + jitter_ms();
+    return std::min(*retry_after_seconds, max_retry_after_seconds) * 1000UL + jitter_ms();
   }
   const unsigned int max_exponent = 6;
   return (1UL << std::min(attempt, max_exponent)) * 1000UL + jitter_ms();
@@ -55,12 +62,9 @@ boost::optional<unsigned long> get_retry_after(const http::response &response) {
   if (it == response.headers_.end()) {
     return boost::none;
   }
-  try {
-    return static_cast<unsigned long>(std::stoul(it->second));
-  } catch (...) {
-    // HTTP-date form (or garbage): fall back to exponential backoff.
-    return boost::none;
-  }
+  // HTTP-date form (or garbage): none, and the caller falls back to
+  // exponential backoff.
+  return onboarding::parse_retry_after(it->second);
 }
 
 std::string build_enroll_url(const std::string &server_url) {
@@ -99,22 +103,6 @@ std::string error_snippet(const std::string &payload) {
   return snippet;
 }
 
-std::string get_required_string(const json::object &object, const char *key) {
-  const json::value *value = object.if_contains(key);
-  if (value == nullptr || !value->is_string() || value->as_string().empty()) {
-    throw onboarding::onboarding_error(std::string("Enrollment response is missing ") + key, false);
-  }
-  return std::string(value->as_string().c_str());
-}
-
-std::string get_optional_string(const json::object &object, const char *key, const std::string &fallback) {
-  const json::value *value = object.if_contains(key);
-  if (value == nullptr || !value->is_string() || value->as_string().empty()) {
-    return fallback;
-  }
-  return std::string(value->as_string().c_str());
-}
-
 http::response default_post(const onboarding::enrollment_request &request, const std::string &url, const std::string &payload) {
   const http::parsed_url parsed = http::parse_url(url);
   const std::string verify = request.verify_mode.empty() ? (request.ca.empty() ? "none" : "certificate") : request.verify_mode;
@@ -137,12 +125,12 @@ onboarding::enrolled_identity onboarding::parse_enroll_response(const std::strin
   }
   enrolled_identity result;
   result.private_key_pem = id.private_key_pem;
-  result.cert_pem = get_required_string(root, "cert_pem");
-  result.ca_pem = get_required_string(root, "ca_pem");
-  result.bundle_signing_pub_pem = get_required_string(root, "bundle_signing_pub_pem");
-  result.mtls_url = get_required_string(root, "mtls_url");
-  result.mtls_server_cert_pem = get_required_string(root, "mtls_server_cert_pem");
-  result.server_url = get_optional_string(root, "server_url", fallback_server_url);
+  result.cert_pem = detail::require_string(root, "cert_pem", "Enrollment response");
+  result.ca_pem = detail::require_string(root, "ca_pem", "Enrollment response");
+  result.bundle_signing_pub_pem = detail::require_string(root, "bundle_signing_pub_pem", "Enrollment response");
+  result.mtls_url = detail::require_string(root, "mtls_url", "Enrollment response");
+  result.mtls_server_cert_pem = detail::require_string(root, "mtls_server_cert_pem", "Enrollment response");
+  result.server_url = detail::optional_string(root, "server_url", fallback_server_url);
   return result;
 }
 

@@ -13,6 +13,7 @@
 import http from "http";
 import { AddressInfo } from "net";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { NscpInstance } from "@fixtures/index";
 
@@ -195,5 +196,78 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(r.exitCode).not.toBe(0);
     expect(r.all).toMatch(/--server and --token are required/i);
     expect(requests).toHaveLength(0);
+  });
+
+  it("rejects a server url that is not a url, without contacting anything", async () => {
+    for (const url of ["fleet.example.com", "not a url", "/enroll"]) {
+      const stateFile = path.join(nscp.scratch("enroll_badurl"), "agent-state.json");
+      fs.rmSync(stateFile, { force: true });
+      const r = await enroll(["--state-file", stateFile], ["--server", url, "--token", "tok-1"]);
+      expect(r.exitCode).not.toBe(0);
+      expect(r.all).toMatch(/invalid server url/i);
+      expect(fs.existsSync(stateFile)).toBe(false);
+      expect(requests).toHaveLength(0);
+    }
+  });
+
+  it("fails cleanly when --ca points at something unusable", async () => {
+    // The CA is loaded by the TLS context before any connection: a missing or
+    // malformed file has to surface as an enrollment failure, not a crash, and
+    // must not leave a half written identity behind.
+    const dir = nscp.scratch("enroll_ca");
+    const missing = path.join(dir, "no-such-ca.pem");
+    const garbage = path.join(dir, "garbage-ca.pem");
+    fs.writeFileSync(garbage, "this is not a certificate\n");
+    for (const ca of [missing, garbage, dir]) {
+      const stateFile = path.join(dir, "agent-state.json");
+      fs.rmSync(stateFile, { force: true });
+      // https so the TLS context (and therefore the CA) is actually built.
+      const r = await enroll(["--state-file", stateFile, "--ca", ca, "--retries", "1"], ["--server", baseUrl.replace("http://", "https://"), "--token", "tok-1"]);
+      expect(r.exitCode).not.toBe(0);
+      expect(r.all).toMatch(/failed/i);
+      expect(fs.existsSync(stateFile)).toBe(false);
+    }
+  });
+
+  it("creates the directory for --state-file when it does not exist yet", async () => {
+    // The installer points --state-file at a path under a directory it has not
+    // created yet; enrollment is expected to create it (0600 file inside).
+    const stateFile = path.join(nscp.scratch("enroll_mkdir"), "nested", "deeper", "agent-state.json");
+    const r = await enroll(["--state-file", stateFile]);
+    expect(r.exitCode).toBe(0);
+    expect(fs.existsSync(stateFile)).toBe(true);
+    if (process.platform !== "win32") {
+      expect(fs.statSync(stateFile).mode & 0o777).toBe(0o600);
+    }
+  });
+
+  it("expands path tokens in --state-file", async () => {
+    const stateFile = "${certificate-path}/token-expanded-state.json";
+    const expected = path.join(nscp.pathOverrides["certificate-path"], "token-expanded-state.json");
+    fs.rmSync(expected, { force: true });
+    expect((await enroll(["--state-file", stateFile])).exitCode).toBe(0);
+    expect(fs.existsSync(expected)).toBe(true);
+  });
+
+  it("writes the fleet.ini include and a placeholder, but enables no module", async () => {
+    // The core starts the sync loop from the manifest alone, so the only
+    // settings change enrollment may make is the include. Own instance: this
+    // one needs ${shared-path} pointed somewhere writable to see the
+    // placeholder land.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-include-"));
+    const own = new NscpInstance({ workDir: dir, pathOverrides: { "shared-path": dir } });
+    expect((await own.run(["enroll", "--server", baseUrl, "--token", "tok-1"], { allowFailure: true })).exitCode).toBe(0);
+
+    const ini = fs.readFileSync(own.settingsFile, "utf8");
+    expect(ini).toMatch(/\[\/includes\]/);
+    expect(ini).toMatch(/fleet\s*=/);
+    // Unexpanded on purpose, so the configuration stays relocatable.
+    expect(ini).toContain("${shared-path}/fleet/fleet.ini");
+    expect(ini).not.toMatch(/\[\/modules\]/);
+
+    const placeholder = path.join(dir, "fleet", "fleet.ini");
+    expect(fs.existsSync(placeholder)).toBe(true);
+    expect(fs.readFileSync(placeholder, "utf8")).toMatch(/managed by the fleet sync/i);
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });

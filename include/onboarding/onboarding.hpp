@@ -101,7 +101,9 @@ void save_state(const enrolled_identity &state, const std::string &path);
 
 // Load a previously saved state file. Returns none when the file does not
 // exist (not yet enrolled); throws onboarding_error when the file exists but
-// cannot be read or parsed.
+// cannot be read or parsed. Every field carrying identity (keys, certificates,
+// mtls_url) must be present AND non-empty - a truncated state file is a fatal
+// error, not a half-usable identity.
 boost::optional<enrolled_identity> load_state(const std::string &path);
 
 }  // namespace onboarding

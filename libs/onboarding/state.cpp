@@ -7,6 +7,8 @@
 #include <onboarding/onboarding.hpp>
 #include <sstream>
 
+#include "json_util.hpp"
+
 #ifdef WIN32
 #include <cstdio>
 #include <io.h>
@@ -36,12 +38,19 @@ std::string serialize_state(const onboarding::enrolled_identity &state) {
   return json::serialize(object);
 }
 
-std::string read_state_string(const json::object &object, const char *key) {
+// `required` fields carry the identity itself: an empty one would leave the
+// agent trying to hand OpenSSL an empty key or to call an empty url, so a
+// truncated (or hand-edited) state file is rejected outright instead.
+std::string read_state_string(const json::object &object, const char *key, const bool required = true) {
   const json::value *value = object.if_contains(key);
   if (value == nullptr || !value->is_string()) {
     throw std::runtime_error(std::string("missing field ") + key);
   }
-  return std::string(value->as_string().c_str());
+  std::string result = onboarding::detail::to_string(value->as_string());
+  if (required && result.empty()) {
+    throw std::runtime_error(std::string("empty field ") + key);
+  }
+  return result;
 }
 
 // Write `data` to `path` and flush it all the way to disk. The state file
@@ -116,7 +125,9 @@ boost::optional<onboarding::enrolled_identity> onboarding::load_state(const std:
     result.cert_pem = read_state_string(root, "cert_pem");
     result.ca_pem = read_state_string(root, "ca_pem");
     result.bundle_signing_pub_pem = read_state_string(root, "bundle_signing_pub_pem");
-    result.server_url = read_state_string(root, "server_url");
+    // The public api url is optional: enrollment falls back to the url the
+    // operator passed, which may itself have been empty.
+    result.server_url = read_state_string(root, "server_url", false);
     result.mtls_url = read_state_string(root, "mtls_url");
     result.mtls_server_cert_pem = read_state_string(root, "mtls_server_cert_pem");
     return result;
