@@ -30,8 +30,13 @@ export interface ZipEntry {
   data: string | Buffer;
   /**
    * Uncompressed size to declare in the headers, overriding the real one.
-   * Only for tests that need a lying archive (the zip-bomb guard reads the
-   * declared size before unpacking anything).
+   * Only for tests that need a lying archive.
+   *
+   * Note what such an archive proves: whether the agent's size guard sees it,
+   * or the zip backend refuses to open it first, depends on the backend
+   * (vendored miniz on Windows, system libzip elsewhere) and even on its
+   * version. Assert that the bundle is rejected, not how - and use a
+   * genuinely oversized entry to test the guard itself.
    */
   declaredSize?: number;
 }

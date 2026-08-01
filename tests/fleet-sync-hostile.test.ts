@@ -75,7 +75,20 @@ describe("fleet sync against a hostile server", () => {
   ]);
 
   /** A bundle claiming a huge uncompressed size (the zip-bomb guard). */
+  // Honest about its size, and over the 16MB per-file limit: this is the case
+  // the guard exists for, and every zip backend reports it the same way.
   const bombZip = makeZip([
+    { name: "config.json", data: JSON.stringify({}) },
+    { name: "scripts/bomb.txt", data: Buffer.alloc(20 * 1024 * 1024, 0x41) },
+  ]);
+
+  /**
+   * The same idea but lying: 13 bytes claiming to be 512MB. Which check stops
+   * it depends on the zip backend - a strict libzip refuses to open an archive
+   * whose declared size does not match, a lenient one gets as far as our size
+   * guard - so this case only asserts that it IS stopped.
+   */
+  const lyingBombZip = makeZip([
     { name: "config.json", data: JSON.stringify({}) },
     { name: "scripts/bomb.txt", data: "small on disk", declaredSize: 512 * 1024 * 1024 },
   ]);
@@ -98,6 +111,7 @@ describe("fleet sync against a hostile server", () => {
     dotdot: dotdotNameZip,
     inject: iniInjectionZip,
     bomb: bombZip,
+    lyingbomb: lyingBombZip,
     badconfig: badConfigZip,
     notzip: notAZip,
     cached: cachedZip,
@@ -119,6 +133,7 @@ describe("fleet sync against a hostile server", () => {
     dotdot: "h-dotdot",
     inject: "h-inject",
     bomb: "h-bomb",
+    lyingbomb: "h-lyingbomb",
     badconfig: "h-badconfig",
     notzip: "h-notzip",
     cached: "h-cached",
@@ -314,9 +329,17 @@ describe("fleet sync against a hostile server", () => {
     expect(fleetIni()).toContain("CheckHelpers=enabled");
   });
 
-  it("refuses a bundle that claims an absurd uncompressed size", async () => {
+  it("refuses a bundle whose scripts are over the size limit", async () => {
     await expectRejected("bomb", /size limit/i);
     expect(fs.existsSync(path.join(workDir, "fleet", "scripts", "bomb.txt"))).toBe(false);
+  });
+
+  it("refuses a bundle that lies about its uncompressed size", async () => {
+    // Either the zip backend rejects the malformed archive or our size guard
+    // does; what matters is that neither unpacks it.
+    await expectRejected("lyingbomb", /size limit|not a readable zip/i);
+    expect(fs.existsSync(path.join(workDir, "fleet", "scripts", "bomb.txt"))).toBe(false);
+    expect(appliedState().state_hash).toBe("h-good");
   });
 
   it("refuses a bundle with an unparseable config.json", async () => {
