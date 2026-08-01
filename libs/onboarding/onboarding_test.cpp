@@ -10,8 +10,10 @@
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fs = boost::filesystem;

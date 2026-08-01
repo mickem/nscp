@@ -74,6 +74,14 @@ struct enrolled_identity {
   std::string mtls_server_cert_pem;    // cert to pin when connecting to mtls_url
 };
 
+// Parse a Retry-After header value (429/503) as RFC 9110 delay-seconds; none
+// for the HTTP-date form and for anything else we cannot act on, in which case
+// the caller falls back to its own backoff. Deliberately strict: strtoul-style
+// parsing accepts "-5" (which wraps to a near-eternal wait) and reads "1e9" as
+// 1, both of which a server can send by accident. Lives here rather than in
+// sync.hpp because the installer links only the enrollment sources.
+boost::optional<unsigned long> parse_retry_after(const std::string &header_value);
+
 // Seams for testing: how to POST a JSON payload and how to sleep between
 // retries. The default implementations use net/http/client.hpp and a real
 // sleep.

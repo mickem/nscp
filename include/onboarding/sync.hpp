@@ -61,12 +61,8 @@ desired_state parse_desired_state(const std::string &body);
 // absent, not a number, or not a usable interval (<= 0). Clamped to 86400.
 boost::optional<unsigned long> parse_next_poll(const std::string &body);
 
-// Parse a Retry-After header value (429/503) as RFC 9110 delay-seconds; none
-// for the HTTP-date form and for anything else we cannot act on, in which case
-// the caller falls back to its own backoff. Deliberately strict: strtoul-style
-// parsing accepts "-5" (which wraps to a near-eternal wait) and reads "1e9" as
-// 1, both of which a server can send by accident.
-boost::optional<unsigned long> parse_retry_after(const std::string &header_value);
+// (parse_retry_after lives in onboarding.hpp: the sync loop and the installer's
+// enrollment path share it, and the installer links only the latter.)
 
 // Hex-encoded SHA-256 of a byte buffer.
 std::string sha256_hex(const std::string &bytes);

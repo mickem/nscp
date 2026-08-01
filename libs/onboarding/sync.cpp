@@ -251,19 +251,6 @@ boost::optional<unsigned long> onboarding::parse_next_poll(const std::string &bo
   }
 }
 
-boost::optional<unsigned long> onboarding::parse_retry_after(const std::string &header_value) {
-  const std::size_t first = header_value.find_first_not_of(" \t");
-  if (first == std::string::npos) return boost::none;
-  const std::size_t last = header_value.find_last_not_of(" \t");
-  const std::string digits = header_value.substr(first, last - first + 1);
-  // Nine digits is already 31 years; anything longer is a bug, not a hint.
-  if (digits.empty() || digits.size() > 9) return boost::none;
-  for (const char c : digits) {
-    if (std::isdigit(static_cast<unsigned char>(c)) == 0) return boost::none;
-  }
-  return static_cast<unsigned long>(std::stoul(digits));
-}
-
 boost::json::value onboarding::json_merge_patch(const boost::json::value &target, const boost::json::value &patch) {
   // RFC 7396: a non-object patch replaces the target wholesale.
   if (!patch.is_object()) {

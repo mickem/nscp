@@ -4,10 +4,10 @@
 #include <algorithm>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/json.hpp>
+#include <cctype>
 #include <chrono>
 #include <net/http/client.hpp>
 #include <onboarding/onboarding.hpp>
-#include <onboarding/sync.hpp>
 #include <random>
 #include <str/xtos.hpp>
 #include <thread>
@@ -115,6 +115,19 @@ http::response default_post(const onboarding::enrollment_request &request, const
 }
 
 }  // namespace
+
+boost::optional<unsigned long> onboarding::parse_retry_after(const std::string &header_value) {
+  const std::size_t first = header_value.find_first_not_of(" \t");
+  if (first == std::string::npos) return boost::none;
+  const std::size_t last = header_value.find_last_not_of(" \t");
+  const std::string digits = header_value.substr(first, last - first + 1);
+  // Nine digits is already 31 years; anything longer is a bug, not a hint.
+  if (digits.size() > 9) return boost::none;
+  for (const char c : digits) {
+    if (std::isdigit(static_cast<unsigned char>(c)) == 0) return boost::none;
+  }
+  return static_cast<unsigned long>(std::stoul(digits));
+}
 
 onboarding::enrolled_identity onboarding::parse_enroll_response(const std::string &body, const identity &id, const std::string &fallback_server_url) {
   json::object root;
