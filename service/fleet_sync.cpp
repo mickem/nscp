@@ -180,6 +180,10 @@ http::response fleet_sync::do_call(const char *verb, const std::string &path, co
   options.identity_.cert_pem = identity_.cert_pem;
   options.identity_.key_pem = identity_.private_key_pem;
   options.identity_.pinned_ca_pem = identity_.mtls_server_cert_pem;
+  // A fleet server that accepts the connection and then goes quiet must not
+  // take this thread with it: without a deadline the loop stops polling for
+  // good and the host silently drops out of management.
+  options.timeout_seconds_ = config_.timeout_seconds;
   http::request rq(verb, parsed.host, parsed.path);
   rq.add_header("Accept", "application/json");
   if (!payload.empty()) {

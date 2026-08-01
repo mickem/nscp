@@ -93,6 +93,44 @@ inline parsed_url parse_url(const std::string &url) {
   return result;
 }
 
+// Bound how long a single read or write may take. Every transfer here is
+// synchronous, so a peer that accepts the connection and then stops talking
+// blocks the calling thread indefinitely - for a background loop like the
+// fleet agent that means the host silently stops being managed until the
+// service restarts.
+//
+// SO_RCVTIMEO does NOT achieve this: Asio's synchronous operations treat the
+// resulting EAGAIN as "would block" and then wait on the descriptor with no
+// deadline of their own. The operation therefore has to be issued
+// asynchronously and the io_context run with a deadline.
+//
+// Zero (the default) keeps the historical behaviour of waiting forever, so
+// only callers that opt in change at all.
+template <typename Operation, typename CancelTarget>
+std::size_t run_with_deadline(boost::asio::io_context &io, CancelTarget &cancel_target, const unsigned int seconds, const char *what,
+                              boost::system::error_code &ec, Operation start) {
+  std::size_t transferred = 0;
+  bool completed = false;
+  start([&](const boost::system::error_code &result, const std::size_t bytes) {
+    ec = result;
+    transferred = bytes;
+    completed = true;
+  });
+  io.restart();
+  io.run_for(std::chrono::seconds(seconds));
+  if (!completed) {
+    // Deadline hit: cancel the outstanding operation and let its handler run
+    // so the io_context is left clean for the next call.
+    boost::system::error_code ignored;
+    cancel_target.cancel(ignored);
+    io.restart();
+    io.run();
+    ec = boost::asio::error::timed_out;
+    throw socket_helpers::socket_exception(std::string(what) + " timed out after " + str::xtos(seconds) + "s");
+  }
+  return transferred;
+}
+
 struct generic_socket {
   typedef boost::asio::ip::basic_endpoint<tcp> tcp_iterator;
 
@@ -105,13 +143,18 @@ struct generic_socket {
   // Days until the peer's TLS certificate expires (negative if already expired).
   // Returns -1 when the transport is not TLS or no peer certificate is available.
   virtual long peer_certificate_expiry_days() const { return -1; }
+  // Applied by the client right after connecting; no-op for transports that
+  // are not sockets.
+  virtual void set_timeouts(unsigned int seconds) {}
 };
 
 struct tcp_socket final : generic_socket {
   tcp::socket socket_;
   tcp::resolver resolver_;
+  boost::asio::io_context &io_;
+  unsigned int timeout_ = 0;
 
-  explicit tcp_socket(boost::asio::io_context &io_service) : socket_(io_service), resolver_(io_service) {}
+  explicit tcp_socket(boost::asio::io_context &io_service) : socket_(io_service), resolver_(io_service), io_(io_service) {}
   ~tcp_socket() override {
     try {
       socket_.close();
@@ -140,12 +183,41 @@ struct tcp_socket final : generic_socket {
     }
   }
 
-  void write(boost::asio::streambuf &buffer) override { boost::asio::write(socket_, buffer); }
-  void read_until(boost::asio::streambuf &buffer, const std::string &until) override { boost::asio::read_until(socket_, buffer, until); }
+  void write(boost::asio::streambuf &buffer) override {
+    if (timeout_ == 0) {
+      boost::asio::write(socket_, buffer);
+      return;
+    }
+    boost::system::error_code ec;
+    run_with_deadline(io_, socket_, timeout_, "Write", ec, [&](auto handler) { boost::asio::async_write(socket_, buffer, handler); });
+    if (ec) throw socket_helpers::socket_exception("Failed to send request: " + ec.message());
+  }
+  void read_until(boost::asio::streambuf &buffer, const std::string &until) override {
+    if (timeout_ == 0) {
+      boost::asio::read_until(socket_, buffer, until);
+      return;
+    }
+    boost::system::error_code ec;
+    run_with_deadline(io_, socket_, timeout_, "Read", ec, [&](auto handler) { boost::asio::async_read_until(socket_, buffer, until, handler); });
+    if (ec) throw socket_helpers::socket_exception("Failed to read response: " + ec.message());
+  }
   bool is_open() const override { return socket_.is_open(); }
   std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) override {
-    return boost::asio::read(socket_, buffer, boost::asio::transfer_at_least(1), error);
+    if (timeout_ == 0) {
+      return boost::asio::read(socket_, buffer, boost::asio::transfer_at_least(1), error);
+    }
+    // The body drain treats any error as end of body, so a deadline here ends
+    // the response instead of throwing - the caller then fails to parse a
+    // truncated payload, which is a far better outcome than never returning.
+    try {
+      return run_with_deadline(io_, socket_, timeout_, "Read", error,
+                               [&](auto handler) { boost::asio::async_read(socket_, buffer, boost::asio::transfer_at_least(1), handler); });
+    } catch (const socket_helpers::socket_exception &) {
+      error = boost::asio::error::timed_out;
+      return 0;
+    }
   }
+  void set_timeouts(const unsigned int seconds) override { timeout_ = seconds; }
 };
 
 // In-memory TLS material for mutual TLS: a client certificate + key presented
@@ -172,6 +244,8 @@ struct ssl_socket final : generic_socket {
   std::string sni_;  // TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
   bool pinned_;  // pinned peer cert: verify against it only, no hostname check
+  boost::asio::io_context &io_;
+  unsigned int timeout_ = 0;
 
   // Build the fully-configured TLS context BEFORE any SSL stream exists. OpenSSL's
   // SSL_new() COPIES the certificate/key state out of the context at creation time
@@ -216,7 +290,8 @@ struct ssl_socket final : generic_socket {
         verify_(identity.is_pinned() ? boost::asio::ssl::verify_peer : verify),  // the pin IS the peer identity: always verify against it
         sni_(std::move(sni)),
         proxy_(std::move(proxy)),
-        pinned_(identity.is_pinned()) {}
+        pinned_(identity.is_pinned()),
+        io_(io_service) {}
 
   ~ssl_socket() override {
     try {
@@ -367,11 +442,39 @@ struct ssl_socket final : generic_socket {
     }
   }
 
-  void write(boost::asio::streambuf &buffer) override { boost::asio::write(ssl_socket_, buffer); }
-  void read_until(boost::asio::streambuf &buffer, const std::string &until) override { boost::asio::read_until(ssl_socket_, buffer, until); }
+  void write(boost::asio::streambuf &buffer) override {
+    if (timeout_ == 0) {
+      boost::asio::write(ssl_socket_, buffer);
+      return;
+    }
+    boost::system::error_code ec;
+    run_with_deadline(io_, ssl_socket_.lowest_layer(), timeout_, "Write", ec, [&](auto handler) { boost::asio::async_write(ssl_socket_, buffer, handler); });
+    if (ec) throw socket_helpers::socket_exception("Failed to send request: " + ec.message());
+  }
+  void read_until(boost::asio::streambuf &buffer, const std::string &until) override {
+    if (timeout_ == 0) {
+      boost::asio::read_until(ssl_socket_, buffer, until);
+      return;
+    }
+    boost::system::error_code ec;
+    run_with_deadline(io_, ssl_socket_.lowest_layer(), timeout_, "Read", ec,
+                      [&](auto handler) { boost::asio::async_read_until(ssl_socket_, buffer, until, handler); });
+    if (ec) throw socket_helpers::socket_exception("Failed to read response: " + ec.message());
+  }
+  void set_timeouts(const unsigned int seconds) override { timeout_ = seconds; }
   bool is_open() const override { return ssl_socket_.lowest_layer().is_open(); }
   std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) override {
-    return boost::asio::read(ssl_socket_, buffer, boost::asio::transfer_at_least(1), error);
+    if (timeout_ == 0) {
+      return boost::asio::read(ssl_socket_, buffer, boost::asio::transfer_at_least(1), error);
+    }
+    // As for plain TCP: a deadline ends the body rather than throwing.
+    try {
+      return run_with_deadline(io_, ssl_socket_.lowest_layer(), timeout_, "Read", error,
+                               [&](auto handler) { boost::asio::async_read(ssl_socket_, buffer, boost::asio::transfer_at_least(1), handler); });
+    } catch (const socket_helpers::socket_exception &) {
+      error = boost::asio::error::timed_out;
+      return 0;
+    }
   }
 };
 #endif  // USE_SSL
@@ -414,6 +517,10 @@ struct http_client_options {
   std::string sni_;  // optional TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
   client_identity identity_;  // optional mutual-TLS material (in-memory PEM)
+  // Deadline for a single read or write, in seconds; 0 waits forever. Set it
+  // on any call made from a long-lived thread that must not be wedged by an
+  // unresponsive peer (see set_socket_timeouts).
+  unsigned int timeout_seconds_ = 0;
 
   http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca, proxy_config proxy = proxy_config())
       : protocol_(std::move(protocol)), tls_version_(std::move(tls_version)), verify_(std::move(verify)), ca_(std::move(ca)), proxy_(std::move(proxy)) {}
@@ -453,7 +560,10 @@ class simple_client {
 
   ~simple_client() = default;
 
-  void connect(const std::string &server, const std::string &port) const { socket_->connect(server, port); }
+  void connect(const std::string &server, const std::string &port) const {
+    socket_->connect(server, port);
+    socket_->set_timeouts(options_.timeout_seconds_);
+  }
 
   void send_request(const request &req) const {
     boost::asio::streambuf requestbuf;

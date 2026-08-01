@@ -37,6 +37,16 @@ interface SeenRequest {
 interface FleetOptions {
   /** Validity of the certificate handed out by enrollment. */
   certDays?: number;
+  /** Extra `/settings/fleet` keys applied before the agent starts. */
+  fleetSettings?: Record<string, string>;
+  /**
+   * When set, desired-state requests are accepted and then never answered -
+   * the connection just hangs - for N requests, starting after the first one
+   * has been answered normally. Starting after a good poll matters: the agent
+   * only learns the (short) poll interval from a successful response, so this
+   * is a running agent whose server goes quiet, not one that never started.
+   */
+  blackHolePolls?: number;
   /** Status for GET /agent/v1/heartbeat (403 = this identity was revoked). */
   heartbeatStatus?: number;
   /** Replace the renewal response entirely. */
@@ -62,13 +72,17 @@ interface Fleet {
 /** Enroll a fresh agent against a fresh fake fleet server and start it. */
 async function startFleet(name: string, options: FleetOptions = {}): Promise<Fleet> {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), `nscp-${name}-`));
-  const nscp = new NscpInstance({ workDir, pathOverrides: { "shared-path": workDir } });
+  // NSCP_LOG_OUTPUT=1 streams the agent's log to the runner, which is the only
+  // way to see what a stuck sync loop is doing.
+  const nscp = new NscpInstance({ workDir, pathOverrides: { "shared-path": workDir }, logOutput: process.env.NSCP_LOG_OUTPUT === "1" });
   const requests: SeenRequest[] = [];
   const signingKeys = crypto.generateKeyPairSync("ed25519");
   const signingPubPem = signingKeys.publicKey.export({ type: "spki", format: "pem" }).toString();
   const enrolledCert = makeCertPem(options.certDays ?? 90, "enrolled");
   const renewedCert = makeCertPem(90, "renewed");
   let baseUrl = "";
+  let blackHoleLeft = options.blackHolePolls ?? 0;
+  let answeredPolls = 0;
 
   const server = http.createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -114,6 +128,12 @@ async function startFleet(name: string, options: FleetOptions = {}): Promise<Fle
           }),
         );
       } else if (parsed.pathname === "/agent/v1/desired-state") {
+        if (answeredPolls > 0 && blackHoleLeft > 0) {
+          // Accept the request and then say nothing at all, ever.
+          blackHoleLeft--;
+          return;
+        }
+        answeredPolls++;
         if (parsed.searchParams.get("current_hash") === "h-1") {
           res.writeHead(304, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ next_poll_in_seconds: 1 }));
@@ -141,6 +161,7 @@ async function startFleet(name: string, options: FleetOptions = {}): Promise<Fle
     const r = await nscp.run(["enroll", "--server", baseUrl, "--token", `tok-${name}`], { allowFailure: true });
     if (r.exitCode !== 0) throw new Error(`enroll failed: ${r.all}`);
   }
+  if (options.fleetSettings) await nscp.configure({ "/settings/fleet": options.fleetSettings });
   if (options.beforeStart) options.beforeStart(workDir);
   // Only enrollment requests so far: the agent has not started yet.
   requests.length = 0;
@@ -250,6 +271,22 @@ describe("fleet sync certificate lifecycle", () => {
     expect(fleet.count("/agent/v1/state-report")).toBe(0);
     // And it stopped: one heartbeat, no retry loop.
     expect(fleet.count("/agent/v1/heartbeat")).toBe(1);
+  });
+
+  it("recovers when the server accepts a request and then never answers", async () => {
+    // Every read here is synchronous, so without a deadline one silent
+    // response parks the sync thread forever: the host stays enrolled and
+    // stops being managed, with nothing in the log to say so. Two hung polls
+    // must cost two timeouts, not the agent.
+    fleet = await startFleet("blackhole", { blackHolePolls: 2, fleetSettings: { timeout: "2s" } });
+
+    // The agent gets one good poll (so it is fully running), then the server
+    // goes silent for two polls.
+    await fleet.waitFor("the first applied state", () =>
+      fleet!.requests.some((r) => r.url.startsWith("/agent/v1/state-report") && r.body?.applied_state_hash === "h-1"),
+    );
+    // Two deadlines plus backoff, and the loop must still be polling after it.
+    await fleet.waitFor("polls to continue past the two hung ones", () => fleet!.count("/agent/v1/desired-state") >= 4, 90_000);
   });
 
   it("recovers from a corrupt applied-state file by re-applying", async () => {

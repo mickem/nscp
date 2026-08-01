@@ -24,6 +24,10 @@ struct fleet_config {
   std::string tls_version;
   std::string nscp_version;  // reported as a tag
   bool metrics = true;
+  // Deadline for a single read/write against the fleet server. A server that
+  // accepts the connection and then stops responding would otherwise block the
+  // sync thread for good - the host would stay enrolled but stop being managed.
+  unsigned int timeout_seconds = 60;
 };
 
 // The post-enrollment fleet sync loop (see the fleet agent integration
