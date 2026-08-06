@@ -581,6 +581,13 @@ void CheckSystem::check_cpu(const PB::Commands::QueryRequestMessage::Request &re
 
   if (!filter_helper.build_filter(filter)) return;
 
+  if (collector->is_disabled("cpu") && !collector->use_pdh_for_cpu) {
+    // Without this guard the check would answer from a buffer that is never
+    // updated, reporting frozen values as fresh samples (#1368).
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "CPU load sampling is disabled (remove cpu from disable in /settings/system/windows to use check_cpu)");
+  }
+
   for (const std::string &time : times) {
     long seconds;
     try {
@@ -1181,8 +1188,6 @@ void CheckSystem::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) 
   } catch (...) {
     NSC_LOG_ERROR("Failed to getch memory metrics: ");
   }
-
-  std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
 
   const auto net = collector->get_network();
   if (!net.empty()) {

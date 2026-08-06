@@ -104,6 +104,10 @@ class pdh_thread {
   process_checks::cpu_delta_map get_process_cpu_deltas();
   metrics_hash get_metrics();
 
+  // Whether a collector is turned off via the `disable` setting (whole-token
+  // match, see disable_list.hpp).
+  bool is_disabled(const std::string &token) const;
+
   bool start();
   bool stop() const;
   void set_path(const std::string mem_path, const std::string cpu_path, const std::string proc_path, const std::string legacy_path);

@@ -14,6 +14,7 @@
 
 #include "check_memory.hpp"
 #include "check_process.hpp"
+#include "disable_list.hpp"
 #include "realtime_data.hpp"
 #include "settings.hpp"
 #include "tick_count.h"
@@ -320,40 +321,47 @@ void pdh_thread::thread_proc() {
 
   mutex_.unlock();
 
-  bool disable_network = disable_.find("network") != std::string::npos;
+  const std::set<std::string> disabled = disable_list::parse(disable_);
+  for (const std::string &token : disabled) {
+    if (disable_list::known_tokens().count(token) == 0) {
+      NSC_LOG_ERROR("Ignoring unknown value in disable: '" + token +
+                    "' (valid values: battery, cpu, cpu_frequency, handles, metrics, network, os_updates, pdh, temperature)");
+    }
+  }
+  const bool disable_network = disabled.count("network") > 0;
   if (disable_network) {
     NSC_LOG_MESSAGE("WARNING: network checking is disabled");
   }
-  bool disable_temperature = disable_.find("temperature") != std::string::npos;
+  const bool disable_temperature = disabled.count("temperature") > 0;
   if (disable_temperature) {
     NSC_LOG_MESSAGE("WARNING: temperature checking is disabled");
   }
-  bool disable_cpu_frequency = disable_.find("cpu_frequency") != std::string::npos;
+  const bool disable_cpu_frequency = disabled.count("cpu_frequency") > 0;
   if (disable_cpu_frequency) {
     NSC_LOG_MESSAGE("WARNING: cpu frequency checking is disabled");
   }
-  bool disable_handles = disable_.find("handles") != std::string::npos;
+  const bool disable_handles = disabled.count("handles") > 0;
   if (disable_handles) {
     NSC_LOG_MESSAGE("WARNING: handle checking is disabled");
   }
-  bool disable_cpu = disable_.find("cpu") != std::string::npos;
+  const bool disable_cpu = disabled.count("cpu") > 0;
   if (disable_cpu) {
     NSC_LOG_MESSAGE("WARNING: cpu checking is disabled");
   }
-  bool disable_metrics = disable_.find("metrics") != std::string::npos;
+  const bool disable_metrics = disabled.count("metrics") > 0;
   if (disable_metrics) {
     NSC_LOG_MESSAGE("WARNING: metrics writing is disabled");
   }
-  bool disable_pdh = disable_.find("pdh") != std::string::npos;
+  const bool disable_pdh = disabled.count("pdh") > 0;
   if (disable_pdh) {
     check_pdh = false;
     NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
   }
-  bool disable_battery = disable_.find("battery") != std::string::npos;
+  const bool disable_battery = disabled.count("battery") > 0;
   if (disable_battery) {
     NSC_LOG_MESSAGE("WARNING: battery checking is disabled");
   }
-  bool disable_os_updates = disable_.find("os_updates") != std::string::npos;
+  const bool disable_os_updates = disabled.count("os_updates") > 0;
   if (disable_os_updates) {
     NSC_LOG_MESSAGE("WARNING: OS updates checking is disabled");
   }
@@ -617,6 +625,8 @@ os_updates_check::os_updates_obj pdh_thread::get_os_updates() { return os_update
 
 process_history_check::history_type pdh_thread::get_process_history() { return process_history.get(); }
 
+bool pdh_thread::is_disabled(const std::string &token) const { return disable_list::parse(disable_).count(token) > 0; }
+
 process_checks::cpu_delta_map pdh_thread::get_process_cpu_deltas() {
   boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
   if (!readLock.owns_lock()) {
@@ -654,6 +664,11 @@ std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load
       ret[alias].user = k.second - ret[alias].kernel;
       ret[alias].idle = 100 - k.second;
     }
+    return ret;
+  }
+  if (is_disabled("cpu")) {
+    // The sampler never feeds the buffer when disabled; returning the buffer
+    // contents would present frozen zeros as fresh samples (#1368).
     return ret;
   }
   windows::system_info::cpu_load load;
