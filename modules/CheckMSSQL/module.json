@@ -1,0 +1,17 @@
+{
+	"module"		: {
+		"title"			: "MSSQL checker",
+		"description"		: "Check Microsoft SQL Server: connectivity, databases, backups, agent jobs and custom queries.",
+		"name"			: "CheckMSSQL",
+		"alias"			: "mssql",
+		"version"		: "auto"
+	},
+
+	"commands" : {
+		"check_mssql"			: "Check SQL Server connectivity and health (version, edition, uptime).",
+		"check_mssql_query"		: "Run a custom T-SQL query and apply thresholds to the returned rows.",
+		"check_mssql_databases"		: "Check database state, recovery model and data/log size.",
+		"check_mssql_backup"		: "Check the age of the last full/differential/log backup per database.",
+		"check_mssql_jobs"		: "Check SQL Server Agent job status."
+	}
+}
