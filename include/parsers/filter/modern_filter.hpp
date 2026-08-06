@@ -322,6 +322,12 @@ struct modern_filters {
   bool build_syntax(const bool debug, const std::string &top, const std::string &detail, const std::string &perf, const std::string &perf_config_data,
                     const std::string &ok_syntax, const std::string &empty_syntax) {
     if (debug) set_debug(true);
+    // The message templates are NOT escape-decoded: existing configurations
+    // contain literal backslashes (Windows paths such as C:\temp, regexes in
+    // embedded expressions) that \t/\n decoding would silently corrupt. To
+    // break the line before the first list item, reference the decoded
+    // list-separator as %(sep) in the template instead (issue #1370).
+    //
     // The summary-level templates (top/ok/empty) render with no record
     // attached, so summary keywords (%(status), %(list), ...) take precedence
     // over same-named record variables there; the per-record templates

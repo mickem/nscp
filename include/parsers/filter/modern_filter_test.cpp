@@ -5,6 +5,7 @@
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
 
 // Provide the NSCAPI singleton so modern_filter.cpp can link.
 // The core_wrapper is constructed with null function pointers, which means
@@ -303,4 +304,110 @@ TEST(PerfConfigParser, InvalidConfigStillFails) {
 
   // Bare keyword without "(options)" is not "none" and is not valid syntax.
   EXPECT_FALSE(parser.parse(factory, "bogus", error));
+}
+
+// ============================================================================
+// generic_summary list separator tests (issue #1370)
+//
+// %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and
+// %(detail_list) are all assembled here, so the separator is configured once
+// and every check that renders a list follows it.
+// ============================================================================
+
+namespace {
+typedef parsers::where::generic_summary<int> test_summary;
+}
+
+TEST(GenericSummary, DefaultSeparatorIsCommaSpace) {
+  test_summary summary;
+  EXPECT_EQ(summary.list_separator, ", ");
+  summary.matched("a");
+  summary.matched("b");
+  EXPECT_EQ(summary.get_list_match(), "a, b");
+}
+
+TEST(GenericSummary, SeparatorAppliesToEveryList) {
+  test_summary summary;
+  summary.list_separator = "\n";
+  summary.matched("m1");
+  summary.matched("m2");
+  summary.matched_ok("o1");
+  summary.matched_ok("o2");
+  summary.matched_warn("w1");
+  summary.matched_warn("w2");
+  summary.matched_crit("c1");
+  summary.matched_crit("c2");
+
+  EXPECT_EQ(summary.get_list_match(), "m1\nm2");
+  EXPECT_EQ(summary.get_list_ok(), "o1\no2");
+  EXPECT_EQ(summary.get_list_warn(), "w1\nw2");
+  EXPECT_EQ(summary.get_list_crit(), "c1\nc2");
+  // problem_list interleaves warnings and criticals in arrival order.
+  EXPECT_EQ(summary.get_list_problem(), "w1\nw2\nc1\nc2");
+}
+
+// The severity groups of detail_list break on the separator too, so a
+// newline-separated list does not end up as one long "critical(...)" line.
+TEST(GenericSummary, SeparatorAppliesBetweenDetailListGroups) {
+  test_summary summary;
+  summary.list_separator = "\n";
+  summary.matched_crit("c1");
+  summary.matched_warn("w1");
+  summary.matched_ok("o1");
+  EXPECT_EQ(summary.get_list_detail(), "critical(c1)\nwarning(w1)\no1");
+}
+
+TEST(GenericSummary, DetailListKeepsDefaultShape) {
+  test_summary summary;
+  summary.matched_crit("c1");
+  summary.matched_warn("w1");
+  summary.matched_ok("o1");
+  EXPECT_EQ(summary.get_list_detail(), "critical(c1), warning(w1), o1");
+}
+
+// A single item is never prefixed or suffixed with the separator - the summary
+// line stays clean when only one thing matched.
+TEST(GenericSummary, SingleItemIsNotSeparated) {
+  test_summary summary;
+  summary.list_separator = "\n";
+  summary.matched("only");
+  EXPECT_EQ(summary.get_list_match(), "only");
+}
+
+// The separator is configuration: a filter that resets between runs (the
+// real-time path reuses one filter instance) must keep it.
+TEST(GenericSummary, ResetKeepsSeparator) {
+  test_summary summary;
+  summary.list_separator = "; ";
+  summary.matched("a");
+  summary.reset();
+  EXPECT_EQ(summary.list_separator, "; ");
+  summary.matched("b");
+  summary.matched("c");
+  EXPECT_EQ(summary.get_list_match(), "b; c");
+}
+
+TEST(GenericSummary, MultiCharSeparator) {
+  test_summary summary;
+  summary.list_separator = " | ";
+  summary.matched("a");
+  summary.matched("b");
+  EXPECT_EQ(summary.get_list_match(), "a | b");
+}
+
+// %(sep) exposes the decoded separator to the templates. Templates are never
+// escape-decoded (a literal C:\temp must survive), so this variable is the
+// supported way to break the line before the first list item:
+//   top-syntax=%(status): %(count) items:%(sep)%(list)
+TEST(GenericSummary, SepIsExposedAsASummaryVariable) {
+  test_summary summary;
+  EXPECT_TRUE(summary.has_variable("sep"));
+  EXPECT_EQ(1u, summary.get_filter_syntax().count("sep"));
+}
+
+TEST(GenericSummary, SepRendersTheCurrentSeparator) {
+  test_summary summary;
+  EXPECT_EQ(", ", summary.get_list_separator());
+  summary.list_separator = "\n";
+  EXPECT_EQ("\n", summary.get_list_separator());
 }

@@ -271,6 +271,49 @@ TEST(FilterObjectTest, SetSeverityInvalid) {
 }
 
 // ============================================================================
+// list_separator (issue #1370)
+// ============================================================================
+
+// Unset by default - and read_object deliberately registers the key WITHOUT a
+// default: import_string only copies into empty strings, so a non-empty value
+// here would make the separator the one filter key that cannot be inherited
+// from the default template. The ", " fallback lives in generic_summary.
+TEST(FilterObjectTest, ListSeparatorDefaultsToEmpty) {
+  const filter_object obj("top", "detail", "target");
+  EXPECT_EQ("", obj.list_separator);
+}
+
+TEST(FilterObjectTest, ListSeparatorIsCopied) {
+  filter_object original("top", "detail", "target");
+  original.list_separator = "\\n";
+
+  const filter_object copy(original);
+
+  EXPECT_EQ("\\n", copy.list_separator);
+}
+
+TEST(FilterObjectTest, ApplyParentCopiesListSeparator) {
+  filter_object parent("parent_top", "parent_detail", "parent_target");
+  parent.list_separator = "\\n";
+
+  filter_object child("", "", "");
+  child.apply_parent(parent);
+
+  EXPECT_EQ("\\n", child.list_separator);
+}
+
+TEST(FilterObjectTest, ApplyParentPreservesOwnListSeparator) {
+  filter_object parent("parent_top", "parent_detail", "parent_target");
+  parent.list_separator = "\\n";
+
+  filter_object child("", "", "");
+  child.list_separator = " | ";
+  child.apply_parent(parent);
+
+  EXPECT_EQ(" | ", child.list_separator);
+}
+
+// ============================================================================
 // apply_parent tests
 // ============================================================================
 

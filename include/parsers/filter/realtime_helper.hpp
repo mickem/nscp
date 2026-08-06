@@ -14,6 +14,7 @@
 #include <nsclient/nsclient_exception.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <str/utf8.hpp>
+#include <str/utils_no_boost.hpp>
 #include <utility>
 
 namespace parsers {
@@ -89,6 +90,12 @@ struct realtime_filter_helper {
 
     bool build_filters(nscapi::settings_filters::filter_object config, std::string &error) {
       std::string message;
+      // Same list rendering as a queried check, so the same knob: a real-time
+      // filter reports to the same frontend and gains as much from one item
+      // per line. Set before the first match is recorded; an unset value means
+      // "inherit" here (as it does for every other filter_object string), so
+      // the summary keeps its own ", " default.
+      if (!config.list_separator.empty()) filter.summary.list_separator = str::utils::unescape(config.list_separator);
       if (!filter.build_syntax(config.debug, config.syntax_top, config.syntax_detail, config.perf_data, config.perf_config, config.syntax_ok,
                                config.syntax_empty)) {
         error = "Failed to build strings " + alias;

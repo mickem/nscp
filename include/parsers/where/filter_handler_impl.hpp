@@ -354,8 +354,15 @@ struct generic_summary {
   std::string list_warn;
   std::string list_problem;
   NSCAPI::nagiosReturn returnCode;
+  // What joins the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+  // %(problem_list) and %(detail_list). Configuration, not state: reset()
+  // leaves it alone. Set from the `list-separator` option (issue #1370) so a
+  // result with many items can be rendered one per line, which is what a
+  // Nagios-compatible frontend wants - first line summary, rest long output.
+  std::string list_separator;
 
-  generic_summary() : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_total(0), returnCode(NSCAPI::query_return_codes::returnOK) {}
+  generic_summary()
+      : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_total(0), returnCode(NSCAPI::query_return_codes::returnOK), list_separator(", ") {}
 
   void move_hits_crit() {
     list_crit = list_match;
@@ -372,23 +379,23 @@ struct generic_summary {
   }
   void count() { count_total++; }
   void matched(const std::string& line) {
-    str::format::append_list(list_match, line);
+    str::format::append_list(list_match, line, list_separator);
     count_match++;
   }
   void matched_unique() { count_match++; }
   bool has_matched() const { return count_match > 0; }
   void matched_ok(const std::string& line) {
-    str::format::append_list(list_ok, line);
+    str::format::append_list(list_ok, line, list_separator);
     count_ok++;
   }
   void matched_warn(const std::string& line) {
-    str::format::append_list(list_warn, line);
-    str::format::append_list(list_problem, line);
+    str::format::append_list(list_warn, line, list_separator);
+    str::format::append_list(list_problem, line, list_separator);
     count_warn++;
   }
   void matched_crit(const std::string& line) {
-    str::format::append_list(list_crit, line);
-    str::format::append_list(list_problem, line);
+    str::format::append_list(list_crit, line, list_separator);
+    str::format::append_list(list_problem, line, list_separator);
     count_crit++;
   }
   void matched_ok_unique() { count_ok++; }
@@ -396,14 +403,19 @@ struct generic_summary {
   void matched_crit_unique() { count_crit++; }
 
   std::string get_status() const { return nscapi::plugin_helper::translateReturn(returnCode); }
+  std::string get_list_separator() { return list_separator; }
   std::string get_list_match() { return list_match; }
   std::string get_list_ok() { return list_ok; }
   std::string get_list_warn() { return list_warn; }
   std::string get_list_crit() { return list_crit; }
   std::string get_list_problem() { return list_problem; }
-  static void append_list(std::string& result, const std::string& tag, const std::string& value) {
+  // The severity groups of %(detail_list) are joined with the same separator
+  // as the items inside them: with a newline separator the groups have to
+  // break too, or the "critical(...)" wrapper would hold a multi-line block
+  // while the groups themselves stayed on one line.
+  void append_list(std::string& result, const std::string& tag, const std::string& value) const {
     if (!value.empty()) {
-      if (!result.empty()) result += ", ";
+      if (!result.empty()) result += list_separator;
       result += tag + "(" + value + ")";
     }
   }
@@ -411,7 +423,7 @@ struct generic_summary {
     std::string ret;
     append_list(ret, "critical", list_crit);
     append_list(ret, "warning", list_warn);
-    str::format::append_list(ret, list_ok);
+    str::format::append_list(ret, list_ok, list_separator);
     return ret;
   }
   long long get_count_match() const { return count_match; }
@@ -435,13 +447,17 @@ struct generic_summary {
     ret["problem_list"] = "A list of all items which matched either the critical or the warning criteria. Common option for all checks.";
     ret["detail_list"] = "A special list with critical, then warning and finally ok. Common option for all checks.";
     ret["status"] = "The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.";
+    ret["sep"] =
+        "The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\\temp must stay a literal C:\\temp), so "
+        "reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). Common option for all "
+        "checks.";
     return ret;
   }
 
   bool has_variable(const std::string& name) {
     return name == "count" || name == "total" || name == "ok_count" || name == "warn_count" || name == "crit_count" || name == "problem_count" ||
            name == "list" || name == "ok_list" || name == "warn_list" || name == "crit_list" || name == "problem_list" || name == "detail_list" ||
-           name == "lines" || name == "status";
+           name == "lines" || name == "status" || name == "sep";
   }
 
   node_type create_variable(const std::string& name, bool human_readable = false) const;
@@ -614,6 +630,8 @@ node_type generic_summary<TObject>::create_variable(const std::string& key, bool
     return node_type(new summary_string_variable_node<evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_list_detail(); }));
   if (key == "status")
     return node_type(new summary_string_variable_node<evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_status(); }));
+  if (key == "sep")
+    return node_type(new summary_string_variable_node<evaluation_context_impl<TObject>>(key, [](auto value) { return value->get_list_separator(); }));
   return factory::create_false();
 }
 
