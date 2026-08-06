@@ -300,6 +300,23 @@ struct ssl_socket final : generic_socket {
     }
   }
 
+  // The TLS handshake is I/O like any read or write: a peer that accepts the
+  // TCP connection and then stalls mid-handshake would otherwise wedge the
+  // calling thread forever, so it gets the same deadline treatment.
+  void handshake(boost::system::error_code &error) {
+    if (timeout_ == 0) {
+      ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
+      return;
+    }
+    try {
+      run_with_deadline(io_, ssl_socket_.lowest_layer(), timeout_, "TLS handshake", error, [&](auto handler) {
+        ssl_socket_.async_handshake(boost::asio::ssl::stream_base::client, [handler](const boost::system::error_code &ec) { handler(ec, 0); });
+      });
+    } catch (const socket_helpers::socket_exception &) {
+      error = boost::asio::error::timed_out;
+    }
+  }
+
   void connect_tcp(const tcp_iterator &endpoint_iterator, const std::string &server_name, boost::system::error_code &error) {
     ssl_socket_.lowest_layer().close();
     ssl_socket_.lowest_layer().connect(endpoint_iterator, error);
@@ -318,7 +335,7 @@ struct ssl_socket final : generic_socket {
       ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
     }
 
-    ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
+    handshake(error);
   }
 
   long peer_certificate_expiry_days() const override {
@@ -416,7 +433,7 @@ struct ssl_socket final : generic_socket {
     if (!pinned_) {
       ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(tls_name));
     }
-    ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
+    handshake(error);
     if (error) {
       throw socket_helpers::socket_exception("TLS handshake via proxy tunnel failed: " + error.message());
     }
@@ -561,8 +578,10 @@ class simple_client {
   ~simple_client() = default;
 
   void connect(const std::string &server, const std::string &port) const {
-    socket_->connect(server, port);
+    // Before connect, not after: for TLS the handshake happens inside
+    // connect(), and it must run under the same deadline as reads/writes.
     socket_->set_timeouts(options_.timeout_seconds_);
+    socket_->connect(server, port);
   }
 
   void send_request(const request &req) const {

@@ -29,7 +29,11 @@ function extractSanitizerReport(stderr: string): string {
   if (!stderr) return "";
   // Sanitizer banners always start with `==NNNN==` and one of the
   // sanitizer names; SUMMARY: is the universal report footer.
-  if (!/=================================================================\s*\n==\d+==(?:ERROR|WARNING)|^==\d+==(?:ERROR|WARNING|LeakSanitizer)/m.test(stderr)) {
+  if (
+    !/=================================================================\s*\n==\d+==(?:ERROR|WARNING)|^==\d+==(?:ERROR|WARNING|LeakSanitizer)/m.test(
+      stderr,
+    )
+  ) {
     return "";
   }
   const lines = stderr.split("\n");
@@ -39,7 +43,7 @@ function extractSanitizerReport(stderr: string): string {
     if (/^=+$/.test(line) || /^==\d+==/.test(line)) inReport = true;
     if (inReport) out.push(line);
     if (inReport && /^SUMMARY:|^==\d+==ABORTING/.test(line)) {
-      out.push("");  // blank separator between consecutive reports
+      out.push(""); // blank separator between consecutive reports
       inReport = false;
     }
   }
@@ -314,7 +318,13 @@ export class NscpInstance {
         this.earlyExit = `nscp test exited on its own after ${alive}s (code ${r.exitCode}, signal ${r.signal ?? "none"})`;
         console.error(`[integration] ${this.earlyExit}`);
       })
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        // reject:false means this only fires when the child never ran at all
+        // (spawn failure) — worth the same loud diagnostic as an early exit.
+        if (this.stopping || this.proc !== started) return;
+        this.earlyExit = `nscp test failed to start: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(`[integration] ${this.earlyExit}`);
+      });
   }
 
   /** Stop the background nscp test process. Idempotent.
@@ -373,11 +383,17 @@ export class NscpInstance {
       // Jest doesn't dump the per-test capture buffer, then throw so
       // the test fails loudly. Don't swallow this in the harness —
       // a sanitizer hit is a real bug, not a flake.
-      process.stderr.write("\n----- nscp sanitizer report -----\n" + sanitizerReport + "----- end sanitizer report -----\n");
+      process.stderr.write(
+        "\n----- nscp sanitizer report -----\n" +
+          sanitizerReport +
+          "----- end sanitizer report -----\n",
+      );
       throw new Error(
         `nscp emitted a sanitizer report on shutdown (likely a leak/UB). ` +
           `Full report printed to stderr above. First marker: ` +
-          (sanitizerReport.match(/(?:AddressSanitizer|LeakSanitizer|UndefinedBehaviorSanitizer)[^\n]*/)?.[0] ?? "(none)"),
+          (sanitizerReport.match(
+            /(?:AddressSanitizer|LeakSanitizer|UndefinedBehaviorSanitizer)[^\n]*/,
+          )?.[0] ?? "(none)"),
       );
     }
   }

@@ -62,7 +62,10 @@ class fleet_sync {
   void thread_proc();
   // One poll cycle; returns how many seconds to sleep before the next one.
   unsigned long poll_once();
-  bool apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors);
+  // `stale` is set when the server says a bundle is no longer ours (the
+  // desired state changed under us): the cycle is abandoned without reporting
+  // a failure and the next poll picks up the new state.
+  bool apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale);
   bool fetch_bundle(const onboarding::bundle_info &bundle, std::string &bytes, std::string &error, bool &gone);
 
   http::response do_call(const char *verb, const std::string &path, const std::string &payload = "");

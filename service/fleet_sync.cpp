@@ -413,7 +413,8 @@ bool fleet_sync::fetch_bundle(const onboarding::bundle_info &bundle, std::string
   return true;
 }
 
-bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors) {
+bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale) {
+  stale = false;
   const fs::path managed(config_.managed_path);
   const fs::path staging = managed / "staging";
   std::vector<onboarding::installed_bundle> new_installed;
@@ -428,6 +429,7 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
       std::string bytes, error;
       bool gone = false;
       if (!fetch_bundle(bundle, bytes, error, gone)) {
+        stale = gone;
         errors.push_back(error);
         return false;
       }
@@ -553,12 +555,18 @@ unsigned long fleet_sync::poll_once() {
     log_debug("New desired state " + state.state_hash + " with " + str::xtos(state.bundles.size()) + " bundle(s)");
 
     std::vector<std::string> errors;
-    if (apply_state(state, errors)) {
+    bool stale = false;
+    if (apply_state(state, errors, stale)) {
       log_info("Applied fleet configuration " + state.state_hash);
       report_state(current_hash_, errors);
       // The rendered fleet.ini is part of the configuration; the core reloads
       // it on its own schedule (delayed), not from this thread.
       request_reload_();
+    } else if (stale) {
+      // The desired state changed server-side while we were applying it; this
+      // is not a configuration failure, so nothing is reported. The next poll
+      // fetches the new state.
+      for (const std::string &error : errors) log_info(error + " - abandoning stale desired state " + state.state_hash);
     } else {
       for (const std::string &error : errors) log_error(error);
       // Per protocol: never report a hash that was not fully applied.
