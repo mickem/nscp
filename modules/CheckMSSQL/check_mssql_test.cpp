@@ -11,6 +11,7 @@
 #include "check_mssql_databases.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
+#include "mssql_filter_helpers.hpp"
 #include "odbc_query.hpp"
 
 // Normally provided by NSC_WRAP_DLL() in the auto-generated module.cpp; in the
@@ -147,6 +148,48 @@ TEST(RunStatus, MapsAllKnownCodes) {
   EXPECT_EQ(run_status_to_string(99), "unknown");
 }
 
+TEST(BuildBackupSql, ExcludesCopyOnlyAndSnapshotInTheJoinNotTheWhere) {
+  const std::string sql = check_mssql_backup_command::build_backup_sql(false, false);
+  const std::size_t on_pos = sql.find("ON b.database_name = d.name");
+  const std::size_t where_pos = sql.find("WHERE");
+  ASSERT_NE(on_pos, std::string::npos) << sql;
+  ASSERT_NE(where_pos, std::string::npos) << sql;
+  const std::size_t copy_pos = sql.find("b.is_copy_only = 0");
+  const std::size_t snap_pos = sql.find("b.is_snapshot = 0");
+  ASSERT_NE(copy_pos, std::string::npos) << sql;
+  ASSERT_NE(snap_pos, std::string::npos) << sql;
+  // In WHERE these predicates would turn the LEFT JOIN into an inner join and
+  // hide every never-backed-up database, which is the whole point of the check.
+  EXPECT_GT(copy_pos, on_pos) << sql;
+  EXPECT_LT(copy_pos, where_pos) << sql;
+  EXPECT_GT(snap_pos, on_pos) << sql;
+  EXPECT_LT(snap_pos, where_pos) << sql;
+}
+
+TEST(BuildBackupSql, IncludeFlagsDropThePredicates) {
+  const std::string both = check_mssql_backup_command::build_backup_sql(true, true);
+  EXPECT_EQ(both.find("is_copy_only"), std::string::npos) << both;
+  EXPECT_EQ(both.find("is_snapshot"), std::string::npos) << both;
+
+  const std::string copy_only = check_mssql_backup_command::build_backup_sql(true, false);
+  EXPECT_EQ(copy_only.find("is_copy_only"), std::string::npos) << copy_only;
+  EXPECT_NE(copy_only.find("b.is_snapshot = 0"), std::string::npos) << copy_only;
+}
+
+TEST(BuildJobs, RunningJobIsReportedSeparatelyFromLastOutcome) {
+  std::vector<check_mssql_jobs_command::job_row> rows(1);
+  rows[0].name = "etl";
+  rows[0].enabled = true;
+  rows[0].run_status = 1;  // last completed run succeeded
+  rows[0].last_run_age = 120;
+  rows[0].is_running = true;  // and it is executing again right now
+
+  const auto out = check_mssql_jobs_command::build_jobs(rows);
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].get_is_running(), 1);
+  EXPECT_EQ(out[0].last_run_status, "succeeded");
+}
+
 TEST(BuildJobs, NeverRanJob) {
   std::vector<check_mssql_jobs_command::job_row> rows(1);
   rows[0].name = "nightly";
@@ -164,13 +207,38 @@ TEST(BuildJobs, NeverRanJob) {
 
 TEST(Result, GetIntParsesIntegersAndRoundsDecimals) {
   mssql_odbc::result res;
-  res.columns = {"a", "b", "c"};
-  res.rows.push_back({{"123", false}, {"99.6", false}, {"", true}});
+  res.columns = {"a", "b", "c", "d"};
+  res.rows.push_back({{"123", false}, {"99.6", false}, {"", true}, {"-99.6", false}});
   EXPECT_EQ(res.get_int(0, "a"), 123);
   EXPECT_EQ(res.get_int(0, "b"), 100);
   EXPECT_EQ(res.get_int(0, "c"), 0);
+  // Rounds to nearest in both directions: +0.5 truncation would give -99 here.
+  EXPECT_EQ(res.get_int(0, "d"), -100);
   EXPECT_TRUE(res.is_null(0, "c"));
   EXPECT_THROW(res.find_column("missing"), mssql_odbc::odbc_exception);
+}
+
+// --- duration-literal converter ---------------------------------------------------
+
+// parse_time must let plain integers (notably the negative "-1 = never"
+// sentinel used by full_age / diff_age / log_age / last_run_age) bypass
+// stox_as_time_sec, which rejects signs and would otherwise make the converter
+// yield 0 - turning `full_age = -1` into `full_age = 0`, which never fires.
+TEST(ParseTime, PlainIntegersIncludingNegativesAreRecognized) {
+  EXPECT_TRUE(mssql_filter::is_plain_integer("0"));
+  EXPECT_TRUE(mssql_filter::is_plain_integer("-1"));
+  EXPECT_TRUE(mssql_filter::is_plain_integer("-2"));
+  EXPECT_TRUE(mssql_filter::is_plain_integer("+259200"));
+  EXPECT_TRUE(mssql_filter::is_plain_integer("259200"));
+}
+
+TEST(ParseTime, DurationSpecsAreNotTreatedAsPlainIntegers) {
+  EXPECT_FALSE(mssql_filter::is_plain_integer("7d"));
+  EXPECT_FALSE(mssql_filter::is_plain_integer("30m"));
+  EXPECT_FALSE(mssql_filter::is_plain_integer("1h"));
+  EXPECT_FALSE(mssql_filter::is_plain_integer("-"));
+  EXPECT_FALSE(mssql_filter::is_plain_integer(""));
+  EXPECT_FALSE(mssql_filter::is_plain_integer("abc"));
 }
 
 // --- command error contracts (no SQL Server needed) -------------------------------

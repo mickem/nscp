@@ -19,9 +19,23 @@ check_mssql_query "query=SELECT session_id, total_elapsed_time FROM sys.dm_exec_
 OK: no long-running requests
 ```
 
+**A batch whose first statement returns a row count instead of rows:**
+
+```
+check_mssql_query "query=CREATE TABLE #t(i int); INSERT INTO #t VALUES(1),(2); SELECT COUNT(*) AS n FROM #t;" "top-syntax=${status}: ${list}"
+OK: n=2
+```
+
 **Missing query (stable error contract):**
 
 ```
 check_mssql_query
 UNKNOWN: No query specified (use query=<T-SQL>)
+```
+
+**A statement that returns no result set at all:**
+
+```
+check_mssql_query "query=DECLARE @i int = 1;"
+UNKNOWN: Query returned no result set (the statement produced no columns)
 ```

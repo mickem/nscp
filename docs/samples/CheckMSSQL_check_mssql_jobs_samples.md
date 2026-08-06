@@ -26,6 +26,20 @@ check_mssql_jobs "warning=last_run_age > 25h"
 OK: All 2 jobs succeeded|'Refresh reporting cache_last_run_age'=5s;90000;0 'Nightly index maintenance_last_run_age'=229s;90000;0
 ```
 
+**Show the run state of every job, including in-flight runs:**
+
+```
+check_mssql_jobs "warning=none" "critical=none" "top-syntax=${status}: ${list}" "detail-syntax=${name}: status=${last_run_status} running=${is_running} age=${last_run_age}" show-all
+OK: Long running job: status=never running=1 age=-1, Quick job: status=succeeded running=0 age=33
+```
+
+**Alert on a job that is stuck running:**
+
+```
+check_mssql_jobs "warning=none" "critical=is_running = 1" "detail-syntax=${name} is still running"
+CRITICAL: 1/2 jobs (Long running job is still running)
+```
+
 **No SQL Agent (Express edition) — not a problem:**
 
 ```
