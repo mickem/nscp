@@ -19,7 +19,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("inbound", &filter_obj::get_inbound, "Default inbound action (allow/block)")
       .add_string_var("outbound", &filter_obj::get_outbound, "Default outbound action (allow/block)")
       .add_string_var("policy", &filter_obj::get_policy,
-                      "Where the profile's settings come from; 'group policy' if any setting is enforced through group policy, otherwise 'local'");
+                      "Where the profile's settings come from; 'group policy' if any of the reported settings is enforced through group policy, otherwise "
+                      "'local'");
   registry_.add_int_var("enabled", type_bool, &filter_obj::get_enabled, "True if the profile's firewall is enabled").add_int_perf("");
   registry_
       .add_int_var("active", type_bool, &filter_obj::get_active,

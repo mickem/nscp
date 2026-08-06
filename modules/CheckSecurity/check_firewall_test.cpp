@@ -74,3 +74,35 @@ TEST(check_firewall, gp_partial_override_keeps_unconfigured_local_values) {
   EXPECT_EQ("allow", obj.get_outbound());
   EXPECT_EQ("group policy", obj.get_policy());
 }
+
+TEST(check_firewall, legacy_standard_profile_used_when_wfas_key_is_empty) {
+  firewall_source::policy_override modern;
+  firewall_source::policy_override legacy;
+  legacy.enabled = false;
+  const firewall_source::policy_override picked = firewall_source::pick_policy_override(modern, legacy);
+  ASSERT_TRUE(picked.enabled);
+  EXPECT_FALSE(*picked.enabled);
+}
+
+TEST(check_firewall, wfas_values_take_precedence_over_legacy_as_a_whole) {
+  // Any modern value present means the legacy key is ignored entirely,
+  // not merged per-value: legacy enabled=false must not leak through.
+  firewall_source::policy_override modern;
+  modern.inbound_block = true;
+  firewall_source::policy_override legacy;
+  legacy.enabled = false;
+  legacy.outbound_block = true;
+  const firewall_source::policy_override picked = firewall_source::pick_policy_override(modern, legacy);
+  EXPECT_FALSE(picked.enabled);
+  ASSERT_TRUE(picked.inbound_block);
+  EXPECT_TRUE(*picked.inbound_block);
+  EXPECT_FALSE(picked.outbound_block);
+}
+
+TEST(check_firewall, neither_policy_store_configured_keeps_local_state) {
+  firewall_filter::filter_obj obj = local_profile(1);
+  const firewall_source::policy_override picked = firewall_source::pick_policy_override(firewall_source::policy_override(), firewall_source::policy_override());
+  firewall_source::apply_policy_override(obj, picked);
+  EXPECT_EQ(1, obj.enabled);
+  EXPECT_EQ("local", obj.get_policy());
+}

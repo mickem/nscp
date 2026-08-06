@@ -6,7 +6,11 @@ the local store through the `INetFwPolicy2` COM interface (no WMI needed) and
 then overlays any Group Policy resultant values (the ones the policy engine
 writes under `HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall`): a setting
 enforced through group policy wins over the local setting, exactly as the
-firewall service applies it. This matches
+firewall service applies it. Both the modern per-profile policy keys and the
+legacy `StandardProfile` key (written by the pre-Vista "Protect all network
+connections" ADMX policy, still honoured and applying to both Private and
+Public) are read; when both are present the modern values win as a whole.
+This matches
 `Get-NetFirewallProfile -PolicyStore ActiveStore` — note that plain
 `Get-NetFirewallProfile` (and `INetFwPolicy2` alone) shows only the local,
 pre-policy configuration.
@@ -20,7 +24,7 @@ Each profile is one row with these keywords:
 | `active`   | bool   | True if the profile is currently applied to a connected network. Emitted as perfdata (`<profile> active`). |
 | `inbound`  | string | Default inbound action (`allow`/`block`).                              |
 | `outbound` | string | Default outbound action (`allow`/`block`).                             |
-| `policy`   | string | Where the profile's settings come from: `group policy` if any setting is enforced through group policy, otherwise `local`. |
+| `policy`   | string | Where the profile's settings come from: `group policy` if any of the reported settings is enforced through group policy, otherwise `local`. |
 
 Default threshold: **critical** if any profile has `enabled = 0`.
 

@@ -1030,8 +1030,8 @@ unix:
         name: outbound
         short_description: ''
       - generic: false
-        long_description: Where the profile's settings come from; 'group policy' if any setting is enforced
-          through group policy, otherwise 'local'
+        long_description: Where the profile's settings come from; 'group policy' if any of the reported
+          settings is enforced through group policy, otherwise 'local'
         name: policy
         short_description: ''
       - generic: true
@@ -3430,8 +3430,8 @@ windows:
         name: outbound
         short_description: ''
       - generic: false
-        long_description: Where the profile's settings come from; 'group policy' if any setting is enforced
-          through group policy, otherwise 'local'
+        long_description: Where the profile's settings come from; 'group policy' if any of the reported
+          settings is enforced through group policy, otherwise 'local'
         name: policy
         short_description: ''
       - generic: true
