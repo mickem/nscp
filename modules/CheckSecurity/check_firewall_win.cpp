@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-// Windows firewall profile state via the INetFwPolicy2 COM interface (the same
-// data `Get-NetFirewallProfile` exposes), no WMI dependency.
+// Windows firewall profile state: the local store via the INetFwPolicy2 COM
+// interface, overlaid with any Group Policy resultant values so the reported
+// state is the effective one (what `Get-NetFirewallProfile -PolicyStore
+// ActiveStore` shows). No WMI dependency.
 
 #include "check_firewall.hpp"
 
@@ -12,6 +14,29 @@
 namespace firewall_source {
 
 namespace {
+
+boost::optional<bool> read_policy_dword(HKEY key, const char *name) {
+  DWORD value = 0;
+  DWORD size = sizeof(value);
+  DWORD type = 0;
+  if (RegQueryValueExA(key, name, nullptr, &type, reinterpret_cast<LPBYTE>(&value), &size) != ERROR_SUCCESS || type != REG_DWORD) return boost::none;
+  return value != 0;
+}
+
+// Read the GP resultant values the policy engine writes under one key
+// (e.g. "DomainProfile" or the legacy "StandardProfile").
+// A missing key or value means "not configured" in GP.
+policy_override read_policy_override(const std::string &key_name) {
+  policy_override gp;
+  const std::string path = "SOFTWARE\\Policies\\Microsoft\\WindowsFirewall\\" + key_name;
+  HKEY key = nullptr;
+  if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, path.c_str(), 0, KEY_QUERY_VALUE | KEY_WOW64_64KEY, &key) != ERROR_SUCCESS) return gp;
+  gp.enabled = read_policy_dword(key, "EnableFirewall");
+  gp.inbound_block = read_policy_dword(key, "DefaultInboundAction");
+  gp.outbound_block = read_policy_dword(key, "DefaultOutboundAction");
+  RegCloseKey(key);
+  return gp;
+}
 
 firewall_filter::filter_obj_ptr make_profile(INetFwPolicy2 *policy, NET_FW_PROFILE_TYPE2 type, const std::string &name, long active_types) {
   auto obj = std::make_shared<firewall_filter::filter_obj>();
@@ -24,6 +49,12 @@ firewall_filter::filter_obj_ptr make_profile(INetFwPolicy2 *policy, NET_FW_PROFI
   NET_FW_ACTION action = NET_FW_ACTION_MAX;
   if (SUCCEEDED(policy->get_DefaultInboundAction(type, &action))) obj->inbound = (action == NET_FW_ACTION_ALLOW) ? "allow" : "block";
   if (SUCCEEDED(policy->get_DefaultOutboundAction(type, &action))) obj->outbound = (action == NET_FW_ACTION_ALLOW) ? "allow" : "block";
+
+  policy_override gp = read_policy_override(name + "Profile");
+  // The legacy ADMX firewall policy writes DomainProfile + StandardProfile,
+  // where StandardProfile applies to both Private and Public.
+  if (type != NET_FW_PROFILE2_DOMAIN) gp = pick_policy_override(gp, read_policy_override("StandardProfile"));
+  apply_policy_override(*obj, gp);
   return obj;
 }
 

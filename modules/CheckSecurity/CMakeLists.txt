@@ -99,6 +99,33 @@ endif()
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
+# The firewall group-policy overlay is platform-neutral (header-inline), so
+# unlike check_security_test (OpenSSL fixtures, Linux-only) this builds on
+# both platforms.
+NSCP_CREATE_TEST(
+    check_firewall_test
+    SOURCES
+        check_firewall_test.cpp
+        ${NSCP_FILTER_CPP}
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${PLUGIN_API_TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 if(NOT WIN32)
     NSCP_CREATE_TEST(
         check_security_test

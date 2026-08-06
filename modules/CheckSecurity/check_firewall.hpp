@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include <boost/optional.hpp>
+
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
@@ -15,13 +17,14 @@ namespace firewall_filter {
 
 // One Windows firewall profile (Domain / Private / Public).
 struct filter_obj {
-  filter_obj() : enabled(0), active(0) {}
+  filter_obj() : enabled(0), active(0), policy("local") {}
 
   std::string get_profile() const { return profile; }
   long long get_enabled() const { return enabled; }
   long long get_active() const { return active; }
   std::string get_inbound() const { return inbound; }
   std::string get_outbound() const { return outbound; }
+  std::string get_policy() const { return policy; }
   std::string show() const { return profile; }
 
   std::string profile;
@@ -29,6 +32,7 @@ struct filter_obj {
   long long active;   // 1 = profile is currently applied to a connected network
   std::string inbound;
   std::string outbound;
+  std::string policy;  // "local" or "group policy" (any setting enforced by GP)
 };
 
 typedef std::shared_ptr<filter_obj> filter_obj_ptr;
@@ -45,6 +49,36 @@ namespace firewall_source {
 // Populate the firewall profiles for the current platform. On Unix this is a
 // stub that sets `error` (there is no Windows-profile firewall model on Linux).
 void gather(std::vector<firewall_filter::filter_obj_ptr> &out, std::string &error);
+
+// Group Policy resultant values for one profile, as the policy engine writes
+// them under HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall\<Profile>Profile.
+// An unset field is "not configured" in GP: the local value stays in effect.
+struct policy_override {
+  boost::optional<bool> enabled;         // EnableFirewall
+  boost::optional<bool> inbound_block;   // DefaultInboundAction (1 = block)
+  boost::optional<bool> outbound_block;  // DefaultOutboundAction (1 = block)
+
+  bool any() const { return enabled || inbound_block || outbound_block; }
+};
+
+// Pick between the modern WFAS per-profile values and the legacy
+// StandardProfile values (written by the pre-Vista "Protect all network
+// connections" ADMX policy, still honoured and applying to both Private and
+// Public). WFAS policy takes precedence as a whole: any modern value present
+// means the legacy key is ignored entirely, not merged per-value.
+inline policy_override pick_policy_override(const policy_override &modern, const policy_override &legacy) { return modern.any() ? modern : legacy; }
+
+// Overlay the GP resultant values on the local-store values: the firewall
+// service enforces the GP value when one is set, but INetFwPolicy2 keeps
+// reporting the local store, so without this the check reports the pre-policy
+// state (issue #1351).
+inline void apply_policy_override(firewall_filter::filter_obj &obj, const policy_override &gp) {
+  if (!gp.any()) return;
+  obj.policy = "group policy";
+  if (gp.enabled) obj.enabled = *gp.enabled ? 1 : 0;
+  if (gp.inbound_block) obj.inbound = *gp.inbound_block ? "block" : "allow";
+  if (gp.outbound_block) obj.outbound = *gp.outbound_block ? "block" : "allow";
+}
 }  // namespace firewall_source
 
 namespace check_firewall_command {
