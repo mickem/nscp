@@ -241,7 +241,7 @@ of path variables that can be used.
 | Key              | Value (Windows)                 | Value (Linux)          | Comment                                                                |
 |------------------|---------------------------------|------------------------|------------------------------------------------------------------------|
 | certificate-path | ${shared-path}/security         |                        |                                                                        |
-| module-path      | ${exe-path}/modules             | ${shared-path}/scripts |                                                                        |
+| module-path      | ${exe-path}/modules             | ${shared-path}/modules | Moves with `shared-path` on Linux.                                     |
 | web-path         | ${shared-path}/web              |                        |                                                                        |
 | scripts          | ${exe-path}/scripts             | ${shared-path}/scripts |                                                                        |
 | cache-folder     | ${shared-path}/cache            |                        |                                                                        |
