@@ -21,6 +21,13 @@ Defaults: no warning/critical expressions and `empty-state=ignored`; set
 `empty-state=ok` (plus `top-syntax=${status}: ${list}`) for queries where "no
 rows" means healthy, as in the long-running-requests example.
 
+Only the first result set that has columns is read. A batch whose earlier
+statements return row counts rather than rows (`UPDATE …; SELECT …` without
+`SET NOCOUNT ON`) works — those are skipped — but later result sets are not
+visible, so a query returning several is reduced to the first. A statement that
+produces no result set at all is reported as UNKNOWN
+(`Query returned no result set`) rather than a misleading empty OK.
+
 The query runs with the connection's default database unless `database=` is
 given; qualify object names (`msdb.dbo...`) or set `database=` when querying a
 specific catalog. The statement runs under `query-timeout` (default 30s) so a

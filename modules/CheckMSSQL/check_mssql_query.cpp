@@ -64,6 +64,12 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   mssql_options::with_session(info, response, [&](mssql_odbc::session &session) {
     const mssql_odbc::result res = session.execute(query);
 
+    // No column-bearing result set at all (e.g. a lone UPDATE, or a procedure
+    // that only prints): there is nothing to threshold, and silently reporting
+    // OK would hide a mistyped query behind a green check.
+    if (res.columns.empty())
+      return nscapi::protobuf::functions::set_response_bad(*response, "Query returned no result set (the statement produced no columns)");
+
     // Register the returned columns as filter keywords, CheckWMI-style: each
     // column is usable in filter/warn/crit expressions and as perfdata.
     filter.context->registry_.add_string_var("line", &filter_obj::get_row, "All columns of the row as column=value pairs");

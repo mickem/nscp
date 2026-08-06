@@ -26,6 +26,27 @@ check_mssql_backup "warning=full_age > 25h" "critical=full_age < 0 or full_age >
 OK: All 4 databases have recent backups|'appdb_full_age'=5s;90000;0 'model_full_age'=248s;90000;0 'master_full_age'=248s;90000;0 'msdb_full_age'=248s;90000;0
 ```
 
+**Catch never-backed-up databases explicitly:**
+
+```
+check_mssql_backup "warning=none" "critical=full_age = -1"
+CRITICAL: 1/4 databases (appdb: last full backup -1s ago)|'appdb_full_age'=-1s;0;-1 'model_full_age'=248s;0;-1 'master_full_age'=248s;0;-1 'msdb_full_age'=248s;0;-1
+```
+
+**A database whose only backup is COPY_ONLY still counts as never backed up:**
+
+```
+check_mssql_backup "filter=name = 'appdb'"
+CRITICAL: 1/1 databases (appdb: last full backup -1s ago)|'appdb_full_age'=-1s;259200;0
+```
+
+**...unless copy-only backups are explicitly included:**
+
+```
+check_mssql_backup "filter=name = 'appdb'" include-copy-only=true
+OK: All 1 databases have recent backups|'appdb_full_age'=55s;259200;0
+```
+
 **Exclude databases that are not backed up on purpose:**
 
 ```

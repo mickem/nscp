@@ -32,9 +32,18 @@ inline void add_connection_options(boost::program_options::options_description &
   // clang-format on
 }
 
+// set_response_bad appends, so a failure raised after post_process() has
+// already written the result line would produce a garbled two-line UNKNOWN.
+// Drop anything already rendered so the error is the only thing reported.
+inline void fail(PB::Commands::QueryResponseMessage::Response *response, const std::string &message) {
+  response->clear_lines();
+  nscapi::protobuf::functions::set_response_bad(*response, message);
+}
+
 // Connect and run `body(session)` with the module's stable error contract:
-// connect failures become "Failed to connect to SQL Server '<server>': ..." and
-// query failures "Query failed: ...", both UNKNOWN via set_response_bad.
+// connect failures become "Failed to connect to SQL Server '<server>': ...",
+// query failures "Query failed: ..." and anything else raised while running the
+// check "Check failed: ..." — all UNKNOWN.
 template <class TBody>
 void with_session(const mssql_odbc::connection_info &info, PB::Commands::QueryResponseMessage::Response *response, TBody body) {
   try {
@@ -42,15 +51,21 @@ void with_session(const mssql_odbc::connection_info &info, PB::Commands::QueryRe
     try {
       session.connect();
     } catch (const mssql_odbc::odbc_exception &e) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to connect to SQL Server '" + info.server + "': " + e.reason());
+      return fail(response, "Failed to connect to SQL Server '" + info.server + "': " + e.reason());
     }
     try {
       body(session);
     } catch (const mssql_odbc::odbc_exception &e) {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Query failed: " + e.reason());
+      return fail(response, "Query failed: " + e.reason());
+    } catch (const std::exception &e) {
+      // The connection succeeded, so this is a rendering/threshold failure, not
+      // a connect failure; label it accordingly instead of misdirecting the
+      // operator to the network.
+      return fail(response, std::string("Check failed: ") + e.what());
     }
   } catch (const std::exception &e) {
-    return nscapi::protobuf::functions::set_response_bad(*response, std::string("Failed to connect to SQL Server: ") + e.what());
+    // Only session construction (handle allocation) can reach here.
+    return fail(response, std::string("Failed to connect to SQL Server: ") + e.what());
   }
 }
 

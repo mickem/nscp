@@ -147,7 +147,14 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
         live = true;
         break;
       }
-      if (CONNECT_FAILED.test(out) && /IM002|08001/.test(out) === false) break;
+      // IM002 (driver not found) is the one permanently fatal case: this host
+      // has no usable ODBC driver, so retrying cannot help - give up now and
+      // relax to the contract assertions. Everything else is transient while
+      // the container recovers (08001/08S01 handshake errors, login failures,
+      // login timeouts) and must keep being retried until the deadline;
+      // bailing out on those silently downgraded the entire live block to
+      // "expect a connect failure", which is how a real threshold bug shipped.
+      if (/IM002/.test(out)) break;
       await new Promise((r) => setTimeout(r, 3_000));
     }
     if (!live)
@@ -182,6 +189,24 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).toMatch(/name=master/);
     expect(out).toMatch(/database_id=1/);
+  });
+
+  it("check_mssql_query skips leading row-count results in a batch", async () => {
+    // Without SQLMoreResults the INSERT's row count is the "first result",
+    // which has no columns, and the SELECT was silently dropped -> empty OK.
+    const out = await query("check_mssql_query", [
+      "query=CREATE TABLE #t(i int); INSERT INTO #t VALUES(1),(2); SELECT COUNT(*) AS n FROM #t;",
+      "top-syntax=${status}: ${list}",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/n=2/);
+  });
+
+  it("check_mssql_query reports a statement with no result set instead of a silent OK", async () => {
+    const out = await query("check_mssql_query", ["query=DECLARE @i int = 1;"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/no result set/i);
+    expect(out).not.toMatch(/^OK/m);
   });
 
   it("check_mssql_query thresholds on a returned column", async () => {
@@ -223,6 +248,58 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).toMatch(/^OK/m);
     expect(out).toMatch(/_full_age'?=-1s/); // never-backed-up contract in perfdata
+  });
+
+  it("check_mssql_backup matches the -1 never sentinel exactly", async () => {
+    // Regression guard: full_age is a type_custom_int_1 keyword with a
+    // duration converter, so a negative literal goes through parse_time. If
+    // parse_time hands "-1" to stox_as_time_sec it throws and the converter
+    // silently yields 0, turning this into `full_age = 0` - which never fires
+    // and would report a never-backed-up database as OK.
+    const out = await query("check_mssql_backup", ["warning=none", "critical=full_age = -1"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).not.toMatch(/Invalid time specification/);
+  });
+
+  it("check_mssql_backup ignores COPY_ONLY backups unless asked to include them", async () => {
+    // A copy-only backup is not part of the scheduled restore chain, so it must
+    // not make full_age look fresh and mask a failing backup job.
+    await query("check_mssql_query", [
+      "query=IF DB_ID('copydb') IS NULL CREATE DATABASE copydb;",
+      "top-syntax=${status}",
+    ]);
+    await query("check_mssql_query", [
+      "query=BACKUP DATABASE copydb TO DISK='/tmp/copydb_co.bak' WITH COPY_ONLY; SELECT 1 AS done;",
+      "top-syntax=${status}",
+    ]);
+
+    const excluded = await query("check_mssql_backup", ["filter=name = 'copydb'"]);
+    if (!live) return expect(excluded).toMatch(CONNECT_FAILED);
+    // Still listed (the predicate is in the JOIN, not the WHERE) but counted as never.
+    expect(excluded).toMatch(/^CRITICAL/m);
+    expect(excluded).toMatch(/copydb/);
+    expect(excluded).toMatch(/_full_age'?=-1s/);
+
+    const included = await query("check_mssql_backup", [
+      "filter=name = 'copydb'",
+      "include-copy-only=true",
+    ]);
+    expect(included).toMatch(/^OK/m);
+    expect(included).not.toMatch(/_full_age'?=-1s/);
+  });
+
+  it("check_mssql_jobs exposes is_running and keeps last_run_status for completed runs", async () => {
+    const out = await query("check_mssql_jobs", [
+      "warning=none",
+      "critical=none",
+      "filter=none",
+      "detail-syntax=${name}: running=${is_running} status=${last_run_status}",
+      "show-all",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    // The keyword must parse and render even when the Agent has no jobs.
+    expect(out).not.toMatch(/Invalid expression|does not take any arguments/i);
   });
 
   it("check_mssql_jobs reports OK when no Agent jobs exist (empty-state contract)", async () => {

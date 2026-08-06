@@ -46,6 +46,11 @@ typedef std::vector<backup_info> backups_type;
 // Pure: normalize raw rows, mapping missing backups to -1.
 backups_type build_backups(const std::vector<backup_row> &rows);
 
+// Pure: the backup-age query. COPY_ONLY and snapshot backups are excluded
+// unless asked for; the predicates go in the LEFT JOIN's ON clause so
+// never-backed-up databases are still returned.
+std::string build_backup_sql(bool include_copy_only, bool include_snapshot);
+
 void check(const mssql_odbc::connection_info &defaults, const PB::Commands::QueryRequestMessage::Request &request,
            PB::Commands::QueryResponseMessage::Response *response);
 
