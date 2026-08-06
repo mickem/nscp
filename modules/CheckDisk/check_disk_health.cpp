@@ -21,6 +21,9 @@ void copy_io(disk_health &h, const disk_io_check::disk_io &io) {
   h.percent_disk_time = io.percent_disk_time;
   h.percent_idle_time = io.percent_idle_time;
   h.split_io_per_sec = io.split_io_per_sec;
+  h.read_latency = io.read_latency;
+  h.write_latency = io.write_latency;
+  h.total_latency = io.total_latency;
 }
 }  // namespace
 
@@ -135,7 +138,13 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("percent_disk_time", &filter_obj::get_percent_disk_time, "Percent of time the disk is busy")
       .add_int_perf("%")
       .add_int_var("percent_idle_time", &filter_obj::get_percent_idle_time, "Percent of time the disk is idle")
-      .add_int_var("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second");
+      .add_int_var("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second")
+      .add_float("read_latency", &filter_obj::get_read_latency, "Average read latency in milliseconds (over the collection interval)")
+      .add_float_perf("ms", "", "_read_latency")
+      .add_float("write_latency", &filter_obj::get_write_latency, "Average write latency in milliseconds (over the collection interval)")
+      .add_float_perf("ms", "", "_write_latency")
+      .add_float("total_latency", &filter_obj::get_total_latency, "Average latency per I/O (read + write) in milliseconds (over the collection interval)")
+      .add_float_perf("ms", "", "_total_latency");
 
   // Physical-disk device state (Windows; MSFT_PhysicalDisk / MSFT_Disk). These
   // populate only on device rows (has_device = 1). has_device is a guard, not a

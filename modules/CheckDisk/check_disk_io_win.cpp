@@ -20,7 +20,28 @@ std::string helper::perf_query =
     "select Name, DiskReadBytesPersec, DiskWriteBytesPersec, DiskReadsPersec, DiskWritesPersec,"
     " CurrentDiskQueueLength, PercentDiskTime, PercentIdleTime, SplitIOPerSec"
     " from Win32_PerfFormattedData_PerfDisk_LogicalDisk";
+// Raw PERF_AVERAGE_TIMER counters for latency: cumulative ticks spent in
+// reads/writes/transfers plus the cumulative operation counts (the _Base
+// counters). Average latency is delta(ticks) / frequency / delta(ops) between
+// two samples; the formatted class cannot be used as it rounds to whole seconds.
+std::string helper::raw_latency_query =
+    "select Name, AvgDiskSecPerRead, AvgDiskSecPerRead_Base, AvgDiskSecPerWrite, AvgDiskSecPerWrite_Base,"
+    " AvgDiskSecPerTransfer, AvgDiskSecPerTransfer_Base, Frequency_PerfTime"
+    " from Win32_PerfRawData_PerfDisk_LogicalDisk";
 std::string helper::perf_namespace = "root\\CIMV2";
+
+namespace {
+// PERF_AVERAGE_TIMER tick counters and their PERF_AVERAGE_BASE operation
+// counters are 32-bit and wrap; deltas are therefore computed modulo 2^32.
+unsigned long long delta32(const unsigned long long cur, const unsigned long long prev) { return (cur - prev) & 0xFFFFFFFFull; }
+
+double avg_latency_ms(const unsigned long long cur_ticks, const unsigned long long prev_ticks, const unsigned long long cur_ops,
+                      const unsigned long long prev_ops, const unsigned long long frequency) {
+  const unsigned long long ops = delta32(cur_ops, prev_ops);
+  if (ops == 0 || frequency == 0) return 0.0;
+  return static_cast<double>(delta32(cur_ticks, prev_ticks)) * 1000.0 / static_cast<double>(frequency) / static_cast<double>(ops);
+}
+}  // namespace
 
 void disk_io::read_wmi(const wmi_impl::row &r) {
   name = r.get_string("Name");
@@ -47,11 +68,45 @@ disks_type disk_io_data::query_perf() {
   return disks;
 }
 
+// Latency from the raw counters: average time per I/O since the previous
+// sample. The first sample only seeds prev_raw_, leaving latencies at 0.
+void disk_io_data::apply_latency(disks_type &disks) {
+  std::map<std::string, disk_io *> by_name;
+  for (disk_io &d : disks) by_name[d.name] = &d;
+
+  wmi_impl::query raw_q(helper::raw_latency_query, helper::perf_namespace, "", "");
+  wmi_impl::row_enumerator raw_row = raw_q.execute();
+  std::map<std::string, raw_latency_sample> current;
+  while (raw_row.has_next()) {
+    const wmi_impl::row r = raw_row.get_next();
+    const std::string name = r.get_string("Name");
+    raw_latency_sample s;
+    s.read_ticks = static_cast<unsigned long long>(r.get_int("AvgDiskSecPerRead"));
+    s.read_ops = static_cast<unsigned long long>(r.get_int("AvgDiskSecPerRead_Base"));
+    s.write_ticks = static_cast<unsigned long long>(r.get_int("AvgDiskSecPerWrite"));
+    s.write_ops = static_cast<unsigned long long>(r.get_int("AvgDiskSecPerWrite_Base"));
+    s.transfer_ticks = static_cast<unsigned long long>(r.get_int("AvgDiskSecPerTransfer"));
+    s.transfer_ops = static_cast<unsigned long long>(r.get_int("AvgDiskSecPerTransfer_Base"));
+    const auto frequency = static_cast<unsigned long long>(r.get_int("Frequency_PerfTime"));
+    current[name] = s;
+
+    const auto dit = by_name.find(name);
+    const auto pit = prev_raw_.find(name);
+    if (dit == by_name.end() || pit == prev_raw_.end()) continue;
+    const raw_latency_sample &p = pit->second;
+    dit->second->read_latency = avg_latency_ms(s.read_ticks, p.read_ticks, s.read_ops, p.read_ops, frequency);
+    dit->second->write_latency = avg_latency_ms(s.write_ticks, p.write_ticks, s.write_ops, p.write_ops, frequency);
+    dit->second->total_latency = avg_latency_ms(s.transfer_ticks, p.transfer_ticks, s.transfer_ops, p.transfer_ops, frequency);
+  }
+  prev_raw_.swap(current);
+}
+
 void disk_io_data::fetch() {
   if (!fetch_disk_io_) return;
 
+  disks_type disks;
   try {
-    set(query_perf());
+    disks = query_perf();
   } catch (const wmi_impl::wmi_exception &e) {
     if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_NOT_FOUND) {
       fetch_disk_io_ = false;
@@ -59,6 +114,23 @@ void disk_io_data::fetch() {
     }
     throw nsclient::nsclient_exception("Failed to fetch disk I/O metrics: " + e.reason());
   }
+
+  // A latency failure must not take down the rates: keep the formatted data
+  // and report the problem; on a permanent error stop querying the raw class.
+  if (fetch_latency_) {
+    try {
+      apply_latency(disks);
+    } catch (const wmi_impl::wmi_exception &e) {
+      if (e.get_code() == WBEM_E_INVALID_QUERY || e.get_code() == WBEM_E_NOT_FOUND) {
+        fetch_latency_ = false;
+        set(disks);
+        throw nsclient::nsclient_exception("Failed to fetch disk latency (raw performance counter not available), disabling latency (rates still work)...");
+      }
+      set(disks);
+      throw nsclient::nsclient_exception("Failed to fetch disk latency (rates still work): " + e.reason());
+    }
+  }
+  set(disks);
 }
 
 }  // namespace disk_io_check

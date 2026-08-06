@@ -57,6 +57,12 @@ of row, each judged only on the data that is real for it:
 * **Device rows** (`has_device = 1`) — one per physical disk (Windows only,
   from `MSFT_PhysicalDisk` / `MSFT_Disk`), judged on physical-disk health.
 
+Space and I/O rows also carry the average I/O latency of the backing device
+(`read_latency`, `write_latency`, `total_latency`, in **milliseconds** over the
+collection interval), so a single check can join free space with the most
+portable saturation signal: `"warn=total_latency > 20" "crit=total_latency > 50"`.
+See `check_disk_io` for details on how latency is measured.
+
 ### Device-state keywords (Windows)
 
 | Keyword              | Description                                                      |
@@ -461,10 +467,90 @@ Device-state keywords (populated on `has_device = 1` rows): `friendly_name`,
 
 Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
 
+`check_disk_io` reports disk I/O activity per logical disk (Windows) or per
+physical block device (Linux), plus a `_Total` row aggregating all disks. The
+data comes from a background collector that samples every 10 seconds (the
+`collection interval` setting), so each check reads the most recent interval.
+
+The keywords fall into two groups:
+
+* **Load** — `reads_per_sec`, `writes_per_sec`, `iops`, `read_bytes_per_sec`,
+  `write_bytes_per_sec`, `total_bytes_per_sec`, `split_io_per_sec`: how much
+  work the disk is doing. These have no universally meaningful thresholds — a
+  healthy datastore may sustain thousands of IOPS while a saturated one
+  struggles at hundreds.
+* **Saturation** — `percent_disk_time`, `percent_idle_time`, `queue_length`,
+  and the latency keywords: whether the storage is keeping up.
+
+### Latency keywords
+
+| Keyword         | Description                                                        |
+|-----------------|--------------------------------------------------------------------|
+| `read_latency`  | Average time per read in **milliseconds** over the interval.       |
+| `write_latency` | Average time per write in **milliseconds** over the interval.      |
+| `total_latency` | Average time per I/O (read + write) in milliseconds.               |
+
+Average latency per I/O is the most portable saturation signal: it is
+independent of the workload shape and comparable across machines. As a rule of
+thumb, sustained latencies above ~20 ms suggest the storage is struggling and
+above ~50 ms indicate a real problem. The values are averages over the
+collection interval and read `0` when no I/O of that kind occurred (and on the
+first sample after startup).
+
+On Windows latency is computed from the raw `Avg. Disk sec/Read|Write|Transfer`
+performance counters; on Linux from `/proc/diskstats` (time spent
+reading/writing divided by operations completed).
+
+One accuracy caveat: the underlying counters are 32-bit and accrue time per
+*in-flight* operation, so on a disk under sustained very heavy load (high queue
+depth) they can wrap more than once within a long sampling window, which
+understates the reported latency. Perfmon has the same limitation and avoids it
+by sampling every second — if you monitor extremely busy disks, lower the
+module's `collection interval` accordingly.
+
 **Jump to section:**
 
+* [Sample Commands](#check_disk_io_samples)
 * [Command-line Arguments](#check_disk_io_options)
 * [Filter keywords](#check_disk_io_filter_keys)
+
+
+<a id="check_disk_io_samples"></a>
+#### Sample Commands
+
+**Alerting on average I/O latency:**
+
+Average latency per I/O is the most portable "is the storage keeping up?"
+signal: thresholds of ~20 ms (warning) and ~50 ms (critical) are meaningful
+regardless of workload or hardware. Values are in milliseconds.
+
+```
+check_disk_io "warn=total_latency > 20" "crit=total_latency > 50"
+OK: C:: 11% busy, read=21967407B/s write=17167107B/s q=0, HarddiskVolume4: 0% busy, read=0B/s write=0B/s q=0, ...
+'C:_total_latency'=0.172447ms;20;50 'HarddiskVolume4_total_latency'=0ms;20;50 ...
+```
+
+**Separate read/write latency for a single disk:**
+
+```
+check_disk_io "filter=name = 'C:'" "warn=read_latency > 20 or write_latency > 20" "crit=read_latency > 50 or write_latency > 50" "detail-syntax=${name}: r=${read_latency}ms w=${write_latency}ms"
+OK: C:: r=4.08798ms w=1.47571ms
+'C:_read_latency'=4.08798ms;20;50 'C:_write_latency'=1.47571ms;20;50
+```
+
+Latency is averaged over the collector's sampling interval (10 seconds by
+default) and reads `0` when no I/O of that kind occurred during the interval —
+including the very first interval after startup.
+
+**Alerting on a busy disk (default thresholds):**
+
+The default check goes WARNING above 80% disk time and CRITICAL above 95%:
+
+```
+check_disk_io
+OK: All disk I/O seems ok.
+'C:'=2%;80;95 'HarddiskVolume4'=0%;80;95 ...
+```
 
 
 

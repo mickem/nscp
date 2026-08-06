@@ -9,6 +9,12 @@ of row, each judged only on the data that is real for it:
 * **Device rows** (`has_device = 1`) — one per physical disk (Windows only,
   from `MSFT_PhysicalDisk` / `MSFT_Disk`), judged on physical-disk health.
 
+Space and I/O rows also carry the average I/O latency of the backing device
+(`read_latency`, `write_latency`, `total_latency`, in **milliseconds** over the
+collection interval), so a single check can join free space with the most
+portable saturation signal: `"warn=total_latency > 20" "crit=total_latency > 50"`.
+See `check_disk_io` for details on how latency is measured.
+
 ### Device-state keywords (Windows)
 
 | Keyword              | Description                                                      |

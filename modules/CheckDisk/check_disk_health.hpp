@@ -32,6 +32,10 @@ struct disk_health {
   long long percent_disk_time;
   long long percent_idle_time;
   long long split_io_per_sec;
+  // Average time per I/O in milliseconds over the collection interval.
+  double read_latency;
+  double write_latency;
+  double total_latency;
 
   // Physical-disk device state (from disk_device_check, Windows only). Present
   // only on device rows (has_device=true), which are separate per-physical-disk
@@ -60,6 +64,9 @@ struct disk_health {
         percent_disk_time(0),
         percent_idle_time(0),
         split_io_per_sec(0),
+        read_latency(0),
+        write_latency(0),
+        total_latency(0),
         has_device(false),
         disk_number(0),
         is_offline(false),
@@ -88,6 +95,9 @@ struct disk_health {
   long long get_percent_disk_time() const { return percent_disk_time; }
   long long get_percent_idle_time() const { return percent_idle_time; }
   long long get_split_io_per_sec() const { return split_io_per_sec; }
+  double get_read_latency() const { return read_latency; }
+  double get_write_latency() const { return write_latency; }
+  double get_total_latency() const { return total_latency; }
 
   // Device-state accessors
   long long get_has_device() const { return has_device ? 1 : 0; }
