@@ -464,7 +464,13 @@ struct client_arguments {
       if (module == "CommandClient") boot = true;
       core_->load_configuration_1();
       apply_overrides(defines);
-      core_->load_configuration_2(true);
+      // A failed boot here means no modules can be loaded at all (no modules
+      // folder, for instance). Carrying on produces a process that starts,
+      // answers nothing and exits again - say so instead.
+      if (!core_->load_configuration_2(true)) {
+        std::cerr << "Client: Failed to boot (see the log above)" << std::endl;
+        return false;
+      }
       if (load_all) core_->boot_load_all_plugin_files();
       if (module.empty() || module == "CommandClient")
         core_->boot_load_active_plugins();
