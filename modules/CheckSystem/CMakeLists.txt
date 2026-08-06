@@ -64,6 +64,7 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/win/processes.hpp
         ${NSCP_INCLUDEDIR}/win/sysinfo/sysinfo.h
         pdh_thread.hpp
+        disable_list.hpp
         check_pdh.hpp
         check_memory.hpp
         filter_config_object.hpp
@@ -131,6 +132,7 @@ NSCP_CREATE_TEST(
     check_system_test
     SOURCES
         check_battery_test.cpp
+        disable_list_test.cpp
         check_os_updates_test.cpp
         check_process_history_test.cpp
         check_process_test.cpp
