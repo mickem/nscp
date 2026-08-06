@@ -386,3 +386,24 @@ TEST(str_utils, parse_command_cmd_args_multiple_spaces) {
   EXPECT_EQ(*it++, "arg1");
   EXPECT_EQ(*it++, "arg2");
 }
+
+// ============================================================================
+// Tests for unescape (from utils_no_boost.hpp)
+// ============================================================================
+TEST(str_utils, unescape_newline) { EXPECT_EQ(str::utils::unescape("a\\nb"), "a\nb"); }
+
+TEST(str_utils, unescape_all_supported_escapes) { EXPECT_EQ(str::utils::unescape("a\\nb\\rc\\td\\\\e"), "a\nb\rc\td\\e"); }
+
+TEST(str_utils, unescape_leaves_plain_text_alone) { EXPECT_EQ(str::utils::unescape("${status}: %(count) items"), "${status}: %(count) items"); }
+
+TEST(str_utils, unescape_empty) { EXPECT_EQ(str::utils::unescape(""), ""); }
+
+// An escaped backslash is consumed whole, so the character after it is never
+// re-read as the start of a new escape: "\\n" is a backslash and an 'n'.
+TEST(str_utils, unescape_escaped_backslash_does_not_start_a_new_escape) { EXPECT_EQ(str::utils::unescape("a\\\\nb"), "a\\nb"); }
+
+// Unknown escapes keep their backslash: a Windows path is much more likely
+// than a typo, and mangling it would be worse than leaving it be.
+TEST(str_utils, unescape_keeps_unknown_escapes) { EXPECT_EQ(str::utils::unescape("C:\\Users\\Public"), "C:\\Users\\Public"); }
+
+TEST(str_utils, unescape_trailing_backslash_is_kept) { EXPECT_EQ(str::utils::unescape("path\\"), "path\\"); }

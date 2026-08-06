@@ -20,6 +20,16 @@ void filter_object::read_object(settings_helper::path_extension& path, const boo
       .add_string("ok syntax", sh::string_key(&syntax_ok), "SYNTAX", "Format string for dates", !is_default)
 
       .add_string("detail syntax", sh::string_key(&syntax_detail), "SYNTAX", "Format string for dates", !is_default)
+
+      // No default here: like `top syntax` above, an unset value must stay
+      // empty so apply_parent can inherit it from the default template
+      // (import_string only copies into empty strings). The ", " fallback
+      // lives in generic_summary itself.
+      .add_string("list separator", sh::string_key(&list_separator), "LIST SEPARATOR",
+                  "String used to separate the items of %(list) and friends (default ', '). Accepts the escapes \\n, \\r, \\t and \\\\; set it to \\n to "
+                  "render one item per line (most Nagios compatible frontends show everything after the first line as long output). Reference it as %(sep) in "
+                  "the top syntax to also break before the first item.",
+                  true)
       .add_string("perf config", sh::string_key(&perf_config), "PERF CONFIG", "Performance data configuration", true)
 
       .add_bool("debug", sh::bool_key(&debug), "DEBUG", "Enable this to display debug information for this match filter", true)
@@ -61,6 +71,7 @@ void filter_object::apply_parent(const filter_object& parent) {
 
   import_string(syntax_detail, parent.syntax_detail);
   import_string(syntax_top, parent.syntax_top);
+  import_string(list_separator, parent.list_separator);
   import_string(filter_string_, parent.filter_string_);
   import_string(filter_warn, parent.filter_warn);
   import_string(filter_crit, parent.filter_crit);

@@ -24,6 +24,57 @@ inline void replace(std::string& string, const std::string& replace, const std::
 }
 
 //
+// Unescape
+//
+/**
+ * Decode the C-style escapes an operator can actually type into a
+ * configuration file or a check argument: `\n`, `\r`, `\t` and `\\`.
+ *
+ * A value in nsclient.ini is a single line and check arguments travel over
+ * REST/NRPE as plain tokens, so there is no way to write a real newline or tab
+ * in either. Options whose value IS a piece of literal output (list-separator)
+ * run through this so `\n` means what the operator meant. Message templates
+ * (top-syntax, detail-syntax, ...) are deliberately NOT decoded: existing
+ * configurations contain literal backslashes (C:\temp, regexes) that decoding
+ * would silently corrupt - they reference the separator as %(sep) instead.
+ *
+ * Scanning left to right and consuming both characters of an escape means a
+ * literal backslash written as `\\` is never re-examined, so `\\n` decodes to
+ * the two characters `\` and `n`, not to a newline. Anything else keeps its
+ * backslash: an unknown escape is far more likely a Windows path than a typo.
+ */
+inline std::string unescape(const std::string& str) {
+  std::string ret;
+  ret.reserve(str.size());
+  for (std::string::size_type i = 0; i < str.size(); ++i) {
+    if (str[i] != '\\' || i + 1 >= str.size()) {
+      ret += str[i];
+      continue;
+    }
+    switch (str[i + 1]) {
+      case 'n':
+        ret += '\n';
+        break;
+      case 'r':
+        ret += '\r';
+        break;
+      case 't':
+        ret += '\t';
+        break;
+      case '\\':
+        ret += '\\';
+        break;
+      default:
+        ret += str[i];
+        ret += str[i + 1];
+        break;
+    }
+    ++i;
+  }
+  return ret;
+}
+
+//
 // Split
 //
 template <class T>

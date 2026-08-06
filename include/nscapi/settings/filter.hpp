@@ -27,6 +27,9 @@ struct NSCAPI_EXPORT filter_object {
   std::string target;
   std::string syntax_ok;
   std::string syntax_empty;
+  // What joins the items of %(list) and friends; accepts \n, \r, \t and \\.
+  // Mirrors the `list-separator` option of a queried check (issue #1370).
+  std::string list_separator;
 
  private:
   std::string filter_string_;

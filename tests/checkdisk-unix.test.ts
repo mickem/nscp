@@ -114,6 +114,81 @@ onLinux("CheckDisk (Unix)", () => {
     expect(out).toMatch(/1:big\.log/);
   });
 
+  // --- list-separator (issue #1370) ----------------------------------------
+  //
+  // A common option of every modern_filter check, exercised here because
+  // *.log matches exactly two files, so the joined list is deterministic.
+
+  it("joins list items with ', ' by default", async () => {
+    const out = await query("check_files", [`path=${scratch}`, "pattern=*.log", "detail-syntax=%(filename)", "top-syntax=${list}"]);
+    // Directory order is not guaranteed, so accept either order.
+    expect(out).toMatch(/(small\.log, big\.log|big\.log, small\.log)/);
+  });
+
+  it("joins list items with a custom separator", async () => {
+    const out = await query("check_files", [
+      `path=${scratch}`,
+      "pattern=*.log",
+      "detail-syntax=%(filename)",
+      "top-syntax=${list}",
+      "list-separator= | ",
+    ]);
+    expect(out).toMatch(/\.log \| \S+\.log/);
+  });
+
+  it("renders one item per line via list-separator=\\n and %(sep) in the top-syntax", async () => {
+    const out = await query("check_files", [
+      `path=${scratch}`,
+      "pattern=*.log",
+      "detail-syntax=%(filename)",
+      // Both halves are needed: %(sep) (the decoded separator) breaks before
+      // the first item, the separator itself breaks between the rest.
+      "top-syntax=%(count) file(s):%(sep)%(list)",
+      "list-separator=\\n",
+    ]);
+    expect(out).toMatch(/^2 file\(s\):$/m);
+    expect(out).toMatch(/^small\.log$/m);
+    expect(out).toMatch(/^big\.log$/m);
+    // And no item is left glued to another.
+    expect(out).not.toMatch(/\.log.*\.log/);
+  });
+
+  it("never escape-decodes the templates themselves", async () => {
+    // Existing configurations contain literal backslashes (Windows paths such
+    // as C:\temp\new, regexes); decoding \t or \n inside a template would
+    // silently corrupt them on upgrade. Only list-separator is decoded.
+    // %(list) keeps the top-syntax in play (without a list token the OK path
+    // renders the ok-syntax instead).
+    const out = await query("check_files", [
+      `path=${scratch}`,
+      "pattern=*.log",
+      "detail-syntax=%(filename)",
+      "top-syntax=backup to C:\\temp\\new: %(count) file(s): %(list)",
+    ]);
+    expect(out).toContain("backup to C:\\temp\\new: 2 file(s):");
+    expect(out).not.toMatch(/\t/);
+  });
+
+  // --- valued booleans over the k=v token path ------------------------------
+  //
+  // REST (and this client-query path) pass each flag as the single token
+  // `x=true`; bool_switch rejects that with "does not take any arguments" and
+  // dumps the usage text instead of running the check.
+
+  it("accepts show-all=true and escape-html=true as valued booleans", async () => {
+    const out = await query("check_files", [
+      `path=${scratch}`,
+      "pattern=*.log",
+      "detail-syntax=<%(filename)>",
+      "show-all=true",
+      "escape-html=true",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments/i);
+    // show-all renders the detail list; escape-html turns its <> into entities.
+    expect(out).toContain("&lt;small.log&gt;");
+    expect(out).not.toContain("<small.log>");
+  });
+
   // --- check_single_file ---------------------------------------------------
 
   it("inspects a single file", async () => {

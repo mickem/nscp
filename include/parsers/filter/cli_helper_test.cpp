@@ -31,6 +31,9 @@ TEST(DataContainer, DefaultConstruction) {
   EXPECT_TRUE(dc.perf_config.empty());
   EXPECT_TRUE(dc.empty_state.empty());
   EXPECT_TRUE(dc.syntax_unique.empty());
+  // Not empty: a filter built without the misc options must still join lists
+  // with something.
+  EXPECT_EQ(", ", dc.list_separator);
 }
 
 // ============================================================================
@@ -770,4 +773,111 @@ TEST_F(CliHelperTest, ParseOptionsPostShowAllWithDetailListClearsSyntaxOk) {
   EXPECT_EQ("Status: %(detail_list)", data_.syntax_top);
   // detail_list triggers syntax_ok clearing
   EXPECT_EQ("", data_.syntax_ok);
+}
+
+// ============================================================================
+// cli_helper — list-separator (issue #1370)
+// ============================================================================
+
+// Enough of a filter for build_filter() to run against: it only needs to
+// accept the build calls and expose a summary whose separator we can read.
+struct SeparatorFilter {
+  struct {
+    std::string list_separator = ", ";
+  } summary;
+  bool started = false;
+
+  bool build_syntax(bool, const std::string &, const std::string &, const std::string &, const std::string &, const std::string &, const std::string &) {
+    return true;
+  }
+  bool build_index(const std::string &, std::string &) { return true; }
+  bool build_engines(bool, const std::vector<std::string> &, const std::vector<std::string> &, const std::vector<std::string> &,
+                     const std::vector<std::string> &) {
+    return true;
+  }
+  bool validate(std::string &) { return true; }
+  void start_match() { started = true; }
+};
+
+TEST_F(CliHelperTest, AddMiscOptionsDefaultListSeparator) {
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+
+  helper.add_misc_options();
+
+  boost::program_options::variables_map vm;
+  const std::vector<std::string> empty_args;
+  boost::program_options::store(boost::program_options::command_line_parser(empty_args).options(helper.get_desc()).run(), vm);
+  boost::program_options::notify(vm);
+
+  EXPECT_EQ(", ", data_.list_separator);
+}
+
+TEST_F(CliHelperTest, AddMiscOptionsListSeparatorFromArguments) {
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+
+  helper.add_misc_options();
+
+  boost::program_options::variables_map vm;
+  // The escape survives option parsing untouched; build_filter decodes it.
+  const std::vector<std::string> args{"--list-separator", "\\n"};
+  boost::program_options::store(boost::program_options::command_line_parser(args).options(helper.get_desc()).run(), vm);
+  boost::program_options::notify(vm);
+
+  EXPECT_EQ("\\n", data_.list_separator);
+}
+
+// The point of the option: what the operator typed as \n has to reach the
+// summary as a real newline, and it has to be there before matching starts.
+TEST_F(CliHelperTest, BuildFilterUnescapesListSeparatorIntoTheSummary) {
+  modern_filter::cli_helper<SeparatorFilter> helper(request_, response_, data_);
+  data_.list_separator = "\\n";
+
+  SeparatorFilter filter;
+  ASSERT_TRUE(helper.build_filter(filter));
+
+  EXPECT_EQ("\n", filter.summary.list_separator);
+  EXPECT_TRUE(filter.started);
+}
+
+TEST_F(CliHelperTest, BuildFilterKeepsAPlainSeparatorVerbatim) {
+  modern_filter::cli_helper<SeparatorFilter> helper(request_, response_, data_);
+  data_.list_separator = " | ";
+
+  SeparatorFilter filter;
+  ASSERT_TRUE(helper.build_filter(filter));
+
+  EXPECT_EQ(" | ", filter.summary.list_separator);
+}
+
+// ============================================================================
+// cli_helper — valued booleans (REST passes `x=true` as a single token, which
+// bool_switch would reject with "does not take any arguments")
+// ============================================================================
+
+TEST_F(CliHelperTest, MiscBooleansAcceptValuedForm) {
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_misc_options();
+
+  boost::program_options::variables_map vm;
+  const std::vector<std::string> args{"--escape-html=true", "--show-all=true", "--debug=false"};
+  boost::program_options::store(boost::program_options::command_line_parser(args).options(helper.get_desc()).run(), vm);
+  boost::program_options::notify(vm);
+
+  EXPECT_TRUE(data_.escape_html);
+  EXPECT_TRUE(helper.show_all);
+  EXPECT_FALSE(data_.debug);
+}
+
+TEST_F(CliHelperTest, MiscBooleansStillWorkAsBareFlags) {
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_misc_options();
+
+  boost::program_options::variables_map vm;
+  const std::vector<std::string> args{"--escape-html", "--show-all", "--debug"};
+  boost::program_options::store(boost::program_options::command_line_parser(args).options(helper.get_desc()).run(), vm);
+  boost::program_options::notify(vm);
+
+  EXPECT_TRUE(data_.escape_html);
+  EXPECT_TRUE(helper.show_all);
+  EXPECT_TRUE(data_.debug);
 }

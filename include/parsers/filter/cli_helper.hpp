@@ -11,13 +11,17 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <str/utils_no_boost.hpp>
 
 namespace modern_filter {
 struct data_container {
   std::vector<std::string> filter_string, warn_string, crit_string, ok_string;
-  std::string syntax_empty, syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_state, syntax_unique;
+  std::string syntax_empty, syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_state, syntax_unique, list_separator;
   bool debug, escape_html;
-  data_container() : debug(false), escape_html(false) {}
+  // list_separator carries its default here as well as on the option, so a
+  // check that builds a filter without registering the misc options still
+  // joins lists with ", " instead of with nothing.
+  data_container() : list_separator(", "), debug(false), escape_html(false) {}
 };
 
 struct perf_writer final : perf_writer_interface {
@@ -168,18 +172,28 @@ struct cli_helper : boost::noncopyable {
 
     if (!empty_state.empty()) empty_state_op->default_value(empty_state);
     if (!data.perf_config.empty()) perf_config_op->default_value(data.perf_config);
+    // Boolean options must NOT be bool_switch: checks are driven over REST,
+    // which passes each flag as the single token `x=true`, and bool_switch
+    // rejects that with "does not take any arguments". implicit_value keeps
+    // the bare `--show-all` CLI form working.
     // clang-format off
     desc.add_options()
-      ("debug", boost::program_options::bool_switch(&data.debug),
+      ("debug", boost::program_options::value<bool>(&data.debug)->implicit_value(true)->default_value(false),
         "Show debugging information in the log")
-      ("show-all", boost::program_options::bool_switch(&show_all),
+      ("show-all", boost::program_options::value<bool>(&show_all)->implicit_value(true)->default_value(false),
         "Show details for all matches regardless of status (normally details are only showed for warnings and criticals).")
       ("empty-state", empty_state_op,
 	"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
       ("perf-config", perf_config_op,
 	"Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)")
-      ("escape-html", boost::program_options::bool_switch(&data.escape_html),
+      ("escape-html", boost::program_options::value<bool>(&data.escape_html)->implicit_value(true)->default_value(false),
 	"Escape any < and > characters to prevent HTML encoding")
+      ("list-separator", boost::program_options::value<std::string>(&data.list_separator)->default_value(", "),
+	"String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).\n"
+	"Accepts the escapes \\n, \\r, \\t and \\\\ (a configuration file value is a single line, so a real newline cannot be written).\n"
+	"Set to \\n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.\n"
+	"The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break "
+	"before it too: --top-syntax \"%(status): %(count) items:%(sep)%(list)\".")
       ;
     // clang-format on
     nscapi::program_options::add_help(desc);
@@ -251,6 +265,9 @@ struct cli_helper : boost::noncopyable {
     if (data.syntax_unique.empty()) data.syntax_unique = filter;
   }
   bool build_filter(T &filter) {
+    // The separator joins list items as they are collected, so it has to be in
+    // place before the first match is recorded (start_match, below).
+    filter.summary.list_separator = str::utils::unescape(data.list_separator);
     data.filter_string.erase(std::remove(data.filter_string.begin(), data.filter_string.end(), "none"), data.filter_string.end());
     data.ok_string.erase(std::remove(data.ok_string.begin(), data.ok_string.end(), "none"), data.ok_string.end());
     data.warn_string.erase(std::remove(data.warn_string.begin(), data.warn_string.end(), "none"), data.warn_string.end());

@@ -321,11 +321,12 @@ check_service "filter=name = 'NonExistentService'" empty-state=ok
 
 Three options shape the message. They affect *only* the human-readable text — never the status or perfdata.
 
-| Option          | When applied               | Default purpose           |
-|-----------------|----------------------------|---------------------------|
-| `top-syntax`    | Always — the whole message | Status + list of problems |
-| `detail-syntax` | Per item, inside the list  | Per-item values           |
-| `ok-syntax`     | When status is OK          | Brief "all ok" message    |
+| Option           | When applied                 | Default purpose           |
+|------------------|------------------------------|---------------------------|
+| `top-syntax`     | Always — the whole message   | Status + list of problems |
+| `detail-syntax`  | Per item, inside the list    | Per-item values           |
+| `ok-syntax`      | When status is OK            | Brief "all ok" message    |
+| `list-separator` | Between the items of a list  | `, `                      |
 
 `check_cpu` defaults (still using the legacy `${...}` form for top-syntax / detail-syntax; written
 the recommended way they'd be `top-syntax=%(status): %(problem_list)` and
@@ -366,6 +367,7 @@ Common variables (every check):
 | `%(problem_list)`                              | Only warning/critical items                     |
 | `%(ok_list)` / `%(warn_list)` / `%(crit_list)` | Items in each state                             |
 | `%(count)` / `%(problem_count)`                | Item counts                                     |
+| `%(sep)`                                       | The decoded `list-separator` (for line breaks)  |
 
 Per-item variables (in `detail-syntax`) depend on the check — `<check> help` lists them.
 
@@ -390,6 +392,41 @@ page free: 16G used: 7.98G size: 24G, physical free: 4.18G used: 7.8G size: 12G
 # Service: name and state for each
 check_service "top-syntax=%(list)" "detail-syntax=%(name): %(state)"
 ```
+
+### Multi-line output
+
+A check that matches many items produces one long line, because list items are joined with `, `.
+`list-separator` changes what joins them. Its value accepts the escapes `\n`, `\r`, `\t` and `\\` —
+a configuration file value is a single line, so a real newline cannot be written into one.
+
+The templates themselves are **never** escape-decoded: a `top-syntax` containing `C:\temp` must keep
+its literal backslashes. To break the line before the *first* item, reference the decoded separator
+as `%(sep)` in the template; the separator itself breaks between the rest.
+
+```shell
+check_users "top-syntax=%(status): %(count) user(s) logged on:%(sep)%(list)" \
+  "detail-syntax=%(user) [%(state)]" "list-separator=\n"
+OK: 7 user(s) logged on:
+administrator [active]
+user1 [active]
+user2 [active]
+```
+
+Nagios-compatible frontends (Icinga, Naemon, …) treat the first line as the summary and the rest as
+long output, shown as a block — which is the point of the exercise.
+
+<!-- @formatter:off -->
+!!! note "Where the performance data ends up"
+    Results go on the wire as `message|perfdata`, so with a multi-line message the perfdata lands at
+    the end of the *last* line. That is valid plugin output — the plugin API allows perfdata on the
+    final long-output line — and Icinga 2 parses it, but a consumer that only looks at the first
+    line will show it as text. Check yours before rolling this out fleet-wide.
+
+!!! warning "Not for line-oriented transports"
+    Embedded newlines break protocols that treat one line as one result: check_mk local checks and
+    collectd in particular. NRPE and NSCA carry them, but both truncate at a fixed payload size, so
+    a long multi-line result is cut off sooner than the single-line form would be.
+<!-- @formatter:on -->
 
 ---
 
