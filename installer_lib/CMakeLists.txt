@@ -222,6 +222,12 @@ set(SRCS
     ${NSCP_INCLUDEDIR}/bytes/base64.c
     ../libs/settings_manager/settings_manager_impl.cpp
     ../libs/settings_manager/settings_handler_impl.cpp
+    # Fleet onboarding (enrollment) shared with the core client, see
+    # libs/onboarding and include/onboarding/onboarding.hpp.
+    ../libs/onboarding/identity.cpp
+    ../libs/onboarding/enroll.cpp
+    ../libs/onboarding/state.cpp
+    ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
     ${NSCP_INCLUDEDIR}/win/credentials.cpp

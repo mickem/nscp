@@ -1121,12 +1121,13 @@ struct metrics_fetcher {
 
 bool nsclient::core::plugin_manager::is_enabled(const std::string module) { return parse_plugin(module).enabled; }
 
-void nsclient::core::plugin_manager::process_metrics(PB::Metrics::MetricsBundle bundle) {
+PB::Metrics::MetricsMessage nsclient::core::plugin_manager::process_metrics(PB::Metrics::MetricsBundle bundle) {
   metrics_fetcher f;
   metrics_fetchers_.do_all([&f](auto key) { return f.fetch(key); });
   f.get_root()->add_bundles()->CopyFrom(bundle);
   f.render();
   metrics_submitters_.do_all([&f](auto key) { return f.digest(key); });
+  return f.result;
 }
 
 bool nsclient::core::plugin_manager::enable_plugin(std::string name) {

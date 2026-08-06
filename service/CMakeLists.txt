@@ -155,6 +155,32 @@ if(WIN32)
     )
 endif(WIN32)
 
+if(OPENSSL_FOUND)
+    # Fleet onboarding (`nscp enroll`) and the fleet configuration sync loop
+    # (fleet_sync, started at boot when the enrollment manifest exists) - see
+    # libs/onboarding. Only available when OpenSSL is present.
+    add_definitions(-DHAVE_ONBOARDING)
+    include_directories(${OPENSSL_INCLUDE_DIR})
+    set(service_SRCS
+        ${service_SRCS}
+        fleet_sync.cpp
+        fleet_sync.hpp
+    )
+    # fleet_sync talks HTTPS/mTLS through net/http/client.hpp, which only
+    # compiles its TLS transport under USE_SSL. Scoped to this file to keep
+    # the rest of the service target unchanged.
+    set_source_files_properties(
+        fleet_sync.cpp
+        PROPERTIES
+            COMPILE_DEFINITIONS
+                USE_SSL
+    )
+    set(EXTRA_LIBS
+        ${EXTRA_LIBS}
+        onboarding
+    )
+endif(OPENSSL_FOUND)
+
 NSCP_MAKE_EXE_SBIN(${TARGET} "${service_SRCS}")
 set_target_properties(
     ${TARGET}
@@ -172,6 +198,9 @@ target_link_libraries(
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+    # boost::this_thread::sleep_for (fleet_sync's interruptible poll wait) pulls
+    # in boost::chrono::steady_clock, which is not header-only.
+    ${Boost_CHRONO_LIBRARY}
     ${PROTOBUF_LIBRARY}
     ${ICONV_LIBRARIES}
     ${EXTRA_LIBS}

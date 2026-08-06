@@ -16,6 +16,10 @@
 class NSClientT;
 typedef service_helper::impl<NSClientT>::system_service NSClient;
 
+#ifdef HAVE_ONBOARDING
+class fleet_sync;
+#endif
+
 /**
  * Main NSClient++ core class. This is the service core and as such is responsible for pretty much everything.
  * It also acts as a broker for all plugins and other sub threads and such.
@@ -46,6 +50,16 @@ class NSClientT : public nsclient::core::core_interface {
   std::map<std::string, std::string> cli_path_overrides_;
 
   task_scheduler::scheduler scheduler_;
+
+#ifdef HAVE_ONBOARDING
+  // Fleet configuration sync (see service/fleet_sync.hpp). Only running when
+  // the enrollment manifest (agent-state.json, written by `nscp enroll`)
+  // exists; survives configuration reloads. Guarded because the scheduler
+  // thread reads it (to hand over metrics) while boot/shutdown writes it.
+  std::shared_ptr<fleet_sync> fleet_sync_;
+  mutable boost::mutex fleet_sync_mutex_;
+  std::shared_ptr<fleet_sync> get_fleet_sync() const;
+#endif
 
  public:
   typedef std::multimap<std::string, std::string> plugin_alias_list_type;
@@ -104,6 +118,10 @@ class NSClientT : public nsclient::core::core_interface {
  private:
   void reloadPlugins();
   void unloadPlugins();
+  // Start the fleet sync thread when the enrollment manifest exists (no-op
+  // otherwise, and in builds without OpenSSL).
+  void boot_fleet_sync();
+  void stop_fleet_sync();
 
   PB::Metrics::MetricsBundle ownMetricsFetcher();
 };

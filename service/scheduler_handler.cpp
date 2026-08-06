@@ -5,6 +5,7 @@
 
 #include <nsclient/logger/logger.hpp>
 #include <str/format.hpp>
+#include <str/xtos.hpp>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 #include "NSClient++.h"
@@ -12,9 +13,16 @@
 extern std::shared_ptr<NSClient> mainClient;
 
 namespace task_scheduler {
+// `metadata` is shared between the worker thread that dispatches tasks and
+// whatever thread adds one. Tasks are not only added at boot: a delayed reload
+// (`reload("delayed,...")`) adds one from the caller's thread, and the fleet
+// sync loop does exactly that from its own thread after every applied
+// configuration - concurrently with the worker looking a task up. Every access
+// therefore goes through the scheduler's mutex.
 schedule_metadata scheduler::get(int id) {
   boost::mutex::scoped_lock l(tasks.get_mutex());
-  return metadata[id];
+  const auto it = metadata.find(id);
+  return it == metadata.end() ? schedule_metadata() : it->second;
 }
 void scheduler::handle_plugin(const schedule_metadata &data) {
   nsclient::core::plugin_manager::plugin_type plugin = mainClient->get_plugin_manager()->find_plugin(data.plugin_id);
@@ -52,6 +60,7 @@ void scheduler::add_task(schedule_metadata::task_source source, std::string inte
   schedule_metadata data;
   data.source = source;
   data.info = info;
+  boost::mutex::scoped_lock l(tasks.get_mutex());
   metadata[id] = data;
 }
 
@@ -69,6 +78,12 @@ bool scheduler::handle_schedule(simple_scheduler::task item) {
   } else if (current_metadata.source == schedule_metadata::RELOAD) {
     handle_reload(current_metadata);
     return false;
+  } else if (current_metadata.source == schedule_metadata::UNKNOWN) {
+    // The task exists but its metadata has not been published yet (see
+    // schedule_metadata): keep it and pick it up on the next tick rather than
+    // dispatching on a value we do not have.
+    on_trace(__FILE__, __LINE__, "Task " + str::xtos(item.id) + " has no metadata yet, retrying");
+    return true;
   } else {
     on_error(__FILE__, __LINE__, "Unknown source");
     return false;

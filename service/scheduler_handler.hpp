@@ -7,9 +7,13 @@
 
 namespace task_scheduler {
 struct schedule_metadata {
-  enum task_source { MODULE, SETTINGS, METRICS, RELOAD };
-  int plugin_id;
-  task_source source;
+  // UNKNOWN is what a lookup returns for a task whose metadata has not been
+  // published yet: add_task() registers the task with the scheduler before it
+  // can fill in the metadata, so the worker can briefly see the id first. It
+  // must be the default, or that window dispatches on an uninitialised value.
+  enum task_source { UNKNOWN, MODULE, SETTINGS, METRICS, RELOAD };
+  int plugin_id = 0;
+  task_source source = UNKNOWN;
   std::string info;
   std::string schedule;
 };

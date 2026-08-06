@@ -29,7 +29,11 @@ function extractSanitizerReport(stderr: string): string {
   if (!stderr) return "";
   // Sanitizer banners always start with `==NNNN==` and one of the
   // sanitizer names; SUMMARY: is the universal report footer.
-  if (!/=================================================================\s*\n==\d+==(?:ERROR|WARNING)|^==\d+==(?:ERROR|WARNING|LeakSanitizer)/m.test(stderr)) {
+  if (
+    !/=================================================================\s*\n==\d+==(?:ERROR|WARNING)|^==\d+==(?:ERROR|WARNING|LeakSanitizer)/m.test(
+      stderr,
+    )
+  ) {
     return "";
   }
   const lines = stderr.split("\n");
@@ -39,7 +43,7 @@ function extractSanitizerReport(stderr: string): string {
     if (/^=+$/.test(line) || /^==\d+==/.test(line)) inReport = true;
     if (inReport) out.push(line);
     if (inReport && /^SUMMARY:|^==\d+==ABORTING/.test(line)) {
-      out.push("");  // blank separator between consecutive reports
+      out.push(""); // blank separator between consecutive reports
       inReport = false;
     }
   }
@@ -47,8 +51,8 @@ function extractSanitizerReport(stderr: string): string {
 }
 
 /**
- * Resolve a bundled asset (lua script, security file, …) against the well-
- * known layouts nscp actually ships with. Search order:
+ * The layouts a bundled asset (modules/, lua script, security file, …) can
+ * live in, in the order they are tried:
  *
  *   1. `$NSCP_SHARED_DIR/<rel>` — explicit override for unusual installs.
  *   2. `<bindir>/<rel>`         — build tree (scripts/ + security/ sit next
@@ -61,7 +65,7 @@ function extractSanitizerReport(stderr: string): string {
  *   4. `/usr/lib/nsclient/<rel>` — absolute fallback in case the bin dir
  *                                 ever moves but the shared dir doesn't.
  */
-function findShared(rel: string): string {
+function sharedCandidates(rel: string): string[] {
   const binDir = path.dirname(nscpBin());
   const candidates: string[] = [];
   if (process.env.NSCP_SHARED_DIR) {
@@ -72,11 +76,20 @@ function findShared(rel: string): string {
   if (process.platform !== "win32") {
     candidates.push(path.join("/usr/lib/nsclient", rel));
   }
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
+  return candidates;
+}
+
+/** First layout that actually has `rel`, or undefined if none of them do. */
+function findSharedOptional(rel: string): string | undefined {
+  return sharedCandidates(rel).find((c) => fs.existsSync(c));
+}
+
+/** As `findSharedOptional`, but throws (with the search list) when missing. */
+function findShared(rel: string): string {
+  const found = findSharedOptional(rel);
+  if (found) return found;
   throw new Error(
-    `Bundled file ${rel} not found. Searched:\n  - ${candidates.join("\n  - ")}`,
+    `Bundled file ${rel} not found. Searched:\n  - ${sharedCandidates(rel).join("\n  - ")}`,
   );
 }
 
@@ -155,6 +168,9 @@ export class NscpInstance {
   private readonly extraTestArgs: string[];
   private readonly logOutput: boolean;
   private proc?: ExecaChildProcess;
+  private stopping = false;
+  /** Set when the background nscp died on its own; see `start()`. */
+  private earlyExit = "";
   private stdoutBuf = "";
   private stderrBuf = "";
 
@@ -177,17 +193,30 @@ export class NscpInstance {
     // resolve scripts through `${scripts}` (LUAScript, CheckMKServer's
     // auto-loaded default_check_mk.lua, …) then silently fail to find
     // their files.
+    //
+    // Pin `${module-path}` for the same reason, but it matters more: nscp
+    // looks for modules in exactly two places, `${module-path}` (an installed
+    // agent) and `${exe-path}/modules` (a build tree). On Unix `${module-path}`
+    // defaults to `${shared-path}/modules`, so a test that relocates
+    // `shared-path` (the fleet suites do, for the managed config directory)
+    // moves the modules folder along with it — and an installed agent then
+    // finds no modules at all, not even CommandClient, so `nscp test` boots
+    // and exits again. Point it at this build's real modules folder instead of
+    // leaving it to chance.
+    const modulesDir = findSharedOptional("modules");
     this.pathOverrides = {
       "certificate-path": defaultSecurityDir,
       scripts: path.join(path.dirname(nscpBin()), "scripts"),
+      ...(modulesDir ? { "module-path": modulesDir } : {}),
       ...(opts.pathOverrides ?? {}),
     };
     // Register once. The dumper closes over `this` and reads the latest
     // buffer at dump time, so each `start()` reset still surfaces the
     // current run's output without re-registering.
     registerFailureDumper(() => {
-      if (!this.stdoutBuf && !this.stderrBuf) return "";
-      let out = "--- nscp test stdout ---\n" + this.stdoutBuf;
+      if (!this.stdoutBuf && !this.stderrBuf && !this.earlyExit) return "";
+      let out = this.earlyExit ? `--- ${this.earlyExit} ---\n` : "";
+      out += "--- nscp test stdout ---\n" + this.stdoutBuf;
       if (!out.endsWith("\n")) out += "\n";
       if (this.stderrBuf) {
         out += "--- nscp test stderr ---\n" + this.stderrBuf;
@@ -252,6 +281,8 @@ export class NscpInstance {
     if (this.proc) throw new Error("nscp already started");
     this.stdoutBuf = "";
     this.stderrBuf = "";
+    this.stopping = false;
+    this.earlyExit = "";
     this.proc = execa(
       nscpBin(),
       ["test", "--settings", this.settingsFile, ...this.pathOverrideArgs(), ...this.extraTestArgs],
@@ -275,6 +306,25 @@ export class NscpInstance {
       this.stderrBuf += b.toString();
       if (this.logOutput) process.stderr.write(b);
     });
+    // An agent that dies on its own (a failed boot, a crash) otherwise shows
+    // up only as every later assertion timing out — minutes per suite, with
+    // nothing saying the process is gone. Say it once, immediately.
+    const started = this.proc;
+    const startedAt = Date.now();
+    void started
+      .then((r) => {
+        if (this.stopping || this.proc !== started) return;
+        const alive = ((Date.now() - startedAt) / 1000).toFixed(1);
+        this.earlyExit = `nscp test exited on its own after ${alive}s (code ${r.exitCode}, signal ${r.signal ?? "none"})`;
+        console.error(`[integration] ${this.earlyExit}`);
+      })
+      .catch((err: unknown) => {
+        // reject:false means this only fires when the child never ran at all
+        // (spawn failure) — worth the same loud diagnostic as an early exit.
+        if (this.stopping || this.proc !== started) return;
+        this.earlyExit = `nscp test failed to start: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(`[integration] ${this.earlyExit}`);
+      });
   }
 
   /** Stop the background nscp test process. Idempotent.
@@ -288,6 +338,7 @@ export class NscpInstance {
    */
   async stop(opts: { signal?: NodeJS.Signals; timeout?: number } = {}): Promise<void> {
     if (!this.proc) return;
+    this.stopping = true;
     const proc = this.proc;
     const signal = opts.signal ?? (process.platform === "win32" ? "SIGKILL" : "SIGTERM");
     const timeout = opts.timeout ?? 5_000;
@@ -332,11 +383,17 @@ export class NscpInstance {
       // Jest doesn't dump the per-test capture buffer, then throw so
       // the test fails loudly. Don't swallow this in the harness —
       // a sanitizer hit is a real bug, not a flake.
-      process.stderr.write("\n----- nscp sanitizer report -----\n" + sanitizerReport + "----- end sanitizer report -----\n");
+      process.stderr.write(
+        "\n----- nscp sanitizer report -----\n" +
+          sanitizerReport +
+          "----- end sanitizer report -----\n",
+      );
       throw new Error(
         `nscp emitted a sanitizer report on shutdown (likely a leak/UB). ` +
           `Full report printed to stderr above. First marker: ` +
-          (sanitizerReport.match(/(?:AddressSanitizer|LeakSanitizer|UndefinedBehaviorSanitizer)[^\n]*/)?.[0] ?? "(none)"),
+          (sanitizerReport.match(
+            /(?:AddressSanitizer|LeakSanitizer|UndefinedBehaviorSanitizer)[^\n]*/,
+          )?.[0] ?? "(none)"),
       );
     }
   }
