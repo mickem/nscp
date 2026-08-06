@@ -17,6 +17,7 @@
 #include <parsers/helpers.hpp>
 
 #include "check_disk_health.hpp"
+#include "check_disk_write.hpp"
 #include "check_drive.hpp"
 #include "check_files.hpp"
 #include "check_mount.hpp"
@@ -85,6 +86,14 @@ void CheckDisk::check_disk_health(const PB::Commands::QueryRequestMessage::Reque
     disk_health_check::check::check_disk_health(request, response, data);
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to get disk health data: " + std::string(e.what()));
+  }
+}
+
+void CheckDisk::check_disk_write(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    check_disk_write_command::check(request, response);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to run disk write test: " + std::string(e.what()));
   }
 }
 

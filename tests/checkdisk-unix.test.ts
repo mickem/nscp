@@ -201,4 +201,53 @@ onLinux("CheckDisk (Unix)", () => {
     const out = await query("check_single_file", [`file=${path.join(scratch, "missing.log")}`]);
     expect(out).toMatch(/File not found/i);
   });
+
+  // --- check_disk_write ------------------------------------------------------
+  //
+  // The client-query path passes k=v as single tokens (same as REST), so this
+  // exercises the same argument parsing the REST API uses. Output here is the
+  // raw Nagios "message|perfdata" line without a status-word prefix.
+
+  it("check_disk_write performs a write/read/delete round-trip", async () => {
+    const file = path.join(scratch, "write-probe.dat");
+    const out = await query("check_disk_write", [
+      `file=${file}`,
+      "size=64k",
+      "warning=total_time > 999999",
+      "critical=total_time > 999999",
+    ]);
+    expect(out).toMatch(/wrote and read back 65536 bytes in \d+ms/);
+    // Thresholding on total_time emits it as perf data, and the probe file is
+    // cleaned up again.
+    expect(out).toMatch(/total_time'?=\d+ms/);
+    expect(fs.existsSync(file)).toBe(false);
+  });
+
+  it("check_disk_write accepts a size with byte units", async () => {
+    const out = await query("check_disk_write", [
+      `file=${path.join(scratch, "write-probe-units.dat")}`,
+      "size=4k",
+      "detail-syntax=%(size)",
+      "top-syntax=${list}",
+    ]);
+    expect(out).toMatch(/^4096/m);
+  });
+
+  it("check_disk_write refuses to overwrite an existing file", async () => {
+    const existing = path.join(scratch, "precious.dat");
+    fs.writeFileSync(existing, "do not touch");
+    const out = await query("check_disk_write", [`file=${existing}`]);
+    expect(out).toMatch(/already exists/);
+    expect(fs.readFileSync(existing, "utf8")).toBe("do not touch");
+  });
+
+  it("check_disk_write goes critical on an unwritable target", async () => {
+    const out = await query("check_disk_write", [`file=${path.join(scratch, "no", "such", "dir", "probe.dat")}`]);
+    expect(out).toMatch(/failed to create file/);
+  });
+
+  it("check_disk_write requires a file argument", async () => {
+    const out = await query("check_disk_write", []);
+    expect(out).toMatch(/No file specified/);
+  });
 });

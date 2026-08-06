@@ -13,6 +13,7 @@ set(SRCS
     "${TARGET}.cpp"
     check_disk_io.cpp
     check_disk_health.cpp
+    check_disk_write.cpp
     check_files.cpp
     check_mount.cpp
     check_single_file.cpp
@@ -42,6 +43,7 @@ if(WIN32)
         check_drive.hpp
         check_disk_io.hpp
         check_disk_health.hpp
+        check_disk_write.hpp
         check_files.hpp
         check_mount.hpp
         check_single_file.hpp
@@ -112,6 +114,7 @@ if(WIN32)
         SOURCES
             check_disk_io_test.cpp
             check_disk_health_test.cpp
+            check_disk_write_test.cpp
             check_drive_test.cpp
             check_files_test.cpp
             check_single_file_test.cpp
@@ -125,6 +128,7 @@ if(WIN32)
             check_disk_io.cpp
             check_disk_io_win.cpp
             check_disk_health.cpp
+            check_disk_write.cpp
             check_drive_win.cpp
             check_files.cpp
             check_single_file.cpp
@@ -176,6 +180,8 @@ else()
             check_disk_health.cpp
             check_disk_io.cpp
             check_disk_io_unix.cpp
+            check_disk_write.cpp
+            check_disk_write_test.cpp
             check_drive_unix.cpp
             check_files.cpp
             check_files_checksum_test.cpp
