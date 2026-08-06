@@ -4,7 +4,6 @@
 #include "check_disk_write.hpp"
 
 #include <boost/algorithm/string/join.hpp>
-#include <boost/filesystem.hpp>
 #include <chrono>
 #include <cerrno>
 #include <cstdio>
@@ -69,6 +68,10 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 namespace {
+// A check should be a quick probe, not a benchmark: cap how much data one
+// invocation may write so a typo (size=1G) cannot tie up a check thread.
+constexpr long long max_test_size = 1024 * 1024;
+
 long long elapsed_ms(const std::chrono::steady_clock::time_point &from) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - from).count();
 }
@@ -85,14 +88,6 @@ write_result perform_write_test(const std::string &path, const long long size) {
   result.size = size;
   std::vector<std::string> issues;
 
-  // Never touch a file we did not create: a leftover (or unrelated) file at
-  // the target path is reported instead of being overwritten and deleted.
-  boost::system::error_code ec;
-  if (boost::filesystem::exists(path, ec)) {
-    result.issues = "file already exists (refusing to overwrite it)";
-    return result;
-  }
-
   // A recognizable, deterministic pattern: easy to identify if a test file is
   // ever left behind, and verifiable on read back.
   static const std::string pattern = "NSClient++ disk write test data. ";
@@ -102,9 +97,17 @@ write_result perform_write_test(const std::string &path, const long long size) {
   const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
   bool created = false;
 
-  FILE *file = fopen(path.c_str(), "wb");
+  // Never touch a file we did not create: "x" (C11, supported by glibc and the
+  // Windows UCRT) makes the create exclusive, so a leftover (or unrelated) file
+  // at the target path is reported instead of being overwritten and deleted --
+  // with no window between the existence check and the create.
+  FILE *file = fopen(path.c_str(), "wbx");
   if (file == nullptr) {
-    issues.push_back("failed to create file: " + last_error());
+    if (errno == EEXIST) {
+      issues.push_back("file already exists (refusing to overwrite it)");
+    } else {
+      issues.push_back("failed to create file: " + last_error());
+    }
   } else {
     created = true;
     for (long long remaining = size; remaining > 0 && issues.empty();) {
@@ -144,7 +147,14 @@ write_result perform_write_test(const std::string &path, const long long size) {
       for (long long remaining = size; remaining > 0 && issues.empty();) {
         const std::size_t count = remaining < static_cast<long long>(chunk.size()) ? static_cast<std::size_t>(remaining) : chunk.size();
         if (fread(read_buffer.data(), 1, count, file) != count) {
-          issues.push_back("failed to read file back: file is shorter than what was written");
+          // A short read is not necessarily a short file: a mid-read I/O error
+          // also returns a short count, and flaky disks are what we are here
+          // to catch.
+          if (ferror(file)) {
+            issues.push_back("failed to read file back: " + last_error());
+          } else {
+            issues.push_back("failed to read file back: file is shorter than what was written");
+          }
           break;
         }
         if (memcmp(read_buffer.data(), chunk.data(), count) != 0) {
@@ -153,8 +163,12 @@ write_result perform_write_test(const std::string &path, const long long size) {
         }
         remaining -= count;
       }
-      if (issues.empty() && fread(read_buffer.data(), 1, 1, file) != 0) {
-        issues.push_back("failed to read file back: file is larger than what was written");
+      if (issues.empty()) {
+        if (fread(read_buffer.data(), 1, 1, file) != 0) {
+          issues.push_back("failed to read file back: file is larger than what was written");
+        } else if (ferror(file)) {
+          issues.push_back("failed to read file back: " + last_error());
+        }
       }
       fclose(file);
     }
@@ -185,7 +199,7 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   filter_helper.get_desc().add_options()
     ("file", po::value<std::string>(&file_path), "The test file to create (must not already exist; it is deleted after the test).")
     ("path", po::value<std::string>(&file_path), "Alias for file.")
-    ("size", po::value<std::string>(&size_arg)->default_value("1k"), "The amount of data to write, in bytes or with a byte unit (e.g. 512, 4k, 1M).")
+    ("size", po::value<std::string>(&size_arg)->default_value("1k"), "The amount of data to write, in bytes or with a byte unit (e.g. 512, 4k, 1M). Maximum is 1M.")
     ;
   // clang-format on
 
@@ -202,6 +216,9 @@ void check_with(const PB::Commands::QueryRequestMessage::Request &request, PB::C
   }
   if (size < 0) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Invalid size: " + size_arg);
+  }
+  if (size > max_test_size) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Size too large: " + size_arg + " (maximum is 1M)");
   }
 
   if (!filter_helper.build_filter(filter)) return;

@@ -233,6 +233,11 @@ onLinux("CheckDisk (Unix)", () => {
     expect(out).toMatch(/^4096/m);
   });
 
+  it("check_disk_write rejects a size above the 1M maximum", async () => {
+    const out = await query("check_disk_write", [`file=${path.join(scratch, "too-big.dat")}`, "size=2M"]);
+    expect(out).toMatch(/Size too large/);
+  });
+
   it("check_disk_write refuses to overwrite an existing file", async () => {
     const existing = path.join(scratch, "precious.dat");
     fs.writeFileSync(existing, "do not touch");
