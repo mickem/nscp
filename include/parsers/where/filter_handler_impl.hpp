@@ -374,7 +374,10 @@ struct generic_summary {
   }
   void reset() {
     count_match = count_ok = count_warn = count_crit = count_total = 0;
-    list_match = list_ok = list_warn = list_crit = "";
+    // list_problem too: the real-time path reuses one filter instance and
+    // resets it per event batch, so a list left behind here leaks previous
+    // batches' items into every later %(problem_list).
+    list_match = list_ok = list_warn = list_crit = list_problem = "";
     returnCode = NSCAPI::query_return_codes::returnOK;
   }
   void count() { count_total++; }

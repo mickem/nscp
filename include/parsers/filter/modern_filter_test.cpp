@@ -411,3 +411,28 @@ TEST(GenericSummary, SepRendersTheCurrentSeparator) {
   summary.list_separator = "\n";
   EXPECT_EQ("\n", summary.get_list_separator());
 }
+
+// reset() must clear every list, problem_list included: the real-time path
+// reuses one filter instance and resets it per event batch, so anything left
+// behind leaks previous batches' items into every later message.
+TEST(GenericSummary, ResetClearsEveryList) {
+  test_summary summary;
+  summary.matched("m1");
+  summary.matched_ok("o1");
+  summary.matched_warn("w1");
+  summary.matched_crit("c1");
+  EXPECT_EQ(summary.get_list_problem(), "w1, c1");
+
+  summary.reset();
+
+  EXPECT_EQ(summary.get_list_match(), "");
+  EXPECT_EQ(summary.get_list_ok(), "");
+  EXPECT_EQ(summary.get_list_warn(), "");
+  EXPECT_EQ(summary.get_list_crit(), "");
+  EXPECT_EQ(summary.get_list_problem(), "");
+  EXPECT_EQ(summary.get_count_total(), 0);
+
+  // And a later run starts clean.
+  summary.matched_warn("w2");
+  EXPECT_EQ(summary.get_list_problem(), "w2");
+}
