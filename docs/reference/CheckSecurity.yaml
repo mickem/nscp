@@ -1029,6 +1029,11 @@ unix:
         long_description: Default outbound action (allow/block)
         name: outbound
         short_description: ''
+      - generic: false
+        long_description: Where the profile's settings come from; 'group policy' if any setting is enforced
+          through group policy, otherwise 'local'
+        name: policy
+        short_description: ''
       - generic: true
         long_description: Number of items matched either warning or critical criteria. Common option for
           all checks.
@@ -3423,6 +3428,11 @@ windows:
       - generic: false
         long_description: Default outbound action (allow/block)
         name: outbound
+        short_description: ''
+      - generic: false
+        long_description: Where the profile's settings come from; 'group policy' if any setting is enforced
+          through group policy, otherwise 'local'
+        name: policy
         short_description: ''
       - generic: true
         long_description: Number of items matched either warning or critical criteria. Common option for

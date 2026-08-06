@@ -46,6 +46,18 @@ check_firewall "detail-syntax=${profile}: enabled=${enabled} in=${inbound} out=$
 L        cli OK: Domain: enabled=1 in=block out=allow, Private: enabled=1 in=block out=allow, Public: enabled=1 in=block out=allow
 ```
 
+**Show whether the settings are enforced through group policy**
+
+The reported state is always the *effective* one: when the firewall is
+configured through group policy (local or AD), the enforced values are shown
+and `policy` reads `group policy` for that profile; on an unmanaged machine it
+reads `local`:
+
+```
+check_firewall "detail-syntax=${profile}: ${enabled} (${policy})" "top-syntax=${status}: ${list}"
+L        cli OK: Domain: 1 (local), Private: 1 (local), Public: 1 (local)
+```
+
 **On non-Windows platforms**
 
 `check_firewall` models the Windows three-profile firewall and is not

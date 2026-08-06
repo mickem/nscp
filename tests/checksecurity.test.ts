@@ -199,6 +199,20 @@ onWindows("CheckSecurity (Windows posture)", () => {
     expect(out).toMatch(/firewall/i);
   });
 
+  it("check_firewall exposes the policy source keyword", async () => {
+    // `policy` says whether a profile's effective settings come from the local
+    // store or are enforced through group policy (#1351). Either value is valid
+    // on a runner; assert the keyword renders rather than a specific source.
+    const out = await query("check_firewall", [
+      "warning=none",
+      "critical=none",
+      "detail-syntax=${profile}: ${enabled} (${policy})",
+      "top-syntax=${status}: ${list}",
+    ]);
+    expect(out).toMatch(/Domain: [01] \((local|group policy)\)/);
+    expect(out).toMatch(/Public: [01] \((local|group policy)\)/);
+  });
+
   // --- check_nla -------------------------------------------------------------
 
   it("check_nla reports network location profiles", async () => {

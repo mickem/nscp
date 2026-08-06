@@ -17,7 +17,9 @@ using parsers::where::type_bool;
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("profile", &filter_obj::get_profile, "Firewall profile name (Domain, Private or Public)")
       .add_string_var("inbound", &filter_obj::get_inbound, "Default inbound action (allow/block)")
-      .add_string_var("outbound", &filter_obj::get_outbound, "Default outbound action (allow/block)");
+      .add_string_var("outbound", &filter_obj::get_outbound, "Default outbound action (allow/block)")
+      .add_string_var("policy", &filter_obj::get_policy,
+                      "Where the profile's settings come from; 'group policy' if any setting is enforced through group policy, otherwise 'local'");
   registry_.add_int_var("enabled", type_bool, &filter_obj::get_enabled, "True if the profile's firewall is enabled").add_int_perf("");
   registry_
       .add_int_var("active", type_bool, &filter_obj::get_active,
