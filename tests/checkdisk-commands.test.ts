@@ -79,6 +79,21 @@ describe("CheckDisk commands", () => {
     expect(Object.keys(perfOf(q)).length).toBeGreaterThan(0);
   });
 
+  it("check_disk_io exposes average I/O latency in milliseconds", async () => {
+    // Latency needs two collector samples (it is a delta over the interval);
+    // thresholds reference the fields so they are emitted as perf data.
+    const args = {
+      warning: "read_latency > 999999 or write_latency > 999999",
+      critical: "total_latency > 999999",
+    };
+    const q = await pollQuery(key, "check_disk_io", args, (r) => r.result === OK);
+    expect(q.result).toBe(OK);
+    const perfKeys = Object.keys(perfOf(q));
+    expect(perfKeys.some((k) => /read_latency/.test(k))).toBe(true);
+    expect(perfKeys.some((k) => /write_latency/.test(k))).toBe(true);
+    expect(perfKeys.some((k) => /total_latency/.test(k))).toBe(true);
+  });
+
   // --- check_disk_health -------------------------------------------------------
 
   it("check_disk_health merges space and IO data", async () => {

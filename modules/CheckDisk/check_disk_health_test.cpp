@@ -32,6 +32,9 @@ TEST(DiskHealth, DefaultConstruction) {
   EXPECT_EQ(h.percent_disk_time, 0);
   EXPECT_EQ(h.percent_idle_time, 0);
   EXPECT_EQ(h.split_io_per_sec, 0);
+  EXPECT_EQ(h.read_latency, 0.0);
+  EXPECT_EQ(h.write_latency, 0.0);
+  EXPECT_EQ(h.total_latency, 0.0);
 }
 
 TEST(DiskHealth, SpaceAccessors) {
@@ -60,6 +63,9 @@ TEST(DiskHealth, IoAccessors) {
   h.percent_disk_time = 45;
   h.percent_idle_time = 55;
   h.split_io_per_sec = 5;
+  h.read_latency = 4.5;
+  h.write_latency = 8.25;
+  h.total_latency = 6.5;
 
   EXPECT_EQ(h.get_read_bytes_per_sec(), 1000);
   EXPECT_EQ(h.get_write_bytes_per_sec(), 2000);
@@ -71,6 +77,9 @@ TEST(DiskHealth, IoAccessors) {
   EXPECT_EQ(h.get_percent_disk_time(), 45);
   EXPECT_EQ(h.get_percent_idle_time(), 55);
   EXPECT_EQ(h.get_split_io_per_sec(), 5);
+  EXPECT_DOUBLE_EQ(h.get_read_latency(), 4.5);
+  EXPECT_DOUBLE_EQ(h.get_write_latency(), 8.25);
+  EXPECT_DOUBLE_EQ(h.get_total_latency(), 6.5);
 }
 
 TEST(DiskHealth, PctWhenTotalZero) {
@@ -213,6 +222,9 @@ TEST(DiskHealthJoin, MatchingDrives) {
   d.percent_disk_time = 45;
   d.percent_idle_time = 55;
   d.split_io_per_sec = 5;
+  d.read_latency = 4.5;
+  d.write_latency = 8.25;
+  d.total_latency = 6.5;
   io.push_back(d);
 
   disk_free_check::drives_type df;
@@ -241,6 +253,9 @@ TEST(DiskHealthJoin, MatchingDrives) {
   EXPECT_EQ(h.percent_disk_time, 45);
   EXPECT_EQ(h.percent_idle_time, 55);
   EXPECT_EQ(h.split_io_per_sec, 5);
+  EXPECT_DOUBLE_EQ(h.read_latency, 4.5);
+  EXPECT_DOUBLE_EQ(h.write_latency, 8.25);
+  EXPECT_DOUBLE_EQ(h.total_latency, 6.5);
 }
 
 TEST(DiskHealthJoin, MultipleDrives) {

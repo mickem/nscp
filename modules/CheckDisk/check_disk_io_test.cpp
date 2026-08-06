@@ -3,7 +3,12 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/thread/thread.hpp>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <vector>
 
 #ifdef WIN32
 #include <objbase.h>
@@ -31,6 +36,9 @@ TEST(DiskIo, DefaultConstruction) {
   EXPECT_EQ(d.percent_disk_time, 0);
   EXPECT_EQ(d.percent_idle_time, 0);
   EXPECT_EQ(d.split_io_per_sec, 0);
+  EXPECT_EQ(d.read_latency, 0.0);
+  EXPECT_EQ(d.write_latency, 0.0);
+  EXPECT_EQ(d.total_latency, 0.0);
 }
 
 TEST(DiskIo, Accessors) {
@@ -44,6 +52,9 @@ TEST(DiskIo, Accessors) {
   d.percent_disk_time = 45;
   d.percent_idle_time = 55;
   d.split_io_per_sec = 5;
+  d.read_latency = 4.5;
+  d.write_latency = 8.25;
+  d.total_latency = 6.5;
 
   EXPECT_EQ(d.get_name(), "C:");
   EXPECT_EQ(d.get_read_bytes_per_sec(), 1000);
@@ -54,6 +65,9 @@ TEST(DiskIo, Accessors) {
   EXPECT_EQ(d.get_percent_disk_time(), 45);
   EXPECT_EQ(d.get_percent_idle_time(), 55);
   EXPECT_EQ(d.get_split_io_per_sec(), 5);
+  EXPECT_DOUBLE_EQ(d.get_read_latency(), 4.5);
+  EXPECT_DOUBLE_EQ(d.get_write_latency(), 8.25);
+  EXPECT_DOUBLE_EQ(d.get_total_latency(), 6.5);
 }
 
 TEST(DiskIo, ComputedTotalBytesPerSec) {
@@ -97,6 +111,9 @@ TEST(DiskIo, CopyConstruction) {
   d.percent_disk_time = 50;
   d.percent_idle_time = 50;
   d.split_io_per_sec = 3;
+  d.read_latency = 1.5;
+  d.write_latency = 2.5;
+  d.total_latency = 2.0;
 
   const disk_io_check::disk_io copy(d);
   EXPECT_EQ(copy.name, "C:");
@@ -108,6 +125,9 @@ TEST(DiskIo, CopyConstruction) {
   EXPECT_EQ(copy.percent_disk_time, 50);
   EXPECT_EQ(copy.percent_idle_time, 50);
   EXPECT_EQ(copy.split_io_per_sec, 3);
+  EXPECT_DOUBLE_EQ(copy.read_latency, 1.5);
+  EXPECT_DOUBLE_EQ(copy.write_latency, 2.5);
+  EXPECT_DOUBLE_EQ(copy.total_latency, 2.0);
 }
 
 TEST(DiskIo, Assignment) {
@@ -136,7 +156,7 @@ TEST(DiskIo, BuildMetrics) {
   PB::Metrics::MetricsBundle section;
   d.build_metrics(&section);
 
-  EXPECT_EQ(section.value_size(), 8);
+  EXPECT_EQ(section.value_size(), 11);
 }
 
 // ============================================================================
@@ -325,6 +345,44 @@ TEST_F(DiskIoDataTest, FetchedDataHasNames) {
   for (const auto &d : data.get()) {
     EXPECT_FALSE(d.name.empty());
   }
+}
+
+TEST_F(DiskIoDataTest, LatencyIsComputedBetweenFetches) {
+  disk_io_check::disk_io_data data;
+  data.fetch();
+  // The first sample only seeds the previous-counter state.
+  for (const auto &d : data.get()) {
+    EXPECT_EQ(d.read_latency, 0.0);
+    EXPECT_EQ(d.write_latency, 0.0);
+    EXPECT_EQ(d.total_latency, 0.0);
+  }
+  // Generate some real disk I/O so the second sample has a non-zero delta.
+  const std::string path = std::string(std::getenv("TEMP") ? std::getenv("TEMP") : ".") + "\\nscp_disk_io_latency_test.tmp";
+  {
+    std::ofstream f(path, std::ios::binary | std::ios::trunc);
+    const std::vector<char> block(1024 * 1024, 'x');
+    for (int i = 0; i < 16; ++i) f.write(block.data(), block.size());
+    f.flush();
+  }
+  boost::this_thread::sleep(boost::posix_time::milliseconds(1100));
+  data.fetch();
+  std::remove(path.c_str());
+
+  bool any_activity = false;
+  for (const auto &d : data.get()) {
+    // Latency is an average over the interval: non-negative and sane (a bound
+    // generous enough for a slow CI disk but catching unit mistakes such as
+    // reporting seconds-since-boot or raw ticks).
+    EXPECT_GE(d.read_latency, 0.0);
+    EXPECT_GE(d.write_latency, 0.0);
+    EXPECT_GE(d.total_latency, 0.0);
+    EXPECT_LT(d.read_latency, 60000.0);
+    EXPECT_LT(d.write_latency, 60000.0);
+    EXPECT_LT(d.total_latency, 60000.0);
+    if (d.total_latency > 0.0) any_activity = true;
+  }
+  // The write above must have produced I/O on at least one disk.
+  EXPECT_TRUE(any_activity);
 }
 
 // ============================================================================

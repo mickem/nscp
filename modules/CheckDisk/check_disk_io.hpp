@@ -20,6 +20,10 @@ namespace disk_io_check {
 struct helper {
   // Win32_PerfFormattedData_PerfDisk_LogicalDisk provides pre-computed per-second rates.
   static std::string perf_query;
+  // Win32_PerfRawData_PerfDisk_LogicalDisk carries the PERF_AVERAGE_TIMER
+  // latency counters; the formatted class only exposes them as whole seconds
+  // (uint32) which truncates any real disk latency to 0.
+  static std::string raw_latency_query;
   static std::string perf_namespace;
 };
 #endif
@@ -34,6 +38,11 @@ struct disk_io {
   long long percent_disk_time;
   long long percent_idle_time;
   long long split_io_per_sec;
+  // Average time per I/O in milliseconds over the collection interval; 0 when
+  // there were no operations (or on the very first sample).
+  double read_latency;
+  double write_latency;
+  double total_latency;
 
   disk_io()
       : read_bytes_per_sec(0),
@@ -43,7 +52,10 @@ struct disk_io {
         queue_length(0),
         percent_disk_time(0),
         percent_idle_time(0),
-        split_io_per_sec(0) {}
+        split_io_per_sec(0),
+        read_latency(0),
+        write_latency(0),
+        total_latency(0) {}
   disk_io(const disk_io &other) = default;
   disk_io &operator=(const disk_io &other) = default;
 
@@ -63,6 +75,9 @@ struct disk_io {
   long long get_percent_disk_time() const { return percent_disk_time; }
   long long get_percent_idle_time() const { return percent_idle_time; }
   long long get_split_io_per_sec() const { return split_io_per_sec; }
+  double get_read_latency() const { return read_latency; }
+  double get_write_latency() const { return write_latency; }
+  double get_total_latency() const { return total_latency; }
 
   std::string show() const { return name; }
 };
@@ -83,7 +98,21 @@ class disk_io_data {
 
  private:
 #ifdef WIN32
-  static disks_type query_perf();
+  // Previous raw PERF_AVERAGE_TIMER samples per disk (ticks spent in reads /
+  // writes / transfers plus their operation-count bases), used to compute the
+  // average latency per I/O over the collection interval.
+  struct raw_latency_sample {
+    unsigned long long read_ticks, read_ops;
+    unsigned long long write_ticks, write_ops;
+    unsigned long long transfer_ticks, transfer_ops;
+  };
+  std::map<std::string, raw_latency_sample> prev_raw_;
+  // Latency degrades independently of the rates: if the raw counter class is
+  // unavailable the check keeps reporting rates and only the latency fields
+  // stay at 0 (fetch() logs and clears this on a permanent query failure).
+  bool fetch_latency_ = true;
+  disks_type query_perf();
+  void apply_latency(disks_type &disks);
 #else
   // Previous raw /proc/diskstats counters (per device) + timestamp, used to
   // compute per-second rates from the cumulative counters (Unix).

@@ -28,6 +28,9 @@ void disk_io::build_metrics(PB::Metrics::MetricsBundle *section) const {
   add_metric(section, name + ".percent_disk_time", percent_disk_time);
   add_metric(section, name + ".percent_idle_time", percent_idle_time);
   add_metric(section, name + ".split_io_per_sec", split_io_per_sec);
+  add_metric(section, name + ".read_latency", read_latency);
+  add_metric(section, name + ".write_latency", write_latency);
+  add_metric(section, name + ".total_latency", total_latency);
 }
 
 disks_type disk_io_data::get() {
@@ -65,7 +68,13 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("percent_disk_time", &filter_obj::get_percent_disk_time, "Percent of time the disk is busy")
       .add_int_perf("%")
       .add_int_var("percent_idle_time", &filter_obj::get_percent_idle_time, "Percent of time the disk is idle")
-      .add_int_var("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second");
+      .add_int_var("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second")
+      .add_float("read_latency", &filter_obj::get_read_latency, "Average read latency in milliseconds (over the collection interval)")
+      .add_float_perf("ms", "", "_read_latency")
+      .add_float("write_latency", &filter_obj::get_write_latency, "Average write latency in milliseconds (over the collection interval)")
+      .add_float_perf("ms", "", "_write_latency")
+      .add_float("total_latency", &filter_obj::get_total_latency, "Average latency per I/O (read + write) in milliseconds (over the collection interval)")
+      .add_float_perf("ms", "", "_total_latency");
 }
 
 void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, disks_type data) {

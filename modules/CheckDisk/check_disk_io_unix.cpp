@@ -147,6 +147,9 @@ void disk_io_data::fetch() {
   disks_type disks;
   disk_io total;
   total.name = "_Total";
+  // Aggregated latency deltas across all disks for the _Total row (the average
+  // must be weighted by operation count, so per-disk latencies cannot be used).
+  unsigned long long total_read_ms = 0, total_write_ms = 0, total_reads = 0, total_writes = 0;
 
   std::string line;
   while (std::getline(f, line)) {
@@ -159,8 +162,8 @@ void disk_io_data::fetch() {
     unsigned long long v[11] = {0};
     for (int i = 0; i < 11 && (ss >> v[i]); ++i) {
     }
-    // v[0]=reads v[2]=sectors_read v[4]=writes v[6]=sectors_written v[8]=in_flight v[9]=ms_io
-    const std::vector<unsigned long long> raw = {v[0], v[2], v[4], v[6], v[9]};
+    // v[0]=reads v[2]=sectors_read v[3]=ms_reading v[4]=writes v[6]=sectors_written v[7]=ms_writing v[8]=in_flight v[9]=ms_io
+    const std::vector<unsigned long long> raw = {v[0], v[2], v[4], v[6], v[9], v[3], v[7]};
     current[name] = raw;
 
     disk_io d;
@@ -168,17 +171,28 @@ void disk_io_data::fetch() {
     d.queue_length = static_cast<long long>(v[8]);
 
     auto it = prev_raw_.find(name);
-    if (dt > 0 && it != prev_raw_.end() && it->second.size() == 5) {
+    if (dt > 0 && it != prev_raw_.end() && it->second.size() == 7) {
       const auto &p = it->second;
       auto delta = [](unsigned long long cur, unsigned long long old) { return cur >= old ? cur - old : 0ull; };
-      d.reads_per_sec = static_cast<long long>(delta(raw[0], p[0]) / dt);
+      const unsigned long long d_reads = delta(raw[0], p[0]);
+      const unsigned long long d_writes = delta(raw[2], p[2]);
+      const unsigned long long d_read_ms = delta(raw[5], p[5]);
+      const unsigned long long d_write_ms = delta(raw[6], p[6]);
+      d.reads_per_sec = static_cast<long long>(d_reads / dt);
       d.read_bytes_per_sec = static_cast<long long>(delta(raw[1], p[1]) * SECTOR_BYTES / dt);
-      d.writes_per_sec = static_cast<long long>(delta(raw[2], p[2]) / dt);
+      d.writes_per_sec = static_cast<long long>(d_writes / dt);
       d.write_bytes_per_sec = static_cast<long long>(delta(raw[3], p[3]) * SECTOR_BYTES / dt);
       long long pct = static_cast<long long>((delta(raw[4], p[4]) / (dt * 1000.0)) * 100.0);
       if (pct > 100) pct = 100;
       d.percent_disk_time = pct;
       d.percent_idle_time = 100 - pct;
+      if (d_reads > 0) d.read_latency = static_cast<double>(d_read_ms) / static_cast<double>(d_reads);
+      if (d_writes > 0) d.write_latency = static_cast<double>(d_write_ms) / static_cast<double>(d_writes);
+      if (d_reads + d_writes > 0) d.total_latency = static_cast<double>(d_read_ms + d_write_ms) / static_cast<double>(d_reads + d_writes);
+      total_read_ms += d_read_ms;
+      total_write_ms += d_write_ms;
+      total_reads += d_reads;
+      total_writes += d_writes;
     } else {
       d.percent_idle_time = 100;
     }
@@ -191,6 +205,9 @@ void disk_io_data::fetch() {
     disks.push_back(d);
   }
   total.percent_idle_time = 100 - total.percent_disk_time;
+  if (total_reads > 0) total.read_latency = static_cast<double>(total_read_ms) / static_cast<double>(total_reads);
+  if (total_writes > 0) total.write_latency = static_cast<double>(total_write_ms) / static_cast<double>(total_writes);
+  if (total_reads + total_writes > 0) total.total_latency = static_cast<double>(total_read_ms + total_write_ms) / static_cast<double>(total_reads + total_writes);
   disks.push_back(total);
 
   prev_raw_.swap(current);
