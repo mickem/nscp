@@ -169,6 +169,26 @@ onLinux("CheckDisk (Unix)", () => {
     expect(out).not.toMatch(/\t/);
   });
 
+  // --- valued booleans over the k=v token path ------------------------------
+  //
+  // REST (and this client-query path) pass each flag as the single token
+  // `x=true`; bool_switch rejects that with "does not take any arguments" and
+  // dumps the usage text instead of running the check.
+
+  it("accepts show-all=true and escape-html=true as valued booleans", async () => {
+    const out = await query("check_files", [
+      `path=${scratch}`,
+      "pattern=*.log",
+      "detail-syntax=<%(filename)>",
+      "show-all=true",
+      "escape-html=true",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments/i);
+    // show-all renders the detail list; escape-html turns its <> into entities.
+    expect(out).toContain("&lt;small.log&gt;");
+    expect(out).not.toContain("<small.log>");
+  });
+
   // --- check_single_file ---------------------------------------------------
 
   it("inspects a single file", async () => {

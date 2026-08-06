@@ -172,17 +172,21 @@ struct cli_helper : boost::noncopyable {
 
     if (!empty_state.empty()) empty_state_op->default_value(empty_state);
     if (!data.perf_config.empty()) perf_config_op->default_value(data.perf_config);
+    // Boolean options must NOT be bool_switch: checks are driven over REST,
+    // which passes each flag as the single token `x=true`, and bool_switch
+    // rejects that with "does not take any arguments". implicit_value keeps
+    // the bare `--show-all` CLI form working.
     // clang-format off
     desc.add_options()
-      ("debug", boost::program_options::bool_switch(&data.debug),
+      ("debug", boost::program_options::value<bool>(&data.debug)->implicit_value(true)->default_value(false),
         "Show debugging information in the log")
-      ("show-all", boost::program_options::bool_switch(&show_all),
+      ("show-all", boost::program_options::value<bool>(&show_all)->implicit_value(true)->default_value(false),
         "Show details for all matches regardless of status (normally details are only showed for warnings and criticals).")
       ("empty-state", empty_state_op,
 	"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
       ("perf-config", perf_config_op,
 	"Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)")
-      ("escape-html", boost::program_options::bool_switch(&data.escape_html),
+      ("escape-html", boost::program_options::value<bool>(&data.escape_html)->implicit_value(true)->default_value(false),
 	"Escape any < and > characters to prevent HTML encoding")
       ("list-separator", boost::program_options::value<std::string>(&data.list_separator)->default_value(", "),
 	"String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).\n"

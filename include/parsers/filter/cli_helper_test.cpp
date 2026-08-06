@@ -848,3 +848,36 @@ TEST_F(CliHelperTest, BuildFilterKeepsAPlainSeparatorVerbatim) {
 
   EXPECT_EQ(" | ", filter.summary.list_separator);
 }
+
+// ============================================================================
+// cli_helper — valued booleans (REST passes `x=true` as a single token, which
+// bool_switch would reject with "does not take any arguments")
+// ============================================================================
+
+TEST_F(CliHelperTest, MiscBooleansAcceptValuedForm) {
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_misc_options();
+
+  boost::program_options::variables_map vm;
+  const std::vector<std::string> args{"--escape-html=true", "--show-all=true", "--debug=false"};
+  boost::program_options::store(boost::program_options::command_line_parser(args).options(helper.get_desc()).run(), vm);
+  boost::program_options::notify(vm);
+
+  EXPECT_TRUE(data_.escape_html);
+  EXPECT_TRUE(helper.show_all);
+  EXPECT_FALSE(data_.debug);
+}
+
+TEST_F(CliHelperTest, MiscBooleansStillWorkAsBareFlags) {
+  modern_filter::cli_helper<DummyFilter> helper(request_, response_, data_);
+  helper.add_misc_options();
+
+  boost::program_options::variables_map vm;
+  const std::vector<std::string> args{"--escape-html", "--show-all", "--debug"};
+  boost::program_options::store(boost::program_options::command_line_parser(args).options(helper.get_desc()).run(), vm);
+  boost::program_options::notify(vm);
+
+  EXPECT_TRUE(data_.escape_html);
+  EXPECT_TRUE(helper.show_all);
+  EXPECT_TRUE(data_.debug);
+}
