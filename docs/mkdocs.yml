@@ -65,6 +65,7 @@ nav:
         - CheckNSCP: reference/check/CheckNSCP.md
         - CheckSecurity: reference/check/CheckSecurity.md
         - CheckSystem: reference/check/CheckSystem.md
+        - CheckMSSQL (Windows): reference/windows/CheckMSSQL.md
         - CheckTaskSched (Windows): reference/windows/CheckTaskSched.md
         - CheckWMI (Windows): reference/windows/CheckWMI.md
       - Clients & Servers:
