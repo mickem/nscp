@@ -19,9 +19,10 @@ Behaviour at a glance:
   unrelated file at the target path is reported as CRITICAL instead of being
   overwritten and deleted.
 * `size=<bytes>` is how much data to write, either in plain bytes or with a
-  byte unit (`512`, `64k`, `4M`, `1G`). The default is `1k`; write more when
-  you also want the timing keywords to say something meaningful about disk
-  performance.
+  byte unit (`512`, `64k`, `1M`). The default is `1k` and the maximum is `1M`
+  — the check is a quick probe, not a benchmark. Write more than the default
+  when you also want the timing keywords to say something meaningful about
+  disk performance.
 
 Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
 

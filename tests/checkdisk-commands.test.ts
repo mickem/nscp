@@ -175,6 +175,15 @@ describe("CheckDisk commands", () => {
       expect(messageOf(q)).toBe("4096");
     });
 
+    it("rejects a size above the 1M maximum", async () => {
+      const q = await executeQuery(key, "check_disk_write", {
+        file: path.join(scratch, "too-big.dat"),
+        size: "2M",
+      });
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(/Size too large/);
+    });
+
     it("refuses to overwrite an existing file and goes CRITICAL", async () => {
       const existing = path.join(scratch, "precious.dat");
       fs.writeFileSync(existing, "do not touch");

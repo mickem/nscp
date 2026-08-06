@@ -114,6 +114,14 @@ TEST_F(CheckDiskWrite, MissingFileArgumentIsRejected) {
   EXPECT_NE(join_lines(response).find("No file specified"), std::string::npos) << join_lines(response);
 }
 
+TEST_F(CheckDiskWrite, SizeAboveTheMaximumIsRejected) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run({"file=" + test_file(), "size=2M"}, response), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_NE(join_lines(response).find("Size too large"), std::string::npos) << join_lines(response);
+  // The cap is checked before any file is touched.
+  EXPECT_FALSE(fs::exists(test_file()));
+}
+
 TEST_F(CheckDiskWrite, InvalidSizeIsRejected) {
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run({"file=" + test_file(), "size=bananas"}, response), PB::Common::ResultCode::UNKNOWN);
@@ -160,10 +168,10 @@ TEST_F(CheckDiskWrite, StubbedTimingCanTripTimeThresholds) {
   EXPECT_TRUE(has_total_time_perf);
 }
 
-TEST(CheckDiskWritePerform, ReportsMismatchWhenTheFileChangesUnderneath) {
-  // Direct API-level check of perform_write_test error accumulation: a
-  // negative-size write is coerced upstream, so instead verify the happy path
-  // fields are populated.
+TEST(CheckDiskWritePerform, HappyPathPopulatesResultFields) {
+  // Direct API-level check of perform_write_test: the happy path fills in the
+  // result fields and cleans up the probe file. (The failure rendering is
+  // covered by the stubbed-tester tests above.)
   const fs::path dir = fs::temp_directory_path() / fs::unique_path("nscp-write-test-%%%%%%%%");
   fs::create_directories(dir);
   const write_result r = check_disk_write_command::perform_write_test((dir / "probe.dat").string(), 4096);
