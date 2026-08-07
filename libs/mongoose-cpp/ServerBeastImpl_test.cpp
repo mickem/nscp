@@ -81,6 +81,10 @@ class CollectingLogger : public WebLogger {
     std::lock_guard<std::mutex> g(mu);
     debugs.push_back(m);
   }
+  std::size_t error_count() {
+    std::lock_guard<std::mutex> g(mu);
+    return errors.size();
+  }
   std::mutex mu;
   std::vector<std::string> errors;
   std::vector<std::string> infos;
@@ -128,13 +132,31 @@ int choose_port_base() {
 
 std::string bind_url(const int port) { return "http://127.0.0.1:" + std::to_string(port); }
 
+// Start `server` on `port`, falling back to successive ports when the bind
+// fails. The fixed test ports sit inside the Linux ephemeral port range
+// (32768-60999 by default), so on a busy CI runner an unrelated outgoing
+// connection can occasionally hold the port — EADDRINUSE that SO_REUSEADDR
+// cannot paper over. start() is synchronous through open/bind/listen and
+// logs an error on every failure path before returning, so "no new error
+// logged" means the acceptor is listening. Returns the port actually bound.
+int start_listening(ServerBeastImpl& server, const std::shared_ptr<CollectingLogger>& logger, int port, bool scheme_less = false) {
+  for (int attempt = 0; attempt < 40; ++attempt, ++port) {
+    const std::size_t errors_before = logger->error_count();
+    server.start(scheme_less ? "127.0.0.1:" + std::to_string(port) : bind_url(port));
+    if (logger->error_count() == errors_before) return port;
+  }
+  ADD_FAILURE() << "no bindable port found in [" << (port - 40) << ", " << port << ")";
+  return port;
+}
+
 struct ServerFixture {
   std::shared_ptr<CollectingLogger> logger = std::make_shared<CollectingLogger>();
   std::unique_ptr<ServerBeastImpl> server{new ServerBeastImpl(logger)};
 
-  void start(int port, MatchController* controller) const {
+  // Returns the port actually bound (shifted from `port` on a bind collision).
+  int start(int port, MatchController* controller) const {
     server->registerController(controller);  // ownership transferred
-    server->start(bind_url(port));
+    return start_listening(*server, logger, port);
   }
 };
 
@@ -237,10 +259,9 @@ TEST(ServerBeastImpl, RegisterControllerAndDestructDeletesController) {
 }
 
 TEST(ServerBeastImpl, StartThenStopShutsDownCleanly) {
-  const int port = choose_port_base() + 10;
   const ServerFixture fx;
   auto* controller = new MatchController();
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 10, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
   fx.server->stop();
   SUCCEED();
@@ -249,13 +270,12 @@ TEST(ServerBeastImpl, StartThenStopShutsDownCleanly) {
 // ---- Routing / dispatch behaviour -----------------------------------------
 
 TEST(ServerBeastImpl, RespondsToRegisteredRoute) {
-  const int port = choose_port_base();
   auto* controller = new MatchController();
   auto* handler = new FixedHandler(200, "hello world");
   controller->registerRoute("GET", "/echo", handler);
 
   const ServerFixture fx;
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base(), controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   auto resp = beast_fetch("127.0.0.1", port, "/echo");
@@ -269,12 +289,11 @@ TEST(ServerBeastImpl, RespondsToRegisteredRoute) {
 }
 
 TEST(ServerBeastImpl, ReturnsHttp404ForUnknownRoute) {
-  const int port = choose_port_base() + 1;
   auto* controller = new MatchController();
   controller->registerRoute("GET", "/known", new FixedHandler(200, "ok"));
 
   const ServerFixture fx;
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 1, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   auto resp = beast_fetch("127.0.0.1", port, "/missing");
@@ -285,12 +304,11 @@ TEST(ServerBeastImpl, ReturnsHttp404ForUnknownRoute) {
 }
 
 TEST(ServerBeastImpl, RespectsHttpVerb) {
-  const int port = choose_port_base() + 2;
   auto* controller = new MatchController();
   controller->registerRoute("POST", "/only-post", new FixedHandler(200, "post-ok"));
 
   const ServerFixture fx;
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 2, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   // GET to a POST-only route should not match any controller -> 404.
@@ -302,14 +320,13 @@ TEST(ServerBeastImpl, RespectsHttpVerb) {
 }
 
 TEST(ServerBeastImpl, MultipleControllersDispatched) {
-  const int port = choose_port_base() + 3;
   auto* first = new MatchController();
   first->registerRoute("GET", "/alpha", new FixedHandler(200, "alpha-body"));
   auto* second = new MatchController();
   second->registerRoute("GET", "/beta", new FixedHandler(200, "beta-body"));
 
   const ServerFixture fx;
-  fx.start(port, first);
+  const int port = fx.start(choose_port_base() + 3, first);
   fx.server->registerController(second);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
@@ -327,12 +344,11 @@ TEST(ServerBeastImpl, MultipleControllersDispatched) {
 }
 
 TEST(ServerBeastImpl, ReturnsHandlerStatusCode) {
-  const int port = choose_port_base() + 4;
   auto* controller = new MatchController();
   controller->registerRoute("GET", "/teapot", new FixedHandler(418, "i'm a teapot"));
 
   const ServerFixture fx;
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 4, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   auto resp = beast_fetch("127.0.0.1", port, "/teapot");
@@ -346,7 +362,6 @@ TEST(ServerBeastImpl, ReturnsHandlerStatusCode) {
 // ---- Cookie / SameSite guard ----------------------------------------------
 
 TEST(ServerBeastImpl, SameSiteNoneOverHttpDropsCookie) {
-  const int port = choose_port_base() + 5;
   auto* controller = new MatchController();
   Response::cookie_attrs attrs;
   attrs.same_site = "None";
@@ -354,7 +369,7 @@ TEST(ServerBeastImpl, SameSiteNoneOverHttpDropsCookie) {
   controller->registerRoute("GET", "/c", new CookieHandler("session", "abc", attrs));
 
   const ServerFixture fx;
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 5, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   auto resp = beast_fetch("127.0.0.1", port, "/c");
@@ -367,13 +382,12 @@ TEST(ServerBeastImpl, SameSiteNoneOverHttpDropsCookie) {
 
 TEST(ServerBeastImpl, SameSiteStrictOverHttpEmitsCookieWithoutSecure) {
   // Sanity check the guard only targets SameSite=None.
-  const int port = choose_port_base() + 8;
   auto* controller = new MatchController();
   Response::cookie_attrs attrs;  // defaults: SameSite=Strict, http_only=true, secure=true
   controller->registerRoute("GET", "/c", new CookieHandler("session", "abc", attrs));
 
   const ServerFixture fx;
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 8, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   auto resp = beast_fetch("127.0.0.1", port, "/c");
@@ -389,12 +403,11 @@ TEST(ServerBeastImpl, SameSiteStrictOverHttpEmitsCookieWithoutSecure) {
 }
 
 TEST(ServerBeastImpl, DoesNotEmitWildcardCors) {
-  const int port = choose_port_base() + 9;
   auto* controller = new MatchController();
   controller->registerRoute("GET", "/cors", new FixedHandler(200, "ok"));
 
   const ServerFixture fx;
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 9, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   auto resp = beast_fetch("127.0.0.1", port, "/cors");
@@ -416,9 +429,6 @@ TEST(ServerBeastImpl, DoesNotEmitWildcardCors) {
 // thread, and controller list, so cross-talk is impossible.
 
 TEST(ServerBeastImpl, TwoInstancesOnDifferentPortsAreIndependent) {
-  const int port_a = choose_port_base() + 20;
-  const int port_b = choose_port_base() + 21;
-
   auto logger_a = std::make_shared<CollectingLogger>();
   auto logger_b = std::make_shared<CollectingLogger>();
   std::unique_ptr<ServerBeastImpl> server_a(new ServerBeastImpl(logger_a));
@@ -432,8 +442,8 @@ TEST(ServerBeastImpl, TwoInstancesOnDifferentPortsAreIndependent) {
   server_a->registerController(controller_a);
   server_b->registerController(controller_b);
 
-  server_a->start(bind_url(port_a));
-  server_b->start(bind_url(port_b));
+  const int port_a = start_listening(*server_a, logger_a, choose_port_base() + 20);
+  const int port_b = start_listening(*server_b, logger_b, port_a + 1);
   ASSERT_TRUE(wait_listening(port_a, std::chrono::seconds(2)));
   ASSERT_TRUE(wait_listening(port_b, std::chrono::seconds(2)));
 
@@ -578,8 +588,6 @@ RawResponse beast_fetch_tls(const std::string& host, int port, const std::string
 }  // namespace
 
 TEST(ServerBeastImpl, SchemeLessBindWithSslCertEnablesTls) {
-  const int port = choose_port_base() + 22;
-
   // Write the embedded test PEMs to disk; setSsl() takes file paths
   // (matching the WEBServer call shape we're regressing).
   const std::string scratch = (std::filesystem::temp_directory_path() / ("server_beast_impl_test_" + std::to_string(MWT_GETPID()))).string();
@@ -604,7 +612,7 @@ TEST(ServerBeastImpl, SchemeLessBindWithSslCertEnablesTls) {
   // WEBServer.cpp:316 ("server->start(\"0.0.0.0:\" + port)"). Before the
   // fix this would have left use_tls_=false, plain-HTTP-parsing the
   // ClientHello and resetting the connection.
-  server->start("127.0.0.1:" + std::to_string(port));
+  const int port = start_listening(*server, logger, choose_port_base() + 22, /*scheme_less=*/true);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   auto resp = beast_fetch_tls("127.0.0.1", port, "/");
@@ -733,12 +741,11 @@ TEST(ServerBeastImpl, StrippableTrailingGarbageInPortIsRejected) {
 }
 
 TEST(ServerBeastImpl, HeaderCrlfFromControllerIsDropped) {
-  const int port = choose_port_base() + 30;
   auto* controller = new MatchController();
   controller->registerRoute("GET", "/h", new CrlfHeaderHandler());
 
   const ServerFixture fx;
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 30, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   auto resp = beast_fetch("127.0.0.1", port, "/h");
@@ -757,7 +764,6 @@ TEST(ServerBeastImpl, HeaderCrlfFromControllerIsDropped) {
 }
 
 TEST(ServerBeastImpl, BodyLimitIsEnforced) {
-  const int port = choose_port_base() + 31;
   auto* controller = new MatchController();
   controller->registerRoute("POST", "/", new EchoBodySizeHandler());
 
@@ -766,7 +772,7 @@ TEST(ServerBeastImpl, BodyLimitIsEnforced) {
   server->registerController(controller);
   // Tiny limit so we don't have to send megabytes.
   server->setBodyLimit(1024);
-  server->start(bind_url(port));
+  const int port = start_listening(*server, logger, choose_port_base() + 31);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   // 256 bytes < limit -> accepted.
@@ -787,10 +793,9 @@ TEST(ServerBeastImpl, BodyLimitIsEnforced) {
 }
 
 TEST(ServerBeastImpl, SecondStartIsRejected) {
-  const int port = choose_port_base() + 32;
   const ServerFixture fx;
   auto* controller = new MatchController();
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 32, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   // Second start() on the same instance: the ioc_ was never stop()'d
@@ -814,12 +819,11 @@ TEST(ServerBeastImpl, RestartAfterStopServesAgain) {
   // A plugin can be unloaded and reloaded, so start -> stop -> start must
   // work: each start() re-initializes the io_context run state (restart(),
   // re-arm work guard, clear stopping_) so the restarted server accepts again.
-  const int port = choose_port_base() + 36;
   const ServerFixture fx;
   auto* controller = new MatchController();
   controller->registerRoute("GET", "/", new FixedHandler(200, "ok"));
 
-  fx.start(port, controller);
+  int port = fx.start(choose_port_base() + 36, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
   auto first = beast_fetch("127.0.0.1", port, "/");
   ASSERT_TRUE(first.received);
@@ -829,7 +833,7 @@ TEST(ServerBeastImpl, RestartAfterStopServesAgain) {
   EXPECT_FALSE(wait_listening(port, std::chrono::milliseconds(300))) << "still listening after stop()";
 
   // Restart the same instance — it must bind and serve again.
-  fx.server->start(bind_url(port));
+  port = start_listening(*fx.server, fx.logger, port);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2))) << "server did not accept after restart";
   auto second = beast_fetch("127.0.0.1", port, "/");
   fx.server->stop();
@@ -843,14 +847,13 @@ TEST(ServerBeastImpl, CookieAttributeCrlfIsDropped) {
   // Response::setCookie stores path/same_site verbatim; a controller must not
   // be able to smuggle CR/LF through them into the Set-Cookie header (HTTP
   // response splitting). The whole cookie should be dropped.
-  const int port = choose_port_base() + 37;
   auto* controller = new MatchController();
   Response::cookie_attrs attrs;
   attrs.path = "/\r\nX-Injected: forged";
   controller->registerRoute("GET", "/c", new CookieHandler("session", "abc", attrs));
 
   const ServerFixture fx;
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 37, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   auto resp = beast_fetch("127.0.0.1", port, "/c");
@@ -865,11 +868,10 @@ TEST(ServerBeastImpl, CookieAttributeCrlfIsDropped) {
 }
 
 TEST(ServerBeastImpl, SetSslAfterStartIsRejected) {
-  const int port = choose_port_base() + 33;
   const ServerFixture fx;
   auto* controller = new MatchController();
   controller->registerRoute("GET", "/", new FixedHandler(200, "ok"));
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 33, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   // Trying to set SSL on a running server has no path to take effect
@@ -892,11 +894,10 @@ TEST(ServerBeastImpl, SetSslAfterStartIsRejected) {
 }
 
 TEST(ServerBeastImpl, SetBodyLimitAfterStartIsRejected) {
-  const int port = choose_port_base() + 34;
   const ServerFixture fx;
   auto* controller = new MatchController();
   controller->registerRoute("GET", "/", new FixedHandler(200, "ok"));
-  fx.start(port, controller);
+  const int port = fx.start(choose_port_base() + 34, controller);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   fx.server->setBodyLimit(1);  // Would otherwise reject any non-empty body.
@@ -922,11 +923,10 @@ TEST(ServerBeastImpl, RegisterControllerAfterStartIsThreadSafe) {
   // taken by registerController(). Stress with concurrent registrations
   // while requests are in flight; the test passes if no ASan/UB-san
   // report fires and every request gets a sensible response.
-  const int port = choose_port_base() + 35;
   const ServerFixture fx;
   auto* initial = new MatchController();
   initial->registerRoute("GET", "/initial", new FixedHandler(200, "initial-body"));
-  fx.start(port, initial);
+  const int port = fx.start(choose_port_base() + 35, initial);
   ASSERT_TRUE(wait_listening(port, std::chrono::seconds(2)));
 
   std::atomic<bool> done{false};
