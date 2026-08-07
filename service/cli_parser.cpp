@@ -17,6 +17,7 @@
 #ifdef HAVE_ONBOARDING
 #include <onboarding/onboarding.hpp>
 #endif
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <settings/settings_core.hpp>
@@ -737,6 +738,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     onboarding::enrollment_request request;
     std::string state_file;
     bool force = false;
+    bool insecure = false;
 
     po::options_description enroll_desc("Enrollment options");
     // clang-format off
@@ -751,6 +753,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       ("retries", po::value<unsigned int>(&request.max_attempts)->default_value(3), "Attempts for transient failures (rate limiting, server errors)")
       ("state-file", po::value<std::string>(&state_file), "Where to store the enrolled identity (default: ${certificate-path}/agent-state.json)")
       ("force", po::bool_switch(&force), "Overwrite an existing enrollment state file")
+      ("insecure", po::bool_switch(&insecure), "Allow enrollment over plain HTTP (the bootstrap token is sent in cleartext) - only on a trusted network or for testing")
     ;
     // clang-format on
 
@@ -766,6 +769,21 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     if (request.server_url.empty() || request.bootstrap_token.empty()) {
       std::cerr << "Both --server and --token are required." << std::endl;
       std::cout << all << std::endl;
+      return 1;
+    }
+
+    // The bootstrap token is a credential that exchanges for a client
+    // certificate; over plain HTTP anyone on the network path can read it and
+    // enroll as this host. Refuse unless the operator opts in with --insecure,
+    // mirroring the NRPE insecure-mode precedent. (Loopback is not special-
+    // cased: --insecure is cheap to add and keeps the rule predictable.)
+    const std::string::size_type scheme_sep = request.server_url.find("://");
+    const std::string scheme = scheme_sep == std::string::npos ? "" : request.server_url.substr(0, scheme_sep);
+    if (boost::iequals(scheme, "http") && !insecure) {
+      std::cerr << "Refusing to enroll over plain HTTP: the bootstrap token would be sent in cleartext, "
+                   "so anyone on the network path could read it and enroll as this host." << std::endl;
+      std::cerr << "Use an https:// server URL (recommended), or pass --insecure to allow plain HTTP anyway "
+                   "(e.g. a trusted local network or for testing)." << std::endl;
       return 1;
     }
 

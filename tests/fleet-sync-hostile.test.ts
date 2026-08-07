@@ -298,7 +298,7 @@ describe("fleet sync against a hostile server", () => {
   }
 
   it("applies a good bundle first, as the baseline every rejection is measured against", async () => {
-    expect((await nscp.run(["enroll", "--server", baseUrl, "--token", "tok-hostile"], { allowFailure: true })).exitCode).toBe(0);
+    expect((await nscp.run(["enroll", "--server", baseUrl, "--token", "tok-hostile", "--insecure"], { allowFailure: true })).exitCode).toBe(0);
     nscp.start();
 
     await waitFor("the baseline state report", () => stateReports().some((r) => r.body?.applied_state_hash === "h-good"));

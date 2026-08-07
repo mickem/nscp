@@ -155,7 +155,7 @@ async function startFleet(name: string, options: FleetOptions = {}): Promise<Fle
 
   const stateFile = path.join(workDir, "security", "agent-state.json");
   if (!options.skipEnroll) {
-    const r = await nscp.run(["enroll", "--server", baseUrl, "--token", `tok-${name}`], { allowFailure: true });
+    const r = await nscp.run(["enroll", "--server", baseUrl, "--token", `tok-${name}`, "--insecure"], { allowFailure: true });
     if (r.exitCode !== 0) throw new Error(`enroll failed: ${r.all}`);
   }
   if (options.fleetSettings) await nscp.configure({ "/settings/fleet": options.fleetSettings });

@@ -249,7 +249,7 @@ describe("core fleet sync loop", () => {
   const stateReports = () => requests.filter((r) => r.url.startsWith("/agent/v1/state-report"));
 
   it("enrolls, writing the manifest and the fleet.ini include (no module needed)", async () => {
-    const r = await nscp.run(["enroll", "--server", baseUrl, "--token", "tok-fleet"], {
+    const r = await nscp.run(["enroll", "--server", baseUrl, "--token", "tok-fleet", "--insecure"], {
       allowFailure: true,
     });
     expect(r.exitCode).toBe(0);
