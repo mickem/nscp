@@ -34,6 +34,12 @@ Each scenario follows the same structure:
 | [Event Log Monitoring](event-log.md)                  | Alert on errors and warnings in the Windows Event Log                     |
 | [Performance Counter (PDH) Monitoring](counters.md)   | Read Windows performance counters, average them over time, and alert      |
 
+### Applications
+
+| Scenario                              | Description                                                                     |
+|---------------------------------------|---------------------------------------------------------------------------------|
+| [SQL Server Monitoring](sql-server.md) | Microsoft SQL Server end to end: services, connectivity, database state, data/log disk usage, memory pressure, backups, Agent jobs and workload |
+
 ### Network
 
 | Scenario                            | Description                                                                     |

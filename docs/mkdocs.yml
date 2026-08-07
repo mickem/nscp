@@ -41,6 +41,7 @@ nav:
       - Real-Time System Monitoring: scenarios/realtime-monitoring.md
       - Event Log Monitoring: scenarios/event-log.md
       - Performance Counters (PDH): scenarios/counters.md
+      - SQL Server Monitoring: scenarios/sql-server.md
       - Network Checks: scenarios/network-checks.md
       - Host Security Posture: scenarios/security-posture.md
       - Active Monitoring with NRPE: scenarios/nrpe.md
