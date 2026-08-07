@@ -454,6 +454,14 @@ A list of all short hand aliases for queries (check commands)
     as `top` at the moment the check is executed, and very short spikes that fall between collection
     ticks may be missed entirely.
 
+    **Interaction with the `disable` setting**
+
+    The collector that feeds this buffer can be turned off with `disable = cpu` in
+    `[/settings/system/windows]`. In that case `check_cpu` returns UNKNOWN with an explanatory message
+    rather than reporting values from a buffer that is no longer updated. The entries in `disable` are
+    matched as whole tokens, so `disable = cpu_frequency` only disables the CPU frequency collector and
+    leaves `check_cpu` unaffected.
+
 === "Linux"
 
     Check that the load of the CPU(s) are within bounds.
@@ -509,6 +517,14 @@ A list of all short hand aliases for queries (check commands)
     Because the values are averages, they will not match the instantaneous CPU load shown by tools such
     as `top` at the moment the check is executed, and very short spikes that fall between collection
     ticks may be missed entirely.
+
+    **Interaction with the `disable` setting**
+
+    The collector that feeds this buffer can be turned off with `disable = cpu` in
+    `[/settings/system/windows]`. In that case `check_cpu` returns UNKNOWN with an explanatory message
+    rather than reporting values from a buffer that is no longer updated. The entries in `disable` are
+    matched as whole tokens, so `disable = cpu_frequency` only disables the CPU frequency collector and
+    leaves `check_cpu` unaffected.
 
 **Jump to section:**
 

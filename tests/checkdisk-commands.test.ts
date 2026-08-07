@@ -130,6 +130,85 @@ describe("CheckDisk commands", () => {
     expect(messageOf(q)).not.toMatch(/free_pct/); // no threshold annotation on the rows
   });
 
+  // --- check_disk_write ------------------------------------------------------
+  //
+  // Platform-neutral by design (plain file I/O + fsync/_commit), so every case
+  // runs on both Windows and Linux. Thresholds are pinned so the result never
+  // depends on how fast the CI disk happens to be.
+
+  describe("check_disk_write", () => {
+    let scratch: string;
+
+    beforeAll(() => {
+      scratch = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-disk-write-"));
+    });
+
+    afterAll(() => {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    });
+
+    it("performs a write/read/delete round-trip and reports OK with perf data", async () => {
+      const file = path.join(scratch, "probe.dat");
+      const q = await executeQuery(key, "check_disk_write", {
+        file,
+        size: "64k",
+        warning: "total_time > 999999",
+        critical: "total_time > 999999",
+      });
+      expect(q.result).toBe(OK);
+      expect(messageOf(q)).toMatch(/wrote and read back 65536 bytes in \d+ms/);
+      // The test file must be cleaned up again.
+      expect(fs.existsSync(file)).toBe(false);
+      // Thresholding on total_time emits it as perf data.
+      const perfKeys = Object.keys(perfOf(q));
+      expect(perfKeys.some((k) => k.includes("total_time"))).toBe(true);
+    });
+
+    it("accepts a size with byte units (REST k=v token path)", async () => {
+      const q = await executeQuery(key, "check_disk_write", {
+        file: path.join(scratch, "probe-units.dat"),
+        size: "4k",
+        "detail-syntax": "%(size)",
+        "top-syntax": "${list}",
+      });
+      expect(q.result).toBe(OK);
+      expect(messageOf(q)).toBe("4096");
+    });
+
+    it("rejects a size above the 1M maximum", async () => {
+      const q = await executeQuery(key, "check_disk_write", {
+        file: path.join(scratch, "too-big.dat"),
+        size: "2M",
+      });
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(/Size too large/);
+    });
+
+    it("refuses to overwrite an existing file and goes CRITICAL", async () => {
+      const existing = path.join(scratch, "precious.dat");
+      fs.writeFileSync(existing, "do not touch");
+      const q = await executeQuery(key, "check_disk_write", { file: existing });
+      expect(q.result).toBe(CRITICAL);
+      expect(messageOf(q)).toMatch(/already exists/);
+      // The pre-existing file is left intact.
+      expect(fs.readFileSync(existing, "utf8")).toBe("do not touch");
+    });
+
+    it("goes CRITICAL when the target cannot be created", async () => {
+      const q = await executeQuery(key, "check_disk_write", {
+        file: path.join(scratch, "no", "such", "dir", "probe.dat"),
+      });
+      expect(q.result).toBe(CRITICAL);
+      expect(messageOf(q)).toMatch(/failed to create file/);
+    });
+
+    it("rejects a missing file argument with a clear message", async () => {
+      const q = await executeQuery(key, "check_disk_write", {});
+      expect(q.result).toBe(UNKNOWN);
+      expect(messageOf(q)).toMatch(/No file specified/);
+    });
+  });
+
   // --- check_disk_health physical-disk device rows (Windows) ----------------
 
   it("check_disk_health exposes physical-disk device state (Windows)", async () => {
