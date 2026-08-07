@@ -98,9 +98,6 @@ describe("fleet sync under continuous apply/reload", () => {
           if (body?.applied_state_hash) appliedHashes.push(body.applied_state_hash);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end("{}");
-        } else if (parsed.pathname === "/agent/v1/metrics") {
-          res.writeHead(204);
-          res.end();
         } else {
           res.writeHead(404);
           res.end("not found");

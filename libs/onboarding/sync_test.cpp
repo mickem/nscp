@@ -11,7 +11,6 @@
 #include <boost/json.hpp>
 #include <bytes/base64.hpp>
 #include <cctype>
-#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -989,7 +988,7 @@ TEST(SyncRenewHostile, TheServerCannotMoveUsToAnotherServer) {
   EXPECT_EQ(renewed.private_key_pem, "NEW-KEY") << "the key must come from our own CSR, never from the response";
 }
 
-// --- report / metrics payloads ----------------------------------------------
+// --- state report payload ---------------------------------------------------
 
 TEST(SyncReport, BuildStateReport) {
   std::vector<onboarding::installed_bundle> bundles;
@@ -1008,27 +1007,9 @@ TEST(SyncReport, OmitsHashAfterFailedApply) {
   EXPECT_EQ(root.if_contains("applied_state_hash"), nullptr);
 }
 
-TEST(SyncReport, BuildMetrics) {
-  std::vector<onboarding::metric_sample> samples;
-  onboarding::metric_sample with_ts;
-  with_ts.key = "uptime_seconds";
-  with_ts.value = 86400;
-  with_ts.ts = 1753789200;
-  samples.push_back(with_ts);
-  onboarding::metric_sample without_ts;
-  without_ts.key = "cpu.load";
-  without_ts.value = 0.42;
-  samples.push_back(without_ts);
-  const json::object root = json::parse(onboarding::build_metrics(samples)).as_object();
-  const json::array &list = root.at("samples").as_array();
-  ASSERT_EQ(list.size(), 2u);
-  EXPECT_EQ(list.at(0).as_object().at("ts").as_int64(), 1753789200);
-  EXPECT_EQ(list.at(1).as_object().if_contains("ts"), nullptr);
-}
-
-// Both payload builders take strings from outside (bundle names and versions
-// from the server, error text from anywhere, metric keys from any module), so
-// they have to produce valid JSON no matter what is in them.
+// build_state_report takes strings from outside (bundle names and versions
+// from the server, error text from anywhere, tags from any module), so it has
+// to produce valid JSON no matter what is in them.
 
 TEST(SyncReportHostile, ErrorTextAndTagsCannotBreakTheJson) {
   std::vector<onboarding::installed_bundle> bundles;
@@ -1057,63 +1038,4 @@ TEST(SyncReportHostile, EmptyReportIsStillWellFormed) {
   EXPECT_TRUE(root.at("bundles_installed").as_array().empty());
   EXPECT_TRUE(root.at("errors").as_array().empty());
   EXPECT_TRUE(root.at("reported_tags").as_object().empty()) << "the server relies on the keys existing";
-}
-
-TEST(SyncReportHostile, NonFiniteMetricsAreDroppedNotSerialized) {
-  // boost.json turns NaN into null and infinity into "1e99999": either one
-  // makes the server reject the batch, so one bad gauge from one module must
-  // not cost every other sample. Perf counters really do produce these.
-  std::vector<onboarding::metric_sample> samples;
-  onboarding::metric_sample good;
-  good.key = "cpu.load";
-  good.value = 0.5;
-  samples.push_back(good);
-  for (const double bad : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
-                           -std::numeric_limits<double>::infinity()}) {
-    onboarding::metric_sample sample;
-    sample.key = "sensor.broken";
-    sample.value = bad;
-    samples.push_back(sample);
-  }
-
-  const std::string payload = onboarding::build_metrics(samples);
-  EXPECT_EQ(payload.find("null"), std::string::npos) << payload;
-  EXPECT_EQ(payload.find("e99999"), std::string::npos) << payload;
-  json::object root;
-  ASSERT_NO_THROW(root = json::parse(payload).as_object()) << payload;
-  const json::array &list = root.at("samples").as_array();
-  ASSERT_EQ(list.size(), 1u);
-  EXPECT_EQ(list.at(0).as_object().at("key").as_string(), "cpu.load");
-}
-
-TEST(SyncReportHostile, MetricExtremesThatAreStillNumbersSurvive) {
-  std::vector<onboarding::metric_sample> samples;
-  const double values[] = {0.0, -0.0, 1e308, -1e308, 5e-324, -1.5};
-  for (const double value : values) {
-    onboarding::metric_sample sample;
-    sample.key = "value";
-    sample.value = value;
-    samples.push_back(sample);
-  }
-  json::object root;
-  ASSERT_NO_THROW(root = json::parse(onboarding::build_metrics(samples)).as_object());
-  EXPECT_EQ(root.at("samples").as_array().size(), sizeof(values) / sizeof(values[0]));
-}
-
-TEST(SyncReportHostile, MetricKeysAndTimestampsAreCopiedVerbatim) {
-  std::vector<onboarding::metric_sample> samples;
-  onboarding::metric_sample sample;
-  sample.key = "weird \"key\" \\ with\nnewline";
-  sample.value = 1;
-  sample.ts = -1;  // nonsense, but the server - not us - decides that
-  samples.push_back(sample);
-  const json::object root = json::parse(onboarding::build_metrics(samples)).as_object();
-  const json::object &entry = root.at("samples").as_array().at(0).as_object();
-  EXPECT_EQ(entry.at("key").as_string(), sample.key);
-  EXPECT_EQ(entry.at("ts").as_int64(), -1);
-}
-
-TEST(SyncReportHostile, EmptyMetricsBatchIsAnEmptyArray) {
-  const json::object root = json::parse(onboarding::build_metrics({})).as_object();
-  EXPECT_TRUE(root.at("samples").as_array().empty());
 }

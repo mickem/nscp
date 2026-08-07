@@ -7,7 +7,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <bytes/unzip.hpp>
-#include <ctime>
 #include <fstream>
 #include <net/http/client.hpp>
 #include <random>
@@ -25,15 +24,10 @@ const char *log_module = "fleet";
 
 const char *desired_state_path = "/agent/v1/desired-state";
 const char *state_report_path = "/agent/v1/state-report";
-const char *metrics_path = "/agent/v1/metrics";
 const char *renew_path = "/agent/v1/renew";
 const char *heartbeat_path = "/agent/v1/heartbeat";
 // Renew when the client certificate has fewer days than this left.
 const long renew_threshold_days = 14;
-// Upper bound on the samples submitted per poll. A module publishing a metric
-// per process (or per file system, per interface, ...) can produce a lot of
-// them; the fleet server is not a time series database.
-const std::size_t max_metric_samples = 1000;
 // Longest we will ever sleep between polls, whatever the server asks for
 // (Retry-After on a 429). parse_desired_state clamps its own hint; this covers
 // the header, which nothing else validates.
@@ -98,33 +92,6 @@ std::string read_file(const fs::path &path) {
   return buffer.str();
 }
 
-// Flatten a metrics bundle tree into "bundle.child.metric" samples - the same
-// dotted naming the REST /api/v2/metrics view uses, so an operator sees the
-// same keys locally and on the fleet server. Only numeric metrics can be
-// expressed as a sample: strings, summaries and histograms are skipped.
-void flatten_bundle(const PB::Metrics::MetricsBundle &bundle, const std::string &prefix, const long long timestamp,
-                    std::vector<onboarding::metric_sample> &samples) {
-  const std::string path = prefix.empty() ? bundle.key() : (bundle.key().empty() ? prefix : prefix + "." + bundle.key());
-  for (const PB::Metrics::MetricsBundle &child : bundle.children()) {
-    flatten_bundle(child, path, timestamp, samples);
-  }
-  for (const PB::Metrics::Metric &metric : bundle.value()) {
-    onboarding::metric_sample sample;
-    if (metric.has_gauge_value()) {
-      sample.value = metric.gauge_value().value();
-    } else if (metric.has_counter_value()) {
-      sample.value = metric.counter_value().value();
-    } else if (metric.has_untyped_value()) {
-      sample.value = metric.untyped_value().value();
-    } else {
-      continue;
-    }
-    sample.key = path.empty() ? metric.key() : path + "." + metric.key();
-    sample.ts = timestamp;
-    samples.push_back(sample);
-  }
-}
-
 // Move every regular file below `from` to the same relative path below `to`,
 // replacing existing files. Directory-level atomicity is not possible with a
 // shared target dir; per-file rename is the practical equivalent.
@@ -151,8 +118,7 @@ fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config c
     : logger_(std::move(logger)),
       config_(std::move(config)),
       tags_(std::move(tags)),
-      request_reload_(std::move(request_reload)),
-      started_(std::chrono::steady_clock::now()) {
+      request_reload_(std::move(request_reload)) {
   thread_ = std::make_shared<boost::thread>([this] { this->thread_proc(); });
 }
 
@@ -310,54 +276,6 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
     tags_reported_ = true;
   } catch (const std::exception &e) {
     log_transport_failure("State report", utf8::utf8_from_native(e.what()));
-  }
-}
-
-void fleet_sync::on_metrics(const PB::Metrics::MetricsMessage &metrics) {
-  if (!config_.metrics) return;
-  // The snapshot is timestamped where it is taken, not where it is sent: it
-  // waits here until the next poll, which can be a poll interval away.
-  const long long timestamp = static_cast<long long>(std::time(nullptr));
-  std::vector<onboarding::metric_sample> samples;
-  for (const PB::Metrics::MetricsMessage::Response &payload : metrics.payload()) {
-    for (const PB::Metrics::MetricsBundle &bundle : payload.bundles()) {
-      flatten_bundle(bundle, "", timestamp, samples);
-    }
-  }
-  if (samples.size() > max_metric_samples) {
-    const std::string message = "Metrics snapshot truncated to " + str::xtos(max_metric_samples) + " of " + str::xtos(samples.size()) +
-                                " samples: reduce the number of metric-producing modules to report all of them";
-    if (!metrics_truncated_logged_) {
-      metrics_truncated_logged_ = true;
-      log_info(message);
-    } else {
-      log_debug(message);
-    }
-    samples.resize(max_metric_samples);
-  }
-  boost::mutex::scoped_lock lock(metrics_mutex_);
-  metrics_.swap(samples);
-}
-
-void fleet_sync::post_metrics() {
-  try {
-    std::vector<onboarding::metric_sample> samples;
-    {
-      boost::mutex::scoped_lock lock(metrics_mutex_);
-      samples = metrics_;
-    }
-    // Agent uptime is ours to report: it is the one thing no module knows.
-    onboarding::metric_sample uptime;
-    uptime.key = "uptime_seconds";
-    uptime.value = static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - started_).count());
-    samples.push_back(uptime);
-    const http::response response = do_call("POST", metrics_path, onboarding::build_metrics(samples));
-    note_transport_success();
-    if (!response.is_2xx()) {
-      log_info("Failed to submit metrics: " + str::xtos(response.status_code_));
-    }
-  } catch (const std::exception &e) {
-    log_transport_failure("Metrics submission", utf8::utf8_from_native(e.what()));
   }
 }
 
@@ -627,11 +545,10 @@ void fleet_sync::thread_proc() {
     while (true) {
       const unsigned long sleep_seconds = poll_once();
       // When the server is unreachable the poll already logged it; don't pile
-      // further failures (and further log entries) on top with renewal or
-      // metrics calls that cannot succeed either.
+      // further failures (and further log entries) on top with a renewal
+      // call that cannot succeed either.
       if (transport_ok_) {
         maybe_renew();
-        if (config_.metrics) post_metrics();
         // Module tags changed since the last successful report (e.g. a module
         // was (re)loaded and re-detected its facts): re-report so the server
         // updates group membership promptly. Identical tag maps are a server-

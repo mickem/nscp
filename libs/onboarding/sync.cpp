@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cmath>
 #include <cstring>
 #include <initializer_list>
 #include <map>
@@ -343,29 +342,6 @@ std::string onboarding::build_state_report(const boost::optional<std::string> &a
     tags[tag.first] = tag.second;
   }
   root["reported_tags"] = tags;
-  return json::serialize(root);
-}
-
-std::string onboarding::build_metrics(const std::vector<metric_sample> &samples) {
-  json::array list;
-  for (const metric_sample &sample : samples) {
-    // A non-finite gauge (a counter that divided by zero, an uninitialized
-    // sensor) has no JSON representation: boost.json turns NaN into null and
-    // infinity into 1e99999, either of which makes the server reject the whole
-    // batch. Drop the bad sample instead of losing every good one with it.
-    if (!std::isfinite(sample.value)) {
-      continue;
-    }
-    json::object entry;
-    entry["key"] = sample.key;
-    entry["value"] = sample.value;
-    if (sample.ts) {
-      entry["ts"] = *sample.ts;
-    }
-    list.push_back(entry);
-  }
-  json::object root;
-  root["samples"] = list;
   return json::serialize(root);
 }
 

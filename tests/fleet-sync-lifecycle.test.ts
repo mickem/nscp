@@ -144,9 +144,6 @@ async function startFleet(name: string, options: FleetOptions = {}): Promise<Fle
       } else if (parsed.pathname === "/agent/v1/state-report") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end("{}");
-      } else if (parsed.pathname === "/agent/v1/metrics") {
-        res.writeHead(204);
-        res.end();
       } else {
         res.writeHead(404);
         res.end("not found");

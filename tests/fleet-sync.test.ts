@@ -6,7 +6,7 @@
  * the fleet.ini include, and the core starts the sync thread at boot purely
  * because the manifest exists. Flow under test: heartbeat, desired-state
  * poll, bundle download, SHA-256 + Ed25519 verification, unzip, JSON merge
- * patch, INI render, atomic swap, state report, metrics, then 304
+ * patch, INI render, atomic swap, state report, then 304
  * steady-state. A second phase serves a tampered bundle and asserts it is
  * rejected and reported without touching the applied configuration.
  *
@@ -219,9 +219,6 @@ describe("core fleet sync loop", () => {
         ) {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end("{}");
-        } else if (parsed.pathname === "/agent/v1/metrics") {
-          res.writeHead(204);
-          res.end();
         } else {
           res.writeHead(404);
           res.end("not found");
@@ -230,11 +227,6 @@ describe("core fleet sync loop", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-
-    // Fetch metrics from the modules every second: the sync loop submits the
-    // latest snapshot, so the default 10s would make the metrics assertion
-    // wait for the first fetch.
-    await nscp.configure({ "/settings/core": { "metrics interval": "1s" } });
   });
 
   afterAll(async () => {
@@ -323,39 +315,10 @@ describe("core fleet sync loop", () => {
     expect(firstReport).toBeLessThan(firstDesired);
   });
 
-  it("settles into 304 polling with the applied hash and submits the core metrics set", async () => {
+  it("settles into 304 polling with the applied hash", async () => {
     await waitFor("a 304 steady-state poll", () =>
       requests.some((r) => r.url === "/agent/v1/desired-state?current_hash=h-good"),
     );
-
-    // What the agent submits is the core's own metrics snapshot (the same set
-    // the REST /api/v2/metrics view serves), not a synthetic sample: the core
-    // always publishes a "workers" bundle, so that one is always there.
-    const withWorkers = () =>
-      requests.filter(
-        (r) =>
-          r.url === "/agent/v1/metrics" &&
-          (r.body?.samples ?? []).some((s: any) => String(s.key).startsWith("workers.")),
-      );
-    await waitFor(
-      "a metrics submission carrying the core metrics set",
-      () => withWorkers().length > 0,
-    );
-
-    const samples = withWorkers().pop()!.body.samples as {
-      key: string;
-      value: number;
-      ts?: number;
-    }[];
-    // Agent uptime is reported alongside them, and is ours (no module has it).
-    expect(samples.some((s) => s.key === "uptime_seconds")).toBe(true);
-
-    const worker = samples.find((s) => s.key.startsWith("workers."))!;
-    expect(typeof worker.value).toBe("number");
-    // Snapshots are timestamped where they are collected: they wait for the
-    // next poll, which can be a whole poll interval later.
-    expect(typeof worker.ts).toBe("number");
-    expect(worker.ts).toBeGreaterThan(1_700_000_000);
   });
 
   it("rejects a bundle signed with the wrong key and keeps the old config", async () => {

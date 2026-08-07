@@ -230,9 +230,6 @@ describe("fleet sync against a hostile server", () => {
         } else if (parsed.pathname === "/agent/v1/state-report" || parsed.pathname === "/agent/v1/renew") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end("{}");
-        } else if (parsed.pathname === "/agent/v1/metrics") {
-          res.writeHead(204);
-          res.end();
         } else {
           res.writeHead(404);
           res.end("not found");
@@ -302,7 +299,6 @@ describe("fleet sync against a hostile server", () => {
 
   it("applies a good bundle first, as the baseline every rejection is measured against", async () => {
     expect((await nscp.run(["enroll", "--server", baseUrl, "--token", "tok-hostile"], { allowFailure: true })).exitCode).toBe(0);
-    await nscp.configure({ "/settings/core": { "metrics interval": "1s" } });
     nscp.start();
 
     await waitFor("the baseline state report", () => stateReports().some((r) => r.body?.applied_state_hash === "h-good"));

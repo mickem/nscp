@@ -150,9 +150,6 @@ describeMtls("core fleet sync over strict mTLS", () => {
             reportedHashes.push(body?.applied_state_hash);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end("{}");
-          } else if (parsed.pathname === "/agent/v1/metrics") {
-            res.writeHead(204);
-            res.end();
           } else {
             res.writeHead(404);
             res.end();
@@ -382,7 +379,7 @@ describeMtls("core fleet sync rejects a server that does not match the pin", () 
           res.end(JSON.stringify({ state_hash: "pin-1", next_poll_in_seconds: 1, merged_config_json: {}, bundles: [] }));
           return;
         }
-        res.writeHead(parsed.pathname === "/agent/v1/metrics" ? 204 : 200, { "Content-Type": "application/json" });
+        res.writeHead(200, { "Content-Type": "application/json" });
         res.end("{}");
       },
     );
