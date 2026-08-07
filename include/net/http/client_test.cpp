@@ -108,6 +108,19 @@ TEST(http_client_options, stores_ca) {
   EXPECT_EQ(opts.ca_, "/path/to/ca.pem");
 }
 
+TEST(http_client_options, buffered_responses_are_capped_by_default) {
+  // fetch() buffers the whole body in memory, so an unbounded response from a
+  // hostile or broken server would be an easy way to exhaust the process.
+  const http::http_client_options opts("https", "1.2", "peer", "");
+  EXPECT_EQ(opts.max_response_bytes_, 5u * 1024u * 1024u);
+}
+
+TEST(http_client_options, response_cap_can_be_lifted) {
+  http::http_client_options opts("https", "1.2", "peer", "");
+  opts.max_response_bytes_ = 0;
+  EXPECT_EQ(opts.max_response_bytes_, 0u) << "0 means unlimited for callers that stream large bodies themselves";
+}
+
 // =============================================================================
 // http::request tests
 // =============================================================================

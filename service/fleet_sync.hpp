@@ -70,7 +70,10 @@ class fleet_sync {
   bool apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale);
   bool fetch_bundle(const onboarding::bundle_info &bundle, std::string &bytes, std::string &error, bool &gone);
 
-  http::response do_call(const char *verb, const std::string &path, const std::string &payload = "");
+  // max_response_bytes overrides the HTTP client's default body cap for this
+  // call (0 keeps the default, which is generous for JSON but far below a
+  // bundle): bundle downloads pass the larger max_bundle_script_bytes.
+  http::response do_call(const char *verb, const std::string &path, const std::string &payload = "", std::size_t max_response_bytes = 0);
   void report_state(const boost::optional<std::string> &applied_hash, const std::vector<std::string> &errors);
   void post_metrics();
   void maybe_renew();

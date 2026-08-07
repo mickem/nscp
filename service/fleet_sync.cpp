@@ -175,13 +175,16 @@ void fleet_sync::log_error(const std::string &message) const { logger_->error(lo
 void fleet_sync::log_info(const std::string &message) const { logger_->info(log_module, __FILE__, __LINE__, message); }
 void fleet_sync::log_debug(const std::string &message) const { logger_->debug(log_module, __FILE__, __LINE__, message); }
 
-http::response fleet_sync::do_call(const char *verb, const std::string &path, const std::string &payload) {
+http::response fleet_sync::do_call(const char *verb, const std::string &path, const std::string &payload, std::size_t max_response_bytes) {
   const std::string full_url = identity_.mtls_url + path;
   const http::parsed_url parsed = http::parse_url(full_url);
   http::http_client_options options(parsed.protocol, config_.tls_version, "none", "");
   options.identity_.cert_pem = identity_.cert_pem;
   options.identity_.key_pem = identity_.private_key_pem;
   options.identity_.pinned_ca_pem = identity_.mtls_server_cert_pem;
+  // Keep the client's default cap for the small JSON endpoints; the caller
+  // raises it for bundle downloads, which are legitimately much larger.
+  if (max_response_bytes != 0) options.max_response_bytes_ = max_response_bytes;
   // A fleet server that accepts the connection and then goes quiet must not
   // take this thread with it: without a deadline the loop stops polling for
   // good and the host silently drops out of management.
@@ -396,7 +399,10 @@ bool fleet_sync::fetch_bundle(const onboarding::bundle_info &bundle, std::string
   }
   http::response response;
   try {
-    response = do_call("GET", bundle.url);
+    // A bundle can be much larger than a JSON reply, but never larger than the
+    // total we are willing to stage: cap the download at max_bundle_script_bytes
+    // so a hostile server cannot exhaust memory before the signature is checked.
+    response = do_call("GET", bundle.url, "", max_bundle_script_bytes);
   } catch (const std::exception &e) {
     error = "Failed to download bundle " + bundle.id + ": " + utf8::utf8_from_native(e.what());
     return false;

@@ -538,6 +538,13 @@ struct http_client_options {
   // on any call made from a long-lived thread that must not be wedged by an
   // unresponsive peer (see set_socket_timeouts).
   unsigned int timeout_seconds_ = 0;
+  // Largest response body fetch() will accumulate, in bytes; 0 is unlimited.
+  // fetch() buffers the whole body in memory (twice, while it is copied out of
+  // the stream), so without a limit a hostile or broken server can exhaust the
+  // process. 5 MB is far above any API response we consume and far below what
+  // hurts. execute() streams to the caller's ostream instead of buffering, so
+  // it is deliberately not covered - that is the path large downloads use.
+  std::size_t max_response_bytes_ = 5u * 1024u * 1024u;
 
   http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca, proxy_config proxy = proxy_config())
       : protocol_(std::move(protocol)), tls_version_(std::move(tls_version)), verify_(std::move(verify)), ca_(std::move(ca)), proxy_(std::move(proxy)) {}
@@ -682,12 +689,23 @@ class simple_client {
     boost::asio::streambuf response_buffer;
     response resp = read_result(response_buffer);
 
+    // Bail out as soon as the limit is passed rather than reading to the end
+    // and checking afterwards: the point is to never hold the oversized body.
+    const std::size_t limit = options_.max_response_bytes_;
+    const auto check_limit = [&limit, &server, &port](const std::size_t size) {
+      if (limit != 0 && size > limit) {
+        throw socket_helpers::socket_exception("Response from " + server + ":" + port + " exceeds the maximum size of " + str::xtos(limit) + " bytes");
+      }
+    };
+
     std::ostringstream os;
     if (response_buffer.size() > 0) os << &response_buffer;
+    check_limit(static_cast<std::size_t>(os.tellp()));
     if (socket_->is_open()) {
       boost::system::error_code error;
       while (socket_->read_some(response_buffer, error)) {
         os << &response_buffer;
+        check_limit(static_cast<std::size_t>(os.tellp()));
       }
     }
     resp.payload_ = os.str();
