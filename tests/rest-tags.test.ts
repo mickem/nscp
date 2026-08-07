@@ -2,13 +2,20 @@
  * REST host-tags scenarios: /api/v2/tags serves the central tag repository —
  * key=value facts contributed by modules through the tag API (NSAPISetTag).
  *
- * CheckDisk is enabled on top of the REST baseline so a real producer runs:
- * on Windows it publishes `drives=c:,d:,...` at load. On other platforms no
- * baseline module publishes tags, so the endpoint just returns an empty
- * object — asserted too, since "no tags" must be a valid, well-formed state.
+ * Uses a hand-rolled config (not setupRestNscp, which pins CheckSystem to
+ * disabled) so both producers run:
+ *  - CheckDisk publishes `drives=c:,d:,...` on Windows.
+ *  - CheckSystem publishes `os_version`/`os_name` plus the configured
+ *    service-tags: EventLog (always running on Windows) maps to
+ *    `eventlog-service=enabled`, and a nonexistent service maps to a tag
+ *    that must NOT appear.
+ * On Linux the CheckSystem module resolves to the unix variant whose
+ * service-tags check systemd units; the mapped names don't exist there, so
+ * the tags must stay absent — asserted, since "no tag" is the documented
+ * contract for a missing/stopped service.
  */
 import request from "supertest";
-import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
+import { NscpInstance, REST_URL } from "@fixtures/index";
 
 jest.setTimeout(900_000);
 
@@ -20,9 +27,28 @@ describe("REST tags", () => {
 
   beforeAll(async () => {
     nscp = new NscpInstance();
-    // A real tag producer on Windows; harmless (no tags) elsewhere.
-    await nscp.configure({ "/modules": { CheckDisk: "enabled" } });
-    await setupRestNscp(nscp);
+    await nscp.configure({
+      "/modules": {
+        WEBServer: "enabled",
+        CheckDisk: "enabled",
+        CheckSystem: "enabled",
+      },
+      "/settings/default": {
+        "allowed hosts": "127.0.0.1,::1",
+      },
+      "/settings/WEB/server/users/admin": {
+        role: "full",
+        password: "default-password",
+      },
+      // Windows service / systemd unit -> tag mappings. EventLog always runs
+      // on Windows; the ghost entry proves absent services publish nothing.
+      [`/settings/system/${onWindows ? "windows" : "unix"}/service-tags`]: {
+        EventLog: "eventlog-service",
+        NoSuchServiceXyz: "ghost",
+      },
+    });
+    nscp.start();
+    await nscp.waitForPort(8443, { timeoutMs: 30_000 });
   });
 
   afterAll(async () => {
@@ -64,12 +90,19 @@ describe("REST tags", () => {
       .expect(200)
       .then((response) => {
         expect(typeof response.body).toBe("object");
+        // A service that does not exist must never publish its tag.
+        expect(response.body.ghost).toBeUndefined();
         if (onWindows) {
           // CheckDisk published the logical drive list at load.
           expect(response.body.drives).toMatch(/^[a-z]:(,[a-z]:)*$/);
+          // CheckSystem published the Windows version...
+          expect(response.body.os_version).toMatch(/^\d+\.\d+\.\d+$/);
+          expect(response.body.os_name).toContain("Windows");
+          // ...and the configured service-tag for a running service.
+          expect(response.body["eventlog-service"]).toEqual("enabled");
         } else {
-          // No producer on this platform: a well-formed empty map.
-          expect(response.body).toEqual({});
+          // The EventLog systemd unit does not exist on Linux either.
+          expect(response.body["eventlog-service"]).toBeUndefined();
         }
       });
   });

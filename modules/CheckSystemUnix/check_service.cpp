@@ -363,6 +363,15 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_converter(type_custom_state, &parse_state).add_converter(type_custom_start_type, &parse_start_type);
 }
 
+bool is_unit_active(const std::string &unit) {
+  if (!is_safe_unit_name(unit)) return false;
+  const std::vector<filter_obj> parsed = parse_systemctl_show(exec_command({"systemctl", "show", "--no-pager", "--", unit}));
+  if (parsed.empty()) return false;
+  // A missing unit still yields a block (LoadState=not-found) with
+  // ActiveState=inactive, so "started" covers existence too.
+  return parsed.front().is_started();
+}
+
 // Get one service's info via `systemctl show`, then attach process metrics.
 filter_obj get_service_info(const std::string &service_name, const sys_timing &timing) {
   filter_obj info;

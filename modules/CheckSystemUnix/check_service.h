@@ -190,6 +190,11 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 // lines) into filter_obj rows (without process metrics).
 std::vector<filter_obj> parse_systemctl_show(const std::string &output);
 
+// True when the systemd unit exists and is active (ActiveState=active).
+// Rejects unsafe unit names; false for missing units and on any systemctl
+// failure. Used by the service-tags feature (no process metrics involved).
+bool is_unit_active(const std::string &unit);
+
 }  // namespace check_svc_filter
 
 // Evaluate a pre-built list of services against the default (or request-
