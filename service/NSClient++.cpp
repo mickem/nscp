@@ -100,7 +100,8 @@ NSClientT::NSClientT()
       log_instance_(new nsclient::logging::impl::nsclient_logger()),
       path_(new nsclient::core::path_manager(log_instance_)),
       plugins_(new nsclient::core::plugin_manager(path_, log_instance_)),
-      storage_manager_(new nsclient::core::storage_manager(path_, log_instance_)) {
+      storage_manager_(new nsclient::core::storage_manager(path_, log_instance_)),
+      tags_(new nsclient::core::tag_repository()) {
   provider_ = new nscp_settings_provider(path_, log_instance_);
   log_instance_->startup();
 }
@@ -393,7 +394,7 @@ void NSClientT::boot_fleet_sync() {
       LOG_DEBUG_CORE_STD("No fleet enrollment manifest (" + config.state_file + "): fleet sync not started");
       return;
     }
-    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, [this] { this->reload("delayed,service"); });
+    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, [this] { this->reload("delayed,service"); });
     {
       boost::mutex::scoped_lock lock(fleet_sync_mutex_);
       fleet_sync_ = sync;

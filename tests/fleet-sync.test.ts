@@ -163,6 +163,9 @@ describe("core fleet sync loop", () => {
   beforeAll(async () => {
     workDir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-fleet-"));
     nscp = new NscpInstance({ workDir, pathOverrides: { "shared-path": workDir } });
+    // A tag producer: on Windows CheckDisk publishes `drives=c:,...` into the
+    // central tag repository at load, which must surface in reported_tags.
+    await nscp.configure({ "/modules": { CheckDisk: "enabled" } });
     requests = [];
     phase = "good";
 
@@ -284,6 +287,11 @@ describe("core fleet sync loop", () => {
     expect(report.body.bundles_installed).toEqual([{ id: "b-good", version: "1.0" }]);
     expect(report.body.errors).toEqual([]);
     expect(report.body.reported_tags.os).toBeTruthy();
+    if (process.platform === "win32") {
+      // Module-contributed tags (CheckDisk's drive list) ride along in every
+      // state report, merged from the central tag repository.
+      expect(report.body.reported_tags.drives).toMatch(/^[a-z]:(,[a-z]:)*$/);
+    }
 
     // Rendered INI: merged JSON -> sections, deterministic.
     const fleetIni = fs.readFileSync(path.join(workDir, "fleet", "fleet.ini"), "utf8");

@@ -17,6 +17,8 @@
 #include <string>
 #include <vector>
 
+#include "tag_repository.hpp"
+
 struct fleet_config {
   std::string state_file;    // expanded path to the enrollment manifest (agent-state.json)
   std::string managed_path;  // expanded directory for fleet.ini, scripts and the bundle cache
@@ -47,7 +49,7 @@ class fleet_sync {
   // gate for starting the sync thread at all.
   static bool has_manifest(const std::string &state_file);
 
-  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, reload_function request_reload);
+  fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags, reload_function request_reload);
   ~fleet_sync();
   void stop();
 
@@ -89,6 +91,14 @@ class fleet_sync {
 
   nsclient::logging::logger_instance logger_;
   fleet_config config_;
+  // The core's central tag repository: module-contributed key=value facts
+  // (drives=c:,d:, sqlserver=detected, ...) merged into every state report's
+  // reported_tags. The revision drives change detection - whenever it moves,
+  // the loop sends a fresh state report so the fleet server re-evaluates
+  // group membership promptly.
+  nsclient::core::tag_repository_instance tags_;
+  unsigned long long reported_tag_revision_ = 0;
+  bool tags_reported_ = false;
   reload_function request_reload_;
 
   onboarding::enrolled_identity identity_;

@@ -146,9 +146,11 @@ bool fleet_sync::has_manifest(const std::string &state_file) {
   return fs::exists(state_file, ignored);
 }
 
-fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, reload_function request_reload)
+fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
+                       reload_function request_reload)
     : logger_(std::move(logger)),
       config_(std::move(config)),
+      tags_(std::move(tags)),
       request_reload_(std::move(request_reload)),
       started_(std::chrono::steady_clock::now()) {
   thread_ = std::make_shared<boost::thread>([this] { this->thread_proc(); });
@@ -235,7 +237,10 @@ void fleet_sync::log_transport_failure(const std::string &operation, const std::
 }
 
 std::map<std::string, std::string> fleet_sync::collect_tags() const {
-  std::map<std::string, std::string> tags;
+  // Module-contributed tags first, then the protocol built-ins on top: os,
+  // hostname and nscp_version drive server-side group selectors, so a module
+  // must not be able to shadow them.
+  std::map<std::string, std::string> tags = tags_ ? tags_->get_all() : std::map<std::string, std::string>();
   tags["os"] = default_os();
   if (!config_.hostname.empty()) tags["hostname"] = config_.hostname;
   if (!config_.nscp_version.empty()) tags["nscp_version"] = config_.nscp_version;
@@ -288,12 +293,18 @@ void fleet_sync::save_applied_state() const {
 
 void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, const std::vector<std::string> &errors) {
   try {
+    // Capture the revision BEFORE reading the tags: if a module updates a tag
+    // while this report is in flight, the next loop iteration re-reports.
+    const unsigned long long tag_revision = tags_ ? tags_->get_revision() : 0;
     const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags());
     const http::response response = do_call("POST", state_report_path, body);
     note_transport_success();
     if (!response.is_2xx()) {
       log_error("Failed to submit state report: " + str::xtos(response.status_code_) + " " + response.payload_);
+      return;
     }
+    reported_tag_revision_ = tag_revision;
+    tags_reported_ = true;
   } catch (const std::exception &e) {
     log_transport_failure("State report", utf8::utf8_from_native(e.what()));
   }
@@ -615,6 +626,14 @@ void fleet_sync::thread_proc() {
       if (transport_ok_) {
         maybe_renew();
         if (config_.metrics) post_metrics();
+        // Module tags changed since the last successful report (e.g. a module
+        // was (re)loaded and re-detected its facts): re-report so the server
+        // updates group membership promptly. Identical tag maps are a server-
+        // side no-op, and the revision only moves on real changes, so this
+        // stays quiet in steady state.
+        if (tags_ && (!tags_reported_ || tags_->get_revision() != reported_tag_revision_)) {
+          report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
+        }
       }
       boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep_seconds)));
     }

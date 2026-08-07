@@ -28,6 +28,8 @@ class NSCAPI_EXPORT core_wrapper {
   core_api::lpNSAPIRegistryQuery fNSAPIRegistryQuery;
   core_api::lpNSCAPIEmitEvent fNSCAPIEmitEvent;
   core_api::lpNSAPIStorageQuery fNSAPIStorageQuery;
+  core_api::lpNSAPISetTag fNSAPISetTag;
+  core_api::lpNSAPIGetTags fNSAPIGetTags;
 
  public:
   core_wrapper();
@@ -67,6 +69,14 @@ class NSCAPI_EXPORT core_wrapper {
 
   NSCAPI::errorReturn storage_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
   bool storage_query(const std::string request, std::string &response) const;
+
+  // Host tags: small key=value facts about this host kept in a central
+  // repository in the core (consumed by e.g. the web UI and the fleet sync).
+  // set_tag with an empty value removes the tag. Both degrade gracefully
+  // (return false / "{}") on cores that predate the tag API.
+  bool set_tag(const std::string &key, const std::string &value) const;
+  // The full tag map as a JSON object string, e.g. {"drives":"c:,d:"}.
+  std::string get_tags_json() const;
 
   bool load_endpoints(core_api::lpNSAPILoader f);
   void set_alias(const std::string default_alias, const std::string alias);

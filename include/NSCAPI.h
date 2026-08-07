@@ -114,6 +114,12 @@ typedef NSCAPI::errorReturn (*lpNSCAPIEmitEvent)(const char *, int);
 
 typedef NSCAPI::errorReturn (*lpNSAPIStorageQuery)(const char *, const unsigned int, char **, unsigned int *);
 
+// Host tags: set (or with an empty value remove) a key=value fact about this
+// host, and fetch the full tag map as a JSON object (free with
+// NSAPIDestroyBuffer).
+typedef NSCAPI::errorReturn (*lpNSAPISetTag)(const char *, const char *);
+typedef NSCAPI::errorReturn (*lpNSAPIGetTags)(char **, unsigned int *);
+
 }  // namespace core_api
 
 namespace plugin_api {

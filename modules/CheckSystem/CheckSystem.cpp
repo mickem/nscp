@@ -111,9 +111,31 @@ void load_counters(std::map<std::string, std::string> &counters, sh::settings_re
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
+namespace {
+// Publish `sqlserver=detected` as a host tag when SQL Server instances are
+// registered on this machine. Consumers (the web UI, fleet group selectors
+// like `sqlserver = "detected"`) use this to know what runs on the host
+// without probing it. Registry-based so stopped instances still count.
+void detect_sql_server_tag(const nscapi::core_wrapper *core) {
+  HKEY key = nullptr;
+  if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Microsoft SQL Server\\Instance Names\\SQL", 0, KEY_READ | KEY_WOW64_64KEY, &key) !=
+      ERROR_SUCCESS) {
+    return;
+  }
+  DWORD values = 0;
+  const bool detected =
+      RegQueryInfoKeyW(key, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &values, nullptr, nullptr, nullptr, nullptr) == ERROR_SUCCESS && values > 0;
+  RegCloseKey(key);
+  if (detected) {
+    core->set_tag("sqlserver", "detected");
+  }
+}
+}  // namespace
+
 bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::normalStart) {
     win_list_services::init();
+    detect_sql_server_tag(get_core());
   }
   collector.reset(new pdh_thread(get_core(), get_id()));
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));

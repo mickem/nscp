@@ -36,7 +36,9 @@ nscapi::core_wrapper::core_wrapper()
       fNSAPIGetLoglevel(nullptr),
       fNSAPIRegistryQuery(nullptr),
       fNSCAPIEmitEvent(nullptr),
-      fNSAPIStorageQuery(nullptr) {}
+      fNSAPIStorageQuery(nullptr),
+      fNSAPISetTag(nullptr),
+      fNSAPIGetTags(nullptr) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
 //////////////////////////////////////////////////////////////////////////
@@ -251,6 +253,26 @@ bool nscapi::core_wrapper::storage_query(const std::string request, std::string 
   return retC;
 }
 
+bool nscapi::core_wrapper::set_tag(const std::string &key, const std::string &value) const {
+  // Degrade gracefully on cores without the tag API (loaded as nullptr).
+  if (!fNSAPISetTag) return false;
+  return NSCAPI::api_ok(fNSAPISetTag(key.c_str(), value.c_str()));
+}
+
+std::string nscapi::core_wrapper::get_tags_json() const {
+  if (!fNSAPIGetTags) return "{}";
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(fNSAPIGetTags(&buffer, &buffer_size));
+  std::string response;
+  if (buffer_size > 0 && buffer != nullptr) {
+    response = std::string(buffer, buffer_size);
+  }
+  DestroyBuffer(&buffer);
+  if (!retC || response.empty()) return "{}";
+  return response;
+}
+
 /**
  * Retrieve the application name (in human readable format) from the core.
  * @return A string representing the application name.
@@ -319,6 +341,9 @@ bool nscapi::core_wrapper::load_endpoints(core_api::lpNSAPILoader f) {
 
   fNSCAPIEmitEvent = reinterpret_cast<core_api::lpNSCAPIEmitEvent>(f("NSCAPIEmitEvent"));
   fNSAPIStorageQuery = reinterpret_cast<core_api::lpNSAPIStorageQuery>(f("NSAPIStorageQuery"));
+
+  fNSAPISetTag = reinterpret_cast<core_api::lpNSAPISetTag>(f("NSAPISetTag"));
+  fNSAPIGetTags = reinterpret_cast<core_api::lpNSAPIGetTags>(f("NSAPIGetTags"));
 
   return true;
 }

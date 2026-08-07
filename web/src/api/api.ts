@@ -79,6 +79,9 @@ interface Info {
   version_url: string;
 }
 
+/** Host tags: key=value facts contributed by modules (e.g. drives=c:,d:). */
+export type Tags = { [key: string]: string };
+
 interface Version {
   version: string;
 }
@@ -309,6 +312,7 @@ const baseQueryWithAuthFail: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQ
 export const ALL_API_TAGS = [
   "Endpoints",
   "Info",
+  "Tags",
   "Version",
   "Logs",
   "Modules",
@@ -331,6 +335,7 @@ export const nsclientApi = createApi({
   tagTypes: [
     "Endpoints",
     "Info",
+    "Tags",
     "Version",
     "Logs",
     "Modules",
@@ -364,6 +369,12 @@ export const nsclientApi = createApi({
         url: "/v2/info/version",
       }),
       providesTags: ["Version"],
+    }),
+    getTags: builder.query<Tags, void>({
+      query: () => ({
+        url: "/v2/tags",
+      }),
+      providesTags: ["Tags"],
     }),
     getLogs: builder.query<Page<LogRecord[]>, LogQuery>({
       query: ({ page, size, level }) => ({
@@ -628,6 +639,7 @@ export const {
   useGetEndpointsQuery,
   useGetInfoQuery,
   useGetVersionQuery,
+  useGetTagsQuery,
   useGetLogsQuery,
   useGetModulesQuery,
   useGetModuleQuery,
