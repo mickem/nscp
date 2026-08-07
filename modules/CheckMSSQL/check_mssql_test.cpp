@@ -16,7 +16,8 @@
 
 // Normally provided by NSC_WRAP_DLL() in the auto-generated module.cpp; in the
 // test binary there is no generated module, so define the singleton here.
-nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
+static nscapi::helper_singleton test_plugin_singleton;
+nscapi::helper_singleton *nscapi::plugin_singleton = &test_plugin_singleton;
 
 namespace {
 

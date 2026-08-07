@@ -52,6 +52,10 @@ struct result {
   std::string get_string(std::size_t row, const std::string &col) const;
   long long get_int(std::size_t row, const std::string &col) const;
   bool is_null(std::size_t row, const std::string &col) const;
+  // Positional accessors for result sets whose column names are unreliable
+  // (DBCC output is localized on non-English servers).
+  std::string get_string(std::size_t row, std::size_t col) const;
+  long long get_int(std::size_t row, std::size_t col) const;
 };
 
 // RAII ODBC session (HENV + HDBC). Uses the wide (W) ODBC API throughout and

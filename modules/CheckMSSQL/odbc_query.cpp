@@ -290,10 +290,14 @@ std::size_t result::find_column(const std::string &col) const {
   throw odbc_exception("Column not found in result set: " + col);
 }
 
-std::string result::get_string(std::size_t row, const std::string &col) const { return rows[row][find_column(col)].text; }
+std::string result::get_string(std::size_t row, const std::string &col) const { return get_string(row, find_column(col)); }
 
-long long result::get_int(std::size_t row, const std::string &col) const {
-  const cell &c = rows[row][find_column(col)];
+long long result::get_int(std::size_t row, const std::string &col) const { return get_int(row, find_column(col)); }
+
+std::string result::get_string(std::size_t row, std::size_t col) const { return rows[row][col].text; }
+
+long long result::get_int(std::size_t row, std::size_t col) const {
+  const cell &c = rows[row][col];
   if (c.null) return 0;
   char *end = nullptr;
   const long long value = std::strtoll(c.text.c_str(), &end, 10);

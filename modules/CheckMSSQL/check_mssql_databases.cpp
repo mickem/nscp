@@ -4,9 +4,11 @@
 #include "check_mssql_databases.hpp"
 
 #include <memory>
+#include <nscapi/macros.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <unordered_map>
 
 #include "mssql_options.hpp"
 
@@ -51,6 +53,8 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace
 
 databases_type build_databases(const std::vector<database_row> &databases, const std::vector<logspace_row> &logspace) {
+  std::unordered_map<std::string, long long> log_used_by_name;
+  for (const logspace_row &ls : logspace) log_used_by_name[ls.name] = ls.used_pct;
   databases_type result;
   for (const database_row &row : databases) {
     database_info info;
@@ -60,12 +64,8 @@ databases_type build_databases(const std::vector<database_row> &databases, const
     info.is_read_only = row.is_read_only;
     info.data_size = row.data_bytes;
     info.log_size = row.log_bytes;
-    for (const logspace_row &ls : logspace) {
-      if (ls.name == row.name) {
-        info.log_used_pct = ls.used_pct;
-        break;
-      }
-    }
+    const auto it = log_used_by_name.find(row.name);
+    if (it != log_used_by_name.end()) info.log_used_pct = it->second;
     result.push_back(info);
   }
   return result;
@@ -108,13 +108,21 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
     std::vector<logspace_row> logspace;
     try {
       const mssql_odbc::result ls = session.execute("DBCC SQLPERF(LOGSPACE)");
-      for (std::size_t i = 0; i < ls.rows.size(); i++) {
-        logspace_row row;
-        row.name = ls.get_string(i, "Database Name");
-        row.used_pct = ls.get_int(i, "Log Space Used (%)");
-        logspace.push_back(row);
+      // Read by position: the column names (Database Name, Log Size (MB),
+      // Log Space Used (%), Status) are localized on non-English servers,
+      // but the shape has been stable across SQL Server versions.
+      if (ls.columns.size() == 4) {
+        for (std::size_t i = 0; i < ls.rows.size(); i++) {
+          logspace_row row;
+          row.name = ls.get_string(i, 0);
+          row.used_pct = ls.get_int(i, 2);
+          logspace.push_back(row);
+        }
+      } else {
+        NSC_DEBUG_MSG("DBCC SQLPERF(LOGSPACE) returned " + std::to_string(ls.columns.size()) + " columns (expected 4), log_used_pct will be unavailable");
       }
-    } catch (const mssql_odbc::odbc_exception &) {
+    } catch (const mssql_odbc::odbc_exception &e) {
+      NSC_DEBUG_MSG("DBCC SQLPERF(LOGSPACE) failed, log_used_pct will be unavailable: " + e.reason());
     }
 
     for (const database_info &db : build_databases(databases, logspace)) {
