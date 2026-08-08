@@ -80,15 +80,20 @@ TEST(TagRepository, AnOversizedValueDoesNotClobberAnExistingTag) {
 }
 
 TEST(TagRepository, NewKeysAreRejectedAtCapacityButUpdatesAndRemovalsStillWork) {
+  // Copy the cap into a local: passing the static member straight to EXPECT_EQ
+  // binds it to a const& (an ODR-use), which would need an out-of-line
+  // definition this header-only struct does not provide - MSVC tolerates it,
+  // GCC/Clang reject it at link time.
+  const std::size_t cap = nsclient::core::tag_repository::max_tags;
   nsclient::core::tag_repository repo;
-  for (std::size_t i = 0; i < nsclient::core::tag_repository::max_tags; ++i) {
+  for (std::size_t i = 0; i < cap; ++i) {
     ASSERT_TRUE(repo.set("tag" + std::to_string(i), "v"));
   }
-  EXPECT_EQ(repo.get_all().size(), nsclient::core::tag_repository::max_tags);
+  EXPECT_EQ(repo.get_all().size(), cap);
   // A brand-new key past the cap is refused...
   EXPECT_FALSE(repo.set("one-too-many", "v"));
   // ...but updating an existing key and shedding a tag must still work.
   EXPECT_TRUE(repo.set("tag0", "changed"));
   EXPECT_TRUE(repo.set("tag1", ""));
-  EXPECT_EQ(repo.get_all().size(), nsclient::core::tag_repository::max_tags - 1);
+  EXPECT_EQ(repo.get_all().size(), cap - 1);
 }
