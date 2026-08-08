@@ -106,6 +106,28 @@ void promote_tree(const fs::path &from, const fs::path &to) {
   }
 }
 
+// A hash of everything an apply actually renders to disk: the fleet.ini text
+// plus each staged script keyed by its relative path. Files are sorted so the
+// hash is independent of directory-iteration order. Two desired states that
+// differ only in bundle versions/priorities but render identical output produce
+// the same hash, which is what lets the apply skip a needless service reload.
+std::string compute_content_hash(const std::string &fleet_ini, const fs::path &scripts_dir) {
+  std::vector<std::pair<std::string, fs::path>> files;
+  if (fs::exists(scripts_dir)) {
+    for (fs::recursive_directory_iterator it(scripts_dir), end; it != end; ++it) {
+      if (!fs::is_regular_file(it->status())) continue;
+      files.emplace_back(fs::relative(it->path(), scripts_dir).generic_string(), it->path());
+    }
+  }
+  std::sort(files.begin(), files.end());
+  std::string canonical = "ini:" + fleet_ini;
+  for (const std::pair<std::string, fs::path> &f : files) {
+    const std::string content = read_file(f.second);
+    canonical += "\nfile:" + f.first + ":" + str::xtos(content.size()) + ":" + content;
+  }
+  return onboarding::sha256_hex(canonical);
+}
+
 }  // namespace
 
 bool fleet_sync::has_manifest(const std::string &state_file) {
@@ -223,6 +245,8 @@ void fleet_sync::load_applied_state() {
     const json::object root = json::parse(read_file(file)).as_object();
     const json::value *hash = root.if_contains("state_hash");
     if (hash != nullptr && hash->is_string()) current_hash_ = json_string(hash->as_string());
+    const json::value *content = root.if_contains("content_hash");
+    if (content != nullptr && content->is_string()) content_hash_ = json_string(content->as_string());
     const json::value *bundles = root.if_contains("bundles");
     if (bundles != nullptr && bundles->is_array()) {
       for (const json::value &entry : bundles->as_array()) {
@@ -241,14 +265,33 @@ void fleet_sync::load_applied_state() {
   } catch (const std::exception &e) {
     log_error("Ignoring corrupt applied-state file " + file.string() + ": " + utf8::utf8_from_native(e.what()));
     current_hash_.clear();
+    content_hash_.clear();
     installed_.clear();
   }
+}
+
+void fleet_sync::recover_interrupted_apply() {
+  const fs::path scripts = fs::path(config_.managed_path) / "scripts";
+  const fs::path scripts_old = fs::path(config_.managed_path) / "scripts.old";
+  boost::system::error_code ec;
+  if (!fs::exists(scripts_old, ec)) return;
+  // A scripts.old surviving a restart means the previous apply died between
+  // moving the live tree aside and finishing the promote: the scripts tree on
+  // disk may be incomplete. Roll back to the tree we saved and drop the applied
+  // hashes so the next poll re-fetches and re-applies, rather than trusting a
+  // 304 for a state we never finished applying.
+  log_error("Previous fleet apply was interrupted; restoring the last-known scripts and forcing a re-sync");
+  fs::remove_all(scripts, ec);
+  fs::rename(scripts_old, scripts, ec);
+  current_hash_.clear();
+  content_hash_.clear();
 }
 
 void fleet_sync::save_applied_state() const {
   json::object root;
   root["version"] = 1;
   root["state_hash"] = current_hash_;
+  root["content_hash"] = content_hash_;
   json::array bundles;
   for (const onboarding::installed_bundle &bundle : installed_) {
     json::object entry;
@@ -348,8 +391,9 @@ bool fleet_sync::fetch_bundle(const onboarding::bundle_info &bundle, std::string
   return true;
 }
 
-bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale) {
+bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale, bool &reload_needed) {
   stale = false;
+  reload_needed = false;
   const fs::path managed(config_.managed_path);
   const fs::path staging = managed / "staging";
   std::vector<onboarding::installed_bundle> new_installed;
@@ -429,18 +473,40 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
       new_installed.push_back(installed);
     }
 
-    write_file(staging / "fleet.ini", onboarding::render_ini(merged));
+    const std::string fleet_ini = onboarding::render_ini(merged);
+    write_file(staging / "fleet.ini", fleet_ini);
 
-    // Swap: fleet.ini atomically, staged scripts file-by-file. The managed
-    // scripts tree is wiped first so scripts dropped from the desired state
-    // (removed bundle, renamed file) actually disappear instead of lingering.
+    // What actually lands on disk. If it matches what we already applied, a
+    // reload would restart every plugin for no change - so skip it (M3).
+    const std::string new_content_hash = compute_content_hash(fleet_ini, staging / "scripts");
+    reload_needed = new_content_hash != content_hash_;
+
+    // Swap. fleet.ini is a single atomic rename. The scripts tree is moved
+    // aside rather than deleted, so a crash or a failed promote rolls back to
+    // the previous tree instead of leaving the host with no scripts at all
+    // (M2). A scripts.old surviving a restart means the swap was interrupted -
+    // recover_interrupted_apply picks that up on the next boot.
+    const fs::path scripts = managed / "scripts";
+    const fs::path scripts_old = managed / "scripts.old";
     fs::rename(staging / "fleet.ini", managed / "fleet.ini");
-    fs::remove_all(managed / "scripts", ignored);
-    promote_tree(staging / "scripts", managed / "scripts");
+    fs::remove_all(scripts_old, ignored);
+    if (fs::exists(scripts)) fs::rename(scripts, scripts_old);
+    try {
+      promote_tree(staging / "scripts", scripts);
+    } catch (...) {
+      // Roll the previous tree back into place before giving up.
+      fs::remove_all(scripts, ignored);
+      if (fs::exists(scripts_old)) fs::rename(scripts_old, scripts);
+      throw;
+    }
+    fs::remove_all(scripts_old, ignored);
     fs::remove_all(staging, ignored);
 
     installed_ = new_installed;
     current_hash_ = state.state_hash;
+    content_hash_ = new_content_hash;
+    // Only now, with the tree fully promoted, record that we are on this state:
+    // a 304 answered against this hash is then honestly in sync (M2).
     save_applied_state();
     return true;
   } catch (const std::exception &e) {
@@ -491,12 +557,17 @@ unsigned long fleet_sync::poll_once() {
 
     std::vector<std::string> errors;
     bool stale = false;
-    if (apply_state(state, errors, stale)) {
+    bool reload_needed = false;
+    if (apply_state(state, errors, stale, reload_needed)) {
       log_info("Applied fleet configuration " + state.state_hash);
       report_state(current_hash_, errors);
-      // The rendered fleet.ini is part of the configuration; the core reloads
-      // it on its own schedule (delayed), not from this thread.
-      request_reload_();
+      if (reload_needed) {
+        // The rendered fleet.ini is part of the configuration; the core reloads
+        // it on its own schedule (delayed), not from this thread.
+        request_reload_();
+      } else {
+        log_debug("Fleet configuration " + state.state_hash + " rendered no change on disk; skipping reload");
+      }
     } else if (stale) {
       // The desired state changed server-side while we were applying it; this
       // is not a configuration failure, so nothing is reported. The next poll
@@ -527,6 +598,7 @@ void fleet_sync::thread_proc() {
     while (!identity_.mtls_url.empty() && identity_.mtls_url.back() == '/') identity_.mtls_url.pop_back();
     fs::create_directories(fs::path(config_.managed_path));
     load_applied_state();
+    recover_interrupted_apply();
 
     // Startup: cheap identity check, then report tags early so a fresh host
     // lands in its groups before the first desired-state poll.

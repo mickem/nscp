@@ -58,7 +58,10 @@ class fleet_sync {
   // `stale` is set when the server says a bundle is no longer ours (the
   // desired state changed under us): the cycle is abandoned without reporting
   // a failure and the next poll picks up the new state.
-  bool apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale);
+  // `reload_needed` is set true only when the applied content (rendered
+  // fleet.ini + staged scripts) actually changed: a state that renders no
+  // different output is recorded but does not trigger a service reload.
+  bool apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale, bool &reload_needed);
   bool fetch_bundle(const onboarding::bundle_info &bundle, std::string &bytes, std::string &error, bool &gone);
 
   // max_response_bytes overrides the HTTP client's default body cap for this
@@ -77,6 +80,9 @@ class fleet_sync {
 
   void load_applied_state();
   void save_applied_state() const;
+  // On startup, roll back a scripts.old left by an apply that died mid-swap and
+  // force a re-fetch, so the agent never reports in sync with an incomplete tree.
+  void recover_interrupted_apply();
 
   void log_error(const std::string &message) const;
   void log_info(const std::string &message) const;
@@ -96,6 +102,10 @@ class fleet_sync {
 
   onboarding::enrolled_identity identity_;
   std::string current_hash_;
+  // Hash of the applied content (rendered fleet.ini + staged script tree),
+  // persisted alongside current_hash_. Lets a state whose bundles changed but
+  // whose rendered output did not skip an otherwise pointless service reload.
+  std::string content_hash_;
   std::vector<onboarding::installed_bundle> installed_;
   unsigned long poll_interval_ = 60;
   unsigned int failures_ = 0;

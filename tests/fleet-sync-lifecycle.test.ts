@@ -55,6 +55,8 @@ interface FleetOptions {
   skipEnroll?: boolean;
   /** Runs after enrollment, before the agent starts. */
   beforeStart?: (workDir: string) => void;
+  /** Replace the desired-state response (for content/hash-specific cases). */
+  desiredStateResponder?: (currentHash: string | null) => { code: number; body: string };
 }
 
 interface Fleet {
@@ -134,6 +136,12 @@ async function startFleet(name: string, options: FleetOptions = {}): Promise<Fle
           return;
         }
         answeredPolls++;
+        if (options.desiredStateResponder) {
+          const r = options.desiredStateResponder(parsed.searchParams.get("current_hash"));
+          res.writeHead(r.code, { "Content-Type": "application/json" });
+          res.end(r.body);
+          return;
+        }
         if (parsed.searchParams.get("current_hash") === "h-1") {
           res.writeHead(304, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ next_poll_in_seconds: 1 }));
@@ -300,6 +308,73 @@ describe("fleet sync certificate lifecycle", () => {
     );
     const applied = JSON.parse(fs.readFileSync(path.join(fleet.workDir, "fleet", "applied-state.json"), "utf8"));
     expect(applied.state_hash).toBe("h-1");
+  });
+
+  it("recovers from an apply interrupted mid-swap without claiming to be in sync", async () => {
+    // Simulate a crash between moving the live scripts aside and finishing the
+    // promote: a scripts.old is left behind, the live tree is partial, and
+    // applied-state.json still claims h-1. A naive agent would poll with that
+    // hash, get a 304, and report itself in sync over an incomplete tree.
+    // Recovery must roll the saved tree back and force a re-fetch instead.
+    fleet = await startFleet("interrupted", {
+      beforeStart: (workDir) => {
+        const managed = path.join(workDir, "fleet");
+        fs.mkdirSync(path.join(managed, "scripts.old", "demo"), { recursive: true });
+        fs.writeFileSync(path.join(managed, "scripts.old", "demo", "keep.txt"), "saved\n");
+        fs.mkdirSync(path.join(managed, "scripts"), { recursive: true });
+        fs.writeFileSync(path.join(managed, "scripts", "partial.txt"), "half-written\n");
+        fs.writeFileSync(
+          path.join(managed, "applied-state.json"),
+          JSON.stringify({ version: 1, state_hash: "h-1", content_hash: "stale", bundles: [] }),
+        );
+      },
+    });
+
+    // The agent re-applied and only then reported h-1 as in sync.
+    await fleet.waitFor("a state report with the applied hash after re-apply", () =>
+      fleet!.requests.some((r) => r.url.startsWith("/agent/v1/state-report") && r.body?.applied_state_hash === "h-1"),
+    );
+
+    // It re-fetched rather than trusting the stale 304: the first desired-state
+    // poll carried no current_hash, because recovery cleared it.
+    const firstPoll = fleet.requests.find((r) => r.url.startsWith("/agent/v1/desired-state"))!;
+    expect(firstPoll.url).toBe("/agent/v1/desired-state");
+    expect(firstPoll.url).not.toContain("current_hash");
+
+    // The interrupted swap was rolled back: scripts.old is consumed and the
+    // partial file from the half-finished promote is gone.
+    expect(fs.existsSync(path.join(fleet.workDir, "fleet", "scripts.old"))).toBe(false);
+    expect(fs.existsSync(path.join(fleet.workDir, "fleet", "scripts", "partial.txt"))).toBe(false);
+  });
+
+  it("records a new state hash but keeps the content hash when nothing rendered changes", async () => {
+    // Two state hashes that render byte-identical output (same merged config, no
+    // scripts). The agent must record the new hash but leave the content hash
+    // unchanged - that equality is what lets the apply skip a pointless reload.
+    const content = { modules: { CheckHelpers: "enabled" } };
+    let phase: "A" | "B" = "A";
+    fleet = await startFleet("nooprelooad", {
+      desiredStateResponder: (currentHash) => {
+        const hash = phase === "A" ? "c-A" : "c-B";
+        if (currentHash === hash) return { code: 304, body: JSON.stringify({ next_poll_in_seconds: 1 }) };
+        return { code: 200, body: JSON.stringify({ state_hash: hash, next_poll_in_seconds: 1, merged_config_json: content, bundles: [] }) };
+      },
+    });
+
+    await fleet.waitFor("state c-A applied", () =>
+      fleet!.requests.some((r) => r.url.startsWith("/agent/v1/state-report") && r.body?.applied_state_hash === "c-A"),
+    );
+    const afterA = JSON.parse(fs.readFileSync(path.join(fleet.workDir, "fleet", "applied-state.json"), "utf8"));
+
+    phase = "B";
+    await fleet.waitFor("state c-B applied", () =>
+      fleet!.requests.some((r) => r.url.startsWith("/agent/v1/state-report") && r.body?.applied_state_hash === "c-B"),
+    );
+    const afterB = JSON.parse(fs.readFileSync(path.join(fleet.workDir, "fleet", "applied-state.json"), "utf8"));
+
+    expect(afterB.state_hash).toBe("c-B");
+    expect(afterB.content_hash).toBe(afterA.content_hash);
+    expect(afterB.content_hash).toBeTruthy();
   });
 
   it("does not start the loop at all without an enrollment manifest", async () => {
