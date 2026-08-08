@@ -55,3 +55,40 @@ TEST(TagRepository, EmptyKeyIsRejected) {
   EXPECT_FALSE(repo.set("", "value"));
   EXPECT_TRUE(repo.get_all().empty());
 }
+
+TEST(TagRepository, KeyAtTheLimitIsAcceptedButOverIsRejected) {
+  nsclient::core::tag_repository repo;
+  const std::string at_limit(nsclient::core::tag_repository::max_key_length, 'k');
+  const std::string over_limit(nsclient::core::tag_repository::max_key_length + 1, 'k');
+  EXPECT_TRUE(repo.set(at_limit, "v"));
+  EXPECT_FALSE(repo.set(over_limit, "v"));
+  EXPECT_EQ(repo.get_all().size(), 1u);
+}
+
+TEST(TagRepository, ValueAtTheLimitIsAcceptedButOverIsRejected) {
+  nsclient::core::tag_repository repo;
+  EXPECT_TRUE(repo.set("k", std::string(nsclient::core::tag_repository::max_value_length, 'v')));
+  EXPECT_FALSE(repo.set("k2", std::string(nsclient::core::tag_repository::max_value_length + 1, 'v')));
+  EXPECT_EQ(repo.get_all().size(), 1u);
+}
+
+TEST(TagRepository, AnOversizedValueDoesNotClobberAnExistingTag) {
+  nsclient::core::tag_repository repo;
+  repo.set("drives", "c:");
+  EXPECT_FALSE(repo.set("drives", std::string(nsclient::core::tag_repository::max_value_length + 1, 'x')));
+  EXPECT_EQ(repo.get_all().at("drives"), "c:") << "a value that cannot be stored must not erase the old one";
+}
+
+TEST(TagRepository, NewKeysAreRejectedAtCapacityButUpdatesAndRemovalsStillWork) {
+  nsclient::core::tag_repository repo;
+  for (std::size_t i = 0; i < nsclient::core::tag_repository::max_tags; ++i) {
+    ASSERT_TRUE(repo.set("tag" + std::to_string(i), "v"));
+  }
+  EXPECT_EQ(repo.get_all().size(), nsclient::core::tag_repository::max_tags);
+  // A brand-new key past the cap is refused...
+  EXPECT_FALSE(repo.set("one-too-many", "v"));
+  // ...but updating an existing key and shedding a tag must still work.
+  EXPECT_TRUE(repo.set("tag0", "changed"));
+  EXPECT_TRUE(repo.set("tag1", ""));
+  EXPECT_EQ(repo.get_all().size(), nsclient::core::tag_repository::max_tags - 1);
+}

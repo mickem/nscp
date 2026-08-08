@@ -178,7 +178,17 @@ NSCAPI::errorReturn NSAPIReload(const char *module) { return mainClient->reload(
 NSCAPI::errorReturn NSAPISetTag(const char *key, const char *value) {
   try {
     if (key == nullptr) return NSCAPI::api_return_codes::hasFailed;
-    mainClient->get_tag_repository()->set(key, value == nullptr ? "" : value);
+    const std::string tag_key = key;
+    const std::string tag_value = value == nullptr ? "" : value;
+    // The repository silently drops an oversized tag (returns false, like a
+    // no-op); surface it at debug so a misbehaving module is diagnosable.
+    if (tag_key.size() > nsclient::core::tag_repository::max_key_length || tag_value.size() > nsclient::core::tag_repository::max_value_length) {
+      mainClient->get_logger()->debug("core", __FILE__, __LINE__,
+                                      "Ignoring oversized tag '" + tag_key.substr(0, 64) + "': keys are capped at " +
+                                          std::to_string(nsclient::core::tag_repository::max_key_length) + " and values at " +
+                                          std::to_string(nsclient::core::tag_repository::max_value_length) + " bytes");
+    }
+    mainClient->get_tag_repository()->set(tag_key, tag_value);
     return NSCAPI::api_return_codes::isSuccess;
   } catch (const std::exception &e) {
     LOG_ERROR(mainClient, "Failed to set tag: " + utf8::utf8_from_native(e.what()));

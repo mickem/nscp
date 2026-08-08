@@ -23,11 +23,25 @@ class tag_repository {
  public:
   typedef std::map<std::string, std::string> tag_map;
 
+  // Bounds. Every tag is sent in full on every state report to the fleet server
+  // and returned in every /api/v2/tags response, so an over-eager module (one
+  // tag per process, per file system, per interface, ...) could bloat both with
+  // no backpressure. Reject anything past these limits instead of growing
+  // without bound; a rejected set returns false, exactly like a no-op, so an
+  // existing tag is never clobbered by a value that could not be stored.
+  static const std::size_t max_key_length = 128;
+  static const std::size_t max_value_length = 1024;
+  static const std::size_t max_tags = 256;
+
   // Set (or, with an empty value, remove) a tag. Returns true when the
   // repository actually changed; the revision is only bumped in that case,
-  // so re-setting the same value is a cheap no-op for pollers.
+  // so re-setting the same value is a cheap no-op for pollers. Returns false
+  // (no change) for an empty/oversized key, an oversized value, or a new key
+  // that would exceed max_tags. A removal is always allowed, so a host can
+  // always shed tags even at capacity.
   bool set(const std::string &key, const std::string &value) {
-    if (key.empty()) return false;
+    if (key.empty() || key.size() > max_key_length) return false;
+    if (value.size() > max_value_length) return false;
     boost::unique_lock<boost::mutex> lock(mutex_);
     const tag_map::iterator it = tags_.find(key);
     if (value.empty()) {
@@ -35,6 +49,7 @@ class tag_repository {
       tags_.erase(it);
     } else {
       if (it != tags_.end() && it->second == value) return false;
+      if (it == tags_.end() && tags_.size() >= max_tags) return false;
       tags_[key] = value;
     }
     ++revision_;
