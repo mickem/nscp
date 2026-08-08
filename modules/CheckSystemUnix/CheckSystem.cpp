@@ -104,9 +104,16 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // Publish one tag per configured [/settings/system/unix/service-tags]
     // entry (systemd unit -> tag): <tag>=enabled when the unit is active,
     // removed otherwise so stopped units clear their tag on the next load.
+    // A single bulk `systemctl show` answers every mapping at once, rather
+    // than forking systemctl per unit on the startup path.
+    std::vector<std::string> units;
+    for (const auto &entry : service_tags) {
+      if (!entry.first.empty() && !entry.second.empty()) units.push_back(entry.first);
+    }
+    const std::set<std::string> active = checks::check_svc_filter::active_units(units);
     for (const auto &entry : service_tags) {
       if (entry.first.empty() || entry.second.empty()) continue;
-      get_core()->set_tag(entry.second, checks::check_svc_filter::is_unit_active(entry.first) ? "enabled" : "");
+      get_core()->set_tag(entry.second, active.count(entry.first) ? "enabled" : "");
     }
   }
 

@@ -372,6 +372,34 @@ bool is_unit_active(const std::string &unit) {
   return parsed.front().is_started();
 }
 
+std::set<std::string> active_units(const std::vector<std::string> &units) {
+  std::set<std::string> active;
+  // One bulk `systemctl show -- u1 u2 ...` instead of a fork per unit;
+  // parse_systemctl_show already returns a block per unit, in argument order.
+  std::vector<std::string> safe;
+  for (const std::string &u : units) {
+    if (is_safe_unit_name(u)) safe.push_back(u);
+  }
+  if (safe.empty()) return active;
+  std::vector<std::string> argv = {"systemctl", "show", "--no-pager", "--"};
+  argv.insert(argv.end(), safe.begin(), safe.end());
+  const std::vector<filter_obj> parsed = parse_systemctl_show(exec_command(argv));
+
+  // filter_obj::name is the Id with the .service suffix stripped; index the
+  // started ones by that canonical name.
+  std::set<std::string> started;
+  for (const filter_obj &info : parsed) {
+    if (info.is_started()) started.insert(info.name);
+  }
+  // Return the caller's original spellings, matching with or without .service.
+  for (const std::string &u : units) {
+    std::string canonical = u;
+    if (boost::ends_with(canonical, ".service")) canonical = canonical.substr(0, canonical.size() - 8);
+    if (started.count(canonical)) active.insert(u);
+  }
+  return active;
+}
+
 // Get one service's info via `systemctl show`, then attach process metrics.
 filter_obj get_service_info(const std::string &service_name, const sys_timing &timing) {
   filter_obj info;
