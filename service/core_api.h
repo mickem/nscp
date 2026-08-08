@@ -32,3 +32,5 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 NSCAPI::errorReturn NSCAPIEmitEvent(const char *request_buffer, const unsigned int request_buffer_len);
 NSCAPI::errorReturn NSCAPIStorageQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer,
                                        unsigned int *response_buffer_len);
+NSCAPI::errorReturn NSAPISetTag(const char *key, const char *value);
+NSCAPI::errorReturn NSAPIGetTags(char **response_buffer, unsigned int *response_buffer_len);

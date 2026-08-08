@@ -83,7 +83,7 @@ boost::json::value json_merge_patch(const boost::json::value &target, const boos
 // sections and keys are sorted. Nulls are skipped (they only exist pre-merge).
 std::string render_ini(const boost::json::value &config);
 
-// --- state report / metrics payloads -----------------------------------------
+// --- state report payload ----------------------------------------------------
 
 struct installed_bundle {
   std::string id;
@@ -94,17 +94,6 @@ struct installed_bundle {
 // after a failed apply (the server then only refreshes last_seen_at).
 std::string build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
                                const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags);
-
-struct metric_sample {
-  std::string key;
-  double value = 0;
-  boost::optional<long long> ts;  // unix seconds; only for buffered samples
-};
-
-// Build a /agent/v1/metrics body. Samples whose value is not finite (NaN,
-// infinity) are dropped: they have no JSON representation, and including one
-// would make the server reject the whole batch.
-std::string build_metrics(const std::vector<metric_sample> &samples);
 
 // --- transport error classification ------------------------------------------
 

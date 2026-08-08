@@ -6,6 +6,7 @@
 #include <NSCAPI.h>
 
 #include <nscapi/dll_defines.hpp>
+#include <map>
 #include <string>
 
 namespace nscapi {
@@ -28,6 +29,8 @@ class NSCAPI_EXPORT core_wrapper {
   core_api::lpNSAPIRegistryQuery fNSAPIRegistryQuery;
   core_api::lpNSCAPIEmitEvent fNSCAPIEmitEvent;
   core_api::lpNSAPIStorageQuery fNSAPIStorageQuery;
+  core_api::lpNSAPISetTag fNSAPISetTag;
+  core_api::lpNSAPIGetTags fNSAPIGetTags;
 
  public:
   core_wrapper();
@@ -67,6 +70,24 @@ class NSCAPI_EXPORT core_wrapper {
 
   NSCAPI::errorReturn storage_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
   bool storage_query(const std::string request, std::string &response) const;
+
+  // Host tags: small key=value facts about this host kept in a central
+  // repository in the core (consumed by e.g. the web UI and the fleet sync).
+  // set_tag with an empty value removes the tag. Both degrade gracefully
+  // (return false / "{}") on cores that predate the tag API.
+  bool set_tag(const std::string &key, const std::string &value) const;
+  // The full tag map as a JSON object string, e.g. {"drives":"c:,d:"}. Right
+  // for a passthrough consumer (the web tags controller); a module that wants
+  // to read tags should prefer the typed get_tags() below.
+  std::string get_tags_json() const;
+  // The full tag map, typed. Parses the JSON once here so a consuming module
+  // does not have to link a JSON parser just to read what a sibling published.
+  std::map<std::string, std::string> get_tags() const;
+  // Parse the flat {"k":"v",...} object get_tags_json() returns into a map.
+  // Deliberately not a general JSON parser: it handles exactly that shape plus
+  // standard string escapes, and returns what it has parsed so far on anything
+  // unexpected. Static and core-free so it can be unit tested directly.
+  static std::map<std::string, std::string> parse_tags_json(const std::string &json);
 
   bool load_endpoints(core_api::lpNSAPILoader f);
   void set_alias(const std::string default_alias, const std::string alias);

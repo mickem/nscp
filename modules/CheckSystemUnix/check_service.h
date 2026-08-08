@@ -7,7 +7,9 @@
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <set>
 #include <string>
+#include <vector>
 
 namespace checks {
 
@@ -189,6 +191,18 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 // Parse `systemctl show` output (one or more property blocks separated by blank
 // lines) into filter_obj rows (without process metrics).
 std::vector<filter_obj> parse_systemctl_show(const std::string &output);
+
+// True when the systemd unit exists and is active (ActiveState=active).
+// Rejects unsafe unit names; false for missing units and on any systemctl
+// failure. Used by the service-tags feature (no process metrics involved).
+bool is_unit_active(const std::string &unit);
+
+// The subset of `units` that are active, answered with a SINGLE bulk
+// `systemctl show` rather than one fork per unit (which matters on the service
+// startup path with many configured units). Returns the caller's original
+// spellings (a unit given with or without the .service suffix matches either
+// way); unsafe names are dropped.
+std::set<std::string> active_units(const std::vector<std::string> &units);
 
 }  // namespace check_svc_filter
 

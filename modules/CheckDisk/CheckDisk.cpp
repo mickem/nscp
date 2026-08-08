@@ -3,7 +3,14 @@
 
 #include "CheckDisk.h"
 
+#ifdef WIN32
+#include <windows.h>
+#endif
+
+#include <algorithm>
+#include <cctype>
 #include <compat.hpp>
+#include <str/utf8.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
@@ -34,6 +41,31 @@ namespace po = boost::program_options;
 
 CheckDisk::CheckDisk() : show_errors_(false) {}
 
+namespace {
+// Publish the logical drive list as a host tag (`drives=c:,d:`), consumed by
+// the web UI and by fleet group selectors. Windows-only: on other platforms
+// mount points are too dynamic to make a useful identity-style tag.
+void publish_drives_tag(const nscapi::core_wrapper *core) {
+#ifdef WIN32
+  wchar_t buffer[512];
+  const DWORD length = GetLogicalDriveStringsW(511, buffer);
+  if (length == 0 || length >= 512) return;
+  std::string drives;
+  for (const wchar_t *drive = buffer; *drive != L'\0'; drive += wcslen(drive) + 1) {
+    std::string entry = utf8::cvt<std::string>(std::wstring(drive));
+    while (!entry.empty() && entry.back() == '\\') entry.pop_back();
+    std::transform(entry.begin(), entry.end(), entry.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (entry.empty()) continue;
+    if (!drives.empty()) drives += ",";
+    drives += entry;
+  }
+  if (!drives.empty()) core->set_tag("drives", drives);
+#else
+  (void)core;
+#endif
+}
+}  // namespace
+
 bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   collector_.reset(new collector_thread(get_core(), get_id()));
 
@@ -53,6 +85,7 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   if (mode == NSCAPI::normalStart) {
     collector_->start();
+    publish_drives_tag(get_core());
   }
   return true;
 }

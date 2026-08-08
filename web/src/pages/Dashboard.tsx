@@ -12,6 +12,7 @@ import { useAppDispatch, useAppSelector } from "../store/store.ts";
 import { setRefreshRate } from "../common/dashboardSlice.ts";
 import DiskIoWidget from "../components/DiskIoWidget.tsx";
 import DiskFreeWidget from "../components/DiskFreeWidget.tsx";
+import TagsWidget from "../components/TagsWidget.tsx";
 
 const HISTORY_SIZE = 30;
 
@@ -188,6 +189,7 @@ export default function Dashboard() {
             <SystemInfoWidget metrics={result.metrics} />
           </Grid>
         )}
+        <TagsWidget />
       </Grid>
     </Box>
   );

@@ -223,6 +223,8 @@ NSCP_CREATE_TEST(
         path_manager_test.cpp
         permissions_test.cpp
         permissions.hpp
+        tag_repository_test.cpp
+        tag_repository.hpp
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
         ../include/parsers/cron/cron_parser.hpp
         ${NSCP_INCLUDEDIR}/win/shellapi.cpp

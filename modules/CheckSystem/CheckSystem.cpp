@@ -111,10 +111,71 @@ void load_counters(std::map<std::string, std::string> &counters, sh::settings_re
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
+namespace {
+// Publish the Windows version as host tags: `os_version` is the numeric
+// kernel version (e.g. 10.0.20348) for machine matching, `os_name` the
+// human-readable name (e.g. "Windows Server 2022") for the UI.
+void publish_os_version_tags(const nscapi::core_wrapper *core) {
+  const OSVERSIONINFOEX *info = windows::system_info::get_versioninfo();
+  if (info != nullptr) {
+    core->set_tag("os_version", str::xtos(info->dwMajorVersion) + "." + str::xtos(info->dwMinorVersion) + "." + str::xtos(info->dwBuildNumber));
+  }
+  const std::string name = windows::system_info::get_version_string();
+  if (!name.empty()) {
+    core->set_tag("os_name", name);
+  }
+}
+
+// Publish one tag per configured [/settings/system/windows/service-tags]
+// entry (service name -> tag name): `<tag>=enabled` when the service exists
+// AND is running, otherwise the tag is removed. Lets operators surface "what
+// runs here" facts (e.g. MSSQLSERVER=sql-server) that fleet group selectors
+// and the web UI can use.
+void publish_service_tags(const nscapi::core_wrapper *core, const std::map<std::string, std::string> &service_tags) {
+  for (const auto &entry : service_tags) {
+    const std::string &service = entry.first;
+    const std::string &tag = entry.second;
+    if (service.empty() || tag.empty()) continue;
+    bool running = false;
+    try {
+      const win_list_services::service_info info = win_list_services::get_service_info("", service);
+      running = info.state == SERVICE_RUNNING;
+    } catch (const nsclient::nsclient_exception &) {
+      // Service does not exist: treated the same as not running.
+    } catch (const std::exception &) {
+    }
+    // An empty value removes the tag, so a stopped/removed service clears
+    // its tag on the next (re)load rather than lingering forever.
+    core->set_tag(tag, running ? "enabled" : "");
+  }
+}
+
+// Publish `sqlserver=detected` as a host tag when SQL Server instances are
+// registered on this machine. Consumers (the web UI, fleet group selectors
+// like `sqlserver = "detected"`) use this to know what runs on the host
+// without probing it. Registry-based so stopped instances still count.
+void detect_sql_server_tag(const nscapi::core_wrapper *core) {
+  HKEY key = nullptr;
+  if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Microsoft SQL Server\\Instance Names\\SQL", 0, KEY_READ | KEY_WOW64_64KEY, &key) !=
+      ERROR_SUCCESS) {
+    return;
+  }
+  DWORD values = 0;
+  const bool detected =
+      RegQueryInfoKeyW(key, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &values, nullptr, nullptr, nullptr, nullptr) == ERROR_SUCCESS && values > 0;
+  RegCloseKey(key);
+  if (detected) {
+    core->set_tag("sqlserver", "detected");
+  }
+}
+}  // namespace
+
 bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::normalStart) {
     win_list_services::init();
+    detect_sql_server_tag(get_core());
   }
+  std::map<std::string, std::string> service_tags;
   collector.reset(new pdh_thread(get_core(), get_id()));
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "windows");
@@ -146,6 +207,10 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ("real-time/checks", sh::fun_values_path([this] (auto key, auto value) { collector->add_realtime_legacy_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Legacy generic filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
+
+    ("service-tags", sh::string_map_path(&service_tags),
+        "Service tags", "Windows services to surface as host tags: each key is a service name and each value the tag to publish. When the service exists and is running the tag is published as <tag>=enabled (removed otherwise). Example: MSSQLSERVER=sql-server",
+        "SERVICE", "The tag to publish when this service is running")
     ;
 
   settings.alias().add_key_to_settings()
@@ -212,6 +277,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   }
 
   if (mode == NSCAPI::normalStart) {
+    publish_os_version_tags(get_core());
+    publish_service_tags(get_core(), service_tags);
     for (const check_pdh::counter_config_handler::object_instance object : pdh_checker.counters_.get_object_list()) {
       try {
         PDH::pdh_object counter;

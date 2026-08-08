@@ -7,7 +7,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
 #include <bytes/unzip.hpp>
-#include <ctime>
 #include <fstream>
 #include <net/http/client.hpp>
 #include <random>
@@ -25,15 +24,10 @@ const char *log_module = "fleet";
 
 const char *desired_state_path = "/agent/v1/desired-state";
 const char *state_report_path = "/agent/v1/state-report";
-const char *metrics_path = "/agent/v1/metrics";
 const char *renew_path = "/agent/v1/renew";
 const char *heartbeat_path = "/agent/v1/heartbeat";
 // Renew when the client certificate has fewer days than this left.
 const long renew_threshold_days = 14;
-// Upper bound on the samples submitted per poll. A module publishing a metric
-// per process (or per file system, per interface, ...) can produce a lot of
-// them; the fleet server is not a time series database.
-const std::size_t max_metric_samples = 1000;
 // Longest we will ever sleep between polls, whatever the server asks for
 // (Retry-After on a 429). parse_desired_state clamps its own hint; this covers
 // the header, which nothing else validates.
@@ -98,33 +92,6 @@ std::string read_file(const fs::path &path) {
   return buffer.str();
 }
 
-// Flatten a metrics bundle tree into "bundle.child.metric" samples - the same
-// dotted naming the REST /api/v2/metrics view uses, so an operator sees the
-// same keys locally and on the fleet server. Only numeric metrics can be
-// expressed as a sample: strings, summaries and histograms are skipped.
-void flatten_bundle(const PB::Metrics::MetricsBundle &bundle, const std::string &prefix, const long long timestamp,
-                    std::vector<onboarding::metric_sample> &samples) {
-  const std::string path = prefix.empty() ? bundle.key() : (bundle.key().empty() ? prefix : prefix + "." + bundle.key());
-  for (const PB::Metrics::MetricsBundle &child : bundle.children()) {
-    flatten_bundle(child, path, timestamp, samples);
-  }
-  for (const PB::Metrics::Metric &metric : bundle.value()) {
-    onboarding::metric_sample sample;
-    if (metric.has_gauge_value()) {
-      sample.value = metric.gauge_value().value();
-    } else if (metric.has_counter_value()) {
-      sample.value = metric.counter_value().value();
-    } else if (metric.has_untyped_value()) {
-      sample.value = metric.untyped_value().value();
-    } else {
-      continue;
-    }
-    sample.key = path.empty() ? metric.key() : path + "." + metric.key();
-    sample.ts = timestamp;
-    samples.push_back(sample);
-  }
-}
-
 // Move every regular file below `from` to the same relative path below `to`,
 // replacing existing files. Directory-level atomicity is not possible with a
 // shared target dir; per-file rename is the practical equivalent.
@@ -139,6 +106,28 @@ void promote_tree(const fs::path &from, const fs::path &to) {
   }
 }
 
+// A hash of everything an apply actually renders to disk: the fleet.ini text
+// plus each staged script keyed by its relative path. Files are sorted so the
+// hash is independent of directory-iteration order. Two desired states that
+// differ only in bundle versions/priorities but render identical output produce
+// the same hash, which is what lets the apply skip a needless service reload.
+std::string compute_content_hash(const std::string &fleet_ini, const fs::path &scripts_dir) {
+  std::vector<std::pair<std::string, fs::path>> files;
+  if (fs::exists(scripts_dir)) {
+    for (fs::recursive_directory_iterator it(scripts_dir), end; it != end; ++it) {
+      if (!fs::is_regular_file(it->status())) continue;
+      files.emplace_back(fs::relative(it->path(), scripts_dir).generic_string(), it->path());
+    }
+  }
+  std::sort(files.begin(), files.end());
+  std::string canonical = "ini:" + fleet_ini;
+  for (const std::pair<std::string, fs::path> &f : files) {
+    const std::string content = read_file(f.second);
+    canonical += "\nfile:" + f.first + ":" + str::xtos(content.size()) + ":" + content;
+  }
+  return onboarding::sha256_hex(canonical);
+}
+
 }  // namespace
 
 bool fleet_sync::has_manifest(const std::string &state_file) {
@@ -146,11 +135,12 @@ bool fleet_sync::has_manifest(const std::string &state_file) {
   return fs::exists(state_file, ignored);
 }
 
-fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, reload_function request_reload)
+fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
+                       reload_function request_reload)
     : logger_(std::move(logger)),
       config_(std::move(config)),
-      request_reload_(std::move(request_reload)),
-      started_(std::chrono::steady_clock::now()) {
+      tags_(std::move(tags)),
+      request_reload_(std::move(request_reload)) {
   thread_ = std::make_shared<boost::thread>([this] { this->thread_proc(); });
 }
 
@@ -173,13 +163,16 @@ void fleet_sync::log_error(const std::string &message) const { logger_->error(lo
 void fleet_sync::log_info(const std::string &message) const { logger_->info(log_module, __FILE__, __LINE__, message); }
 void fleet_sync::log_debug(const std::string &message) const { logger_->debug(log_module, __FILE__, __LINE__, message); }
 
-http::response fleet_sync::do_call(const char *verb, const std::string &path, const std::string &payload) {
+http::response fleet_sync::do_call(const char *verb, const std::string &path, const std::string &payload, std::size_t max_response_bytes) {
   const std::string full_url = identity_.mtls_url + path;
   const http::parsed_url parsed = http::parse_url(full_url);
   http::http_client_options options(parsed.protocol, config_.tls_version, "none", "");
   options.identity_.cert_pem = identity_.cert_pem;
   options.identity_.key_pem = identity_.private_key_pem;
   options.identity_.pinned_ca_pem = identity_.mtls_server_cert_pem;
+  // Keep the client's default cap for the small JSON endpoints; the caller
+  // raises it for bundle downloads, which are legitimately much larger.
+  if (max_response_bytes != 0) options.max_response_bytes_ = max_response_bytes;
   // A fleet server that accepts the connection and then goes quiet must not
   // take this thread with it: without a deadline the loop stops polling for
   // good and the host silently drops out of management.
@@ -235,7 +228,10 @@ void fleet_sync::log_transport_failure(const std::string &operation, const std::
 }
 
 std::map<std::string, std::string> fleet_sync::collect_tags() const {
-  std::map<std::string, std::string> tags;
+  // Module-contributed tags first, then the protocol built-ins on top: os,
+  // hostname and nscp_version drive server-side group selectors, so a module
+  // must not be able to shadow them.
+  std::map<std::string, std::string> tags = tags_ ? tags_->get_all() : std::map<std::string, std::string>();
   tags["os"] = default_os();
   if (!config_.hostname.empty()) tags["hostname"] = config_.hostname;
   if (!config_.nscp_version.empty()) tags["nscp_version"] = config_.nscp_version;
@@ -249,6 +245,8 @@ void fleet_sync::load_applied_state() {
     const json::object root = json::parse(read_file(file)).as_object();
     const json::value *hash = root.if_contains("state_hash");
     if (hash != nullptr && hash->is_string()) current_hash_ = json_string(hash->as_string());
+    const json::value *content = root.if_contains("content_hash");
+    if (content != nullptr && content->is_string()) content_hash_ = json_string(content->as_string());
     const json::value *bundles = root.if_contains("bundles");
     if (bundles != nullptr && bundles->is_array()) {
       for (const json::value &entry : bundles->as_array()) {
@@ -267,14 +265,33 @@ void fleet_sync::load_applied_state() {
   } catch (const std::exception &e) {
     log_error("Ignoring corrupt applied-state file " + file.string() + ": " + utf8::utf8_from_native(e.what()));
     current_hash_.clear();
+    content_hash_.clear();
     installed_.clear();
   }
+}
+
+void fleet_sync::recover_interrupted_apply() {
+  const fs::path scripts = fs::path(config_.managed_path) / "scripts";
+  const fs::path scripts_old = fs::path(config_.managed_path) / "scripts.old";
+  boost::system::error_code ec;
+  if (!fs::exists(scripts_old, ec)) return;
+  // A scripts.old surviving a restart means the previous apply died between
+  // moving the live tree aside and finishing the promote: the scripts tree on
+  // disk may be incomplete. Roll back to the tree we saved and drop the applied
+  // hashes so the next poll re-fetches and re-applies, rather than trusting a
+  // 304 for a state we never finished applying.
+  log_error("Previous fleet apply was interrupted; restoring the last-known scripts and forcing a re-sync");
+  fs::remove_all(scripts, ec);
+  fs::rename(scripts_old, scripts, ec);
+  current_hash_.clear();
+  content_hash_.clear();
 }
 
 void fleet_sync::save_applied_state() const {
   json::object root;
   root["version"] = 1;
   root["state_hash"] = current_hash_;
+  root["content_hash"] = content_hash_;
   json::array bundles;
   for (const onboarding::installed_bundle &bundle : installed_) {
     json::object entry;
@@ -288,62 +305,20 @@ void fleet_sync::save_applied_state() const {
 
 void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, const std::vector<std::string> &errors) {
   try {
+    // Capture the revision BEFORE reading the tags: if a module updates a tag
+    // while this report is in flight, the next loop iteration re-reports.
+    const unsigned long long tag_revision = tags_ ? tags_->get_revision() : 0;
     const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags());
     const http::response response = do_call("POST", state_report_path, body);
     note_transport_success();
     if (!response.is_2xx()) {
       log_error("Failed to submit state report: " + str::xtos(response.status_code_) + " " + response.payload_);
+      return;
     }
+    reported_tag_revision_ = tag_revision;
+    tags_reported_ = true;
   } catch (const std::exception &e) {
     log_transport_failure("State report", utf8::utf8_from_native(e.what()));
-  }
-}
-
-void fleet_sync::on_metrics(const PB::Metrics::MetricsMessage &metrics) {
-  if (!config_.metrics) return;
-  // The snapshot is timestamped where it is taken, not where it is sent: it
-  // waits here until the next poll, which can be a poll interval away.
-  const long long timestamp = static_cast<long long>(std::time(nullptr));
-  std::vector<onboarding::metric_sample> samples;
-  for (const PB::Metrics::MetricsMessage::Response &payload : metrics.payload()) {
-    for (const PB::Metrics::MetricsBundle &bundle : payload.bundles()) {
-      flatten_bundle(bundle, "", timestamp, samples);
-    }
-  }
-  if (samples.size() > max_metric_samples) {
-    const std::string message = "Metrics snapshot truncated to " + str::xtos(max_metric_samples) + " of " + str::xtos(samples.size()) +
-                                " samples: reduce the number of metric-producing modules to report all of them";
-    if (!metrics_truncated_logged_) {
-      metrics_truncated_logged_ = true;
-      log_info(message);
-    } else {
-      log_debug(message);
-    }
-    samples.resize(max_metric_samples);
-  }
-  boost::mutex::scoped_lock lock(metrics_mutex_);
-  metrics_.swap(samples);
-}
-
-void fleet_sync::post_metrics() {
-  try {
-    std::vector<onboarding::metric_sample> samples;
-    {
-      boost::mutex::scoped_lock lock(metrics_mutex_);
-      samples = metrics_;
-    }
-    // Agent uptime is ours to report: it is the one thing no module knows.
-    onboarding::metric_sample uptime;
-    uptime.key = "uptime_seconds";
-    uptime.value = static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - started_).count());
-    samples.push_back(uptime);
-    const http::response response = do_call("POST", metrics_path, onboarding::build_metrics(samples));
-    note_transport_success();
-    if (!response.is_2xx()) {
-      log_info("Failed to submit metrics: " + str::xtos(response.status_code_));
-    }
-  } catch (const std::exception &e) {
-    log_transport_failure("Metrics submission", utf8::utf8_from_native(e.what()));
   }
 }
 
@@ -385,7 +360,10 @@ bool fleet_sync::fetch_bundle(const onboarding::bundle_info &bundle, std::string
   }
   http::response response;
   try {
-    response = do_call("GET", bundle.url);
+    // A bundle can be much larger than a JSON reply, but never larger than the
+    // total we are willing to stage: cap the download at max_bundle_script_bytes
+    // so a hostile server cannot exhaust memory before the signature is checked.
+    response = do_call("GET", bundle.url, "", max_bundle_script_bytes);
   } catch (const std::exception &e) {
     error = "Failed to download bundle " + bundle.id + ": " + utf8::utf8_from_native(e.what());
     return false;
@@ -413,8 +391,9 @@ bool fleet_sync::fetch_bundle(const onboarding::bundle_info &bundle, std::string
   return true;
 }
 
-bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale) {
+bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector<std::string> &errors, bool &stale, bool &reload_needed) {
   stale = false;
+  reload_needed = false;
   const fs::path managed(config_.managed_path);
   const fs::path staging = managed / "staging";
   std::vector<onboarding::installed_bundle> new_installed;
@@ -494,18 +473,40 @@ bool fleet_sync::apply_state(const onboarding::desired_state &state, std::vector
       new_installed.push_back(installed);
     }
 
-    write_file(staging / "fleet.ini", onboarding::render_ini(merged));
+    const std::string fleet_ini = onboarding::render_ini(merged);
+    write_file(staging / "fleet.ini", fleet_ini);
 
-    // Swap: fleet.ini atomically, staged scripts file-by-file. The managed
-    // scripts tree is wiped first so scripts dropped from the desired state
-    // (removed bundle, renamed file) actually disappear instead of lingering.
+    // What actually lands on disk. If it matches what we already applied, a
+    // reload would restart every plugin for no change - so skip it (M3).
+    const std::string new_content_hash = compute_content_hash(fleet_ini, staging / "scripts");
+    reload_needed = new_content_hash != content_hash_;
+
+    // Swap. fleet.ini is a single atomic rename. The scripts tree is moved
+    // aside rather than deleted, so a crash or a failed promote rolls back to
+    // the previous tree instead of leaving the host with no scripts at all
+    // (M2). A scripts.old surviving a restart means the swap was interrupted -
+    // recover_interrupted_apply picks that up on the next boot.
+    const fs::path scripts = managed / "scripts";
+    const fs::path scripts_old = managed / "scripts.old";
     fs::rename(staging / "fleet.ini", managed / "fleet.ini");
-    fs::remove_all(managed / "scripts", ignored);
-    promote_tree(staging / "scripts", managed / "scripts");
+    fs::remove_all(scripts_old, ignored);
+    if (fs::exists(scripts)) fs::rename(scripts, scripts_old);
+    try {
+      promote_tree(staging / "scripts", scripts);
+    } catch (...) {
+      // Roll the previous tree back into place before giving up.
+      fs::remove_all(scripts, ignored);
+      if (fs::exists(scripts_old)) fs::rename(scripts_old, scripts);
+      throw;
+    }
+    fs::remove_all(scripts_old, ignored);
     fs::remove_all(staging, ignored);
 
     installed_ = new_installed;
     current_hash_ = state.state_hash;
+    content_hash_ = new_content_hash;
+    // Only now, with the tree fully promoted, record that we are on this state:
+    // a 304 answered against this hash is then honestly in sync (M2).
     save_applied_state();
     return true;
   } catch (const std::exception &e) {
@@ -556,12 +557,17 @@ unsigned long fleet_sync::poll_once() {
 
     std::vector<std::string> errors;
     bool stale = false;
-    if (apply_state(state, errors, stale)) {
+    bool reload_needed = false;
+    if (apply_state(state, errors, stale, reload_needed)) {
       log_info("Applied fleet configuration " + state.state_hash);
       report_state(current_hash_, errors);
-      // The rendered fleet.ini is part of the configuration; the core reloads
-      // it on its own schedule (delayed), not from this thread.
-      request_reload_();
+      if (reload_needed) {
+        // The rendered fleet.ini is part of the configuration; the core reloads
+        // it on its own schedule (delayed), not from this thread.
+        request_reload_();
+      } else {
+        log_debug("Fleet configuration " + state.state_hash + " rendered no change on disk; skipping reload");
+      }
     } else if (stale) {
       // The desired state changed server-side while we were applying it; this
       // is not a configuration failure, so nothing is reported. The next poll
@@ -592,6 +598,7 @@ void fleet_sync::thread_proc() {
     while (!identity_.mtls_url.empty() && identity_.mtls_url.back() == '/') identity_.mtls_url.pop_back();
     fs::create_directories(fs::path(config_.managed_path));
     load_applied_state();
+    recover_interrupted_apply();
 
     // Startup: cheap identity check, then report tags early so a fresh host
     // lands in its groups before the first desired-state poll.
@@ -610,11 +617,18 @@ void fleet_sync::thread_proc() {
     while (true) {
       const unsigned long sleep_seconds = poll_once();
       // When the server is unreachable the poll already logged it; don't pile
-      // further failures (and further log entries) on top with renewal or
-      // metrics calls that cannot succeed either.
+      // further failures (and further log entries) on top with a renewal
+      // call that cannot succeed either.
       if (transport_ok_) {
         maybe_renew();
-        if (config_.metrics) post_metrics();
+        // Module tags changed since the last successful report (e.g. a module
+        // was (re)loaded and re-detected its facts): re-report so the server
+        // updates group membership promptly. Identical tag maps are a server-
+        // side no-op, and the revision only moves on real changes, so this
+        // stays quiet in steady state.
+        if (tags_ && (!tags_reported_ || tags_->get_revision() != reported_tag_revision_)) {
+          report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
+        }
       }
       boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep_seconds)));
     }

@@ -13,6 +13,8 @@
 #include "scheduler_handler.hpp"
 #include "storage_manager.hpp"
 
+#include "tag_repository.hpp"
+
 class NSClientT;
 typedef service_helper::impl<NSClientT>::system_service NSClient;
 
@@ -44,6 +46,10 @@ class NSClientT : public nsclient::core::core_interface {
   nsclient::core::path_instance path_;
   nsclient::core::plugin_mgr_instance plugins_;
   nsclient::core::storage_manager_instance storage_manager_;
+  // Host tags contributed by modules (via NSAPISetTag) and consumed by the
+  // web UI and the fleet sync. Created in the constructor and never replaced,
+  // so handing the shared_ptr to other threads is safe.
+  nsclient::core::tag_repository_instance tags_;
   // Path overrides supplied via --path-override on the command line. Applied to
   // path_ inside load_configuration_1, after init_settings has loaded
   // boot.ini's [paths] section, so CLI wins over boot.ini.
@@ -96,6 +102,7 @@ class NSClientT : public nsclient::core::core_interface {
   nsclient::core::path_instance get_path() { return path_; }
   nsclient::core::plugin_cache* get_plugin_cache() { return plugins_->get_plugin_cache(); }
   nsclient::core::storage_manager_instance get_storage_manager() override { return storage_manager_; }
+  nsclient::core::tag_repository_instance get_tag_repository() { return tags_; }
 
   struct service_controller {
     std::string service;

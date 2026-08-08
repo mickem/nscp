@@ -77,8 +77,10 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     responder = respondOk;
   });
 
-  /** Run `nscp enroll` with default server/token plus the given extra args. */
-  async function enroll(extra: string[] = [], args: string[] = ["--server", baseUrl, "--token", "tok-1"]) {
+  /** Run `nscp enroll` with default server/token plus the given extra args. The
+   * fake server speaks plain http, so --insecure is on by default; the tests
+   * that exercise the insecure gate itself pass their own args. */
+  async function enroll(extra: string[] = [], args: string[] = ["--server", baseUrl, "--token", "tok-1", "--insecure"]) {
     return nscp.run(["enroll", ...args, ...extra], { allowFailure: true });
   }
 
@@ -198,6 +200,36 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(requests).toHaveLength(0);
   });
 
+  it("refuses plain-HTTP enrollment unless --insecure is given", async () => {
+    // The bootstrap token is a credential; sending it over http:// would leak
+    // it in cleartext, so the gate must fire before any network call is made.
+    const stateFile = path.join(nscp.scratch("enroll_insecure"), "agent-state.json");
+    fs.rmSync(stateFile, { force: true });
+    const r = await enroll(["--state-file", stateFile], ["--server", baseUrl, "--token", "tok-1"]);
+    expect(r.exitCode).not.toBe(0);
+    expect(r.all).toMatch(/plain http/i);
+    expect(r.all).toMatch(/--insecure|https/i);
+    expect(requests).toHaveLength(0);
+    expect(fs.existsSync(stateFile)).toBe(false);
+  });
+
+  it("allows plain-HTTP enrollment with --insecure", async () => {
+    const stateFile = path.join(nscp.scratch("enroll_insecure_ok"), "agent-state.json");
+    const r = await enroll(["--state-file", stateFile], ["--server", baseUrl, "--token", "tok-1", "--insecure"]);
+    expect(r.exitCode).toBe(0);
+    expect(requests).toHaveLength(1);
+  });
+
+  it("does not apply the plain-HTTP gate to an https url", async () => {
+    // https needs no --insecure. Against this http-only server it fails at the
+    // TLS layer - but crucially not with the plain-HTTP refusal.
+    const stateFile = path.join(nscp.scratch("enroll_https_nogate"), "agent-state.json");
+    fs.rmSync(stateFile, { force: true });
+    const r = await enroll(["--state-file", stateFile, "--retries", "1"], ["--server", baseUrl.replace("http://", "https://"), "--token", "tok-1"]);
+    expect(r.exitCode).not.toBe(0);
+    expect(r.all).not.toMatch(/plain http/i);
+  });
+
   it("rejects a server url that is not a url, without contacting anything", async () => {
     for (const url of ["fleet.example.com", "not a url", "/enroll"]) {
       const stateFile = path.join(nscp.scratch("enroll_badurl"), "agent-state.json");
@@ -256,7 +288,7 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     // placeholder land.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nscp-include-"));
     const own = new NscpInstance({ workDir: dir, pathOverrides: { "shared-path": dir } });
-    expect((await own.run(["enroll", "--server", baseUrl, "--token", "tok-1"], { allowFailure: true })).exitCode).toBe(0);
+    expect((await own.run(["enroll", "--server", baseUrl, "--token", "tok-1", "--insecure"], { allowFailure: true })).exitCode).toBe(0);
 
     const ini = fs.readFileSync(own.settingsFile, "utf8");
     expect(ini).toMatch(/\[\/includes\]/);

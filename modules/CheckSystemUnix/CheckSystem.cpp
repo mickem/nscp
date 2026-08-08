@@ -8,6 +8,7 @@
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <locale>
+#include <map>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_metrics_helper.hpp>
@@ -45,6 +46,7 @@ namespace po = boost::program_options;
 bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("system", alias, "unix");
+  std::map<std::string, std::string> service_tags;
 
   // Start the CPU collector thread
   collector_ = std::shared_ptr<pdh_thread>(new pdh_thread());
@@ -68,6 +70,10 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     ("real-time/process", sh::fun_values_path([this] (auto key, auto value) { collector_->add_realtime_proc_filter(nscapi::settings_proxy::create(get_id(), get_core()), key, value); }),
         "Realtime process filters", "A set of filters to use in real-time mode",
         "FILTER", "For more configuration options add a dedicated section")
+
+    ("service-tags", sh::string_map_path(&service_tags),
+        "Service tags", "Systemd units to surface as host tags: each key is a unit name and each value the tag to publish. When the unit exists and is active the tag is published as <tag>=enabled (removed otherwise). Example: postgresql=postgres",
+        "UNIT", "The tag to publish when this unit is active")
     ;
 
   settings.alias().add_key_to_settings()
@@ -95,6 +101,20 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
   if (mode == NSCAPI::normalStart) {
     collector_->start();
+    // Publish one tag per configured [/settings/system/unix/service-tags]
+    // entry (systemd unit -> tag): <tag>=enabled when the unit is active,
+    // removed otherwise so stopped units clear their tag on the next load.
+    // A single bulk `systemctl show` answers every mapping at once, rather
+    // than forking systemctl per unit on the startup path.
+    std::vector<std::string> units;
+    for (const auto &entry : service_tags) {
+      if (!entry.first.empty() && !entry.second.empty()) units.push_back(entry.first);
+    }
+    const std::set<std::string> active = checks::check_svc_filter::active_units(units);
+    for (const auto &entry : service_tags) {
+      if (entry.first.empty() || entry.second.empty()) continue;
+      get_core()->set_tag(entry.second, active.count(entry.first) ? "enabled" : "");
+    }
   }
 
   return true;

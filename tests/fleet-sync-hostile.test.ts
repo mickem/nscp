@@ -93,6 +93,17 @@ describe("fleet sync against a hostile server", () => {
     { name: "scripts/bomb.txt", data: "small on disk", declaredSize: 512 * 1024 * 1024 },
   ]);
 
+  /**
+   * A download whose body is larger than the agent will buffer. Unlike the two
+   * bomb cases above - which are caught AFTER unpacking, by the staged-size
+   * guard - this one is refused mid-transfer by the HTTP client's response cap,
+   * before a single byte is verified or unpacked (review H1). It is deliberately
+   * incompressible raw bytes, not a makeZip: the cap counts bytes on the wire,
+   * so a zip of zeros would compress below the limit and never trip it. 65 MB is
+   * just over the bundle download cap (max_bundle_script_bytes, 64 MB).
+   */
+  const oversizedBody = crypto.randomBytes(65 * 1024 * 1024);
+
   /** A bundle with an unparseable config.json. */
   const badConfigZip = makeZip([{ name: "config.json", data: "{not json" }]);
 
@@ -112,6 +123,7 @@ describe("fleet sync against a hostile server", () => {
     inject: iniInjectionZip,
     bomb: bombZip,
     lyingbomb: lyingBombZip,
+    oversized: oversizedBody,
     badconfig: badConfigZip,
     notzip: notAZip,
     cached: cachedZip,
@@ -134,6 +146,7 @@ describe("fleet sync against a hostile server", () => {
     inject: "h-inject",
     bomb: "h-bomb",
     lyingbomb: "h-lyingbomb",
+    oversized: "h-oversized",
     badconfig: "h-badconfig",
     notzip: "h-notzip",
     cached: "h-cached",
@@ -209,14 +222,14 @@ describe("fleet sync against a hostile server", () => {
             res.end("unknown bundle");
             return;
           }
+          // The oversized case makes the agent abort the transfer once its cap
+          // is hit; swallow the resulting write-after-reset instead of crashing.
+          res.on("error", () => {});
           res.writeHead(200, { "Content-Type": "application/zip" });
           res.end(zip);
         } else if (parsed.pathname === "/agent/v1/state-report" || parsed.pathname === "/agent/v1/renew") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end("{}");
-        } else if (parsed.pathname === "/agent/v1/metrics") {
-          res.writeHead(204);
-          res.end();
         } else {
           res.writeHead(404);
           res.end("not found");
@@ -285,8 +298,7 @@ describe("fleet sync against a hostile server", () => {
   }
 
   it("applies a good bundle first, as the baseline every rejection is measured against", async () => {
-    expect((await nscp.run(["enroll", "--server", baseUrl, "--token", "tok-hostile"], { allowFailure: true })).exitCode).toBe(0);
-    await nscp.configure({ "/settings/core": { "metrics interval": "1s" } });
+    expect((await nscp.run(["enroll", "--server", baseUrl, "--token", "tok-hostile", "--insecure"], { allowFailure: true })).exitCode).toBe(0);
     nscp.start();
 
     await waitFor("the baseline state report", () => stateReports().some((r) => r.body?.applied_state_hash === "h-good"));
@@ -339,6 +351,17 @@ describe("fleet sync against a hostile server", () => {
     // does; what matters is that neither unpacks it.
     await expectRejected("lyingbomb", /size limit|not a readable zip/i);
     expect(fs.existsSync(path.join(workDir, "fleet", "scripts", "bomb.txt"))).toBe(false);
+    expect(appliedState().state_hash).toBe("h-good");
+  });
+
+  it("refuses a bundle whose download body is larger than the cap", async () => {
+    // The transfer is aborted mid-stream, before the bytes are verified or
+    // unpacked: the response body is the one server-controlled input that would
+    // otherwise be unbounded (review H1). The reported error comes from the HTTP
+    // client's size guard, not the staged-size guard the bomb cases trip.
+    await expectRejected("oversized", /exceeds the maximum size/i);
+    // An aborted download is never cached, so it cannot be replayed from disk.
+    expect(fs.existsSync(path.join(workDir, "fleet", "cache", cacheFileName("b-oversized", oversizedBody)))).toBe(false);
     expect(appliedState().state_hash).toBe("h-good");
   });
 

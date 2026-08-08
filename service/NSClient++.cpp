@@ -100,7 +100,8 @@ NSClientT::NSClientT()
       log_instance_(new nsclient::logging::impl::nsclient_logger()),
       path_(new nsclient::core::path_manager(log_instance_)),
       plugins_(new nsclient::core::plugin_manager(path_, log_instance_)),
-      storage_manager_(new nsclient::core::storage_manager(path_, log_instance_)) {
+      storage_manager_(new nsclient::core::storage_manager(path_, log_instance_)),
+      tags_(new nsclient::core::tag_repository()) {
   provider_ = new nscp_settings_provider(path_, log_instance_);
   log_instance_->startup();
 }
@@ -382,18 +383,13 @@ void NSClientT::boot_fleet_sync() {
     } catch (const std::exception &e) {
       LOG_ERROR_CORE_STD("Invalid fleet 'timeout' value '" + timeout + "', falling back to 60s: " + utf8::utf8_from_native(e.what()));
     }
-    const std::string metrics = reg_key("metrics", "Submit metrics",
-                                        "Submit metrics to the fleet server on every poll: the agent uptime plus the latest snapshot of the metrics "
-                                        "modules publish (the same set as the REST /api/v2/metrics view, collected every `metrics interval`).",
-                                        "true");
-    config.metrics = metrics != "false" && metrics != "0" && metrics != "no";
     config.nscp_version = CURRENT_SERVICE_VERSION;
 
     if (!fleet_sync::has_manifest(config.state_file)) {
       LOG_DEBUG_CORE_STD("No fleet enrollment manifest (" + config.state_file + "): fleet sync not started");
       return;
     }
-    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, [this] { this->reload("delayed,service"); });
+    const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, [this] { this->reload("delayed,service"); });
     {
       boost::mutex::scoped_lock lock(fleet_sync_mutex_);
       fleet_sync_ = sync;
@@ -625,16 +621,7 @@ PB::Metrics::MetricsBundle NSClientT::ownMetricsFetcher() {
   }
   return bundle;
 }
-void NSClientT::process_metrics() {
-  const PB::Metrics::MetricsMessage metrics = plugins_->process_metrics(ownMetricsFetcher());
-#ifdef HAVE_ONBOARDING
-  // The fleet sync loop is not a plugin, so it cannot be a metrics submitter:
-  // hand it the same snapshot the submitters got, to send on its next poll.
-  if (const std::shared_ptr<fleet_sync> fleet = get_fleet_sync()) {
-    fleet->on_metrics(metrics);
-  }
-#endif
-}
+void NSClientT::process_metrics() { plugins_->process_metrics(ownMetricsFetcher()); }
 
 #ifdef _WIN32
 void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {}

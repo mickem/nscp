@@ -36,7 +36,9 @@ nscapi::core_wrapper::core_wrapper()
       fNSAPIGetLoglevel(nullptr),
       fNSAPIRegistryQuery(nullptr),
       fNSCAPIEmitEvent(nullptr),
-      fNSAPIStorageQuery(nullptr) {}
+      fNSAPIStorageQuery(nullptr),
+      fNSAPISetTag(nullptr),
+      fNSAPIGetTags(nullptr) {}
 nscapi::core_wrapper::~core_wrapper() { delete pimpl; }
 
 //////////////////////////////////////////////////////////////////////////
@@ -251,6 +253,124 @@ bool nscapi::core_wrapper::storage_query(const std::string request, std::string 
   return retC;
 }
 
+bool nscapi::core_wrapper::set_tag(const std::string &key, const std::string &value) const {
+  // Degrade gracefully on cores without the tag API (loaded as nullptr).
+  if (!fNSAPISetTag) return false;
+  return NSCAPI::api_ok(fNSAPISetTag(key.c_str(), value.c_str()));
+}
+
+std::string nscapi::core_wrapper::get_tags_json() const {
+  if (!fNSAPIGetTags) return "{}";
+  char *buffer = nullptr;
+  unsigned int buffer_size = 0;
+  const bool retC = NSCAPI::api_ok(fNSAPIGetTags(&buffer, &buffer_size));
+  std::string response;
+  if (buffer_size > 0 && buffer != nullptr) {
+    response = std::string(buffer, buffer_size);
+  }
+  DestroyBuffer(&buffer);
+  if (!retC || response.empty()) return "{}";
+  return response;
+}
+
+namespace {
+// Skip JSON insignificant whitespace.
+void tags_skip_ws(const std::string &s, std::size_t &i) {
+  while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r')) ++i;
+}
+
+// Parse one JSON string starting at s[i]=='"' into out, resolving standard
+// escapes. Returns false (and leaves the map caller to bail) on a malformed or
+// unterminated string. \uXXXX is decoded to UTF-8; the core only \u-escapes
+// control characters, so surrogate pairs do not occur here.
+bool tags_parse_string(const std::string &s, std::size_t &i, std::string &out) {
+  if (i >= s.size() || s[i] != '"') return false;
+  ++i;
+  while (i < s.size()) {
+    const char c = s[i++];
+    if (c == '"') return true;
+    if (c != '\\') {
+      out.push_back(c);
+      continue;
+    }
+    if (i >= s.size()) return false;
+    const char e = s[i++];
+    switch (e) {
+      case '"': out.push_back('"'); break;
+      case '\\': out.push_back('\\'); break;
+      case '/': out.push_back('/'); break;
+      case 'b': out.push_back('\b'); break;
+      case 'f': out.push_back('\f'); break;
+      case 'n': out.push_back('\n'); break;
+      case 'r': out.push_back('\r'); break;
+      case 't': out.push_back('\t'); break;
+      case 'u': {
+        if (i + 4 > s.size()) return false;
+        unsigned int cp = 0;
+        for (int k = 0; k < 4; ++k) {
+          const char h = s[i++];
+          cp <<= 4;
+          if (h >= '0' && h <= '9')
+            cp |= static_cast<unsigned int>(h - '0');
+          else if (h >= 'a' && h <= 'f')
+            cp |= static_cast<unsigned int>(h - 'a' + 10);
+          else if (h >= 'A' && h <= 'F')
+            cp |= static_cast<unsigned int>(h - 'A' + 10);
+          else
+            return false;
+        }
+        if (cp < 0x80) {
+          out.push_back(static_cast<char>(cp));
+        } else if (cp < 0x800) {
+          out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+          out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+          out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+          out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+          out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+        break;
+      }
+      default:
+        return false;
+    }
+  }
+  return false;  // unterminated
+}
+}  // namespace
+
+std::map<std::string, std::string> nscapi::core_wrapper::parse_tags_json(const std::string &json) {
+  std::map<std::string, std::string> result;
+  std::size_t i = 0;
+  tags_skip_ws(json, i);
+  if (i >= json.size() || json[i] != '{') return result;
+  ++i;
+  tags_skip_ws(json, i);
+  if (i < json.size() && json[i] == '}') return result;  // {}
+  while (i < json.size()) {
+    tags_skip_ws(json, i);
+    std::string key;
+    if (!tags_parse_string(json, i, key)) return result;
+    tags_skip_ws(json, i);
+    if (i >= json.size() || json[i] != ':') return result;
+    ++i;
+    tags_skip_ws(json, i);
+    std::string value;
+    if (!tags_parse_string(json, i, value)) return result;
+    result[key] = value;
+    tags_skip_ws(json, i);
+    if (i >= json.size()) return result;
+    if (json[i] == ',') {
+      ++i;
+      continue;
+    }
+    return result;  // '}' or anything else: stop, returning what we have
+  }
+  return result;
+}
+
+std::map<std::string, std::string> nscapi::core_wrapper::get_tags() const { return parse_tags_json(get_tags_json()); }
+
 /**
  * Retrieve the application name (in human readable format) from the core.
  * @return A string representing the application name.
@@ -319,6 +439,9 @@ bool nscapi::core_wrapper::load_endpoints(core_api::lpNSAPILoader f) {
 
   fNSCAPIEmitEvent = reinterpret_cast<core_api::lpNSCAPIEmitEvent>(f("NSCAPIEmitEvent"));
   fNSAPIStorageQuery = reinterpret_cast<core_api::lpNSAPIStorageQuery>(f("NSAPIStorageQuery"));
+
+  fNSAPISetTag = reinterpret_cast<core_api::lpNSAPISetTag>(f("NSAPISetTag"));
+  fNSAPIGetTags = reinterpret_cast<core_api::lpNSAPIGetTags>(f("NSAPIGetTags"));
 
   return true;
 }

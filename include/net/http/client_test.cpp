@@ -108,6 +108,80 @@ TEST(http_client_options, stores_ca) {
   EXPECT_EQ(opts.ca_, "/path/to/ca.pem");
 }
 
+TEST(http_client_options, buffered_responses_are_capped_by_default) {
+  // fetch() buffers the whole body in memory, so an unbounded response from a
+  // hostile or broken server would be an easy way to exhaust the process.
+  const http::http_client_options opts("https", "1.2", "peer", "");
+  EXPECT_EQ(opts.max_response_bytes_, 5u * 1024u * 1024u);
+}
+
+TEST(http_client_options, response_cap_can_be_lifted) {
+  http::http_client_options opts("https", "1.2", "peer", "");
+  opts.max_response_bytes_ = 0;
+  EXPECT_EQ(opts.max_response_bytes_, 0u) << "0 means unlimited for callers that stream large bodies themselves";
+}
+
+// =============================================================================
+// ssl_socket::make_context - fail-closed mTLS guard
+// =============================================================================
+// A client certificate presented with neither a pinned server certificate nor
+// peer verification is unauthenticated mTLS: the credential would be handed to
+// whatever server answers. make_context must refuse that combination at
+// construction so no caller can build it by accident (fleet review M4). The PEM
+// material here is garbage on purpose - the safe combinations get PAST the guard
+// and fail later in the CA/cert parsing, which is exactly what proves the guard
+// did not fire for them.
+
+TEST(ssl_socket, refuses_client_cert_without_pin_or_verification) {
+  http::client_identity id;
+  id.cert_pem = "client-cert";  // non-empty -> has_client_cert()
+  id.key_pem = "client-key";
+  // no pinned_ca_pem, verification disabled: the dangerous combination.
+  try {
+    http::ssl_socket::make_context(boost::asio::ssl::context::sslv23_client, "", id, boost::asio::ssl::verify_none);
+    FAIL() << "make_context must refuse an unauthenticated mTLS combination";
+  } catch (const std::exception &e) {
+    EXPECT_NE(std::string(e.what()).find("no server authentication"), std::string::npos) << e.what();
+  }
+}
+
+TEST(ssl_socket, allows_a_pinned_server_even_without_verify_mode) {
+  // The fleet agent's normal path: verify=none, but a pin is present. The guard
+  // must not fire - it gets past it and fails only on the garbage pin PEM.
+  http::client_identity id;
+  id.cert_pem = "client-cert";
+  id.key_pem = "client-key";
+  id.pinned_ca_pem = "pinned-server-cert";
+  try {
+    http::ssl_socket::make_context(boost::asio::ssl::context::sslv23_client, "", id, boost::asio::ssl::verify_none);
+    FAIL() << "garbage pin PEM should fail to load";
+  } catch (const std::exception &e) {
+    EXPECT_NE(std::string(e.what()).find("pinned server certificate"), std::string::npos) << e.what();
+    EXPECT_EQ(std::string(e.what()).find("no server authentication"), std::string::npos) << "the pin must satisfy the guard";
+  }
+}
+
+TEST(ssl_socket, allows_a_client_cert_when_peer_verification_is_on) {
+  http::client_identity id;
+  id.cert_pem = "client-cert";
+  id.key_pem = "client-key";
+  // no pin, but peer verification is enabled: the guard must not fire.
+  try {
+    http::ssl_socket::make_context(boost::asio::ssl::context::sslv23_client, "", id, boost::asio::ssl::verify_peer);
+    FAIL() << "garbage client PEM should fail to load";
+  } catch (const std::exception &e) {
+    EXPECT_NE(std::string(e.what()).find("client certificate/key"), std::string::npos) << e.what();
+    EXPECT_EQ(std::string(e.what()).find("no server authentication"), std::string::npos) << "verify=peer must satisfy the guard";
+  }
+}
+
+TEST(ssl_socket, plain_tls_without_a_client_cert_is_unaffected) {
+  // No client certificate at all: an ordinary one-way TLS client with
+  // verification off is legitimate and must build without complaint.
+  const http::client_identity id;
+  EXPECT_NO_THROW(http::ssl_socket::make_context(boost::asio::ssl::context::sslv23_client, "", id, boost::asio::ssl::verify_none));
+}
+
 // =============================================================================
 // http::request tests
 // =============================================================================

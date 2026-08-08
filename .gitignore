@@ -71,3 +71,5 @@ _build
 
 \\.ssh\\*
 *.pwd
+
+rotate-signing-secret.ps1

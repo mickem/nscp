@@ -6,6 +6,8 @@
 #include <config.h>
 #include <string.h>
 
+#include <boost/json.hpp>
+
 #include <nscapi/nscapi_helper.hpp>
 #include <settings/settings_core.hpp>
 
@@ -173,6 +175,48 @@ NSCAPI::errorReturn NSCAPIStorageQuery(const char *request_buffer, const unsigne
 
 NSCAPI::errorReturn NSAPIReload(const char *module) { return mainClient->reload(module); }
 
+NSCAPI::errorReturn NSAPISetTag(const char *key, const char *value) {
+  try {
+    if (key == nullptr) return NSCAPI::api_return_codes::hasFailed;
+    const std::string tag_key = key;
+    const std::string tag_value = value == nullptr ? "" : value;
+    // The repository silently drops an oversized tag (returns false, like a
+    // no-op); surface it at debug so a misbehaving module is diagnosable.
+    if (tag_key.size() > nsclient::core::tag_repository::max_key_length || tag_value.size() > nsclient::core::tag_repository::max_value_length) {
+      mainClient->get_logger()->debug("core", __FILE__, __LINE__,
+                                      "Ignoring oversized tag '" + tag_key.substr(0, 64) + "': keys are capped at " +
+                                          std::to_string(nsclient::core::tag_repository::max_key_length) + " and values at " +
+                                          std::to_string(nsclient::core::tag_repository::max_value_length) + " bytes");
+    }
+    mainClient->get_tag_repository()->set(tag_key, tag_value);
+    return NSCAPI::api_return_codes::isSuccess;
+  } catch (const std::exception &e) {
+    LOG_ERROR(mainClient, "Failed to set tag: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR(mainClient, "Failed to set tag");
+  }
+  return NSCAPI::api_return_codes::hasFailed;
+}
+
+NSCAPI::errorReturn NSAPIGetTags(char **response_buffer, unsigned int *response_buffer_len) {
+  try {
+    boost::json::object root;
+    for (const auto &tag : mainClient->get_tag_repository()->get_all()) {
+      root[tag.first] = tag.second;
+    }
+    const std::string response = boost::json::serialize(root);
+    *response_buffer_len = static_cast<unsigned int>(response.size());
+    *response_buffer = new char[*response_buffer_len + 10];
+    memcpy(*response_buffer, response.c_str(), *response_buffer_len);
+    return NSCAPI::api_return_codes::isSuccess;
+  } catch (const std::exception &e) {
+    LOG_ERROR(mainClient, "Failed to get tags: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    LOG_ERROR(mainClient, "Failed to get tags");
+  }
+  return NSCAPI::api_return_codes::hasFailed;
+}
+
 nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIGetApplicationName") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationName);
   if (strcmp(buffer, "NSAPIGetApplicationVersionStr") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationVersionStr);
@@ -190,6 +234,8 @@ nscapi::core_api::FUNPTR NSAPILoader(const char *buffer) {
   if (strcmp(buffer, "NSAPIRegistryQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIRegistryQuery);
   if (strcmp(buffer, "NSCAPIEmitEvent") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIEmitEvent);
   if (strcmp(buffer, "NSAPIStorageQuery") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIStorageQuery);
+  if (strcmp(buffer, "NSAPISetTag") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISetTag);
+  if (strcmp(buffer, "NSAPIGetTags") == 0) return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetTags);
   mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
   return NULL;
 }

@@ -150,9 +150,6 @@ describeMtls("core fleet sync over strict mTLS", () => {
             reportedHashes.push(body?.applied_state_hash);
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end("{}");
-          } else if (parsed.pathname === "/agent/v1/metrics") {
-            res.writeHead(204);
-            res.end();
           } else {
             res.writeHead(404);
             res.end();
@@ -208,7 +205,7 @@ describeMtls("core fleet sync over strict mTLS", () => {
   }
 
   it("enrolls and receives a certificate chained to the tenant CA", async () => {
-    const r = await nscp.run(["enroll", "--server", enrollUrl, "--token", "tok-mtls"], { allowFailure: true });
+    const r = await nscp.run(["enroll", "--server", enrollUrl, "--token", "tok-mtls", "--insecure"], { allowFailure: true });
     expect(r.exitCode).toBe(0);
     const state = JSON.parse(fs.readFileSync(path.join(workDir, "security", "agent-state.json"), "utf8"));
     expect(state.cert_pem).toContain("BEGIN CERTIFICATE");
@@ -324,7 +321,7 @@ describeMtls("core fleet sync rejects a server that does not match the pin", () 
       enrollUrl = `http://127.0.0.1:${(enrollServer.address() as AddressInfo).port}`;
 
       try {
-        const enrolled = await nscp.run(["enroll", "--server", enrollUrl, "--token", "tok-pin"], { allowFailure: true });
+        const enrolled = await nscp.run(["enroll", "--server", enrollUrl, "--token", "tok-pin", "--insecure"], { allowFailure: true });
         expect(enrolled.exitCode).toBe(0);
         nscp.start();
 
@@ -382,7 +379,7 @@ describeMtls("core fleet sync rejects a server that does not match the pin", () 
           res.end(JSON.stringify({ state_hash: "pin-1", next_poll_in_seconds: 1, merged_config_json: {}, bundles: [] }));
           return;
         }
-        res.writeHead(parsed.pathname === "/agent/v1/metrics" ? 204 : 200, { "Content-Type": "application/json" });
+        res.writeHead(200, { "Content-Type": "application/json" });
         res.end("{}");
       },
     );
@@ -418,7 +415,7 @@ describeMtls("core fleet sync rejects a server that does not match the pin", () 
     enrollUrl = `http://127.0.0.1:${(enrollServer.address() as AddressInfo).port}`;
 
     try {
-      expect((await nscp.run(["enroll", "--server", enrollUrl, "--token", "tok-pinok"], { allowFailure: true })).exitCode).toBe(0);
+      expect((await nscp.run(["enroll", "--server", enrollUrl, "--token", "tok-pinok", "--insecure"], { allowFailure: true })).exitCode).toBe(0);
       nscp.start();
       const started = Date.now();
       while (!served.some((url) => url.startsWith("/agent/v1/desired-state"))) {

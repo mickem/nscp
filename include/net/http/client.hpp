@@ -254,7 +254,20 @@ struct ssl_socket final : generic_socket {
   // handshake then presents no certificate at all and an mTLS server answers with
   // a bare "certificate required" alert. Keep every use_certificate/use_private_key
   // call in here, never in the ssl_socket constructor body.
-  static boost::asio::ssl::context make_context(const boost::asio::ssl::context::method method, const std::string &ca, const client_identity &identity) {
+  static boost::asio::ssl::context make_context(const boost::asio::ssl::context::method method, const std::string &ca, const client_identity &identity,
+                                                const boost::asio::ssl::verify_mode verify) {
+    // Fail closed: presenting a client certificate while neither pinning the
+    // server nor verifying it is unauthenticated mTLS - the client credential
+    // would be handed to whatever server answers, including a man in the middle.
+    // No caller should be able to construct that combination by accident. The
+    // fleet agent relies on the pin (guaranteed non-empty by load_state), so it
+    // never trips this; a truncated identity or a future caller might, and must
+    // be stopped here rather than silently downgraded.
+    if (identity.has_client_cert() && !identity.is_pinned() && (verify & boost::asio::ssl::verify_peer) == 0) {
+      throw socket_helpers::socket_exception(
+          "Refusing an mTLS connection with no server authentication: a client certificate was supplied without a pinned server certificate "
+          "and with peer verification disabled. Pin the server certificate or enable verification.");
+    }
     boost::asio::ssl::context context(method);
     if (!ca.empty() && ca != "none") {
       try {
@@ -284,7 +297,7 @@ struct ssl_socket final : generic_socket {
   explicit ssl_socket(boost::asio::io_context &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
                       const std::string &ca, std::string sni = std::string(), proxy_config proxy = proxy_config(),
                       const client_identity &identity = client_identity())
-      : context_(make_context(method, ca, identity)),
+      : context_(make_context(method, ca, identity, verify)),
         ssl_socket_(io_service, context_),
         resolver_(io_service),
         verify_(identity.is_pinned() ? boost::asio::ssl::verify_peer : verify),  // the pin IS the peer identity: always verify against it
@@ -538,6 +551,13 @@ struct http_client_options {
   // on any call made from a long-lived thread that must not be wedged by an
   // unresponsive peer (see set_socket_timeouts).
   unsigned int timeout_seconds_ = 0;
+  // Largest response body fetch() will accumulate, in bytes; 0 is unlimited.
+  // fetch() buffers the whole body in memory (twice, while it is copied out of
+  // the stream), so without a limit a hostile or broken server can exhaust the
+  // process. 5 MB is far above any API response we consume and far below what
+  // hurts. execute() streams to the caller's ostream instead of buffering, so
+  // it is deliberately not covered - that is the path large downloads use.
+  std::size_t max_response_bytes_ = 5u * 1024u * 1024u;
 
   http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca, proxy_config proxy = proxy_config())
       : protocol_(std::move(protocol)), tls_version_(std::move(tls_version)), verify_(std::move(verify)), ca_(std::move(ca)), proxy_(std::move(proxy)) {}
@@ -682,12 +702,23 @@ class simple_client {
     boost::asio::streambuf response_buffer;
     response resp = read_result(response_buffer);
 
+    // Bail out as soon as the limit is passed rather than reading to the end
+    // and checking afterwards: the point is to never hold the oversized body.
+    const std::size_t limit = options_.max_response_bytes_;
+    const auto check_limit = [&limit, &server, &port](const std::size_t size) {
+      if (limit != 0 && size > limit) {
+        throw socket_helpers::socket_exception("Response from " + server + ":" + port + " exceeds the maximum size of " + str::xtos(limit) + " bytes");
+      }
+    };
+
     std::ostringstream os;
     if (response_buffer.size() > 0) os << &response_buffer;
+    check_limit(static_cast<std::size_t>(os.tellp()));
     if (socket_->is_open()) {
       boost::system::error_code error;
       while (socket_->read_some(response_buffer, error)) {
         os << &response_buffer;
+        check_limit(static_cast<std::size_t>(os.tellp()));
       }
     }
     resp.payload_ = os.str();
