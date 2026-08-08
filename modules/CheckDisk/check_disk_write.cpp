@@ -18,7 +18,10 @@
 #include <vector>
 
 #ifdef WIN32
+#include <fcntl.h>
 #include <io.h>
+#include <share.h>
+#include <sys/stat.h>
 #else
 #include <unistd.h>
 #endif
@@ -80,6 +83,25 @@ std::string last_error() {
   const char *msg = strerror(errno);
   return msg ? msg : "unknown error";
 }
+
+// Race-free exclusive create: a leftover (or unrelated) file at the target
+// path must fail the open (EEXIST) instead of being overwritten, with no
+// window between an existence check and the create. POSIX uses fopen's C11
+// "x" modifier; on Windows the "x" is UCRT-only — the CRT linked by the
+// legacy XP-targeting build treats it as an invalid mode character and
+// fail-fasts the whole process (0xc0000409) — so use _sopen_s with _O_EXCL,
+// which every supported CRT provides.
+FILE *open_exclusive(const std::string &path) {
+#ifdef WIN32
+  int fd = -1;
+  if (_sopen_s(&fd, path.c_str(), _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY, _SH_DENYNO, _S_IREAD | _S_IWRITE) != 0) return nullptr;
+  FILE *file = _fdopen(fd, "wb");
+  if (file == nullptr) _close(fd);
+  return file;
+#else
+  return fopen(path.c_str(), "wbx");
+#endif
+}
 }  // namespace
 
 write_result perform_write_test(const std::string &path, const long long size) {
@@ -97,11 +119,10 @@ write_result perform_write_test(const std::string &path, const long long size) {
   const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
   bool created = false;
 
-  // Never touch a file we did not create: "x" (C11, supported by glibc and the
-  // Windows UCRT) makes the create exclusive, so a leftover (or unrelated) file
-  // at the target path is reported instead of being overwritten and deleted --
-  // with no window between the existence check and the create.
-  FILE *file = fopen(path.c_str(), "wbx");
+  // Never touch a file we did not create: the exclusive create reports a
+  // leftover (or unrelated) file at the target path instead of overwriting
+  // and deleting it.
+  FILE *file = open_exclusive(path);
   if (file == nullptr) {
     if (errno == EEXIST) {
       issues.push_back("file already exists (refusing to overwrite it)");

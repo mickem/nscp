@@ -67,6 +67,7 @@ required_files:
     - modules/CheckHelpers.dll
     - modules/CheckLogFile.dll
     - modules/CheckNet.dll
+    - modules/CheckMSSQL.dll
     - modules/CheckNSCP.dll
     - modules/CheckSystem.dll
     - modules/CheckTaskSched.dll
