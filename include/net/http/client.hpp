@@ -254,7 +254,20 @@ struct ssl_socket final : generic_socket {
   // handshake then presents no certificate at all and an mTLS server answers with
   // a bare "certificate required" alert. Keep every use_certificate/use_private_key
   // call in here, never in the ssl_socket constructor body.
-  static boost::asio::ssl::context make_context(const boost::asio::ssl::context::method method, const std::string &ca, const client_identity &identity) {
+  static boost::asio::ssl::context make_context(const boost::asio::ssl::context::method method, const std::string &ca, const client_identity &identity,
+                                                const boost::asio::ssl::verify_mode verify) {
+    // Fail closed: presenting a client certificate while neither pinning the
+    // server nor verifying it is unauthenticated mTLS - the client credential
+    // would be handed to whatever server answers, including a man in the middle.
+    // No caller should be able to construct that combination by accident. The
+    // fleet agent relies on the pin (guaranteed non-empty by load_state), so it
+    // never trips this; a truncated identity or a future caller might, and must
+    // be stopped here rather than silently downgraded.
+    if (identity.has_client_cert() && !identity.is_pinned() && (verify & boost::asio::ssl::verify_peer) == 0) {
+      throw socket_helpers::socket_exception(
+          "Refusing an mTLS connection with no server authentication: a client certificate was supplied without a pinned server certificate "
+          "and with peer verification disabled. Pin the server certificate or enable verification.");
+    }
     boost::asio::ssl::context context(method);
     if (!ca.empty() && ca != "none") {
       try {
@@ -284,7 +297,7 @@ struct ssl_socket final : generic_socket {
   explicit ssl_socket(boost::asio::io_context &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
                       const std::string &ca, std::string sni = std::string(), proxy_config proxy = proxy_config(),
                       const client_identity &identity = client_identity())
-      : context_(make_context(method, ca, identity)),
+      : context_(make_context(method, ca, identity, verify)),
         ssl_socket_(io_service, context_),
         resolver_(io_service),
         verify_(identity.is_pinned() ? boost::asio::ssl::verify_peer : verify),  // the pin IS the peer identity: always verify against it
