@@ -41,6 +41,12 @@ class pdh_thread {
   typedef std::list<std::string> error_list;
 
   std::shared_ptr<boost::thread> thread_;
+  // Secondary collector for the every-~12s metrics that query WMI or other
+  // providers which can block for tens of seconds (network, temperature, cpu
+  // frequency, battery, os_updates). Keeping them off the 1 Hz thread_ means a
+  // slow provider stalls only its own metric, not CPU/memory/PDH/realtime
+  // sampling (#1378).
+  std::shared_ptr<boost::thread> aux_thread_;
   boost::shared_mutex mutex_;
   HANDLE stop_event_;
   int plugin_id;
@@ -163,4 +169,8 @@ class pdh_thread {
   void sample_process_cpu(error_list &errors);
 
   void thread_proc();
+  // Runs the network/temperature/cpu_frequency/battery/os_updates collections
+  // on their own ~12s cadence with COM initialised for its lifetime, so a slow
+  // WMI provider cannot freeze the 1 Hz thread_proc loop (#1378).
+  void aux_thread_proc();
 };

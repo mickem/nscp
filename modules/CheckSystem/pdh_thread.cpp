@@ -3,6 +3,7 @@
 
 #include "pdh_thread.hpp"
 
+#include <objbase.h>
 #include <win/sysinfo/sysinfo.h>
 
 #include <nscapi/macros.hpp>
@@ -328,18 +329,8 @@ void pdh_thread::thread_proc() {
                     "' (valid values: battery, cpu, cpu_frequency, handles, metrics, network, os_updates, pdh, temperature)");
     }
   }
-  const bool disable_network = disabled.count("network") > 0;
-  if (disable_network) {
-    NSC_LOG_MESSAGE("WARNING: network checking is disabled");
-  }
-  const bool disable_temperature = disabled.count("temperature") > 0;
-  if (disable_temperature) {
-    NSC_LOG_MESSAGE("WARNING: temperature checking is disabled");
-  }
-  const bool disable_cpu_frequency = disabled.count("cpu_frequency") > 0;
-  if (disable_cpu_frequency) {
-    NSC_LOG_MESSAGE("WARNING: cpu frequency checking is disabled");
-  }
+  // network, temperature, cpu_frequency, battery and os_updates now run on
+  // aux_thread_proc(); their disable handling lives there (#1378).
   const bool disable_handles = disabled.count("handles") > 0;
   if (disable_handles) {
     NSC_LOG_MESSAGE("WARNING: handle checking is disabled");
@@ -356,14 +347,6 @@ void pdh_thread::thread_proc() {
   if (disable_pdh) {
     check_pdh = false;
     NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
-  }
-  const bool disable_battery = disabled.count("battery") > 0;
-  if (disable_battery) {
-    NSC_LOG_MESSAGE("WARNING: battery checking is disabled");
-  }
-  const bool disable_os_updates = disabled.count("os_updates") > 0;
-  if (disable_os_updates) {
-    NSC_LOG_MESSAGE("WARNING: OS updates checking is disabled");
   }
   spi_container handles;
   DWORD sleep_ms = 1000;
@@ -395,52 +378,9 @@ void pdh_thread::thread_proc() {
         write_metrics(handles, load, check_pdh ? &pdh : nullptr, errors);
       }
     }
-    try {
-      if (i == 0 && !disable_network) network.fetch();
-    } catch (const nsclient::nsclient_exception &e) {
-      errors.push_back("Failed to get network metrics: " + e.reason());
-    } catch (const std::exception &e) {
-      errors.push_back("Failed to get network metrics: " + utf8::utf8_from_native(e.what()));
-    } catch (...) {
-      errors.emplace_back("Failed to get network metrics");
-    }
-    try {
-      if (i == 0 && !disable_temperature) temperature.fetch();
-    } catch (const nsclient::nsclient_exception &e) {
-      errors.push_back("Failed to get temperature metrics: " + e.reason());
-    } catch (const std::exception &e) {
-      errors.push_back("Failed to get temperature metrics: " + utf8::utf8_from_native(e.what()));
-    } catch (...) {
-      errors.emplace_back("Failed to get temperature metrics");
-    }
-    try {
-      if (i == 0 && !disable_cpu_frequency) cpu_frequency.fetch();
-    } catch (const nsclient::nsclient_exception &e) {
-      errors.push_back("Failed to get CPU frequency metrics: " + e.reason());
-    } catch (const std::exception &e) {
-      errors.push_back("Failed to get CPU frequency metrics: " + utf8::utf8_from_native(e.what()));
-    } catch (...) {
-      errors.emplace_back("Failed to get CPU frequency metrics");
-    }
-    try {
-      if (i == 0 && !disable_battery) battery.fetch();
-    } catch (const nsclient::nsclient_exception &e) {
-      errors.push_back("Failed to get battery metrics: " + e.reason());
-    } catch (const std::exception &e) {
-      errors.push_back("Failed to get battery metrics: " + utf8::utf8_from_native(e.what()));
-    } catch (...) {
-      errors.emplace_back("Failed to get battery metrics");
-    }
-    try {
-      // os_updates.fetch() is a no-op until its internal TTL has elapsed (default 1h).
-      if (i == 0 && !disable_os_updates) os_updates.fetch();
-    } catch (const nsclient::nsclient_exception &e) {
-      errors.push_back("Failed to get OS updates metrics: " + e.reason());
-    } catch (const std::exception &e) {
-      errors.push_back("Failed to get OS updates metrics: " + utf8::utf8_from_native(e.what()));
-    } catch (...) {
-      errors.emplace_back("Failed to get OS updates metrics");
-    }
+    // network, temperature, cpu_frequency, battery and os_updates are collected
+    // on aux_thread_proc() so a slow WMI provider cannot freeze this 1 Hz loop
+    // (#1378).
     try {
       if (i == 0 && !has_proc_realtime && process_history_enabled) process_history.fetch();
     } catch (const nsclient::nsclient_exception &e) {
@@ -524,6 +464,102 @@ void pdh_thread::thread_proc() {
       NSC_LOG_ERROR_EXR("Failed to close performance counters: ", e);
     }
   }
+}
+
+void pdh_thread::aux_thread_proc() {
+  // Collect the every-~12s metrics that query WMI or other providers which can
+  // block for tens of seconds when a backing service restarts (network via the
+  // Win32_PerfRawData classes maintained by WmiApSrv, temperature, cpu
+  // frequency, battery, os_updates). Running them here rather than on the 1 Hz
+  // thread_proc means such a stall costs only a one-cycle-stale metric instead
+  // of freezing CPU/memory/PDH/realtime sampling (#1378).
+  //
+  // WMI needs COM initialised on this thread. Use the same MTA pattern as the
+  // module's other WMI callers: tolerate an apartment already initialised, and
+  // do NOT call CoInitializeSecurity here (it is process-global, set elsewhere).
+  const HRESULT hr_init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  const bool needs_uninit = SUCCEEDED(hr_init);
+
+  const std::set<std::string> disabled = disable_list::parse(disable_);
+  const bool disable_network = disabled.count("network") > 0;
+  if (disable_network) NSC_LOG_MESSAGE("WARNING: network checking is disabled");
+  const bool disable_temperature = disabled.count("temperature") > 0;
+  if (disable_temperature) NSC_LOG_MESSAGE("WARNING: temperature checking is disabled");
+  const bool disable_cpu_frequency = disabled.count("cpu_frequency") > 0;
+  if (disable_cpu_frequency) NSC_LOG_MESSAGE("WARNING: cpu frequency checking is disabled");
+  const bool disable_battery = disabled.count("battery") > 0;
+  if (disable_battery) NSC_LOG_MESSAGE("WARNING: battery checking is disabled");
+  const bool disable_os_updates = disabled.count("os_updates") > 0;
+  if (disable_os_updates) NSC_LOG_MESSAGE("WARNING: OS updates checking is disabled");
+
+  // Match the previous cadence: thread_proc ran these once every
+  // (min_threshold_ + 2) one-second ticks.
+  const DWORD interval_ms = static_cast<DWORD>((min_threshold_ + 2) * 1000);
+
+  do {
+    std::list<std::string> errors;
+    if (!disable_network) {
+      try {
+        network.fetch();
+      } catch (const nsclient::nsclient_exception &e) {
+        errors.push_back("Failed to get network metrics: " + e.reason());
+      } catch (const std::exception &e) {
+        errors.push_back("Failed to get network metrics: " + utf8::utf8_from_native(e.what()));
+      } catch (...) {
+        errors.emplace_back("Failed to get network metrics");
+      }
+    }
+    if (!disable_temperature) {
+      try {
+        temperature.fetch();
+      } catch (const nsclient::nsclient_exception &e) {
+        errors.push_back("Failed to get temperature metrics: " + e.reason());
+      } catch (const std::exception &e) {
+        errors.push_back("Failed to get temperature metrics: " + utf8::utf8_from_native(e.what()));
+      } catch (...) {
+        errors.emplace_back("Failed to get temperature metrics");
+      }
+    }
+    if (!disable_cpu_frequency) {
+      try {
+        cpu_frequency.fetch();
+      } catch (const nsclient::nsclient_exception &e) {
+        errors.push_back("Failed to get CPU frequency metrics: " + e.reason());
+      } catch (const std::exception &e) {
+        errors.push_back("Failed to get CPU frequency metrics: " + utf8::utf8_from_native(e.what()));
+      } catch (...) {
+        errors.emplace_back("Failed to get CPU frequency metrics");
+      }
+    }
+    if (!disable_battery) {
+      try {
+        battery.fetch();
+      } catch (const nsclient::nsclient_exception &e) {
+        errors.push_back("Failed to get battery metrics: " + e.reason());
+      } catch (const std::exception &e) {
+        errors.push_back("Failed to get battery metrics: " + utf8::utf8_from_native(e.what()));
+      } catch (...) {
+        errors.emplace_back("Failed to get battery metrics");
+      }
+    }
+    if (!disable_os_updates) {
+      try {
+        // os_updates.fetch() is a no-op until its internal TTL has elapsed (default 1h).
+        os_updates.fetch();
+      } catch (const nsclient::nsclient_exception &e) {
+        errors.push_back("Failed to get OS updates metrics: " + e.reason());
+      } catch (const std::exception &e) {
+        errors.push_back("Failed to get OS updates metrics: " + utf8::utf8_from_native(e.what()));
+      } catch (...) {
+        errors.emplace_back("Failed to get OS updates metrics");
+      }
+    }
+    for (const std::string &s : errors) {
+      NSC_LOG_ERROR(s);
+    }
+  } while (WaitForSingleObject(stop_event_, interval_ms) == WAIT_TIMEOUT);
+
+  if (needs_uninit) CoUninitialize();
 }
 
 void pdh_thread::add_samples(std::shared_ptr<nscapi::settings_proxy> settings) {
@@ -698,11 +734,16 @@ pdh_thread::metrics_hash pdh_thread::get_metrics() {
 bool pdh_thread::start() {
   stop_event_ = CreateEvent(nullptr, TRUE, FALSE, _T("EventLogShutdown"));
   thread_ = std::make_shared<boost::thread>([this]() { this->thread_proc(); });
+  // Manual-reset event, so a single SetEvent in stop() releases both threads.
+  aux_thread_ = std::make_shared<boost::thread>([this]() { this->aux_thread_proc(); });
   return true;
 }
 bool pdh_thread::stop() const {
   SetEvent(stop_event_);
   if (thread_) thread_->join();
+  // aux_thread_ may be mid-fetch (up to a WMI stall) before it sees the event;
+  // join still returns once that fetch completes, same worst case as before.
+  if (aux_thread_) aux_thread_->join();
   return true;
 }
 
