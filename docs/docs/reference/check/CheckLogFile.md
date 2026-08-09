@@ -45,391 +45,209 @@ Check for errors in log file or generic pattern matching in text files.
 <a id="check_logfile_options"></a>
 #### Command-line Arguments
 
-=== "Windows"
+<a id="check_logfile_warn"></a>
+<a id="check_logfile_crit"></a>
+<a id="check_logfile_help"></a>
+<a id="check_logfile_help-pb"></a>
+<a id="check_logfile_show-default"></a>
+<a id="check_logfile_help-short"></a>
+<a id="check_logfile_split"></a>
+<a id="check_logfile_files"></a>
 
-    <a id="check_logfile_warn"></a>
-    <a id="check_logfile_crit"></a>
-    <a id="check_logfile_help"></a>
-    <a id="check_logfile_help-pb"></a>
-    <a id="check_logfile_show-default"></a>
-    <a id="check_logfile_help-short"></a>
-    <a id="check_logfile_split"></a>
-    <a id="check_logfile_files"></a>
+| Option                                          | Default Value                       | Description                                                                                                               |
+|-------------------------------------------------|-------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_logfile_filter)                 |                                     | Filter which marks interesting items.                                                                                     |
+| [warning](#check_logfile_warning)               |                                     | Filter which marks items which generates a warning state.                                                                 |
+| warn                                            |                                     | Short alias for warning                                                                                                   |
+| [critical](#check_logfile_critical)             |                                     | Filter which marks items which generates a critical state.                                                                |
+| crit                                            |                                     | Short alias for critical.                                                                                                 |
+| [ok](#check_logfile_ok)                         |                                     | Filter which marks items which generates an ok state.                                                                     |
+| [debug](#check_logfile_debug)                   | 1)] (=0                             | Show debugging information in the log                                                                                     |
+| [show-all](#check_logfile_show-all)             | 1)] (=0                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [empty-state](#check_logfile_empty-state)       | ignored                             | Return status to use when nothing matched filter.                                                                         |
+| [perf-config](#check_logfile_perf-config)       |                                     | Performance data generation configuration                                                                                 |
+| [escape-html](#check_logfile_escape-html)       | 1)] (=0                             | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [list-separator](#check_logfile_list-separator) | ,                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+| help                                            | N/A                                 | Show help screen (this screen)                                                                                            |
+| help-pb                                         | N/A                                 | Show help screen as a protocol buffer payload                                                                             |
+| show-default                                    | N/A                                 | Show default values for a given command                                                                                   |
+| help-short                                      | N/A                                 | Show help screen (short format).                                                                                          |
+| [top-syntax](#check_logfile_top-syntax)         | ${count}/${total} (${problem_list}) | Top level syntax.                                                                                                         |
+| [ok-syntax](#check_logfile_ok-syntax)           |                                     | ok syntax.                                                                                                                |
+| [empty-syntax](#check_logfile_empty-syntax)     | %(status): Nothing found            | Empty syntax.                                                                                                             |
+| [detail-syntax](#check_logfile_detail-syntax)   | ${column1}                          | Detail level syntax.                                                                                                      |
+| [perf-syntax](#check_logfile_perf-syntax)       | ${column1}                          | Performance alias syntax.                                                                                                 |
+| [line-split](#check_logfile_line-split)         | \n                                  | Character string used to split a file into several lines (default `\n`).                                                  |
+| [column-split](#check_logfile_column-split)     | \t                                  | Character string to split a line into several columns (default \t)                                                        |
+| split                                           |                                     | Alias for split-column                                                                                                    |
+| [file](#check_logfile_file)                     |                                     | File to read (can be specified multiple times to check multiple files.                                                    |
+| files                                           |                                     | A comma separated list of files to scan (same as file except a list)                                                      |
 
-    | Option                                          | Default Value                       | Description                                                                                                               |
-    |-------------------------------------------------|-------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_logfile_filter)                 |                                     | Filter which marks interesting items.                                                                                     |
-    | [warning](#check_logfile_warning)               |                                     | Filter which marks items which generates a warning state.                                                                 |
-    | warn                                            |                                     | Short alias for warning                                                                                                   |
-    | [critical](#check_logfile_critical)             |                                     | Filter which marks items which generates a critical state.                                                                |
-    | crit                                            |                                     | Short alias for critical.                                                                                                 |
-    | [ok](#check_logfile_ok)                         |                                     | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_logfile_debug)                   | 1)] (=0                             | Show debugging information in the log                                                                                     |
-    | [show-all](#check_logfile_show-all)             | 1)] (=0                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-    | [empty-state](#check_logfile_empty-state)       | ignored                             | Return status to use when nothing matched filter.                                                                         |
-    | [perf-config](#check_logfile_perf-config)       |                                     | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_logfile_escape-html)       | 1)] (=0                             | Escape any < and > characters to prevent HTML encoding                                                                    |
-    | [list-separator](#check_logfile_list-separator) | ,                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-    | help                                            | N/A                                 | Show help screen (this screen)                                                                                            |
-    | help-pb                                         | N/A                                 | Show help screen as a protocol buffer payload                                                                             |
-    | show-default                                    | N/A                                 | Show default values for a given command                                                                                   |
-    | help-short                                      | N/A                                 | Show help screen (short format).                                                                                          |
-    | [top-syntax](#check_logfile_top-syntax)         | ${count}/${total} (${problem_list}) | Top level syntax.                                                                                                         |
-    | [ok-syntax](#check_logfile_ok-syntax)           |                                     | ok syntax.                                                                                                                |
-    | [empty-syntax](#check_logfile_empty-syntax)     | %(status): Nothing found            | Empty syntax.                                                                                                             |
-    | [detail-syntax](#check_logfile_detail-syntax)   | ${column1}                          | Detail level syntax.                                                                                                      |
-    | [perf-syntax](#check_logfile_perf-syntax)       | ${column1}                          | Performance alias syntax.                                                                                                 |
-    | [line-split](#check_logfile_line-split)         | \n                                  | Character string used to split a file into several lines (default `\n`).                                                  |
-    | [column-split](#check_logfile_column-split)     | \t                                  | Character string to split a line into several columns (default \t)                                                        |
-    | split                                           |                                     | Alias for split-column                                                                                                    |
-    | [file](#check_logfile_file)                     |                                     | File to read (can be specified multiple times to check multiple files.                                                    |
-    | files                                           |                                     | A comma separated list of files to scan (same as file except a list)                                                      |
 
 
+<h5 id="check_logfile_filter">filter:</h5>
 
-    <h5 id="check_logfile_filter">filter:</h5>
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
+<h5 id="check_logfile_warning">warning:</h5>
 
-    <h5 id="check_logfile_warning">warning:</h5>
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
 
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
 
 
+<h5 id="check_logfile_critical">critical:</h5>
 
-    <h5 id="check_logfile_critical">critical:</h5>
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
 
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
 
 
+<h5 id="check_logfile_ok">ok:</h5>
 
-    <h5 id="check_logfile_ok">ok:</h5>
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
 
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
 
+<h5 id="check_logfile_debug">debug:</h5>
 
-    <h5 id="check_logfile_debug">debug:</h5>
+Show debugging information in the log
 
-    Show debugging information in the log
+*Default Value:* `1)] (=0`
 
-    *Default Value:* `1)] (=0`
+<h5 id="check_logfile_show-all">show-all:</h5>
 
-    <h5 id="check_logfile_show-all">show-all:</h5>
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+*Default Value:* `1)] (=0`
 
-    *Default Value:* `1)] (=0`
+<h5 id="check_logfile_empty-state">empty-state:</h5>
 
-    <h5 id="check_logfile_empty-state">empty-state:</h5>
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
 
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
+*Default Value:* `ignored`
 
-    *Default Value:* `ignored`
+<h5 id="check_logfile_perf-config">perf-config:</h5>
 
-    <h5 id="check_logfile_perf-config">perf-config:</h5>
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
+<h5 id="check_logfile_escape-html">escape-html:</h5>
 
-    <h5 id="check_logfile_escape-html">escape-html:</h5>
+Escape any < and > characters to prevent HTML encoding
 
-    Escape any < and > characters to prevent HTML encoding
+*Default Value:* `1)] (=0`
 
-    *Default Value:* `1)] (=0`
+<h5 id="check_logfile_list-separator">list-separator:</h5>
 
-    <h5 id="check_logfile_list-separator">list-separator:</h5>
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+*Default Value:* `, `
 
-    *Default Value:* `, `
+<h5 id="check_logfile_top-syntax">top-syntax:</h5>
 
-    <h5 id="check_logfile_top-syntax">top-syntax:</h5>
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+*Default Value:* `${count}/${total} (${problem_list})`
 
-    *Default Value:* `${count}/${total} (${problem_list})`
+<h5 id="check_logfile_ok-syntax">ok-syntax:</h5>
 
-    <h5 id="check_logfile_ok-syntax">ok-syntax:</h5>
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
 
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
 
+<h5 id="check_logfile_empty-syntax">empty-syntax:</h5>
 
-    <h5 id="check_logfile_empty-syntax">empty-syntax:</h5>
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
 
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
+*Default Value:* `%(status): Nothing found`
 
-    *Default Value:* `%(status): Nothing found`
+<h5 id="check_logfile_detail-syntax">detail-syntax:</h5>
 
-    <h5 id="check_logfile_detail-syntax">detail-syntax:</h5>
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+*Default Value:* `${column1}`
 
-    *Default Value:* `${column1}`
+<h5 id="check_logfile_perf-syntax">perf-syntax:</h5>
 
-    <h5 id="check_logfile_perf-syntax">perf-syntax:</h5>
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
 
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
+*Default Value:* `${column1}`
 
-    *Default Value:* `${column1}`
+<h5 id="check_logfile_line-split">line-split:</h5>
 
-    <h5 id="check_logfile_line-split">line-split:</h5>
+Character string used to split a file into several lines (default `\n`).
+The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`) makes the entire file content available as a single record, which is useful together with a multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
+`, a trailing carriage return is stripped from each record so that files with CRLF line endings produce clean lines.
 
-    Character string used to split a file into several lines (default `\n`).
-    The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`) makes the entire file content available as a single record, which is useful together with a multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
-    `, a trailing carriage return is stripped from each record so that files with CRLF line endings produce clean lines.
+*Default Value:* `\n`
 
-    *Default Value:* `\n`
+<h5 id="check_logfile_column-split">column-split:</h5>
 
-    <h5 id="check_logfile_column-split">column-split:</h5>
+Character string to split a line into several columns (default \t)
 
-    Character string to split a line into several columns (default \t)
+*Default Value:* `\t`
 
-    *Default Value:* `\t`
+<h5 id="check_logfile_file">file:</h5>
 
-    <h5 id="check_logfile_file">file:</h5>
-
-    File to read (can be specified multiple times to check multiple files.
-    Notice that specifying multiple files will create an aggregate set it will not check each file individually.
-    In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.
-
-=== "Linux"
-
-    <a id="check_logfile_warn"></a>
-    <a id="check_logfile_crit"></a>
-    <a id="check_logfile_debug"></a>
-    <a id="check_logfile_show-all"></a>
-    <a id="check_logfile_escape-html"></a>
-    <a id="check_logfile_help"></a>
-    <a id="check_logfile_help-pb"></a>
-    <a id="check_logfile_show-default"></a>
-    <a id="check_logfile_help-short"></a>
-    <a id="check_logfile_split"></a>
-    <a id="check_logfile_files"></a>
-
-    | Option                                        | Default Value                       | Description                                                                                                      |
-    |-----------------------------------------------|-------------------------------------|------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_logfile_filter)               |                                     | Filter which marks interesting items.                                                                            |
-    | [warning](#check_logfile_warning)             |                                     | Filter which marks items which generates a warning state.                                                        |
-    | warn                                          |                                     | Short alias for warning                                                                                          |
-    | [critical](#check_logfile_critical)           |                                     | Filter which marks items which generates a critical state.                                                       |
-    | crit                                          |                                     | Short alias for critical.                                                                                        |
-    | [ok](#check_logfile_ok)                       |                                     | Filter which marks items which generates an ok state.                                                            |
-    | debug                                         | N/A                                 | Show debugging information in the log                                                                            |
-    | show-all                                      | N/A                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-    | [empty-state](#check_logfile_empty-state)     | ignored                             | Return status to use when nothing matched filter.                                                                |
-    | [perf-config](#check_logfile_perf-config)     |                                     | Performance data generation configuration                                                                        |
-    | escape-html                                   | N/A                                 | Escape any < and > characters to prevent HTML encoding                                                           |
-    | help                                          | N/A                                 | Show help screen (this screen)                                                                                   |
-    | help-pb                                       | N/A                                 | Show help screen as a protocol buffer payload                                                                    |
-    | show-default                                  | N/A                                 | Show default values for a given command                                                                          |
-    | help-short                                    | N/A                                 | Show help screen (short format).                                                                                 |
-    | [top-syntax](#check_logfile_top-syntax)       | ${count}/${total} (${problem_list}) | Top level syntax.                                                                                                |
-    | [ok-syntax](#check_logfile_ok-syntax)         |                                     | ok syntax.                                                                                                       |
-    | [empty-syntax](#check_logfile_empty-syntax)   | %(status): Nothing found            | Empty syntax.                                                                                                    |
-    | [detail-syntax](#check_logfile_detail-syntax) | ${column1}                          | Detail level syntax.                                                                                             |
-    | [perf-syntax](#check_logfile_perf-syntax)     | ${column1}                          | Performance alias syntax.                                                                                        |
-    | [line-split](#check_logfile_line-split)       | \n                                  | Character string used to split a file into several lines (default `\n`).                                         |
-    | [column-split](#check_logfile_column-split)   | \t                                  | Character string to split a line into several columns (default \t)                                               |
-    | split                                         |                                     | Alias for split-column                                                                                           |
-    | [file](#check_logfile_file)                   |                                     | File to read (can be specified multiple times to check multiple files.                                           |
-    | files                                         |                                     | A comma separated list of files to scan (same as file except a list)                                             |
-
-
-
-    <h5 id="check_logfile_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_logfile_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_logfile_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-
-    <h5 id="check_logfile_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_logfile_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `ignored`
-
-    <h5 id="check_logfile_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_logfile_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${count}/${total} (${problem_list})`
-
-    <h5 id="check_logfile_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_logfile_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `%(status): Nothing found`
-
-    <h5 id="check_logfile_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${column1}`
-
-    <h5 id="check_logfile_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${column1}`
-
-    <h5 id="check_logfile_line-split">line-split:</h5>
-
-    Character string used to split a file into several lines (default `\n`).
-    The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`) makes the entire file content available as a single record, which is useful together with a multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
-    `, a trailing carriage return is stripped from each record so that files with CRLF line endings produce clean lines.
-
-    *Default Value:* `\n`
-
-    <h5 id="check_logfile_column-split">column-split:</h5>
-
-    Character string to split a line into several columns (default \t)
-
-    *Default Value:* `\t`
-
-    <h5 id="check_logfile_file">file:</h5>
-
-    File to read (can be specified multiple times to check multiple files.
-    Notice that specifying multiple files will create an aggregate set it will not check each file individually.
-    In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.
+File to read (can be specified multiple times to check multiple files.
+Notice that specifying multiple files will create an aggregate set it will not check each file individually.
+In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.
 
 
 <a id="check_logfile_filter_keys"></a>
 #### Filter keywords
 
-=== "Windows"
+| Option   | Description                                   |
+|----------|-----------------------------------------------|
+| column() | Fetch the value from the given column number. |
+| column1  | The value in the first column                 |
+| column2  | The value in the second column                |
+| column3  | The value in the third column                 |
+| column4  | The value in the 4:th column                  |
+| column5  | The value in the 5:th column                  |
+| column6  | The value in the 6:th column                  |
+| column7  | The value in the 7:th column                  |
+| column8  | The value in the 8:th column                  |
+| column9  | The value in the 9:th column                  |
+| file     | The name of the file                          |
+| filename | The name of the file                          |
+| line     | Match the content of an entire line           |
 
-    | Option   | Description                                   |
-    |----------|-----------------------------------------------|
-    | column() | Fetch the value from the given column number. |
-    | column1  | The value in the first column                 |
-    | column2  | The value in the second column                |
-    | column3  | The value in the third column                 |
-    | column4  | The value in the 4:th column                  |
-    | column5  | The value in the 5:th column                  |
-    | column6  | The value in the 6:th column                  |
-    | column7  | The value in the 7:th column                  |
-    | column8  | The value in the 8:th column                  |
-    | column9  | The value in the 9:th column                  |
-    | file     | The name of the file                          |
-    | filename | The name of the file                          |
-    | line     | Match the content of an entire line           |
+**Common options for all checks:**
 
-    **Common options for all checks:**
-
-    | Option        | Description                                                                                                                                                                                                                                                           |
-    |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-    | crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-    | crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-    | detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-    | list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-    | ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-    | ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-    | problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-    | problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-    | sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-    | total         | Total number of items.                                                                                                                                                                                                                                                |
-    | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-    | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
-
-=== "Linux"
-
-    | Option   | Description                                   |
-    |----------|-----------------------------------------------|
-    | column() | Fetch the value from the given column number. |
-    | column1  | The value in the first column                 |
-    | column2  | The value in the second column                |
-    | column3  | The value in the third column                 |
-    | column4  | The value in the 4:th column                  |
-    | column5  | The value in the 5:th column                  |
-    | column6  | The value in the 6:th column                  |
-    | column7  | The value in the 7:th column                  |
-    | column8  | The value in the 8:th column                  |
-    | column9  | The value in the 9:th column                  |
-    | file     | The name of the file                          |
-    | filename | The name of the file                          |
-    | line     | Match the content of an entire line           |
-
-    **Common options for all checks:**
-
-    | Option        | Description                                                                    |
-    |---------------|--------------------------------------------------------------------------------|
-    | count         | Number of items matching the filter.                                           |
-    | crit_count    | Number of items matched the critical criteria.                                 |
-    | crit_list     | A list of all items which matched the critical criteria.                       |
-    | detail_list   | A special list with critical, then warning and finally ok.                     |
-    | list          | A list of all items which matched the filter.                                  |
-    | ok_count      | Number of items matched the ok criteria.                                       |
-    | ok_list       | A list of all items which matched the ok criteria.                             |
-    | problem_count | Number of items matched either warning or critical criteria.                   |
-    | problem_list  | A list of all items which matched either the critical or the warning criteria. |
-    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
-    | total         | Total number of items.                                                         |
-    | warn_count    | Number of items matched the warning criteria.                                  |
-    | warn_list     | A list of all items which matched the warning criteria.                        |
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ## Configuration
 
@@ -474,150 +292,80 @@ Spawns a background thread which waits for file changes.
 enabled=false
 ```
 
-=== "Windows"
+### Real-time filters <a id="/settings/logfile/real-time/checks"></a>
 
-    ### Real-time filters <a id="/settings/logfile/real-time/checks"></a>
-
-    A set of filters to use in real-time mode
+A set of filters to use in real-time mode
 
 
-    This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
+This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
 
 
-    **Keys:**
+**Keys:**
 
 
-    | Key              | Default Value             | Description      |
-    |------------------|---------------------------|------------------|
-    | column split     |                           | COLUMN SPLIT     |
-    | column-split     |                           | COLUMN SPLIT     |
-    | command          |                           | COMMAND NAME     |
-    | critical         |                           | CRITICAL FILTER  |
-    | debug            |                           | DEBUG            |
-    | destination      |                           | DESTINATION      |
-    | detail syntax    |                           | SYNTAX           |
-    | empty message    | eventlog found no records | EMPTY MESSAGE    |
-    | escape html      |                           | ESCAPE HTML      |
-    | file             |                           | FILE             |
-    | files            |                           | FILES            |
-    | filter           |                           | FILTER           |
-    | list separator   |                           | LIST SEPARATOR   |
-    | maximum age      | 5m                        | MAXIMUM AGE      |
-    | ok               |                           | OK FILTER        |
-    | ok syntax        |                           | SYNTAX           |
-    | perf config      |                           | PERF CONFIG      |
-    | read entire file |                           | read entire file |
-    | severity         |                           | SEVERITY         |
-    | silent period    | false                     | Silent period    |
-    | source id        |                           | SOURCE ID        |
-    | target           |                           | DESTINATION      |
-    | target id        |                           | TARGET ID        |
-    | top syntax       |                           | SYNTAX           |
-    | warning          |                           | WARNING FILTER   |
+| Key              | Default Value             | Description      |
+|------------------|---------------------------|------------------|
+| column split     |                           | COLUMN SPLIT     |
+| column-split     |                           | COLUMN SPLIT     |
+| command          |                           | COMMAND NAME     |
+| critical         |                           | CRITICAL FILTER  |
+| debug            |                           | DEBUG            |
+| destination      |                           | DESTINATION      |
+| detail syntax    |                           | SYNTAX           |
+| empty message    | eventlog found no records | EMPTY MESSAGE    |
+| escape html      |                           | ESCAPE HTML      |
+| file             |                           | FILE             |
+| files            |                           | FILES            |
+| filter           |                           | FILTER           |
+| list separator   |                           | LIST SEPARATOR   |
+| maximum age      | 5m                        | MAXIMUM AGE      |
+| ok               |                           | OK FILTER        |
+| ok syntax        |                           | SYNTAX           |
+| perf config      |                           | PERF CONFIG      |
+| read entire file |                           | read entire file |
+| severity         |                           | SEVERITY         |
+| silent period    | false                     | Silent period    |
+| source id        |                           | SOURCE ID        |
+| target           |                           | DESTINATION      |
+| target id        |                           | TARGET ID        |
+| top syntax       |                           | SYNTAX           |
+| warning          |                           | WARNING FILTER   |
 
 
-    **Sample:**
+**Sample:**
 
-    ```ini
-    # An example of a Real-time filters section
-    [/settings/logfile/real-time/checks/sample]
-    #column split=...
-    #column-split=...
-    #command=...
-    #critical=...
-    #debug=...
-    #destination=...
-    #detail syntax=...
-    empty message=eventlog found no records
-    #escape html=...
-    #file=...
-    #files=...
-    #filter=...
-    #list separator=...
-    maximum age=5m
-    #ok=...
-    #ok syntax=...
-    #perf config=...
-    #read entire file=...
-    #severity=...
-    silent period=false
-    #source id=...
-    #target=...
-    #target id=...
-    #top syntax=...
-    #warning=...
+```ini
+# An example of a Real-time filters section
+[/settings/logfile/real-time/checks/sample]
+#column split=...
+#column-split=...
+#command=...
+#critical=...
+#debug=...
+#destination=...
+#detail syntax=...
+empty message=eventlog found no records
+#escape html=...
+#file=...
+#files=...
+#filter=...
+#list separator=...
+maximum age=5m
+#ok=...
+#ok syntax=...
+#perf config=...
+#read entire file=...
+#severity=...
+silent period=false
+#source id=...
+#target=...
+#target id=...
+#top syntax=...
+#warning=...
 
-    ```
-
-=== "Linux"
-
-    ### Real-time filters <a id="/settings/logfile/real-time/checks"></a>
-
-    A set of filters to use in real-time mode
+```
 
 
-    This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
 
 
-    **Keys:**
 
-
-    | Key              | Default Value             | Description      |
-    |------------------|---------------------------|------------------|
-    | column split     |                           | COLUMN SPLIT     |
-    | column-split     |                           | COLUMN SPLIT     |
-    | command          |                           | COMMAND NAME     |
-    | critical         |                           | CRITICAL FILTER  |
-    | debug            |                           | DEBUG            |
-    | destination      |                           | DESTINATION      |
-    | detail syntax    |                           | SYNTAX           |
-    | empty message    | eventlog found no records | EMPTY MESSAGE    |
-    | escape html      |                           | ESCAPE HTML      |
-    | file             |                           | FILE             |
-    | files            |                           | FILES            |
-    | filter           |                           | FILTER           |
-    | maximum age      | 5m                        | MAXIMUM AGE      |
-    | ok               |                           | OK FILTER        |
-    | ok syntax        |                           | SYNTAX           |
-    | perf config      |                           | PERF CONFIG      |
-    | read entire file |                           | read entire file |
-    | severity         |                           | SEVERITY         |
-    | silent period    | false                     | Silent period    |
-    | source id        |                           | SOURCE ID        |
-    | target           |                           | DESTINATION      |
-    | target id        |                           | TARGET ID        |
-    | top syntax       |                           | SYNTAX           |
-    | warning          |                           | WARNING FILTER   |
-
-
-    **Sample:**
-
-    ```ini
-    # An example of a Real-time filters section
-    [/settings/logfile/real-time/checks/sample]
-    #column split=...
-    #column-split=...
-    #command=...
-    #critical=...
-    #debug=...
-    #destination=...
-    #detail syntax=...
-    empty message=eventlog found no records
-    #escape html=...
-    #file=...
-    #files=...
-    #filter=...
-    maximum age=5m
-    #ok=...
-    #ok syntax=...
-    #perf config=...
-    #read entire file=...
-    #severity=...
-    silent period=false
-    #source id=...
-    #target=...
-    #target id=...
-    #top syntax=...
-    #warning=...
-
-    ```

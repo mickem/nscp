@@ -31,7 +31,7 @@ unix:
           title: Python cache
         python lib:
           advanced: false
-          default_value: libpython3.12.so
+          default_value: libpython3.12.so.1.0
           description: The python DLL to load
           sample: false
           title: Python lib
