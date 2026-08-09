@@ -6,10 +6,12 @@
 #include <gtest/gtest.h>
 
 using check_proc::check_proc_filter::filter_obj;
+using check_proc::check_proc_filter::lookup_username;
 using check_proc::check_proc_filter::parse_proc_pid_stat;
 using check_proc::check_proc_filter::parse_proc_stat_btime;
 using check_proc::check_proc_filter::parse_proc_stat_cpu_total;
 using check_proc::check_proc_filter::parse_proc_status_bytes;
+using check_proc::check_proc_filter::parse_proc_status_uid;
 using check_proc::check_proc_filter::proc_stat_data;
 
 // ============================================================================
@@ -28,6 +30,7 @@ TEST(ParseProcPidStat, TypicalLine) {
       "1234 (bash) S 1000 1234 1234 34816 1234 4194304 1500 0 7 0 250 125 3 2 20 0 1 0 9876 8192000 500 18446744073709551615", data));
   EXPECT_EQ("bash", data.comm);
   EXPECT_EQ('S', data.state);
+  EXPECT_EQ(1000, data.ppid);
   EXPECT_EQ(7ull, data.major_faults);
   EXPECT_EQ(250ull, data.utime_jiffies);
   EXPECT_EQ(125ull, data.stime_jiffies);
@@ -39,6 +42,16 @@ TEST(ParseProcPidStat, CommWithSpaces) {
   ASSERT_TRUE(parse_proc_pid_stat("42 (Web Content) R 1 42 42 0 -1 4194560 100 0 5 0 60 40 0 0 20 0 1 0 12345 0 0", data));
   EXPECT_EQ("Web Content", data.comm);
   EXPECT_EQ('R', data.state);
+  EXPECT_EQ(1, data.ppid);
+}
+
+TEST(ParseProcPidStat, PpidIsReadFromTheFieldAfterState) {
+  // ppid is field 4, immediately after the state character. Kernel threads are
+  // children of kthreadd (pid 2), which is how they can be filtered out.
+  proc_stat_data data;
+  ASSERT_TRUE(parse_proc_pid_stat("15 (kworker/0:1) I 2 0 0 0 -1 69238880 0 0 0 0 0 3 0 0 20 0 1 0 22 0 0", data));
+  EXPECT_EQ(2, data.ppid);
+  EXPECT_EQ('I', data.state);
 }
 
 TEST(ParseProcPidStat, CommWithCloseOpenParenSequence) {
@@ -79,6 +92,8 @@ namespace {
 const std::string status_content =
     "Name:\tbash\n"
     "State:\tS (sleeping)\n"
+    "Uid:\t1000\t1000\t1000\t1000\n"
+    "Gid:\t1000\t1000\t1000\t1000\n"
     "VmPeak:\t   10240 kB\n"
     "VmSize:\t    8192 kB\n"
     "VmHWM:\t      512 kB\n"
@@ -106,6 +121,138 @@ TEST(ParseProcStatusBytes, KeyMustMatchWholeLabel) {
   unsigned long long bytes = 0;
   EXPECT_FALSE(parse_proc_status_bytes(status_content, "VmP", bytes));
   EXPECT_FALSE(parse_proc_status_bytes(status_content, "VmSwap", bytes));
+}
+
+// ============================================================================
+// /proc/[pid]/status Uid: parsing and uid -> name resolution
+// ============================================================================
+
+TEST(ParseProcStatusUid, ExtractsTheRealUid) {
+  // The line holds real, effective, saved and filesystem uid; the owner is the
+  // first (real) one.
+  long long uid = -1;
+  ASSERT_TRUE(parse_proc_status_uid(status_content, uid));
+  EXPECT_EQ(1000, uid);
+}
+
+TEST(ParseProcStatusUid, RootIsZeroNotMissing) {
+  long long uid = -1;
+  ASSERT_TRUE(parse_proc_status_uid("Name:\tsystemd\nUid:\t0\t0\t0\t0\n", uid));
+  EXPECT_EQ(0, uid);
+}
+
+TEST(ParseProcStatusUid, EffectiveUidDiffersFromRealUid) {
+  // A setuid binary: real 1000, effective 0. We report the real uid (the owner
+  // who started it), which is what `ps -o uid` shows.
+  long long uid = -1;
+  ASSERT_TRUE(parse_proc_status_uid("Uid:\t1000\t0\t0\t0\n", uid));
+  EXPECT_EQ(1000, uid);
+}
+
+TEST(ParseProcStatusUid, MissingOrMalformedLineLeavesValueUntouched) {
+  long long uid = -1;
+  EXPECT_FALSE(parse_proc_status_uid("Name:\tkthreadd\nState:\tS (sleeping)\n", uid));
+  EXPECT_EQ(-1, uid);
+  EXPECT_FALSE(parse_proc_status_uid("Uid:\tnotanumber\n", uid));
+  EXPECT_EQ(-1, uid);
+  // "Uid:" must match the whole label, not a prefix of another key.
+  EXPECT_FALSE(parse_proc_status_uid("NStgid:\t42\n", uid));
+  EXPECT_EQ(-1, uid);
+}
+
+TEST(LookupUsername, NegativeUidResolvesToEmpty) {
+  // -1 is the "not known" sentinel used by the synthetic not-found/total rows;
+  // it must never reach getpwuid_r.
+  EXPECT_EQ("", lookup_username(-1));
+}
+
+TEST(LookupUsername, ResolvesRootAndIsStableAcrossCalls) {
+  // uid 0 exists on every Unix; the second call must come from the cache and
+  // return exactly the same answer.
+  const std::string first = lookup_username(0);
+  EXPECT_EQ("root", first);
+  EXPECT_EQ(first, lookup_username(0));
+}
+
+TEST(LookupUsername, UnknownUidResolvesToEmptyRatherThanFailing) {
+  // A uid with no passwd entry (e.g. a deleted user still owning processes in
+  // a container) must degrade to an empty name, not an error.
+  EXPECT_EQ("", lookup_username(4294967000LL));
+}
+
+// ============================================================================
+// Raw Linux process state (`proc_state`)
+// ============================================================================
+
+TEST(ProcState, StateCharactersMapToNames) {
+  filter_obj p;
+  const struct {
+    char c;
+    const char *name;
+  } cases[] = {{'R', "running"},      {'S', "sleeping"}, {'D', "disk_sleep"}, {'Z', "zombie"}, {'T', "stopped"},
+               {'t', "tracing_stop"}, {'X', "dead"},     {'I', "idle"},       {'P', "parked"}};
+  for (const auto &c : cases) {
+    p.proc_state = c.c;
+    EXPECT_EQ(c.name, p.get_proc_state_s()) << "state char " << c.c;
+  }
+}
+
+TEST(ProcState, UnsetOrUnrecognisedStateIsUnknown) {
+  filter_obj p;  // default '?'
+  EXPECT_EQ("unknown", p.get_proc_state_s());
+  EXPECT_EQ(filter_obj::proc_state_unknown, p.get_proc_state_i());
+  p.proc_state = 'W';  // obsolete "paging"/"wakekill"
+  EXPECT_EQ("unknown", p.get_proc_state_s());
+}
+
+TEST(ProcState, ParseRoundTripsEveryRenderedName) {
+  // Whatever get_proc_state_s() renders must be usable verbatim in an
+  // expression such as `proc_state = 'zombie'`.
+  filter_obj p;
+  for (const char c : std::string("RSDZTtXIP")) {
+    p.proc_state = c;
+    EXPECT_EQ(p.get_proc_state_i(), filter_obj::parse_proc_state(p.get_proc_state_s())) << "state char " << c;
+  }
+}
+
+TEST(ProcState, ParseAcceptsCommonSynonyms) {
+  EXPECT_EQ(filter_obj::proc_state_disk_sleep, filter_obj::parse_proc_state("uninterruptible"));
+  EXPECT_EQ(filter_obj::proc_state_zombie, filter_obj::parse_proc_state("defunct"));
+  EXPECT_EQ(filter_obj::proc_state_tracing_stop, filter_obj::parse_proc_state("traced"));
+}
+
+TEST(ProcState, UnknownNameParsesToUnknownRatherThanMatchingSomething) {
+  EXPECT_EQ(filter_obj::proc_state_unknown, filter_obj::parse_proc_state("nonsense"));
+  EXPECT_EQ(filter_obj::proc_state_unknown, filter_obj::parse_proc_state(""));
+}
+
+TEST(ProcState, IsIndependentOfTheCrossPlatformStateKeyword) {
+  // `state` keeps its started/stopped meaning: a zombie is not "started", but
+  // it is precisely distinguishable through `proc_state`. This separation is
+  // why proc_state exists as its own keyword.
+  filter_obj zombie;
+  zombie.proc_state = 'Z';
+  zombie.started = false;
+  EXPECT_EQ("stopped", zombie.get_state_s());
+  EXPECT_EQ("zombie", zombie.get_proc_state_s());
+
+  filter_obj blocked;
+  blocked.proc_state = 'D';
+  blocked.started = true;  // D counts as started for `state`
+  EXPECT_EQ("started", blocked.get_state_s());
+  EXPECT_EQ("disk_sleep", blocked.get_proc_state_s());
+}
+
+TEST(ParseState, AcceptsRunningAsSynonymForStarted) {
+  // Matches the Windows check; the rendered value stays "started".
+  EXPECT_EQ(filter_obj::state_started, filter_obj::parse_state("running"));
+  EXPECT_EQ(filter_obj::state_started, filter_obj::parse_state("started"));
+  EXPECT_EQ(filter_obj::state_stopped, filter_obj::parse_state("stopped"));
+  EXPECT_EQ(filter_obj::state_unknown, filter_obj::parse_state("zombie"));
+
+  filter_obj p;
+  p.started = true;
+  EXPECT_EQ("started", p.get_state_s());
 }
 
 // ============================================================================

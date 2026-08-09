@@ -148,8 +148,7 @@ describe("CheckSystem commands", () => {
     expect(time).toBe(user + kernel);
   });
 
-  it("check_process rss is an alias for working_set (Windows)", async () => {
-    if (!onWindows) return; // rss/working_set keywords are the Windows process check.
+  it("check_process rss is an alias for working_set", async () => {
     const q = await executeQuery(key, "check_process", {
       process: SELF_EXE,
       "top-syntax": "${list}",
@@ -163,8 +162,7 @@ describe("CheckSystem commands", () => {
     expect(m![1]).toBe(m![2]);
   });
 
-  it("check_process accepts 'running' as a synonym for 'started' (Windows)", async () => {
-    if (!onWindows) return;
+  it("check_process accepts 'running' as a synonym for 'started'", async () => {
     const q = await executeQuery(key, "check_process", {
       process: SELF_EXE,
       warning: "state != 'running'",
@@ -203,6 +201,112 @@ describe("CheckSystem commands", () => {
     });
     expect(q.result).toBe(OK);
     expect(messageOf(q)).toMatch(/user=\[\]/); // owner not resolved by default
+  });
+
+  it("check_process resolve-owner=true populates username (Linux)", async () => {
+    if (onWindows) return; // Windows resolves a SID; covered by its own test above.
+    // uid needs no flag (it is read straight out of /proc/<pid>/status), the
+    // name does because it goes through NSS.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "resolve-owner": "true",
+      "top-syntax": "${list}",
+      "detail-syntax": "user=[${username}] uid=[${uid}]",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    expect(msg).toMatch(/user=\[[^\]]+\]/);
+    expect(msg).toMatch(/uid=\[\d+\]/); // a numeric uid, not a SID
+  });
+
+  it("check_process reports a numeric uid without resolve-owner (Linux)", async () => {
+    if (onWindows) return;
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "user=[${username}] uid=[${uid}]",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    expect(msg).toMatch(/user=\[\]/); // name not resolved by default
+    expect(msg).toMatch(/uid=\[\d+\]/); // ...but the uid is always there
+  });
+
+  it("check_process uid is numerically thresholdable (Linux)", async () => {
+    if (onWindows) return;
+    // The point of uid being an int rather than a string: `uid < 1000` selects
+    // system accounts. Our own process is owned by whoever runs the suite, so
+    // assert on the expression evaluating rather than on a specific verdict.
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      warning: "none",
+      critical: "uid < 0", // never true: uid is always known for a live process
+      "top-syntax": "${list}",
+      "detail-syntax": "${exe} uid=${uid}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/uid=\d+/);
+  });
+
+  it("check_process exposes ppid (Linux)", async () => {
+    if (onWindows) return;
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "pid=${pid} ppid=${ppid}",
+    });
+    expect(q.result).toBe(OK);
+    const m = /pid=(\d+) ppid=(\d+)/.exec(messageOf(q));
+    expect(m).not.toBeNull();
+    const [, pid, ppid] = m!.map(Number);
+    expect(pid).toBeGreaterThan(0);
+    // We were started by the test harness, so we have a real parent that is
+    // not ourselves.
+    expect(ppid).toBeGreaterThan(0);
+    expect(ppid).not.toBe(pid);
+  });
+
+  it("check_process proc_state reports the raw Linux state (Linux)", async () => {
+    if (onWindows) return;
+    // A live process is in one of the running states; `state` stays "started".
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "state=${state} proc_state=${proc_state}",
+    });
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    expect(msg).toMatch(/state=started/);
+    expect(msg).toMatch(/proc_state=(running|sleeping|disk_sleep|idle)/);
+  });
+
+  it("check_process proc_state is usable in threshold expressions (Linux)", async () => {
+    if (onWindows) return;
+    // The canonical use: alert on zombies. We are not a zombie, so this must
+    // come back OK — and it must parse, which is the real assertion (an
+    // unknown state name would evaluate to `unknown` and never match).
+    const q = await executeQuery(key, "check_process", {
+      process: "*",
+      warning: "none",
+      critical: "proc_state = 'zombie' and exe = 'definitely-not-a-real-process'",
+      "top-syntax": "${status}: ${count} processes",
+    });
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_process exposes elapsed seconds since start (Linux)", async () => {
+    if (onWindows) return;
+    const q = await executeQuery(key, "check_process", {
+      process: SELF_EXE,
+      "top-syntax": "${list}",
+      "detail-syntax": "elapsed=${elapsed}",
+    });
+    expect(q.result).toBe(OK);
+    const elapsed = Number(/elapsed=(\d+)/.exec(messageOf(q))?.[1]);
+    // The instance has been up since beforeAll; a sane age is seconds to
+    // minutes, and certainly less than a day.
+    expect(elapsed).toBeGreaterThanOrEqual(0);
+    expect(elapsed).toBeLessThan(86_400);
   });
 
   it("check_process delta=true reports CPU as a percentage (Linux)", async () => {
