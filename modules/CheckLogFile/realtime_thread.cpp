@@ -150,7 +150,14 @@ void real_time_thread::thread_proc() {
 bool real_time_thread::start() {
   if (!enabled_) return true;
 #ifdef WIN32
-  stop_event_ = CreateEvent(NULL, TRUE, FALSE, L"EventLogShutdown");
+  // Deliberately UNNAMED (this used to be the named event "EventLogShutdown",
+  // a name CheckEventLog's realtime thread also created): the handle never
+  // leaves this process, and sharing one named kernel object meant either
+  // module stopping silently killed the other's realtime thread - and a
+  // stop/start cycle reopened the same still-signaled object, so the restarted
+  // thread exited immediately. A name would also let any co-resident process
+  // signal it and disable monitoring from outside.
+  stop_event_ = CreateEvent(NULL, TRUE, FALSE, NULL);
 #else
   if (pipe(stop_event_) == -1) {
     NSC_LOG_ERROR("Failed to create pipe");
@@ -162,13 +169,29 @@ bool real_time_thread::start() {
 bool real_time_thread::stop() {
   if (!enabled_) return true;
 #ifdef WIN32
-  SetEvent(stop_event_);
+  if (stop_event_ != nullptr) SetEvent(stop_event_);
 #else
-  if (write(stop_event_[1], " ", 2) == -1) {
+  if (stop_event_[1] < 0 || write(stop_event_[1], " ", 2) == -1) {
     NSC_LOG_ERROR("Failed to signal a stop");
   }
 #endif
-  if (thread_) thread_->join();
+  if (thread_) {
+    thread_->join();
+    thread_.reset();
+  }
+  // Release the signal primitive after the join so a stop/start cycle gets a
+  // fresh one instead of leaking a handle (or a pipe fd pair) per cycle.
+#ifdef WIN32
+  if (stop_event_ != nullptr) {
+    CloseHandle(stop_event_);
+    stop_event_ = nullptr;
+  }
+#else
+  for (int &fd : stop_event_) {
+    if (fd >= 0) close(fd);
+    fd = -1;
+  }
+#endif
   return true;
 }
 
