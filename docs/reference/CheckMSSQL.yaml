@@ -1,19 +1,73 @@
-common:
+module: CheckMSSQL
+namespace: windows
+platforms:
+- windows
+windows:
   info:
-    description: Network related checks such as check_ping, check_tcp, check_dns, check_http, check_connections
-      and check_ntp_offset.
-    title: CheckNet
+    description: 'Check Microsoft SQL Server: connectivity, databases, backups, agent jobs and custom
+      queries.'
+    title: CheckMSSQL
+  paths:
+    /settings/mssql:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        connection string:
+          advanced: true
+          default_value: ''
+          description: Raw ODBC connection string; overrides all other connection settings.
+          sample: false
+          title: CONNECTION STRING
+        database:
+          advanced: false
+          default_value: ''
+          description: Default database (initial catalog) to connect to.
+          sample: false
+          title: DATABASE
+        driver:
+          advanced: false
+          default_value: ''
+          description: ODBC driver used to connect; leave empty to auto-detect the newest installed SQL
+            Server driver.
+          sample: false
+          title: ODBC DRIVER
+        hostname:
+          advanced: false
+          default_value: localhost
+          description: 'Default SQL Server to connect to: host, host\INSTANCE or host,port.'
+          sample: false
+          title: SQL SERVER
+        password:
+          advanced: false
+          default_value: ''
+          description: Password for the SQL login.
+          sample: false
+          title: SQL PASSWORD
+        query timeout:
+          advanced: true
+          default_value: '30'
+          description: Query timeout in seconds.
+          sample: false
+          title: QUERY TIMEOUT
+        timeout:
+          advanced: true
+          default_value: '10'
+          description: Connection (login) timeout in seconds.
+          sample: false
+          title: LOGIN TIMEOUT
+        user:
+          advanced: false
+          default_value: ''
+          description: SQL login used to authenticate; leave user and password empty to use Windows integrated
+            authentication.
+          sample: false
+          title: SQL USER
   queries:
-    check_connections:
+    check_mssql:
       fields:
-      - generic: false
-        long_description: Number of TCP connections in CLOSE_WAIT state (total bucket)
-        name: close_wait
-        short_description: ''
-      - generic: false
-        long_description: Number of TCP connections in CLOSING state (total bucket)
-        name: closing
-        short_description: ''
       - generic: true
         long_description: Number of items matching the filter. Common option for all checks.
         name: count
@@ -33,347 +87,8 @@ common:
         name: detail_list
         short_description: ''
       - generic: false
-        long_description: Number of TCP connections in ESTABLISHED state (total bucket)
-        name: established
-        short_description: ''
-      - generic: false
-        long_description: Address family (ipv4, ipv6, any)
-        name: family
-        short_description: ''
-      - generic: false
-        long_description: Number of TCP connections in FIN_WAIT* state (total bucket)
-        name: fin_wait
-        short_description: ''
-      - generic: false
-        long_description: Number of TCP connections in LAST_ACK state (total bucket)
-        name: last_ack
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the filter. Common option for all checks.
-        name: list
-        short_description: ''
-      - generic: false
-        long_description: Number of TCP sockets in LISTEN state (total bucket)
-        name: listen
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the ok criteria. Common option for all checks.
-        name: ok_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the ok criteria. Common option for all checks.
-        name: ok_list
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched either warning or critical criteria. Common option for
-          all checks.
-        name: problem_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched either the critical or the warning criteria.
-          Common option for all checks.
-        name: problem_list
-        short_description: ''
-      - generic: false
-        long_description: Protocol of this bucket (tcp, tcp6, udp, udp6, total)
-        name: protocol
-        short_description: ''
-      - generic: true
-        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
-          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
-          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
-          Common option for all checks.'
-        name: sep
-        short_description: ''
-      - generic: false
-        long_description: TCP state name (ESTABLISHED, LISTEN, ...) or 'all'
-        name: state
-        short_description: ''
-      - generic: true
-        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
-        name: status
-        short_description: ''
-      - generic: false
-        long_description: Number of TCP connections in SYN_RECV state (total bucket)
-        name: syn_recv
-        short_description: ''
-      - generic: false
-        long_description: Number of TCP connections in SYN_SENT state (total bucket)
-        name: syn_sent
-        short_description: ''
-      - generic: false
-        long_description: Number of TCP connections in TIME_WAIT state (total bucket)
-        name: time_wait
-        short_description: ''
-      - generic: true
-        long_description: Total number of items. Common option for all checks.
-        name: total
-        short_description: ''
-      - generic: false
-        long_description: Number of UDP sockets (total bucket)
-        name: udp
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the warning criteria. Common option for all checks.
-        name: warn_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the warning criteria. Common option for all
-          checks.
-        name: warn_list
-        short_description: ''
-      info:
-        description: Count active TCP/UDP connections and report counts per protocol and TCP state.
-      params:
-      - content_type: 2
-        default_value: protocol = 'total'
-        is_simple: false
-        long_description: 'Filter which marks interesting items.
-
-          Interesting items are items which will be included in the check.
-
-          They do not denote warning or critical state instead it defines which items are relevant and
-          you can remove unwanted items.'
-        name: filter
-        repeatable: false
-        required: false
-        short_description: Filter which marks interesting items.
-      - content_type: 2
-        default_value: total > 1000
-        is_simple: false
-        long_description: 'Filter which marks items which generates a warning state.
-
-          If anything matches this filter the return status will be escalated to warning.
-
-          '
-        name: warning
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a warning state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for warning
-        name: warn
-        repeatable: false
-        required: false
-        short_description: Short alias for warning
-      - content_type: 2
-        default_value: total > 2000
-        is_simple: false
-        long_description: 'Filter which marks items which generates a critical state.
-
-          If anything matches this filter the return status will be escalated to critical.
-
-          '
-        name: critical
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a critical state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for critical.
-        name: crit
-        repeatable: false
-        required: false
-        short_description: Short alias for critical.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates an ok state.
-
-          If anything matches this any previous state for this item will be reset to ok.'
-        name: ok
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates an ok state.
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show debugging information in the log
-        name: debug
-        repeatable: false
-        required: false
-        short_description: Show debugging information in the log
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-        name: show-all
-        repeatable: false
-        required: false
-        short_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-      - content_type: 2
-        default_value: ignored
-        is_simple: false
-        long_description: 'Return status to use when nothing matched filter.
-
-          If no filter is specified this will never happen unless the file is empty.'
-        name: empty-state
-        repeatable: false
-        required: false
-        short_description: Return status to use when nothing matched filter.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Performance data generation configuration
-
-          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
-        name: perf-config
-        repeatable: false
-        required: false
-        short_description: Performance data generation configuration
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Escape any < and > characters to prevent HTML encoding
-        name: escape-html
-        repeatable: false
-        required: false
-        short_description: Escape any < and > characters to prevent HTML encoding
-      - content_type: 2
-        default_value: ', '
-        is_simple: false
-        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-
-          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
-          newline cannot be written).
-
-          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
-          below the summary line.
-
-          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
-          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
-          items:%(sep)%(list)".'
-        name: list-separator
-        repeatable: false
-        required: false
-        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
-      - content_type: 2
-        default_value: '${status}: ${list}'
-        is_simple: false
-        long_description: 'Top level syntax.
-
-          Used to format the message to return can include text as well as special keywords which will
-          include information from the checks.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: top-syntax
-        repeatable: false
-        required: false
-        short_description: Top level syntax.
-      - content_type: 2
-        default_value: '%(status): %(list)'
-        is_simple: false
-        long_description: 'ok syntax.
-
-          DEPRECATED! This is the syntax for when an ok result is returned.
-
-          This value will not be used if your syntax contains %(list) or %(count).'
-        name: ok-syntax
-        repeatable: false
-        required: false
-        short_description: ok syntax.
-      - content_type: 2
-        default_value: No connection data
-        is_simple: false
-        long_description: 'Empty syntax.
-
-          DEPRECATED! This is the syntax for when nothing matches the filter.'
-        name: empty-syntax
-        repeatable: false
-        required: false
-        short_description: Empty syntax.
-      - content_type: 2
-        default_value: '${protocol}/${state}: ${count}'
-        is_simple: false
-        long_description: 'Detail level syntax.
-
-          Used to format each resulting item in the message.
-
-          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: detail-syntax
-        repeatable: false
-        required: false
-        short_description: Detail level syntax.
-      - content_type: 2
-        default_value: ${protocol}_${state}
-        is_simple: false
-        long_description: 'Performance alias syntax.
-
-          This is the syntax for the base names of the performance data.'
-        name: perf-syntax
-        repeatable: false
-        required: false
-        short_description: Performance alias syntax.
-    check_dns:
-      fields:
-      - generic: false
-        long_description: Comma separated list of resolved records
-        name: addresses
-        short_description: ''
-      - generic: true
-        long_description: Number of items matching the filter. Common option for all checks.
-        name: count
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the critical criteria. Common option for all checks.
-        name: crit_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the critical criteria. Common option for all
-          checks.
-        name: crit_list
-        short_description: ''
-      - generic: true
-        long_description: A special list with critical, then warning and finally ok. Common option for
-          all checks.
-        name: detail_list
-        short_description: ''
-      - generic: false
-        long_description: Hostname that was looked up
-        name: host
+        long_description: Edition, e.g. Express Edition (64-bit)
+        name: edition
         short_description: ''
       - generic: true
         long_description: A list of all items which matched the filter. Common option for all checks.
@@ -398,8 +113,8 @@ common:
         name: problem_list
         short_description: ''
       - generic: false
-        long_description: Textual result of the lookup (ok, not_found, mismatch, error, ...)
-        name: result
+        long_description: 'Product level: RTM, SPn or CUn'
+        name: product_level
         short_description: ''
       - generic: true
         long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
@@ -409,24 +124,24 @@ common:
         name: sep
         short_description: ''
       - generic: false
-        long_description: DNS server used (empty for the system resolver)
-        name: server
+        long_description: Instance name (SERVERPROPERTY('ServerName'))
+        name: server_name
         short_description: ''
       - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
-        short_description: ''
-      - generic: false
-        long_description: Time taken by the lookup in milliseconds
-        name: time
         short_description: ''
       - generic: true
         long_description: Total number of items. Common option for all checks.
         name: total
         short_description: ''
       - generic: false
-        long_description: Record type that was queried (A, AAAA, MX, TXT, ...)
-        name: type
+        long_description: Seconds since the server started (supports units, e.g. uptime < 1h)
+        name: uptime
+        short_description: ''
+      - generic: false
+        long_description: Product version, e.g. 16.0.1000.6
+        name: version
         short_description: ''
       - generic: true
         long_description: Number of items matched the warning criteria. Common option for all checks.
@@ -438,7 +153,7 @@ common:
         name: warn_list
         short_description: ''
       info:
-        description: Resolve a host name and check the response time and resulting addresses.
+        description: Check SQL Server connectivity and health (version, edition, uptime).
       params:
       - content_type: 2
         default_value: ''
@@ -454,7 +169,7 @@ common:
         required: false
         short_description: Filter which marks interesting items.
       - content_type: 2
-        default_value: time > 1000
+        default_value: ''
         is_simple: false
         long_description: 'Filter which marks items which generates a warning state.
 
@@ -474,1278 +189,7 @@ common:
         required: false
         short_description: Short alias for warning
       - content_type: 2
-        default_value: result != 'ok'
-        is_simple: false
-        long_description: 'Filter which marks items which generates a critical state.
-
-          If anything matches this filter the return status will be escalated to critical.
-
-          '
-        name: critical
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a critical state.
-      - content_type: 2
         default_value: ''
-        is_simple: true
-        long_description: Short alias for critical.
-        name: crit
-        repeatable: false
-        required: false
-        short_description: Short alias for critical.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates an ok state.
-
-          If anything matches this any previous state for this item will be reset to ok.'
-        name: ok
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates an ok state.
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show debugging information in the log
-        name: debug
-        repeatable: false
-        required: false
-        short_description: Show debugging information in the log
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-        name: show-all
-        repeatable: false
-        required: false
-        short_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-      - content_type: 2
-        default_value: ignored
-        is_simple: false
-        long_description: 'Return status to use when nothing matched filter.
-
-          If no filter is specified this will never happen unless the file is empty.'
-        name: empty-state
-        repeatable: false
-        required: false
-        short_description: Return status to use when nothing matched filter.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Performance data generation configuration
-
-          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
-        name: perf-config
-        repeatable: false
-        required: false
-        short_description: Performance data generation configuration
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Escape any < and > characters to prevent HTML encoding
-        name: escape-html
-        repeatable: false
-        required: false
-        short_description: Escape any < and > characters to prevent HTML encoding
-      - content_type: 2
-        default_value: ', '
-        is_simple: false
-        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-
-          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
-          newline cannot be written).
-
-          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
-          below the summary line.
-
-          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
-          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
-          items:%(sep)%(list)".'
-        name: list-separator
-        repeatable: false
-        required: false
-        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
-      - content_type: 2
-        default_value: '${status}: ${problem_list}'
-        is_simple: false
-        long_description: 'Top level syntax.
-
-          Used to format the message to return can include text as well as special keywords which will
-          include information from the checks.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: top-syntax
-        repeatable: false
-        required: false
-        short_description: Top level syntax.
-      - content_type: 2
-        default_value: '%(status): %(list)'
-        is_simple: false
-        long_description: 'ok syntax.
-
-          DEPRECATED! This is the syntax for when an ok result is returned.
-
-          This value will not be used if your syntax contains %(list) or %(count).'
-        name: ok-syntax
-        repeatable: false
-        required: false
-        short_description: ok syntax.
-      - content_type: 2
-        default_value: No DNS lookup performed
-        is_simple: false
-        long_description: 'Empty syntax.
-
-          DEPRECATED! This is the syntax for when nothing matches the filter.'
-        name: empty-syntax
-        repeatable: false
-        required: false
-        short_description: Empty syntax.
-      - content_type: 2
-        default_value: ${host} -> ${addresses} (${count}) in ${time}ms [${result}]
-        is_simple: false
-        long_description: 'Detail level syntax.
-
-          Used to format each resulting item in the message.
-
-          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: detail-syntax
-        repeatable: false
-        required: false
-        short_description: Detail level syntax.
-      - content_type: 2
-        default_value: ${host}
-        is_simple: false
-        long_description: 'Performance alias syntax.
-
-          This is the syntax for the base names of the performance data.'
-        name: perf-syntax
-        repeatable: false
-        required: false
-        short_description: Performance alias syntax.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Hostname to look up.
-        name: host
-        repeatable: false
-        required: false
-        short_description: Hostname to look up.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Alias for --host.
-        name: lookup
-        repeatable: false
-        required: false
-        short_description: Alias for --host.
-      - content_type: 2
-        default_value: A
-        is_simple: false
-        long_description: 'DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.'
-        name: type
-        repeatable: false
-        required: false
-        short_description: 'DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.'
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: 'DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf
-          otherwise).'
-        name: server
-        repeatable: false
-        required: false
-        short_description: 'DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf
-          otherwise).'
-      - content_type: 2
-        default_value: '53'
-        is_simple: false
-        long_description: UDP port of the DNS server.
-        name: port
-        repeatable: false
-        required: false
-        short_description: UDP port of the DNS server.
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Do not request recursion (RD=0).
-        name: norecursion
-        repeatable: false
-        required: false
-        short_description: Do not request recursion (RD=0).
-      - content_type: 2
-        default_value: '5000'
-        is_simple: false
-        long_description: Timeout in milliseconds.
-        name: timeout
-        repeatable: false
-        required: false
-        short_description: Timeout in milliseconds.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Record that must be present in the answer (may be given multiple times).
-        name: expected-address
-        repeatable: false
-        required: false
-        short_description: Record that must be present in the answer (may be given multiple times).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Comma separated list of records that must all be present in the answer.
-        name: expected
-        repeatable: false
-        required: false
-        short_description: Comma separated list of records that must all be present in the answer.
-    check_http:
-      fields:
-      - generic: false
-        long_description: Body of the response (use with substr/regex matching)
-        name: body
-        short_description: ''
-      - generic: false
-        long_description: HTTP status code
-        name: code
-        short_description: ''
-      - generic: true
-        long_description: Number of items matching the filter. Common option for all checks.
-        name: count
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the critical criteria. Common option for all checks.
-        name: crit_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the critical criteria. Common option for all
-          checks.
-        name: crit_list
-        short_description: ''
-      - generic: true
-        long_description: A special list with critical, then warning and finally ok. Common option for
-          all checks.
-        name: detail_list
-        short_description: ''
-      - generic: false
-        long_description: Host part of the URL
-        name: host
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the filter. Common option for all checks.
-        name: list
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the ok criteria. Common option for all checks.
-        name: ok_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the ok criteria. Common option for all checks.
-        name: ok_list
-        short_description: ''
-      - generic: false
-        long_description: Path part of the URL
-        name: path
-        short_description: ''
-      - generic: false
-        long_description: TCP port that was used
-        name: port
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched either warning or critical criteria. Common option for
-          all checks.
-        name: problem_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched either the critical or the warning criteria.
-          Common option for all checks.
-        name: problem_list
-        short_description: ''
-      - generic: false
-        long_description: Protocol used (http or https)
-        name: protocol
-        short_description: ''
-      - generic: false
-        long_description: Textual result of the check (ok, error, ...)
-        name: result
-        short_description: ''
-      - generic: true
-        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
-          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
-          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
-          Common option for all checks.'
-        name: sep
-        short_description: ''
-      - generic: false
-        long_description: Size of the response body in bytes
-        name: size
-        short_description: ''
-      - generic: false
-        long_description: Days until the server's TLS certificate expires (-1 for plain http; negative
-          if already expired)
-        name: ssl_expiry_days
-        short_description: ''
-      - generic: true
-        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
-        name: status
-        short_description: ''
-      - generic: false
-        long_description: Time taken by the request in milliseconds
-        name: time
-        short_description: ''
-      - generic: true
-        long_description: Total number of items. Common option for all checks.
-        name: total
-        short_description: ''
-      - generic: false
-        long_description: Full URL that was requested
-        name: url
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the warning criteria. Common option for all checks.
-        name: warn_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the warning criteria. Common option for all
-          checks.
-        name: warn_list
-        short_description: ''
-      info:
-        description: Send an HTTP/HTTPS request and check the response status, time, size and body.
-      params:
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks interesting items.
-
-          Interesting items are items which will be included in the check.
-
-          They do not denote warning or critical state instead it defines which items are relevant and
-          you can remove unwanted items.'
-        name: filter
-        repeatable: false
-        required: false
-        short_description: Filter which marks interesting items.
-      - content_type: 2
-        default_value: time > 5000
-        is_simple: false
-        long_description: 'Filter which marks items which generates a warning state.
-
-          If anything matches this filter the return status will be escalated to warning.
-
-          '
-        name: warning
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a warning state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for warning
-        name: warn
-        repeatable: false
-        required: false
-        short_description: Short alias for warning
-      - content_type: 2
-        default_value: code < 200 or code >= 400 or result != 'ok'
-        is_simple: false
-        long_description: 'Filter which marks items which generates a critical state.
-
-          If anything matches this filter the return status will be escalated to critical.
-
-          '
-        name: critical
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a critical state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for critical.
-        name: crit
-        repeatable: false
-        required: false
-        short_description: Short alias for critical.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates an ok state.
-
-          If anything matches this any previous state for this item will be reset to ok.'
-        name: ok
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates an ok state.
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show debugging information in the log
-        name: debug
-        repeatable: false
-        required: false
-        short_description: Show debugging information in the log
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-        name: show-all
-        repeatable: false
-        required: false
-        short_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-      - content_type: 2
-        default_value: ignored
-        is_simple: false
-        long_description: 'Return status to use when nothing matched filter.
-
-          If no filter is specified this will never happen unless the file is empty.'
-        name: empty-state
-        repeatable: false
-        required: false
-        short_description: Return status to use when nothing matched filter.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Performance data generation configuration
-
-          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
-        name: perf-config
-        repeatable: false
-        required: false
-        short_description: Performance data generation configuration
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Escape any < and > characters to prevent HTML encoding
-        name: escape-html
-        repeatable: false
-        required: false
-        short_description: Escape any < and > characters to prevent HTML encoding
-      - content_type: 2
-        default_value: ', '
-        is_simple: false
-        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-
-          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
-          newline cannot be written).
-
-          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
-          below the summary line.
-
-          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
-          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
-          items:%(sep)%(list)".'
-        name: list-separator
-        repeatable: false
-        required: false
-        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
-      - content_type: 2
-        default_value: '${status}: ${problem_list}'
-        is_simple: false
-        long_description: 'Top level syntax.
-
-          Used to format the message to return can include text as well as special keywords which will
-          include information from the checks.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: top-syntax
-        repeatable: false
-        required: false
-        short_description: Top level syntax.
-      - content_type: 2
-        default_value: '%(status): %(list)'
-        is_simple: false
-        long_description: 'ok syntax.
-
-          DEPRECATED! This is the syntax for when an ok result is returned.
-
-          This value will not be used if your syntax contains %(list) or %(count).'
-        name: ok-syntax
-        repeatable: false
-        required: false
-        short_description: ok syntax.
-      - content_type: 2
-        default_value: No URL checked
-        is_simple: false
-        long_description: 'Empty syntax.
-
-          DEPRECATED! This is the syntax for when nothing matches the filter.'
-        name: empty-syntax
-        repeatable: false
-        required: false
-        short_description: Empty syntax.
-      - content_type: 2
-        default_value: ${url} -> ${code} ${result} (${size}B in ${time}ms)
-        is_simple: false
-        long_description: 'Detail level syntax.
-
-          Used to format each resulting item in the message.
-
-          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: detail-syntax
-        repeatable: false
-        required: false
-        short_description: Detail level syntax.
-      - content_type: 2
-        default_value: ${url}
-        is_simple: false
-        long_description: 'Performance alias syntax.
-
-          This is the syntax for the base names of the performance data.'
-        name: perf-syntax
-        repeatable: false
-        required: false
-        short_description: Performance alias syntax.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Full URL to check (http://host[:port]/path or https://...). May be given multiple
-          times.
-        name: url
-        repeatable: false
-        required: false
-        short_description: Full URL to check (http://host[:port]/path or https://...). May be given multiple
-          times.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Hostname (used when --url is not given).
-        name: host
-        repeatable: false
-        required: false
-        short_description: Hostname (used when --url is not given).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: TCP port (defaults to 80 or 443).
-        name: port
-        repeatable: false
-        required: false
-        short_description: TCP port (defaults to 80 or 443).
-      - content_type: 2
-        default_value: /
-        is_simple: false
-        long_description: Path component of the URL.
-        name: path
-        repeatable: false
-        required: false
-        short_description: Path component of the URL.
-      - content_type: 2
-        default_value: http
-        is_simple: false
-        long_description: 'Protocol to use: http or https.'
-        name: protocol
-        repeatable: false
-        required: false
-        short_description: 'Protocol to use: http or https.'
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Force https, alias for --protocol https (ssl=true).
-        name: ssl
-        repeatable: false
-        required: false
-        short_description: Force https, alias for --protocol https (ssl=true).
-      - content_type: 2
-        default_value: '30000'
-        is_simple: false
-        long_description: Timeout in milliseconds.
-        name: timeout
-        repeatable: false
-        required: false
-        short_description: Timeout in milliseconds.
-      - content_type: 2
-        default_value: GET
-        is_simple: false
-        long_description: HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).
-        name: method
-        repeatable: false
-        required: false
-        short_description: HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Request body to send; implies POST unless --method is given.
-        name: post-data
-        repeatable: false
-        required: false
-        short_description: Request body to send; implies POST unless --method is given.
-      - content_type: 2
-        default_value: application/x-www-form-urlencoded
-        is_simple: false
-        long_description: Content-Type header for the request body.
-        name: content-type
-        repeatable: false
-        required: false
-        short_description: Content-Type header for the request body.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Username for HTTP Basic authentication.
-        name: username
-        repeatable: false
-        required: false
-        short_description: Username for HTTP Basic authentication.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Password for HTTP Basic authentication.
-        name: password
-        repeatable: false
-        required: false
-        short_description: Password for HTTP Basic authentication.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Substring that must appear in the body for the check to be ok.
-        name: expected-body
-        repeatable: false
-        required: false
-        short_description: Substring that must appear in the body for the check to be ok.
-      - content_type: 2
-        default_value: NSClient++
-        is_simple: false
-        long_description: User-Agent header value.
-        name: user-agent
-        repeatable: false
-        required: false
-        short_description: User-Agent header value.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: 'Additional request header in ''Name: value'' form (may be given multiple times).'
-        name: header
-        repeatable: false
-        required: false
-        short_description: 'Additional request header in ''Name: value'' form (may be given multiple times).'
-      - content_type: 2
-        default_value: ok
-        is_simple: false
-        long_description: 'How to handle 3xx redirects: ''follow'' to follow the Location, ''ok'' (default)
-          to report the redirect as-is.'
-        name: onredirect
-        repeatable: false
-        required: false
-        short_description: 'How to handle 3xx redirects: ''follow'' to follow the Location, ''ok'' (default)
-          to report the redirect as-is.'
-      - content_type: 2
-        default_value: '15'
-        is_simple: false
-        long_description: Maximum number of redirects to follow (with --onredirect follow).
-        name: max-redirs
-        repeatable: false
-        required: false
-        short_description: Maximum number of redirects to follow (with --onredirect follow).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: TLS Server Name Indication / verification hostname override (defaults to the
-          URL host).
-        name: sni
-        repeatable: false
-        required: false
-        short_description: TLS Server Name Indication / verification hostname override (defaults to the
-          URL host).
-      - content_type: 2
-        default_value: tlsv1.2+
-        is_simple: false
-        long_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
-        name: tls-version
-        repeatable: false
-        required: false
-        short_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
-      - content_type: 2
-        default_value: peer
-        is_simple: false
-        long_description: 'Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert,
-          client-certificate.'
-        name: verify
-        repeatable: false
-        required: false
-        short_description: 'Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert,
-          client-certificate.'
-      - content_type: 2
-        default_value: ${ca-path}
-        is_simple: false
-        long_description: Path to a CA bundle to use when verifying the server certificate.
-        name: ca
-        repeatable: false
-        required: false
-        short_description: Path to a CA bundle to use when verifying the server certificate.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: 'Extract a value from the JSON response body as a filter keyword: ''alias:dotted.path''
-          (repeatable). Numeric segments index arrays; single-quote a segment containing a dot. Example:
-          --json-path qlen:data.queue.length "crit=qlen > 100".'
-        name: json-path
-        repeatable: false
-        required: false
-        short_description: 'Extract a value from the JSON response body as a filter keyword: ''alias:dotted.path''
-          (repeatable). Numeric segments index arrays; single-quote a segment containing a dot. Example:
-          --json-path qlen:data.queue.length "crit=qlen > 100".'
-    check_nsclient_web_online:
-      info:
-        description: Query the REST API of a remote NSClient++ agent (reachability or a remote check).
-    check_ntp_offset:
-      fields:
-      - generic: true
-        long_description: Number of items matching the filter. Common option for all checks.
-        name: count
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the critical criteria. Common option for all checks.
-        name: crit_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the critical criteria. Common option for all
-          checks.
-        name: crit_list
-        short_description: ''
-      - generic: true
-        long_description: A special list with critical, then warning and finally ok. Common option for
-          all checks.
-        name: detail_list
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the filter. Common option for all checks.
-        name: list
-        short_description: ''
-      - generic: false
-        long_description: Absolute clock offset between local host and server, in milliseconds
-        name: offset
-        short_description: ''
-      - generic: false
-        long_description: Signed clock offset (positive = local clock is ahead of server), in milliseconds
-        name: offset_signed
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the ok criteria. Common option for all checks.
-        name: ok_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the ok criteria. Common option for all checks.
-        name: ok_list
-        short_description: ''
-      - generic: false
-        long_description: UDP port the query was sent to
-        name: port
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched either warning or critical criteria. Common option for
-          all checks.
-        name: problem_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched either the critical or the warning criteria.
-          Common option for all checks.
-        name: problem_list
-        short_description: ''
-      - generic: false
-        long_description: Textual result of the query (ok, timeout, error, ...)
-        name: result
-        short_description: ''
-      - generic: true
-        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
-          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
-          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
-          Common option for all checks.'
-        name: sep
-        short_description: ''
-      - generic: false
-        long_description: NTP server that was queried
-        name: server
-        short_description: ''
-      - generic: true
-        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
-        name: status
-        short_description: ''
-      - generic: false
-        long_description: Stratum reported by the server (0..16)
-        name: stratum
-        short_description: ''
-      - generic: false
-        long_description: Round trip time of the NTP query in milliseconds
-        name: time
-        short_description: ''
-      - generic: true
-        long_description: Total number of items. Common option for all checks.
-        name: total
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the warning criteria. Common option for all checks.
-        name: warn_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the warning criteria. Common option for all
-          checks.
-        name: warn_list
-        short_description: ''
-      info:
-        description: Query an NTP server and check the offset between the local clock and the server.
-      params:
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks interesting items.
-
-          Interesting items are items which will be included in the check.
-
-          They do not denote warning or critical state instead it defines which items are relevant and
-          you can remove unwanted items.'
-        name: filter
-        repeatable: false
-        required: false
-        short_description: Filter which marks interesting items.
-      - content_type: 2
-        default_value: offset > 50 or stratum >= 16
-        is_simple: false
-        long_description: 'Filter which marks items which generates a warning state.
-
-          If anything matches this filter the return status will be escalated to warning.
-
-          '
-        name: warning
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a warning state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for warning
-        name: warn
-        repeatable: false
-        required: false
-        short_description: Short alias for warning
-      - content_type: 2
-        default_value: offset > 100 or stratum >= 16 or result != 'ok'
-        is_simple: false
-        long_description: 'Filter which marks items which generates a critical state.
-
-          If anything matches this filter the return status will be escalated to critical.
-
-          '
-        name: critical
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a critical state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for critical.
-        name: crit
-        repeatable: false
-        required: false
-        short_description: Short alias for critical.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates an ok state.
-
-          If anything matches this any previous state for this item will be reset to ok.'
-        name: ok
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates an ok state.
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show debugging information in the log
-        name: debug
-        repeatable: false
-        required: false
-        short_description: Show debugging information in the log
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-        name: show-all
-        repeatable: false
-        required: false
-        short_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-      - content_type: 2
-        default_value: ignored
-        is_simple: false
-        long_description: 'Return status to use when nothing matched filter.
-
-          If no filter is specified this will never happen unless the file is empty.'
-        name: empty-state
-        repeatable: false
-        required: false
-        short_description: Return status to use when nothing matched filter.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Performance data generation configuration
-
-          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
-        name: perf-config
-        repeatable: false
-        required: false
-        short_description: Performance data generation configuration
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Escape any < and > characters to prevent HTML encoding
-        name: escape-html
-        repeatable: false
-        required: false
-        short_description: Escape any < and > characters to prevent HTML encoding
-      - content_type: 2
-        default_value: ', '
-        is_simple: false
-        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-
-          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
-          newline cannot be written).
-
-          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
-          below the summary line.
-
-          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
-          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
-          items:%(sep)%(list)".'
-        name: list-separator
-        repeatable: false
-        required: false
-        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
-      - content_type: 2
-        default_value: '${status}: ${problem_list}'
-        is_simple: false
-        long_description: 'Top level syntax.
-
-          Used to format the message to return can include text as well as special keywords which will
-          include information from the checks.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: top-syntax
-        repeatable: false
-        required: false
-        short_description: Top level syntax.
-      - content_type: 2
-        default_value: '%(status): %(list)'
-        is_simple: false
-        long_description: 'ok syntax.
-
-          DEPRECATED! This is the syntax for when an ok result is returned.
-
-          This value will not be used if your syntax contains %(list) or %(count).'
-        name: ok-syntax
-        repeatable: false
-        required: false
-        short_description: ok syntax.
-      - content_type: 2
-        default_value: No NTP server checked
-        is_simple: false
-        long_description: 'Empty syntax.
-
-          DEPRECATED! This is the syntax for when nothing matches the filter.'
-        name: empty-syntax
-        repeatable: false
-        required: false
-        short_description: Empty syntax.
-      - content_type: 2
-        default_value: ${server} offset=${offset_signed}ms stratum=${stratum}
-        is_simple: false
-        long_description: 'Detail level syntax.
-
-          Used to format each resulting item in the message.
-
-          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: detail-syntax
-        repeatable: false
-        required: false
-        short_description: Detail level syntax.
-      - content_type: 2
-        default_value: ${server}
-        is_simple: false
-        long_description: 'Performance alias syntax.
-
-          This is the syntax for the base names of the performance data.'
-        name: perf-syntax
-        repeatable: false
-        required: false
-        short_description: Performance alias syntax.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: NTP server to query (may be given multiple times).
-        name: server
-        repeatable: false
-        required: false
-        short_description: NTP server to query (may be given multiple times).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Comma separated list of NTP servers to query.
-        name: servers
-        repeatable: false
-        required: false
-        short_description: Comma separated list of NTP servers to query.
-      - content_type: 2
-        default_value: '123'
-        is_simple: false
-        long_description: 'UDP port to use (default: 123).'
-        name: port
-        repeatable: false
-        required: false
-        short_description: 'UDP port to use (default: 123).'
-      - content_type: 2
-        default_value: '5000'
-        is_simple: false
-        long_description: Timeout in milliseconds.
-        name: timeout
-        repeatable: false
-        required: false
-        short_description: Timeout in milliseconds.
-    check_ping:
-      fields:
-      - generic: true
-        long_description: Number of items matching the filter. Common option for all checks.
-        name: count
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the critical criteria. Common option for all checks.
-        name: crit_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the critical criteria. Common option for all
-          checks.
-        name: crit_list
-        short_description: ''
-      - generic: true
-        long_description: A special list with critical, then warning and finally ok. Common option for
-          all checks.
-        name: detail_list
-        short_description: ''
-      - generic: false
-        long_description: The host name or ip address (as given on command line)
-        name: host
-        short_description: ''
-      - generic: false
-        long_description: The ip address name
-        name: ip
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the filter. Common option for all checks.
-        name: list
-        short_description: ''
-      - generic: false
-        long_description: Packet loss
-        name: loss
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the ok criteria. Common option for all checks.
-        name: ok_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the ok criteria. Common option for all checks.
-        name: ok_list
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched either warning or critical criteria. Common option for
-          all checks.
-        name: problem_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched either the critical or the warning criteria.
-          Common option for all checks.
-        name: problem_list
-        short_description: ''
-      - generic: false
-        long_description: Number of packets received from the host
-        name: recv
-        short_description: ''
-      - generic: false
-        long_description: Number of packets sent to the host
-        name: sent
-        short_description: ''
-      - generic: true
-        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
-          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
-          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
-          Common option for all checks.'
-        name: sep
-        short_description: ''
-      - generic: true
-        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
-        name: status
-        short_description: ''
-      - generic: false
-        long_description: Round trip time in ms
-        name: time
-        short_description: ''
-      - generic: false
-        long_description: Number of packets which timed out from the host
-        name: timeout
-        short_description: ''
-      - generic: true
-        long_description: Total number of items. Common option for all checks.
-        name: total
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the warning criteria. Common option for all checks.
-        name: warn_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the warning criteria. Common option for all
-          checks.
-        name: warn_list
-        short_description: ''
-      info:
-        description: Ping another host and check the result.
-      params:
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks interesting items.
-
-          Interesting items are items which will be included in the check.
-
-          They do not denote warning or critical state instead it defines which items are relevant and
-          you can remove unwanted items.'
-        name: filter
-        repeatable: false
-        required: false
-        short_description: Filter which marks interesting items.
-      - content_type: 2
-        default_value: time > 60 or loss > 5%
-        is_simple: false
-        long_description: 'Filter which marks items which generates a warning state.
-
-          If anything matches this filter the return status will be escalated to warning.
-
-          '
-        name: warning
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a warning state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for warning
-        name: warn
-        repeatable: false
-        required: false
-        short_description: Short alias for warning
-      - content_type: 2
-        default_value: time > 100 or loss > 10%
         is_simple: false
         long_description: 'Filter which marks items which generates a critical state.
 
@@ -1873,7 +317,7 @@ common:
         required: false
         short_description: Show help screen (short format).
       - content_type: 2
-        default_value: '${status}: ${ok_count}/${count} (${problem_list})'
+        default_value: '${status}: ${list}'
         is_simple: false
         long_description: 'Top level syntax.
 
@@ -1887,7 +331,7 @@ common:
         required: false
         short_description: Top level syntax.
       - content_type: 2
-        default_value: '%(status): All %(count) hosts are ok'
+        default_value: ''
         is_simple: false
         long_description: 'ok syntax.
 
@@ -1899,7 +343,7 @@ common:
         required: false
         short_description: ok syntax.
       - content_type: 2
-        default_value: No hosts found
+        default_value: '%(status): No server information returned'
         is_simple: false
         long_description: 'Empty syntax.
 
@@ -1909,7 +353,7 @@ common:
         required: false
         short_description: Empty syntax.
       - content_type: 2
-        default_value: ${ip} Packet loss = ${loss}%, RTA = ${time}ms
+        default_value: '${server_name}: SQL Server ${version} ${product_level} ${edition}, uptime ${uptime}s'
         is_simple: false
         long_description: 'Detail level syntax.
 
@@ -1924,7 +368,7 @@ common:
         required: false
         short_description: Detail level syntax.
       - content_type: 2
-        default_value: ${host}
+        default_value: ${server_name}
         is_simple: false
         long_description: 'Performance alias syntax.
 
@@ -1934,59 +378,91 @@ common:
         required: false
         short_description: Performance alias syntax.
       - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: The host to check (or multiple hosts).
-        name: host
-        repeatable: false
-        required: false
-        short_description: The host to check (or multiple hosts).
-      - content_type: 2
-        default_value: 1)] (=0
+        default_value: localhost
         is_simple: false
-        long_description: Include the total of all matching hosts
-        name: total
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
         repeatable: false
         required: false
-        short_description: Include the total of all matching hosts
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: The host to check (or multiple hosts).
-        name: hosts
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
         repeatable: false
         required: false
-        short_description: The host to check (or multiple hosts).
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
       - content_type: 2
-        default_value: '1'
-        is_simple: false
-        long_description: Number of packets to send.
-        name: count
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
         repeatable: false
         required: false
-        short_description: Number of packets to send.
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
       - content_type: 2
-        default_value: '500'
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
         is_simple: false
-        long_description: Timeout in milliseconds.
+        long_description: Connection (login) timeout in seconds.
         name: timeout
         repeatable: false
         required: false
-        short_description: Timeout in milliseconds.
+        short_description: Connection (login) timeout in seconds.
       - content_type: 2
-        default_value: Hello from NSClient++.
+        default_value: '30'
         is_simple: false
-        long_description: 'The payload to send in the ping request (default: ''Hello from NSClient++'')'
-        name: payload
+        long_description: Query timeout in seconds.
+        name: query-timeout
         repeatable: false
         required: false
-        short_description: 'The payload to send in the ping request (default: ''Hello from NSClient++'')'
-    check_ssh:
+        short_description: Query timeout in seconds.
+      - content_type: 2
+        default_value: 1)] (=1
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_backup:
       fields:
-      - generic: false
-        long_description: 1 when the connection succeeded, 0 otherwise
-        name: connected
-        short_description: ''
       - generic: true
         long_description: Number of items matching the filter. Common option for all checks.
         name: count
@@ -2006,12 +482,26 @@ common:
         name: detail_list
         short_description: ''
       - generic: false
-        long_description: Host the check connected to
-        name: host
+        long_description: Seconds since the last differential backup, -1 = never (supports units)
+        name: diff_age
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the last full backup, -1 = never (supports units, e.g. full_age
+          > 7d)
+        name: full_age
         short_description: ''
       - generic: true
         long_description: A list of all items which matched the filter. Common option for all checks.
         name: list
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the last log backup, -1 = never (supports units, e.g. log_age
+          > 1h)
+        name: log_age
+        short_description: ''
+      - generic: false
+        long_description: Database name
+        name: name
         short_description: ''
       - generic: true
         long_description: Number of items matched the ok criteria. Common option for all checks.
@@ -2020,10 +510,6 @@ common:
       - generic: true
         long_description: A list of all items which matched the ok criteria. Common option for all checks.
         name: ok_list
-        short_description: ''
-      - generic: false
-        long_description: TCP port the check connected to
-        name: port
         short_description: ''
       - generic: true
         long_description: Number of items matched either warning or critical criteria. Common option for
@@ -2036,12 +522,8 @@ common:
         name: problem_list
         short_description: ''
       - generic: false
-        long_description: The data received from the peer (use with 'like'/'regexp' for custom matching)
-        name: response
-        short_description: ''
-      - generic: false
-        long_description: Textual result of the check (ok, refused, timeout, no_match, ...)
-        name: result
+        long_description: 'Recovery model: SIMPLE, FULL or BULK_LOGGED'
+        name: recovery_model
         short_description: ''
       - generic: true
         long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
@@ -2053,10 +535,6 @@ common:
       - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
-        short_description: ''
-      - generic: false
-        long_description: Connection time in milliseconds
-        name: time
         short_description: ''
       - generic: true
         long_description: Total number of items. Common option for all checks.
@@ -2072,7 +550,7 @@ common:
         name: warn_list
         short_description: ''
       info:
-        description: Connect to an SSH port and verify the server presents a valid SSH banner.
+        description: Check the age of the last full/differential/log backup per database.
       params:
       - content_type: 2
         default_value: ''
@@ -2088,7 +566,7 @@ common:
         required: false
         short_description: Filter which marks interesting items.
       - content_type: 2
-        default_value: time > 1000
+        default_value: full_age > 3d
         is_simple: false
         long_description: 'Filter which marks items which generates a warning state.
 
@@ -2108,7 +586,1208 @@ common:
         required: false
         short_description: Short alias for warning
       - content_type: 2
-        default_value: time > 5000 or result != 'ok'
+        default_value: full_age < 0 or full_age > 7d
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${problem_count}/${count} databases (${problem_list})'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All %(count) databases have recent backups'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: '%(status): No databases found'
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '${name}: last full backup ${full_age}s ago'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: 'Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc
+          copy-only backup does not belong to the scheduled restore chain, so counting it would hide a
+          failing backup job.'
+        name: include-copy-only
+        repeatable: false
+        required: false
+        short_description: 'Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc
+          copy-only backup does not belong to the scheduled restore chain, so counting it would hide a
+          failing backup job.'
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Count snapshot (VSS/third-party agent) backups when computing the ages. Excluded
+          by default for the same reason.
+        name: include-snapshot
+        repeatable: false
+        required: false
+        short_description: Count snapshot (VSS/third-party agent) backups when computing the ages. Excluded
+          by default for the same reason.
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 2
+        default_value: 1)] (=1
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_databases:
+      fields:
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: false
+        long_description: Total size of the data files in bytes (supports units, e.g. data_size > 10G)
+        name: data_size
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: 1 if the database is read-only
+        name: is_read_only
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: Total size of the log files in bytes (supports units, e.g. log_size > 1G)
+        name: log_size
+        short_description: ''
+      - generic: false
+        long_description: Percentage of the log in use (-1 if unavailable)
+        name: log_used_pct
+        short_description: ''
+      - generic: false
+        long_description: Database name
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: false
+        long_description: 'Recovery model: SIMPLE, FULL or BULK_LOGGED'
+        name: recovery_model
+        short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: false
+        long_description: 'Database state: ONLINE, RESTORING, RECOVERING, RECOVERY_PENDING, SUSPECT, EMERGENCY
+          or OFFLINE'
+        name: state
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      info:
+        description: Check database state, recovery model and data/log size.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE'
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING'
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: unknown
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${problem_count}/${count} databases (${problem_list})'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All %(count) databases are ONLINE'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: '%(status): No databases found'
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '${name}: ${state}'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 2
+        default_value: 1)] (=1
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_jobs:
+      fields:
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: false
+        long_description: 1 if the job is enabled
+        name: enabled
+        short_description: ''
+      - generic: false
+        long_description: 1 if the job is executing right now
+        name: is_running
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the last run finished, -1 = never ran (supports units, e.g. last_run_age
+          > 25h)
+        name: last_run_age
+        short_description: ''
+      - generic: false
+        long_description: Raw msdb run_status code of the last completed run (-1 = never ran)
+        name: last_run_outcome
+        short_description: ''
+      - generic: false
+        long_description: 'Outcome of the last completed run: failed, succeeded, retry, canceled or never'
+        name: last_run_status
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: false
+        long_description: Job name
+        name: name
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      info:
+        description: Check SQL Server Agent job status.
+      params:
+      - content_type: 2
+        default_value: enabled = 1
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: last_run_status = 'canceled' or last_run_status = 'retry'
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: last_run_status = 'failed'
+        is_simple: false
+        long_description: 'Filter which marks items which generates a critical state.
+
+          If anything matches this filter the return status will be escalated to critical.
+
+          '
+        name: critical
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a critical state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for critical.
+        name: crit
+        repeatable: false
+        required: false
+        short_description: Short alias for critical.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates an ok state.
+
+          If anything matches this any previous state for this item will be reset to ok.'
+        name: ok
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates an ok state.
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Show debugging information in the log
+        name: debug
+        repeatable: false
+        required: false
+        short_description: Show debugging information in the log
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+        name: show-all
+        repeatable: false
+        required: false
+        short_description: Show details for all matches regardless of status (normally details are only
+          showed for warnings and criticals).
+      - content_type: 2
+        default_value: ok
+        is_simple: false
+        long_description: 'Return status to use when nothing matched filter.
+
+          If no filter is specified this will never happen unless the file is empty.'
+        name: empty-state
+        repeatable: false
+        required: false
+        short_description: Return status to use when nothing matched filter.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Performance data generation configuration
+
+          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+        name: perf-config
+        repeatable: false
+        required: false
+        short_description: Performance data generation configuration
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
+        long_description: Escape any < and > characters to prevent HTML encoding
+        name: escape-html
+        repeatable: false
+        required: false
+        short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (this screen)
+        name: help
+        repeatable: false
+        required: false
+        short_description: Show help screen (this screen)
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen as a protocol buffer payload
+        name: help-pb
+        repeatable: false
+        required: false
+        short_description: Show help screen as a protocol buffer payload
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show default values for a given command
+        name: show-default
+        repeatable: false
+        required: false
+        short_description: Show default values for a given command
+      - content_type: 4
+        default_value: ''
+        is_simple: true
+        long_description: Show help screen (short format).
+        name: help-short
+        repeatable: false
+        required: false
+        short_description: Show help screen (short format).
+      - content_type: 2
+        default_value: '${status}: ${problem_count}/${count} jobs (${problem_list})'
+        is_simple: false
+        long_description: 'Top level syntax.
+
+          Used to format the message to return can include text as well as special keywords which will
+          include information from the checks.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: top-syntax
+        repeatable: false
+        required: false
+        short_description: Top level syntax.
+      - content_type: 2
+        default_value: '%(status): All %(count) jobs succeeded'
+        is_simple: false
+        long_description: 'ok syntax.
+
+          DEPRECATED! This is the syntax for when an ok result is returned.
+
+          This value will not be used if your syntax contains %(list) or %(count).'
+        name: ok-syntax
+        repeatable: false
+        required: false
+        short_description: ok syntax.
+      - content_type: 2
+        default_value: '%(status): No enabled SQL Agent jobs found'
+        is_simple: false
+        long_description: 'Empty syntax.
+
+          DEPRECATED! This is the syntax for when nothing matches the filter.'
+        name: empty-syntax
+        repeatable: false
+        required: false
+        short_description: Empty syntax.
+      - content_type: 2
+        default_value: '${name}: ${last_run_status}'
+        is_simple: false
+        long_description: 'Detail level syntax.
+
+          Used to format each resulting item in the message.
+
+          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+          is no difference between them apart from ${} can be difficult to escape on linux).'
+        name: detail-syntax
+        repeatable: false
+        required: false
+        short_description: Detail level syntax.
+      - content_type: 2
+        default_value: ${name}
+        is_simple: false
+        long_description: 'Performance alias syntax.
+
+          This is the syntax for the base names of the performance data.'
+        name: perf-syntax
+        repeatable: false
+        required: false
+        short_description: Performance alias syntax.
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 2
+        default_value: 1)] (=1
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
+        repeatable: false
+        required: false
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+    check_mssql_query:
+      fields:
+      - generic: true
+        long_description: Number of items matching the filter. Common option for all checks.
+        name: count
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the critical criteria. Common option for all checks.
+        name: crit_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the critical criteria. Common option for all
+          checks.
+        name: crit_list
+        short_description: ''
+      - generic: true
+        long_description: A special list with critical, then warning and finally ok. Common option for
+          all checks.
+        name: detail_list
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the filter. Common option for all checks.
+        name: list
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the ok criteria. Common option for all checks.
+        name: ok_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the ok criteria. Common option for all checks.
+        name: ok_list
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched either warning or critical criteria. Common option for
+          all checks.
+        name: problem_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched either the critical or the warning criteria.
+          Common option for all checks.
+        name: problem_list
+        short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
+        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
+        name: status
+        short_description: ''
+      - generic: true
+        long_description: Total number of items. Common option for all checks.
+        name: total
+        short_description: ''
+      - generic: true
+        long_description: Number of items matched the warning criteria. Common option for all checks.
+        name: warn_count
+        short_description: ''
+      - generic: true
+        long_description: A list of all items which matched the warning criteria. Common option for all
+          checks.
+        name: warn_list
+        short_description: ''
+      info:
+        description: Run a custom T-SQL query and apply thresholds to the returned rows.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks interesting items.
+
+          Interesting items are items which will be included in the check.
+
+          They do not denote warning or critical state instead it defines which items are relevant and
+          you can remove unwanted items.'
+        name: filter
+        repeatable: false
+        required: false
+        short_description: Filter which marks interesting items.
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'Filter which marks items which generates a warning state.
+
+          If anything matches this filter the return status will be escalated to warning.
+
+          '
+        name: warning
+        repeatable: false
+        required: false
+        short_description: Filter which marks items which generates a warning state.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Short alias for warning
+        name: warn
+        repeatable: false
+        required: false
+        short_description: Short alias for warning
+      - content_type: 2
+        default_value: ''
         is_simple: false
         long_description: 'Filter which marks items which generates a critical state.
 
@@ -2236,7 +1915,7 @@ common:
         required: false
         short_description: Show help screen (short format).
       - content_type: 2
-        default_value: '${status}: ${problem_list}'
+        default_value: ${list}
         is_simple: false
         long_description: 'Top level syntax.
 
@@ -2250,7 +1929,7 @@ common:
         required: false
         short_description: Top level syntax.
       - content_type: 2
-        default_value: '%(status): %(list)'
+        default_value: ''
         is_simple: false
         long_description: 'ok syntax.
 
@@ -2262,7 +1941,7 @@ common:
         required: false
         short_description: ok syntax.
       - content_type: 2
-        default_value: No hosts checked
+        default_value: ''
         is_simple: false
         long_description: 'Empty syntax.
 
@@ -2272,7 +1951,7 @@ common:
         required: false
         short_description: Empty syntax.
       - content_type: 2
-        default_value: ${host}:${port} ${result} in ${time}ms
+        default_value: '%(line)'
         is_simple: false
         long_description: 'Detail level syntax.
 
@@ -2287,7 +1966,7 @@ common:
         required: false
         short_description: Detail level syntax.
       - content_type: 2
-        default_value: ${host}_${port}
+        default_value: ''
         is_simple: false
         long_description: 'Performance alias syntax.
 
@@ -2299,503 +1978,92 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Host(s) to connect to (may be given multiple times).
-        name: host
+        long_description: The T-SQL query to execute.
+        name: query
         repeatable: false
         required: false
-        short_description: Host(s) to connect to (may be given multiple times).
+        short_description: The T-SQL query to execute.
       - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Comma separated list of hosts to connect to.
-        name: hosts
-        repeatable: false
-        required: false
-        short_description: Comma separated list of hosts to connect to.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: TCP port to connect to.
-        name: port
-        repeatable: false
-        required: false
-        short_description: TCP port to connect to.
-      - content_type: 2
-        default_value: '5000'
+        default_value: localhost
         is_simple: false
-        long_description: Connection / read timeout in milliseconds.
+        long_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+        name: server
+        repeatable: false
+        required: false
+        short_description: 'SQL Server to connect to: host, host\INSTANCE or host,port.'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+        name: database
+        repeatable: false
+        required: false
+        short_description: 'Database (initial catalog) to connect to (default: the login''s default database).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+        name: user
+        repeatable: false
+        required: false
+        short_description: SQL login to authenticate with; leave empty (together with password) to use
+          Windows integrated authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for the SQL login.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for the SQL login.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+        name: driver
+        repeatable: false
+        required: false
+        short_description: 'ODBC driver to use (default: newest installed SQL Server driver).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Raw ODBC connection string; overrides all other connection options.
+        name: connection-string
+        repeatable: false
+        required: false
+        short_description: Raw ODBC connection string; overrides all other connection options.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection (login) timeout in seconds.
         name: timeout
         repeatable: false
         required: false
-        short_description: Connection / read timeout in milliseconds.
+        short_description: Connection (login) timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query timeout in seconds.
+      - content_type: 2
+        default_value: 1)] (=1
+        is_simple: false
+        long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
+        name: trust-cert
+        repeatable: false
+        required: false
+        short_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
+          only).
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Optional payload to send after the connection is established.
-        name: send
+        long_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'
+        name: encrypt
         repeatable: false
         required: false
-        short_description: Optional payload to send after the connection is established.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Optional substring expected in the response.
-        name: expect
-        repeatable: false
-        required: false
-        short_description: Optional substring expected in the response.
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Wrap the connection in TLS/SSL after connecting (ssl=true).
-        name: ssl
-        repeatable: false
-        required: false
-        short_description: Wrap the connection in TLS/SSL after connecting (ssl=true).
-      - content_type: 2
-        default_value: tlsv1.2+
-        is_simple: false
-        long_description: TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3,
-          sslv3).
-        name: tls-version
-        repeatable: false
-        required: false
-        short_description: TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3,
-          sslv3).
-      - content_type: 2
-        default_value: none
-        is_simple: false
-        long_description: 'Certificate verify mode when --ssl is used: none (default), peer, ... (peer
-          requires --ca).'
-        name: verify
-        repeatable: false
-        required: false
-        short_description: 'Certificate verify mode when --ssl is used: none (default), peer, ... (peer
-          requires --ca).'
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: CA bundle used to verify the server certificate when --ssl --verify peer is
-          used.
-        name: ca
-        repeatable: false
-        required: false
-        short_description: CA bundle used to verify the server certificate when --ssl --verify peer is
-          used.
-    check_tcp:
-      fields:
-      - generic: false
-        long_description: 1 when the connection succeeded, 0 otherwise
-        name: connected
-        short_description: ''
-      - generic: true
-        long_description: Number of items matching the filter. Common option for all checks.
-        name: count
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the critical criteria. Common option for all checks.
-        name: crit_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the critical criteria. Common option for all
-          checks.
-        name: crit_list
-        short_description: ''
-      - generic: true
-        long_description: A special list with critical, then warning and finally ok. Common option for
-          all checks.
-        name: detail_list
-        short_description: ''
-      - generic: false
-        long_description: Host the check connected to
-        name: host
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the filter. Common option for all checks.
-        name: list
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the ok criteria. Common option for all checks.
-        name: ok_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the ok criteria. Common option for all checks.
-        name: ok_list
-        short_description: ''
-      - generic: false
-        long_description: TCP port the check connected to
-        name: port
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched either warning or critical criteria. Common option for
-          all checks.
-        name: problem_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched either the critical or the warning criteria.
-          Common option for all checks.
-        name: problem_list
-        short_description: ''
-      - generic: false
-        long_description: The data received from the peer (use with 'like'/'regexp' for custom matching)
-        name: response
-        short_description: ''
-      - generic: false
-        long_description: Textual result of the check (ok, refused, timeout, no_match, ...)
-        name: result
-        short_description: ''
-      - generic: true
-        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
-          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
-          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
-          Common option for all checks.'
-        name: sep
-        short_description: ''
-      - generic: true
-        long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
-        name: status
-        short_description: ''
-      - generic: false
-        long_description: Connection time in milliseconds
-        name: time
-        short_description: ''
-      - generic: true
-        long_description: Total number of items. Common option for all checks.
-        name: total
-        short_description: ''
-      - generic: true
-        long_description: Number of items matched the warning criteria. Common option for all checks.
-        name: warn_count
-        short_description: ''
-      - generic: true
-        long_description: A list of all items which matched the warning criteria. Common option for all
-          checks.
-        name: warn_list
-        short_description: ''
-      info:
-        description: Connect to a TCP port and optionally send/expect data to check that a service is
-          reachable.
-      params:
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks interesting items.
-
-          Interesting items are items which will be included in the check.
-
-          They do not denote warning or critical state instead it defines which items are relevant and
-          you can remove unwanted items.'
-        name: filter
-        repeatable: false
-        required: false
-        short_description: Filter which marks interesting items.
-      - content_type: 2
-        default_value: time > 1000
-        is_simple: false
-        long_description: 'Filter which marks items which generates a warning state.
-
-          If anything matches this filter the return status will be escalated to warning.
-
-          '
-        name: warning
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a warning state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for warning
-        name: warn
-        repeatable: false
-        required: false
-        short_description: Short alias for warning
-      - content_type: 2
-        default_value: time > 5000 or result != 'ok'
-        is_simple: false
-        long_description: 'Filter which marks items which generates a critical state.
-
-          If anything matches this filter the return status will be escalated to critical.
-
-          '
-        name: critical
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates a critical state.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Short alias for critical.
-        name: crit
-        repeatable: false
-        required: false
-        short_description: Short alias for critical.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Filter which marks items which generates an ok state.
-
-          If anything matches this any previous state for this item will be reset to ok.'
-        name: ok
-        repeatable: false
-        required: false
-        short_description: Filter which marks items which generates an ok state.
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show debugging information in the log
-        name: debug
-        repeatable: false
-        required: false
-        short_description: Show debugging information in the log
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-        name: show-all
-        repeatable: false
-        required: false
-        short_description: Show details for all matches regardless of status (normally details are only
-          showed for warnings and criticals).
-      - content_type: 2
-        default_value: ignored
-        is_simple: false
-        long_description: 'Return status to use when nothing matched filter.
-
-          If no filter is specified this will never happen unless the file is empty.'
-        name: empty-state
-        repeatable: false
-        required: false
-        short_description: Return status to use when nothing matched filter.
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'Performance data generation configuration
-
-          TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
-        name: perf-config
-        repeatable: false
-        required: false
-        short_description: Performance data generation configuration
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Escape any < and > characters to prevent HTML encoding
-        name: escape-html
-        repeatable: false
-        required: false
-        short_description: Escape any < and > characters to prevent HTML encoding
-      - content_type: 2
-        default_value: ', '
-        is_simple: false
-        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-
-          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
-          newline cannot be written).
-
-          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
-          below the summary line.
-
-          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
-          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
-          items:%(sep)%(list)".'
-        name: list-separator
-        repeatable: false
-        required: false
-        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
-          %(problem_list) and %(detail_list).
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
-      - content_type: 2
-        default_value: '${status}: ${problem_list}'
-        is_simple: false
-        long_description: 'Top level syntax.
-
-          Used to format the message to return can include text as well as special keywords which will
-          include information from the checks.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: top-syntax
-        repeatable: false
-        required: false
-        short_description: Top level syntax.
-      - content_type: 2
-        default_value: '%(status): %(list)'
-        is_simple: false
-        long_description: 'ok syntax.
-
-          DEPRECATED! This is the syntax for when an ok result is returned.
-
-          This value will not be used if your syntax contains %(list) or %(count).'
-        name: ok-syntax
-        repeatable: false
-        required: false
-        short_description: ok syntax.
-      - content_type: 2
-        default_value: No hosts checked
-        is_simple: false
-        long_description: 'Empty syntax.
-
-          DEPRECATED! This is the syntax for when nothing matches the filter.'
-        name: empty-syntax
-        repeatable: false
-        required: false
-        short_description: Empty syntax.
-      - content_type: 2
-        default_value: ${host}:${port} ${result} in ${time}ms
-        is_simple: false
-        long_description: 'Detail level syntax.
-
-          Used to format each resulting item in the message.
-
-          %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-
-          To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
-          is no difference between them apart from ${} can be difficult to escape on linux).'
-        name: detail-syntax
-        repeatable: false
-        required: false
-        short_description: Detail level syntax.
-      - content_type: 2
-        default_value: ${host}_${port}
-        is_simple: false
-        long_description: 'Performance alias syntax.
-
-          This is the syntax for the base names of the performance data.'
-        name: perf-syntax
-        repeatable: false
-        required: false
-        short_description: Performance alias syntax.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Host(s) to connect to (may be given multiple times).
-        name: host
-        repeatable: false
-        required: false
-        short_description: Host(s) to connect to (may be given multiple times).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Comma separated list of hosts to connect to.
-        name: hosts
-        repeatable: false
-        required: false
-        short_description: Comma separated list of hosts to connect to.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: TCP port to connect to.
-        name: port
-        repeatable: false
-        required: false
-        short_description: TCP port to connect to.
-      - content_type: 2
-        default_value: '5000'
-        is_simple: false
-        long_description: Connection / read timeout in milliseconds.
-        name: timeout
-        repeatable: false
-        required: false
-        short_description: Connection / read timeout in milliseconds.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Optional payload to send after the connection is established.
-        name: send
-        repeatable: false
-        required: false
-        short_description: Optional payload to send after the connection is established.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Optional substring expected in the response.
-        name: expect
-        repeatable: false
-        required: false
-        short_description: Optional substring expected in the response.
-      - content_type: 2
-        default_value: 1)] (=0
-        is_simple: false
-        long_description: Wrap the connection in TLS/SSL after connecting (ssl=true).
-        name: ssl
-        repeatable: false
-        required: false
-        short_description: Wrap the connection in TLS/SSL after connecting (ssl=true).
-      - content_type: 2
-        default_value: tlsv1.2+
-        is_simple: false
-        long_description: TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3,
-          sslv3).
-        name: tls-version
-        repeatable: false
-        required: false
-        short_description: TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3,
-          sslv3).
-      - content_type: 2
-        default_value: none
-        is_simple: false
-        long_description: 'Certificate verify mode when --ssl is used: none (default), peer, ... (peer
-          requires --ca).'
-        name: verify
-        repeatable: false
-        required: false
-        short_description: 'Certificate verify mode when --ssl is used: none (default), peer, ... (peer
-          requires --ca).'
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: CA bundle used to verify the server certificate when --ssl --verify peer is
-          used.
-        name: ca
-        repeatable: false
-        required: false
-        short_description: CA bundle used to verify the server certificate when --ssl --verify peer is
-          used.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: 'Service preset (ftp, pop, imap, smtp, ssh, spop, simap, ssmtp): sets a default
-          port, greeting and expected-response regex. The s-prefixed variants use implicit TLS.'
-        name: service
-        repeatable: false
-        required: false
-        short_description: 'Service preset (ftp, pop, imap, smtp, ssh, spop, simap, ssmtp): sets a default
-          port, greeting and expected-response regex. The s-prefixed variants use implicit TLS.'
-module: CheckNet
-namespace: check
-platforms:
-- unix
-- windows
+        short_description: 'Force connection encryption on or off: yes or no (modern ODBC drivers only).'

@@ -24,16 +24,16 @@ PythonScript = enabled
 
 
 
-| Key                           | Default Value    | Description               |
-|-------------------------------|------------------|---------------------------|
-| [python cache](#python-cache) |                  | Python cache              |
-| [python lib](#python-lib)     | libpython3.12.so | Python lib _(Linux only)_ |
+| Key                           | Default Value        | Description               |
+|-------------------------------|----------------------|---------------------------|
+| [python cache](#python-cache) |                      | Python cache              |
+| [python lib](#python-lib)     | libpython3.12.so.1.0 | Python lib _(Linux only)_ |
 
 
 ```ini
 # 
 [/settings/python]
-python lib=libpython3.12.so  # Linux only
+python lib=libpython3.12.so.1.0  # Linux only
 ```
 
 #### Python cache <a id="/settings/python/python cache"></a>
@@ -66,7 +66,7 @@ The python DLL to load
 | Path:          | [/settings/python](#/settings/python) |
 | Key:           | python lib                            |
 | Platform:      | Linux only                            |
-| Default value: | `libpython3.12.so`                    |
+| Default value: | `libpython3.12.so.1.0`                |
 
 
 **Sample:**
@@ -74,7 +74,7 @@ The python DLL to load
 ```
 [/settings/python]
 # Python lib
-python lib=libpython3.12.so
+python lib=libpython3.12.so.1.0
 ```
 
 ### Python scripts <a id="/settings/python/scripts"></a>

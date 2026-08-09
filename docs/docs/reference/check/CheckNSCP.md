@@ -65,237 +65,144 @@ Check if there is a newer version of NSClient++ available on GitHub. The result 
 <a id="check_nscp_update_options"></a>
 #### Command-line Arguments
 
-=== "Windows"
+<a id="check_nscp_update_warn"></a>
+<a id="check_nscp_update_crit"></a>
+<a id="check_nscp_update_help"></a>
+<a id="check_nscp_update_help-pb"></a>
+<a id="check_nscp_update_show-default"></a>
+<a id="check_nscp_update_help-short"></a>
 
-    <a id="check_nscp_update_warn"></a>
-    <a id="check_nscp_update_crit"></a>
-    <a id="check_nscp_update_debug"></a>
-    <a id="check_nscp_update_show-all"></a>
-    <a id="check_nscp_update_escape-html"></a>
-    <a id="check_nscp_update_help"></a>
-    <a id="check_nscp_update_help-pb"></a>
-    <a id="check_nscp_update_show-default"></a>
-    <a id="check_nscp_update_help-short"></a>
+| Option                                              | Default Value                          | Description                                                                                                               |
+|-----------------------------------------------------|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_nscp_update_filter)                 |                                        | Filter which marks interesting items.                                                                                     |
+| [warning](#check_nscp_update_warning)               | update_available = 1                   | Filter which marks items which generates a warning state.                                                                 |
+| warn                                                |                                        | Short alias for warning                                                                                                   |
+| [critical](#check_nscp_update_critical)             | update_available = 1                   | Filter which marks items which generates a critical state.                                                                |
+| crit                                                |                                        | Short alias for critical.                                                                                                 |
+| [ok](#check_nscp_update_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                     |
+| [debug](#check_nscp_update_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                     |
+| [show-all](#check_nscp_update_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [empty-state](#check_nscp_update_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                         |
+| [perf-config](#check_nscp_update_perf-config)       |                                        | Performance data generation configuration                                                                                 |
+| [escape-html](#check_nscp_update_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [list-separator](#check_nscp_update_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+| help                                                | N/A                                    | Show help screen (this screen)                                                                                            |
+| help-pb                                             | N/A                                    | Show help screen as a protocol buffer payload                                                                             |
+| show-default                                        | N/A                                    | Show default values for a given command                                                                                   |
+| help-short                                          | N/A                                    | Show help screen (short format).                                                                                          |
+| [top-syntax](#check_nscp_update_top-syntax)         | ${status}: ${list}                     | Top level syntax.                                                                                                         |
+| [ok-syntax](#check_nscp_update_ok-syntax)           |                                        | ok syntax.                                                                                                                |
+| [empty-syntax](#check_nscp_update_empty-syntax)     |                                        | Empty syntax.                                                                                                             |
+| [detail-syntax](#check_nscp_update_detail-syntax)   | ${version} (latest: ${latest_version}) | Detail level syntax.                                                                                                      |
+| [perf-syntax](#check_nscp_update_perf-syntax)       | version                                | Performance alias syntax.                                                                                                 |
 
-    | Option                                            | Default Value                          | Description                                                                                                      |
-    |---------------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_nscp_update_filter)               |                                        | Filter which marks interesting items.                                                                            |
-    | [warning](#check_nscp_update_warning)             | update_available = 1                   | Filter which marks items which generates a warning state.                                                        |
-    | warn                                              |                                        | Short alias for warning                                                                                          |
-    | [critical](#check_nscp_update_critical)           | update_available = 1                   | Filter which marks items which generates a critical state.                                                       |
-    | crit                                              |                                        | Short alias for critical.                                                                                        |
-    | [ok](#check_nscp_update_ok)                       |                                        | Filter which marks items which generates an ok state.                                                            |
-    | debug                                             | N/A                                    | Show debugging information in the log                                                                            |
-    | show-all                                          | N/A                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-    | [empty-state](#check_nscp_update_empty-state)     | ignored                                | Return status to use when nothing matched filter.                                                                |
-    | [perf-config](#check_nscp_update_perf-config)     |                                        | Performance data generation configuration                                                                        |
-    | escape-html                                       | N/A                                    | Escape any < and > characters to prevent HTML encoding                                                           |
-    | help                                              | N/A                                    | Show help screen (this screen)                                                                                   |
-    | help-pb                                           | N/A                                    | Show help screen as a protocol buffer payload                                                                    |
-    | show-default                                      | N/A                                    | Show default values for a given command                                                                          |
-    | help-short                                        | N/A                                    | Show help screen (short format).                                                                                 |
-    | [top-syntax](#check_nscp_update_top-syntax)       | ${status}: ${list}                     | Top level syntax.                                                                                                |
-    | [ok-syntax](#check_nscp_update_ok-syntax)         |                                        | ok syntax.                                                                                                       |
-    | [empty-syntax](#check_nscp_update_empty-syntax)   |                                        | Empty syntax.                                                                                                    |
-    | [detail-syntax](#check_nscp_update_detail-syntax) | ${version} (latest: ${latest_version}) | Detail level syntax.                                                                                             |
-    | [perf-syntax](#check_nscp_update_perf-syntax)     | version                                | Performance alias syntax.                                                                                        |
 
 
+<h5 id="check_nscp_update_filter">filter:</h5>
 
-    <h5 id="check_nscp_update_filter">filter:</h5>
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
+<h5 id="check_nscp_update_warning">warning:</h5>
 
-    <h5 id="check_nscp_update_warning">warning:</h5>
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
 
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
 
+*Default Value:* `update_available = 1`
 
-    *Default Value:* `update_available = 1`
+<h5 id="check_nscp_update_critical">critical:</h5>
 
-    <h5 id="check_nscp_update_critical">critical:</h5>
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
 
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
 
+*Default Value:* `update_available = 1`
 
-    *Default Value:* `update_available = 1`
+<h5 id="check_nscp_update_ok">ok:</h5>
 
-    <h5 id="check_nscp_update_ok">ok:</h5>
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
 
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
 
+<h5 id="check_nscp_update_debug">debug:</h5>
 
-    <h5 id="check_nscp_update_empty-state">empty-state:</h5>
+Show debugging information in the log
 
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
+*Default Value:* `1)] (=0`
 
-    *Default Value:* `ignored`
+<h5 id="check_nscp_update_show-all">show-all:</h5>
 
-    <h5 id="check_nscp_update_perf-config">perf-config:</h5>
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+*Default Value:* `1)] (=0`
 
+<h5 id="check_nscp_update_empty-state">empty-state:</h5>
 
-    <h5 id="check_nscp_update_top-syntax">top-syntax:</h5>
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
 
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+*Default Value:* `ignored`
 
-    *Default Value:* `${status}: ${list}`
+<h5 id="check_nscp_update_perf-config">perf-config:</h5>
 
-    <h5 id="check_nscp_update_ok-syntax">ok-syntax:</h5>
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
 
+<h5 id="check_nscp_update_escape-html">escape-html:</h5>
 
-    <h5 id="check_nscp_update_empty-syntax">empty-syntax:</h5>
+Escape any < and > characters to prevent HTML encoding
 
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
+*Default Value:* `1)] (=0`
 
+<h5 id="check_nscp_update_list-separator">list-separator:</h5>
 
-    <h5 id="check_nscp_update_detail-syntax">detail-syntax:</h5>
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+*Default Value:* `, `
 
-    *Default Value:* `${version} (latest: ${latest_version})`
+<h5 id="check_nscp_update_top-syntax">top-syntax:</h5>
 
-    <h5 id="check_nscp_update_perf-syntax">perf-syntax:</h5>
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
+*Default Value:* `${status}: ${list}`
 
-    *Default Value:* `version`
+<h5 id="check_nscp_update_ok-syntax">ok-syntax:</h5>
 
-=== "Linux"
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
 
-    <a id="check_nscp_update_warn"></a>
-    <a id="check_nscp_update_crit"></a>
-    <a id="check_nscp_update_debug"></a>
-    <a id="check_nscp_update_show-all"></a>
-    <a id="check_nscp_update_escape-html"></a>
-    <a id="check_nscp_update_help"></a>
-    <a id="check_nscp_update_help-pb"></a>
-    <a id="check_nscp_update_show-default"></a>
-    <a id="check_nscp_update_help-short"></a>
 
-    | Option                                            | Default Value                          | Description                                                                                                      |
-    |---------------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_nscp_update_filter)               |                                        | Filter which marks interesting items.                                                                            |
-    | [warning](#check_nscp_update_warning)             | update_available = 1                   | Filter which marks items which generates a warning state.                                                        |
-    | warn                                              |                                        | Short alias for warning                                                                                          |
-    | [critical](#check_nscp_update_critical)           | update_available = 1                   | Filter which marks items which generates a critical state.                                                       |
-    | crit                                              |                                        | Short alias for critical.                                                                                        |
-    | [ok](#check_nscp_update_ok)                       |                                        | Filter which marks items which generates an ok state.                                                            |
-    | debug                                             | N/A                                    | Show debugging information in the log                                                                            |
-    | show-all                                          | N/A                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-    | [empty-state](#check_nscp_update_empty-state)     | ignored                                | Return status to use when nothing matched filter.                                                                |
-    | [perf-config](#check_nscp_update_perf-config)     |                                        | Performance data generation configuration                                                                        |
-    | escape-html                                       | N/A                                    | Escape any < and > characters to prevent HTML encoding                                                           |
-    | help                                              | N/A                                    | Show help screen (this screen)                                                                                   |
-    | help-pb                                           | N/A                                    | Show help screen as a protocol buffer payload                                                                    |
-    | show-default                                      | N/A                                    | Show default values for a given command                                                                          |
-    | help-short                                        | N/A                                    | Show help screen (short format).                                                                                 |
-    | [top-syntax](#check_nscp_update_top-syntax)       | ${status}: ${list}                     | Top level syntax.                                                                                                |
-    | [ok-syntax](#check_nscp_update_ok-syntax)         |                                        | ok syntax.                                                                                                       |
-    | [empty-syntax](#check_nscp_update_empty-syntax)   |                                        | Empty syntax.                                                                                                    |
-    | [detail-syntax](#check_nscp_update_detail-syntax) | ${version} (latest: ${latest_version}) | Detail level syntax.                                                                                             |
-    | [perf-syntax](#check_nscp_update_perf-syntax)     | version                                | Performance alias syntax.                                                                                        |
+<h5 id="check_nscp_update_empty-syntax">empty-syntax:</h5>
 
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-    <h5 id="check_nscp_update_filter">filter:</h5>
+<h5 id="check_nscp_update_detail-syntax">detail-syntax:</h5>
 
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
+*Default Value:* `${version} (latest: ${latest_version})`
 
-    <h5 id="check_nscp_update_warning">warning:</h5>
+<h5 id="check_nscp_update_perf-syntax">perf-syntax:</h5>
 
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
 
-
-    *Default Value:* `update_available = 1`
-
-    <h5 id="check_nscp_update_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-    *Default Value:* `update_available = 1`
-
-    <h5 id="check_nscp_update_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_nscp_update_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `ignored`
-
-    <h5 id="check_nscp_update_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_nscp_update_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_nscp_update_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_nscp_update_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-
-    <h5 id="check_nscp_update_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${version} (latest: ${latest_version})`
-
-    <h5 id="check_nscp_update_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `version`
+*Default Value:* `version`
 
 
 <a id="check_nscp_update_filter_keys"></a>
@@ -323,21 +230,22 @@ Check if there is a newer version of NSClient++ available on GitHub. The result 
 
 **Common options for all checks:**
 
-| Option        | Description                                                                    |
-|---------------|--------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                           |
-| crit_count    | Number of items matched the critical criteria.                                 |
-| crit_list     | A list of all items which matched the critical criteria.                       |
-| detail_list   | A special list with critical, then warning and finally ok.                     |
-| list          | A list of all items which matched the filter.                                  |
-| ok_count      | Number of items matched the ok criteria.                                       |
-| ok_list       | A list of all items which matched the ok criteria.                             |
-| problem_count | Number of items matched either warning or critical criteria.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
-| total         | Total number of items.                                                         |
-| warn_count    | Number of items matched the warning criteria.                                  |
-| warn_list     | A list of all items which matched the warning criteria.                        |
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_nscp_version
 
@@ -353,233 +261,142 @@ Check the version of NSClient++ which is used.
 <a id="check_nscp_version_options"></a>
 #### Command-line Arguments
 
-=== "Windows"
+<a id="check_nscp_version_warn"></a>
+<a id="check_nscp_version_crit"></a>
+<a id="check_nscp_version_help"></a>
+<a id="check_nscp_version_help-pb"></a>
+<a id="check_nscp_version_show-default"></a>
+<a id="check_nscp_version_help-short"></a>
 
-    <a id="check_nscp_version_warn"></a>
-    <a id="check_nscp_version_crit"></a>
-    <a id="check_nscp_version_debug"></a>
-    <a id="check_nscp_version_show-all"></a>
-    <a id="check_nscp_version_escape-html"></a>
-    <a id="check_nscp_version_help"></a>
-    <a id="check_nscp_version_help-pb"></a>
-    <a id="check_nscp_version_show-default"></a>
-    <a id="check_nscp_version_help-short"></a>
+| Option                                               | Default Value        | Description                                                                                                               |
+|------------------------------------------------------|----------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_nscp_version_filter)                 |                      | Filter which marks interesting items.                                                                                     |
+| [warning](#check_nscp_version_warning)               |                      | Filter which marks items which generates a warning state.                                                                 |
+| warn                                                 |                      | Short alias for warning                                                                                                   |
+| [critical](#check_nscp_version_critical)             |                      | Filter which marks items which generates a critical state.                                                                |
+| crit                                                 |                      | Short alias for critical.                                                                                                 |
+| [ok](#check_nscp_version_ok)                         |                      | Filter which marks items which generates an ok state.                                                                     |
+| [debug](#check_nscp_version_debug)                   | 1)] (=0              | Show debugging information in the log                                                                                     |
+| [show-all](#check_nscp_version_show-all)             | 1)] (=0              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [empty-state](#check_nscp_version_empty-state)       | ignored              | Return status to use when nothing matched filter.                                                                         |
+| [perf-config](#check_nscp_version_perf-config)       |                      | Performance data generation configuration                                                                                 |
+| [escape-html](#check_nscp_version_escape-html)       | 1)] (=0              | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [list-separator](#check_nscp_version_list-separator) | ,                    | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+| help                                                 | N/A                  | Show help screen (this screen)                                                                                            |
+| help-pb                                              | N/A                  | Show help screen as a protocol buffer payload                                                                             |
+| show-default                                         | N/A                  | Show default values for a given command                                                                                   |
+| help-short                                           | N/A                  | Show help screen (short format).                                                                                          |
+| [top-syntax](#check_nscp_version_top-syntax)         | ${status}: ${list}   | Top level syntax.                                                                                                         |
+| [ok-syntax](#check_nscp_version_ok-syntax)           |                      | ok syntax.                                                                                                                |
+| [empty-syntax](#check_nscp_version_empty-syntax)     |                      | Empty syntax.                                                                                                             |
+| [detail-syntax](#check_nscp_version_detail-syntax)   | ${version} (${date}) | Detail level syntax.                                                                                                      |
+| [perf-syntax](#check_nscp_version_perf-syntax)       | version              | Performance alias syntax.                                                                                                 |
 
-    | Option                                             | Default Value        | Description                                                                                                      |
-    |----------------------------------------------------|----------------------|------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_nscp_version_filter)               |                      | Filter which marks interesting items.                                                                            |
-    | [warning](#check_nscp_version_warning)             |                      | Filter which marks items which generates a warning state.                                                        |
-    | warn                                               |                      | Short alias for warning                                                                                          |
-    | [critical](#check_nscp_version_critical)           |                      | Filter which marks items which generates a critical state.                                                       |
-    | crit                                               |                      | Short alias for critical.                                                                                        |
-    | [ok](#check_nscp_version_ok)                       |                      | Filter which marks items which generates an ok state.                                                            |
-    | debug                                              | N/A                  | Show debugging information in the log                                                                            |
-    | show-all                                           | N/A                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-    | [empty-state](#check_nscp_version_empty-state)     | ignored              | Return status to use when nothing matched filter.                                                                |
-    | [perf-config](#check_nscp_version_perf-config)     |                      | Performance data generation configuration                                                                        |
-    | escape-html                                        | N/A                  | Escape any < and > characters to prevent HTML encoding                                                           |
-    | help                                               | N/A                  | Show help screen (this screen)                                                                                   |
-    | help-pb                                            | N/A                  | Show help screen as a protocol buffer payload                                                                    |
-    | show-default                                       | N/A                  | Show default values for a given command                                                                          |
-    | help-short                                         | N/A                  | Show help screen (short format).                                                                                 |
-    | [top-syntax](#check_nscp_version_top-syntax)       | ${status}: ${list}   | Top level syntax.                                                                                                |
-    | [ok-syntax](#check_nscp_version_ok-syntax)         |                      | ok syntax.                                                                                                       |
-    | [empty-syntax](#check_nscp_version_empty-syntax)   |                      | Empty syntax.                                                                                                    |
-    | [detail-syntax](#check_nscp_version_detail-syntax) | ${version} (${date}) | Detail level syntax.                                                                                             |
-    | [perf-syntax](#check_nscp_version_perf-syntax)     | version              | Performance alias syntax.                                                                                        |
 
 
+<h5 id="check_nscp_version_filter">filter:</h5>
 
-    <h5 id="check_nscp_version_filter">filter:</h5>
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
+<h5 id="check_nscp_version_warning">warning:</h5>
 
-    <h5 id="check_nscp_version_warning">warning:</h5>
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
 
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
 
 
+<h5 id="check_nscp_version_critical">critical:</h5>
 
-    <h5 id="check_nscp_version_critical">critical:</h5>
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
 
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
 
 
+<h5 id="check_nscp_version_ok">ok:</h5>
 
-    <h5 id="check_nscp_version_ok">ok:</h5>
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
 
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
 
+<h5 id="check_nscp_version_debug">debug:</h5>
 
-    <h5 id="check_nscp_version_empty-state">empty-state:</h5>
+Show debugging information in the log
 
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
+*Default Value:* `1)] (=0`
 
-    *Default Value:* `ignored`
+<h5 id="check_nscp_version_show-all">show-all:</h5>
 
-    <h5 id="check_nscp_version_perf-config">perf-config:</h5>
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+*Default Value:* `1)] (=0`
 
+<h5 id="check_nscp_version_empty-state">empty-state:</h5>
 
-    <h5 id="check_nscp_version_top-syntax">top-syntax:</h5>
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
 
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+*Default Value:* `ignored`
 
-    *Default Value:* `${status}: ${list}`
+<h5 id="check_nscp_version_perf-config">perf-config:</h5>
 
-    <h5 id="check_nscp_version_ok-syntax">ok-syntax:</h5>
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
 
+<h5 id="check_nscp_version_escape-html">escape-html:</h5>
 
-    <h5 id="check_nscp_version_empty-syntax">empty-syntax:</h5>
+Escape any < and > characters to prevent HTML encoding
 
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
+*Default Value:* `1)] (=0`
 
+<h5 id="check_nscp_version_list-separator">list-separator:</h5>
 
-    <h5 id="check_nscp_version_detail-syntax">detail-syntax:</h5>
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+*Default Value:* `, `
 
-    *Default Value:* `${version} (${date})`
+<h5 id="check_nscp_version_top-syntax">top-syntax:</h5>
 
-    <h5 id="check_nscp_version_perf-syntax">perf-syntax:</h5>
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
+*Default Value:* `${status}: ${list}`
 
-    *Default Value:* `version`
+<h5 id="check_nscp_version_ok-syntax">ok-syntax:</h5>
 
-=== "Linux"
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
 
-    <a id="check_nscp_version_warn"></a>
-    <a id="check_nscp_version_crit"></a>
-    <a id="check_nscp_version_debug"></a>
-    <a id="check_nscp_version_show-all"></a>
-    <a id="check_nscp_version_escape-html"></a>
-    <a id="check_nscp_version_help"></a>
-    <a id="check_nscp_version_help-pb"></a>
-    <a id="check_nscp_version_show-default"></a>
-    <a id="check_nscp_version_help-short"></a>
 
-    | Option                                             | Default Value        | Description                                                                                                      |
-    |----------------------------------------------------|----------------------|------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_nscp_version_filter)               |                      | Filter which marks interesting items.                                                                            |
-    | [warning](#check_nscp_version_warning)             |                      | Filter which marks items which generates a warning state.                                                        |
-    | warn                                               |                      | Short alias for warning                                                                                          |
-    | [critical](#check_nscp_version_critical)           |                      | Filter which marks items which generates a critical state.                                                       |
-    | crit                                               |                      | Short alias for critical.                                                                                        |
-    | [ok](#check_nscp_version_ok)                       |                      | Filter which marks items which generates an ok state.                                                            |
-    | debug                                              | N/A                  | Show debugging information in the log                                                                            |
-    | show-all                                           | N/A                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-    | [empty-state](#check_nscp_version_empty-state)     | ignored              | Return status to use when nothing matched filter.                                                                |
-    | [perf-config](#check_nscp_version_perf-config)     |                      | Performance data generation configuration                                                                        |
-    | escape-html                                        | N/A                  | Escape any < and > characters to prevent HTML encoding                                                           |
-    | help                                               | N/A                  | Show help screen (this screen)                                                                                   |
-    | help-pb                                            | N/A                  | Show help screen as a protocol buffer payload                                                                    |
-    | show-default                                       | N/A                  | Show default values for a given command                                                                          |
-    | help-short                                         | N/A                  | Show help screen (short format).                                                                                 |
-    | [top-syntax](#check_nscp_version_top-syntax)       | ${status}: ${list}   | Top level syntax.                                                                                                |
-    | [ok-syntax](#check_nscp_version_ok-syntax)         |                      | ok syntax.                                                                                                       |
-    | [empty-syntax](#check_nscp_version_empty-syntax)   |                      | Empty syntax.                                                                                                    |
-    | [detail-syntax](#check_nscp_version_detail-syntax) | ${version} (${date}) | Detail level syntax.                                                                                             |
-    | [perf-syntax](#check_nscp_version_perf-syntax)     | version              | Performance alias syntax.                                                                                        |
+<h5 id="check_nscp_version_empty-syntax">empty-syntax:</h5>
 
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-    <h5 id="check_nscp_version_filter">filter:</h5>
+<h5 id="check_nscp_version_detail-syntax">detail-syntax:</h5>
 
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
+*Default Value:* `${version} (${date})`
 
-    <h5 id="check_nscp_version_warning">warning:</h5>
+<h5 id="check_nscp_version_perf-syntax">perf-syntax:</h5>
 
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
 
-
-
-    <h5 id="check_nscp_version_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-
-    <h5 id="check_nscp_version_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_nscp_version_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `ignored`
-
-    <h5 id="check_nscp_version_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_nscp_version_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_nscp_version_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_nscp_version_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-
-    <h5 id="check_nscp_version_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${version} (${date})`
-
-    <h5 id="check_nscp_version_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `version`
+*Default Value:* `version`
 
 
 <a id="check_nscp_version_filter_keys"></a>
@@ -596,21 +413,22 @@ Check the version of NSClient++ which is used.
 
 **Common options for all checks:**
 
-| Option        | Description                                                                    |
-|---------------|--------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                           |
-| crit_count    | Number of items matched the critical criteria.                                 |
-| crit_list     | A list of all items which matched the critical criteria.                       |
-| detail_list   | A special list with critical, then warning and finally ok.                     |
-| list          | A list of all items which matched the filter.                                  |
-| ok_count      | Number of items matched the ok criteria.                                       |
-| ok_list       | A list of all items which matched the ok criteria.                             |
-| problem_count | Number of items matched either warning or critical criteria.                   |
-| problem_list  | A list of all items which matched either the critical or the warning criteria. |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                    |
-| total         | Total number of items.                                                         |
-| warn_count    | Number of items matched the warning criteria.                                  |
-| warn_list     | A list of all items which matched the warning criteria.                        |
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ## Configuration
 
