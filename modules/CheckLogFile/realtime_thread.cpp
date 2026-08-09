@@ -96,10 +96,20 @@ void real_time_thread::thread_proc() {
 #else
 
   struct pollfd pollfds[2] = {{inotify_init(), POLLIN | POLLPRI, 0}, {stop_event_[0], POLLIN, 0}};
+  if (pollfds[0].fd < 0) {
+    // Most likely fs.inotify.max_user_instances exhausted - which is exactly
+    // what the leak fixed below used to cause. Keep polling the stop fd so the
+    // thread stays joinable and time-based processing still runs.
+    NSC_LOG_ERROR("Failed to create inotify instance, only time-based processing will run: " + error::lookup::last_error(errno));
+  }
 
-  int *wds = new int[logs.size()];
+  std::vector<int> wds(files_list.size(), -1);
   for (std::size_t i = 0; i < files_list.size(); i++) {
+    if (pollfds[0].fd < 0) break;
     wds[i] = inotify_add_watch(pollfds[0].fd, files_list[i].c_str(), IN_MODIFY);
+    if (wds[i] < 0) {
+      NSC_LOG_ERROR("Failed to watch file (it will not be monitored): " + files_list[i] + ": " + error::lookup::last_error(errno));
+    }
   }
 
 #endif
@@ -156,7 +166,11 @@ void real_time_thread::thread_proc() {
       NSC_LOG_ERROR("read failed!");
       continue;
     } else if (pollfds[1].revents != 0) {
-      return;
+      // break, not return: the cleanup after the loop removes the watches and
+      // closes the inotify fd. Returning here leaked one inotify instance per
+      // stop/start cycle, and after fs.inotify.max_user_instances cycles
+      // (default 128) inotify_init() starts failing for good.
+      break;
     } else if (pollfds[0].revents != 0) {
       length = read(pollfds[0].fd, buffer, BUF_LEN);
       for (int j = 0; j < length;) {
@@ -178,11 +192,15 @@ void real_time_thread::thread_proc() {
     FindCloseChangeNotification(handles[i]);
   }
 #else
-  for (std::size_t i = 0; i < files_list.size(); i++) {
-    inotify_rm_watch(pollfds[0].fd, wds[i]);
+  if (pollfds[0].fd >= 0) {
+    for (std::size_t i = 0; i < wds.size(); i++) {
+      if (wds[i] >= 0) inotify_rm_watch(pollfds[0].fd, wds[i]);
+    }
+    close(pollfds[0].fd);
   }
-  close(pollfds[0].fd);
-  // close(pollfds[1].fd);
+  // pollfds[1].fd is stop_event_[0], which stop() owns and closes after the
+  // join - closing it here would leave stop() closing a stale (possibly
+  // reused) descriptor.
 #endif
   return;
 }
