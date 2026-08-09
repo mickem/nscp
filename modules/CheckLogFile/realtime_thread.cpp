@@ -4,6 +4,8 @@
 #include "realtime_thread.hpp"
 
 #include <boost/filesystem.hpp>
+#include <cerrno>
+#include <error/error.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -149,6 +151,12 @@ void real_time_thread::thread_proc() {
 
 bool real_time_thread::start() {
   if (!enabled_) return true;
+  // Never spawn the monitor thread unless the stop primitive exists. Without it
+  // the thread cannot be signalled: on POSIX poll() silently ignores a -1 fd, on
+  // Windows a null handle makes every WaitForMultipleObjects return WAIT_FAILED.
+  // Either way stop()'s join() would block forever and take service shutdown
+  // with it, so a failure here has to disable realtime monitoring rather than
+  // start something unstoppable.
 #ifdef WIN32
   // Deliberately UNNAMED (this used to be the named event "EventLogShutdown",
   // a name CheckEventLog's realtime thread also created): the handle never
@@ -157,10 +165,19 @@ bool real_time_thread::start() {
   // stop/start cycle reopened the same still-signaled object, so the restarted
   // thread exited immediately. A name would also let any co-resident process
   // signal it and disable monitoring from outside.
-  stop_event_ = CreateEvent(NULL, TRUE, FALSE, NULL);
+  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+  if (stop_event_ == nullptr) {
+    NSC_LOG_ERROR("Failed to create stop event, realtime log monitoring is disabled: " + error::lookup::last_error());
+    return false;
+  }
 #else
   if (pipe(stop_event_) == -1) {
-    NSC_LOG_ERROR("Failed to create pipe");
+    // POSIX leaves the array unspecified on failure; put it back to a state
+    // stop() recognises as "nothing to close".
+    const int saved_errno = errno;
+    stop_event_[0] = stop_event_[1] = -1;
+    NSC_LOG_ERROR("Failed to create stop pipe, realtime log monitoring is disabled: " + error::lookup::last_error(saved_errno));
+    return false;
   }
 #endif
   thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
