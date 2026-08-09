@@ -134,6 +134,15 @@ bool real_time_thread::start() {
   // thread exited immediately. A name would also let any co-resident process
   // signal it and disable monitoring from outside.
   stop_event_ = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+  // A null handle sits at handles[0] for every wait, so WaitForMultipleObjects
+  // returns WAIT_FAILED on every iteration and burns the loop's 100-error
+  // budget in a tight spin before giving up. Realtime alerting would be dead
+  // for the life of the process while start() reported success - report the
+  // failure instead of spawning a thread that cannot work or be signalled.
+  if (stop_event_ == nullptr) {
+    NSC_LOG_ERROR("Failed to create stop event, realtime eventlog monitoring is disabled: " + error::lookup::last_error());
+    return false;
+  }
   thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
