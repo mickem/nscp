@@ -14,6 +14,7 @@
 #include <set>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
+#include <win/com_helpers.hpp>
 #include <win/wmi/wmi_query.hpp>
 
 namespace po = boost::program_options;
@@ -174,28 +175,20 @@ void check_patch_age_from(const PB::Commands::QueryRequestMessage::Request &requ
 std::vector<hotfix_entry> gather_hotfixes() {
   std::vector<hotfix_entry> out;
 
-  const HRESULT hr_init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-  // SUCCEEDED covers S_OK/S_FALSE; RPC_E_CHANGED_MODE (COM already initialised
-  // in another mode) fails SUCCEEDED, so we proceed without uninitialising.
-  const bool needs_uninit = SUCCEEDED(hr_init);
-  try {
-    wmi_impl::query q("SELECT HotFixID, InstalledOn, Description FROM Win32_QuickFixEngineering", "root\\CIMV2", "", "");
-    wmi_impl::row_enumerator rows = q.execute();
-    while (rows.has_next()) {
-      const wmi_impl::row r = rows.get_next();
-      hotfix_entry e;
-      e.id = r.get_string("HotFixID");
-      e.installed_str = r.get_string("InstalledOn");
-      e.description = r.get_string("Description");
-      e.installed_epoch = parse_installed_on(e.installed_str);
-      if (e.id.empty()) continue;
-      out.push_back(e);
-    }
-  } catch (...) {
-    if (needs_uninit) CoUninitialize();
-    throw;
+  // Scoped COM init: balanced on every exit path, including a throwing query.
+  const com_helper::mta_scope com;
+  wmi_impl::query q("SELECT HotFixID, InstalledOn, Description FROM Win32_QuickFixEngineering", "root\\CIMV2", "", "");
+  wmi_impl::row_enumerator rows = q.execute();
+  while (rows.has_next()) {
+    const wmi_impl::row r = rows.get_next();
+    hotfix_entry e;
+    e.id = r.get_string("HotFixID");
+    e.installed_str = r.get_string("InstalledOn");
+    e.description = r.get_string("Description");
+    e.installed_epoch = parse_installed_on(e.installed_str);
+    if (e.id.empty()) continue;
+    out.push_back(e);
   }
-  if (needs_uninit) CoUninitialize();
   return out;
 }
 

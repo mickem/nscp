@@ -40,4 +40,27 @@ class initialize_com {
   }
   bool isInitialized() const { return isInitialized_; }
 };
+
+// Scoped COM (MTA) initialisation for the current thread. Balances the
+// CoInitializeEx in the destructor on every exit path, including exceptions,
+// and encodes the two subtle rules every hand-rolled copy had to re-derive:
+//  - RPC_E_CHANGED_MODE means COM is already initialised on this thread in a
+//    different apartment mode: it is usable (is_ready() is true) but must NOT
+//    be uninitialised by us, so the destructor does nothing.
+//  - CoInitializeSecurity is process-global and deliberately not called here.
+class mta_scope {
+  const HRESULT hr_;
+
+ public:
+  mta_scope() : hr_(CoInitializeEx(nullptr, COINIT_MULTITHREADED)) {}
+  ~mta_scope() {
+    if (SUCCEEDED(hr_)) CoUninitialize();
+  }
+  mta_scope(const mta_scope &) = delete;
+  mta_scope &operator=(const mta_scope &) = delete;
+
+  // COM is usable on this thread (initialised by us, or already initialised).
+  bool is_ready() const { return SUCCEEDED(hr_) || hr_ == RPC_E_CHANGED_MODE; }
+  HRESULT result() const { return hr_; }
+};
 };  // namespace com_helper

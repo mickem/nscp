@@ -15,6 +15,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/utf8.hpp>
+#include <win/com_helpers.hpp>
 #include <str/xtos.hpp>
 #include <utility>
 
@@ -205,12 +206,11 @@ void perform_wua_search(os_updates_obj &out) {
   out.fetch_succeeded = false;
   out.error.clear();
 
-  HRESULT hr_init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-  bool needs_uninit = SUCCEEDED(hr_init);
-  // RPC_E_CHANGED_MODE means COM is already initialized in a different mode; we should not call CoUninitialize.
-  if (hr_init == RPC_E_CHANGED_MODE) needs_uninit = false;
+  // Scoped COM init (tolerates RPC_E_CHANGED_MODE): balanced on every exit
+  // path, including the exceptions thrown below.
+  const com_helper::mta_scope com;
 
-  try {
+  {
     com_ptr<IUpdateSession> session;
     HRESULT hr = CoCreateInstance(__uuidof(UpdateSession), nullptr, CLSCTX_INPROC_SERVER, __uuidof(IUpdateSession), reinterpret_cast<void **>(session.out()));
     if (FAILED(hr) || !session.get()) {
@@ -251,11 +251,7 @@ void perform_wua_search(os_updates_obj &out) {
     }
     out.recompute();
     out.fetch_succeeded = true;
-  } catch (...) {
-    if (needs_uninit) CoUninitialize();
-    throw;
   }
-  if (needs_uninit) CoUninitialize();
 }
 
 }  // namespace

@@ -41,6 +41,12 @@ class pdh_thread {
   typedef std::list<std::string> error_list;
 
   std::shared_ptr<boost::thread> thread_;
+  // Secondary collector for the every-~12s metrics that query WMI or other
+  // providers which can block for tens of seconds (network, temperature, cpu
+  // frequency, battery, os_updates). Keeping them off the 1 Hz thread_ means a
+  // slow provider stalls only its own metric, not CPU/memory/PDH/realtime
+  // sampling (#1378).
+  std::shared_ptr<boost::thread> aux_thread_;
   boost::shared_mutex mutex_;
   HANDLE stop_event_;
   int plugin_id;
@@ -86,6 +92,20 @@ class pdh_thread {
         min_threshold_(10) {
     mutex_.lock();
   }
+  // Stop and join the collector threads before closing the event: on any path
+  // that destroys a started pdh_thread without calling stop() first (an
+  // exception during load, collector_.reset() replacing an instance), closing
+  // the handle under running threads and then detaching them would leave them
+  // executing against a destructed object. stop() is idempotent, so the normal
+  // stop()-then-destroy path is unaffected. Closing the handle here (rather
+  // than never) keeps a module reload from leaking a kernel handle per cycle.
+  ~pdh_thread() {
+    stop();
+    if (stop_event_ != nullptr) {
+      CloseHandle(stop_event_);
+      stop_event_ = nullptr;
+    }
+  }
   void add_counter(const PDH::pdh_object &counter);
 
   std::map<std::string, double> get_value(std::string counter);
@@ -109,7 +129,9 @@ class pdh_thread {
   bool is_disabled(const std::string &token) const;
 
   bool start();
-  bool stop() const;
+  // Signal both collector threads and join them. Idempotent: the destructor
+  // calls it unconditionally, after any explicit stop() from unloadModule.
+  bool stop();
   void set_path(const std::string mem_path, const std::string cpu_path, const std::string proc_path, const std::string legacy_path);
 
   void add_realtime_mem_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
@@ -163,4 +185,8 @@ class pdh_thread {
   void sample_process_cpu(error_list &errors);
 
   void thread_proc();
+  // Runs the network/temperature/cpu_frequency/battery/os_updates collections
+  // on their own ~12s cadence with COM initialised for its lifetime, so a slow
+  // WMI provider cannot freeze the 1 Hz thread_proc loop (#1378).
+  void aux_thread_proc();
 };

@@ -18,9 +18,9 @@ struct real_time_thread {
   std::wstring logs_;
 
 #ifdef WIN32
-  HANDLE stop_event_;
+  HANDLE stop_event_ = nullptr;
 #else
-  int stop_event_[2];
+  int stop_event_[2] = {-1, -1};
 #endif
 
   nscapi::core_wrapper *core;

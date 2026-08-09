@@ -126,13 +126,29 @@ void real_time_thread::thread_proc() {
 
 bool real_time_thread::start() {
   if (!enabled_) return true;
-  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, L"EventLogShutdown");
+  // Deliberately UNNAMED (this used to be the named event "EventLogShutdown",
+  // a name CheckLogFile's realtime thread also created): the handle never
+  // leaves this process, and sharing one named kernel object meant either
+  // module stopping silently killed the other's realtime thread - and a
+  // stop/start cycle reopened the same still-signaled object, so the restarted
+  // thread exited immediately. A name would also let any co-resident process
+  // signal it and disable monitoring from outside.
+  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, nullptr);
   thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
 bool real_time_thread::stop() {
-  SetEvent(stop_event_);
-  if (thread_) thread_->join();
+  if (stop_event_ != nullptr) SetEvent(stop_event_);
+  if (thread_) {
+    thread_->join();
+    thread_.reset();
+  }
+  // Close after the join so a stop/start cycle gets a fresh, unsignaled event
+  // instead of leaking a handle per cycle.
+  if (stop_event_ != nullptr) {
+    CloseHandle(stop_event_);
+    stop_event_ = nullptr;
+  }
   return true;
 }
 
