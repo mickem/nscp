@@ -3,7 +3,7 @@
 
 #include "pdh_thread.hpp"
 
-#include <objbase.h>
+#include <win/com_helpers.hpp>
 #include <win/sysinfo/sysinfo.h>
 
 #include <nscapi/macros.hpp>
@@ -466,6 +466,23 @@ void pdh_thread::thread_proc() {
   }
 }
 
+namespace {
+// Run one auxiliary collection, logging any failure. The collections are
+// independent, so one failing must never stop the others.
+template <class Fetcher>
+void run_fetch(const std::string &what, Fetcher fetch) {
+  try {
+    fetch();
+  } catch (const nsclient::nsclient_exception &e) {
+    NSC_LOG_ERROR("Failed to get " + what + ": " + e.reason());
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Failed to get " + what + ": " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to get " + what);
+  }
+}
+}  // namespace
+
 void pdh_thread::aux_thread_proc() {
   // Collect the every-~12s metrics that query WMI or other providers which can
   // block for tens of seconds when a backing service restarts (network via the
@@ -473,22 +490,6 @@ void pdh_thread::aux_thread_proc() {
   // frequency, battery, os_updates). Running them here rather than on the 1 Hz
   // thread_proc means such a stall costs only a one-cycle-stale metric instead
   // of freezing CPU/memory/PDH/realtime sampling (#1378).
-  //
-  // WMI needs COM initialised on this thread. Use the same MTA pattern as the
-  // module's other WMI callers: tolerate an apartment already initialised, and
-  // do NOT call CoInitializeSecurity here (it is process-global, set elsewhere).
-  const HRESULT hr_init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-  // RPC_E_CHANGED_MODE means COM is already initialised on this thread in a
-  // different apartment mode - WMI still works, we just must not uninitialise
-  // it. Any other failure means COM is unavailable, so every fetch below would
-  // fail; log once and stop the thread rather than spam an error each cycle.
-  if (FAILED(hr_init) && hr_init != RPC_E_CHANGED_MODE) {
-    NSC_LOG_ERROR("Failed to initialise COM on the CheckSystem auxiliary collector thread (hr=" + str::xtos(static_cast<long>(hr_init)) +
-                  "); network/temperature/cpu-frequency/battery/os-updates metrics will not be collected");
-    return;
-  }
-  const bool needs_uninit = SUCCEEDED(hr_init);
-
   const std::set<std::string> disabled = disable_list::parse(disable_);
   const bool disable_network = disabled.count("network") > 0;
   if (disable_network) NSC_LOG_MESSAGE("WARNING: network checking is disabled");
@@ -505,70 +506,41 @@ void pdh_thread::aux_thread_proc() {
   // (min_threshold_ + 2) one-second ticks.
   const DWORD interval_ms = static_cast<DWORD>((min_threshold_ + 2) * 1000);
 
-  do {
-    std::list<std::string> errors;
-    if (!disable_network) {
-      try {
-        network.fetch();
-      } catch (const nsclient::nsclient_exception &e) {
-        errors.push_back("Failed to get network metrics: " + e.reason());
-      } catch (const std::exception &e) {
-        errors.push_back("Failed to get network metrics: " + utf8::utf8_from_native(e.what()));
-      } catch (...) {
-        errors.emplace_back("Failed to get network metrics");
-      }
-    }
-    if (!disable_temperature) {
-      try {
-        temperature.fetch();
-      } catch (const nsclient::nsclient_exception &e) {
-        errors.push_back("Failed to get temperature metrics: " + e.reason());
-      } catch (const std::exception &e) {
-        errors.push_back("Failed to get temperature metrics: " + utf8::utf8_from_native(e.what()));
-      } catch (...) {
-        errors.emplace_back("Failed to get temperature metrics");
-      }
-    }
-    if (!disable_cpu_frequency) {
-      try {
-        cpu_frequency.fetch();
-      } catch (const nsclient::nsclient_exception &e) {
-        errors.push_back("Failed to get CPU frequency metrics: " + e.reason());
-      } catch (const std::exception &e) {
-        errors.push_back("Failed to get CPU frequency metrics: " + utf8::utf8_from_native(e.what()));
-      } catch (...) {
-        errors.emplace_back("Failed to get CPU frequency metrics");
-      }
-    }
-    if (!disable_battery) {
-      try {
-        battery.fetch();
-      } catch (const nsclient::nsclient_exception &e) {
-        errors.push_back("Failed to get battery metrics: " + e.reason());
-      } catch (const std::exception &e) {
-        errors.push_back("Failed to get battery metrics: " + utf8::utf8_from_native(e.what()));
-      } catch (...) {
-        errors.emplace_back("Failed to get battery metrics");
-      }
-    }
-    if (!disable_os_updates) {
-      try {
-        // os_updates.fetch() is a no-op until its internal TTL has elapsed (default 1h).
-        os_updates.fetch();
-      } catch (const nsclient::nsclient_exception &e) {
-        errors.push_back("Failed to get OS updates metrics: " + e.reason());
-      } catch (const std::exception &e) {
-        errors.push_back("Failed to get OS updates metrics: " + utf8::utf8_from_native(e.what()));
-      } catch (...) {
-        errors.emplace_back("Failed to get OS updates metrics");
-      }
-    }
-    for (const std::string &s : errors) {
-      NSC_LOG_ERROR(s);
-    }
-  } while (WaitForSingleObject(stop_event_, interval_ms) == WAIT_TIMEOUT);
+  // WMI needs COM initialised on this thread (MTA; CoInitializeSecurity is
+  // process-global and deliberately not touched). COM can fail transiently
+  // under boot-time resource pressure, so a failure must not permanently kill
+  // these collections: retry once per cycle until it succeeds, logging the
+  // first failure and the recovery rather than an error every interval.
+  std::unique_ptr<com_helper::mta_scope> com;
+  bool com_failure_logged = false;
 
-  if (needs_uninit) CoUninitialize();
+  DWORD wait_status;
+  do {
+    if (!com || !com->is_ready()) {
+      com = std::make_unique<com_helper::mta_scope>();
+      if (com->is_ready()) {
+        if (com_failure_logged) NSC_LOG_MESSAGE("COM initialised on the CheckSystem auxiliary collector thread; collection resumed");
+      } else if (!com_failure_logged) {
+        com_failure_logged = true;
+        NSC_LOG_ERROR("Failed to initialise COM on the CheckSystem auxiliary collector thread (hr=" + str::xtos(static_cast<long>(com->result())) +
+                      "); network/temperature/cpu-frequency/battery/os-updates collection delayed until it succeeds");
+      }
+    }
+    if (com->is_ready()) {
+      if (!disable_network) run_fetch("network metrics", [this] { network.fetch(); });
+      if (!disable_temperature) run_fetch("temperature metrics", [this] { temperature.fetch(); });
+      if (!disable_cpu_frequency) run_fetch("CPU frequency metrics", [this] { cpu_frequency.fetch(); });
+      if (!disable_battery) run_fetch("battery metrics", [this] { battery.fetch(); });
+      // os_updates.fetch() is a no-op until its internal TTL has elapsed (default 1h).
+      if (!disable_os_updates) run_fetch("OS updates metrics", [this] { os_updates.fetch(); });
+    }
+  } while ((wait_status = WaitForSingleObject(stop_event_, interval_ms)) == WAIT_TIMEOUT);
+  if (wait_status != WAIT_OBJECT_0) {
+    // Only our own stop() should ever end this loop; anything else (a failed
+    // wait on a bad handle, an abandoned mutex result) deserves a trace rather
+    // than a silent, permanent end to these collections.
+    NSC_LOG_ERROR("Something odd happened when terminating the CheckSystem auxiliary collection thread (wait result " + str::xtos(wait_status) + ")");
+  }
 }
 
 void pdh_thread::add_samples(std::shared_ptr<nscapi::settings_proxy> settings) {
@@ -741,18 +713,33 @@ pdh_thread::metrics_hash pdh_thread::get_metrics() {
 }
 
 bool pdh_thread::start() {
-  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, _T("EventLogShutdown"));
+  // Manual-reset, so a single SetEvent in stop() releases both threads.
+  // Deliberately UNNAMED: the handle is only ever used inside this process,
+  // and the name this used to carry ("EventLogShutdown") is also created by
+  // the CheckEventLog and CheckLogFile realtime threads - a named event would
+  // be one shared kernel object, so any of those modules stopping would
+  // silently kill these collector threads too. A name would also let any
+  // co-resident process that can open the object signal (or pre-create) it,
+  // disabling monitoring from outside.
+  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, nullptr);
   thread_ = std::make_shared<boost::thread>([this]() { this->thread_proc(); });
-  // Manual-reset event, so a single SetEvent in stop() releases both threads.
   aux_thread_ = std::make_shared<boost::thread>([this]() { this->aux_thread_proc(); });
   return true;
 }
-bool pdh_thread::stop() const {
-  SetEvent(stop_event_);
-  if (thread_) thread_->join();
+bool pdh_thread::stop() {
+  if (stop_event_ != nullptr) SetEvent(stop_event_);
+  // Reset after joining so a second call (the destructor always calls stop())
+  // is a no-op instead of joining an already-joined thread.
+  if (thread_) {
+    thread_->join();
+    thread_.reset();
+  }
   // aux_thread_ may be mid-fetch (up to a WMI stall) before it sees the event;
   // join still returns once that fetch completes, same worst case as before.
-  if (aux_thread_) aux_thread_->join();
+  if (aux_thread_) {
+    aux_thread_->join();
+    aux_thread_.reset();
+  }
   return true;
 }
 

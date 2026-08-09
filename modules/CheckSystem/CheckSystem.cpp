@@ -19,6 +19,7 @@
 #include <nscp_time.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <set>
+#include <win/com_helpers.hpp>
 #include <win/pdh/pdh_enumerations.hpp>
 #include <win/services.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
@@ -753,10 +754,8 @@ struct bios_info {
 // is unavailable or the class cannot be read.
 bios_info fetch_bios_info() {
   bios_info out;
-  const HRESULT hr_init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-  // SUCCEEDED covers S_OK/S_FALSE; RPC_E_CHANGED_MODE (COM already initialised in
-  // another mode) fails SUCCEEDED, so we proceed without uninitialising.
-  const bool needs_uninit = SUCCEEDED(hr_init);
+  // Scoped COM init (tolerates an apartment already initialised elsewhere).
+  const com_helper::mta_scope com;
   try {
     wmi_impl::query q("SELECT SerialNumber, SMBIOSBIOSVersion, Manufacturer FROM Win32_BIOS", "root\\CIMV2", "", "");
     wmi_impl::row_enumerator rows = q.execute();
@@ -769,7 +768,6 @@ bios_info fetch_bios_info() {
   } catch (...) {
     // Inventory only — never fail the check on WMI errors; leave fields empty.
   }
-  if (needs_uninit) CoUninitialize();
   return out;
 }
 }  // namespace

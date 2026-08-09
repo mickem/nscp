@@ -92,11 +92,19 @@ class pdh_thread {
         min_threshold_(10) {
     mutex_.lock();
   }
-  // stop() joins the threads but leaves stop_event_ open; close it here so a
-  // module reload (which creates a fresh pdh_thread each time) does not leak a
-  // kernel handle per cycle.
+  // Stop and join the collector threads before closing the event: on any path
+  // that destroys a started pdh_thread without calling stop() first (an
+  // exception during load, collector_.reset() replacing an instance), closing
+  // the handle under running threads and then detaching them would leave them
+  // executing against a destructed object. stop() is idempotent, so the normal
+  // stop()-then-destroy path is unaffected. Closing the handle here (rather
+  // than never) keeps a module reload from leaking a kernel handle per cycle.
   ~pdh_thread() {
-    if (stop_event_ != nullptr) CloseHandle(stop_event_);
+    stop();
+    if (stop_event_ != nullptr) {
+      CloseHandle(stop_event_);
+      stop_event_ = nullptr;
+    }
   }
   void add_counter(const PDH::pdh_object &counter);
 
@@ -121,7 +129,9 @@ class pdh_thread {
   bool is_disabled(const std::string &token) const;
 
   bool start();
-  bool stop() const;
+  // Signal both collector threads and join them. Idempotent: the destructor
+  // calls it unconditionally, after any explicit stop() from unloadModule.
+  bool stop();
   void set_path(const std::string mem_path, const std::string cpu_path, const std::string proc_path, const std::string legacy_path);
 
   void add_realtime_mem_filter(std::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);

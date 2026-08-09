@@ -15,6 +15,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
+#include <win/com_helpers.hpp>
 #include <win/wmi/wmi_query.hpp>
 
 namespace printqueue_check {
@@ -67,9 +68,10 @@ printers_type build_printers(const std::vector<printer_info> &printers, const st
 }
 
 void gather(std::vector<printer_info> &printers, std::vector<raw_job> &jobs) {
-  const HRESULT hr_init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-  const bool needs_uninit = SUCCEEDED(hr_init);
-  try {
+  // Scoped COM init: balanced on every exit path, including the exceptions the
+  // queries below may throw.
+  const com_helper::mta_scope com;
+  {
     {
       wmi_impl::query q("select Name, PrinterStatus, DetectedErrorState, WorkOffline from Win32_Printer", "root\\CIMV2", "", "");
       wmi_impl::row_enumerator rows = q.execute();
@@ -107,11 +109,7 @@ void gather(std::vector<printer_info> &printers, std::vector<raw_job> &jobs) {
         jobs.push_back(j);
       }
     }
-  } catch (...) {
-    if (needs_uninit) CoUninitialize();
-    throw;
   }
-  if (needs_uninit) CoUninitialize();
 }
 
 namespace check {
