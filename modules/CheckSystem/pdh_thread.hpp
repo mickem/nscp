@@ -92,6 +92,12 @@ class pdh_thread {
         min_threshold_(10) {
     mutex_.lock();
   }
+  // stop() joins the threads but leaves stop_event_ open; close it here so a
+  // module reload (which creates a fresh pdh_thread each time) does not leak a
+  // kernel handle per cycle.
+  ~pdh_thread() {
+    if (stop_event_ != nullptr) CloseHandle(stop_event_);
+  }
   void add_counter(const PDH::pdh_object &counter);
 
   std::map<std::string, double> get_value(std::string counter);

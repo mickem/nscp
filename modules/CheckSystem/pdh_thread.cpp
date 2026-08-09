@@ -478,6 +478,15 @@ void pdh_thread::aux_thread_proc() {
   // module's other WMI callers: tolerate an apartment already initialised, and
   // do NOT call CoInitializeSecurity here (it is process-global, set elsewhere).
   const HRESULT hr_init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  // RPC_E_CHANGED_MODE means COM is already initialised on this thread in a
+  // different apartment mode - WMI still works, we just must not uninitialise
+  // it. Any other failure means COM is unavailable, so every fetch below would
+  // fail; log once and stop the thread rather than spam an error each cycle.
+  if (FAILED(hr_init) && hr_init != RPC_E_CHANGED_MODE) {
+    NSC_LOG_ERROR("Failed to initialise COM on the CheckSystem auxiliary collector thread (hr=" + str::xtos(static_cast<long>(hr_init)) +
+                  "); network/temperature/cpu-frequency/battery/os-updates metrics will not be collected");
+    return;
+  }
   const bool needs_uninit = SUCCEEDED(hr_init);
 
   const std::set<std::string> disabled = disable_list::parse(disable_);
