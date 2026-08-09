@@ -77,7 +77,7 @@ void real_time_thread::thread_proc() {
   // dropped rather than waited on.
   std::vector<HANDLE> handles;
   std::vector<std::string> watched_folders;
-  handles.push_back(stop_event_);
+  handles.push_back(stop_signal_.native_handle());
   for (const std::string &folder : files_list) {
     const HANDLE handle = FindFirstChangeNotification(utf8::cvt<std::wstring>(folder).c_str(), TRUE, FILE_NOTIFY_CHANGE_SIZE);
     if (handle == INVALID_HANDLE_VALUE || handle == nullptr) {
@@ -95,7 +95,7 @@ void real_time_thread::thread_proc() {
   unsigned int wait_failures = 0;
 #else
 
-  struct pollfd pollfds[2] = {{inotify_init(), POLLIN | POLLPRI, 0}, {stop_event_[0], POLLIN, 0}};
+  struct pollfd pollfds[2] = {{inotify_init(), POLLIN | POLLPRI, 0}, {stop_signal_.wait_fd(), POLLIN, 0}};
   if (pollfds[0].fd < 0) {
     // Most likely fs.inotify.max_user_instances exhausted - which is exactly
     // what the leak fixed below used to cause. Keep polling the stop fd so the
@@ -198,9 +198,9 @@ void real_time_thread::thread_proc() {
     }
     close(pollfds[0].fd);
   }
-  // pollfds[1].fd is stop_event_[0], which stop() owns and closes after the
-  // join - closing it here would leave stop() closing a stale (possibly
-  // reused) descriptor.
+  // pollfds[1].fd is the stop_signal read end, which stop() owns and closes
+  // after the join - closing it here would leave stop() operating on a stale
+  // (possibly reused) descriptor.
 #endif
   return;
 }
@@ -213,58 +213,26 @@ bool real_time_thread::start() {
   // Either way stop()'s join() would block forever and take service shutdown
   // with it, so a failure here has to disable realtime monitoring rather than
   // start something unstoppable.
-#ifdef WIN32
-  // Deliberately UNNAMED (this used to be the named event "EventLogShutdown",
-  // a name CheckEventLog's realtime thread also created): the handle never
-  // leaves this process, and sharing one named kernel object meant either
-  // module stopping silently killed the other's realtime thread - and a
-  // stop/start cycle reopened the same still-signaled object, so the restarted
-  // thread exited immediately. A name would also let any co-resident process
-  // signal it and disable monitoring from outside.
-  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, nullptr);
-  if (stop_event_ == nullptr) {
-    NSC_LOG_ERROR("Failed to create stop event, realtime log monitoring is disabled: " + error::lookup::last_error());
+  // See threads::stop_signal for why the Windows event is unnamed and why a
+  // failure here must not start a thread.
+  std::string error;
+  if (!stop_signal_.create(error)) {
+    NSC_LOG_ERROR("Failed to create stop signal, realtime log monitoring is disabled: " + error);
     return false;
   }
-#else
-  if (pipe(stop_event_) == -1) {
-    // POSIX leaves the array unspecified on failure; put it back to a state
-    // stop() recognises as "nothing to close".
-    const int saved_errno = errno;
-    stop_event_[0] = stop_event_[1] = -1;
-    NSC_LOG_ERROR("Failed to create stop pipe, realtime log monitoring is disabled: " + error::lookup::last_error(saved_errno));
-    return false;
-  }
-#endif
   thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
 bool real_time_thread::stop() {
   if (!enabled_) return true;
-#ifdef WIN32
-  if (stop_event_ != nullptr) SetEvent(stop_event_);
-#else
-  if (stop_event_[1] < 0 || write(stop_event_[1], " ", 2) == -1) {
-    NSC_LOG_ERROR("Failed to signal a stop");
-  }
-#endif
+  stop_signal_.signal();
   if (thread_) {
     thread_->join();
     thread_.reset();
   }
   // Release the signal primitive after the join so a stop/start cycle gets a
   // fresh one instead of leaking a handle (or a pipe fd pair) per cycle.
-#ifdef WIN32
-  if (stop_event_ != nullptr) {
-    CloseHandle(stop_event_);
-    stop_event_ = nullptr;
-  }
-#else
-  for (int &fd : stop_event_) {
-    if (fd >= 0) close(fd);
-    fd = -1;
-  }
-#endif
+  stop_signal_.close();
   return true;
 }
 

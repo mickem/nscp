@@ -11,6 +11,7 @@
 #include <memory>
 #include <nscapi/settings/proxy.hpp>
 #include <rrd_buffer.hpp>
+#include <threads/stop_signal.hpp>
 #include <win/pdh/pdh_interface.hpp>
 #include <win/pdh/pdh_query.hpp>
 #include <win/sysinfo/win_sysinfo.hpp>
@@ -48,7 +49,7 @@ class pdh_thread {
   // sampling (#1378).
   std::shared_ptr<boost::thread> aux_thread_;
   boost::shared_mutex mutex_;
-  HANDLE stop_event_;
+  threads::stop_signal stop_signal_;
   int plugin_id;
   nscapi::core_wrapper *core_;
 
@@ -82,8 +83,7 @@ class pdh_thread {
 
  public:
   pdh_thread(nscapi::core_wrapper *core, int plugin_id)
-      : stop_event_(nullptr),
-        plugin_id(plugin_id),
+      : plugin_id(plugin_id),
         core_(core),
         read_core_load(true),
         use_pdh_for_cpu(false),
@@ -92,20 +92,14 @@ class pdh_thread {
         min_threshold_(10) {
     mutex_.lock();
   }
-  // Stop and join the collector threads before closing the event: on any path
-  // that destroys a started pdh_thread without calling stop() first (an
-  // exception during load, collector_.reset() replacing an instance), closing
-  // the handle under running threads and then detaching them would leave them
-  // executing against a destructed object. stop() is idempotent, so the normal
-  // stop()-then-destroy path is unaffected. Closing the handle here (rather
-  // than never) keeps a module reload from leaking a kernel handle per cycle.
-  ~pdh_thread() {
-    stop();
-    if (stop_event_ != nullptr) {
-      CloseHandle(stop_event_);
-      stop_event_ = nullptr;
-    }
-  }
+  // Stop and join the collector threads before the stop signal is released: on
+  // any path that destroys a started pdh_thread without calling stop() first
+  // (an exception during load, collector_.reset() replacing an instance),
+  // releasing the handle under running threads and then detaching them would
+  // leave them executing against a destructed object. stop() is idempotent and
+  // now also closes the signal, so the normal stop()-then-destroy path is
+  // unaffected and ~stop_signal has nothing left to do.
+  ~pdh_thread() { stop(); }
   void add_counter(const PDH::pdh_object &counter);
 
   std::map<std::string, double> get_value(std::string counter);

@@ -59,7 +59,7 @@ void real_time_thread::thread_proc() {
   // TODO: add support for scanning "missed messages" at startup
 
   HANDLE *handles = new HANDLE[1 + evlog_list.size()];
-  handles[0] = stop_event_;
+  handles[0] = stop_signal_.native_handle();
   for (int i = 0; i < evlog_list.size(); i++) {
     evlog_list[i]->notify(handles[i + 1]);
   }
@@ -126,38 +126,25 @@ void real_time_thread::thread_proc() {
 
 bool real_time_thread::start() {
   if (!enabled_) return true;
-  // Deliberately UNNAMED (this used to be the named event "EventLogShutdown",
-  // a name CheckLogFile's realtime thread also created): the handle never
-  // leaves this process, and sharing one named kernel object meant either
-  // module stopping silently killed the other's realtime thread - and a
-  // stop/start cycle reopened the same still-signaled object, so the restarted
-  // thread exited immediately. A name would also let any co-resident process
-  // signal it and disable monitoring from outside.
-  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, nullptr);
-  // A null handle sits at handles[0] for every wait, so WaitForMultipleObjects
-  // returns WAIT_FAILED on every iteration and burns the loop's 100-error
-  // budget in a tight spin before giving up. Realtime alerting would be dead
-  // for the life of the process while start() reported success - report the
-  // failure instead of spawning a thread that cannot work or be signalled.
-  if (stop_event_ == nullptr) {
-    NSC_LOG_ERROR("Failed to create stop event, realtime eventlog monitoring is disabled: " + error::lookup::last_error());
+  // See threads::stop_signal for why the event is unnamed and why a failure
+  // here must not start a thread.
+  std::string error;
+  if (!stop_signal_.create(error)) {
+    NSC_LOG_ERROR("Failed to create stop event, realtime eventlog monitoring is disabled: " + error);
     return false;
   }
   thread_ = std::shared_ptr<boost::thread>(new boost::thread([this]() { this->thread_proc(); }));
   return true;
 }
 bool real_time_thread::stop() {
-  if (stop_event_ != nullptr) SetEvent(stop_event_);
+  stop_signal_.signal();
   if (thread_) {
     thread_->join();
     thread_.reset();
   }
   // Close after the join so a stop/start cycle gets a fresh, unsignaled event
   // instead of leaking a handle per cycle.
-  if (stop_event_ != nullptr) {
-    CloseHandle(stop_event_);
-    stop_event_ = nullptr;
-  }
+  stop_signal_.close();
   return true;
 }
 
