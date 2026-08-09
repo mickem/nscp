@@ -13,6 +13,7 @@
 #include <boost/regex.hpp>
 #include <chrono>
 #include <memory>
+#include <net/address_family.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -138,8 +139,8 @@ void tcp_converse(Stream &stream, tcp::socket &lowest, boost::asio::io_context &
 // "no_match" when the response fails either. "result" gets a short status word
 // (ok/timeout/refused/no_match/tls_handshake_failed/error).
 void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms, const std::string &send_data, const std::string &expect,
-                   const std::string &expect_regex, bool use_tls, const std::string &tls_version, const std::string &verify_mode,
-                   const std::string &ca_file, check_tcp_filter::filter_obj &out) {
+                   const std::string &expect_regex, bool use_tls, const std::string &tls_version, const std::string &verify_mode, const std::string &ca_file,
+                   net::address_family af, check_tcp_filter::filter_obj &out) {
   out.host = host;
   out.port = port;
   out.connected = false;
@@ -157,8 +158,11 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
   try {
     bool connect_done = false;
     boost::system::error_code resolve_ec;
-    auto endpoints = resolver.resolve(host, std::to_string(port), resolve_ec);
-    if (resolve_ec) {
+    auto endpoints = net::resolve_for_family(resolver, af, host, std::to_string(port), resolve_ec);
+    if (resolve_ec || endpoints.empty()) {
+      // With address-family pinned this also covers "the name exists but has no
+      // address in the requested family", which is the answer the check is
+      // being asked for rather than an internal error.
       out.result = "resolve_failed";
       return;
     }
@@ -291,6 +295,7 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
   std::string tls_version = "tlsv1.2+";
   std::string verify_mode = "none";
   std::string ca_file;
+  std::string address_family_arg;
 
   filter f;
   filter_helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
@@ -309,6 +314,7 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
     ("verify", po::value<std::string>(&verify_mode)->default_value("none"),
         "Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).")
     ("ca", po::value<std::string>(&ca_file), "CA bundle used to verify the server certificate when --ssl --verify peer is used.")
+    ("address-family", po::value<std::string>(&address_family_arg), net::address_family_option_help())
     ;
   if (forced == nullptr) {
     filter_helper.get_desc().add_options()
@@ -320,6 +326,10 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  net::address_family af = net::address_family::any;
+  if (!net::parse_address_family(address_family_arg, af))
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid address-family: " + address_family_arg + " (expected any, ipv4 or ipv6)");
 
   // Resolve the preset: forced (check_ssh) or from the `service` argument.
   const service_preset *preset = forced;
@@ -352,7 +362,7 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
 
   for (const auto &host : hosts) {
     auto obj = std::make_shared<filter_obj>();
-    run_tcp_check(host, port, timeout_ms, send_data, expect, expect_regex, use_ssl, tls_version, verify_mode, ca_file, *obj);
+    run_tcp_check(host, port, timeout_ms, send_data, expect, expect_regex, use_ssl, tls_version, verify_mode, ca_file, af, *obj);
     obj->post_read();
     f.match(obj);
   }

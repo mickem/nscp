@@ -56,16 +56,19 @@ function closeNetServer(srv: net.Server): () => Promise<void> {
   return () => new Promise<void>((res) => srv.close(() => res()));
 }
 
-/** A plain-TCP server that greets each client and closes (FTP/SMTP style). */
-function startTcpGreeter(greeting: string): Promise<Listener> {
+/**
+ * A plain-TCP server that greets each client and closes (FTP/SMTP style).
+ * `bind` selects the loopback address, so passing "::1" gives a listener that
+ * only an IPv6 connection can reach - which is how the address-family tests
+ * prove the flag actually changed the transport.
+ */
+function startTcpGreeter(greeting: string, bind = "127.0.0.1"): Promise<Listener> {
   return new Promise((resolve) => {
     const srv = net.createServer((sock) => {
       sock.on("error", () => {});
       sock.end(greeting); // write banner then FIN → the check sees a clean EOF
     });
-    srv.listen(0, "127.0.0.1", () =>
-      resolve(track({ port: portOf(srv), close: closeNetServer(srv) })),
-    );
+    srv.listen(0, bind, () => resolve(track({ port: portOf(srv), close: closeNetServer(srv) })));
   });
 }
 
@@ -88,12 +91,16 @@ function startTlsGreeter(greeting: string, cert: CertPair): Promise<Listener> {
 }
 
 /** An http or https server driven by the supplied request handler. */
-function startHttp(handler: http.RequestListener, cert?: CertPair): Promise<Listener> {
+function startHttp(
+  handler: http.RequestListener,
+  cert?: CertPair,
+  bind = "127.0.0.1",
+): Promise<Listener> {
   return new Promise((resolve) => {
     const srv = cert
       ? https.createServer({ key: cert.keyPem, cert: cert.certPem }, handler)
       : http.createServer(handler);
-    srv.listen(0, "127.0.0.1", () =>
+    srv.listen(0, bind, () =>
       resolve(
         track({
           port: portOf(srv as unknown as net.Server),
@@ -111,9 +118,10 @@ function startHttp(handler: http.RequestListener, cert?: CertPair): Promise<List
  */
 function startDnsResponder(
   ip: [number, number, number, number] = [93, 184, 216, 34],
+  bind = "127.0.0.1",
 ): Promise<Listener> {
   return new Promise((resolve) => {
-    const sock = dgram.createSocket("udp4");
+    const sock = dgram.createSocket(bind.includes(":") ? "udp6" : "udp4");
     sock.on("message", (msg, rinfo) => {
       // Question starts at offset 12; walk the length-prefixed labels to the 0.
       let p = 12;
@@ -147,7 +155,35 @@ function startDnsResponder(
       ]);
       sock.send(Buffer.concat([header, question, answer]), rinfo.port, rinfo.address);
     });
-    sock.bind(0, "127.0.0.1", () =>
+    sock.bind(0, bind, () =>
+      resolve(
+        track({
+          port: (sock.address() as AddressInfo).port,
+          close: () => new Promise<void>((r) => sock.close(() => r())),
+        }),
+      ),
+    );
+  });
+}
+
+/**
+ * A minimal UDP NTP responder: answers every request with a server-mode packet
+ * carrying the current time at the given stratum. Enough to exercise
+ * check_ntp_offset's client end to end without touching a real time server.
+ */
+function startNtpResponder(stratum = 2, bind = "127.0.0.1"): Promise<Listener> {
+  return new Promise((resolve) => {
+    const sock = dgram.createSocket(bind.includes(":") ? "udp6" : "udp4");
+    sock.on("message", (_msg, rinfo) => {
+      const pkt = Buffer.alloc(48);
+      pkt[0] = 0x1c; // LI=0, VN=3, mode=4 (server)
+      pkt[1] = stratum;
+      // NTP timestamps are seconds since 1900; the fraction is left at 0.
+      const secs = Math.floor(Date.now() / 1000) + 2208988800;
+      for (const off of [16, 24, 32, 40]) pkt.writeUInt32BE(secs, off);
+      sock.send(pkt, rinfo.port, rinfo.address);
+    });
+    sock.bind(0, bind, () =>
       resolve(
         track({
           port: (sock.address() as AddressInfo).port,
@@ -552,6 +588,155 @@ describe("CheckNet commands", () => {
     });
     expect(messageOf(q)).not.toMatch(/does not take any arguments/);
     expect(q.result).toBe(OK);
+  });
+
+  // --- address-family (ipv4 / ipv6) -----------------------------------------
+  //
+  // Each case binds the target to ONE loopback family and then asks the check
+  // for that family and the other one. A check that ignored the flag would pass
+  // both halves (the resolver would just pick the family that works), so the
+  // negative half is what actually proves the transport changed.
+
+  it("check_tcp address-family=ipv6 connects over IPv6", async () => {
+    const s = await startTcpGreeter("220 service ready\r\n", "::1");
+    const ok = await executeQuery(key, "check_tcp", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv6",
+      expect: "220",
+    });
+    expect(ok.result).toBe(OK);
+
+    // Same name and port over IPv4: nothing is listening there.
+    const bad = await executeQuery(key, "check_tcp", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv4",
+    });
+    expect(bad.result).toBe(CRITICAL);
+  });
+
+  it("check_tcp address-family=ipv4 connects over IPv4", async () => {
+    const s = await startTcpGreeter("220 service ready\r\n", "127.0.0.1");
+    const ok = await executeQuery(key, "check_tcp", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv4",
+      expect: "220",
+    });
+    expect(ok.result).toBe(OK);
+
+    const bad = await executeQuery(key, "check_tcp", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv6",
+    });
+    expect(bad.result).toBe(CRITICAL);
+  });
+
+  it("check_tcp accepts the short address-family aliases", async () => {
+    const s = await startTcpGreeter("220 service ready\r\n", "::1");
+    for (const alias of ["6", "v6", "inet6", "IPv6"]) {
+      const q = await executeQuery(key, "check_tcp", {
+        host: "localhost",
+        port: String(s.port),
+        "address-family": alias,
+        expect: "220",
+      });
+      expect(q.result).toBe(OK);
+    }
+  });
+
+  it("check_tcp rejects an unknown address-family", async () => {
+    const s = await startTcpGreeter("220 service ready\r\n");
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "address-family": "ipv64",
+    });
+    expect(messageOf(q)).toMatch(/Invalid address-family: ipv64/);
+  });
+
+  it("check_ssh honours address-family", async () => {
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n", "::1");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv6",
+      "top-syntax": "${list}",
+      "detail-syntax": "${software} ${software_version}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("OpenSSH 9.6p1");
+  });
+
+  it("check_http address-family=ipv6 fetches over IPv6", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("ok");
+    }, undefined, "::1");
+    const ok = await executeQuery(key, "check_http", {
+      url: `http://localhost:${s.port}/`,
+      "address-family": "ipv6",
+    });
+    expect(ok.result).toBe(OK);
+
+    const bad = await executeQuery(key, "check_http", {
+      url: `http://localhost:${s.port}/`,
+      "address-family": "ipv4",
+    });
+    expect(bad.result).toBe(CRITICAL);
+  });
+
+  it("check_http accepts a bracketed IPv6 literal URL", async () => {
+    // The host is echoed back so the Host header can be asserted: RFC 7230
+    // wants the brackets kept there even though the resolver needs them gone.
+    const s = await startHttp((req, res) => {
+      const body = `host=${req.headers.host}`;
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(body);
+    }, undefined, "::1");
+    const q = await executeQuery(key, "check_http", {
+      url: `http://[::1]:${s.port}/`,
+      "top-syntax": "${list}",
+      "detail-syntax": "${host}|${port}|${code}|${body}",
+    });
+    expect(q.result).toBe(OK);
+    // Brackets are kept in the Host header. (The port is not sent there for any
+    // address family - a separate, pre-existing gap, not an IPv6 one.)
+    expect(messageOf(q)).toBe(`::1|${s.port}|200|host=[::1]`);
+  });
+
+  it("check_dns queries an IPv6 DNS server", async () => {
+    // The DNS server itself is reached over IPv6; the record it returns is an
+    // ordinary A record, which keeps the two concepts (transport vs record
+    // type) visibly separate.
+    const s = await startDnsResponder([10, 1, 2, 3], "::1");
+    const q = await executeQuery(key, "check_dns", {
+      host: "example.com",
+      server: "::1",
+      port: String(s.port),
+      "address-family": "ipv6",
+      "top-syntax": "${list}",
+      "detail-syntax": "${addresses}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("10.1.2.3");
+  });
+
+  it("check_ntp_offset queries an IPv6 NTP server", async () => {
+    const s = await startNtpResponder(2, "::1");
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "::1",
+      port: String(s.port),
+      "address-family": "ipv6",
+      warning: "stratum >= 16",
+      critical: "result != 'ok'",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} stratum=${stratum}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("ok stratum=2");
   });
 
   // --- check_nsclient_web_online -------------------------------------------

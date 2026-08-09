@@ -34,6 +34,25 @@ inline bool parse_url(const std::string &url, parsed_url &out) {
     host_port = s.substr(0, slash);
     out.path = s.substr(slash);
   }
+  // An IPv6 literal is bracketed (RFC 3986) precisely because it is full of
+  // colons: "[::1]:8080". Strip the brackets and only look for a port
+  // separator after them, otherwise the first colon of the address is mistaken
+  // for the port separator.
+  if (!host_port.empty() && host_port[0] == '[') {
+    const auto close = host_port.find(']');
+    if (close == std::string::npos) return false;
+    out.host = host_port.substr(1, close - 1);
+    const std::string rest = host_port.substr(close + 1);
+    if (rest.empty()) {
+      out.port = (out.protocol == "https") ? "443" : "80";
+    } else if (rest[0] == ':') {
+      out.port = rest.substr(1);
+    } else {
+      return false;
+    }
+    return !out.host.empty() && !out.port.empty();
+  }
+
   const auto colon = host_port.find(':');
   if (colon == std::string::npos) {
     out.host = host_port;
@@ -43,6 +62,14 @@ inline bool parse_url(const std::string &url, parsed_url &out) {
     out.port = host_port.substr(colon + 1);
   }
   return !out.host.empty();
+}
+
+// The value to put in the Host header for a parsed host. parse_url strips the
+// brackets from an IPv6 literal (the resolver wants it bare), but RFC 7230
+// requires them back in the header, so "::1" has to be sent as "[::1]".
+inline std::string host_header_value(const std::string &host) {
+  if (host.find(':') == std::string::npos) return host;
+  return "[" + host + "]";
 }
 
 // Resolve a redirect target (a Location header value) against the URL that

@@ -5,6 +5,7 @@
 
 #include <boost/atomic.hpp>
 #include <memory>
+#include <net/address_family.hpp>
 #include <net/pinger.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
@@ -44,6 +45,7 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
   bool total = false;
   int count = 0;
   int timeout = 0;
+  std::string address_family_arg;
 
   ping_filter::filter filter;
   filter_helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", filter.get_filter_syntax(), "unknown");
@@ -57,10 +59,15 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
     ("count", po::value<int>(&count)->default_value(1), "Number of packets to send.")
     ("timeout", po::value<int>(&timeout)->default_value(500), "Timeout in milliseconds.")
     ("payload", po::value<std::string>(&payload)->default_value("Hello from NSClient++."), "The payload to send in the ping request (default: 'Hello from NSClient++')")
+    ("address-family", po::value<std::string>(&address_family_arg), net::address_family_option_help())
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  net::address_family af = net::address_family::any;
+  if (!net::parse_address_family(address_family_arg, af))
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid address-family: " + address_family_arg + " (expected any, ipv4 or ipv6)");
 
   if (!hosts_string.empty()) boost::split(hosts, hosts_string, boost::is_any_of(","));
 
@@ -77,7 +84,10 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
     for (int i = 0; i < count; i++) {
       boost::asio::io_context io_service;
       auto id = identifier.fetch_add(1, boost::memory_order_relaxed);
-      pinger ping(io_service, result, host.c_str(), timeout, id, payload);
+      // A destination with no address in the requested family throws out of the
+      // pinger constructor and, as before for any resolve failure, surfaces as
+      // an error response for the whole check.
+      pinger ping(io_service, result, host.c_str(), timeout, id, payload, af);
       ping.ping();
       io_service.run();
     }

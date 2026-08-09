@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <net/address_family.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 #include "check_connections.h"
@@ -267,6 +268,62 @@ TEST(CheckTcp, TlsServicePresets) {
 }
 
 // ============================================================================
+// address-family selection (shared by every CheckNet check)
+// ============================================================================
+
+TEST(AddressFamily, ParsesTheCanonicalNames) {
+  net::address_family af = net::address_family::ipv6;
+  ASSERT_TRUE(net::parse_address_family("any", af));
+  EXPECT_EQ(net::address_family::any, af);
+  ASSERT_TRUE(net::parse_address_family("ipv4", af));
+  EXPECT_EQ(net::address_family::ipv4, af);
+  ASSERT_TRUE(net::parse_address_family("ipv6", af));
+  EXPECT_EQ(net::address_family::ipv6, af);
+}
+
+TEST(AddressFamily, ParsesAliasesAndIsCaseInsensitive) {
+  net::address_family af = net::address_family::any;
+  for (const char *v : {"4", "v4", "inet", "IPv4", "IPV4", "V4"}) {
+    ASSERT_TRUE(net::parse_address_family(v, af)) << v;
+    EXPECT_EQ(net::address_family::ipv4, af) << v;
+  }
+  for (const char *v : {"6", "v6", "inet6", "IPv6", "INET6"}) {
+    ASSERT_TRUE(net::parse_address_family(v, af)) << v;
+    EXPECT_EQ(net::address_family::ipv6, af) << v;
+  }
+  for (const char *v : {"any", "ANY", "both", "unspec"}) {
+    ASSERT_TRUE(net::parse_address_family(v, af)) << v;
+    EXPECT_EQ(net::address_family::any, af) << v;
+  }
+}
+
+TEST(AddressFamily, EmptyMeansAnySoAnOmittedArgumentKeepsTheOldBehaviour) {
+  net::address_family af = net::address_family::ipv6;
+  ASSERT_TRUE(net::parse_address_family("", af));
+  EXPECT_EQ(net::address_family::any, af);
+}
+
+TEST(AddressFamily, UnknownValueIsRejectedAndLeavesTheTargetUntouched) {
+  // Rejecting rather than falling back to `any` is the point: a typo like
+  // "ipv64" must be reported, not silently ignored, or the check would quietly
+  // stop testing the family the user asked for.
+  net::address_family af = net::address_family::ipv4;
+  EXPECT_FALSE(net::parse_address_family("ipv64", af));
+  EXPECT_FALSE(net::parse_address_family("v5", af));
+  EXPECT_FALSE(net::parse_address_family("yes", af));
+  EXPECT_FALSE(net::parse_address_family("46", af));
+  EXPECT_EQ(net::address_family::ipv4, af);
+}
+
+TEST(AddressFamily, ToStringRoundTrips) {
+  for (const auto af : {net::address_family::any, net::address_family::ipv4, net::address_family::ipv6}) {
+    net::address_family parsed = net::address_family::any;
+    ASSERT_TRUE(net::parse_address_family(net::to_string(af), parsed));
+    EXPECT_EQ(af, parsed);
+  }
+}
+
+// ============================================================================
 // check_ssh - SSH identification string (RFC 4253 4.2) parsing
 // ============================================================================
 
@@ -484,6 +541,43 @@ TEST(CheckHttp, parse_url_http_default_port) {
   EXPECT_EQ(u.host, "example.com");
   EXPECT_EQ(u.port, "80");
   EXPECT_EQ(u.path, "/path");
+}
+
+TEST(CheckHttp, parse_url_ipv6_literal) {
+  // An IPv6 literal is bracketed exactly because it is full of colons; a naive
+  // find(':') would take "::1" apart at the first one and leave a port of ":1".
+  check_net::check_http_internal::parsed_url u;
+  ASSERT_TRUE(check_net::check_http_internal::parse_url("http://[::1]:8080/api", u));
+  EXPECT_EQ(u.host, "::1");
+  EXPECT_EQ(u.port, "8080");
+  EXPECT_EQ(u.path, "/api");
+
+  ASSERT_TRUE(check_net::check_http_internal::parse_url("http://[2001:db8::1]/", u));
+  EXPECT_EQ(u.host, "2001:db8::1");
+  EXPECT_EQ(u.port, "80");  // default applies to a bracketed host too
+  EXPECT_EQ(u.path, "/");
+
+  ASSERT_TRUE(check_net::check_http_internal::parse_url("https://[2001:db8::1]", u));
+  EXPECT_EQ(u.host, "2001:db8::1");
+  EXPECT_EQ(u.port, "443");
+  EXPECT_EQ(u.path, "/");
+}
+
+TEST(CheckHttp, parse_url_malformed_ipv6_literal_is_rejected) {
+  check_net::check_http_internal::parsed_url u;
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://[::1/", u));      // unterminated bracket
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://[]/", u));        // empty host
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://[::1]x8080/", u));  // junk after the bracket
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://[::1]:/", u));    // empty port
+}
+
+TEST(CheckHttp, host_header_value_brackets_only_ipv6) {
+  // RFC 7230 wants the brackets back in the Host header, but a name or an IPv4
+  // literal must be sent unchanged.
+  EXPECT_EQ("[::1]", check_net::check_http_internal::host_header_value("::1"));
+  EXPECT_EQ("[2001:db8::1]", check_net::check_http_internal::host_header_value("2001:db8::1"));
+  EXPECT_EQ("example.com", check_net::check_http_internal::host_header_value("example.com"));
+  EXPECT_EQ("192.0.2.1", check_net::check_http_internal::host_header_value("192.0.2.1"));
 }
 
 TEST(CheckHttp, parse_url_https_default_port) {

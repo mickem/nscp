@@ -6,6 +6,7 @@
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
+#include <net/address_family.hpp>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -40,7 +41,7 @@ namespace {
 using check_ntp_internal::ntp_offset_ms;
 using check_ntp_internal::ntp_to_unix_ms;
 
-void run_ntp_check(const std::string &server, unsigned short port, int timeout_ms, check_ntp_filter::filter_obj &out) {
+void run_ntp_check(const std::string &server, unsigned short port, int timeout_ms, net::address_family af, check_ntp_filter::filter_obj &out) {
   using boost::asio::ip::udp;
 
   out.server = server;
@@ -57,14 +58,16 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
 
   try {
     boost::system::error_code resolve_ec;
-    auto results = resolver.resolve(udp::v4(), server, std::to_string(port), resolve_ec);
+    auto results = net::resolve_for_family(resolver, af, server, std::to_string(port), resolve_ec);
     if (resolve_ec || results.empty()) {
       out.result = "resolve_failed";
       return;
     }
-    udp::endpoint endpoint = results.begin()->endpoint();
+    const udp::endpoint endpoint = results.begin()->endpoint();
 
-    socket.open(udp::v4());
+    // Open the socket in whatever family the server actually resolved to. This
+    // used to be hardcoded to v4, which made an IPv6 NTP server unreachable.
+    socket.open(endpoint.protocol());
 
     // Build the NTP request packet (NTPv3 client mode, widely accepted by NTPv4 servers).
     // Byte 0 layout: LI (2 bits) | VN (3 bits) | Mode (3 bits)
@@ -184,6 +187,7 @@ void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request,
   std::string servers_string;
   unsigned short port = 123;
   int timeout_ms = 5000;
+  std::string address_family_arg;
 
   filter f;
   filter_helper.add_options("offset > 50 or stratum >= 16", "offset > 100 or stratum >= 16 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
@@ -197,10 +201,15 @@ void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request,
         "Comma separated list of NTP servers to query.")
     ("port", po::value<unsigned short>(&port)->default_value(123), "UDP port to use (default: 123).")
     ("timeout", po::value<int>(&timeout_ms)->default_value(5000), "Timeout in milliseconds.")
+    ("address-family", po::value<std::string>(&address_family_arg), net::address_family_option_help())
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  net::address_family af = net::address_family::any;
+  if (!net::parse_address_family(address_family_arg, af))
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid address-family: " + address_family_arg + " (expected any, ipv4 or ipv6)");
 
   if (!servers_string.empty()) {
     std::vector<std::string> tmp;
@@ -217,7 +226,7 @@ void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request,
 
   for (const auto &server : servers) {
     auto obj = std::make_shared<filter_obj>();
-    run_ntp_check(server, port, timeout_ms, *obj);
+    run_ntp_check(server, port, timeout_ms, af, *obj);
     f.match(obj);
   }
 

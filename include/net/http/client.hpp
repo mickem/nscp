@@ -13,6 +13,7 @@
 #include <bytes/base64.hpp>
 #include <istream>
 #include <memory>
+#include <net/address_family.hpp>
 #include <net/http/http_packet.hpp>
 #include <net/http/proxy_config.hpp>
 #include <net/socket/socket_helpers.hpp>
@@ -146,6 +147,9 @@ struct generic_socket {
   // Applied by the client right after connecting; no-op for transports that
   // are not sockets.
   virtual void set_timeouts(unsigned int seconds) {}
+  // Pins which IP version the connection uses; no-op for transports that do not
+  // resolve host names (named pipes).
+  virtual void set_address_family(net::address_family af) {}
 };
 
 struct tcp_socket final : generic_socket {
@@ -153,6 +157,9 @@ struct tcp_socket final : generic_socket {
   tcp::resolver resolver_;
   boost::asio::io_context &io_;
   unsigned int timeout_ = 0;
+  net::address_family address_family_ = net::address_family::any;
+
+  void set_address_family(const net::address_family af) override { address_family_ = af; }
 
   explicit tcp_socket(boost::asio::io_context &io_service) : socket_(io_service), resolver_(io_service), io_(io_service) {}
   ~tcp_socket() override {
@@ -169,9 +176,10 @@ struct tcp_socket final : generic_socket {
 
   void connect(const std::string &server, const std::string &port) override {
     boost::system::error_code resolve_ec;
-    auto endpoints = resolver_.resolve(server, port, resolve_ec);
-    if (resolve_ec) {
-      throw socket_helpers::socket_exception("Failed to resolve " + server + ":" + port + ": " + resolve_ec.message());
+    auto endpoints = net::resolve_for_family(resolver_, address_family_, server, port, resolve_ec);
+    if (resolve_ec || endpoints.begin() == endpoints.end()) {
+      throw socket_helpers::socket_exception("Failed to resolve " + server + ":" + port + " over " + net::to_string(address_family_) + ": " +
+                                             (resolve_ec ? resolve_ec.message() : std::string("no address in the requested family")));
     }
 
     boost::system::error_code error = boost::asio::error::host_not_found;
@@ -241,6 +249,7 @@ struct ssl_socket final : generic_socket {
   boost::asio::ssl::stream<tcp::socket> ssl_socket_;
   tcp::resolver resolver_;
   boost::asio::ssl::verify_mode verify_;
+  net::address_family address_family_ = net::address_family::any;
   std::string sni_;  // TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
   bool pinned_;  // pinned peer cert: verify against it only, no hostname check
@@ -306,6 +315,8 @@ struct ssl_socket final : generic_socket {
         pinned_(identity.is_pinned()),
         io_(io_service) {}
 
+  void set_address_family(const net::address_family af) override { address_family_ = af; }
+
   ~ssl_socket() override {
     try {
       ssl_socket_.lowest_layer().close();
@@ -370,7 +381,7 @@ struct ssl_socket final : generic_socket {
     auto &tcp_sock = ssl_socket_.next_layer();
 
     boost::system::error_code error = boost::asio::error::host_not_found;
-    auto proxy_endpoints = resolver_.resolve(proxy_.host, proxy_.port, error);
+    auto proxy_endpoints = net::resolve_for_family(resolver_, address_family_, proxy_.host, proxy_.port, error);
     if (error) {
       throw socket_helpers::socket_exception("Failed to resolve proxy " + proxy_.host + ":" + proxy_.port + ": " + error.message());
     }
@@ -459,9 +470,10 @@ struct ssl_socket final : generic_socket {
     }
 
     boost::system::error_code error = boost::asio::error::host_not_found;
-    auto endpoints = resolver_.resolve(server, port, error);
-    if (error) {
-      throw socket_helpers::socket_exception("Failed to resolve " + server + ":" + port + ": " + error.message());
+    auto endpoints = net::resolve_for_family(resolver_, address_family_, server, port, error);
+    if (error || endpoints.begin() == endpoints.end()) {
+      throw socket_helpers::socket_exception("Failed to resolve " + server + ":" + port + " over " + net::to_string(address_family_) + ": " +
+                                             (error ? error.message() : std::string("no address in the requested family")));
     }
     error = boost::asio::error::host_not_found;
     for (auto it = endpoints.begin(); error && it != endpoints.end(); ++it) {
@@ -558,6 +570,9 @@ struct http_client_options {
   // hurts. execute() streams to the caller's ostream instead of buffering, so
   // it is deliberately not covered - that is the path large downloads use.
   std::size_t max_response_bytes_ = 5u * 1024u * 1024u;
+  // Pins the connection (and the proxy connection, when one is used) to one IP
+  // version; `any` leaves the choice to the resolver.
+  net::address_family address_family_ = net::address_family::any;
 
   http_client_options(std::string protocol, std::string tls_version, std::string verify, std::string ca, proxy_config proxy = proxy_config())
       : protocol_(std::move(protocol)), tls_version_(std::move(tls_version)), verify_(std::move(verify)), ca_(std::move(ca)), proxy_(std::move(proxy)) {}
@@ -593,6 +608,7 @@ class simple_client {
     } else {
       socket_ = std::make_unique<tcp_socket>(io_service_);
     }
+    socket_->set_address_family(options.address_family_);
   }
 
   ~simple_client() = default;
