@@ -5942,6 +5942,15 @@ windows:
             description: Scan files for matching rows for each matching rows an OK message will be submitted
             sample: true
             title: FILTER
+          list separator:
+            advanced: true
+            default_value: ''
+            description: String used to separate the items of %(list) and friends (default ', '). Accepts
+              the escapes \n, \r, \t and \\; set it to \n to render one item per line (most Nagios compatible
+              frontends show everything after the first line as long output). Reference it as %(sep) in
+              the top syntax to also break before the first item.
+            sample: true
+            title: LIST SEPARATOR
           maximum age:
             advanced: false
             default_value: 5m
@@ -6087,6 +6096,15 @@ windows:
             description: Scan files for matching rows for each matching rows an OK message will be submitted
             sample: true
             title: FILTER
+          list separator:
+            advanced: true
+            default_value: ''
+            description: String used to separate the items of %(list) and friends (default ', '). Accepts
+              the escapes \n, \r, \t and \\; set it to \n to render one item per line (most Nagios compatible
+              frontends show everything after the first line as long output). Reference it as %(sep) in
+              the top syntax to also break before the first item.
+            sample: true
+            title: LIST SEPARATOR
           maximum age:
             advanced: false
             default_value: 5m
@@ -6226,6 +6244,15 @@ windows:
             description: Scan files for matching rows for each matching rows an OK message will be submitted
             sample: true
             title: FILTER
+          list separator:
+            advanced: true
+            default_value: ''
+            description: String used to separate the items of %(list) and friends (default ', '). Accepts
+              the escapes \n, \r, \t and \\; set it to \n to render one item per line (most Nagios compatible
+              frontends show everything after the first line as long output). Reference it as %(sep) in
+              the top syntax to also break before the first item.
+            sample: true
+            title: LIST SEPARATOR
           maximum age:
             advanced: false
             default_value: 5m
@@ -6365,6 +6392,15 @@ windows:
             description: Scan files for matching rows for each matching rows an OK message will be submitted
             sample: true
             title: FILTER
+          list separator:
+            advanced: true
+            default_value: ''
+            description: String used to separate the items of %(list) and friends (default ', '). Accepts
+              the escapes \n, \r, \t and \\; set it to \n to render one item per line (most Nagios compatible
+              frontends show everything after the first line as long output). Reference it as %(sep) in
+              the top syntax to also break before the first item.
+            sample: true
+            title: LIST SEPARATOR
           maximum age:
             advanced: false
             default_value: 5m
@@ -6446,6 +6482,14 @@ windows:
             description: If any rows match this filter severity will escalated to WARNING
             sample: true
             title: WARNING FILTER
+    /settings/system/windows/service-tags:
+      info:
+        advanced: false
+        description: 'Windows services to surface as host tags: each key is a service name and each value
+          the tag to publish. When the service exists and is running the tag is published as <tag>=enabled
+          (removed otherwise). Example: MSSQLSERVER=sql-server'
+        subkey: true
+        title: Service tags
   queries:
     check_battery:
       fields:
@@ -6528,6 +6572,13 @@ windows:
       - generic: false
         long_description: Current remaining capacity in mWh
         name: remaining_capacity
+        short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
         short_description: ''
       - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
@@ -6616,17 +6667,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -6654,14 +6705,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -6818,6 +6889,13 @@ windows:
         name: problem_list
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -6922,17 +7000,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -6960,14 +7038,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -7149,6 +7247,13 @@ windows:
           Common option for all checks.
         name: problem_list
         short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
       - generic: false
         long_description: Socket designation (e.g. "CPU 1"), for per-socket filtering
         name: socket
@@ -7240,17 +7345,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -7278,14 +7383,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -7429,6 +7554,13 @@ windows:
           Common option for all checks.
         name: problem_list
         short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
       - generic: false
         long_description: Total size of memory
         name: size
@@ -7528,17 +7660,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -7566,14 +7698,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -7775,6 +7927,13 @@ windows:
         long_description: Bytes sent per second, formatted as a human-readable string (auto-scaled).
         name: sent_human
         short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
       - generic: false
         long_description: 'WMI source: ''interface'' or ''adapter'''
         name: source
@@ -7900,17 +8059,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -7938,14 +8097,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -8127,6 +8306,13 @@ windows:
         name: security
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -8217,17 +8403,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -8255,14 +8441,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -8436,6 +8642,13 @@ windows:
           Common option for all checks.
         name: problem_list
         short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
       - generic: false
         long_description: BIOS/system serial number (Win32_BIOS.SerialNumber)
         name: serial
@@ -8538,17 +8751,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -8576,14 +8789,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -8739,6 +8972,13 @@ windows:
           Common option for all checks.
         name: problem_list
         short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
       - generic: false
         long_description: Total size of pagefile
         name: size
@@ -8834,17 +9074,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -8872,14 +9112,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -9049,6 +9309,13 @@ windows:
         name: required
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -9132,17 +9399,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -9170,14 +9437,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -9352,6 +9639,13 @@ windows:
         name: scale()
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -9469,17 +9763,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -9507,14 +9801,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -9764,6 +10078,13 @@ windows:
         long_description: Comma-separated human-readable list of pending-reboot causes ('none' if clear)
         name: reasons
         short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
       - generic: false
         long_description: 1 if Component Based Servicing (CBS) has queued a reboot
         name: servicing
@@ -9856,17 +10177,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -9894,14 +10215,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -10067,6 +10408,13 @@ windows:
         name: problem_list
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -10150,17 +10498,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -10188,14 +10536,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -10407,6 +10775,13 @@ windows:
         long_description: Resident set size; alias for working_set (g,m,k,b)
         name: rss
         short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
       - generic: false
         long_description: Process is started
         name: started
@@ -10538,17 +10913,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -10576,14 +10951,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -10803,6 +11198,13 @@ windows:
         name: running
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -10890,17 +11292,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -10928,14 +11330,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -11102,6 +11524,13 @@ windows:
         name: running
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -11189,17 +11618,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -11227,14 +11656,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -11413,6 +11862,13 @@ windows:
         name: problem_list
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -11512,17 +11968,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -11550,14 +12006,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -11769,6 +12245,13 @@ windows:
           Common option for all checks.
         name: problem_list
         short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
       - generic: false
         long_description: Raw byte size of the value data
         name: size
@@ -11873,17 +12356,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -11911,14 +12394,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -12144,6 +12647,13 @@ windows:
           Common option for all checks.
         name: problem_list
         short_description: ''
+      - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
       - generic: false
         long_description: The configured start type ()
         name: start_type
@@ -12248,17 +12758,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -12286,14 +12796,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -12536,6 +13066,13 @@ windows:
         name: problem_list
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -12638,17 +13175,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -12676,14 +13213,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -12828,6 +13385,13 @@ windows:
         name: problem_list
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -12918,17 +13482,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -12956,14 +13520,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
@@ -13104,6 +13688,13 @@ windows:
         name: problem_list
         short_description: ''
       - generic: true
+        long_description: 'The decoded list-separator, for use in the top-syntax: templates are never
+          escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break
+          the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).
+          Common option for all checks.'
+        name: sep
+        short_description: ''
+      - generic: true
         long_description: The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.
         name: status
         short_description: ''
@@ -13190,17 +13781,17 @@ windows:
         repeatable: false
         required: false
         short_description: Filter which marks items which generates an ok state.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show debugging information in the log
         name: debug
         repeatable: false
         required: false
         short_description: Show debugging information in the log
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
         name: show-all
@@ -13228,14 +13819,34 @@ windows:
         repeatable: false
         required: false
         short_description: Performance data generation configuration
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 1)] (=0
+        is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
         repeatable: false
         required: false
         short_description: Escape any < and > characters to prevent HTML encoding
+      - content_type: 2
+        default_value: ', '
+        is_simple: false
+        long_description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
+
+          Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real
+          newline cannot be written).
+
+          Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+          below the summary line.
+
+          The top-syntax decides what precedes the first item; templates are never escape-decoded, so
+          reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count)
+          items:%(sep)%(list)".'
+        name: list-separator
+        repeatable: false
+        required: false
+        short_description: String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+          %(problem_list) and %(detail_list).
       - content_type: 4
         default_value: ''
         is_simple: true
