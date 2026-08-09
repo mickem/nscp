@@ -9,6 +9,8 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <string>
 
+#include "check_ssh_internal.hpp"
+
 namespace check_net {
 
 // A named service preset: default port, an optional payload to send, a regular
@@ -51,6 +53,7 @@ struct filter_obj {
   bool connected;
 
   filter_obj() : port(0), time(0), connected(false) {}
+  virtual ~filter_obj() = default;
 
   std::string show() const { return host + ":" + std::to_string(port) + " (" + result + ")"; }
 
@@ -60,7 +63,24 @@ struct filter_obj {
   std::string get_result() const { return result; }
   std::string get_response() const { return response; }
   long long get_connected() const { return connected ? 1 : 0; }
+
+  // Called once the peer's response has been read, so a specialised check can
+  // derive extra fields from it (check_ssh parses the identification string).
+  virtual void post_read() {}
 };
+
+// The keywords every TCP-style check shares. Templated on the registry so
+// check_ssh can register the same set for its own (derived) filter_obj instead
+// of duplicating them.
+template <typename Registry>
+void register_common_keywords(Registry &registry) {
+  registry.add_string_var("host", &filter_obj::get_host, "Host the check connected to");
+  registry.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, refused, timeout, no_match, ...)");
+  registry.add_string_var("response", &filter_obj::get_response, "The data received from the peer (use with 'like'/'regexp' for custom matching)");
+  registry.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port the check connected to");
+  registry.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds").add_int_perf("ms");
+  registry.add_int_var("connected", parsers::where::type_int, &filter_obj::get_connected, "1 when the connection succeeded, 0 otherwise");
+}
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
@@ -69,6 +89,33 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 }  // namespace check_tcp_filter
+
+namespace check_ssh_filter {
+
+// check_ssh is check_tcp against the SSH preset plus the parsed identification
+// string, so its object is the TCP one with the banner fields added.
+struct filter_obj : public check_tcp_filter::filter_obj {
+  check_ssh_internal::ssh_banner banner;
+
+  std::string get_banner() const { return banner.banner; }
+  std::string get_protocol() const { return banner.protocol; }
+  long long get_protocol_major() const { return banner.protocol_major; }
+  long long get_protocol_minor() const { return banner.protocol_minor; }
+  std::string get_version() const { return banner.version; }
+  std::string get_software() const { return banner.software; }
+  std::string get_software_version() const { return banner.software_version; }
+  std::string get_comments() const { return banner.comments; }
+
+  void post_read() override { check_ssh_internal::parse_ssh_banner(response, banner); }
+};
+
+typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
+struct filter_obj_handler : public native_context {
+  filter_obj_handler();
+};
+typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+
+}  // namespace check_ssh_filter
 
 void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 void check_ssh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);

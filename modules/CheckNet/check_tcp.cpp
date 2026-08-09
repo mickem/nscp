@@ -25,16 +25,33 @@ namespace po = boost::program_options;
 namespace check_net {
 namespace check_tcp_filter {
 
-filter_obj_handler::filter_obj_handler() {
-  registry_.add_string_var("host", &filter_obj::get_host, "Host the check connected to");
-  registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, refused, timeout, no_match, ...)");
-  registry_.add_string_var("response", &filter_obj::get_response, "The data received from the peer (use with 'like'/'regexp' for custom matching)");
-  registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port the check connected to");
-  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds").add_int_perf("ms");
-  registry_.add_int_var("connected", parsers::where::type_int, &filter_obj::get_connected, "1 when the connection succeeded, 0 otherwise");
-}
+filter_obj_handler::filter_obj_handler() { register_common_keywords(registry_); }
 
 }  // namespace check_tcp_filter
+
+namespace check_ssh_filter {
+
+filter_obj_handler::filter_obj_handler() {
+  check_tcp_filter::register_common_keywords(registry_);
+
+  // Fields parsed out of the SSH identification string. They are empty (and the
+  // numeric ones 0) whenever no banner was read — a refused/timed-out
+  // connection, or a port that is not speaking SSH — so guard on `result` when
+  // that distinction matters.
+  registry_.add_string_var("banner", &filter_obj::get_banner, "The raw SSH identification string, e.g. SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5");
+  registry_.add_string_var("protocol", &filter_obj::get_protocol, "SSH protocol version the server announced, e.g. 2.0 or 1.99");
+  registry_.add_string_var("version", &filter_obj::get_version, "Software version the server announced, e.g. OpenSSH_9.6p1");
+  registry_.add_string_var("software", &filter_obj::get_software, "Software name from the version string, e.g. OpenSSH or dropbear");
+  registry_.add_string_var("software_version", &filter_obj::get_software_version, "Software version number from the version string, e.g. 9.6p1");
+  registry_.add_string_var("comments", &filter_obj::get_comments, "Trailing comments of the identification string, e.g. the distribution patch level");
+  registry_.add_int_var("protocol_major", parsers::where::type_int, &filter_obj::get_protocol_major,
+                        "Major SSH protocol version as a number (2 for 2.0); use protocol_major < 2 to catch an SSHv1-only server")
+      .no_perf();
+  registry_.add_int_var("protocol_minor", parsers::where::type_int, &filter_obj::get_protocol_minor, "Minor SSH protocol version as a number (0 for 2.0)")
+      .no_perf();
+}
+
+}  // namespace check_ssh_filter
 
 namespace {
 
@@ -252,11 +269,13 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
 namespace {
 // Shared core for check_tcp and check_ssh. When `forced` is non-null (check_ssh)
 // its preset is always applied; otherwise the preset is chosen from a `service`
-// argument.
+// argument. FilterT/ObjT let check_ssh plug in its own object, which adds the
+// parsed identification string on top of the TCP fields.
+template <typename FilterT, typename ObjT>
 void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                     const service_preset *forced) {
-  using check_tcp_filter::filter;
-  using check_tcp_filter::filter_obj;
+  typedef FilterT filter;
+  typedef ObjT filter_obj;
 
   modern_filter::data_container data;
   modern_filter::cli_helper<filter> filter_helper(request, response, data);
@@ -334,6 +353,7 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
   for (const auto &host : hosts) {
     auto obj = std::make_shared<filter_obj>();
     run_tcp_check(host, port, timeout_ms, send_data, expect, expect_regex, use_ssl, tls_version, verify_mode, ca_file, *obj);
+    obj->post_read();
     f.match(obj);
   }
 
@@ -342,11 +362,11 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
 }  // namespace
 
 void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_tcp_impl(request, response, nullptr);
+  check_tcp_impl<check_tcp_filter::filter, check_tcp_filter::filter_obj>(request, response, nullptr);
 }
 
 void check_ssh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_tcp_impl(request, response, find_service_preset("SSH"));
+  check_tcp_impl<check_ssh_filter::filter, check_ssh_filter::filter_obj>(request, response, find_service_preset("SSH"));
 }
 
 }  // namespace check_net

@@ -267,6 +267,155 @@ TEST(CheckTcp, TlsServicePresets) {
 }
 
 // ============================================================================
+// check_ssh - SSH identification string (RFC 4253 4.2) parsing
+// ============================================================================
+
+namespace {
+check_net::check_ssh_internal::ssh_banner parse_banner(const std::string &raw) {
+  check_net::check_ssh_internal::ssh_banner b;
+  EXPECT_TRUE(check_net::check_ssh_internal::parse_ssh_banner(raw, b)) << "failed to parse: " << raw;
+  return b;
+}
+}  // namespace
+
+TEST(CheckSsh, ParsesOpenSshBannerWithComments) {
+  const auto b = parse_banner("SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5\r\n");
+  EXPECT_EQ("SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5", b.banner);
+  EXPECT_EQ("2.0", b.protocol);
+  EXPECT_EQ(2, b.protocol_major);
+  EXPECT_EQ(0, b.protocol_minor);
+  EXPECT_EQ("OpenSSH_9.6p1", b.version);
+  EXPECT_EQ("OpenSSH", b.software);
+  EXPECT_EQ("9.6p1", b.software_version);
+  EXPECT_EQ("Ubuntu-3ubuntu13.5", b.comments);
+}
+
+TEST(CheckSsh, ParsesBannerWithoutComments) {
+  const auto b = parse_banner("SSH-2.0-dropbear_2022.83\r\n");
+  EXPECT_EQ("dropbear", b.software);
+  EXPECT_EQ("2022.83", b.software_version);
+  EXPECT_EQ("", b.comments);
+}
+
+TEST(CheckSsh, ProtocolOneNineNineIsMajorOne) {
+  // "1.99" advertises 2.0 with 1.x backwards compatibility, i.e. the server
+  // still speaks the insecure SSHv1 — protocol_major < 2 must catch it.
+  const auto b = parse_banner("SSH-1.99-OpenSSH_3.9p1\r\n");
+  EXPECT_EQ("1.99", b.protocol);
+  EXPECT_EQ(1, b.protocol_major);
+  EXPECT_EQ(99, b.protocol_minor);
+}
+
+TEST(CheckSsh, ProtocolOneFiveIsSshV1Only) {
+  const auto b = parse_banner("SSH-1.5-OpenSSH_2.9\r\n");
+  EXPECT_EQ(1, b.protocol_major);
+  EXPECT_EQ(5, b.protocol_minor);
+}
+
+TEST(CheckSsh, SoftwareSplitsOnTheLastUnderscoreBeforeADigit) {
+  // A first-underscore split would cut these in the wrong place.
+  const auto win = parse_banner("SSH-2.0-OpenSSH_for_Windows_9.5\r\n");
+  EXPECT_EQ("OpenSSH_for_Windows", win.software);
+  EXPECT_EQ("9.5", win.software_version);
+
+  const auto sun = parse_banner("SSH-2.0-Sun_SSH_1.1\r\n");
+  EXPECT_EQ("Sun_SSH", sun.software);
+  EXPECT_EQ("1.1", sun.software_version);
+}
+
+TEST(CheckSsh, SoftwareWithoutAVersionKeepsTheWholeName) {
+  // Some servers publish an opaque build id rather than a version.
+  const auto b = parse_banner("SSH-2.0-GitLab-SSHD\r\n");
+  EXPECT_EQ("GitLab-SSHD", b.software);
+  EXPECT_EQ("", b.software_version);
+  // The full version string is still there for regex matching.
+  EXPECT_EQ("GitLab-SSHD", b.version);
+}
+
+TEST(CheckSsh, UnderscoreNotFollowedByADigitIsNotAVersionSeparator) {
+  const auto b = parse_banner("SSH-2.0-Foo_Bar\r\n");
+  EXPECT_EQ("Foo_Bar", b.software);
+  EXPECT_EQ("", b.software_version);
+}
+
+TEST(CheckSsh, SkipsPreambleLinesBeforeTheIdentificationString) {
+  // RFC 4253 lets a server send other lines before the identification string.
+  const auto b = parse_banner("You are being watched\r\nAuthorized use only\r\nSSH-2.0-OpenSSH_8.9p1\r\n");
+  EXPECT_EQ("SSH-2.0-OpenSSH_8.9p1", b.banner);
+  EXPECT_EQ("OpenSSH", b.software);
+  EXPECT_EQ("8.9p1", b.software_version);
+}
+
+TEST(CheckSsh, HandlesBareNewlineAndNoTrailingNewline) {
+  const auto lf = parse_banner("SSH-2.0-OpenSSH_9.6p1\n");
+  EXPECT_EQ("OpenSSH", lf.software);
+  const auto none = parse_banner("SSH-2.0-OpenSSH_9.6p1");
+  EXPECT_EQ("OpenSSH", none.software);
+  EXPECT_EQ("9.6p1", none.software_version);
+}
+
+TEST(CheckSsh, NonSshAndMalformedInputIsRejected) {
+  check_net::check_ssh_internal::ssh_banner b;
+  EXPECT_FALSE(check_net::check_ssh_internal::parse_ssh_banner("", b));
+  EXPECT_FALSE(check_net::check_ssh_internal::parse_ssh_banner("HELLO not ssh\r\n", b));
+  EXPECT_FALSE(check_net::check_ssh_internal::parse_ssh_banner("220 mail.example.com ESMTP\r\n", b));
+  // "SSH-" prefixed but not a usable identification string.
+  EXPECT_FALSE(check_net::check_ssh_internal::parse_ssh_banner("SSH-2.0\r\n", b));    // no software part
+  EXPECT_FALSE(check_net::check_ssh_internal::parse_ssh_banner("SSH-2.0-\r\n", b));   // empty software part
+  EXPECT_FALSE(check_net::check_ssh_internal::parse_ssh_banner("SSH--OpenSSH\r\n", b));  // empty protocol
+  // A rejected parse must leave the output untouched rather than half-filled.
+  EXPECT_EQ("", b.banner);
+  EXPECT_EQ("", b.protocol);
+  EXPECT_EQ(0, b.protocol_major);
+}
+
+TEST(CheckSsh, NonNumericProtocolLeavesTheNumbersAtZero) {
+  const auto b = parse_banner("SSH-x.y-OpenSSH_9.6p1\r\n");
+  EXPECT_EQ("x.y", b.protocol);
+  EXPECT_EQ(0, b.protocol_major);
+  EXPECT_EQ(0, b.protocol_minor);
+}
+
+TEST(CheckSsh, FilterObjExposesTheParsedBannerAndKeepsTcpFields) {
+  check_net::check_ssh_filter::filter_obj o;
+  o.host = "srv";
+  o.port = 22;
+  o.result = "ok";
+  o.response = "SSH-2.0-OpenSSH_9.6p1 Debian-2";
+  o.post_read();
+
+  // TCP fields still behave as they do for check_tcp.
+  EXPECT_EQ("srv", o.get_host());
+  EXPECT_EQ(22, o.get_port());
+  EXPECT_EQ("srv:22 (ok)", o.show());
+  // ...plus the parsed identification string.
+  EXPECT_EQ("SSH-2.0-OpenSSH_9.6p1 Debian-2", o.get_banner());
+  EXPECT_EQ("2.0", o.get_protocol());
+  EXPECT_EQ(2, o.get_protocol_major());
+  EXPECT_EQ(0, o.get_protocol_minor());
+  EXPECT_EQ("OpenSSH_9.6p1", o.get_version());
+  EXPECT_EQ("OpenSSH", o.get_software());
+  EXPECT_EQ("9.6p1", o.get_software_version());
+  EXPECT_EQ("Debian-2", o.get_comments());
+}
+
+TEST(CheckSsh, FilterObjFieldsStayEmptyWhenNoBannerWasRead) {
+  // A refused/timed-out connection reads nothing; the banner keywords must be
+  // empty (and the numbers 0) rather than carrying stale or invented data.
+  check_net::check_ssh_filter::filter_obj o;
+  o.host = "srv";
+  o.port = 22;
+  o.result = "refused";
+  o.post_read();
+
+  EXPECT_EQ("", o.get_banner());
+  EXPECT_EQ("", o.get_protocol());
+  EXPECT_EQ("", o.get_version());
+  EXPECT_EQ("", o.get_software());
+  EXPECT_EQ(0, o.get_protocol_major());
+}
+
+// ============================================================================
 // check_nsclient_web_online - REST result JSON parsing
 // ============================================================================
 

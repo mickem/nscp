@@ -249,6 +249,99 @@ describe("CheckNet commands", () => {
     expect(q.result).toBe(CRITICAL);
   });
 
+  it("check_ssh splits the identification string into keywords", async () => {
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax":
+        "proto=${protocol} major=${protocol_major} minor=${protocol_minor} version=${version} sw=${software} swver=${software_version} comments=[${comments}]",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe(
+      "proto=2.0 major=2 minor=0 version=OpenSSH_9.6p1 sw=OpenSSH swver=9.6p1 comments=[Ubuntu-3ubuntu13.5]",
+    );
+  });
+
+  it("check_ssh banner keyword carries the raw identification string", async () => {
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "${banner}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("SSH-2.0-OpenSSH_9.6p1");
+  });
+
+  it("check_ssh can alert on an outdated software version", async () => {
+    // The point of the software/version keywords: express "not this build"
+    // without hand-writing a regex over the raw banner.
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_7.4\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      critical: "software = 'OpenSSH' and software_version not like '9.'",
+      "top-syntax": "${list}",
+      "detail-syntax": "${software} ${software_version} is outdated",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("OpenSSH 7.4 is outdated");
+  });
+
+  it("check_ssh protocol_major flags an SSHv1-capable server", async () => {
+    // "1.99" means the server still speaks the insecure SSHv1.
+    const legacy = await startTcpGreeter("SSH-1.99-OpenSSH_3.9p1\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(legacy.port),
+      critical: "protocol_major < 2",
+      "top-syntax": "${list}",
+      "detail-syntax": "${host} speaks SSH ${protocol}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("127.0.0.1 speaks SSH 1.99");
+
+    // ...and a 2.0-only server passes the same threshold.
+    const modern = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n");
+    const ok = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(modern.port),
+      critical: "protocol_major < 2",
+    });
+    expect(ok.result).toBe(OK);
+  });
+
+  it("check_ssh leaves the banner keywords empty when nothing was read", async () => {
+    // Nothing is listening: the check fails on `result`, and the banner
+    // keywords must be empty rather than stale.
+    const dead = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n");
+    const port = dead.port;
+    await dead.close();
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(port),
+      "top-syntax": "${list}",
+      "detail-syntax": "result=${result} sw=[${software}] major=${protocol_major}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("result=refused sw=[] major=0");
+  });
+
+  it("check_ssh still supports the check_tcp keywords", async () => {
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "${host}:${port} ${result} connected=${connected}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe(`127.0.0.1:${s.port} ok connected=1`);
+  });
+
   // --- check_http -----------------------------------------------------------
 
   it("check_http reports OK for a 200 response", async () => {
