@@ -39,6 +39,49 @@ TEST(buffer, copy_constructor) {
   EXPECT_NE(copy.get(), original.get());
 }
 
+// --- Copy assignment ---
+
+TEST(buffer, copy_assignment) {
+  const char src[] = "abcdef";
+  hlp::buffer<char> original(6, src);
+  hlp::buffer<char> target(6);
+
+  target = original;
+
+  EXPECT_EQ(target.size(), 6u);
+  EXPECT_EQ(std::memcmp(target.get(), src, 6), 0);
+  // Deep copy, not a shared pointer: assigning must not alias the source.
+  EXPECT_NE(target.get(), original.get());
+}
+
+TEST(buffer, copy_assignment_grows_and_shrinks) {
+  const char big[] = "0123456789";
+  hlp::buffer<char> source(10, big);
+
+  hlp::buffer<char> small(2);
+  small = source;
+  EXPECT_EQ(small.size(), 10u);
+  EXPECT_EQ(std::memcmp(small.get(), big, 10), 0);
+
+  hlp::buffer<char> large(100);
+  large = source;
+  EXPECT_EQ(large.size(), 10u);
+  EXPECT_EQ(std::memcmp(large.get(), big, 10), 0);
+}
+
+TEST(buffer, copy_assignment_self_is_a_noop) {
+  const char src[] = "xyz";
+  hlp::buffer<char> buf(3, src);
+  const char *before = buf.get();
+
+  hlp::buffer<char> &alias = buf;
+  buf = alias;
+
+  EXPECT_EQ(buf.size(), 3u);
+  EXPECT_EQ(buf.get(), before);
+  EXPECT_EQ(std::memcmp(buf.get(), src, 3), 0);
+}
+
 // --- Element access ---
 
 // Disabled on 32-bit Windows: MSVC C2666 ambiguity between operator[](std::size_t) and implicit operator T*()

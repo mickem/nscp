@@ -21,9 +21,15 @@ struct buffer {
     if (this == &other) {
       return *this;
     }
+    // Allocate before releasing the old block: if new[] throws, *this is left
+    // unchanged rather than holding a dangling pointer. (resize() below gets
+    // the delete right but not this ordering; assignment used to do neither
+    // and simply leaked the old allocation on every call.)
+    T* fresh = new T[other.size_];
+    memcpy(fresh, other.data, other.size_ * sizeof(T));
+    delete[] data;
+    data = fresh;
     size_ = other.size_;
-    data = new T[size_];
-    memcpy(data, other.data, size_ * sizeof(T));
     return *this;
   }
   T& operator[](const std::size_t pos) { return data[pos]; }
