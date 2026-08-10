@@ -20,8 +20,20 @@ std::string token_store::generate_token(const int len) {
   return ret;
 }
 
-bool token_store::can(const std::string &uid, const std::string &grant) { return grants.validate(uid, grant); }
+// `grants` is guarded by the same mutex as `tokens`: add_user / add_grant run
+// from the settings load path while can() is on the per-request authorisation
+// path, so they are not naturally serialised against each other.
+bool token_store::can(const std::string &uid, const std::string &grant) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  return grants.validate(uid, grant);
+}
 
-void token_store::add_user(const std::string &user, const std::string &role) { grants.add_user(user, role); }
+void token_store::add_user(const std::string &user, const std::string &role) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  grants.add_user(user, role);
+}
 
-void token_store::add_grant(const std::string &role, const std::string &grant) { grants.add_role(role, grant); }
+void token_store::add_grant(const std::string &role, const std::string &grant) {
+  const std::lock_guard<std::mutex> lock(mutex_);
+  grants.add_role(role, grant);
+}
