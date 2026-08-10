@@ -213,14 +213,19 @@ struct plugins_list_listeners_impl {
 
   void remove_all() { listeners_.clear(); }
 
+  // Unsubscribe one plugin from every channel it registered for. Only that
+  // plugin's id is removed; a channel entry is dropped only once it has no
+  // subscribers left. Erasing the whole entry (which this used to do as soon
+  // as any one subscriber matched) silently unsubscribed every *other* plugin
+  // from that channel, and left this plugin's id behind in the channels it
+  // did not erase.
   void remove_plugin(const unsigned long id) {
     auto it = listeners_.begin();
     while (it != listeners_.end()) {
-      if (it->second.count(id) > 0) {
-        auto to_erase = it;
-        ++it;
-        listeners_.erase(to_erase);
-      } else
+      it->second.erase(id);
+      if (it->second.empty())
+        it = listeners_.erase(it);
+      else
         ++it;
     }
   }
@@ -264,6 +269,8 @@ struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
     }
   }
 
+  // Collect the subscribers for `channel`. Runs under a SHARED lock, so
+  // nothing in here may modify plugins_ - see append_subscribers.
   std::list<plugin_type> get(const std::string &channel) {
     boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     has_valid_lock_throw(readLock, "plugins_list::get:" + channel);
@@ -271,20 +278,12 @@ struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
     std::set<unsigned long> seen;
     const std::string lower_case = make_key(channel);
     const auto cit = listeners_.find(lower_case);
-    if (cit != listeners_.end()) {
-      for (unsigned long id : cit->second) {
-        if (seen.insert(id).second) ret.push_back(plugins_[id]);
-      }
-    }
+    if (cit != listeners_.end()) append_subscribers(cit->second, seen, ret);
     // Wildcard "*" subscribers receive every channel. Used by sinks that
     // want to capture everything (e.g. the WEB server's event drain) without
     // the operator having to enumerate every emitted event name.
     const auto wit = listeners_.find("*");
-    if (wit != listeners_.end()) {
-      for (unsigned long id : wit->second) {
-        if (seen.insert(id).second) ret.push_back(plugins_[id]);
-      }
-    }
+    if (wit != listeners_.end()) append_subscribers(wit->second, seen, ret);
     return ret;
   }
 
@@ -292,6 +291,25 @@ struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
     boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
     has_valid_lock_throw(readLock, "plugins_list::get_listeners");
     return listeners_;
+  }
+
+ private:
+  // Resolve subscriber ids to plugins, skipping any that are no longer loaded.
+  //
+  // This used to be `ret.push_back(plugins_[id])`. std::map::operator[]
+  // default-INSERTS when the key is absent, so that was a write to plugins_
+  // performed while holding only a shared lock - a data race against every
+  // concurrent reader of the same mutex, on a red-black tree. It also pushed
+  // the default-constructed null plugin_type into the result for callers to
+  // dereference. find() cannot insert and lets a missing id be skipped.
+  //
+  // Callers must hold the lock (shared is enough).
+  void append_subscribers(const plugin_id_type &ids, std::set<unsigned long> &seen, std::list<plugin_type> &ret) const {
+    for (const unsigned long id : ids) {
+      const auto pit = plugins_.find(id);
+      if (pit == plugins_.end() || !pit->second) continue;
+      if (seen.insert(id).second) ret.push_back(pit->second);
+    }
   }
 };
 }  // namespace nsclient
