@@ -120,9 +120,14 @@ Mongoose::Request beast_to_request(const http::request<http::string_body>& req, 
     headers[name] = value;
   }
 
-  const auto override = headers.find("X-HTTP-Method-Override");
-  if (override != headers.end() && !override->second.empty()) {
-    method = override->second;
+  // Case-insensitive full-name match, matching ServerMongooseImpl. headers_type
+  // is an ordinary case-sensitive map (see L13 in the security review for the
+  // general problem), so this one lookup scans rather than relying on find().
+  for (const auto &kv : headers) {
+    if (!kv.second.empty() && boost::algorithm::iequals(kv.first, "X-HTTP-Method-Override")) {
+      method = kv.second;
+      break;
+    }
   }
 
   return {remote_ip, is_ssl, std::move(method), std::move(url), std::move(query), std::move(headers), req.body()};

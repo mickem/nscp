@@ -165,9 +165,18 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
   auto url = std::string(message->uri.buf, message->uri.len);
   auto method = std::string(message->method.buf, message->method.len);
 
-  size_t max = std::size(message->headers);
+  // Match the override header on its full name. The comparison used to be
+  // bounded by the *incoming* header's length, so strncmp succeeded for any
+  // name that is a prefix of it - "X:", "X-H:" and "X-HTTP:" all silently
+  // changed the request method, which defeats any upstream proxy or WAF ACL
+  // that classifies requests by method. Compare the whole thing, and
+  // case-insensitively, since RFC 7230 §3.2 makes field names case-insensitive
+  // (the Beast backend does an exact map lookup for the same header).
+  static const std::string kMethodOverride = "X-HTTP-Method-Override";
+  const size_t max = std::size(message->headers);
   for (size_t i = 0; i < max && message->headers[i].name.len > 0; i++) {
-    if (message->headers[i].value.len > 0 && strncmp(message->headers[i].name.buf, "X-HTTP-Method-Override", message->headers[i].name.len) == 0) {
+    const std::string name(message->headers[i].name.buf, message->headers[i].name.len);
+    if (message->headers[i].value.len > 0 && boost::algorithm::iequals(name, kMethodOverride)) {
       method = std::string(message->headers[i].value.buf, message->headers[i].value.len);
     }
   }
