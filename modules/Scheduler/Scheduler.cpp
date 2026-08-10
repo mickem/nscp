@@ -19,7 +19,6 @@ namespace sh = nscapi::settings_helper;
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::reloadStart) {
     scheduler_.prepare_shutdown();
-    scheduler_.unset_handler();
     scheduler_.stop();
     schedules_.clear();
   }
@@ -115,13 +114,11 @@ void Scheduler::prepareShutdown() {
   // queries and submissions can complete normally. By the time unloadModule
   // runs the worker threads have already been joined.
   scheduler_.prepare_shutdown();
-  scheduler_.unset_handler();
   scheduler_.stop();
 }
 
 bool Scheduler::unloadModule() {
   scheduler_.prepare_shutdown();
-  scheduler_.unset_handler();
   scheduler_.stop();
   schedules_.clear();
   return true;

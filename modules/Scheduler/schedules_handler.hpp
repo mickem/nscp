@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/optional.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -154,7 +155,7 @@ struct scheduler : public simple_scheduler::handler {
   typedef boost::unordered_map<int, target_object> metadata_map;
   metadata_map metadata;
   simple_scheduler::scheduler tasks;
-  task_handler* handler_;
+  std::atomic<task_handler*> handler_;
 
   target_object get(int id);
 
@@ -174,18 +175,18 @@ struct scheduler : public simple_scheduler::handler {
   void add_task(const target_object target);
 
   bool handle_schedule(simple_scheduler::task item) {
-    task_handler* tmp = handler_;
+    task_handler* tmp = handler_.load();
     if (tmp) {
       if (!tmp->handle_schedule(get(item.id))) tasks.remove_task(item.id);
     }
     return true;
   }
   void on_error(const char* file, int line, std::string error) {
-    task_handler* tmp = handler_;
+    task_handler* tmp = handler_.load();
     if (tmp) tmp->on_error(file, line, error);
   }
   void on_trace(const char* file, int line, std::string error) {
-    task_handler* tmp = handler_;
+    task_handler* tmp = handler_.load();
     if (tmp) tmp->on_trace(file, line, error);
   }
 };
