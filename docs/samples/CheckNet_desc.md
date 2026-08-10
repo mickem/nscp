@@ -36,8 +36,13 @@ falling back:
 
 ```
 check_tcp host=v6-only.example.com port=443 address-family=ipv4
-CRITICAL: v6-only.example.com:443 refused in 0ms
+CRITICAL: v6-only.example.com:443 resolve_failed in 0ms
 ```
+
+The failure is `resolve_failed`, not `refused`: with the family pinned there is
+no address to connect to, so the check never gets as far as a connection
+attempt. "The name exists but has nothing in this family" is the answer being
+asked for here, not an internal error.
 
 For `check_dns` the flag selects how the **DNS server** is reached, which is
 independent of the record `type=` being queried — you can ask an IPv6-reachable
@@ -74,6 +79,8 @@ ICMPv6 echo request (type 128) on an ICMPv6 socket. Two consequences:
 
 * The `ttl` field is not populated over IPv6. The IPv6 hop limit is only
   available through ancillary data the check does not request, so it reports
-  `0` there instead of an invented value.
+  `-1` there instead of an invented value. `-1` is the "not known" marker
+  generally — an unanswered host reports it too, and the `total` row ignores
+  those rather than letting them win its minimum.
 * Raw ICMP sockets need privileges (root / `CAP_NET_RAW` on Linux,
   Administrator on Windows) for both families, exactly as before.

@@ -88,6 +88,25 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
 
   payload = check_net::check_ping_internal::build_ping_payload(payload, size);
 
+  // `size` is new and caller-controlled up to 64 KB; `count` has never been
+  // bounded. Together they decide how many bytes this agent throws at an
+  // arbitrary `host`, and whoever can run a check picks all three - over REST
+  // that is any caller holding `queries.execute`, which the stock `monitoring`
+  // and `client` roles both have. Before this option the payload was a fixed
+  // ~22 byte string, so count was the only lever; a 64 KB payload multiplies
+  // the traffic a single check can generate by about three thousand.
+  //
+  // Bound the volume rather than `count` itself: an existing high-count check
+  // with the default payload is unaffected, and only the combination that turns
+  // the agent into a packet cannon is refused.
+  constexpr long long kMaxPingBytesPerHost = 10LL * 1024 * 1024;
+  const long long packets = count > 0 ? count : 0;
+  const long long total_bytes = packets * static_cast<long long>(payload.size());
+  if (total_bytes > kMaxPingBytesPerHost)
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "Refusing to send " + str::xtos(total_bytes) + " bytes to each host (count=" + str::xtos(count) + " x payload=" +
+                       str::xtos(payload.size()) + " bytes); the limit is " + str::xtos(kMaxPingBytesPerHost) + " bytes per host.");
+
   if (!hosts_string.empty()) boost::split(hosts, hosts_string, boost::is_any_of(","));
 
   if (hosts.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No host specified");

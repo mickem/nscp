@@ -889,6 +889,30 @@ describe("CheckNet commands", () => {
     expect(messageOf(q)).toMatch(/Invalid address-family: ipv64/);
   });
 
+  it("check_ping rejects a size/count combination that would flood the target", async () => {
+    // size= is caller-controlled up to 64KB and count= is unbounded, so the
+    // product decides how many bytes the agent throws at an arbitrary host.
+    // The guard runs before any socket is opened, so this case does not need
+    // the raw-socket privileges check_ping normally requires.
+    const q = await executeQuery(key, "check_ping", {
+      host: "127.0.0.1",
+      size: "65507",
+      count: "5000",
+    });
+    expect(messageOf(q)).toMatch(/Refusing to send/);
+    expect(messageOf(q)).toMatch(/limit is/);
+  });
+
+  it("check_ping still accepts an ordinary size and count", async () => {
+    // The guard bounds bytes, not count: a high count with the default payload
+    // must keep working, so existing checks are unaffected.
+    const q = await executeQuery(key, "check_ping", {
+      host: "127.0.0.1",
+      count: "5000",
+    });
+    expect(messageOf(q)).not.toMatch(/Refusing to send/);
+  });
+
   it("check_ssh honours address-family", async () => {
     const s = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n", "::1");
     const q = await executeQuery(key, "check_ssh", {
