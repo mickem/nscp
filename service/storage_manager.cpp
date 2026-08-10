@@ -25,6 +25,17 @@ bool read_chunk(::google::protobuf::io::CodedInputStream &stream, T &obj) {
   return true;
 }
 void nsclient::core::storage_manager::load() {
+  // load() runs at boot before any plugin exists and save() at shutdown after
+  // unloadPlugins(), so neither currently overlaps put()/get(). That invariant
+  // lives entirely in the call ordering over in NSClient++.cpp, not here -
+  // take the lock so adding a periodic or on-demand save does not turn this
+  // into a map being rebalanced under an iterating reader.
+  boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!writeLock.owns_lock()) {
+    LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
+    return;
+  }
+
   std::string file = get_filename();
 
   std::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
@@ -89,6 +100,15 @@ bool write_chunk(::google::protobuf::io::CodedOutputStream &stream, const T &obj
 void nsclient::core::storage_manager::save() {
   try {
     {
+      // Shared rather than exclusive: this only reads storage_ (and
+      // has_changed_), so concurrent get()s are fine - it is a concurrent
+      // put() rebalancing the map mid-iteration that has to be excluded. See
+      // the note in load() about why this is not currently reachable.
+      boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+      if (!readLock.owns_lock()) {
+        LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex, storage not saved.");
+        return;
+      }
       if (!has_changed_) {
         return;
       }
