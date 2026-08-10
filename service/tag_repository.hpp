@@ -27,33 +27,43 @@ class tag_repository {
   // and returned in every /api/v2/tags response, so an over-eager module (one
   // tag per process, per file system, per interface, ...) could bloat both with
   // no backpressure. Reject anything past these limits instead of growing
-  // without bound; a rejected set returns false, exactly like a no-op, so an
-  // existing tag is never clobbered by a value that could not be stored.
+  // without bound; a rejected set leaves the map untouched, so an existing
+  // tag is never clobbered by a value that could not be stored.
   static const std::size_t max_key_length = 128;
   static const std::size_t max_value_length = 1024;
   static const std::size_t max_tags = 256;
 
-  // Set (or, with an empty value, remove) a tag. Returns true when the
+  // Result of a set(). A plain bool conflated two very different "false"
+  // cases: a benign no-op (re-setting the same value, which modules do every
+  // interval) and a tag that was actually dropped - which left a drop at the
+  // tag cap invisible to the API layer and therefore unloggable.
+  enum class set_result {
+    changed,    // stored or removed; revision bumped
+    unchanged,  // no-op: the same value again, or removing an absent key
+    rejected    // empty/oversized key, oversized value, or repository full
+  };
+
+  // Set (or, with an empty value, remove) a tag. Returns `changed` when the
   // repository actually changed; the revision is only bumped in that case,
-  // so re-setting the same value is a cheap no-op for pollers. Returns false
-  // (no change) for an empty/oversized key, an oversized value, or a new key
-  // that would exceed max_tags. A removal is always allowed, so a host can
-  // always shed tags even at capacity.
-  bool set(const std::string &key, const std::string &value) {
-    if (key.empty() || key.size() > max_key_length) return false;
-    if (value.size() > max_value_length) return false;
+  // so re-setting the same value is a cheap no-op (`unchanged`) for pollers.
+  // Returns `rejected` (no change) for an empty/oversized key, an oversized
+  // value, or a new key that would exceed max_tags. A removal is always
+  // allowed, so a host can always shed tags even at capacity.
+  set_result set(const std::string &key, const std::string &value) {
+    if (key.empty() || key.size() > max_key_length) return set_result::rejected;
+    if (value.size() > max_value_length) return set_result::rejected;
     boost::unique_lock<boost::mutex> lock(mutex_);
     const tag_map::iterator it = tags_.find(key);
     if (value.empty()) {
-      if (it == tags_.end()) return false;
+      if (it == tags_.end()) return set_result::unchanged;
       tags_.erase(it);
     } else {
-      if (it != tags_.end() && it->second == value) return false;
-      if (it == tags_.end() && tags_.size() >= max_tags) return false;
+      if (it != tags_.end() && it->second == value) return set_result::unchanged;
+      if (it == tags_.end() && tags_.size() >= max_tags) return set_result::rejected;
       tags_[key] = value;
     }
     ++revision_;
-    return true;
+    return set_result::changed;
   }
 
   tag_map get_all() const {
