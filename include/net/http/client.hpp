@@ -23,6 +23,7 @@
 #include <str/xtos.hpp>
 #include <string>
 #include <utility>
+#include <vector>
 
 using boost::asio::ip::tcp;
 
@@ -243,6 +244,26 @@ struct client_identity {
   bool empty() const { return !has_client_cert() && !is_pinned(); }
 };
 
+// Encode an ALPN protocol list (RFC 7301) the way OpenSSL wants it: each name
+// prefixed by its own length as a single byte, all concatenated - not a
+// NUL-separated or comma-separated string. Kept out of the TLS code (and out of
+// the USE_SSL guard) so the encoding can be tested on its own.
+//
+// A name must fit in that length byte and cannot be empty; both are programming
+// errors rather than anything a peer controls, so they throw rather than being
+// silently dropped - a quietly missing protocol shows up as a confusing
+// handshake or certificate error much later.
+inline std::string alpn_wire_format(const std::vector<std::string> &protocols) {
+  std::string wire;
+  for (const std::string &protocol : protocols) {
+    if (protocol.empty()) throw socket_helpers::socket_exception("Invalid ALPN protocol: empty name");
+    if (protocol.size() > 255) throw socket_helpers::socket_exception("Invalid ALPN protocol (longer than 255 bytes): " + protocol);
+    wire.push_back(static_cast<char>(static_cast<unsigned char>(protocol.size())));
+    wire.append(protocol);
+  }
+  return wire;
+}
+
 #ifdef USE_SSL
 struct ssl_socket final : generic_socket {
   boost::asio::ssl::context context_;
@@ -262,9 +283,10 @@ struct ssl_socket final : generic_socket {
   // into the context after the stream is constructed is silently ignored: the
   // handshake then presents no certificate at all and an mTLS server answers with
   // a bare "certificate required" alert. Keep every use_certificate/use_private_key
-  // call in here, never in the ssl_socket constructor body.
+  // call in here, never in the ssl_socket constructor body. The same applies to
+  // the ALPN list: SSL_new copies it out of the context too.
   static boost::asio::ssl::context make_context(const boost::asio::ssl::context::method method, const std::string &ca, const client_identity &identity,
-                                                const boost::asio::ssl::verify_mode verify) {
+                                                const boost::asio::ssl::verify_mode verify, const std::vector<std::string> &alpn = std::vector<std::string>()) {
     // Fail closed: presenting a client certificate while neither pinning the
     // server nor verifying it is unauthenticated mTLS - the client credential
     // would be handed to whatever server answers, including a man in the middle.
@@ -300,13 +322,23 @@ struct ssl_socket final : generic_socket {
         throw socket_helpers::socket_exception(std::string("Failed to load client certificate/key: ") + e.what());
       }
     }
+    if (!alpn.empty()) {
+      const std::string wire = alpn_wire_format(alpn);
+      // Note the inverted convention: SSL_CTX_set_alpn_protos returns 0 on
+      // success. It only fails on allocation, but a silently unset list would
+      // surface as whatever the server does to a client that offered nothing -
+      // for the fleet mux, the public web certificate and a pin failure.
+      if (SSL_CTX_set_alpn_protos(context.native_handle(), reinterpret_cast<const unsigned char *>(wire.data()), static_cast<unsigned int>(wire.size())) != 0)
+        throw socket_helpers::socket_exception("Failed to set the ALPN protocol list");
+    }
     return context;
   }
 
   explicit ssl_socket(boost::asio::io_context &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
                       const std::string &ca, std::string sni = std::string(), proxy_config proxy = proxy_config(),
-                      const client_identity &identity = client_identity())
-      : context_(make_context(method, ca, identity, verify)),
+                      const client_identity &identity = client_identity(),
+                      const std::vector<std::string> &alpn = std::vector<std::string>())
+      : context_(make_context(method, ca, identity, verify, alpn)),
         ssl_socket_(io_service, context_),
         resolver_(io_service),
         verify_(identity.is_pinned() ? boost::asio::ssl::verify_peer : verify),  // the pin IS the peer identity: always verify against it
@@ -556,6 +588,13 @@ struct http_client_options {
   std::string sni_;  // optional TLS SNI / verification hostname override (empty = use the connected host)
   proxy_config proxy_;
   client_identity identity_;  // optional mutual-TLS material (in-memory PEM)
+  // ALPN protocols to offer, most preferred first; empty offers none (the
+  // default - an ordinary HTTP/1.1 client has nothing to negotiate). Set it
+  // when the peer routes on ALPN rather than merely reporting it: the fleet
+  // server shares one port between the agent API and the operator web UI and
+  // picks the certificate, and whether to ask for a client certificate, from
+  // the ClientHello. See onboarding::kAgentAlpn.
+  std::vector<std::string> alpn_protocols_;
   // Deadline for a single read or write, in seconds; 0 waits forever. Set it
   // on any call made from a long-lived thread that must not be wedged by an
   // unresponsive peer (see set_socket_timeouts).
@@ -594,7 +633,7 @@ class simple_client {
     if (options.is_https()) {
 #ifdef USE_SSL
       socket_ = std::make_unique<ssl_socket>(io_service_, options.get_method(), options.get_verify(), options.ca_, options.sni_, options.proxy_,
-                                             options.identity_);
+                                             options.identity_, options.alpn_protocols_);
 #else
       throw socket_helpers::socket_exception("HTTPS requested but this build has no TLS support (compiled without OpenSSL)");
 #endif

@@ -93,8 +93,8 @@ describeMtls("core fleet sync over strict mTLS", () => {
   let mtlsServer: https.Server;
   let enrollUrl: string;
   let mtlsUrl: string;
-  /** Requests seen on the mTLS listener, with the peer certificate CN (if any). */
-  let mtlsRequests: { url: string; body: any; peerCn?: string }[];
+  /** Requests seen on the mTLS listener, with the peer certificate CN (if any) and the negotiated ALPN protocol. */
+  let mtlsRequests: { url: string; body: any; peerCn?: string; alpn?: string | false | null }[];
   let reportedHashes: (string | undefined)[];
 
   const tenantCa = () => ca;
@@ -119,6 +119,11 @@ describeMtls("core fleet sync over strict mTLS", () => {
         requestCert: true,
         rejectUnauthorized: true,
         ca: [ca.certPem],
+        // The real server shares this port with the operator web UI and reads
+        // ALPN out of the ClientHello to decide which certificate answers and
+        // whether to ask for a client certificate. Offering the same two names
+        // here lets the suite observe what the agent actually sent.
+        ALPNProtocols: ["nsclient-fleet/1", "http/1.1"],
       },
       (req, res) => {
         let raw = "";
@@ -132,7 +137,12 @@ describeMtls("core fleet sync over strict mTLS", () => {
           }
           const peer = (req.socket as tls.TLSSocket).getPeerCertificate();
           const rawCn = peer && peer.subject ? peer.subject.CN : undefined;
-          mtlsRequests.push({ url: req.url ?? "", body, peerCn: Array.isArray(rawCn) ? rawCn[0] : rawCn });
+          mtlsRequests.push({
+            url: req.url ?? "",
+            body,
+            peerCn: Array.isArray(rawCn) ? rawCn[0] : rawCn,
+            alpn: (req.socket as tls.TLSSocket).alpnProtocol,
+          });
 
           const parsed = new URL(req.url ?? "/", "http://x");
           if (parsed.pathname === "/agent/v1/heartbeat") {
@@ -227,6 +237,20 @@ describeMtls("core fleet sync over strict mTLS", () => {
 
     // Steady state over mTLS too: poll with the applied hash -> 304.
     await waitFor("a 304 steady-state poll", () => mtlsRequests.some((r) => r.url === "/agent/v1/desired-state?current_hash=mtls-1"));
+  });
+
+  it("offers the fleet ALPN protocol on every mTLS connection", () => {
+    // The server usually shares port 443 between the agent API and the operator
+    // web UI and routes on ALPN: `nsclient-fleet/1` gets the pinned certificate
+    // and a client-certificate request, anything else gets the public web
+    // certificate and no client-cert request. An agent that stops sending it
+    // still connects at the TCP level and then fails pin validation with a
+    // misleading "untrusted certificate", so assert on what was negotiated
+    // rather than only on the requests going through.
+    expect(mtlsRequests.length).toBeGreaterThan(0);
+    for (const req of mtlsRequests) {
+      expect(req.alpn).toBe("nsclient-fleet/1");
+    }
   });
 });
 

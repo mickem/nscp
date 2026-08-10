@@ -177,6 +177,12 @@ http::response fleet_sync::do_call(const char *verb, const std::string &path, co
   options.identity_.cert_pem = identity_.cert_pem;
   options.identity_.key_pem = identity_.private_key_pem;
   options.identity_.pinned_ca_pem = identity_.mtls_server_cert_pem;
+  // The agent API and the operator web UI usually share port 443, and the
+  // server routes on ALPN: without this the connection is answered by the web
+  // branch, which presents a different certificate and never asks for ours - so
+  // the pin below fails and the error blames the certificate rather than the
+  // missing protocol name. See onboarding::kAgentAlpn.
+  options.alpn_protocols_ = {onboarding::kAgentAlpn, "http/1.1"};
   // Keep the client's default cap for the small JSON endpoints; the caller
   // raises it for bundle downloads, which are legitimately much larger.
   if (max_response_bytes != 0) options.max_response_bytes_ = max_response_bytes;

@@ -121,6 +121,49 @@ TEST(http_client_options, response_cap_can_be_lifted) {
   EXPECT_EQ(opts.max_response_bytes_, 0u) << "0 means unlimited for callers that stream large bodies themselves";
 }
 
+TEST(http_client_options, offers_no_alpn_by_default) {
+  // An ordinary HTTP/1.1 client has nothing to negotiate, and offering a
+  // protocol list changes how an ALPN-routing server answers - so it stays
+  // opt-in.
+  const http::http_client_options opts("https", "1.2", "peer", "");
+  EXPECT_TRUE(opts.alpn_protocols_.empty());
+}
+
+// =============================================================================
+// alpn_wire_format
+// =============================================================================
+// OpenSSL takes the ALPN list as length-prefixed names, not as a delimited
+// string. Getting this wrong does not fail loudly: the server sees a protocol
+// list it cannot parse (or one bogus entry), and the fleet mux then answers on
+// its web branch with a certificate the agent's pin rejects - an error that
+// points at the certificate rather than at the encoding.
+
+TEST(alpn_wire_format, encodes_the_fleet_agent_list) {
+  const std::string wire = http::alpn_wire_format({"nsclient-fleet/1", "http/1.1"});
+  const std::string expected = std::string("\x10", 1) + "nsclient-fleet/1" + std::string("\x08", 1) + "http/1.1";
+  EXPECT_EQ(wire, expected);
+  EXPECT_EQ(wire.size(), 1 + 16 + 1 + 8);
+}
+
+TEST(alpn_wire_format, encodes_a_single_protocol) {
+  EXPECT_EQ(http::alpn_wire_format({"h2"}), std::string("\x02", 1) + "h2");
+}
+
+TEST(alpn_wire_format, empty_list_yields_empty_wire) {
+  EXPECT_TRUE(http::alpn_wire_format({}).empty());
+}
+
+TEST(alpn_wire_format, rejects_an_empty_protocol_name) {
+  // A zero length byte terminates the list as far as the peer is concerned, so
+  // this would silently drop every name after it.
+  EXPECT_THROW(http::alpn_wire_format({"h2", ""}), socket_helpers::socket_exception);
+}
+
+TEST(alpn_wire_format, rejects_a_name_that_does_not_fit_its_length_byte) {
+  EXPECT_THROW(http::alpn_wire_format({std::string(256, 'x')}), socket_helpers::socket_exception);
+  EXPECT_NO_THROW(http::alpn_wire_format({std::string(255, 'x')}));
+}
+
 // =============================================================================
 // ssl_socket::make_context - fail-closed mTLS guard
 // =============================================================================
@@ -180,6 +223,20 @@ TEST(ssl_socket, plain_tls_without_a_client_cert_is_unaffected) {
   // verification off is legitimate and must build without complaint.
   const http::client_identity id;
   EXPECT_NO_THROW(http::ssl_socket::make_context(boost::asio::ssl::context::sslv23_client, "", id, boost::asio::ssl::verify_none));
+}
+
+TEST(ssl_socket, applies_an_alpn_list_to_the_context) {
+  // The list has to be on the context, not the stream: SSL_new copies it at
+  // creation time, the same reason the client certificate lives here.
+  const http::client_identity id;
+  EXPECT_NO_THROW(
+      http::ssl_socket::make_context(boost::asio::ssl::context::sslv23_client, "", id, boost::asio::ssl::verify_none, {"nsclient-fleet/1", "http/1.1"}));
+}
+
+TEST(ssl_socket, refuses_an_unencodable_alpn_name) {
+  const http::client_identity id;
+  EXPECT_THROW(http::ssl_socket::make_context(boost::asio::ssl::context::sslv23_client, "", id, boost::asio::ssl::verify_none, {""}),
+               socket_helpers::socket_exception);
 }
 
 // =============================================================================
