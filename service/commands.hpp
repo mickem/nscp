@@ -3,11 +3,23 @@
 
 #pragma once
 
+// This header used to compile only because every consumer happened to include
+// <map> and the boost thread headers before it; including it first (as a unit
+// test does) failed. Keep it self-contained.
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/core/noncopyable.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/thread_time.hpp>
+#include <exception>
+#include <list>
+#include <map>
 #include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
+#include <string>
 
 #include "plugins/plugin_interface.hpp"
 
