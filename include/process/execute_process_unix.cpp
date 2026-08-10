@@ -82,6 +82,31 @@ NSCAPI::nagiosReturn map_exit_status(int status) {
 // Run an argv vector via fork + execvp. No shell is involved, so attacker-
 // controlled argv elements cannot become metacharacters.
 int execute_argv(const process::exec_arguments& args, std::string& output) {
+  if (args.argv.empty()) {
+    output = "Refusing to execute an empty command";
+    return NSCAPI::query_return_codes::returnUNKNOWN;
+  }
+
+  // Build the execvp argv BEFORE forking. Only async-signal-safe calls are
+  // legal between fork() and exec() in a multithreaded process, and this one is
+  // emphatically multithreaded - each socket server runs a 10-thread io pool by
+  // default, plus the scheduler pool and the collectors. Allocating in the
+  // child (this vector used to be built there, and reserve() is a malloc) can
+  // deadlock against an allocator lock that some other thread held at the
+  // moment of the fork, and whose owner does not exist in the child. The parent
+  // then blocks in drain_with_timeout until the command timeout expires and
+  // reports a bogus "didn't terminate" - an intermittent, load-dependent check
+  // failure that is close to undiagnosable from the logs.
+  //
+  // The backing std::strings in args.argv stay alive across the fork, so the
+  // child only indexes an array that already exists.
+  std::vector<char*> cargs;
+  cargs.reserve(args.argv.size() + 1);
+  for (const auto& a : args.argv) {
+    cargs.push_back(const_cast<char*>(a.c_str()));
+  }
+  cargs.push_back(nullptr);
+
   int pipefd[2];
   if (pipe(pipefd) != 0) {
     output = "Failed to create pipe: ";
@@ -98,18 +123,12 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
   if (pid == 0) {
-    // Child. Wire stdout / stderr to the parent's pipe and execvp.
+    // Child. Everything from here to execvp must be async-signal-safe: no
+    // allocation, no locking, no libstdc++ calls that might do either.
     close(pipefd[0]);
     if (dup2(pipefd[1], STDOUT_FILENO) < 0) _exit(127);
     if (dup2(pipefd[1], STDERR_FILENO) < 0) _exit(127);
     close(pipefd[1]);
-    // Build an argv compatible with execvp.
-    std::vector<char*> cargs;
-    cargs.reserve(args.argv.size() + 1);
-    for (const auto& a : args.argv) {
-      cargs.push_back(const_cast<char*>(a.c_str()));
-    }
-    cargs.push_back(nullptr);
     execvp(cargs[0], cargs.data());
     // execvp only returns on error.
     _exit(127);
