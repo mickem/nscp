@@ -216,6 +216,20 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
  * @bug This whole concept needs work I think.
  */
 void pdh_thread::thread_proc() {
+  // Hold the data mutex for the duration of setup so readers cannot observe
+  // half-built counter state. Taken here rather than in the constructor: a
+  // mutex must be released by the thread that acquired it, and the previous
+  // arrangement (lock in the ctor, unlock at the end of setup below) released
+  // it from this thread instead - undefined behaviour that only worked because
+  // boost::shared_mutex does not track ownership. It also left the mutex
+  // locked forever, and destroyed while locked, on any path where this thread
+  // never reached the unlock (an exception during load, a pdh_thread that was
+  // constructed but never started).
+  //
+  // The scoped lock also releases on every exit path from setup, not just the
+  // success path, so a throw here no longer wedges every accessor.
+  boost::unique_lock<boost::shared_mutex> setup_lock(mutex_);
+
   memory_checks::realtime::helper memory_helper(core_, plugin_id);
   process_checks::realtime::helper process_helper(core_, plugin_id);
 
@@ -320,7 +334,8 @@ void pdh_thread::thread_proc() {
   if (!check_pdh) NSC_LOG_MESSAGE("Not checking PDH data");
   if (has_realtime) NSC_DEBUG_MSG("Real time checks enabled");
 
-  mutex_.unlock();
+  // Setup is done: publish the collector state to readers.
+  setup_lock.unlock();
 
   const std::set<std::string> disabled = disable_list::parse(disable_);
   for (const std::string &token : disabled) {

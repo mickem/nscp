@@ -90,7 +90,9 @@ class pdh_thread {
         process_history_enabled(false),
         process_cpu_enabled(false),
         min_threshold_(10) {
-    mutex_.lock();
+    // NOTE: mutex_ is deliberately NOT locked here. thread_proc() takes it for
+    // the duration of its setup instead, so the thread that locks it is also
+    // the one that releases it. See the comment at the top of thread_proc().
   }
   // Stop and join the collector threads before the stop signal is released: on
   // any path that destroys a started pdh_thread without calling stop() first
