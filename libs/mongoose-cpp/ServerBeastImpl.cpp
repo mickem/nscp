@@ -122,12 +122,25 @@ Mongoose::Request beast_to_request(const http::request<http::string_body>& req, 
 
   // Case-insensitive full-name match, matching ServerMongooseImpl. headers_type
   // is an ordinary case-sensitive map (see L13 in the security review for the
-  // general problem), so this one lookup scans rather than relying on find().
-  for (const auto &kv : headers) {
-    if (!kv.second.empty() && boost::algorithm::iequals(kv.first, "X-HTTP-Method-Override")) {
-      method = kv.second;
-      break;
-    }
+  // general problem), so this scans rather than relying on find().
+  //
+  // Scanned over `req` rather than `headers`: the map above collapses repeated
+  // fields to the last value and folds nothing by case, so it cannot tell a
+  // single override from several. A repeated override is ambiguous and is
+  // dropped, not resolved - if this backend picked "first wins" while the
+  // mongoose backend picked "last wins", a proxy ACL that classifies by method
+  // could be bypassed by sending both.
+  std::string override_value;
+  std::size_t override_count = 0;
+  for (const auto& field : req) {
+    if (!boost::algorithm::iequals(std::string(field.name_string()), "X-HTTP-Method-Override")) continue;
+    std::string value(field.value());
+    if (value.empty()) continue;
+    override_value = std::move(value);
+    override_count++;
+  }
+  if (override_count == 1) {
+    method = override_value;
   }
 
   return {remote_ip, is_ssl, std::move(method), std::move(url), std::move(query), std::move(headers), req.body()};

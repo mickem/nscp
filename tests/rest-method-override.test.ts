@@ -11,8 +11,30 @@
  * revokes the token. So "did the method change" is answerable by asking
  * whether the token survived.
  */
+import https from "node:https";
 import request from "supertest";
 import { NscpInstance, REST_URL, setupRestNscp } from "@fixtures/index";
+
+/**
+ * Issue a GET with raw headers, so a field can be sent more than once.
+ * supertest's .set() replaces rather than appends, so it cannot express a
+ * repeated header at all; Node emits one header line per array element.
+ * Returns the status code.
+ */
+function rawGet(path: string, headers: Record<string, string | string[]>): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      { host: "127.0.0.1", port: 8443, path, method: "GET", headers, rejectUnauthorized: false },
+      (res) => {
+        res.resume();
+        res.on("end", () => resolve(res.statusCode ?? 0));
+        res.on("error", reject);
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 jest.setTimeout(900_000);
 
@@ -81,6 +103,19 @@ describe("REST X-HTTP-Method-Override", () => {
         .expect(200);
       expect(await tokenStillValid(token)).toBe(true);
     }
+  });
+
+  it("ignores the override entirely when it is sent more than once", async () => {
+    // Ambiguous: an upstream proxy or WAF that classifies by method has to
+    // agree with the backend on which copy counts. Rather than pick a winner
+    // (and pick a different one on each backend), both drop it.
+    const token = await login();
+    const status = await rawGet("/api/v2/login", {
+      "X-Auth-Token": token,
+      "X-HTTP-Method-Override": ["DELETE", "GET"],
+    });
+    expect(status).toBe(200);
+    expect(await tokenStillValid(token)).toBe(true);
   });
 
   it("ignores a header name that merely starts with it", async () => {
