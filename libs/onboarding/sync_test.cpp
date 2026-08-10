@@ -612,6 +612,30 @@ TEST(SyncVerify, Sha256KnownVector) {
   EXPECT_EQ(onboarding::sha256_hex("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 }
 
+TEST(SyncVerify, Sha256StreamMatchesOneShot) {
+  onboarding::sha256_stream stream;
+  stream.update("abc");
+  EXPECT_EQ(stream.hex_final(), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+}
+
+TEST(SyncVerify, Sha256StreamChunkingDoesNotChangeTheDigest) {
+  // The content-hash caller feeds header and file content as separate
+  // update()s: any chunking of the same bytes must produce the same digest.
+  std::string payload = "ini:[/settings]\nkey=value";
+  payload += std::string(100000, 'x');
+  onboarding::sha256_stream stream;
+  stream.update(payload.substr(0, 1));
+  stream.update("");
+  stream.update(payload.substr(1, 42));
+  stream.update(payload.substr(43));
+  EXPECT_EQ(stream.hex_final(), onboarding::sha256_hex(payload));
+}
+
+TEST(SyncVerify, Sha256StreamOfNothingIsTheEmptyDigest) {
+  onboarding::sha256_stream stream;
+  EXPECT_EQ(stream.hex_final(), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+}
+
 TEST(SyncVerify, AcceptsAValidSignature) {
   const pkey_ptr key = generate_ed25519();
   const std::string payload = "bundle-bytes-here";

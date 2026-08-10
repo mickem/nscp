@@ -120,12 +120,19 @@ std::string compute_content_hash(const std::string &fleet_ini, const fs::path &s
     }
   }
   std::sort(files.begin(), files.end());
-  std::string canonical = "ini:" + fleet_ini;
+  // Feed the pieces through an incremental hash instead of concatenating them
+  // into one buffer first: near the staged-script size cap the canonical
+  // string this used to build was a ~64MB transient allocation per apply.
+  // The byte sequence hashed is unchanged, so hashes persisted by earlier
+  // applies stay valid and no spurious reload is triggered.
+  onboarding::sha256_stream hash;
+  hash.update("ini:" + fleet_ini);
   for (const std::pair<std::string, fs::path> &f : files) {
     const std::string content = read_file(f.second);
-    canonical += "\nfile:" + f.first + ":" + str::xtos(content.size()) + ":" + content;
+    hash.update("\nfile:" + f.first + ":" + str::xtos(content.size()) + ":");
+    hash.update(content);
   }
-  return onboarding::sha256_hex(canonical);
+  return hash.hex_final();
 }
 
 }  // namespace

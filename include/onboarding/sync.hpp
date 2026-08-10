@@ -67,6 +67,25 @@ boost::optional<unsigned long> parse_next_poll(const std::string &body);
 // Hex-encoded SHA-256 of a byte buffer.
 std::string sha256_hex(const std::string &bytes);
 
+// Incremental SHA-256 for payloads assembled from several pieces (an ini plus
+// a tree of staged scripts): feed each piece to update() and read the digest
+// with hex_final(), instead of concatenating everything into one buffer for
+// sha256_hex. Feeding the same bytes in any chunking yields the same digest.
+// hex_final() finalises the stream; the object is not reusable afterwards.
+// All three members throw onboarding_error if the underlying digest fails.
+class sha256_stream {
+ public:
+  sha256_stream();
+  ~sha256_stream();
+  sha256_stream(const sha256_stream &) = delete;
+  sha256_stream &operator=(const sha256_stream &) = delete;
+  void update(const std::string &bytes);
+  std::string hex_final();
+
+ private:
+  void *ctx_;  // EVP_MD_CTX; opaque so this header does not drag in OpenSSL
+};
+
 // Verify a bundle: `signature_b64` must be an Ed25519 signature over the
 // 32-byte SHA-256 digest of `bytes` (not the raw bytes), made by the key in
 // `pub_pem`. Returns false and sets `error` on any mismatch or parse failure.

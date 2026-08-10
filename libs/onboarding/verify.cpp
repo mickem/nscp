@@ -57,6 +57,32 @@ std::string to_lower(std::string s) {
 
 std::string onboarding::sha256_hex(const std::string &bytes) { return to_hex(sha256_raw(bytes)); }
 
+onboarding::sha256_stream::sha256_stream() : ctx_(EVP_MD_CTX_new()) {
+  EVP_MD_CTX *ctx = static_cast<EVP_MD_CTX *>(ctx_);
+  if (ctx == nullptr || EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) != 1) {
+    EVP_MD_CTX_free(ctx);
+    ctx_ = nullptr;
+    throw onboarding_error("SHA-256 digest failed", false);
+  }
+}
+
+onboarding::sha256_stream::~sha256_stream() { EVP_MD_CTX_free(static_cast<EVP_MD_CTX *>(ctx_)); }
+
+void onboarding::sha256_stream::update(const std::string &bytes) {
+  if (ctx_ == nullptr || EVP_DigestUpdate(static_cast<EVP_MD_CTX *>(ctx_), bytes.data(), bytes.size()) != 1) {
+    throw onboarding_error("SHA-256 digest failed", false);
+  }
+}
+
+std::string onboarding::sha256_stream::hex_final() {
+  unsigned char digest[EVP_MAX_MD_SIZE];
+  unsigned int length = 0;
+  if (ctx_ == nullptr || EVP_DigestFinal_ex(static_cast<EVP_MD_CTX *>(ctx_), digest, &length) != 1) {
+    throw onboarding_error("SHA-256 digest failed", false);
+  }
+  return to_hex(std::string(reinterpret_cast<const char *>(digest), length));
+}
+
 bool onboarding::verify_bundle(const std::string &pub_pem, const std::string &bytes, const std::string &sha256_hex_expected,
                                const std::string &signature_b64, std::string &error) {
   const std::string digest = sha256_raw(bytes);
