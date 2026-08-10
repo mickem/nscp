@@ -338,6 +338,11 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
+        # plugin_api provides nscapi::protobuf::functions (set_response_bad):
+        # build_filter()'s error branches reference it, and only optimized
+        # builds fold them away (the test filter's stubs are constant-true), so
+        # without this the -O0/Debug link fails.
+        ${PLUGIN_API_TARGET}
         nscp_protobuf
         nscp_where_filter
         perfconfig_parser
