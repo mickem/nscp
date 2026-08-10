@@ -3,6 +3,8 @@
 
 #include "check_docker.hpp"
 
+#include "docker_endpoint.hpp"
+
 #include <boost/json.hpp>
 #include <net/http/client.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
@@ -93,16 +95,29 @@ void check(const PB::Commands::QueryRequestMessage::Request& request, PB::Comman
   typedef check_docker_filter::filter filter_type;
   modern_filter::data_container data;
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-  std::string host = "\\\\.\\pipe\\docker_engine";
+  std::string host = default_docker_endpoint();
 
   filter_type filter;
   filter_helper.add_options("container_state != 'running'", "container_state != 'running'", "", filter.get_filter_syntax(), "warning");
   filter_helper.add_syntax("${status}: ${list}", "${names}=${container_state}", "${id}", "", "");
-  filter_helper.get_desc().add_options()("host", po::value<std::string>(&host), "The host or socket of the docker daemon");
+  filter_helper.get_desc().add_options()("host", po::value<std::string>(&host), "The local docker daemon socket (named pipe on Windows, unix socket elsewhere)");
 
   if (!filter_helper.parse_options()) return;
 
   if (!filter_helper.build_filter(filter)) return;
+
+  // `host` is a check argument, so it arrives from whoever can run this check -
+  // over REST that is anyone holding `queries.execute`, which the stock
+  // `monitoring` and `client` roles both have. It is handed to the "pipe"
+  // transport, which on Windows calls CreateFileA on it: a UNC target such as
+  // \\attacker\pipe\x makes Windows open an SMB session to an arbitrary host
+  // using the service account's credentials, exposing them for capture or
+  // relay (NSClient++ commonly runs as LocalSystem). Constrain it to a local
+  // endpoint before it gets that far.
+  std::string endpoint_error;
+  if (!is_local_docker_endpoint(host, endpoint_error)) {
+    return nscapi::protobuf::functions::set_response_bad(*response, endpoint_error);
+  }
 
   try {
     http::request rq("GET", "", "/v1.40/containers/json");

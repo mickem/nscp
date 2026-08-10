@@ -105,7 +105,16 @@ std::string error_snippet(const std::string &payload) {
 
 http::response default_post(const onboarding::enrollment_request &request, const std::string &url, const std::string &payload) {
   const http::parsed_url parsed = http::parse_url(url);
-  const std::string verify = request.verify_mode.empty() ? (request.ca.empty() ? "none" : "certificate") : request.verify_mode;
+  // Verify by default. Enrollment is the one exchange that establishes who the
+  // fleet server is: the response supplies mtls_server_cert_pem (the pin every
+  // later call validates against) and bundle_signing_pub_pem (the key that
+  // authorises executable bundles), and the request carries the bootstrap
+  // token. Falling back to "none" whenever no CA happened to be supplied meant
+  // an on-path attacker could hand over both trust anchors and keep the agent
+  // permanently - after which pinning and bundle signature checks still pass,
+  // against the attacker's material. Callers that genuinely want an unverified
+  // enrollment now have to ask for it explicitly (nscp enroll --insecure).
+  const std::string verify = request.verify_mode.empty() ? "certificate" : request.verify_mode;
   const http::http_client_options options(parsed.protocol, request.tls_version, verify, request.ca);
   http::request rq("POST", parsed.host, parsed.path);
   rq.add_post_payload("application/json", payload);

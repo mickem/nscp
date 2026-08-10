@@ -1,0 +1,19 @@
+# The default https:// settings source, with no TLS_* properties at all.
+#
+# The other rest-config cases all pass TLS_VERIFY_MODE=none, so they never
+# exercise the verified path. Here the certificate is checked against the
+# Windows ROOT store, which the installer has to export to a temp bundle of its
+# own: ${ca-path} points into the install folder, which does not exist yet when
+# ImportConfig runs (it is sequenced before InstallFiles) and is only written by
+# the service at boot.
+#
+# If that export is missing, or the fetch fails or is reported as an error, the
+# installer falls back to a local ini and boot.ini does not carry the URL - so
+# asserting on the URL here is what makes the whole chain testable.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "CONFIGURATION_TYPE=https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/msi/nsclient.ini" ]
+replace_password: true
+boot.ini: |
+  [settings]
+  1 = https://raw.githubusercontent.com/mickem/nscp/refs/heads/main/tests/msi/nsclient.ini
+
+nsclient.ini: ""

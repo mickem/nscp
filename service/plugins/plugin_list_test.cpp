@@ -280,10 +280,46 @@ TEST_F(PluginsListWithListenerTest, RemovePluginRemovesFromListeners) {
 
   list_->remove_plugin(1);
 
-  // Channel should still exist but without the plugin
-  // Note: The current implementation removes the entire channel entry
+  // Sole subscriber gone, so the channel entry goes with it.
   const auto listeners = list_->get("channel");
   EXPECT_TRUE(listeners.empty());
+}
+
+TEST_F(PluginsListWithListenerTest, RemovePluginKeepsOtherSubscribersOnSameChannel) {
+  // Unloading one module must not silently unsubscribe every other module from
+  // the channels it happened to share.
+  const auto plugin1 = std::make_shared<MockListPlugin>(1, "alias1", "Module1");
+  const auto plugin2 = std::make_shared<MockListPlugin>(2, "alias2", "Module2");
+  list_->add_plugin(plugin1);
+  list_->add_plugin(plugin2);
+  list_->register_listener(1, "shared_channel");
+  list_->register_listener(2, "shared_channel");
+
+  list_->remove_plugin(1);
+
+  const auto listeners = list_->get("shared_channel");
+  ASSERT_EQ(listeners.size(), 1u);
+  EXPECT_EQ(listeners.front()->get_id(), 2u);
+}
+
+TEST_F(PluginsListWithListenerTest, GetSkipsSubscriberIdsWithNoLoadedPlugin) {
+  // A listener id with no matching plugin must be skipped. This used to be
+  // `plugins_[id]`, whose default-insert both wrote to the map under a shared
+  // lock and handed the caller a null plugin to dereference.
+  const auto plugin = std::make_shared<MockListPlugin>(1, "alias", "Module");
+  list_->add_plugin(plugin);
+  list_->register_listener(1, "channel");
+  list_->listeners_["channel"].insert(999);
+
+  const std::size_t before = list_->plugins_.size();
+  const auto listeners = list_->get("channel");
+
+  ASSERT_EQ(listeners.size(), 1u);
+  EXPECT_EQ(listeners.front()->get_id(), 1u);
+  EXPECT_NE(listeners.front(), nullptr);
+  // The lookup must not have grown the plugin map.
+  EXPECT_EQ(list_->plugins_.size(), before);
+  EXPECT_TRUE(list_->plugins_.find(999) == list_->plugins_.end());
 }
 
 TEST_F(PluginsListWithListenerTest, RemoveAllClearsListeners) {
@@ -356,9 +392,44 @@ TEST(PluginsListListenersImplTest, RemovePluginRemovesFromAllChannels) {
 
   impl.remove_plugin(1);
 
-  // Channel with only plugin 1 should be removed
+  // channel2 had only plugin 1, so the entry goes.
   EXPECT_TRUE(impl.listeners_.find("channel2") == impl.listeners_.end());
-  // Channel1 should still have plugin 2... but the current implementation removes entire channel
+  // channel1 keeps plugin 2 - removing one subscriber must not unsubscribe the
+  // others, which is what erasing the whole entry used to do.
+  const auto ch1 = impl.listeners_.find("channel1");
+  ASSERT_TRUE(ch1 != impl.listeners_.end());
+  EXPECT_EQ(ch1->second.size(), 1u);
+  EXPECT_TRUE(ch1->second.count(2) > 0);
+  EXPECT_TRUE(ch1->second.count(1) == 0);
+}
+
+TEST(PluginsListListenersImplTest, RemovePluginLeavesNoStaleId) {
+  // The id must be gone from every channel, not just from the ones whose entry
+  // happened to be erased.
+  nsclient::plugins_list_listeners_impl impl;
+
+  impl.listeners_["a"].insert(1);
+  impl.listeners_["a"].insert(2);
+  impl.listeners_["b"].insert(1);
+  impl.listeners_["b"].insert(2);
+
+  impl.remove_plugin(1);
+
+  for (const auto &entry : impl.listeners_) {
+    EXPECT_TRUE(entry.second.count(1) == 0) << "stale id left in channel " << entry.first;
+  }
+}
+
+TEST(PluginsListListenersImplTest, RemoveUnknownPluginIsANoOp) {
+  nsclient::plugins_list_listeners_impl impl;
+
+  impl.listeners_["channel"].insert(1);
+
+  impl.remove_plugin(999);
+
+  const auto it = impl.listeners_.find("channel");
+  ASSERT_TRUE(it != impl.listeners_.end());
+  EXPECT_EQ(it->second.size(), 1u);
 }
 
 TEST(PluginsListListenersImplTest, ListReturnsAllChannels) {

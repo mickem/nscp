@@ -91,6 +91,45 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
   virtual std::string expand_path(std::string file) { return path_->expand_path(file); }
   nsclient::logging::logger_instance get_logger() const { return log_instance_; }
   void apply_path_overrides(std::map<std::string, std::string> overrides) override { path_->set_overrides(std::move(overrides)); }
+
+  // Export the Windows ROOT certificate store to the file ${ca-path} points at,
+  // so every SSL setup site has a sensible default for `ca`.
+  //
+  // This has to run before the settings store is opened, not merely during
+  // startup: a boot.ini settings source of https://... is downloaded while that
+  // store is opened, and [tls] now verifies the peer by default against this
+  // very bundle. Exporting afterwards meant the file was missing on the first
+  // boot of a fresh install - load_verify_file() then throws, the settings
+  // download fails, and the agent comes up with no configuration at all. It
+  // "worked" from the second boot onwards, because by then the previous boot
+  // had written the file.
+  //
+  // Idempotent: called from settings boot and again from load_configuration_2
+  // (which still covers any startup path that does not boot the settings
+  // subsystem), but the store is only enumerated once per process.
+  void prepare_trust_store() override {
+#ifdef WIN32
+    if (trust_store_ready_) return;
+    trust_store_ready_ = true;
+    try {
+      const std::string bundle_path = path_->expand_path("${ca-path}");
+      boost::filesystem::create_directories(boost::filesystem::path(bundle_path).parent_path());
+      std::list<std::string> ca_errors;
+      const unsigned int n = nsclient::windows_ca::export_root_store(bundle_path, ca_errors);
+      for (const std::string &e : ca_errors) LOG_WARN_CORE("windows-ca: " + e);
+      if (n > 0) LOG_DEBUG_CORE("Exported " + std::to_string(n) + " Windows ROOT certificates to " + bundle_path);
+    } catch (const std::exception &e) {
+      LOG_WARN_CORE(std::string("Failed to export Windows ROOT store: ") + e.what());
+    }
+#endif
+  }
+
+#ifdef WIN32
+ private:
+  // Only the Windows body has anything to remember; declaring it unconditionally
+  // leaves an unused private field everywhere else (-Wunused-private-field).
+  bool trust_store_ready_ = false;
+#endif
 };
 
 nscp_settings_provider *provider_ = NULL;
@@ -233,17 +272,10 @@ bool NSClientT::load_configuration_2(const bool override_log) {
 
   // Export the Windows ROOT certificate store to the file pointed at by the
   // ${ca-path} setting so SSL setup sites have a sensible default for `ca`.
-  // The bundle is regenerated on every boot.
-  try {
-    const std::string bundle_path = path_->expand_path("${ca-path}");
-    boost::filesystem::create_directories(boost::filesystem::path(bundle_path).parent_path());
-    std::list<std::string> ca_errors;
-    const unsigned int n = nsclient::windows_ca::export_root_store(bundle_path, ca_errors);
-    for (const std::string &e : ca_errors) LOG_WARN_CORE("windows-ca: " + e);
-    if (n > 0) LOG_DEBUG_CORE("Exported " + std::to_string(n) + " Windows ROOT certificates to " + bundle_path);
-  } catch (const std::exception &e) {
-    LOG_WARN_CORE(std::string("Failed to export Windows ROOT store: ") + e.what());
-  }
+  // Normally already done from the settings boot (a remote settings source is
+  // verified against this bundle, so it cannot wait until here); this call
+  // covers any startup path that skipped that, and is a no-op otherwise.
+  if (provider_ != NULL) provider_->prepare_trust_store();
 #endif
 
   boost::filesystem::path pluginPath = path_->expand_path("${module-path}");

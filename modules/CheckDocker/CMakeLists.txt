@@ -38,6 +38,7 @@ if(WIN32)
         ${SRCS}
         "${TARGET}.h"
         check_docker.hpp
+        docker_endpoint.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
     )
@@ -54,4 +55,12 @@ target_link_libraries(
     expression_parser
     ${EXTRA_LIBS}
 )
+NSCP_CREATE_TEST(
+    docker_endpoint_test
+    SOURCES
+        docker_endpoint_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+)
+
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

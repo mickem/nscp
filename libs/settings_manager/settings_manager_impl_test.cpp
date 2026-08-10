@@ -211,16 +211,32 @@ TEST_F(SettingsManagerBootTest, TlsSectionPopulatesAccessors) {
 }
 
 TEST_F(SettingsManagerBootTest, TlsSectionDefaultsWhenAbsent) {
-  // Constructor defaults are "1.3" / "none" / "". A boot.ini with no [tls]
-  // section must leave them intact.
+  // A boot.ini with no [tls] section must leave the constructor defaults
+  // intact. Those defaults verify the peer against the platform CA bundle:
+  // the transport they govern delivers this agent's whole configuration, so
+  // "don't check who we are talking to" is not an acceptable default.
   write_boot_ini("");
 
   settings_manager::NSCSettingsImpl impl(provider_.get());
   impl.boot("");
 
   EXPECT_EQ(impl.get_tls_version(), "1.3");
+  EXPECT_EQ(impl.get_tls_verify_mode(), "peer");
+  EXPECT_EQ(impl.get_tls_ca(), "${ca-path}");
+}
+
+TEST_F(SettingsManagerBootTest, TlsVerificationCanStillBeDisabledExplicitly) {
+  // The insecure mode remains reachable, but only by writing it out - which is
+  // the point: `none` can no longer be arrived at by omission.
+  write_boot_ini(
+      "[tls]\n"
+      "verify mode=none\n"
+      "ca=\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
   EXPECT_EQ(impl.get_tls_verify_mode(), "none");
-  EXPECT_EQ(impl.get_tls_ca(), "");
 }
 
 // ---------------------------------------------------------------------------

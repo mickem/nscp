@@ -136,7 +136,46 @@ class settings_http : public settings::settings_interface_impl {
 
       auto tls_version = get_core()->get_tls_version();
       auto verify_mode = get_core()->get_tls_verify_mode();
-      auto ca = get_core()->get_tls_ca();
+      // The CA may be written as a path macro (it defaults to ${ca-path}), so
+      // it has to be expanded before OpenSSL sees it.
+      auto ca = get_core()->expand_path(get_core()->get_tls_ca());
+
+      // This download becomes the agent's configuration. An unverified fetch
+      // hands whoever answers for `url.host` full control of the host, so it
+      // must never be the quiet path: complain on every attempt, and say what
+      // to set. Proceeding rather than refusing is deliberate - `none` can now
+      // only come from an operator explicitly writing it into boot.ini, and
+      // silently bricking such an install on upgrade would be worse than a
+      // loud log line.
+      //
+      // Both of these are advisories about a fetch that is still going to be
+      // attempted, so they are logged as warnings rather than errors. Error
+      // level means "this operation failed" to whoever is listening: the MSI
+      // custom action reads back the existing configuration through this very
+      // code path and treats any error-level message as a failed settings
+      // read, discarding the CONFIGURATION_TYPE the operator asked for and
+      // falling back to a local ini - i.e. an advisory logged as an error
+      // silently broke every https:// install. The real failure, when there is
+      // one, is still logged as an error by the download below.
+      if (url.protocol == "https") {
+        if (verify_mode.empty() || verify_mode == "none") {
+          // Both spellings disable verification (an empty mode parses to
+          // verify_none), but say which one is actually in the file - telling
+          // an operator their boot.ini reads "verify mode = none" when it
+          // reads "verify mode =" sends them looking for the wrong line.
+          const std::string how = verify_mode.empty() ? "[tls] verify mode is set but empty in boot.ini, which disables verification just as 'none' does"
+                                                      : "[tls] verify mode = none in boot.ini";
+          get_logger()->warning("settings", __FILE__, __LINE__,
+                                "INSECURE: fetching settings from " + url.to_string() + " without verifying the server certificate (" + how +
+                                    "). Anyone who can answer for this host controls this agent's entire configuration, including external script "
+                                    "definitions. Set 'verify mode = peer' and point 'ca' at the issuing CA.");
+        } else if (!ca.empty() && ca != "none" && !boost::filesystem::is_regular_file(ca)) {
+          get_logger()->warning("settings", __FILE__, __LINE__,
+                                "CA bundle '" + ca + "' not found; the settings download from " + url.to_string() +
+                                    " will fail certificate verification. Point [tls] ca in boot.ini at the CA that issued the settings server's "
+                                    "certificate. (On Windows the default bundle is exported at startup, so it is absent during the very first boot.)");
+        }
+      }
 
       http::proxy_config proxy = http::parse_proxy_url(get_core()->get_proxy_url());
       const std::string no_proxy_str = get_core()->get_no_proxy();

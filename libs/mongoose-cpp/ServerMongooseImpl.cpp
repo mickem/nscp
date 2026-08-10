@@ -165,11 +165,33 @@ void ServerMongooseImpl::onHttpRequest(mg_connection *connection, mg_http_messag
   auto url = std::string(message->uri.buf, message->uri.len);
   auto method = std::string(message->method.buf, message->method.len);
 
-  size_t max = std::size(message->headers);
+  // Match the override header on its full name. The comparison used to be
+  // bounded by the *incoming* header's length, so strncmp succeeded for any
+  // name that is a prefix of it - "X:", "X-H:" and "X-HTTP:" all silently
+  // changed the request method, which defeats any upstream proxy or WAF ACL
+  // that classifies requests by method. Compare the whole thing, and
+  // case-insensitively, since RFC 7230 §3.2 makes field names case-insensitive.
+  //
+  // A repeated override is ambiguous, so it is ignored rather than resolved:
+  // an upstream proxy or WAF that classifies by method has to agree with us on
+  // which copy counts, and "first wins" here vs "last wins" there is exactly
+  // the disagreement that makes the ACL bypassable. Both backends drop the
+  // request's override entirely in that case - see ServerBeastImpl.
+  static const std::string kMethodOverride = "X-HTTP-Method-Override";
+  const size_t max = std::size(message->headers);
+  std::string override_value;
+  size_t override_count = 0;
   for (size_t i = 0; i < max && message->headers[i].name.len > 0; i++) {
-    if (message->headers[i].value.len > 0 && strncmp(message->headers[i].name.buf, "X-HTTP-Method-Override", message->headers[i].name.len) == 0) {
-      method = std::string(message->headers[i].value.buf, message->headers[i].value.len);
+    const std::string name(message->headers[i].name.buf, message->headers[i].name.len);
+    if (message->headers[i].value.len > 0 && boost::algorithm::iequals(name, kMethodOverride)) {
+      override_value.assign(message->headers[i].value.buf, message->headers[i].value.len);
+      override_count++;
     }
+  }
+  if (override_count == 1) {
+    method = override_value;
+  } else if (override_count > 1) {
+    logger_->log_error("Ignoring " + std::to_string(override_count) + " conflicting X-HTTP-Method-Override headers");
   }
 
   for (Controller *ctrl : controllers) {
