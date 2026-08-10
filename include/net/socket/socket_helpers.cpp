@@ -529,14 +529,25 @@ boost::optional<long> socket_helpers::peer_certificate_expiry_days(SSL *ssl) {
   X509 *cert = SSL_get_peer_certificate(ssl);
   if (cert == nullptr) return boost::none;
 
-  // ASN1_TIME_diff splits the interval into whole days plus leftover seconds;
-  // we report the days and drop the remainder, so a certificate with 23 hours
-  // left reads as 0 rather than rounding up to a reassuring 1.
+  // ASN1_TIME_diff splits the interval into whole days plus leftover seconds,
+  // both carrying the sign of the interval. We report whole days and drop the
+  // remainder, so a certificate with 23 hours left reads as 0 rather than
+  // rounding up to a reassuring 1.
+  //
+  // Dropping the remainder has to round DOWN, not toward zero. A certificate
+  // that expired three hours ago comes back as days=0, seconds=-10800: taking
+  // days as-is reports 0, which is indistinguishable from "23 hours left" and
+  // leaves an already-expired certificate looking merely urgent. Any threshold
+  // written the obvious way ("critical when < 0") would never fire during the
+  // first day of expiry. Flooring keeps the useful invariant that the value is
+  // negative if and only if the certificate has expired, and never reports more
+  // time than actually remains.
   int days = 0;
   int seconds = 0;
   const int ok = ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert));
   X509_free(cert);
   if (ok != 1) return boost::none;
+  if (seconds < 0) days -= 1;
   return static_cast<long>(days);
 }
 

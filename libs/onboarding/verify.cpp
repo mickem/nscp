@@ -135,5 +135,12 @@ long onboarding::days_until_expiry(const std::string &cert_pem) {
   if (ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert.get())) != 1) {
     throw onboarding_error("Failed to compute certificate expiry", false);
   }
+  // Round down rather than toward zero. ASN1_TIME_diff gives days and seconds
+  // with a common sign, so a certificate that expired an hour ago is days=0,
+  // seconds=-3600 - returning days as-is would report 0, the same value as
+  // "still valid, expires within the day". Flooring keeps negative meaning
+  // expired. (Renewal here triggers on `< renew_threshold_days`, so 0 already
+  // renewed; the sign still has to be right for anything else reading this.)
+  if (seconds < 0) days -= 1;
   return days;
 }
