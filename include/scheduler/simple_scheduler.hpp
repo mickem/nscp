@@ -10,6 +10,7 @@
 #include <boost/thread.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/unordered_map.hpp>
+#include <atomic>
 #include <nscp_time.hpp>
 #include <parsers/cron/cron_parser.hpp>
 #include <queue>
@@ -152,7 +153,11 @@ class scheduler : public boost::noncopyable {
   volatile bool running_;
   volatile bool has_watchdog_;
   std::size_t thread_count_;
-  handler* handler_;
+  // Read by every worker on each tick and written by the module's load/unload
+  // path, so a plain pointer here is a data race independent of what it points
+  // at. Callers must still join the workers (stop()) before clearing it -
+  // atomicity makes the read well-defined, it does not make the pointee live.
+  std::atomic<handler*> handler_;
   int error_threshold_;
   // Reference clock for cron evaluation. Empty string / "local" (default)
   // matches standard cron semantics; "utc" / "gmt" restore the pre-0.13
@@ -219,10 +224,10 @@ class scheduler : public boost::noncopyable {
   void start_threads();
 
   void log_error(const char* file, const int line, const std::string& err) const {
-    if (handler_) handler_->on_error(file, line, err);
+    if (handler* h = handler_.load()) h->on_error(file, line, err);
   }
   void log_trace(const char* file, const int line, const std::string& err) const {
-    if (handler_) handler_->on_trace(file, line, err);
+    if (handler* h = handler_.load()) h->on_trace(file, line, err);
   }
 
  public:

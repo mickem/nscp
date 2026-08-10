@@ -289,6 +289,8 @@ NSCP_CREATE_TEST(
         plugins/dll_plugin_test.cpp
         plugins/plugin_list_test.cpp
         plugins/zip_plugin.cpp
+        commands_test.cpp
+        commands.hpp
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
         path_manager.cpp
         ${service_test_SRCS}

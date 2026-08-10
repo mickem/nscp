@@ -105,6 +105,11 @@ int scheduler::add_task(const std::string &tag, const cron_parser::schedule &sch
 void scheduler::remove_task(const int id) {
   boost::mutex::scoped_lock l(mutex_);
   const auto it = tasks_.find(id);
+  // erase(end()) is undefined. The id is not guaranteed to be present: a task
+  // can be queued twice (thread_proc reschedules on its catch-all path), so two
+  // workers can both decide to remove it, and schedules_handler calls this
+  // whenever a handler returns false.
+  if (it == tasks_.end()) return;
   tasks_.erase(it);
 }
 scheduler::op_task_object scheduler::get_task(const int id) {
@@ -207,8 +212,10 @@ void scheduler::thread_proc(const int id) {
       if (item) {
         try {
           bool to_reschedule = false;
-          if (handler_) {
-            to_reschedule = handler_->handle_schedule(*item);
+          // Snapshot once: a second read could observe a different value, and
+          // the null check has to apply to the pointer we actually call.
+          if (handler *h = handler_.load()) {
+            to_reschedule = h->handle_schedule(*item);
           }
           boost::posix_time::time_duration duration = now() - now_time;
 

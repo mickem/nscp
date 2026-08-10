@@ -5,6 +5,7 @@
 
 #include <boost/thread/thread.hpp>
 #include <memory>
+#include <threads/stop_signal.hpp>
 
 #include "eventlog_record.hpp"
 #include "eventlog_wrapper.hpp"
@@ -16,7 +17,7 @@ struct real_time_thread {
   bool enabled_;
   unsigned long long start_age_;
   std::shared_ptr<boost::thread> thread_;
-  HANDLE stop_event_ = nullptr;
+  threads::stop_signal stop_signal_;
   eventlog_filter::filter_config_handler filters_;
   std::string logs_;
 

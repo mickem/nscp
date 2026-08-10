@@ -5,6 +5,7 @@
 
 #include <boost/unordered_set.hpp>
 #include <ctime>
+#include <mutex>
 #include <string>
 #include <utility>
 
@@ -30,13 +31,22 @@ class token_store {
   // sessions, and the cap is a defensive boundary, not a tuned limit.
   static constexpr std::size_t kMaxTokens = 4096;
 
+  // Guards `tokens` and `grants`. Both web backends currently serve on a
+  // single thread, so this is not load-bearing today - but nothing in the
+  // class enforced that, every sibling store in this module (error_handler,
+  // event_store, metrics_handler, auth_rate_limiter) is locked, and the
+  // Beast backend is one line away from a multi-threaded ioc_.run(). A
+  // session table silently corrupting the first time someone adds a worker
+  // pool is not a good failure mode to leave armed.
+  mutable std::mutex mutex_;
+
   token_map tokens;
   grant_store grants;
 
   // Sweep all expired entries plus, when the map is at the cap, the oldest
   // entries until we're back under it. Called from generate_for so every
-  // new login covers its own bookkeeping cost - no separate timer thread,
-  // no shared state to race against.
+  // new login covers its own bookkeeping cost - no separate timer thread.
+  // Caller must hold mutex_ (hence the name).
   void sweep_expired_locked(const time_t now) {
     for (auto it = tokens.begin(); it != tokens.end();) {
       if (has_token_expired(it->second.created, now)) {
@@ -67,6 +77,7 @@ class token_store {
   bool is_valid(const std::string &token) { return is_valid(token, now()); }
 
   bool is_valid(const std::string &token, const time_t now) {
+    const std::lock_guard<std::mutex> lock(mutex_);
     const auto it = tokens.find(token);
     if (it == tokens.end()) {
       return false;
@@ -79,6 +90,7 @@ class token_store {
   }
 
   std::string get_user(const std::string &token) const {
+    const std::lock_guard<std::mutex> lock(mutex_);
     const auto cit = tokens.find(token);
     if (cit != tokens.end()) {
       return cit->second.user;
@@ -88,6 +100,7 @@ class token_store {
 
   std::string generate_for(const std::string &user) {
     const time_t t = now();
+    const std::lock_guard<std::mutex> lock(mutex_);
     sweep_expired_locked(t);
     std::string token = generate_token(32);
     token_entry entry;
@@ -98,12 +111,14 @@ class token_store {
   }
 
   void revoke(const std::string &token) {
+    const std::lock_guard<std::mutex> lock(mutex_);
     const auto it = tokens.find(token);
     if (it != tokens.end()) {
       tokens.erase(it);
     }
   }
   void revoke_tokens_for_user(const std::string &user) {
+    const std::lock_guard<std::mutex> lock(mutex_);
     for (auto it = tokens.begin(); it != tokens.end();) {
       if (it->second.user == user) {
         it = tokens.erase(it);

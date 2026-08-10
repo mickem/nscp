@@ -179,16 +179,25 @@ NSCAPI::errorReturn NSAPISetTag(const char *key, const char *value) {
   try {
     if (key == nullptr) return NSCAPI::api_return_codes::hasFailed;
     const std::string tag_key = key;
+    if (tag_key.empty()) return NSCAPI::api_return_codes::hasFailed;
     const std::string tag_value = value == nullptr ? "" : value;
-    // The repository silently drops an oversized tag (returns false, like a
-    // no-op); surface it at debug so a misbehaving module is diagnosable.
-    if (tag_key.size() > nsclient::core::tag_repository::max_key_length || tag_value.size() > nsclient::core::tag_repository::max_value_length) {
-      mainClient->get_logger()->debug("core", __FILE__, __LINE__,
-                                      "Ignoring oversized tag '" + tag_key.substr(0, 64) + "': keys are capped at " +
-                                          std::to_string(nsclient::core::tag_repository::max_key_length) + " and values at " +
-                                          std::to_string(nsclient::core::tag_repository::max_value_length) + " bytes");
+    // A dropped tag must be diagnosable: say why at debug and report the
+    // failure to the caller instead of a silent isSuccess. A benign no-op
+    // (re-setting the same value) is still success.
+    const auto result = mainClient->get_tag_repository()->set(tag_key, tag_value);
+    if (result == nsclient::core::tag_repository::set_result::rejected) {
+      if (tag_key.size() > nsclient::core::tag_repository::max_key_length || tag_value.size() > nsclient::core::tag_repository::max_value_length) {
+        mainClient->get_logger()->debug("core", __FILE__, __LINE__,
+                                        "Ignoring oversized tag '" + tag_key.substr(0, 64) + "': keys are capped at " +
+                                            std::to_string(nsclient::core::tag_repository::max_key_length) + " and values at " +
+                                            std::to_string(nsclient::core::tag_repository::max_value_length) + " bytes");
+      } else {
+        mainClient->get_logger()->debug("core", __FILE__, __LINE__,
+                                        "Ignoring tag '" + tag_key.substr(0, 64) + "': the tag repository is full (max " +
+                                            std::to_string(nsclient::core::tag_repository::max_tags) + " tags)");
+      }
+      return NSCAPI::api_return_codes::hasFailed;
     }
-    mainClient->get_tag_repository()->set(tag_key, tag_value);
     return NSCAPI::api_return_codes::isSuccess;
   } catch (const std::exception &e) {
     LOG_ERROR(mainClient, "Failed to set tag: " + utf8::utf8_from_native(e.what()));

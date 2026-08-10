@@ -74,7 +74,9 @@ class NSCAPI_EXPORT core_wrapper {
   // Host tags: small key=value facts about this host kept in a central
   // repository in the core (consumed by e.g. the web UI and the fleet sync).
   // set_tag with an empty value removes the tag. Both degrade gracefully
-  // (return false / "{}") on cores that predate the tag API.
+  // (return false / "{}") on cores that predate the tag API; set_tag also
+  // returns false when the core rejected the tag (oversized key/value, or
+  // the repository is at its tag cap).
   bool set_tag(const std::string &key, const std::string &value) const;
   // The full tag map as a JSON object string, e.g. {"drives":"c:,d:"}. Right
   // for a passthrough consumer (the web tags controller); a module that wants

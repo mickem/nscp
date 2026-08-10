@@ -4,6 +4,7 @@
 #pragma once
 
 #include <boost/thread.hpp>
+#include <threads/stop_signal.hpp>
 
 #include "filter_config_object.hpp"
 
@@ -17,11 +18,7 @@ struct real_time_thread {
   filters::filter_config_handler filters_;
   std::wstring logs_;
 
-#ifdef WIN32
-  HANDLE stop_event_ = nullptr;
-#else
-  int stop_event_[2] = {-1, -1};
-#endif
+  threads::stop_signal stop_signal_;
 
   nscapi::core_wrapper *core;
   int plugin_id;

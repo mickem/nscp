@@ -15,8 +15,15 @@ void scheduler::start() {
   tasks.start();
 }
 void scheduler::stop() {
+  // tasks.stop() joins the worker threads, so nothing can call back into this
+  // object afterwards. Both handler pointers are cleared only once that join
+  // has returned - clearing them earlier (which is what the callers used to do
+  // via a separate unset_handler() before stop()) left a window where a worker
+  // had already passed its null check and was about to call into an object the
+  // unload path was destroying.
   tasks.stop();
   tasks.unset_handler();
+  handler_ = nullptr;
 }
 
 void scheduler::clear() {

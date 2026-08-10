@@ -3,11 +3,23 @@
 
 #pragma once
 
+// This header used to compile only because every consumer happened to include
+// <map> and the boost thread headers before it; including it first (as a unit
+// test does) failed. Keep it self-contained.
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/core/noncopyable.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/thread_time.hpp>
+#include <exception>
+#include <list>
+#include <map>
 #include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
+#include <string>
 
 #include "plugins/plugin_interface.hpp"
 
@@ -77,6 +89,7 @@ class commands : boost::noncopyable {
     }
     descriptions_.clear();
     commands_.clear();
+    aliases_.clear();
     plugins_.clear();
   }
 
@@ -93,10 +106,33 @@ class commands : boost::noncopyable {
         command_list_type::iterator to_erase = it;
         ++it;
         commands_.erase(to_erase);
+        // The description may since have been overwritten by another plugin
+        // registering the same name (register_command/register_alias allow
+        // that, they only log): only drop it while it is still ours.
         description_list_type::iterator dit = descriptions_.find(key);
-        if (dit != descriptions_.end()) descriptions_.erase(dit);
+        if (dit != descriptions_.end() && dit->second.plugin_id == id) descriptions_.erase(dit);
       } else
         ++it;
+    }
+    // Aliases resolve through the same get() fallback as commands, so they
+    // have to go too. Leaving them behind meant an alias registered by an
+    // unloaded module still resolved to the old plugin, and dispatch reached
+    // dll_plugin::handleCommand - which rejects it with "Library is not
+    // loaded" instead of the correct "command not found", while the
+    // shared_ptr held here kept the whole plugin object alive after unload.
+    command_list_type::iterator ait = aliases_.begin();
+    while (ait != aliases_.end()) {
+      if ((*ait).second->get_id() == id) {
+        std::string key = (*ait).first;
+        command_list_type::iterator to_erase = ait;
+        ++ait;
+        aliases_.erase(to_erase);
+        // Same ownership check as for commands above: the name may have been
+        // re-registered by a plugin that is staying loaded.
+        description_list_type::iterator dit = descriptions_.find(key);
+        if (dit != descriptions_.end() && dit->second.plugin_id == id) descriptions_.erase(dit);
+      } else
+        ++ait;
     }
     plugin_list_type::iterator pit = plugins_.find(id);
     if (pit != plugins_.end()) plugins_.erase(pit);
@@ -128,11 +164,22 @@ class commands : boost::noncopyable {
     if (!have_plugin(plugin_id)) throw command_exception("Failed to find plugin: " + str::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
     command_list_type::iterator it = commands_.find(lc);
     if (it == commands_.end()) {
+      // Was falling through to erase(end()), which is undefined. Reachable
+      // whenever a plugin unregisters a command it never registered, or
+      // unregisters twice (module cleanup plus remove_plugin).
       log_info(__FILE__, __LINE__, "Command not found: ", cmd);
+      return;
+    }
+    if (it->second->get_id() != plugin_id) {
+      // register_command lets a later plugin take over an existing name (it
+      // only logs "Duplicate command"), so by the time the first owner
+      // unregisters, the entry can belong to someone else - leave it alone.
+      log_info(__FILE__, __LINE__, "Command re-registered by another plugin, not unregistering: ", cmd);
+      return;
     }
     commands_.erase(it);
     description_list_type::iterator dit = descriptions_.find(lc);
-    if (dit != descriptions_.end()) descriptions_.erase(dit);
+    if (dit != descriptions_.end() && dit->second.plugin_id == plugin_id) descriptions_.erase(dit);
   }
   void register_alias(unsigned long plugin_id, std::string cmd, std::string desc) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));

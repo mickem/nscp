@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/optional.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/settings/helper.hpp>
@@ -154,7 +155,10 @@ struct scheduler : public simple_scheduler::handler {
   typedef boost::unordered_map<int, target_object> metadata_map;
   metadata_map metadata;
   simple_scheduler::scheduler tasks;
-  task_handler* handler_;
+  // Explicitly initialised: a default-constructed std::atomic holds an
+  // indeterminate value before C++20, and this struct has no constructor
+  // that would otherwise set it before the first load().
+  std::atomic<task_handler*> handler_{nullptr};
 
   target_object get(int id);
 
@@ -165,7 +169,7 @@ struct scheduler : public simple_scheduler::handler {
 
   void set_handler(task_handler* handler) { handler_ = handler; }
   void prepare_shutdown() { tasks.prepare_shutdown(); }
-  void unset_handler() { handler_ = NULL; }
+  void unset_handler() { handler_ = nullptr; }
   void clear();
 
   void set_threads(int count) { tasks.set_threads(count); }
@@ -174,18 +178,18 @@ struct scheduler : public simple_scheduler::handler {
   void add_task(const target_object target);
 
   bool handle_schedule(simple_scheduler::task item) {
-    task_handler* tmp = handler_;
+    task_handler* tmp = handler_.load();
     if (tmp) {
       if (!tmp->handle_schedule(get(item.id))) tasks.remove_task(item.id);
     }
     return true;
   }
   void on_error(const char* file, int line, std::string error) {
-    task_handler* tmp = handler_;
+    task_handler* tmp = handler_.load();
     if (tmp) tmp->on_error(file, line, error);
   }
   void on_trace(const char* file, int line, std::string error) {
-    task_handler* tmp = handler_;
+    task_handler* tmp = handler_.load();
     if (tmp) tmp->on_trace(file, line, error);
   }
 };

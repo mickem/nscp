@@ -216,6 +216,20 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
  * @bug This whole concept needs work I think.
  */
 void pdh_thread::thread_proc() {
+  // Hold the data mutex for the duration of setup so readers cannot observe
+  // half-built counter state. Taken here rather than in the constructor: a
+  // mutex must be released by the thread that acquired it, and the previous
+  // arrangement (lock in the ctor, unlock at the end of setup below) released
+  // it from this thread instead - undefined behaviour that only worked because
+  // boost::shared_mutex does not track ownership. It also left the mutex
+  // locked forever, and destroyed while locked, on any path where this thread
+  // never reached the unlock (an exception during load, a pdh_thread that was
+  // constructed but never started).
+  //
+  // The scoped lock also releases on every exit path from setup, not just the
+  // success path, so a throw here no longer wedges every accessor.
+  boost::unique_lock<boost::shared_mutex> setup_lock(mutex_);
+
   memory_checks::realtime::helper memory_helper(core_, plugin_id);
   process_checks::realtime::helper process_helper(core_, plugin_id);
 
@@ -256,7 +270,7 @@ void pdh_thread::thread_proc() {
       if (!is_last_attempt) {
         // Interruptible back-off: if shutdown is signalled mid-wait, break
         // out and let the main loop exit normally (mutex_ is unlocked there).
-        if (WaitForSingleObject(stop_event_, backoff_ms[attempt]) == WAIT_OBJECT_0) {
+        if (WaitForSingleObject(stop_signal_.native_handle(), backoff_ms[attempt]) == WAIT_OBJECT_0) {
           break;
         }
       }
@@ -320,7 +334,8 @@ void pdh_thread::thread_proc() {
   if (!check_pdh) NSC_LOG_MESSAGE("Not checking PDH data");
   if (has_realtime) NSC_DEBUG_MSG("Real time checks enabled");
 
-  mutex_.unlock();
+  // Setup is done: publish the collector state to readers.
+  setup_lock.unlock();
 
   const std::set<std::string> disabled = disable_list::parse(disable_);
   for (const std::string &token : disabled) {
@@ -447,7 +462,7 @@ void pdh_thread::thread_proc() {
     } else {
       sleep_ms = static_cast<DWORD>(1000 - elapsed_ms);
     }
-  } while ((waitStatus = WaitForSingleObject(stop_event_, sleep_ms)) == WAIT_TIMEOUT);
+  } while ((waitStatus = WaitForSingleObject(stop_signal_.native_handle(), sleep_ms)) == WAIT_TIMEOUT);
   if (waitStatus != WAIT_OBJECT_0) {
     NSC_LOG_ERROR("Something odd happened when terminating PDH collection thread!");
     return;
@@ -534,7 +549,7 @@ void pdh_thread::aux_thread_proc() {
       // os_updates.fetch() is a no-op until its internal TTL has elapsed (default 1h).
       if (!disable_os_updates) run_fetch("OS updates metrics", [this] { os_updates.fetch(); });
     }
-  } while ((wait_status = WaitForSingleObject(stop_event_, interval_ms)) == WAIT_TIMEOUT);
+  } while ((wait_status = WaitForSingleObject(stop_signal_.native_handle(), interval_ms)) == WAIT_TIMEOUT);
   if (wait_status != WAIT_OBJECT_0) {
     // Only our own stop() should ever end this loop; anything else (a failed
     // wait on a bad handle, an abandoned mutex result) deserves a trace rather
@@ -713,21 +728,20 @@ pdh_thread::metrics_hash pdh_thread::get_metrics() {
 }
 
 bool pdh_thread::start() {
-  // Manual-reset, so a single SetEvent in stop() releases both threads.
-  // Deliberately UNNAMED: the handle is only ever used inside this process,
-  // and the name this used to carry ("EventLogShutdown") is also created by
-  // the CheckEventLog and CheckLogFile realtime threads - a named event would
-  // be one shared kernel object, so any of those modules stopping would
-  // silently kill these collector threads too. A name would also let any
-  // co-resident process that can open the object signal (or pre-create) it,
-  // disabling monitoring from outside.
-  stop_event_ = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+  // Manual-reset, so a single signal in stop() releases both threads. See
+  // threads::stop_signal for why the event is unnamed and why a failure here
+  // must not start a thread.
+  std::string error;
+  if (!stop_signal_.create(error)) {
+    NSC_LOG_ERROR("Failed to create stop event, the PDH collector is disabled: " + error);
+    return false;
+  }
   thread_ = std::make_shared<boost::thread>([this]() { this->thread_proc(); });
   aux_thread_ = std::make_shared<boost::thread>([this]() { this->aux_thread_proc(); });
   return true;
 }
 bool pdh_thread::stop() {
-  if (stop_event_ != nullptr) SetEvent(stop_event_);
+  stop_signal_.signal();
   // Reset after joining so a second call (the destructor always calls stop())
   // is a no-op instead of joining an already-joined thread.
   if (thread_) {
@@ -740,6 +754,10 @@ bool pdh_thread::stop() {
     aux_thread_->join();
     aux_thread_.reset();
   }
+  // Release after both joins so a stop/start cycle gets a fresh, unsignalled
+  // event instead of leaking one handle per cycle - the same invariant the
+  // two realtime threads already had, which this copy was missing.
+  stop_signal_.close();
   return true;
 }
 
