@@ -239,8 +239,8 @@ A list of all the MSI options can be found below.
 | OP5_CONTACTGROUP    | Additional contactgroups to add to the host.                                                                            |
 | NO_SERVICE          | Set to 1 to disable installing the service (then you can manually create and activate the service when needed)          |
 | TLS_VERSION         | The TLS version to use (1.0, 1.1, 1.2, *1.3*)                                                                           |
-| TLS_VERIFY_MODE     | The TLS verify mode to use (*none*, peer, fail_if_no_peer_cert)                                                         |
-| TLS_CA              | The CA file to use for TLS connections (if not using the system default)                                                |
+| TLS_VERIFY_MODE     | The TLS verify mode to use (none, *peer*, fail_if_no_peer_cert)                                                         |
+| TLS_CA              | The CA file to use for TLS connections (defaults to the Windows ROOT store)                                             |
 | CONF_SET            | Set a configuration value in the form of section1;key1;value1;section2;key2;value2...                                   |
 | IMPORT_CONFIG       | URL or file path to a configuration file to copy during install and use as the configuration for NSClient++             |
 
@@ -334,3 +334,33 @@ Any changes you make to the configuration file on the server will automatically 
 ```
 msiexec /i NSClient++.msi CONFIGURATION_TYPE=http://myserver.com/nsclient.ini
 ```
+
+### Verifying the settings server
+
+Over `https` the installer verifies the server certificate before it uses what
+it downloaded - that file becomes the whole configuration of the agent,
+including its external script definitions, so whoever can answer for the
+settings host would otherwise own the machine.
+
+The certificate is checked against the Windows ROOT certificate store, which the
+installer exports to a temporary bundle for the duration of the install (the
+service maintains its own copy at `${ca-path}`, but that file does not exist yet
+while the installer is running). Nothing needs to be configured for a settings
+server whose certificate was issued by a public CA, or by an internal CA that
+has been rolled out to the machine's trust store.
+
+For a private CA that is *not* in the Windows store, point `TLS_CA` at the
+issuing CA instead:
+
+```
+msiexec /i NSClient++.msi CONFIGURATION_TYPE=https://myserver.com/nsclient.ini TLS_CA=c:\certs\my-ca.pem
+```
+
+`TLS_CA` is used verbatim and replaces the exported store, so it also works for
+pinning a single issuer. It is written to `boot.ini`, so the service keeps using
+it for later fetches.
+
+As a last resort verification can be turned off with `TLS_VERIFY_MODE=none`,
+which makes the download trust whatever answers. Do this only on a network you
+control; it is the one setting that turns a compromised or spoofed settings
+server into remote code execution on every agent that boots against it.

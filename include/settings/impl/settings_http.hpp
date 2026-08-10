@@ -147,6 +147,16 @@ class settings_http : public settings::settings_interface_impl {
       // only come from an operator explicitly writing it into boot.ini, and
       // silently bricking such an install on upgrade would be worse than a
       // loud log line.
+      //
+      // Both of these are advisories about a fetch that is still going to be
+      // attempted, so they are logged as warnings rather than errors. Error
+      // level means "this operation failed" to whoever is listening: the MSI
+      // custom action reads back the existing configuration through this very
+      // code path and treats any error-level message as a failed settings
+      // read, discarding the CONFIGURATION_TYPE the operator asked for and
+      // falling back to a local ini - i.e. an advisory logged as an error
+      // silently broke every https:// install. The real failure, when there is
+      // one, is still logged as an error by the download below.
       if (url.protocol == "https") {
         if (verify_mode.empty() || verify_mode == "none") {
           // Both spellings disable verification (an empty mode parses to
@@ -155,15 +165,15 @@ class settings_http : public settings::settings_interface_impl {
           // reads "verify mode =" sends them looking for the wrong line.
           const std::string how = verify_mode.empty() ? "[tls] verify mode is set but empty in boot.ini, which disables verification just as 'none' does"
                                                       : "[tls] verify mode = none in boot.ini";
-          get_logger()->error("settings", __FILE__, __LINE__,
-                              "INSECURE: fetching settings from " + url.to_string() + " without verifying the server certificate (" + how +
-                                  "). Anyone who can answer for this host controls this agent's entire configuration, including external script "
-                                  "definitions. Set 'verify mode = peer' and point 'ca' at the issuing CA.");
+          get_logger()->warning("settings", __FILE__, __LINE__,
+                                "INSECURE: fetching settings from " + url.to_string() + " without verifying the server certificate (" + how +
+                                    "). Anyone who can answer for this host controls this agent's entire configuration, including external script "
+                                    "definitions. Set 'verify mode = peer' and point 'ca' at the issuing CA.");
         } else if (!ca.empty() && ca != "none" && !boost::filesystem::is_regular_file(ca)) {
-          get_logger()->error("settings", __FILE__, __LINE__,
-                              "CA bundle '" + ca + "' not found; the settings download from " + url.to_string() +
-                                  " will fail certificate verification. Point [tls] ca in boot.ini at the CA that issued the settings server's "
-                                  "certificate. (On Windows the default bundle is exported at startup, so it is absent during the very first boot.)");
+          get_logger()->warning("settings", __FILE__, __LINE__,
+                                "CA bundle '" + ca + "' not found; the settings download from " + url.to_string() +
+                                    " will fail certificate verification. Point [tls] ca in boot.ini at the CA that issued the settings server's "
+                                    "certificate. (On Windows the default bundle is exported at startup, so it is absent during the very first boot.)");
         }
       }
 

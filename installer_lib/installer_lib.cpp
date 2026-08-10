@@ -27,6 +27,9 @@
 #include <string>
 
 #include "../libs/settings_manager/settings_manager_impl.h"
+// The Windows ROOT store exporter the service uses to produce ${ca-path}; the
+// installer needs its own copy of that bundle, see prepare_trust_store() below.
+#include "../service/windows_ca_store.hpp"
 #include "installer_helper.hpp"
 #include "keys.hpp"
 
@@ -129,11 +132,77 @@ struct installer_settings_provider : public settings_manager::provider_interface
   std::string old_settings_map;
   std::shared_ptr<msi_logger> logger;
   std::map<std::string, std::string> path_overrides_;
+  // The CA bundle ${ca-path} resolves to for this custom action, and whether we
+  // are the ones who put it there (and so have to clean it up). See
+  // prepare_trust_store().
+  std::string ca_bundle_;
+  bool ca_bundle_is_ours_ = false;
+  bool trust_store_ready_ = false;
+  bool user_ca_ = false;
 
   installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map)
       : h(h), basepath(utf8::cvt<std::string>(basepath)), old_settings_map(utf8::cvt<std::string>(old_settings_map)), logger(new msi_logger(h)) {}
   installer_settings_provider(msi_helper *h, std::wstring basepath)
       : h(h), basepath(utf8::cvt<std::string>(basepath)), old_settings_map(utf8::cvt<std::string>(old_settings_map)), logger(new msi_logger(h)) {}
+
+  ~installer_settings_provider() {
+    if (!ca_bundle_is_ours_ || ca_bundle_.empty()) return;
+    boost::system::error_code ec;
+    boost::filesystem::remove(ca_bundle_, ec);
+  }
+
+  // The operator brought their own trust anchor (the TLS_CA property). It is
+  // handed to the settings transport verbatim, so there is nothing for us to
+  // export - and overwriting ${ca-path} with a store dump would be actively
+  // wrong for someone who deliberately pinned a single issuing CA.
+  void use_user_ca() { user_ca_ = true; }
+
+  // Materialise the trust anchor an https:// settings source is verified
+  // against, before the settings store is opened (and thus before that source
+  // is downloaded).
+  //
+  // The service exports the Windows ROOT store to ${ca-path}
+  // (${certificate-path}/windows-ca.pem) at boot, but nothing has done so by
+  // the time the installer runs: ImportConfig is sequenced before InstallFiles,
+  // so the install folder - let alone its security/ subfolder - does not exist
+  // yet, and on a fresh install the service has never started. So the installer
+  // exports its own copy to a temp file and points ${ca-path} at that for the
+  // duration of the custom action, then removes it again. Without this there is
+  // no anchor on disk at all and the fetch that delivers the agent's entire
+  // configuration would have to run unverified.
+  //
+  // A failure here is not fatal on its own: it leaves ${ca-path} unexpanded,
+  // and the download that follows fails with its own error. Note the level -
+  // these are warnings, never errors: ImportConfig treats any error-level
+  // message from this provider as "the settings context is broken" and throws
+  // the operator's CONFIGURATION_TYPE away.
+  void prepare_trust_store() override {
+    if (trust_store_ready_ || user_ca_) return;
+    trust_store_ready_ = true;
+    try {
+      const boost::filesystem::path bundle = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-install-ca-%%%%%%%%.pem");
+      std::list<std::string> ca_errors;
+      const unsigned int count = nsclient::windows_ca::export_root_store(bundle.string(), ca_errors);
+      for (const std::string &e : ca_errors) {
+        logger->warning("settings", __FILE__, __LINE__, "windows-ca: " + e);
+      }
+      if (count == 0) {
+        boost::system::error_code ec;
+        boost::filesystem::remove(bundle, ec);
+        logger->warning("settings", __FILE__, __LINE__,
+                        "No certificates were exported from the Windows ROOT store; an https:// settings source cannot be verified. Pass TLS_CA=<file> to "
+                        "use your own CA bundle, or TLS_VERIFY_MODE=none to fetch it unverified.");
+        return;
+      }
+      ca_bundle_ = bundle.string();
+      ca_bundle_is_ours_ = true;
+      logger->debug("settings", __FILE__, __LINE__, "Exported " + str::xtos(count) + " Windows ROOT certificates to " + ca_bundle_);
+    } catch (const std::exception &e) {
+      logger->warning("settings", __FILE__, __LINE__, std::string("Failed to export the Windows ROOT store: ") + e.what());
+    } catch (...) {
+      logger->warning("settings", __FILE__, __LINE__, "Failed to export the Windows ROOT store: <unknown exception>");
+    }
+  }
 
   virtual std::string expand_path(std::string file) {
     // Overrides win over the hardcoded fallbacks. We apply them first so a
@@ -148,6 +217,14 @@ struct installer_settings_provider : public settings_manager::provider_interface
     // boot.ini until the installer grows a full path resolver.
     for (const auto &kv : path_overrides_) {
       str::utils::replace(file, "${" + kv.first + "}", kv.second);
+    }
+    // ${ca-path} means the same thing here as it does to the service - "the
+    // platform trust store as a PEM bundle" - but it resolves to the temp copy
+    // prepare_trust_store() exported, since the service's own copy does not
+    // exist during an install. Left alone if the export never ran or failed, so
+    // the transport reports a missing CA rather than reading some other file.
+    if (!ca_bundle_.empty()) {
+      str::utils::replace(file, "${ca-path}", ca_bundle_);
     }
     str::utils::replace(file, "${base-path}", basepath);
     str::utils::replace(file, "${exe-path}", basepath);
@@ -344,14 +421,20 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     std::string tls_version = utf8::cvt<std::string>(h.getMsiPropery(L"TLS_VERSION"));
     std::string tls_verify_mode = utf8::cvt<std::string>(h.getMsiPropery(L"TLS_VERIFY_MODE"));
     std::string tls_ca = utf8::cvt<std::string>(h.getMsiPropery(L"TLS_CA"));
+    // The unset defaults are the service's, not laxer ones: this transport
+    // fetches the file that becomes the agent's whole configuration, and the
+    // installer is the very first time it runs. TLS_CA, when given, is used
+    // verbatim (bring your own); otherwise ${ca-path} resolves to the ROOT
+    // store copy the provider exports below.
+    const bool user_ca = !tls_ca.empty();
     if (tls_version.empty()) {
       tls_version = "1.3";
     }
     if (tls_verify_mode.empty()) {
-      tls_verify_mode = "none";
+      tls_verify_mode = settings_manager::NSCSettingsImpl::kDefaultTlsVerifyMode;
     }
-    if (tls_ca.empty()) {
-      tls_ca = "";
+    if (!user_ca) {
+      tls_ca = settings_manager::NSCSettingsImpl::kDefaultTlsCa;
     }
 
     std::wstring map_data = read_map_data(h);
@@ -378,6 +461,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
                  utf8::cvt<std::wstring>(tls_verify_mode) + L", tls_ca=" + utf8::cvt<std::wstring>(tls_ca));
 
     installer_settings_provider provider(&h, target, map_data);
+    if (user_ca) provider.use_user_ca();
     if (!settings_manager::init_installer_settings(&provider, utf8::cvt<std::string>(context), tls_version, tls_verify_mode, tls_ca)) {
       h.setError(L"ImportConfig::init_installer_settings", L"Settings context had fatal errors");
       h.setConfHasErrors(L"Failed to load existing configuration");
@@ -827,10 +911,16 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     }
 
     installer_settings_provider provider(&h, target);
+    if (!tls_ca.empty()) provider.use_user_ca();
 
-    auto use_tls_version = tls_version.empty() ? "1.3" : utf8::cvt<std::string>(tls_version);
-    auto use_tls_verify_mode = tls_verify_mode.empty() ? "none" : utf8::cvt<std::string>(tls_verify_mode);
-    auto use_tls_ca = tls_ca.empty() ? "" : utf8::cvt<std::string>(tls_ca);
+    // Same defaults as ImportConfig - see the note there. Only the properties
+    // the operator actually set are written to boot.ini further down, so an
+    // unset TLS_VERIFY_MODE/TLS_CA leaves the [tls] section alone and the
+    // service applies its own (identical) defaults at boot.
+    auto use_tls_version = tls_version.empty() ? std::string("1.3") : utf8::cvt<std::string>(tls_version);
+    auto use_tls_verify_mode =
+        tls_verify_mode.empty() ? std::string(settings_manager::NSCSettingsImpl::kDefaultTlsVerifyMode) : utf8::cvt<std::string>(tls_verify_mode);
+    auto use_tls_ca = tls_ca.empty() ? std::string(settings_manager::NSCSettingsImpl::kDefaultTlsCa) : utf8::cvt<std::string>(tls_ca);
 
     h.logMessage(L"Writing existing config TLS options: tls version=" + utf8::cvt<std::wstring>(use_tls_version) + L", tls_verify=" +
                  utf8::cvt<std::wstring>(use_tls_verify_mode) + L", tls_ca=" + utf8::cvt<std::wstring>(use_tls_ca));

@@ -194,8 +194,14 @@ unauthenticated:
 verify mode = none
 ```
 
-`verify mode = none` is still honoured, but it is now logged as an error on every fetch - it can only
-be reached by writing it out, never by omission.
+`verify mode = none` is still honoured, but it is now logged as a warning naming the risk on every
+fetch - it can only be reached by writing it out, never by omission.
+
+The Windows installer applies the same defaults when it downloads a settings source given as
+`CONFIGURATION_TYPE=https://...`, and verifies against a temporary export of the Windows ROOT store
+(`${ca-path}` belongs to the service and is not written until it first starts). Use the `TLS_CA` and
+`TLS_VERIFY_MODE` properties to make the same two choices at install time - see
+[Installing](../setup/installing.md#verifying-the-settings-server).
 
 #### Using a proxy
 
