@@ -130,11 +130,13 @@ struct drive_container {
   // The mount this row's data actually comes from. Identical to `mountpoint`
   // for an enumerated mount, but for `drive=<path>` the user may name any path
   // and `mountpoint` keeps that path verbatim; the collector keys its trends by
-  // real mount, so the resolved mount is what the trend lookup must use.
+  // real mount, so the resolved mount is what the trend lookup must use. Empty
+  // for the synthetic `total` row, which has no backing mount and aggregates
+  // the per-drive trends instead of looking one up.
   std::string trend_key;
 
   drive_container() : type(dt_unknown) {}
-  drive_container(std::string device, std::string mountpoint, std::string fs, drive_type type, std::string trend_key)
+  drive_container(std::string device, std::string mountpoint, std::string fs, drive_type type, std::string trend_key = std::string())
       : device(std::move(device)), mountpoint(std::move(mountpoint)), fs(std::move(fs)), type(type), trend_key(std::move(trend_key)) {}
 };
 
