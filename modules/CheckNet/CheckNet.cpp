@@ -13,11 +13,13 @@
 #include <nscapi/settings/helper.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <str/xtos.hpp>
 
 #include "check_connections.h"
 #include "check_dns.h"
 #include "check_http.h"
 #include "check_nsclient_web_online.h"
+#include "check_ping_internal.hpp"
 #include "check_ntp_offset.h"
 #include "check_tcp.h"
 #include "filter.hpp"
@@ -45,6 +47,8 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
   bool total = false;
   int count = 0;
   int timeout = 0;
+  int size = 0;
+  int ttl = 0;
   std::string address_family_arg;
 
   ping_filter::filter filter;
@@ -60,6 +64,12 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
     ("timeout", po::value<int>(&timeout)->default_value(500), "Timeout in milliseconds.")
     ("payload", po::value<std::string>(&payload)->default_value("Hello from NSClient++."), "The payload to send in the ping request (default: 'Hello from NSClient++')")
     ("address-family", po::value<std::string>(&address_family_arg), net::address_family_option_help())
+    ("size", po::value<int>(&size)->default_value(0),
+        "Size of the ICMP payload in bytes (0 keeps the --payload string as-is). The payload is repeated or truncated to reach exactly this many bytes; "
+        "the 8 byte ICMP header is on top, so a 1472 byte payload is the largest that fits an untagged 1500 byte MTU over IPv4.")
+    ("ttl", po::value<int>(&ttl)->default_value(0),
+        "TTL / hop limit to set on outgoing packets (0 keeps the system default). Note the ttl keyword reports the TTL of the reply, which is a different "
+        "number: it is what is left of the remote host's own outgoing TTL after the return path.")
     ;
   // clang-format on
 
@@ -68,6 +78,15 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
   net::address_family af = net::address_family::any;
   if (!net::parse_address_family(address_family_arg, af))
     return nscapi::protobuf::functions::set_response_bad(*response, "Invalid address-family: " + address_family_arg + " (expected any, ipv4 or ipv6)");
+
+  using check_net::check_ping_internal::kMaxPingPayload;
+  if (size < 0 || size > kMaxPingPayload)
+    return nscapi::protobuf::functions::set_response_bad(
+        *response, "Invalid size: " + str::xtos(size) + " (expected 0-" + str::xtos(kMaxPingPayload) + ")");
+  if (ttl < 0 || ttl > 255)
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid ttl: " + str::xtos(ttl) + " (expected 0-255)");
+
+  payload = check_net::check_ping_internal::build_ping_payload(payload, size);
 
   if (!hosts_string.empty()) boost::split(hosts, hosts_string, boost::is_any_of(","));
 
@@ -87,7 +106,7 @@ void CheckNet::check_ping(const PB::Commands::QueryRequestMessage::Request &requ
       // A destination with no address in the requested family throws out of the
       // pinger constructor and, as before for any resolve failure, surfaces as
       // an error response for the whole check.
-      pinger ping(io_service, result, host.c_str(), timeout, id, payload, af);
+      pinger ping(io_service, result, host.c_str(), timeout, id, payload, af, ttl);
       ping.ping();
       io_service.run();
     }

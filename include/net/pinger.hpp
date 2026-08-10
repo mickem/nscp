@@ -16,7 +16,7 @@
 #include <vector>
 
 struct result_container {
-  result_container() : num_send_(0), num_replies_(0), num_timeouts_(0), length_(0), sequence_number_(0), ttl_(0), time_(0) {}
+  result_container() : num_send_(0), num_replies_(0), num_timeouts_(0), length_(0), sequence_number_(0), ttl_(-1), time_(0) {}
 
   std::string destination_;
   std::string ip_;
@@ -25,7 +25,11 @@ struct result_container {
   std::size_t num_timeouts_;
   std::size_t length_;
   unsigned short sequence_number_;
-  unsigned char ttl_;
+  // TTL (IPv4) of the last reply, or -1 when it is not known: nothing came
+  // back, or the reply was ICMPv6, where the hop limit is only available
+  // through ancillary data we do not request. Signed so "unknown" cannot be
+  // confused with a real TTL of 0.
+  int ttl_;
   std::size_t time_;
   // Round trip time of every packet that came back, in order. time_ above is
   // only the most recent one; the series is what jitter is computed from.
@@ -36,8 +40,10 @@ class pinger {
  public:
   // `af` pins the IP version; with `any` the resolver picks and the socket is
   // opened in whichever family the destination resolved to.
+  // `ttl` sets the TTL / hop limit on outgoing packets; 0 leaves the system
+  // default in place.
   pinger(boost::asio::io_context& io_service, result_container& result, const char* destination, int timeout, unsigned short identifier, std::string payload,
-         const net::address_family af = net::address_family::any)
+         const net::address_family af = net::address_family::any, const int ttl = 0)
       : resolver_(io_service),
         socket_(io_service),
         timer_(io_service),
@@ -59,6 +65,9 @@ class pinger {
     // must be opened in the family the destination actually resolved to.
     is_v6_ = destination_.address().is_v6();
     socket_.open(destination_.protocol());
+    // unicast::hops maps to IP_TTL on v4 and IPV6_UNICAST_HOPS on v6, so one
+    // option covers both families.
+    if (ttl > 0) socket_.set_option(boost::asio::ip::unicast::hops(ttl));
     result.destination_ = destination;
     result.ip_ = destination_.address().to_string();
   }
@@ -145,9 +154,9 @@ class pinger {
       const auto now = std::chrono::steady_clock::now();
       // No IP header was consumed on v6, and the hop limit is only available
       // through IPV6_RECVHOPLIMIT ancillary data, which we do not request — so
-      // ttl stays 0 there rather than reporting a fabricated value.
+      // ttl stays unknown there rather than reporting a fabricated value.
       result_.length_ = is_v6_ ? length : length - ipv4_hdr.header_length();
-      result_.ttl_ = is_v6_ ? 0 : ipv4_hdr.time_to_live();
+      result_.ttl_ = is_v6_ ? -1 : static_cast<int>(ipv4_hdr.time_to_live());
       result_.time_ = std::chrono::duration_cast<std::chrono::milliseconds>(now - time_sent_).count();
       result_.rtts_.push_back(result_.time_);
     }

@@ -14,6 +14,7 @@
 #include "check_http.h"
 #include "check_http_internal.hpp"
 #include "check_nsclient_web_online.h"
+#include "check_ping_internal.hpp"
 #include "check_ntp_internal.hpp"
 #include "check_ntp_offset.h"
 #include "check_tcp.h"
@@ -66,6 +67,105 @@ TEST(CheckPing, filter_obj_aggregates_counters) {
   EXPECT_EQ(total->get_recv(), 6);
   EXPECT_EQ(total->get_timeout(), 2);
   EXPECT_EQ(total->get_time(), 62);
+}
+
+// ============================================================================
+// check_ping - payload sizing and reply TTL
+// ============================================================================
+
+TEST(CheckPingPayload, SizeZeroLeavesThePayloadAlone) {
+  using check_net::check_ping_internal::build_ping_payload;
+  EXPECT_EQ("Hello from NSClient++.", build_ping_payload("Hello from NSClient++.", 0));
+  // Negative is treated the same rather than doing something surprising; the
+  // caller rejects it before reaching here.
+  EXPECT_EQ("abc", build_ping_payload("abc", -5));
+}
+
+TEST(CheckPingPayload, RepeatsThePatternToReachTheRequestedSize) {
+  using check_net::check_ping_internal::build_ping_payload;
+  EXPECT_EQ("abcabcabca", build_ping_payload("abc", 10));
+  const std::string big = build_ping_payload("abc", 1472);
+  EXPECT_EQ(1472u, big.size());
+  EXPECT_EQ('a', big[0]);
+  EXPECT_EQ("abc", big.substr(0, 3));
+}
+
+TEST(CheckPingPayload, TruncatesAPayloadLongerThanTheRequestedSize) {
+  using check_net::check_ping_internal::build_ping_payload;
+  EXPECT_EQ("Hel", build_ping_payload("Hello from NSClient++.", 3));
+  EXPECT_EQ(1u, build_ping_payload("Hello", 1).size());
+}
+
+TEST(CheckPingPayload, EmptyPayloadStillFillsRatherThanSpinning) {
+  // The fill loop would never terminate on an empty pattern; it substitutes a
+  // single character instead.
+  using check_net::check_ping_internal::build_ping_payload;
+  const std::string filled = build_ping_payload("", 64);
+  EXPECT_EQ(64u, filled.size());
+  EXPECT_EQ(std::string(64, 'x'), filled);
+}
+
+TEST(CheckPingPayload, ProducesExactlyTheRequestedSizeAtTheCeiling) {
+  using check_net::check_ping_internal::build_ping_payload;
+  using check_net::check_ping_internal::kMaxPingPayload;
+  // 65535 total - 20 byte IP header - 8 byte ICMP header.
+  EXPECT_EQ(65507, kMaxPingPayload);
+  EXPECT_EQ(static_cast<std::size_t>(kMaxPingPayload), build_ping_payload("ab", kMaxPingPayload).size());
+}
+
+TEST(CheckPingTtl, DefaultsToUnknown) {
+  // -1, not 0: a TTL of 0 is a real (if doomed) value, so "no reply yet" needs
+  // a value outside the range.
+  const result_container r;
+  EXPECT_EQ(-1, r.ttl_);
+  ping_filter::filter_obj o(r);
+  EXPECT_EQ(-1, o.get_ttl());
+}
+
+TEST(CheckPingTtl, ReportsTheReplyTtl) {
+  result_container r;
+  r.ttl_ = 57;
+  ping_filter::filter_obj o(r);
+  EXPECT_EQ(57, o.get_ttl());
+}
+
+TEST(CheckPingTtl, TotalCarriesTheLowestTtlAcrossHosts) {
+  // A low TTL is the interesting end - a reply nearly out of hops, or a route
+  // that has grown - so the total reports the minimum rather than the maximum.
+  result_container near;
+  near.ttl_ = 64;
+  result_container far;
+  far.ttl_ = 6;
+
+  auto a = std::make_shared<ping_filter::filter_obj>(near);
+  auto b = std::make_shared<ping_filter::filter_obj>(far);
+  auto total = ping_filter::filter_obj::get_total();
+  total->add(a);
+  total->add(b);
+  EXPECT_EQ(6, total->get_ttl());
+}
+
+TEST(CheckPingTtl, TotalIgnoresHostsWithNoTtl) {
+  // An unanswered host (or an IPv6 one) contributes -1, which must not win the
+  // minimum and report "unknown" for the whole fleet.
+  result_container answered;
+  answered.ttl_ = 42;
+  result_container unknown;  // ttl_ stays -1
+
+  auto a = std::make_shared<ping_filter::filter_obj>(answered);
+  auto b = std::make_shared<ping_filter::filter_obj>(unknown);
+  auto total = ping_filter::filter_obj::get_total();
+  total->add(b);
+  total->add(a);
+  EXPECT_EQ(42, total->get_ttl());
+}
+
+TEST(CheckPingTtl, TotalStaysUnknownWhenNoHostAnswered) {
+  result_container unknown;
+  auto a = std::make_shared<ping_filter::filter_obj>(unknown);
+  auto total = ping_filter::filter_obj::get_total();
+  total->add(a);
+  EXPECT_EQ(-1, total->get_ttl());
 }
 
 // ============================================================================

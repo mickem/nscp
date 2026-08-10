@@ -21,7 +21,7 @@ TEST(ResultContainer, DefaultConstruction) {
   EXPECT_EQ(0u, r.num_timeouts_);
   EXPECT_EQ(0u, r.length_);
   EXPECT_EQ(0, r.sequence_number_);
-  EXPECT_EQ(0, r.ttl_);
+  EXPECT_EQ(-1, r.ttl_);  // unknown until a reply carries one
   EXPECT_EQ(0u, r.time_);
   EXPECT_TRUE(r.destination_.empty());
   EXPECT_TRUE(r.ip_.empty());

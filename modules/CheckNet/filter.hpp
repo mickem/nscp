@@ -92,8 +92,16 @@ struct filter_obj {
   // worst per-host jitter instead, which is what a fleet-wide alert wants.
   long long get_jitter() const { return is_total_ ? total_jitter_ : mean_abs_delta_ms(result.rtts_); }
 
+  // TTL of the last reply, or -1 when unknown (nothing came back, or IPv6).
+  //
+  // The total row carries the LOWEST TTL across the hosts: a low TTL is the
+  // interesting end (a reply nearly out of hops, or a route that grew), so the
+  // minimum is what a fleet-wide threshold wants.
+  long long get_ttl() const { return is_total_ ? total_ttl_ : result.ttl_; }
+
   bool is_total_;
   long long total_jitter_ = -1;
+  long long total_ttl_ = -1;
   result_container result;
 };
 
