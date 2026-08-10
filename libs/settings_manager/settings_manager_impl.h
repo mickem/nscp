@@ -34,8 +34,26 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   std::string no_proxy_;
 
  public:
+  // Defaults for [tls] in boot.ini. These govern the transport used to fetch a
+  // remote (http[s]://) settings source, i.e. the channel that delivers this
+  // agent's entire configuration - including [/settings/external scripts],
+  // which is arbitrary command execution by design. Verifying the peer is
+  // therefore not optional-by-default: `verify mode = none` used to mean any
+  // attacker who could answer for the settings host owned every agent that
+  // booted against it, with no certificate error and nothing in the log.
+  //
+  // `ca-path` is the same trust anchor CheckNet and CheckNSCP already default
+  // to: the auto-exported Windows ROOT bundle on Windows, the distribution CA
+  // bundle on Linux.
+  static constexpr const char *kDefaultTlsVerifyMode = "peer";
+  static constexpr const char *kDefaultTlsCa = "${ca-path}";
+
   explicit NSCSettingsImpl(provider_interface *provider)
-      : settings::settings_handler_impl(provider->get_logger()), provider_(provider), tls_version_("1.3"), tls_verify_mode_("none"), tls_ca_("") {}
+      : settings::settings_handler_impl(provider->get_logger()),
+        provider_(provider),
+        tls_version_("1.3"),
+        tls_verify_mode_(kDefaultTlsVerifyMode),
+        tls_ca_(kDefaultTlsCa) {}
   NSCSettingsImpl(provider_interface *provider, std::string tls_version, std::string tls_verify_mode, std::string tls_ca)
       : settings::settings_handler_impl(provider->get_logger()),
         provider_(provider),
