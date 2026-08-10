@@ -659,7 +659,10 @@ describe("CheckNet commands", () => {
       onredirect: "follow",
       "detail-syntax": "code=${code} days=${ssl_expiry_days}",
     });
-    expect(messageOf(q)).toBe("code=200 days=no certificate");
+    // check_http's default top-syntax prefixes the status word, so assert the
+    // rendering and the status separately rather than pinning the whole line.
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toContain("code=200 days=no certificate");
 
     // ...and the numeric threshold that the optional number exists to protect
     // must not fire on the plain hop either.
