@@ -52,6 +52,13 @@ struct filter_obj {
   std::string response;
   bool connected;
 
+  // TLS peer certificate, populated only when the connection was wrapped in
+  // TLS and the peer actually presented one. `has_certificate` is the guard:
+  // ssl_expiry_days is legitimately negative for an expired certificate, so the
+  // -1 it carries otherwise cannot be told apart from "expired yesterday".
+  bool has_certificate = false;
+  long long ssl_expiry_days = -1;
+
   filter_obj() : port(0), time(0), connected(false) {}
   virtual ~filter_obj() = default;
 
@@ -63,6 +70,8 @@ struct filter_obj {
   std::string get_result() const { return result; }
   std::string get_response() const { return response; }
   long long get_connected() const { return connected ? 1 : 0; }
+  long long get_has_certificate() const { return has_certificate ? 1 : 0; }
+  long long get_ssl_expiry_days() const { return ssl_expiry_days; }
 
   // Called once the peer's response has been read, so a specialised check can
   // derive extra fields from it (check_ssh parses the identification string).

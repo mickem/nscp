@@ -79,6 +79,44 @@ TEST(CheckTcp, filter_obj_defaults) {
   EXPECT_EQ(o.get_connected(), 0);
 }
 
+TEST(CheckTcp, filter_obj_certificate_defaults_to_absent) {
+  // A plain (or failed) connection has no certificate. -1 is the "unknown"
+  // day count, and has_certificate is what distinguishes it from a real
+  // negative value.
+  check_net::check_tcp_filter::filter_obj o;
+  EXPECT_EQ(o.get_has_certificate(), 0);
+  EXPECT_EQ(o.get_ssl_expiry_days(), -1);
+}
+
+TEST(CheckTcp, filter_obj_certificate_getters) {
+  check_net::check_tcp_filter::filter_obj o;
+  o.has_certificate = true;
+  o.ssl_expiry_days = 42;
+  EXPECT_EQ(o.get_has_certificate(), 1);
+  EXPECT_EQ(o.get_ssl_expiry_days(), 42);
+}
+
+TEST(CheckTcp, filter_obj_expired_certificate_is_negative_but_present) {
+  // The case has_certificate exists for: an expired certificate reports a
+  // negative day count, which must not read as "there was no certificate".
+  check_net::check_tcp_filter::filter_obj o;
+  o.has_certificate = true;
+  o.ssl_expiry_days = -7;
+  EXPECT_EQ(o.get_has_certificate(), 1);
+  EXPECT_EQ(o.get_ssl_expiry_days(), -7);
+}
+
+TEST(CheckSsh, filter_obj_inherits_the_certificate_fields_unset) {
+  // check_ssh shares the TCP object but never negotiates TLS, so the fields
+  // exist and stay at their "no certificate" defaults.
+  check_net::check_ssh_filter::filter_obj o;
+  o.response = "SSH-2.0-OpenSSH_9.6p1";
+  o.post_read();
+  EXPECT_EQ(o.get_has_certificate(), 0);
+  EXPECT_EQ(o.get_ssl_expiry_days(), -1);
+  EXPECT_EQ(o.get_software(), "OpenSSH");
+}
+
 TEST(CheckTcp, filter_obj_show_and_getters) {
   check_net::check_tcp_filter::filter_obj o;
   o.host = "host.example";

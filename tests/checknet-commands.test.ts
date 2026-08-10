@@ -271,6 +271,105 @@ describe("CheckNet commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  it("check_tcp exposes the peer certificate expiry via ssl_expiry_days", async () => {
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      verify: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "cert=${has_certificate} days=${ssl_expiry_days}",
+    });
+    expect(q.result).toBe(OK);
+    const m = messageOf(q).match(/cert=(\d+) days=(\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m?.[1])).toBe(1); // a certificate was presented
+    // The shared fixture cert is valid for 365 days.
+    expect(Number(m?.[2])).toBeGreaterThan(300);
+  });
+
+  it("check_tcp reads the certificate without verifying it", async () => {
+    // verify=none is the default: the expiry is a property of the certificate
+    // the peer served, so it must be readable without a trust decision (the
+    // fixture cert is signed by a CA nscp does not trust).
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      critical: "has_certificate = 0",
+    });
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_tcp alerts on a certificate that expires soon", async () => {
+    // A 20-day cert against a 30-day threshold: this is the check the keyword
+    // exists for, and it must fire on the real remaining lifetime.
+    const shortLived = generateCertChain({
+      outDir: nscp.scratch("checknet_shortlived"),
+      signed: { server: { commonName: "localhost", isServer: true } },
+      days: 20,
+    }).signed.server;
+    const s = await startTlsGreeter("220 secure service\r\n", shortLived);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      critical: "has_certificate = 1 and ssl_expiry_days < 30",
+      "top-syntax": "${list}",
+      "detail-syntax": "expires in ${ssl_expiry_days} days",
+    });
+    expect(q.result).toBe(CRITICAL);
+    // Whole days, with the sub-day remainder dropped, so a cert issued for 20
+    // days reads as 20 or 19 depending on where in the second the check lands.
+    const days = Number(messageOf(q).match(/expires in (\d+) days/)?.[1]);
+    expect(days).toBeGreaterThanOrEqual(19);
+    expect(days).toBeLessThanOrEqual(20);
+  });
+
+  it("check_tcp emits ssl_expiry_days as perfdata when thresholded", async () => {
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      warning: "ssl_expiry_days < 30",
+    });
+    expect(q.result).toBe(OK);
+    expect(perfValue(q, "127.0.0.1_" + s.port + "_ssl_expiry_days")).toBeGreaterThan(300);
+  });
+
+  it("check_tcp reports no certificate on a plain connection", async () => {
+    // Without ssl=true there is no certificate at all: has_certificate must be
+    // 0 so a threshold can tell that apart from an expired one (both of which
+    // would otherwise look like a negative ssl_expiry_days).
+    const s = await startTcpGreeter("220 service ready\r\n");
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "cert=${has_certificate} days=${ssl_expiry_days}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("cert=0 days=-1");
+  });
+
+  it("check_tcp certificate keywords work through a service preset", async () => {
+    // The s-prefixed presets (spop/simap/ssmtp) imply TLS, so they get the
+    // certificate keywords without ssl=true being passed explicitly.
+    const s = await startTlsGreeter("+OK ready\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      service: "spop",
+      "top-syntax": "${list}",
+      "detail-syntax": "cert=${has_certificate}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("cert=1");
+  });
+
   // --- check_ssh ------------------------------------------------------------
 
   it("check_ssh accepts a valid SSH banner", async () => {

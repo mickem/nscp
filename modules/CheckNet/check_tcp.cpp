@@ -26,7 +26,22 @@ namespace po = boost::program_options;
 namespace check_net {
 namespace check_tcp_filter {
 
-filter_obj_handler::filter_obj_handler() { register_common_keywords(registry_); }
+filter_obj_handler::filter_obj_handler() {
+  register_common_keywords(registry_);
+
+  // TLS certificate of the connected peer. Registered here rather than in the
+  // common set because check_ssh is never TLS and would only advertise a
+  // keyword that can never be populated.
+  registry_
+      .add_int_var("ssl_expiry_days", parsers::where::type_int, &filter_obj::get_ssl_expiry_days,
+                   "Days until the peer's TLS certificate expires; negative once it has expired, and -1 when the connection is not TLS or the peer presented "
+                   "no certificate (guard with has_certificate to tell those apart)")
+      .add_int_perf("", "", "_ssl_expiry_days");
+  registry_
+      .add_int_var("has_certificate", parsers::where::type_int, &filter_obj::get_has_certificate,
+                   "1 when the peer presented a TLS certificate, 0 otherwise")
+      .no_perf();
+}
 
 }  // namespace check_tcp_filter
 
@@ -252,6 +267,13 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
       if (hs_ec) {
         out.result = "tls_handshake_failed";
         return;
+      }
+
+      // Read the peer certificate straight after the handshake: it is available
+      // regardless of `verify`, so an expiry check needs no trust decision.
+      if (const auto expiry = socket_helpers::peer_certificate_expiry_days(ssl_stream.native_handle())) {
+        out.has_certificate = true;
+        out.ssl_expiry_days = *expiry;
       }
 
       tcp_converse(ssl_stream, socket, io_service, timeout_ms, send_data, expect, expect_regex, out);

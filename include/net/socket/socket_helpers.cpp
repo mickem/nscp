@@ -524,4 +524,20 @@ boost::asio::ssl::verify_mode socket_helpers::verify_mode_parser(const std::stri
   return mode;
 }
 
+boost::optional<long> socket_helpers::peer_certificate_expiry_days(SSL *ssl) {
+  if (ssl == nullptr) return boost::none;
+  X509 *cert = SSL_get_peer_certificate(ssl);
+  if (cert == nullptr) return boost::none;
+
+  // ASN1_TIME_diff splits the interval into whole days plus leftover seconds;
+  // we report the days and drop the remainder, so a certificate with 23 hours
+  // left reads as 0 rather than rounding up to a reassuring 1.
+  int days = 0;
+  int seconds = 0;
+  const int ok = ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert));
+  X509_free(cert);
+  if (ok != 1) return boost::none;
+  return static_cast<long>(days);
+}
+
 #endif

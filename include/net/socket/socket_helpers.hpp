@@ -224,6 +224,12 @@ struct connection_info {
 #ifdef USE_SSL
 boost::asio::ssl::context_base::method tls_method_parser(const std::string& tls_version);
 boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode);
+
+// Whole days until the peer's certificate expires, negative once it already
+// has. Returns none when the peer presented no certificate at all, so a caller
+// can tell that apart from "expired a day ago" - collapsing both to -1 loses a
+// distinction that matters when the number drives an alert.
+boost::optional<long> peer_certificate_expiry_days(SSL* ssl);
 #endif
 
 namespace io {

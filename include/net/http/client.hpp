@@ -365,12 +365,9 @@ struct ssl_socket final : generic_socket {
   long peer_certificate_expiry_days() const override {
     // native_handle() is non-const; the underlying SSL* is not mutated here.
     SSL *ssl = const_cast<ssl_socket *>(this)->ssl_socket_.native_handle();
-    X509 *cert = SSL_get_peer_certificate(ssl);
-    if (cert == nullptr) return -1;
-    int days = -1, seconds = 0;
-    const int ok = ASN1_TIME_diff(&days, &seconds, nullptr, X509_get0_notAfter(cert));
-    X509_free(cert);
-    return ok == 1 ? static_cast<long>(days) : -1;
+    // -1 for "no certificate" is this interface's historical contract (it is
+    // what check_http's ssl_expiry_days keyword reports for plain http).
+    return socket_helpers::peer_certificate_expiry_days(ssl).get_value_or(-1);
   }
 
   /// Establish an HTTP CONNECT tunnel through proxy_ then perform TLS handshake.
