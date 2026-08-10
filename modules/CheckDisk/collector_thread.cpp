@@ -21,9 +21,9 @@ disk_io_check::disks_type collector_thread::get_disk_io() { return disk_io_.get(
 
 disk_free_check::drives_type collector_thread::get_disk_free() { return disk_free_.get(); }
 
-collector_thread::trend_map collector_thread::get_drive_trends() {
+collector_thread::trend_snapshot collector_thread::get_drive_trends() {
   const boost::lock_guard<boost::mutex> lock(trends_mutex_);
-  return trends_;
+  return snapshot_;
 }
 
 bool collector_thread::start() {
@@ -52,6 +52,10 @@ void collector_thread::update_trends(const long long now) {
   const disk_free_check::drives_type drives = disk_free_.get();
   const boost::lock_guard<boost::mutex> lock(trends_mutex_);
   for (const disk_free_check::disk_free &d : drives) {
+    // A drive that momentarily reports no size at all is not a resize: taking
+    // it at face value would flip the trend context to 0, discard the whole
+    // history, and flip back on the next tick.
+    if (d.total <= 0) continue;
     trend_map::iterator it = trends_.find(d.name);
     if (it == trends_.end()) it = trends_.insert(trend_map::value_type(d.name, trend::trend_buffer(trend_interval, trend_retention))).first;
     // Track used bytes; the total is the reset context (a resize invalidates
@@ -65,7 +69,15 @@ void collector_thread::update_trends(const long long now) {
     else
       ++it;
   }
+  publish_trends();
 }
+
+// Republish the immutable snapshot handed to checks. Rebuilt once per
+// collector tick rather than copied per check: at a 5-minute cadence and 7-day
+// retention one drive carries ~2000 samples, and a busy poller would otherwise
+// deep-copy every drive's history (under the collector's lock) on every single
+// check_drivesize invocation.
+void collector_thread::publish_trends() { snapshot_ = std::make_shared<const trend_map>(trends_); }
 
 void collector_thread::load_trends() {
   try {
@@ -73,12 +85,16 @@ void collector_thread::load_trends() {
     const long long now = static_cast<long long>(std::time(nullptr));
     trend_map loaded;
     for (const nscapi::core_helper::storage_map::value_type &e : core.get_storage_strings("disk.trends")) {
+      // Remember every key we saw, including the ones that decode to nothing:
+      // save_trends() clears the rows that no longer back a live drive.
+      saved_keys_.insert(e.first);
       trend::trend_buffer buf = trend::trend_buffer::decode(e.second, trend_interval, trend_retention, now);
       if (!buf.empty()) loaded[e.first] = buf;
     }
     if (loaded.empty()) return;
     const boost::lock_guard<boost::mutex> lock(trends_mutex_);
     trends_.swap(loaded);
+    publish_trends();
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("Failed to load drive trends: " + std::string(e.what()));
   } catch (...) {
@@ -88,11 +104,25 @@ void collector_thread::load_trends() {
 
 void collector_thread::save_trends() {
   try {
-    trend_map snapshot = get_drive_trends();
+    const trend_snapshot snapshot = get_drive_trends();
+    if (!snapshot) return;
     nscapi::core_helper core(core_, plugin_id_);
-    for (const trend_map::value_type &v : snapshot) {
+    for (const trend_map::value_type &v : *snapshot) {
       if (v.second.empty()) continue;
       core.put_storage("disk.trends", v.first, v.second.encode(trend_save_granularity), false, false);
+      saved_keys_.insert(v.first);
+    }
+    // Drives that have aged out of memory keep their stored row forever
+    // otherwise: on a host with churning mounts (containers, removable media)
+    // nsclient.db would grow without bound. An empty value decodes to an empty
+    // buffer, which load_trends() drops.
+    for (std::set<std::string>::iterator it = saved_keys_.begin(); it != saved_keys_.end();) {
+      if (snapshot->find(*it) != snapshot->end()) {
+        ++it;
+        continue;
+      }
+      core.put_storage("disk.trends", *it, "", false, false);
+      it = saved_keys_.erase(it);
     }
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("Failed to save drive trends: " + std::string(e.what()));
@@ -126,12 +156,12 @@ void collector_thread::thread_proc() {
       NSC_LOG_ERROR("Initial disk I/O fetch failed: " + e.reason());
     } catch (...) {
       NSC_LOG_ERROR("Initial disk I/O fetch failed");
-      disable_disk_io = false;
+      disable_disk_io = true;
     }
   }
   if (!disable_disk_free) {
     try {
-      disk_free_.fetch();
+      if (!disk_free_.fetch()) NSC_LOG_ERROR("Initial disk free fetch returned no data");
     } catch (...) {
       NSC_LOG_ERROR("Initial disk free fetch failed");
       disable_disk_free = true;
@@ -153,14 +183,19 @@ void collector_thread::thread_proc() {
       }
     }
     if (!disable_disk_free) {
+      // A failed fetch leaves the previous snapshot in place. Timestamping it
+      // as a fresh sample would feed the regression a fabricated flat segment,
+      // so the trend simply skips the tick and leaves a gap (which OLS over
+      // irregular timestamps handles natively).
+      bool fetched = false;
       try {
-        disk_free_.fetch();
+        fetched = disk_free_.fetch();
       } catch (const std::exception &e) {
         NSC_LOG_ERROR("Failed to get disk free metrics: " + std::string(e.what()));
       } catch (...) {
         NSC_LOG_ERROR("Failed to get disk free metrics");
       }
-      if (!disable_trend) {
+      if (!disable_trend && fetched) {
         const long long now = static_cast<long long>(std::time(nullptr));
         update_trends(now);
         if (now - last_save >= trend_save_interval) {

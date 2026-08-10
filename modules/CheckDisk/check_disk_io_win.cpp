@@ -185,12 +185,12 @@ devices_type query() {
 
 namespace disk_free_check {
 
-void disk_free_data::fetch() {
+bool disk_free_data::fetch() {
   drives_type tmp;
 
   char buf[512];
   const DWORD len = GetLogicalDriveStringsA(sizeof(buf) - 1, buf);
-  if (len == 0) return;
+  if (len == 0) return false;
 
   for (const char *p = buf; *p; p += strlen(p) + 1) {
     std::string drive(p);
@@ -211,6 +211,7 @@ void disk_free_data::fetch() {
   }
 
   set(tmp);
+  return true;
 }
 
 }  // namespace disk_free_check

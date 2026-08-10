@@ -44,6 +44,14 @@ namespace po = boost::program_options;
 CheckDisk::CheckDisk() : show_errors_(false) {}
 
 namespace {
+// The collector hands out an immutable, shared snapshot (null before it has
+// ticked, or when no collector is running); the check wants a plain map. The
+// caller keeps the snapshot alive for the duration of the check.
+const check_drive::trend_map &deref_trends(const collector_thread::trend_snapshot &snapshot) {
+  static const check_drive::trend_map empty;
+  return snapshot ? *snapshot : empty;
+}
+
 // Publish the logical drive list as a host tag (`drives=c:,d:`), consumed by
 // the web UI and by fleet group selectors. Windows-only: on other platforms
 // mount points are too dynamic to make a useful identity-style tag.
@@ -273,11 +281,13 @@ void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &reque
     request.add_arguments("filter=type in (" + type_list + ")");
   }
   compat::log_args(request);
-  check_drive::check(request, response, collector_ ? collector_->get_drive_trends() : check_drive::trend_map());
+  const collector_thread::trend_snapshot trends = collector_ ? collector_->get_drive_trends() : collector_thread::trend_snapshot();
+  check_drive::check(request, response, deref_trends(trends));
 }
 
 void CheckDisk::check_drivesize(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_drive::check(request, response, collector_ ? collector_->get_drive_trends() : check_drive::trend_map());
+  const collector_thread::trend_snapshot trends = collector_ ? collector_->get_drive_trends() : collector_thread::trend_snapshot();
+  check_drive::check(request, response, deref_trends(trends));
 }
 
 void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

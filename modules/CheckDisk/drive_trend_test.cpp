@@ -22,17 +22,19 @@ trend::trend_buffer growing(const long long hours) {
 
 }  // namespace
 
-TEST(DriveTrend, LookupUnixExactAndContainingMount) {
+TEST(DriveTrend, LookupUnixMatchesTheResolvedMountExactly) {
   drive_trend::trend_map trends;
   trends["/"] = growing(6);
   trends["/home"] = growing(6);
   EXPECT_EQ(drive_trend::lookup_unix(trends, "/home"), &trends["/home"]);
   EXPECT_EQ(drive_trend::lookup_unix(trends, "/"), &trends["/"]);
-  // A path below a mount resolves to the mount it lives on.
-  EXPECT_EQ(drive_trend::lookup_unix(trends, "/home/user/data"), &trends["/home"]);
-  EXPECT_EQ(drive_trend::lookup_unix(trends, "/var/log"), &trends["/"]);
-  // Prefix must break on a path boundary: /homework is not under /home.
-  EXPECT_EQ(drive_trend::lookup_unix(trends, "/homework"), &trends["/"]);
+  // The caller passes the resolved mount, never a raw path: a path is not a
+  // key, and must NOT silently borrow an ancestor's trend.
+  EXPECT_EQ(drive_trend::lookup_unix(trends, "/home/user/data"), nullptr);
+  EXPECT_EQ(drive_trend::lookup_unix(trends, "/homework"), nullptr);
+  // A mount the collector skips (tmpfs, overlay, ...) has no trend at all -
+  // it must not resolve to the root filesystem's history.
+  EXPECT_EQ(drive_trend::lookup_unix(trends, "/dev/shm"), nullptr);
   EXPECT_EQ(drive_trend::lookup_unix(drive_trend::trend_map(), "/"), nullptr);
 }
 

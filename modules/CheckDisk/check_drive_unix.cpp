@@ -127,10 +127,15 @@ struct drive_container {
   std::string mountpoint;
   std::string fs;
   drive_type type;
+  // The mount this row's data actually comes from. Identical to `mountpoint`
+  // for an enumerated mount, but for `drive=<path>` the user may name any path
+  // and `mountpoint` keeps that path verbatim; the collector keys its trends by
+  // real mount, so the resolved mount is what the trend lookup must use.
+  std::string trend_key;
 
   drive_container() : type(dt_unknown) {}
-  drive_container(std::string device, std::string mountpoint, std::string fs, drive_type type)
-      : device(std::move(device)), mountpoint(std::move(mountpoint)), fs(std::move(fs)), type(type) {}
+  drive_container(std::string device, std::string mountpoint, std::string fs, drive_type type, std::string trend_key)
+      : device(std::move(device)), mountpoint(std::move(mountpoint)), fs(std::move(fs)), type(type), trend_key(std::move(trend_key)) {}
 };
 
 struct filter_obj {
@@ -495,7 +500,7 @@ std::list<drive_container> find_drives(const std::vector<std::string> &drives, s
       for (const mount_entry &m : mounts) {
         if (is_pseudo_fs(m.fstype)) continue;
         if (!seen.insert(m.mountpoint).second) continue;
-        ret.emplace_back(m.device, m.mountpoint, m.fstype, classify_fs(m.fstype));
+        ret.emplace_back(m.device, m.mountpoint, m.fstype, classify_fs(m.fstype), m.mountpoint);
       }
     } else {
       struct statvfs probe;
@@ -507,7 +512,11 @@ std::list<drive_container> find_drives(const std::vector<std::string> &drives, s
       const std::string device = m ? m->device : d;
       const std::string fs = m ? m->fstype : "";
       if (!seen.insert(d).second) continue;
-      ret.emplace_back(device, d, fs, classify_fs(fs));
+      // Resolve to the mount the path lives on so the trend lookup can be an
+      // exact match: a prefix search over the collector's keys would silently
+      // hand a filesystem the collector skips (tmpfs, overlay, ...) the trend
+      // of its nearest tracked ancestor.
+      ret.emplace_back(device, d, fs, classify_fs(fs), m ? m->mountpoint : d);
     }
   }
   return ret;
@@ -591,7 +600,7 @@ void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Com
         std::find(excludes.begin(), excludes.end(), drive.device) != excludes.end())
       continue;
     std::shared_ptr<filter_obj> obj(new filter_obj(drive));
-    obj->trend_ = drive_trend::compute(drive_trend::lookup_unix(trends, drive.mountpoint), now, trend_window);
+    obj->trend_ = drive_trend::compute(drive_trend::lookup_unix(trends, drive.trend_key), now, trend_window);
     filter.match(obj);
     if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
     if (total) {

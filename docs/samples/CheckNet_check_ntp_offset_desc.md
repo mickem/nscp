@@ -53,6 +53,11 @@ Note that a threshold like `jitter > 50` is simply false while unmeasured, so
 leaving `samples` at its default silently never alerts — set both together, or
 add the `= 'unknown'` clause to catch a misconfiguration.
 
+> **Upgrading.** `jitter` used to report `-1` before two samples existed. A
+> filter written against that sentinel (`jitter = -1`) no longer matches and
+> must become `jitter = 'unknown'`; perfdata is omitted rather than plotted as
+> `-1` until the value is real.
+
 Three things worth knowing about how the burst behaves:
 
 * **Sampling stops at the first failure.** An unreachable or slow server costs

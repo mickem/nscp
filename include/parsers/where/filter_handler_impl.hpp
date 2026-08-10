@@ -6,7 +6,10 @@
 #include <NSCAPI.h>
 
 #include <boost/function.hpp>
+#include <boost/optional.hpp>
 #include <boost/unordered_map.hpp>
+#include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <nscapi/nscapi_helper.hpp>
@@ -14,6 +17,7 @@
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/variable.hpp>
 #include <str/format.hpp>
+#include <string>
 
 namespace parsers {
 namespace where {

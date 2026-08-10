@@ -2,6 +2,36 @@ common:
   info:
     description: CheckDisk can check various file and disk related things.
     title: CheckDisk
+  paths:
+    /settings/disk:
+      info:
+        advanced: false
+        description: ''
+        subkey: false
+        title: ''
+      keys:
+        disable:
+          advanced: true
+          default_value: ''
+          description: 'A comma separated list of checks to disable in the collector: disk_io, disk_free,
+            trend. Please note disabling these will mean part of NSClient++ will no longer function as
+            expected.'
+          sample: false
+          title: Disable automatic checks
+        trend interval:
+          advanced: true
+          default_value: 5m
+          description: How often a used-space sample is kept per drive for the check_drivesize trend keywords
+            (full_in/rate). Duration, e.g. 5m.
+          sample: false
+          title: Trend sampling interval
+        trend retention:
+          advanced: true
+          default_value: 7d
+          description: How much used-space history is kept per drive; bounds the largest useful trend-window.
+            Duration, e.g. 7d.
+          sample: false
+          title: Trend history retention
   queries:
     check_disk_health:
       fields:
@@ -2436,36 +2466,6 @@ platforms:
 - unix
 - windows
 unix:
-  paths:
-    /settings/disk:
-      info:
-        advanced: false
-        description: ''
-        subkey: false
-        title: ''
-      keys:
-        disable:
-          advanced: true
-          default_value: ''
-          description: 'A comma separated list of checks to disable in the collector: disk_io, disk_free,
-            trend. Please note disabling these will mean part of NSClient++ will no longer function as
-            expected.'
-          sample: false
-          title: Disable automatic checks
-        trend interval:
-          advanced: true
-          default_value: 5m
-          description: How often a used-space sample is kept per drive for the check_drivesize trend keywords
-            (full_in/rate). Duration, e.g. 5m.
-          sample: false
-          title: Trend sampling interval
-        trend retention:
-          advanced: true
-          default_value: 7d
-          description: How much used-space history is kept per drive; bounds the largest useful trend-window.
-            Duration, e.g. 7d.
-          sample: false
-          title: Trend history retention
   queries:
     check_drivesize:
       fields:
@@ -4222,21 +4222,6 @@ unix:
           that are legitimately absent some of the time, such as a lock file or a report that is only
           written after a run.
 windows:
-  paths:
-    /settings/disk:
-      info:
-        advanced: false
-        description: ''
-        subkey: false
-        title: ''
-      keys:
-        disable:
-          advanced: true
-          default_value: ''
-          description: 'A comma separated list of checks to disable in the collector: disk_io, disk_free.
-            Please note disabling these will mean part of NSClient++ will no longer function as expected.'
-          sample: false
-          title: Disable automatic checks
   queries:
     check_drivesize:
       fields:
@@ -4295,6 +4280,13 @@ windows:
         name: fs
         short_description: ''
       - generic: false
+        long_description: Estimated seconds until the drive is full at the current growth rate, projected
+          from the current free space. Thresholds take durations (full_in < 12h, full_in < 5d); renders
+          'never' (and no threshold fires) while the drive is shrinking or no trend exists yet. Window
+          set by trend-window (default 24h)
+        name: full_in
+        short_description: ''
+      - generic: false
         long_description: 1 (true) if drive is hotplugable
         name: hotplug
         short_description: ''
@@ -4341,6 +4333,11 @@ windows:
         name: problem_list
         short_description: ''
       - generic: false
+        long_description: Growth of used space in bytes/day over the trend window (negative = emptying);
+          'unknown' until enough history exists
+        name: rate
+        short_description: ''
+      - generic: false
         long_description: 1 (true) if drive is readable
         name: readable
         short_description: ''
@@ -4382,6 +4379,15 @@ windows:
       - generic: false
         long_description: '% used space'
         name: total_used_pct
+        short_description: ''
+      - generic: false
+        long_description: Number of samples behind the trend estimate
+        name: trend_samples
+        short_description: ''
+      - generic: false
+        long_description: Seconds of history behind the trend estimate (0 = no data); use e.g. warn=trend_span
+          < 1h to assert data sufficiency
+        name: trend_span
         short_description: ''
       - generic: false
         long_description: Type of drive
@@ -4724,6 +4730,18 @@ windows:
         repeatable: false
         required: false
         short_description: Include the total of all matching drives
+      - content_type: 2
+        default_value: 24h
+        is_simple: false
+        long_description: Lookback window for the full_in/rate trend keywords (e.g. 2h, 24h, 7d). A long
+          window measures the net growth across cleanup cycles; a short one catches something filling
+          the disk right now. Bounded by the collector's trend retention (default 7d).
+        name: trend-window
+        repeatable: false
+        required: false
+        short_description: Lookback window for the full_in/rate trend keywords (e.g. 2h, 24h, 7d). A long
+          window measures the net growth across cleanup cycles; a short one catches something filling
+          the disk right now. Bounded by the collector's trend retention (default 7d).
     check_files:
       fields:
       - generic: false

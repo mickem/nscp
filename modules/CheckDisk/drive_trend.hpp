@@ -33,23 +33,16 @@ inline trend::slope_result compute(const trend::trend_buffer *buf, const long lo
   return buf->slope_over(now, window);
 }
 
-// Unix lookup: exact mountpoint match, else the longest mount that contains
-// the path (drive=/srv/data resolves to the trend of the mount it lives on).
-inline const trend::trend_buffer *lookup_unix(const trend_map &trends, const std::string &path) {
-  const trend_map::const_iterator cit = trends.find(path);
-  if (cit != trends.end()) return &cit->second;
-  const trend::trend_buffer *best = nullptr;
-  std::size_t best_len = 0;
-  for (const trend_map::value_type &v : trends) {
-    const std::string &m = v.first;
-    const bool contains =
-        !m.empty() && path.compare(0, m.size(), m) == 0 && (m == "/" || path.size() == m.size() || path[m.size()] == '/');
-    if (contains && m.size() >= best_len) {
-      best = &v.second;
-      best_len = m.size();
-    }
-  }
-  return best;
+// Unix lookup: an exact match on the mount the row's data comes from. The
+// caller resolves `drive=<path>` to its containing mount first (see
+// drive_container::trend_key), so this deliberately does NOT fall back to a
+// longest-prefix search: the collector skips pseudo filesystems, and a prefix
+// search would hand a tmpfs or overlay mount the trend of its nearest tracked
+// ancestor - reporting, say, the root filesystem's growth rate for /dev/shm.
+// A filesystem the collector does not track simply has no trend.
+inline const trend::trend_buffer *lookup_unix(const trend_map &trends, const std::string &mount) {
+  const trend_map::const_iterator cit = trends.find(mount);
+  return cit == trends.end() ? nullptr : &cit->second;
 }
 
 // Windows lookup: the collector keys by "C:" while the filter rows carry

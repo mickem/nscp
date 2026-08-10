@@ -205,6 +205,45 @@ TEST(TrendBuffer, DecodeDiscardsFutureAndStaleSamples) {
   EXPECT_TRUE(stale.empty());
 }
 
+TEST(TrendBuffer, ProjectionBeyondTheHorizonIsNever) {
+  // A disk drifting by a couple of bytes a day: the slope is positive but so
+  // small that the projection runs off the end of long long (and wraps into a
+  // garbage duration once rendered in milliseconds). "never" is the honest
+  // answer, not a number with 19 digits.
+  const auto buf = fill(288, [](long long i) { return 1000000 + i / 100; });
+  const long long now = kBase + 287 * kInterval;
+  const auto r = buf.slope_over(now, kDay);
+  ASSERT_TRUE(r.valid);
+  ASSERT_GT(r.slope, 0.0);
+  EXPECT_FALSE(trend::trend_buffer::project_zero(500LL * 1024 * 1024 * 1024, r));
+
+  // Just inside the horizon a projection is still produced.
+  trend::slope_result fast;
+  fast.valid = true;
+  fast.slope = 1000.0;
+  const auto within = trend::trend_buffer::project_zero(3600 * 1000, fast);
+  ASSERT_TRUE(within);
+  EXPECT_EQ(*within, 3600);
+
+  // And the boundary itself is honoured rather than overflowing.
+  trend::slope_result crawl;
+  crawl.valid = true;
+  crawl.slope = 1e-12;
+  EXPECT_FALSE(trend::trend_buffer::project_zero(1000000, crawl));
+}
+
+TEST(TrendBuffer, DecodeAppliesTheSamplingCadence) {
+  // A row denser than the configured interval (corrupt, hand-written, or
+  // written by an instance configured with a finer cadence) must not inflate
+  // the ring: decode subsamples exactly like append().
+  std::string data = "1|0|" + std::to_string(kBase) + ":0";
+  for (long long i = 1; i <= 600; ++i) data += "|1:1";  // one sample per second
+  const long long now = kBase + 600;
+  const auto buf = trend::trend_buffer::decode(data, kInterval, kRetention, now);
+  EXPECT_EQ(buf.size(), 3u);  // kBase, +300, +600 - not 601 samples
+  EXPECT_EQ(buf.newest_ts(), kBase + 600);
+}
+
 TEST(TrendBuffer, DecodeGarbageYieldsEmptyBuffer) {
   const long long now = kBase;
   EXPECT_TRUE(trend::trend_buffer::decode("", kInterval, kRetention, now).empty());

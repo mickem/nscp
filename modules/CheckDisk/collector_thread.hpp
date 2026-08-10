@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <nscapi/nscapi_core_wrapper.hpp>
+#include <set>
 #include <string>
 #include <trend/trend_buffer.hpp>
 
@@ -17,6 +18,8 @@
 class collector_thread {
  public:
   typedef std::map<std::string, trend::trend_buffer> trend_map;
+  // Immutable snapshot handed to checks: shared, never copied per check.
+  typedef std::shared_ptr<const trend_map> trend_snapshot;
 
  private:
   std::shared_ptr<boost::thread> thread_;
@@ -37,6 +40,11 @@ class collector_thread {
   // from the same fetch as disk_free_; the buffers subsample to trend_interval.
   boost::mutex trends_mutex_;
   trend_map trends_;
+  // Copy-on-publish view of trends_, rebuilt once per collector tick.
+  trend_snapshot snapshot_;
+  // Storage keys written by save_trends(), so rows for drives that have since
+  // aged out can be cleared instead of lingering in nsclient.db forever.
+  std::set<std::string> saved_keys_;
 
  public:
   int collection_interval;
@@ -56,7 +64,8 @@ class collector_thread {
 
   disk_io_check::disks_type get_disk_io();
   disk_free_check::drives_type get_disk_free();
-  trend_map get_drive_trends();
+  // May be null before the first collector tick has published anything.
+  trend_snapshot get_drive_trends();
 
   bool start();
   bool stop();
@@ -66,6 +75,8 @@ class collector_thread {
  private:
   void thread_proc();
   void update_trends(long long now);
+  // Rebuild snapshot_ from trends_; must be called with trends_mutex_ held.
+  void publish_trends();
   // Persistence via the core storage API (context "disk.trends", one key per
   // drive): loaded on start, saved hourly and on clean stop. The stored form
   // is downsampled to 30-minute granularity to keep nsclient.db small.

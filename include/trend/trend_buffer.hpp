@@ -117,13 +117,22 @@ class trend_buffer {
     return r;
   }
 
+  // Beyond this the projection is noise, not a forecast: a disk drifting by a
+  // few bytes a day yields a slope near zero and a division that runs off the
+  // end of long long (and, once rendered in milliseconds, wraps into a garbage
+  // duration). Anything past a century is reported as "never".
+  static long long max_projection() { return 100LL * 365 * 24 * 3600; }
+
   // Seconds until `current` (e.g. free bytes) reaches zero if consumed at
-  // `r.slope` units/second. No value when the trend is invalid or the series
-  // is not growing - "never" is an absence, not a number.
+  // `r.slope` units/second. No value when the trend is invalid, the series is
+  // not growing, or the projection is beyond max_projection() - "never" is an
+  // absence, not a number.
   static boost::optional<long long> project_zero(const long long current, const slope_result &r) {
     if (!r.valid || r.slope <= 0) return boost::none;
     if (current <= 0) return 0;
-    return static_cast<long long>(static_cast<double>(current) / r.slope);
+    const double seconds = static_cast<double>(current) / r.slope;
+    if (seconds > static_cast<double>(max_projection())) return boost::none;
+    return static_cast<long long>(seconds);
   }
 
   // Printable compact form: "1|context|ts:value|dt:dv|dt:dv...". With a
@@ -152,7 +161,9 @@ class trend_buffer {
 
   // Parse an encode()d string. Anything malformed yields an empty buffer
   // (starting fresh is always safe for a trend). Samples in the future
-  // (clock stepped back since the save) or beyond retention are discarded;
+  // (clock stepped back since the save) or beyond retention are discarded,
+  // and the same cadence append() enforces is applied so a corrupt or
+  // hand-written row cannot inflate the ring past retention/interval samples;
   // non-monotonic timestamps abort the parse.
   static trend_buffer decode(const std::string &data, const long long interval_sec, const long long retention_sec, const long long now) {
     trend_buffer ret(interval_sec, retention_sec);
@@ -188,6 +199,7 @@ class trend_buffer {
         value += f2;
       }
       if (ts > now || ts < now - retention_sec) continue;
+      if (!ret.samples_.empty() && ts < ret.samples_.back().ts + ret.interval_) continue;
       sample s;
       s.ts = ts;
       s.value = value;

@@ -40,8 +40,13 @@ falling back:
 
 ```
 check_tcp host=v6-only.example.com port=443 address-family=ipv4
-CRITICAL: v6-only.example.com:443 refused in 0ms
+CRITICAL: v6-only.example.com:443 resolve_failed in 0ms
 ```
+
+The failure is `resolve_failed`, not `refused`: with the family pinned there is
+no address to connect to, so the check never gets as far as a connection
+attempt. "The name exists but has nothing in this family" is the answer being
+asked for here, not an internal error.
 
 For `check_dns` the flag selects how the **DNS server** is reached, which is
 independent of the record `type=` being queried — you can ask an IPv6-reachable
@@ -78,7 +83,9 @@ ICMPv6 echo request (type 128) on an ICMPv6 socket. Two consequences:
 
 * The `ttl` field is not populated over IPv6. The IPv6 hop limit is only
   available through ancillary data the check does not request, so it reports
-  `0` there instead of an invented value.
+  `-1` there instead of an invented value. `-1` is the "not known" marker
+  generally — an unanswered host reports it too, and the `total` row ignores
+  those rather than letting them win its minimum.
 * Raw ICMP sockets need privileges (root / `CAP_NET_RAW` on Linux,
   Administrator on Windows) for both families, exactly as before.
 
@@ -1062,19 +1069,19 @@ Path to a CA bundle to use when verifying the server certificate.
 <a id="check_http_filter_keys"></a>
 #### Filter keywords
 
-| Option          | Description                                                                                      |
-|-----------------|--------------------------------------------------------------------------------------------------|
-| body            | Body of the response (use with substr/regex matching)                                            |
-| code            | HTTP status code                                                                                 |
-| host            | Host part of the URL                                                                             |
-| path            | Path part of the URL                                                                             |
-| port            | TCP port that was used                                                                           |
-| protocol        | Protocol used (http or https)                                                                    |
-| result          | Textual result of the check (ok, error, ...)                                                     |
-| size            | Size of the response body in bytes                                                               |
-| ssl_expiry_days | Days until the server's TLS certificate expires (-1 for plain http; negative if already expired) |
-| time            | Time taken by the request in milliseconds                                                        |
-| url             | Full URL that was requested                                                                      |
+| Option          | Description                                                                                                                                                                                                                                                                 |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| body            | Body of the response (use with substr/regex matching)                                                                                                                                                                                                                       |
+| code            | HTTP status code                                                                                                                                                                                                                                                            |
+| host            | Host part of the URL                                                                                                                                                                                                                                                        |
+| path            | Path part of the URL                                                                                                                                                                                                                                                        |
+| port            | TCP port that was used                                                                                                                                                                                                                                                      |
+| protocol        | Protocol used (http or https)                                                                                                                                                                                                                                               |
+| result          | Textual result of the check (ok, error, ...)                                                                                                                                                                                                                                |
+| size            | Size of the response body in bytes                                                                                                                                                                                                                                          |
+| ssl_expiry_days | Days until the server's TLS certificate expires; negative if already expired. Renders as 'no certificate' (and compares false against every number) for plain http, so `ssl_expiry_days < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests for that state. |
+| time            | Time taken by the request in milliseconds                                                                                                                                                                                                                                   |
+| url             | Full URL that was requested                                                                                                                                                                                                                                                 |
 
 **Common options for all checks:**
 
@@ -1246,6 +1253,11 @@ check_ntp_offset server=ntp.example.com samples=6 "warn=jitter > 50" "crit=jitte
 Note that a threshold like `jitter > 50` is simply false while unmeasured, so
 leaving `samples` at its default silently never alerts — set both together, or
 add the `= 'unknown'` clause to catch a misconfiguration.
+
+> **Upgrading.** `jitter` used to report `-1` before two samples existed. A
+> filter written against that sentinel (`jitter = -1`) no longer matches and
+> must become `jitter = 'unknown'`; perfdata is omitted rather than plotted as
+> `-1` until the value is real.
 
 Three things worth knowing about how the burst behaves:
 
@@ -1574,6 +1586,12 @@ check_ping host=gw.example.com count=10 "warn=jitter > 20 or jitter = 'unknown'"
 
 Note that leaving `count` at its default means `jitter > 20` silently never
 alerts — set both together, or add the `= 'unknown'` clause to catch it.
+
+> **Upgrading.** `jitter` and `ttl` used to report `-1` when unmeasurable.
+> Filters written against that sentinel (`jitter = -1`, `ttl != -1`) no longer
+> match anything and must become `jitter = 'unknown'` / `ttl != 'unknown'`.
+> Perfdata for an unmeasured value is now omitted rather than plotted as `-1`,
+> so RRD-backed graphs will see the metric appear and disappear.
 
 **A slow link is not a jittery one.** A host that consistently answers in 250 ms
 has a large `time` and near-zero `jitter`; a host alternating between 10 ms and
@@ -2358,6 +2376,13 @@ the string form, or with `has_certificate`:
 ```
 check_tcp host=mail.example.com port=993 ssl=true "crit=ssl_expiry_days < 30 or ssl_expiry_days = 'no certificate'"
 ```
+
+> **Upgrading.** `ssl_expiry_days` used to report `-1` for a connection with no
+> certificate, which made a bare `crit=ssl_expiry_days < 30` fire on every plain
+> connection. That sentinel is gone: filters written as `ssl_expiry_days = -1`
+> must become `ssl_expiry_days = 'no certificate'` (or use `has_certificate`),
+> and no expiry perfdata is emitted when there is no certificate. The same
+> change applies to `check_http`'s `ssl_expiry_days`.
 
 **Reading the certificate does not verify it.** The expiry is a property of what
 the peer served, so it is available at the default `verify=none` — a

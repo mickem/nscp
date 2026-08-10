@@ -818,8 +818,9 @@ common:
         name: size
         short_description: ''
       - generic: false
-        long_description: Days until the server's TLS certificate expires (-1 for plain http; negative
-          if already expired)
+        long_description: Days until the server's TLS certificate expires; negative if already expired.
+          Renders as 'no certificate' (and compares false against every number) for plain http, so `ssl_expiry_days
+          < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests for that state.
         name: ssl_expiry_days
         short_description: ''
       - generic: true

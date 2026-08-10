@@ -225,10 +225,10 @@ devices_type query() { return {}; }
 
 namespace disk_free_check {
 
-void disk_free_data::fetch() {
+bool disk_free_data::fetch() {
   drives_type tmp;
   FILE *fp = setmntent("/proc/mounts", "r");
-  if (!fp) return;
+  if (!fp) return false;
   struct mntent ent;
   char buf[4096];
   std::set<std::string> seen;
@@ -251,6 +251,7 @@ void disk_free_data::fetch() {
   }
   endmntent(fp);
   set(tmp);
+  return true;
 }
 
 }  // namespace disk_free_check

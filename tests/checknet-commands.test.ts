@@ -639,6 +639,40 @@ describe("CheckNet commands", () => {
     expect(Number(m?.[1])).toBeGreaterThan(300);
   });
 
+  it("check_http reports no certificate when a redirect lands on plain http", async () => {
+    // The trap: the TLS hop presents a certificate, the hop actually checked
+    // does not. Carrying the first hop's expiry forward would report a
+    // certificate for a URL that never presented one - and would make
+    // `ssl_expiry_days = 'no certificate'` false on a plain-http endpoint.
+    const plain = await startHttp((_req, res) => {
+      res.writeHead(200);
+      res.end("arrived");
+    });
+    const tls = await startHttp((_req, res) => {
+      res.writeHead(302, { Location: `http://127.0.0.1:${plain.port}/final` });
+      res.end();
+    }, serverCert);
+
+    const q = await executeQuery(key, "check_http", {
+      url: `https://127.0.0.1:${tls.port}/`,
+      verify: "none",
+      onredirect: "follow",
+      "detail-syntax": "code=${code} days=${ssl_expiry_days}",
+    });
+    expect(messageOf(q)).toBe("code=200 days=no certificate");
+
+    // ...and the numeric threshold that the optional number exists to protect
+    // must not fire on the plain hop either.
+    const bare = await executeQuery(key, "check_http", {
+      url: `https://127.0.0.1:${tls.port}/`,
+      verify: "none",
+      onredirect: "follow",
+      warning: "none",
+      critical: "ssl_expiry_days < 3650",
+    });
+    expect(bare.result).toBe(OK);
+  });
+
   it("check_http emits response-time, status-code and size perfdata", async () => {
     const s = await startHttp((_req, res) => {
       res.writeHead(200, { "Content-Type": "text/plain" });

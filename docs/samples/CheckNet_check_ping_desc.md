@@ -26,6 +26,12 @@ check_ping host=gw.example.com count=10 "warn=jitter > 20 or jitter = 'unknown'"
 Note that leaving `count` at its default means `jitter > 20` silently never
 alerts — set both together, or add the `= 'unknown'` clause to catch it.
 
+> **Upgrading.** `jitter` and `ttl` used to report `-1` when unmeasurable.
+> Filters written against that sentinel (`jitter = -1`, `ttl != -1`) no longer
+> match anything and must become `jitter = 'unknown'` / `ttl != 'unknown'`.
+> Perfdata for an unmeasured value is now omitted rather than plotted as `-1`,
+> so RRD-backed graphs will see the metric appear and disappear.
+
 **A slow link is not a jittery one.** A host that consistently answers in 250 ms
 has a large `time` and near-zero `jitter`; a host alternating between 10 ms and
 200 ms has a small average `time` and large `jitter`. Latency-sensitive traffic

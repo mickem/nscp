@@ -1222,37 +1222,38 @@ check_drivesize "filter=full_in = 'never'"
     <a id="check_drivesize_require"></a>
     <a id="check_drivesize_mandatory-drives"></a>
 
-    | Option                                                  | Default Value                          | Description                                                                                                                                   |
-    |---------------------------------------------------------|----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_drivesize_filter)                       | mounted = 1                            | Filter which marks interesting items.                                                                                                         |
-    | [warning](#check_drivesize_warning)                     | used > 80%                             | Filter which marks items which generates a warning state.                                                                                     |
-    | warn                                                    |                                        | Short alias for warning                                                                                                                       |
-    | [critical](#check_drivesize_critical)                   | used > 90%                             | Filter which marks items which generates a critical state.                                                                                    |
-    | crit                                                    |                                        | Short alias for critical.                                                                                                                     |
-    | [ok](#check_drivesize_ok)                               |                                        | Filter which marks items which generates an ok state.                                                                                         |
-    | [debug](#check_drivesize_debug)                         | 1)] (=0                                | Show debugging information in the log                                                                                                         |
-    | [show-all](#check_drivesize_show-all)                   | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                              |
-    | [empty-state](#check_drivesize_empty-state)             | unknown                                | Return status to use when nothing matched filter.                                                                                             |
-    | [perf-config](#check_drivesize_perf-config)             |                                        | Performance data generation configuration                                                                                                     |
-    | [escape-html](#check_drivesize_escape-html)             | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                                        |
-    | [list-separator](#check_drivesize_list-separator)       | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                     |
-    | help                                                    | N/A                                    | Show help screen (this screen)                                                                                                                |
-    | help-pb                                                 | N/A                                    | Show help screen as a protocol buffer payload                                                                                                 |
-    | show-default                                            | N/A                                    | Show default values for a given command                                                                                                       |
-    | help-short                                              | N/A                                    | Show help screen (short format).                                                                                                              |
-    | [top-syntax](#check_drivesize_top-syntax)               | ${status} ${problem_list}              | Top level syntax.                                                                                                                             |
-    | [ok-syntax](#check_drivesize_ok-syntax)                 | %(status) All %(count) drive(s) are ok | ok syntax.                                                                                                                                    |
-    | [empty-syntax](#check_drivesize_empty-syntax)           | %(status): No drives found             | Empty syntax.                                                                                                                                 |
-    | [detail-syntax](#check_drivesize_detail-syntax)         | ${drive_or_name}: ${used}/${size} used | Detail level syntax.                                                                                                                          |
-    | [perf-syntax](#check_drivesize_perf-syntax)             | ${drive_or_id}                         | Performance alias syntax.                                                                                                                     |
-    | [drive](#check_drivesize_drive)                         |                                        | The drives to check.                                                                                                                          |
-    | [ignore-unreadable](#check_drivesize_ignore-unreadable) | 1)] (=0                                | DEPRECATED (manually set filter instead) Ignore drives which are not reachable by the current user.                                           |
-    | [mounted](#check_drivesize_mounted)                     | 1)] (=0                                | DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.                                                |
-    | magic                                                   |                                        | Magic number for use with scaling drive sizes.                                                                                                |
-    | exclude                                                 |                                        | A list of drives not to check                                                                                                                 |
-    | require                                                 |                                        | Drives that MUST be present: the check goes CRITICAL if any listed drive is not found, even when scanning wildcards. Alias: mandatory-drives. |
-    | mandatory-drives                                        |                                        | Alias for require.                                                                                                                            |
-    | [total](#check_drivesize_total)                         | 1)] (=0                                | Include the total of all matching drives                                                                                                      |
+    | Option                                                  | Default Value                          | Description                                                                                                                                                                                                                                             |
+    |---------------------------------------------------------|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_drivesize_filter)                       | mounted = 1                            | Filter which marks interesting items.                                                                                                                                                                                                                   |
+    | [warning](#check_drivesize_warning)                     | used > 80%                             | Filter which marks items which generates a warning state.                                                                                                                                                                                               |
+    | warn                                                    |                                        | Short alias for warning                                                                                                                                                                                                                                 |
+    | [critical](#check_drivesize_critical)                   | used > 90%                             | Filter which marks items which generates a critical state.                                                                                                                                                                                              |
+    | crit                                                    |                                        | Short alias for critical.                                                                                                                                                                                                                               |
+    | [ok](#check_drivesize_ok)                               |                                        | Filter which marks items which generates an ok state.                                                                                                                                                                                                   |
+    | [debug](#check_drivesize_debug)                         | 1)] (=0                                | Show debugging information in the log                                                                                                                                                                                                                   |
+    | [show-all](#check_drivesize_show-all)                   | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                        |
+    | [empty-state](#check_drivesize_empty-state)             | unknown                                | Return status to use when nothing matched filter.                                                                                                                                                                                                       |
+    | [perf-config](#check_drivesize_perf-config)             |                                        | Performance data generation configuration                                                                                                                                                                                                               |
+    | [escape-html](#check_drivesize_escape-html)             | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                  |
+    | [list-separator](#check_drivesize_list-separator)       | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                               |
+    | help                                                    | N/A                                    | Show help screen (this screen)                                                                                                                                                                                                                          |
+    | help-pb                                                 | N/A                                    | Show help screen as a protocol buffer payload                                                                                                                                                                                                           |
+    | show-default                                            | N/A                                    | Show default values for a given command                                                                                                                                                                                                                 |
+    | help-short                                              | N/A                                    | Show help screen (short format).                                                                                                                                                                                                                        |
+    | [top-syntax](#check_drivesize_top-syntax)               | ${status} ${problem_list}              | Top level syntax.                                                                                                                                                                                                                                       |
+    | [ok-syntax](#check_drivesize_ok-syntax)                 | %(status) All %(count) drive(s) are ok | ok syntax.                                                                                                                                                                                                                                              |
+    | [empty-syntax](#check_drivesize_empty-syntax)           | %(status): No drives found             | Empty syntax.                                                                                                                                                                                                                                           |
+    | [detail-syntax](#check_drivesize_detail-syntax)         | ${drive_or_name}: ${used}/${size} used | Detail level syntax.                                                                                                                                                                                                                                    |
+    | [perf-syntax](#check_drivesize_perf-syntax)             | ${drive_or_id}                         | Performance alias syntax.                                                                                                                                                                                                                               |
+    | [drive](#check_drivesize_drive)                         |                                        | The drives to check.                                                                                                                                                                                                                                    |
+    | [ignore-unreadable](#check_drivesize_ignore-unreadable) | 1)] (=0                                | DEPRECATED (manually set filter instead) Ignore drives which are not reachable by the current user.                                                                                                                                                     |
+    | [mounted](#check_drivesize_mounted)                     | 1)] (=0                                | DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.                                                                                                                                                          |
+    | magic                                                   |                                        | Magic number for use with scaling drive sizes.                                                                                                                                                                                                          |
+    | exclude                                                 |                                        | A list of drives not to check                                                                                                                                                                                                                           |
+    | require                                                 |                                        | Drives that MUST be present: the check goes CRITICAL if any listed drive is not found, even when scanning wildcards. Alias: mandatory-drives.                                                                                                           |
+    | mandatory-drives                                        |                                        | Alias for require.                                                                                                                                                                                                                                      |
+    | [total](#check_drivesize_total)                         | 1)] (=0                                | Include the total of all matching drives                                                                                                                                                                                                                |
+    | [trend-window](#check_drivesize_trend-window)           | 24h                                    | Lookback window for the full_in/rate trend keywords (e.g. 2h, 24h, 7d). A long window measures the net growth across cleanup cycles; a short one catches something filling the disk right now. Bounded by the collector's trend retention (default 7d). |
 
 
 
@@ -1389,6 +1390,12 @@ check_drivesize "filter=full_in = 'never'"
     Include the total of all matching drives
 
     *Default Value:* `1)] (=0`
+
+    <h5 id="check_drivesize_trend-window">trend-window:</h5>
+
+    Lookback window for the full_in/rate trend keywords (e.g. 2h, 24h, 7d). A long window measures the net growth across cleanup cycles; a short one catches something filling the disk right now. Bounded by the collector's trend retention (default 7d).
+
+    *Default Value:* `24h`
 
 === "Linux"
 
@@ -1570,38 +1577,42 @@ check_drivesize "filter=full_in = 'never'"
 
 === "Windows"
 
-    | Option         | Description                                                           |
-    |----------------|-----------------------------------------------------------------------|
-    | drive          | Technical name of drive                                               |
-    | drive_or_id    | Drive letter if present if not use id                                 |
-    | drive_or_name  | Drive letter if present if not use name                               |
-    | erasable       | 1 (true) if drive is erasable                                         |
-    | filesystem     | Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS) |
-    | flags          | String representation of flags                                        |
-    | free           | Shorthand for total_free (Number of free bytes)                       |
-    | free_pct       | Shorthand for total_free_pct (% free space)                           |
-    | fs             | Shorthand alias for filesystem                                        |
-    | hotplug        | 1 (true) if drive is hotplugable                                      |
-    | id             | Drive or id of drive                                                  |
-    | letter         | Letter the drive is mountedd on                                       |
-    | media_type     | Get the media type                                                    |
-    | mounted        | Check if a drive is mounted                                           |
-    | name           | Descriptive name of drive                                             |
-    | readable       | 1 (true) if drive is readable                                         |
-    | removable      | 1 (true) if drive is removable                                        |
-    | size           | Total size of drive                                                   |
-    | total_free     | Number of free bytes                                                  |
-    | total_free_pct | % free space                                                          |
-    | total_used     | Number of used bytes                                                  |
-    | total_used_pct | % used space                                                          |
-    | type           | Type of drive                                                         |
-    | used           | Number of used bytes                                                  |
-    | used_pct       | Shorthand for total_used_pct (% used space)                           |
-    | user_free      | Free space available to user (which runs NSClient++)                  |
-    | user_free_pct  | % free space available to user                                        |
-    | user_used      | Number of used bytes (related to user)                                |
-    | user_used_pct  | % used space available to user                                        |
-    | writable       | 1 (true) if drive is writable                                         |
+    | Option         | Description                                                                                                                                                                                                                                                                                                  |
+    |----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | drive          | Technical name of drive                                                                                                                                                                                                                                                                                      |
+    | drive_or_id    | Drive letter if present if not use id                                                                                                                                                                                                                                                                        |
+    | drive_or_name  | Drive letter if present if not use name                                                                                                                                                                                                                                                                      |
+    | erasable       | 1 (true) if drive is erasable                                                                                                                                                                                                                                                                                |
+    | filesystem     | Filesystem name as reported by the OS (e.g. NTFS, FAT32, exFAT, ReFS)                                                                                                                                                                                                                                        |
+    | flags          | String representation of flags                                                                                                                                                                                                                                                                               |
+    | free           | Shorthand for total_free (Number of free bytes)                                                                                                                                                                                                                                                              |
+    | free_pct       | Shorthand for total_free_pct (% free space)                                                                                                                                                                                                                                                                  |
+    | fs             | Shorthand alias for filesystem                                                                                                                                                                                                                                                                               |
+    | full_in        | Estimated seconds until the drive is full at the current growth rate, projected from the current free space. Thresholds take durations (full_in < 12h, full_in < 5d); renders 'never' (and no threshold fires) while the drive is shrinking or no trend exists yet. Window set by trend-window (default 24h) |
+    | hotplug        | 1 (true) if drive is hotplugable                                                                                                                                                                                                                                                                             |
+    | id             | Drive or id of drive                                                                                                                                                                                                                                                                                         |
+    | letter         | Letter the drive is mountedd on                                                                                                                                                                                                                                                                              |
+    | media_type     | Get the media type                                                                                                                                                                                                                                                                                           |
+    | mounted        | Check if a drive is mounted                                                                                                                                                                                                                                                                                  |
+    | name           | Descriptive name of drive                                                                                                                                                                                                                                                                                    |
+    | rate           | Growth of used space in bytes/day over the trend window (negative = emptying); 'unknown' until enough history exists                                                                                                                                                                                         |
+    | readable       | 1 (true) if drive is readable                                                                                                                                                                                                                                                                                |
+    | removable      | 1 (true) if drive is removable                                                                                                                                                                                                                                                                               |
+    | size           | Total size of drive                                                                                                                                                                                                                                                                                          |
+    | total_free     | Number of free bytes                                                                                                                                                                                                                                                                                         |
+    | total_free_pct | % free space                                                                                                                                                                                                                                                                                                 |
+    | total_used     | Number of used bytes                                                                                                                                                                                                                                                                                         |
+    | total_used_pct | % used space                                                                                                                                                                                                                                                                                                 |
+    | trend_samples  | Number of samples behind the trend estimate                                                                                                                                                                                                                                                                  |
+    | trend_span     | Seconds of history behind the trend estimate (0 = no data); use e.g. warn=trend_span < 1h to assert data sufficiency                                                                                                                                                                                         |
+    | type           | Type of drive                                                                                                                                                                                                                                                                                                |
+    | used           | Number of used bytes                                                                                                                                                                                                                                                                                         |
+    | used_pct       | Shorthand for total_used_pct (% used space)                                                                                                                                                                                                                                                                  |
+    | user_free      | Free space available to user (which runs NSClient++)                                                                                                                                                                                                                                                         |
+    | user_free_pct  | % free space available to user                                                                                                                                                                                                                                                                               |
+    | user_used      | Number of used bytes (related to user)                                                                                                                                                                                                                                                                       |
+    | user_used_pct  | % used space available to user                                                                                                                                                                                                                                                                               |
+    | writable       | 1 (true) if drive is writable                                                                                                                                                                                                                                                                                |
 
     **Common options for all checks:**
 
@@ -4022,65 +4033,40 @@ This is the syntax for the base names of the performance data.
 
 
 
-| Key                                         | Default Value | Description                            |
-|---------------------------------------------|---------------|----------------------------------------|
-| [disable](#disable-automatic-checks)        |               | Disable automatic checks               |
-| [trend interval](#trend-sampling-interval)  | 5m            | Trend sampling interval _(Linux only)_ |
-| [trend retention](#trend-history-retention) | 7d            | Trend history retention _(Linux only)_ |
+| Key                                         | Default Value | Description              |
+|---------------------------------------------|---------------|--------------------------|
+| [disable](#disable-automatic-checks)        |               | Disable automatic checks |
+| [trend interval](#trend-sampling-interval)  | 5m            | Trend sampling interval  |
+| [trend retention](#trend-history-retention) | 7d            | Trend history retention  |
 
 
 ```ini
 # 
 [/settings/disk]
-trend interval=5m  # Linux only
-trend retention=7d  # Linux only
+trend interval=5m
+trend retention=7d
 ```
 
-=== "Windows"
+#### Disable automatic checks <a id="/settings/disk/disable"></a>
 
-    #### Disable automatic checks <a id="/settings/disk/disable"></a>
-
-    A comma separated list of checks to disable in the collector: disk_io, disk_free. Please note disabling these will mean part of NSClient++ will no longer function as expected.
+A comma separated list of checks to disable in the collector: disk_io, disk_free, trend. Please note disabling these will mean part of NSClient++ will no longer function as expected.
 
 
-    | Key            | Description                         |
-    |----------------|-------------------------------------|
-    | Path:          | [/settings/disk](#/settings/disk)   |
-    | Key:           | disable                             |
-    | Advanced:      | Yes (means it is not commonly used) |
-    | Default value: | _N/A_                               |
+| Key            | Description                         |
+|----------------|-------------------------------------|
+| Path:          | [/settings/disk](#/settings/disk)   |
+| Key:           | disable                             |
+| Advanced:      | Yes (means it is not commonly used) |
+| Default value: | _N/A_                               |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/disk]
-    # Disable automatic checks
-    disable=
-    ```
-
-=== "Linux"
-
-    #### Disable automatic checks <a id="/settings/disk/disable"></a>
-
-    A comma separated list of checks to disable in the collector: disk_io, disk_free, trend. Please note disabling these will mean part of NSClient++ will no longer function as expected.
-
-
-    | Key            | Description                         |
-    |----------------|-------------------------------------|
-    | Path:          | [/settings/disk](#/settings/disk)   |
-    | Key:           | disable                             |
-    | Advanced:      | Yes (means it is not commonly used) |
-    | Default value: | _N/A_                               |
-
-
-    **Sample:**
-
-    ```
-    [/settings/disk]
-    # Disable automatic checks
-    disable=
-    ```
+```
+[/settings/disk]
+# Disable automatic checks
+disable=
+```
 
 #### Trend sampling interval <a id="/settings/disk/trend interval"></a>
 
@@ -4091,7 +4077,6 @@ How often a used-space sample is kept per drive for the check_drivesize trend ke
 |----------------|-------------------------------------|
 | Path:          | [/settings/disk](#/settings/disk)   |
 | Key:           | trend interval                      |
-| Platform:      | Linux only                          |
 | Advanced:      | Yes (means it is not commonly used) |
 | Default value: | `5m`                                |
 
@@ -4113,7 +4098,6 @@ How much used-space history is kept per drive; bounds the largest useful trend-w
 |----------------|-------------------------------------|
 | Path:          | [/settings/disk](#/settings/disk)   |
 | Key:           | trend retention                     |
-| Platform:      | Linux only                          |
 | Advanced:      | Yes (means it is not commonly used) |
 | Default value: | `7d`                                |
 
