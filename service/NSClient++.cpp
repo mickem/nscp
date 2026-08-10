@@ -124,8 +124,12 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
 #endif
   }
 
+#ifdef WIN32
  private:
+  // Only the Windows body has anything to remember; declaring it unconditionally
+  // leaves an unused private field everywhere else (-Wunused-private-field).
   bool trust_store_ready_ = false;
+#endif
 };
 
 nscp_settings_provider *provider_ = NULL;

@@ -149,11 +149,16 @@ class settings_http : public settings::settings_interface_impl {
       // loud log line.
       if (url.protocol == "https") {
         if (verify_mode.empty() || verify_mode == "none") {
+          // Both spellings disable verification (an empty mode parses to
+          // verify_none), but say which one is actually in the file - telling
+          // an operator their boot.ini reads "verify mode = none" when it
+          // reads "verify mode =" sends them looking for the wrong line.
+          const std::string how = verify_mode.empty() ? "[tls] verify mode is set but empty in boot.ini, which disables verification just as 'none' does"
+                                                      : "[tls] verify mode = none in boot.ini";
           get_logger()->error("settings", __FILE__, __LINE__,
-                              "INSECURE: fetching settings from " + url.to_string() +
-                                  " without verifying the server certificate ([tls] verify mode = none in boot.ini). Anyone who can answer for this host "
-                                  "controls this agent's entire configuration, including external script definitions. Set 'verify mode = peer' and point "
-                                  "'ca' at the issuing CA.");
+                              "INSECURE: fetching settings from " + url.to_string() + " without verifying the server certificate (" + how +
+                                  "). Anyone who can answer for this host controls this agent's entire configuration, including external script "
+                                  "definitions. Set 'verify mode = peer' and point 'ca' at the issuing CA.");
         } else if (!ca.empty() && ca != "none" && !boost::filesystem::is_regular_file(ca)) {
           get_logger()->error("settings", __FILE__, __LINE__,
                               "CA bundle '" + ca + "' not found; the settings download from " + url.to_string() +

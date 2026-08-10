@@ -23,6 +23,14 @@ const BLOCK_SECONDS = 3;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** One /auth/token attempt with the correct password, without asserting a status. */
+const attemptWithCorrectPassword = () =>
+  request(REST_URL)
+    .get("/auth/token")
+    .set("User-Agent", ICINGA_UA)
+    .query({ password: "default-password" })
+    .trustLocalhost(true);
+
 describe("REST legacy /auth/token — failed-auth throttling", () => {
   let nscp: NscpInstance;
 
@@ -67,19 +75,27 @@ describe("REST legacy /auth/token — failed-auth throttling", () => {
   });
 
   it("recovers once the block expires", async () => {
-    await sleep((BLOCK_SECONDS + 1) * 1000);
+    // Poll rather than sleeping exactly one second past the block: a fixed
+    // margin turns scheduler delays and timer granularity on a loaded CI box
+    // into a spurious failure. Give it several times the block duration to
+    // recover, but stop the moment it does.
+    const deadline = Date.now() + (BLOCK_SECONDS + 10) * 1000;
+    let response = await attemptWithCorrectPassword();
+    while (response.status === 403 && Date.now() < deadline) {
+      await sleep(250);
+      response = await attemptWithCorrectPassword();
+    }
 
-    await request(REST_URL)
-      .get("/auth/token")
-      .set("User-Agent", ICINGA_UA)
-      .query({ password: "default-password" })
-      .trustLocalhost(true)
-      .expect(200)
-      .expect("Content-Type", /application\/json/)
-      .then((response) => {
-        expect(response.body.status).toEqual("ok");
-        expect(response.body["auth token"]).toBeDefined();
-      });
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toMatch(/application\/json/);
+    expect(response.body.status).toEqual("ok");
+    // Not toBeDefined(): an empty string is "defined" and would sail through,
+    // which is exactly the regression worth catching - the endpoint returns
+    // "ok" plus a token it read back out of the response, so a token that
+    // never got stored shows up here as "".
+    expect(typeof response.body["auth token"]).toBe("string");
+    expect(response.body["auth token"].length).toBeGreaterThan(0);
+    expect(response.headers.__token).toEqual(response.body["auth token"]);
   });
 
   it("does not distinguish a wrong password from an unknown outcome", async () => {

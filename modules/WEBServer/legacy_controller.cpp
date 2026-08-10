@@ -142,6 +142,17 @@ void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamR
   }
   std::string user, token;
   session_manager_interface::get_user_from_response(response, user, token);
+  if (token.empty()) {
+    // Not reachable today: process_password_header stores a freshly generated
+    // token in the response cookie on every success, and getCookie reads that
+    // same map back. Guarded anyway because the entire purpose of this
+    // endpoint is to hand back a usable token - answering "ok" with an empty
+    // one would leave the caller with a 200 it cannot authenticate with, and
+    // nothing in the type system ties the two halves together.
+    NSC_LOG_ERROR("Authenticated a legacy /auth/token call but no session token was issued");
+    response.setCodeServerError("500 Failed to issue token");
+    return;
+  }
   response.setHeader("__TOKEN", token);
   response.get_headers()["Content-Type"] = "application/json";
   response.append("{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }");

@@ -49,6 +49,28 @@ TEST(docker_endpoint, unc_rejection_explains_why) {
   EXPECT_NE(error.find("SMB"), std::string::npos) << error;
 }
 
+TEST(docker_endpoint, rejection_names_both_accepted_forms) {
+  // The message has to describe what is actually allowed, or an operator using
+  // the \\?\ form is told their working endpoint is the only illegal one.
+  const std::string error = rejection("\\\\attacker\\pipe\\docker_engine");
+  EXPECT_NE(error.find("\\\\.\\pipe\\"), std::string::npos) << error;
+  EXPECT_NE(error.find("\\\\?\\pipe\\"), std::string::npos) << error;
+}
+
+TEST(docker_endpoint, the_prefix_is_matched_case_insensitively) {
+  // Win32 path and pipe names are case-insensitive, so these all name the same
+  // object as the canonical spelling and must not be refused.
+  EXPECT_TRUE(accepted("\\\\.\\Pipe\\docker_engine"));
+  EXPECT_TRUE(accepted("\\\\.\\PIPE\\docker_engine"));
+  EXPECT_TRUE(accepted("\\\\?\\Pipe\\docker_engine"));
+}
+
+TEST(docker_endpoint, case_insensitivity_does_not_widen_past_the_local_namespace) {
+  // Folding case must not turn a UNC host into an accepted endpoint.
+  EXPECT_FALSE(rejection("\\\\ATTACKER\\pipe\\docker_engine").empty());
+  EXPECT_FALSE(rejection("\\\\Attacker\\PIPE\\x").empty());
+}
+
 TEST(docker_endpoint, non_pipe_paths_are_rejected) {
   EXPECT_FALSE(rejection("C:\\windows\\system32\\config\\sam").empty());
   EXPECT_FALSE(rejection("\\\\.\\C:").empty());

@@ -3,9 +3,26 @@
 
 #pragma once
 
+#include <cstddef>
 #include <string>
 
 namespace docker_checks {
+
+// ASCII case-insensitive prefix test. Deliberately hand-rolled rather than
+// boost::algorithm::istarts_with: this header is kept dependency-free so it can
+// be unit-tested without the module's protobuf and filter dependencies, and
+// pipe path prefixes are pure ASCII.
+inline bool starts_with_ci(const std::string &value, const std::string &prefix) {
+  if (value.size() < prefix.size()) return false;
+  for (std::size_t i = 0; i < prefix.size(); i++) {
+    char a = value[i];
+    char b = prefix[i];
+    if (a >= 'A' && a <= 'Z') a = static_cast<char>(a - 'A' + 'a');
+    if (b >= 'A' && b <= 'Z') b = static_cast<char>(b - 'A' + 'a');
+    if (a != b) return false;
+  }
+  return true;
+}
 
 // The docker daemon endpoint this platform uses when `--host` is not given.
 inline std::string default_docker_endpoint() {
@@ -45,16 +62,28 @@ inline bool is_local_docker_endpoint(const std::string &host, std::string &error
   // is what turns this into an outbound SMB authentication, so the third
   // character has to be a literal '.' or '?', and <name> must not contain
   // further separators that could walk back out of the pipe namespace.
+  //
+  // Matched case-insensitively because Win32 path and pipe names are:
+  // \\.\Pipe\docker_engine names the same object as \\.\pipe\docker_engine and
+  // is a perfectly ordinary thing for an operator to type. This only ever
+  // widens what is accepted into the local namespace - anything that does not
+  // match one of these two prefixes is still refused outright.
   const std::string prefix_dot = "\\\\.\\pipe\\";
   const std::string prefix_q = "\\\\?\\pipe\\";
-  const bool dotted = host.compare(0, prefix_dot.size(), prefix_dot) == 0;
-  const bool questioned = host.compare(0, prefix_q.size(), prefix_q) == 0;
-  if (!dotted && !questioned) {
+  // Length of the prefix that actually matched, so this stays correct if the
+  // two ever stop being the same length.
+  std::size_t prefix_len = 0;
+  if (starts_with_ci(host, prefix_dot)) {
+    prefix_len = prefix_dot.size();
+  } else if (starts_with_ci(host, prefix_q)) {
+    prefix_len = prefix_q.size();
+  } else {
     error = "Refusing docker endpoint '" + host +
-            "': only a local named pipe (\\\\.\\pipe\\<name>) is allowed. A UNC path would make this host authenticate to a remote server over SMB.";
+            "': only a local named pipe (\\\\.\\pipe\\<name> or \\\\?\\pipe\\<name>) is allowed. A UNC path would make this host authenticate to a "
+            "remote server over SMB.";
     return false;
   }
-  const std::string name = host.substr(prefix_dot.size());
+  const std::string name = host.substr(prefix_len);
   if (name.empty() || name.find('\\') != std::string::npos || name.find('/') != std::string::npos) {
     error = "Refusing docker endpoint '" + host + "': the pipe name must be a single path-separator-free component.";
     return false;
