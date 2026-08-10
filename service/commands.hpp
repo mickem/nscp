@@ -128,7 +128,11 @@ class commands : boost::noncopyable {
     if (!have_plugin(plugin_id)) throw command_exception("Failed to find plugin: " + str::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
     command_list_type::iterator it = commands_.find(lc);
     if (it == commands_.end()) {
+      // Was falling through to erase(end()), which is undefined. Reachable
+      // whenever a plugin unregisters a command it never registered, or
+      // unregisters twice (module cleanup plus remove_plugin).
       log_info(__FILE__, __LINE__, "Command not found: ", cmd);
+      return;
     }
     commands_.erase(it);
     description_list_type::iterator dit = descriptions_.find(lc);
