@@ -53,10 +53,14 @@ struct enrollment_request {
   std::string hostname;         // optional; defaults to the local host name
   std::string os;               // optional; defaults to windows/macos/linux
 
-  // TLS settings for the public HTTPS enrollment call.
+  // TLS settings for the public HTTPS enrollment call. This is the exchange
+  // that decides who the fleet server is, so it verifies by default: an
+  // unverified enrollment lets an on-path attacker substitute both trust
+  // anchors (the mTLS pin and the bundle signing key) for the life of the
+  // agent. Pass verify_mode = "none" explicitly to opt out.
   std::string tls_version = "tlsv1.2+";
-  std::string verify_mode;  // empty: "certificate" when a ca is given, else "none"
-  std::string ca;           // optional CA bundle used to verify the server
+  std::string verify_mode;  // empty: "certificate"
+  std::string ca;           // CA bundle used to verify the server
 
   unsigned int max_attempts = 3;  // attempts for retryable failures (429/5xx/network)
 };

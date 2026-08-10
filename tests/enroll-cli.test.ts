@@ -230,6 +230,37 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(r.all).not.toMatch(/plain http/i);
   });
 
+  it("refuses --verify none over https unless --insecure is given", async () => {
+    // Enrollment is where the agent learns which certificate to pin and which
+    // key signs its bundles. Taking that over an unverified channel lets an
+    // on-path attacker supply both, so it has to be asked for explicitly - and
+    // the gate must fire before any network call.
+    const stateFile = path.join(nscp.scratch("enroll_verify_none"), "agent-state.json");
+    fs.rmSync(stateFile, { force: true });
+    const r = await enroll(
+      ["--state-file", stateFile, "--verify", "none"],
+      ["--server", baseUrl.replace("http://", "https://"), "--token", "tok-1"],
+    );
+    expect(r.exitCode).not.toBe(0);
+    expect(r.all).toMatch(/without verifying the fleet server certificate/i);
+    expect(r.all).toMatch(/--insecure|--ca/i);
+    expect(requests).toHaveLength(0);
+    expect(fs.existsSync(stateFile)).toBe(false);
+  });
+
+  it("allows --verify none over https with --insecure, but warns", async () => {
+    // Against this http-only server the call still fails at the TLS layer; what
+    // matters is that it got past the gate and said so.
+    const stateFile = path.join(nscp.scratch("enroll_verify_none_ok"), "agent-state.json");
+    fs.rmSync(stateFile, { force: true });
+    const r = await enroll(
+      ["--state-file", stateFile, "--verify", "none", "--retries", "1"],
+      ["--server", baseUrl.replace("http://", "https://"), "--token", "tok-1", "--insecure"],
+    );
+    expect(r.all).not.toMatch(/Refusing to enroll without verifying/i);
+    expect(r.all).toMatch(/WARNING: enrolling without verifying/i);
+  });
+
   it("rejects a server url that is not a url, without contacting anything", async () => {
     for (const url of ["fleet.example.com", "not a url", "/enroll"]) {
       const stateFile = path.join(nscp.scratch("enroll_badurl"), "agent-state.json");

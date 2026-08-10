@@ -747,13 +747,13 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       ("token", po::value<std::string>(&request.bootstrap_token), "One-time bootstrap token from the install command")
       ("hostname", po::value<std::string>(&request.hostname), "Hostname to report to the fleet server (default: this machine's hostname)")
       ("os", po::value<std::string>(&request.os), "Operating system to report to the fleet server (default: detected)")
-      ("ca", po::value<std::string>(&request.ca), "CA bundle used to verify the fleet server certificate")
+      ("ca", po::value<std::string>(&request.ca), "CA bundle used to verify the fleet server certificate (default: the platform CA bundle, ${ca-path})")
       ("tls-version", po::value<std::string>(&request.tls_version)->default_value("tlsv1.2+"), "TLS version for the enrollment call")
-      ("verify", po::value<std::string>(&request.verify_mode), "TLS verify mode (default: certificate when --ca is given, none otherwise)")
+      ("verify", po::value<std::string>(&request.verify_mode), "TLS verify mode (default: certificate). 'none' disables server verification and requires --insecure")
       ("retries", po::value<unsigned int>(&request.max_attempts)->default_value(3), "Attempts for transient failures (rate limiting, server errors)")
       ("state-file", po::value<std::string>(&state_file), "Where to store the enrolled identity (default: ${certificate-path}/agent-state.json)")
       ("force", po::bool_switch(&force), "Overwrite an existing enrollment state file")
-      ("insecure", po::bool_switch(&insecure), "Allow enrollment over plain HTTP (the bootstrap token is sent in cleartext) - only on a trusted network or for testing")
+      ("insecure", po::bool_switch(&insecure), "Allow an unauthenticated enrollment: plain HTTP, or HTTPS with --verify none. Either way the fleet server is not authenticated, so an on-path attacker can read the bootstrap token and supply the trust anchors this agent will use from then on - only on a trusted network or for testing")
     ;
     // clang-format on
 
@@ -795,6 +795,33 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     }
     if (state_file.empty()) state_file = "${certificate-path}/agent-state.json";
     state_file = core_->get_path()->expand_path(state_file);
+
+    // Enrollment is where this agent decides who the fleet server is: the
+    // response carries the certificate every later call pins against and the
+    // key that authorises executable bundles. Getting that over an
+    // unauthenticated channel means an on-path attacker can substitute both
+    // and keep the host indefinitely - after which pinning and bundle
+    // signature verification keep succeeding, against the attacker's material.
+    // So an unverified enrollment has to be asked for, exactly like plain HTTP
+    // above.
+    if (boost::iequals(scheme, "https")) {
+      if (request.ca.empty()) {
+        // Same trust anchor the check modules default to: the exported Windows
+        // ROOT bundle, or the distribution CA bundle on Linux.
+        request.ca = core_->get_path()->expand_path("${ca-path}");
+      }
+      if (boost::iequals(request.verify_mode, "none")) {
+        if (!insecure) {
+          std::cerr << "Refusing to enroll without verifying the fleet server certificate (--verify none)." << std::endl;
+          std::cerr << "The enrollment response supplies the certificate this agent will pin for every later call and the key it will trust for "
+                       "executable bundles, so an unverified enrollment hands both to whoever answers." << std::endl;
+          std::cerr << "Point --ca at the issuing CA (recommended), or pass --insecure to accept an unauthenticated enrollment anyway." << std::endl;
+          return 1;
+        }
+        std::cerr << "WARNING: enrolling without verifying the fleet server certificate. The trust anchors stored by this enrollment are only as "
+                     "trustworthy as the network path you ran it over." << std::endl;
+      }
+    }
 
     boost::system::error_code fs_error;
     if (boost::filesystem::exists(state_file, fs_error) && !force) {
