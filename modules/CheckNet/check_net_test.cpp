@@ -69,6 +69,77 @@ TEST(CheckPing, filter_obj_aggregates_counters) {
 }
 
 // ============================================================================
+// check_ping - jitter (mean absolute difference between round trip times)
+// ============================================================================
+
+TEST(CheckPingJitter, MeanAbsoluteDifferenceOfRoundTripTimes) {
+  // Deltas 5, 5, 10 -> mean 6 (integer division of 20/3).
+  EXPECT_EQ(6, ping_filter::mean_abs_delta_ms({10, 15, 20, 30}));
+  // Direction does not matter: it is the magnitude of the change.
+  EXPECT_EQ(5, ping_filter::mean_abs_delta_ms({20, 15}));
+  EXPECT_EQ(5, ping_filter::mean_abs_delta_ms({15, 20}));
+}
+
+TEST(CheckPingJitter, SteadyLatencyHasNoJitter) {
+  // A high but perfectly stable round trip time is not jitter - that is the
+  // whole point of reporting it separately from `time`.
+  EXPECT_EQ(0, ping_filter::mean_abs_delta_ms({250, 250, 250, 250}));
+}
+
+TEST(CheckPingJitter, UndefinedForFewerThanTwoReplies) {
+  EXPECT_EQ(-1, ping_filter::mean_abs_delta_ms({}));
+  EXPECT_EQ(-1, ping_filter::mean_abs_delta_ms({42}));
+}
+
+TEST(CheckPingJitter, FilterObjExposesItPerHost) {
+  result_container r;
+  r.destination_ = "a.example";
+  r.num_send_ = 4;
+  r.num_replies_ = 4;
+  r.rtts_ = {10, 20, 10, 20};  // deltas 10,10,10
+  ping_filter::filter_obj o(r);
+  EXPECT_EQ(10, o.get_jitter());
+}
+
+TEST(CheckPingJitter, FilterObjIsMinusOneWithASingleReply) {
+  result_container r;
+  r.num_send_ = 1;
+  r.num_replies_ = 1;
+  r.rtts_ = {12};
+  ping_filter::filter_obj o(r);
+  EXPECT_EQ(-1, o.get_jitter());
+}
+
+TEST(CheckPingJitter, TotalReportsTheWorstHostRatherThanPoolingRoundTrips) {
+  // Pooling the two hosts' round trip times would manufacture a huge "jitter"
+  // out of the difference between a fast host and a slow one, which is not
+  // jitter at all. The total carries the worst per-host value instead.
+  result_container fast;
+  fast.rtts_ = {10, 12, 10};  // jitter 2
+  result_container slow;
+  slow.rtts_ = {200, 260, 200};  // jitter 60
+
+  auto a = std::make_shared<ping_filter::filter_obj>(fast);
+  auto b = std::make_shared<ping_filter::filter_obj>(slow);
+  auto total = ping_filter::filter_obj::get_total();
+  total->add(a);
+  total->add(b);
+
+  EXPECT_EQ(2, a->get_jitter());
+  EXPECT_EQ(60, b->get_jitter());
+  EXPECT_EQ(60, total->get_jitter());
+}
+
+TEST(CheckPingJitter, TotalIsMinusOneWhenNoHostHadEnoughReplies) {
+  result_container one;
+  one.rtts_ = {10};
+  auto a = std::make_shared<ping_filter::filter_obj>(one);
+  auto total = ping_filter::filter_obj::get_total();
+  total->add(a);
+  EXPECT_EQ(-1, total->get_jitter());
+}
+
+// ============================================================================
 // check_tcp - filter_obj
 // ============================================================================
 
@@ -695,6 +766,62 @@ TEST(CheckNtp, filter_obj_offset_is_absolute_value) {
   o.offset_ms = 1234;
   EXPECT_EQ(o.get_offset(), 1234);
   EXPECT_EQ(o.get_offset_signed(), 1234);
+}
+
+TEST(CheckNtp, filter_obj_jitter_defaults_to_unmeasured) {
+  // A default (single-sample) query has no jitter to report; -1 says so, and a
+  // real jitter can never be negative so the two cannot be confused.
+  check_net::check_ntp_filter::filter_obj o;
+  EXPECT_EQ(o.get_jitter(), -1);
+  EXPECT_EQ(o.get_samples(), 0);
+  EXPECT_EQ(o.get_root_delay(), 0);
+  EXPECT_EQ(o.get_root_dispersion(), 0);
+}
+
+TEST(CheckNtp, rms_jitter_needs_two_samples) {
+  using check_net::check_ntp_internal::rms_jitter_ms;
+  EXPECT_EQ(-1, rms_jitter_ms({}));
+  EXPECT_EQ(-1, rms_jitter_ms({7}));
+}
+
+TEST(CheckNtp, rms_jitter_of_a_steady_offset_is_zero) {
+  // A large but perfectly steady offset is a clock that is wrong, not one that
+  // is unstable: jitter must stay 0 so the two alert independently.
+  using check_net::check_ntp_internal::rms_jitter_ms;
+  EXPECT_EQ(0, rms_jitter_ms({5000, 5000, 5000, 5000}));
+}
+
+TEST(CheckNtp, rms_jitter_uses_differences_between_successive_samples) {
+  using check_net::check_ntp_internal::rms_jitter_ms;
+  // Deltas of 10 each: RMS is 10.
+  EXPECT_EQ(10, rms_jitter_ms({0, 10, 20, 30}));
+  // Deltas 30 and -30: RMS is 30 (sign does not cancel, unlike a plain mean).
+  EXPECT_EQ(30, rms_jitter_ms({0, 30, 0}));
+  // RMS weights the large excursion more than a mean would: deltas 0 and 10
+  // give sqrt((0+100)/2) = 7.07 -> 7, where the mean would be 5.
+  EXPECT_EQ(7, rms_jitter_ms({0, 0, 10}));
+}
+
+TEST(CheckNtp, rms_jitter_is_symmetric_in_sign) {
+  using check_net::check_ntp_internal::rms_jitter_ms;
+  EXPECT_EQ(rms_jitter_ms({0, 20, 40}), rms_jitter_ms({0, -20, -40}));
+}
+
+TEST(CheckNtp, ntp_short_to_ms_converts_fixed_point_seconds) {
+  using check_net::check_ntp_internal::ntp_short_to_ms;
+  // "NTP short" is 16 bits of seconds and 16 of fraction.
+  EXPECT_EQ(0, ntp_short_to_ms(0));
+  EXPECT_EQ(1000, ntp_short_to_ms(1u << 16));           // exactly one second
+  EXPECT_EQ(500, ntp_short_to_ms(1u << 15));            // half a second
+  EXPECT_EQ(1500, ntp_short_to_ms((1u << 16) + (1u << 15)));
+  // Sub-millisecond values truncate toward zero rather than rounding up.
+  EXPECT_EQ(0, ntp_short_to_ms(1));
+}
+
+TEST(CheckNtp, ntp_short_to_ms_handles_the_full_range) {
+  using check_net::check_ntp_internal::ntp_short_to_ms;
+  // The field is unsigned: the top value must not come back negative.
+  EXPECT_EQ(65535999, ntp_short_to_ms(0xffffffffu));
 }
 
 TEST(CheckNtp, ntp_to_unix_ms_zero_is_sentinel) { EXPECT_EQ(check_net::check_ntp_internal::ntp_to_unix_ms(0, 0), 0); }

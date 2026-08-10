@@ -46,3 +46,24 @@ check_nscp_client --host 192.168.56.103 --command check_ntp_offset --argument "s
 OK: pool.ntp.org offset=1326ms stratum=2| 'pool.ntp.org_offset'=1326;60000;120000 'pool.ntp.org_stratum'=2;16;16
 ```
 
+
+**Measure jitter across a burst of samples (needs `samples` >= 2):**
+
+```
+check_ntp_offset server=ntp.example.com samples=6 "warn=jitter > 50" "crit=jitter > 100" "top-syntax=${list}" "detail-syntax=${server} jitter=${jitter}ms over ${samples} samples"
+WARNING: ntp.example.com jitter=70ms over 6 samples|'ntp.example.com_jitter'=70ms;50;100
+```
+
+**Alert on an inaccurate clock and an unstable source independently:**
+
+```
+check_ntp_offset server=ntp.example.com samples=6 "warn=offset > 100 or jitter > 50" "crit=offset > 1000 or jitter > 200 or stratum >= 16" "top-syntax=${list}" "detail-syntax=offset=${offset_signed}ms jitter=${jitter}ms"
+WARNING: offset=35ms jitter=70ms|'ntp.example.com_jitter'=70ms;50;200
+```
+
+**Report what the server claims about its own accuracy (no extra traffic):**
+
+```
+check_ntp_offset server=ntp.example.com "top-syntax=${list}" "detail-syntax=${server} root_delay=${root_delay}ms root_dispersion=${root_dispersion}ms stratum=${stratum}"
+OK: ntp.example.com root_delay=11ms root_dispersion=33ms stratum=2
+```

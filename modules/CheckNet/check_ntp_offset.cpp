@@ -6,6 +6,7 @@
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
+#include <vector>
 #include <net/address_family.hpp>
 #include <chrono>
 #include <cstdint>
@@ -32,6 +33,23 @@ filter_obj_handler::filter_obj_handler() {
                         "Signed clock offset (positive = local clock is ahead of server), in milliseconds");
   registry_.add_int_var("stratum", parsers::where::type_int, &filter_obj::get_stratum, "Stratum reported by the server (0..16)").add_int_perf("");
   registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Round trip time of the NTP query in milliseconds").add_int_perf("ms");
+
+  // How steady the server's time is, rather than how far off it is: a source
+  // can answer promptly with an accurate-looking offset and still be unusable
+  // because that offset will not hold still.
+  registry_
+      .add_int_var("jitter", parsers::where::type_int, &filter_obj::get_jitter,
+                   "RMS variation between the sampled offsets, in milliseconds; -1 when fewer than 2 samples were taken (raise samples= to measure it)")
+      .add_int_perf("ms", "", "_jitter");
+  registry_.add_int_var("samples", parsers::where::type_int, &filter_obj::get_samples, "Number of samples that answered").no_perf();
+  registry_
+      .add_int_var("root_delay", parsers::where::type_int, &filter_obj::get_root_delay,
+                   "Round trip delay the server reports to its own reference clock, in milliseconds")
+      .add_int_perf("ms", "", "_root_delay");
+  registry_
+      .add_int_var("root_dispersion", parsers::where::type_int, &filter_obj::get_root_dispersion,
+                   "Maximum error the server claims for the time it is serving, in milliseconds")
+      .add_int_perf("ms", "", "_root_dispersion");
 }
 
 }  // namespace check_ntp_filter
@@ -41,7 +59,10 @@ namespace {
 using check_ntp_internal::ntp_offset_ms;
 using check_ntp_internal::ntp_to_unix_ms;
 
-void run_ntp_check(const std::string &server, unsigned short port, int timeout_ms, net::address_family af, check_ntp_filter::filter_obj &out) {
+// One request/response exchange. Fills `out` with the result of that single
+// sample; run_ntp_check below repeats it when more than one sample is asked
+// for.
+void run_ntp_query(const std::string &server, unsigned short port, int timeout_ms, net::address_family af, check_ntp_filter::filter_obj &out) {
   using boost::asio::ip::udp;
 
   out.server = server;
@@ -50,6 +71,8 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
   out.offset_ms = 0;
   out.stratum = 0;
   out.time = 0;
+  out.root_delay = 0;
+  out.root_dispersion = 0;
 
   boost::asio::io_context io_service;
   udp::resolver resolver(io_service);
@@ -142,6 +165,12 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
              (static_cast<std::uint32_t>(resp_buf[offset + 2]) << 8) | (static_cast<std::uint32_t>(resp_buf[offset + 3]));
     };
 
+    // Root delay (byte 4) and root dispersion (byte 8) are "NTP short"
+    // fixed-point seconds: what the server itself claims about the quality of
+    // the time it is serving, independent of our own measurement.
+    out.root_delay = check_ntp_internal::ntp_short_to_ms(read_be32(4));
+    out.root_dispersion = check_ntp_internal::ntp_short_to_ms(read_be32(8));
+
     // Receive timestamp T2 at byte 32, transmit timestamp T3 at byte 40.
     const std::uint32_t t2_secs = read_be32(32);
     const std::uint32_t t2_frac = read_be32(36);
@@ -174,6 +203,45 @@ void run_ntp_check(const std::string &server, unsigned short port, int timeout_m
   socket.close(ignore);
 }
 
+// Query the server `samples` times and summarise. With the default of one
+// sample this is exactly one exchange and behaves as it always has.
+//
+// Sampling stops at the first failure, so an unreachable or slow server costs
+// one timeout rather than `samples` of them.
+void run_ntp_check(const std::string &server, unsigned short port, int timeout_ms, net::address_family af, int samples,
+                   check_ntp_filter::filter_obj &out) {
+  if (samples < 1) samples = 1;
+
+  std::vector<long long> offsets;
+  offsets.reserve(static_cast<std::size_t>(samples));
+  bool have_best = false;
+
+  for (int i = 0; i < samples; ++i) {
+    check_ntp_filter::filter_obj sample;
+    run_ntp_query(server, port, timeout_ms, af, sample);
+
+    if (sample.result != "ok") {
+      // Report the failure, but keep any good samples already collected so the
+      // jitter of a partially-answered burst is not thrown away.
+      if (!have_best) out = sample;
+      out.result = sample.result;
+      break;
+    }
+
+    offsets.push_back(sample.offset_ms);
+    // Keep the sample with the shortest round trip: a delayed packet biases the
+    // offset by roughly half the extra delay, so the quickest exchange is the
+    // most trustworthy estimate of the real offset.
+    if (!have_best || sample.time < out.time) {
+      out = sample;
+      have_best = true;
+    }
+  }
+
+  out.samples = static_cast<long long>(offsets.size());
+  out.jitter = check_ntp_internal::rms_jitter_ms(offsets);
+}
+
 }  // namespace
 
 void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
@@ -187,6 +255,7 @@ void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request,
   std::string servers_string;
   unsigned short port = 123;
   int timeout_ms = 5000;
+  int samples = 1;
   std::string address_family_arg;
 
   filter f;
@@ -202,6 +271,9 @@ void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request,
     ("port", po::value<unsigned short>(&port)->default_value(123), "UDP port to use (default: 123).")
     ("timeout", po::value<int>(&timeout_ms)->default_value(5000), "Timeout in milliseconds.")
     ("address-family", po::value<std::string>(&address_family_arg), net::address_family_option_help())
+    ("samples", po::value<int>(&samples)->default_value(1),
+        "Number of queries to send to each server (default: 1). At least 2 are needed for the jitter keyword, which is the variation between samples; "
+        "sampling stops at the first failure so an unreachable server still costs only one timeout.")
     ;
   // clang-format on
 
@@ -226,7 +298,7 @@ void check_ntp_offset(const PB::Commands::QueryRequestMessage::Request &request,
 
   for (const auto &server : servers) {
     auto obj = std::make_shared<filter_obj>();
-    run_ntp_check(server, port, timeout_ms, af, *obj);
+    run_ntp_check(server, port, timeout_ms, af, samples, *obj);
     f.match(obj);
   }
 

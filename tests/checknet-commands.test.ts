@@ -166,21 +166,49 @@ function startDnsResponder(
   });
 }
 
+interface NtpOptions {
+  stratum?: number;
+  bind?: string;
+  /**
+   * Milliseconds added to the served time, cycled per request. A varying series
+   * produces jitter; a constant one produces a steady offset with no jitter.
+   */
+  skewSequenceMs?: number[];
+  /** Root delay / root dispersion to advertise, in milliseconds. */
+  rootDelayMs?: number;
+  rootDispersionMs?: number;
+}
+
 /**
  * A minimal UDP NTP responder: answers every request with a server-mode packet
  * carrying the current time at the given stratum. Enough to exercise
  * check_ntp_offset's client end to end without touching a real time server.
  */
-function startNtpResponder(stratum = 2, bind = "127.0.0.1"): Promise<Listener> {
+function startNtpResponder(opts: NtpOptions = {}): Promise<Listener> {
+  const stratum = opts.stratum ?? 2;
+  const bind = opts.bind ?? "127.0.0.1";
+  const skews = opts.skewSequenceMs ?? [0];
+  let call = 0;
   return new Promise((resolve) => {
     const sock = dgram.createSocket(bind.includes(":") ? "udp6" : "udp4");
     sock.on("message", (_msg, rinfo) => {
       const pkt = Buffer.alloc(48);
       pkt[0] = 0x1c; // LI=0, VN=3, mode=4 (server)
       pkt[1] = stratum;
-      // NTP timestamps are seconds since 1900; the fraction is left at 0.
-      const secs = Math.floor(Date.now() / 1000) + 2208988800;
-      for (const off of [16, 24, 32, 40]) pkt.writeUInt32BE(secs, off);
+      // Root delay (byte 4) and dispersion (byte 8) are 16.16 fixed-point secs.
+      const toShort = (ms: number) => Math.round((ms / 1000) * 65536);
+      pkt.writeUInt32BE(toShort(opts.rootDelayMs ?? 0), 4);
+      pkt.writeUInt32BE(toShort(opts.rootDispersionMs ?? 0), 8);
+      // NTP timestamps are seconds since 1900 plus a 32-bit fraction.
+      const skew = skews[call % skews.length];
+      call += 1;
+      const nowMs = Date.now() + skew;
+      const secs = Math.floor(nowMs / 1000) + 2208988800;
+      const frac = Math.floor(((nowMs % 1000) / 1000) * 4294967296);
+      for (const off of [16, 24, 32, 40]) {
+        pkt.writeUInt32BE(secs, off);
+        pkt.writeUInt32BE(frac, off + 4);
+      }
       sock.send(pkt, rinfo.port, rinfo.address);
     });
     sock.bind(0, bind, () =>
@@ -689,6 +717,111 @@ describe("CheckNet commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  // --- check_ntp_offset -----------------------------------------------------
+
+  it("check_ntp_offset reports the server's advertised root delay and dispersion", async () => {
+    // These come straight out of the packet header, so they are available from
+    // a single sample and say what the server claims about its own accuracy.
+    const s = await startNtpResponder({ rootDelayMs: 12, rootDispersionMs: 34 });
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "delay=${root_delay} disp=${root_dispersion}",
+    });
+    expect(q.result).toBe(OK);
+    // The wire format is 16.16 fixed point, so the millisecond value is
+    // truncated on the way back out.
+    expect(messageOf(q)).toBe("delay=11 disp=33");
+  });
+
+  it("check_ntp_offset reports jitter as unmeasured with a single sample", async () => {
+    const s = await startNtpResponder();
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "samples=${samples} jitter=${jitter}",
+    });
+    expect(q.result).toBe(OK);
+    // One sample is the default, and jitter needs two to mean anything.
+    expect(messageOf(q)).toBe("samples=1 jitter=-1");
+  });
+
+  it("check_ntp_offset measures jitter across samples", async () => {
+    // The server alternates its served time by +/-100ms, so successive offsets
+    // differ by ~200ms regardless of how fast loopback is.
+    const s = await startNtpResponder({ skewSequenceMs: [100, -100] });
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      samples: "6",
+      // The swing also moves the offset past its default threshold; this test
+      // is about the jitter measurement, so neutralise those.
+      warning: "none",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "samples=${samples} jitter=${jitter}",
+    });
+    const m = messageOf(q).match(/samples=(\d+) jitter=(\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m?.[1])).toBe(6);
+    // ~200ms of swing, allowing for loopback scheduling noise.
+    expect(Number(m?.[2])).toBeGreaterThan(150);
+    expect(Number(m?.[2])).toBeLessThan(250);
+  });
+
+  it("check_ntp_offset separates a steady offset from jitter", async () => {
+    // A clock that is consistently 5s wrong is inaccurate but perfectly
+    // stable: the offset must be large and the jitter near zero, so the two
+    // conditions can be alerted on independently.
+    const s = await startNtpResponder({ skewSequenceMs: [5000] });
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      samples: "5",
+      warning: "none",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "offset=${offset} jitter=${jitter}",
+    });
+    const m = messageOf(q).match(/offset=(\d+) jitter=(\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m?.[1])).toBeGreaterThan(4000);
+    expect(Number(m?.[2])).toBeLessThan(50);
+  });
+
+  it("check_ntp_offset alerts on jitter alone", async () => {
+    const s = await startNtpResponder({ skewSequenceMs: [80, -80] });
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      samples: "6",
+      warning: "none",
+      critical: "jitter > 50",
+      "top-syntax": "${list}",
+      "detail-syntax": "jitter=${jitter}",
+    });
+    expect(q.result).toBe(CRITICAL);
+  });
+
+  it("check_ntp_offset stops sampling at the first failure", async () => {
+    // Nothing is listening: a burst must still cost a single timeout, not one
+    // per sample, so a dead server does not multiply the check's runtime.
+    const port = await closedPort();
+    const started = Date.now();
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(port),
+      samples: "5",
+      timeout: "700",
+    });
+    const elapsed = Date.now() - started;
+    expect(q.result).toBe(CRITICAL);
+    // One timeout (~700ms), not five (~3500ms).
+    expect(elapsed).toBeLessThan(2000);
+  });
+
   // --- address-family (ipv4 / ipv6) -----------------------------------------
   //
   // Each case binds the target to ONE loopback family and then asks the check
@@ -824,7 +957,7 @@ describe("CheckNet commands", () => {
   });
 
   it("check_ntp_offset queries an IPv6 NTP server", async () => {
-    const s = await startNtpResponder(2, "::1");
+    const s = await startNtpResponder({ bind: "::1" });
     const q = await executeQuery(key, "check_ntp_offset", {
       server: "::1",
       port: String(s.port),

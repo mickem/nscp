@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 struct result_container {
   result_container() : num_send_(0), num_replies_(0), num_timeouts_(0), length_(0), sequence_number_(0), ttl_(0), time_(0) {}
@@ -26,6 +27,9 @@ struct result_container {
   unsigned short sequence_number_;
   unsigned char ttl_;
   std::size_t time_;
+  // Round trip time of every packet that came back, in order. time_ above is
+  // only the most recent one; the series is what jitter is computed from.
+  std::vector<std::size_t> rtts_;
 };
 
 class pinger {
@@ -145,6 +149,7 @@ class pinger {
       result_.length_ = is_v6_ ? length : length - ipv4_hdr.header_length();
       result_.ttl_ = is_v6_ ? 0 : ipv4_hdr.time_to_live();
       result_.time_ = std::chrono::duration_cast<std::chrono::milliseconds>(now - time_sent_).count();
+      result_.rtts_.push_back(result_.time_);
     }
     // start_receive();
   }
