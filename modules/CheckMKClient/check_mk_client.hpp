@@ -78,6 +78,10 @@ struct check_mk_client_handler : public client::handler_interface {
   }
 
   NSCAPI::nagiosReturn parse_data(lua::script_information *information, lua::lua_traits::function_type c, const check_mk::packet &packet) {
+    // Serialise against every other entry into Lua. prep_function already
+    // pushes onto the shared lua_State, so the guard has to cover it as well
+    // as the pcall and the collection below - see lua::lua_gil.
+    lua::lua_gil::guard gil;
     lua::lua_wrapper instance(lua::lua_runtime::prep_function(information, c));
     int args = 1;
     if (c.object_ref != 0) args = 2;
