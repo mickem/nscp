@@ -905,6 +905,53 @@ The amount of data to write, in bytes or with a byte unit (e.g. 512, 4k, 1M). Ma
 
 Check the size (free-space) of a drive or volume.
 
+#### Optional mounts (`ignore-missing`)
+
+By default a drive named with `drive=` that does not exist fails the whole
+check:
+
+```
+check_drivesize drive=/data
+Drive /data was not found
+```
+
+That is right when the mount is supposed to be there, and wrong when it is not
+— a removable volume, a filesystem mounted only on some hosts of a group, a
+share that is attached on demand. `ignore-missing=true` drops such drives
+instead:
+
+```
+check_drivesize drive=/data ignore-missing=true
+OK: No drives found
+```
+
+Drives that *do* exist are still checked normally, so mixing the two in one
+call works and the missing one simply contributes nothing:
+
+```
+check_drivesize drive=/ drive=/data ignore-missing=true "warn=used > 90%" "crit=used > 95%"
+OK All 1 drive(s) are ok|'/ used'=43.555GB;906.169;956.511;0;1006.854 '/ used %'=4%;90;95;0;100
+```
+
+**`ignore-missing=true` implies `empty-state=ok`.** Without that, a check whose
+drives are *all* missing would report UNKNOWN — trading a false CRITICAL for a
+false UNKNOWN, which still pages someone. Only the default is changed, so
+asking for something else explicitly still wins:
+
+```
+check_drivesize drive=/data ignore-missing=true empty-state=warning
+WARNING: No drives found
+```
+
+**On Windows, `require=` is unaffected.** Listing a drive there is an explicit
+assertion that it is present, so it stays CRITICAL when absent even under
+`ignore-missing` — which is the whole point of listing it. Use `drive=` +
+`ignore-missing` for optional volumes and `require=` for mandatory ones; they
+compose in one call.
+
+The same option exists on [`check_files`](#check_files) (for scan paths) and
+[`check_single_file`](#check_single_file) (for the file itself).
+
 **Jump to section:**
 
 * [Sample Commands](#check_drivesize_samples)
@@ -1042,6 +1089,20 @@ OK: / inodes 350474/67108864 (1%)
 
 The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
 `inodes_free_pct` and `inodes_used_pct`.
+
+**Treat a drive that is not mounted as OK rather than an error (`ignore-missing`):**
+
+```
+check_drivesize drive=/data ignore-missing=true
+OK: No drives found
+```
+
+**Optional and mandatory drives in one call — the real one is still checked:**
+
+```
+check_drivesize drive=/ drive=/data ignore-missing=true "warn=used > 90%" "crit=used > 95%"
+OK All 1 drive(s) are ok|'/ used'=43.555GB;906.169;956.511;0;1006.854 '/ used %'=4%;90;95;0;100
+```
 
 
 
@@ -1510,6 +1571,45 @@ The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
 
 Check various aspects of a file and/or folder.
 
+#### Optional directories (`ignore-missing`)
+
+A top-level `path=` that does not exist fails the check by default, so a
+mistyped or unmounted directory is reported rather than silently scanning
+nothing:
+
+```
+check_files path=/var/spool/exports
+Path was not found: /var/spool/exports
+```
+
+When a directory is legitimately absent some of the time, `ignore-missing=true`
+skips it instead:
+
+```
+check_files path=/var/spool/exports ignore-missing=true
+No files found
+```
+
+Paths that do exist are still scanned, so the missing one simply contributes no
+files rather than wiping out the result:
+
+```
+check_files path=/var/log path=/var/spool/exports ignore-missing=true pattern=*.log
+OK: All 2 files are ok
+```
+
+Two details:
+
+* **It implies `empty-state=ok`**, so a scan whose paths are all missing reports
+  OK rather than UNKNOWN — otherwise the false CRITICAL is merely traded for a
+  false UNKNOWN. Only the default changes; an explicit `empty-state=` wins.
+* **The skipped path is not logged as an error.** Without the option a missing
+  path writes an `Invalid file specified` error to the log; with it the path is
+  expected, so it is logged at debug instead.
+
+The same option exists on [`check_single_file`](#check_single_file) (for the
+file itself) and [`check_drivesize`](#check_drivesize) (for optional mounts).
+
 **Jump to section:**
 
 * [Sample Commands](#check_files_samples)
@@ -1588,6 +1688,13 @@ CRITICAL: largest=250M avg=12M folders=3
 
 These four keywords are meaningful on the `total` object (they aggregate across
 everything `add`-ed into it); on an individual file row they read as 0.
+
+**Skip a scan path that does not exist (`ignore-missing`):**
+
+```
+check_files path=/var/spool/exports ignore-missing=true
+No files found
+```
 
 
 
@@ -2671,6 +2778,33 @@ Behaviour at a glance:
   decide the status. With no thresholds the result is **OK** confirming
   the file exists.
 
+
+#### Files that are legitimately absent (`ignore-missing`)
+
+By default a missing file fails the check, which is what you want when the file
+is supposed to be there:
+
+```
+check_single_file file=/var/reports/nightly.csv
+File not found: /var/reports/nightly.csv
+```
+
+Some files are only there some of the time — a lock file, a report written
+after a run, a spool entry. `ignore-missing=true` returns OK instead, naming
+the path so the result cannot be mistaken for "the file was inspected and was
+fine":
+
+```
+check_single_file file=/var/reports/nightly.csv ignore-missing=true
+File not found (ignored): /var/reports/nightly.csv
+```
+
+A file that *is* present is checked exactly as before; the option only affects
+the missing case.
+
+The same option exists on [`check_files`](#check_files) (for scan paths) and
+[`check_drivesize`](#check_drivesize) (for optional mounts).
+
 **Jump to section:**
 
 * [Sample Commands](#check_single_file_samples)
@@ -2729,6 +2863,13 @@ check_single_file path=C:/Windows/win.ini
 L        cli OK: win.ini (size=92, age=873123)
 ```
 
+
+**Treat a file that is not there yet as OK (`ignore-missing`):**
+
+```
+check_single_file file=/tmp/no-such-report.csv ignore-missing=true
+File not found (ignored): /tmp/no-such-report.csv
+```
 
 
 

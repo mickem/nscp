@@ -77,11 +77,16 @@ check_tcp host=expiring.example.com port=443 ssl=true "warn=ssl_expiry_days < 30
 WARNING: cert expires in 19 days|'expiring.example.com_443_ssl_expiry_days'=19;30;10
 ```
 
-**Guard the threshold with `has_certificate` so a plain connection cannot look like an expired one:**
+**A plain connection cannot trip the expiry threshold — and can be tested for explicitly:**
 
 ```
-check_tcp host=expiring.example.com port=443 ssl=true "crit=has_certificate = 1 and ssl_expiry_days < 30" "top-syntax=${list}" "detail-syntax=${host}:${port} expires in ${ssl_expiry_days} days"
-CRITICAL: expiring.example.com:443 expires in 19 days|'expiring.example.com_443_ssl_expiry_days'=19;0;30
+check_tcp host=mail.example.com port=110 "warn=none" "crit=ssl_expiry_days < 30"
+OK: mail.example.com:110 ok in 1ms
+```
+
+```
+check_tcp host=mail.example.com port=110 "warn=none" "crit=ssl_expiry_days = 'no certificate'"
+CRITICAL: mail.example.com:110 ok in 0ms
 ```
 
 **The certificate keywords also work through the implicit-TLS presets:**
@@ -95,7 +100,7 @@ OK: imap.example.com:993 cert=1 days=399
 
 ```
 check_tcp host=mail.example.com port=110 "top-syntax=${list}" "detail-syntax=cert=${has_certificate} days=${ssl_expiry_days}"
-OK: cert=0 days=-1
+OK: cert=0 days=no certificate
 ```
 
 **Verify the server certificate when using TLS (needs a CA bundle):**

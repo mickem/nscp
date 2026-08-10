@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
@@ -46,6 +47,11 @@ struct filter_obj {
   long long get_time() const { return time; }
   long long get_samples() const { return samples; }
   long long get_jitter() const { return jitter; }
+  // Registered form: optional — jitter needs at least two samples to exist.
+  boost::optional<long long> get_jitter_opt() const {
+    if (jitter < 0) return boost::none;
+    return jitter;
+  }
   long long get_root_delay() const { return root_delay; }
   long long get_root_dispersion() const { return root_dispersion; }
   std::string get_result() const { return result; }

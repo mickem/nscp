@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <cctype>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -58,6 +59,14 @@ struct filter_obj {
   // -1 it carries otherwise cannot be told apart from "expired yesterday".
   bool has_certificate = false;
   long long ssl_expiry_days = -1;
+
+  // Registered form of ssl_expiry_days: optional — no certificate, no value.
+  // An expired certificate keeps its (negative) day count; only the absence
+  // of a certificate is 'no certificate'.
+  boost::optional<long long> get_ssl_expiry_days_opt() const {
+    if (!has_certificate) return boost::none;
+    return ssl_expiry_days;
+  }
 
   filter_obj() : port(0), time(0), connected(false) {}
   virtual ~filter_obj() = default;

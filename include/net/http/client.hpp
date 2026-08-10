@@ -141,9 +141,12 @@ struct generic_socket {
   virtual void read_until(boost::asio::streambuf &buffer, const std::string &until) = 0;
   virtual bool is_open() const = 0;
   virtual std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) = 0;
-  // Days until the peer's TLS certificate expires (negative if already expired).
-  // Returns -1 when the transport is not TLS or no peer certificate is available.
-  virtual long peer_certificate_expiry_days() const { return -1; }
+  // Days until the peer's TLS certificate expires (negative if already
+  // expired); none when the transport is not TLS or no peer certificate is
+  // available. The long form collapses none to -1 for legacy callers that
+  // predate the distinction.
+  virtual boost::optional<long> peer_certificate_expiry_days_opt() const { return boost::none; }
+  long peer_certificate_expiry_days() const { return peer_certificate_expiry_days_opt().get_value_or(-1); }
   // Applied by the client right after connecting; no-op for transports that
   // are not sockets.
   virtual void set_timeouts(unsigned int seconds) {}
@@ -362,12 +365,10 @@ struct ssl_socket final : generic_socket {
     handshake(error);
   }
 
-  long peer_certificate_expiry_days() const override {
+  boost::optional<long> peer_certificate_expiry_days_opt() const override {
     // native_handle() is non-const; the underlying SSL* is not mutated here.
     SSL *ssl = const_cast<ssl_socket *>(this)->ssl_socket_.native_handle();
-    // -1 for "no certificate" is this interface's historical contract (it is
-    // what check_http's ssl_expiry_days keyword reports for plain http).
-    return socket_helpers::peer_certificate_expiry_days(ssl).get_value_or(-1);
+    return socket_helpers::peer_certificate_expiry_days(ssl);
   }
 
   /// Establish an HTTP CONNECT tunnel through proxy_ then perform TLS handshake.
@@ -628,8 +629,11 @@ class simple_client {
   // without going through execute() (which throws on non-2xx responses).
   std::size_t read_some(boost::asio::streambuf &buf, boost::system::error_code &ec) const { return socket_->read_some(buf, ec); }
   bool is_open() const { return socket_ && socket_->is_open(); }
-  // Days until the peer TLS certificate expires; -1 for non-TLS or if unavailable.
-  long peer_certificate_expiry_days() const { return socket_ ? socket_->peer_certificate_expiry_days() : -1; }
+  // Days until the peer TLS certificate expires; none for non-TLS or if unavailable.
+  boost::optional<long> peer_certificate_expiry_days_opt() const {
+    return socket_ ? socket_->peer_certificate_expiry_days_opt() : boost::optional<long>();
+  }
+  long peer_certificate_expiry_days() const { return peer_certificate_expiry_days_opt().get_value_or(-1); }
 
   response read_result(boost::asio::streambuf &response_buffer) const {
     std::string http_version, status_message;

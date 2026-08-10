@@ -606,6 +606,134 @@ struct dual_variable_node : any_node {
 
 //////////////////////////////////////////////////////////////////////////
 
+// An "optional number": an int variable that can genuinely have no value
+// (jitter before two samples exist, certificate expiry with no certificate,
+// time-until-full with no growth trend). The getter returns
+// boost::optional<long long>; when it is empty:
+//
+//  - every numeric comparison involving the variable is sure-false (the
+//    is_no_value flag on value_container, honoured by the comparison
+//    operators) — a threshold over a missing value simply does not fire,
+//    in either direction, instead of matching some sentinel;
+//  - the string form (rendering and string comparisons) is the registered
+//    no-value string, so `${jitter}` renders "unknown" and
+//    `jitter = 'unknown'` is the presence test — the node is typed
+//    type_multi exactly like dual_variable_node, so type inference routes a
+//    string literal RHS to the string form;
+//  - no performance data is emitted, rather than plotting a sentinel.
+//
+// When the getter returns a value the node behaves like a plain int variable
+// (numeric comparisons, xtos rendering, normal perfdata).
+template <class TContext>
+struct optional_int_variable_node : any_node {
+  std::string name_;
+  typedef TContext *native_context_type;
+  typedef typename TContext::object_type object_type;
+  typedef boost::function<boost::optional<long long>(object_type, evaluation_context)> function_type;
+  typedef std::shared_ptr<number_performance_generator_interface<object_type, long long> > int_performance_generator;
+
+  function_type fun;
+  value_type numeric_type_;
+  std::string no_value_;
+  std::list<int_performance_generator> perfgen;
+
+  optional_int_variable_node(const std::string &name, const value_type numeric_type, function_type fun, const std::string &no_value,
+                             std::list<int_performance_generator> perfgen)
+      : any_node(type_multi), name_(name), fun(fun), numeric_type_(numeric_type), no_value_(no_value), perfgen(perfgen) {}
+
+  std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
+  bool can_evaluate() const override { return true; }
+  std::shared_ptr<any_node> evaluate(evaluation_context context) const override {
+    try {
+      native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+      if (native_context != nullptr && fun && native_context->has_object()) {
+        const boost::optional<long long> v = fun(native_context->get_object(), context);
+        if (v) return factory::create_int(*v);
+        // A bare-variable boolean context sees the no-value string, whose
+        // is_true() is false — a missing value never satisfies anything.
+        return factory::create_string(no_value_);
+      }
+      context->warn("Failed to evaluate " + name_ + " no object instance");
+    } catch (const std::exception &e) {
+      context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+    }
+    return factory::create_false();
+  }
+  bool bind(object_converter context) override { return true; }
+  bool static_evaluate(evaluation_context context) const override { return false; }
+  bool require_object(evaluation_context context) const override { return true; }
+  value_container get_value(evaluation_context context, const value_type vt) const override {
+    const bool ti = helpers::type_is_int(vt);
+    const bool tf = helpers::type_is_float(vt);
+    try {
+      native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+      if (native_context == nullptr || !fun || !native_context->has_object()) {
+        // Same no-object contract as the other variable nodes: a typed,
+        // unsure default plus a warn (see str_variable_node::get_value).
+        context->warn("Failed to get " + name_ + " no object instance");
+        if (ti) return value_container::create_int(0, true);
+        if (tf) return value_container::create_float(0, true);
+        return value_container::create_string("", true);
+      }
+      const boost::optional<long long> v = fun(native_context->get_object(), context);
+      if (ti) return v ? value_container::create_int(*v) : value_container::create_no_value();
+      if (tf) return v ? value_container::create_float(static_cast<double>(*v)) : value_container::create_no_value();
+      if (vt == type_string) return value_container::create_string(v ? str::xtos(*v) : no_value_);
+    } catch (const std::exception &e) {
+      context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+      return value_container::create_nil();
+    }
+    context->error("Invalid type " + name_ + " we are optional-int but wanted: " + str::xtos(vt));
+    return value_container::create_nil();
+  }
+  std::string to_string(evaluation_context context) const override {
+    native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+    if (native_context != nullptr && fun && native_context->has_object()) {
+      const boost::optional<long long> v = fun(native_context->get_object(), context);
+      return v ? str::xtos(*v) : no_value_;
+    }
+    return name_ + "?";
+  }
+  std::string to_string() const override { return "{optional-int}" + name_; }
+  value_type infer_type(object_converter converter, const value_type suggestion) override {
+    if (helpers::type_is_int(suggestion) || helpers::type_is_float(suggestion)) {
+      set_type(numeric_type_);
+    } else if (suggestion == type_string) {
+      set_type(type_string);
+    } else if (suggestion == type_tbd) {
+      set_type(numeric_type_);
+    }
+    return get_type();
+  }
+  value_type infer_type(object_converter converter) override { return get_type(); }
+  bool find_performance_data(evaluation_context context, performance_collector &collector) override {
+    collector.set_candidate_variable(name_);
+    return false;
+  }
+
+  perf_list_type get_performance_data(object_factory context, std::string alias, const node_type warn, const node_type crit, node_type minimum,
+                                      node_type maximum) override {
+    perf_list_type ret;
+    native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+    if (native_context != nullptr && native_context->has_object()) {
+      const boost::optional<long long> v = fun(native_context->get_object(), context);
+      // No value, no metric: plotting a sentinel would poison the series.
+      if (!v) return ret;
+      long long warn_value = 0;
+      long long crit_value = 0;
+      if (warn) warn_value = warn->get_int_value(context);
+      if (crit) crit_value = crit->get_int_value(context);
+      for (int_performance_generator &p : perfgen) {
+        if (!p->is_configured()) p->configure(name_, context);
+        p->eval(ret, context, alias, *v, warn_value, crit_value, native_context->get_object());
+      }
+    }
+    return ret;
+  }
+};
+
+//////////////////////////////////////////////////////////////////////////
+
 struct custom_function_node : any_node {
   typedef boost::function<node_type(value_type, evaluation_context, node_type)> bound_function_type;
 

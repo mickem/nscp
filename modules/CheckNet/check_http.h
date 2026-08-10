@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <map>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -21,7 +22,9 @@ struct filter_obj {
   long long status_code;
   long long time;
   long long size;
-  long long ssl_expiry_days;
+  // Days until the served certificate expires; empty when the connection was
+  // plain http or no certificate was presented.
+  boost::optional<long long> ssl_expiry_days;
   std::string status_message;
   std::string body;
   std::string result;
@@ -29,7 +32,7 @@ struct filter_obj {
   std::map<std::string, double> json_numbers;
   std::map<std::string, std::string> json_strings;
 
-  filter_obj() : port(0), status_code(0), time(0), size(0), ssl_expiry_days(-1) {}
+  filter_obj() : port(0), status_code(0), time(0), size(0) {}
 
   std::string show() const { return url + " (" + std::to_string(status_code) + ", " + result + ")"; }
 
@@ -50,7 +53,8 @@ struct filter_obj {
   long long get_code() const { return status_code; }
   long long get_time() const { return time; }
   long long get_size() const { return size; }
-  long long get_ssl_expiry_days() const { return ssl_expiry_days; }
+  long long get_ssl_expiry_days() const { return ssl_expiry_days ? *ssl_expiry_days : -1; }
+  boost::optional<long long> get_ssl_expiry_days_opt() const { return ssl_expiry_days; }
   std::string get_status() const { return status_message; }
   std::string get_body() const { return body; }
   std::string get_result() const { return result; }

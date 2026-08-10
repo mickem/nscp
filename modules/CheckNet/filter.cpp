@@ -33,12 +33,17 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
       .add_int_perf("ms")
       .add_int_var("sent", type_int, &filter_obj::get_sent, "Number of packets sent to the host")
       .add_int_var("recv", type_int, &filter_obj::get_recv, "Number of packets received from the host")
-      .add_int_var("timeout", type_int, &filter_obj::get_timeout, "Number of packets which timed out from the host")
-      .add_int_var("jitter", type_int, &filter_obj::get_jitter,
-                   "Mean variation between the round trip times, in ms; -1 when fewer than 2 packets came back (raise count= to measure it)")
-      .add_int_perf("ms", "", "_jitter")
-      .add_int_var("ttl", type_int, &filter_obj::get_ttl,
-                   "TTL of the last reply; -1 when unknown (no reply, or IPv6, where the hop limit is not available)")
+      .add_int_var("timeout", type_int, &filter_obj::get_timeout, "Number of packets which timed out from the host");
+  // Optional numbers: no value until measurable. They render as 'unknown',
+  // compare false against every number while unknown, and emit no perfdata
+  // until real. `jitter = 'unknown'` / `ttl != 'unknown'` test presence.
+  registry_
+      .add_optional_int_var("jitter", [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
+                            "Mean variation between the round trip times, in ms; 'unknown' when fewer than 2 packets came back (raise count= to measure it)")
+      .add_int_perf("ms", "", "_jitter");
+  registry_
+      .add_optional_int_var("ttl", [](auto obj) { return obj->get_ttl_opt(); }, "unknown",
+                            "TTL of the last reply; 'unknown' when no reply carried one (nothing came back, or IPv6, where the hop limit is not available)")
       .add_int_perf("", "", "_ttl");
   registry_.add_converter(type_custom_pct, &get_percentage);
 }

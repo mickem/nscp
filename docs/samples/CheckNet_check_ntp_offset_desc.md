@@ -6,7 +6,7 @@ still — that is what the remaining keywords are for.
 
 | Keyword           | Description                                                                                      |
 |-------------------|--------------------------------------------------------------------------------------------------|
-| `jitter`          | RMS variation between the sampled offsets, in ms. **`-1` until `samples` is raised to 2 or more.** |
+| `jitter`          | RMS variation between the sampled offsets, in ms. **`unknown` until `samples` is raised to 2 or more.** |
 | `samples`         | How many samples actually answered.                                                               |
 | `root_delay`      | Round-trip delay the server reports to its own reference clock, in ms.                            |
 | `root_dispersion` | Maximum error the server claims for the time it serves, in ms.                                    |
@@ -26,11 +26,11 @@ OK: ntp.example.com root_delay=11ms root_dispersion=33ms stratum=2
 
 Jitter is the variation *between* measurements, so it needs more than one.
 **`samples` defaults to 1**, which sends a single query exactly as before and
-leaves `jitter` at `-1`:
+leaves `jitter` unmeasured:
 
 ```
 check_ntp_offset server=ntp.example.com "top-syntax=${list}" "detail-syntax=samples=${samples} jitter=${jitter}"
-OK: samples=1 jitter=-1
+OK: samples=1 jitter=unknown
 ```
 
 Raise it to measure:
@@ -40,10 +40,18 @@ check_ntp_offset server=ntp.example.com samples=6 "warn=jitter > 50" "crit=jitte
 WARNING: ntp.example.com jitter=70ms over 6 samples|'ntp.example.com_jitter'=70ms;50;100
 ```
 
-`-1` is a safe "not measured" marker rather than a magic number: jitter is a
-magnitude, so a real reading is never negative and cannot be confused with it.
-Note that a threshold like `jitter > 50` is simply false at `-1`, so leaving
-`samples` at its default silently never alerts — set both together.
+`jitter` is an *optional number*: until measured it renders as `unknown`,
+**every numeric comparison on it is false** (in both directions), and no jitter
+perfdata is emitted — a sentinel would poison the series. The string form is
+the presence test:
+
+```
+check_ntp_offset server=ntp.example.com samples=6 "warn=jitter > 50" "crit=jitter = 'unknown'"
+```
+
+Note that a threshold like `jitter > 50` is simply false while unmeasured, so
+leaving `samples` at its default silently never alerts — set both together, or
+add the `= 'unknown'` clause to catch a misconfiguration.
 
 Three things worth knowing about how the burst behaves:
 

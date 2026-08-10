@@ -25,10 +25,12 @@ import {
   CRITICAL,
   NscpInstance,
   OK,
+  WARNING,
   type CertPair,
   executeQuery,
   generateCertChain,
   messageOf,
+  perfOf,
   perfValue,
   setupQueryNscp,
 } from "@fixtures/index";
@@ -380,7 +382,31 @@ describe("CheckNet commands", () => {
       "detail-syntax": "cert=${has_certificate} days=${ssl_expiry_days}",
     });
     expect(q.result).toBe(OK);
-    expect(messageOf(q)).toBe("cert=0 days=-1");
+    // The optional number renders its no-value string on a plain connection.
+    expect(messageOf(q)).toBe("cert=0 days=no certificate");
+  });
+
+  it("check_tcp expiry thresholds cannot fire on a plain connection", async () => {
+    // The trap this feature removes: ssl_expiry_days < 30 used to be true on
+    // every non-TLS connection (the -1 sentinel), forcing a has_certificate
+    // guard. A missing value now compares false to every number, so the bare
+    // threshold is safe; the string form is the explicit presence test.
+    const s = await startTcpGreeter("220 service ready\r\n");
+    const bare = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      warning: "none",
+      critical: "ssl_expiry_days < 30",
+    });
+    expect(bare.result).toBe(OK);
+
+    const presence = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      warning: "none",
+      critical: "ssl_expiry_days = 'no certificate'",
+    });
+    expect(presence.result).toBe(CRITICAL);
   });
 
   it("check_tcp certificate keywords work through a service preset", async () => {
@@ -744,8 +770,41 @@ describe("CheckNet commands", () => {
       "detail-syntax": "samples=${samples} jitter=${jitter}",
     });
     expect(q.result).toBe(OK);
-    // One sample is the default, and jitter needs two to mean anything.
-    expect(messageOf(q)).toBe("samples=1 jitter=-1");
+    // One sample is the default, and jitter needs two to mean anything: the
+    // optional number renders its no-value string, and no jitter perfdata is
+    // emitted (a sentinel would poison the series).
+    expect(messageOf(q)).toBe("samples=1 jitter=unknown");
+    expect(perfOf(q)["127.0.0.1_jitter"]).toBeUndefined();
+  });
+
+  it("check_ntp_offset jitter = 'unknown' is the presence test", async () => {
+    const s = await startNtpResponder();
+    // Unmeasured: the string comparison fires...
+    const unmeasured = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      warning: "none",
+      critical: "jitter = 'unknown'",
+    });
+    expect(unmeasured.result).toBe(CRITICAL);
+    // ...and numeric thresholds cannot: jitter >= 0 matches every measured
+    // value but must not match "unknown" (this used to be the -1 trap).
+    const numeric = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      warning: "jitter >= 0",
+      critical: "none",
+    });
+    expect(numeric.result).toBe(OK);
+    // With samples the same expressions flip: measured jitter is a number.
+    const measured = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      samples: "5",
+      warning: "jitter >= 0",
+      critical: "jitter = 'unknown'",
+    });
+    expect(measured.result).toBe(WARNING);
   });
 
   it("check_ntp_offset measures jitter across samples", async () => {

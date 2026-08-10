@@ -57,6 +57,16 @@ struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl
   // unsure-false here lets match_post escalate to UNKNOWN when no other
   // sure verdict was reached, matching the contract of operator_in /
   // operator_not_in.
+  //
+  // An operand flagged is_no_value is different again: it is an optional
+  // number that certainly has no value right now (jitter before two samples,
+  // certificate expiry with no certificate). Nothing numeric can be said
+  // about it, so every comparison involving one is sure-false — deliberately
+  // including = and !=. No error is raised and the verdict must NOT go
+  // unsure: a threshold that references a missing value simply does not
+  // fire. Presence is tested through the variable's string form instead
+  // (`jitter = 'unknown'`), which routes through eval_string with real
+  // strings on both sides and never reaches these guards.
   value_container eval_int(const value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     const value_container rhs = right->get_value(context, type_int);
@@ -64,6 +74,7 @@ struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl
       context->error("invalid type");
       return value_container::create_int(false, /*is_unsure=*/true);
     }
+    if (lhs.is_no_value || rhs.is_no_value) return value_container::create_int(false, /*is_unsure=*/false);
     return do_eval_int(type, context, lhs, rhs);
   };
   value_container eval_float(const value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
@@ -73,6 +84,7 @@ struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl
       context->error("invalid type");
       return value_container::create_int(false, /*is_unsure=*/true);
     }
+    if (lhs.is_no_value || rhs.is_no_value) return value_container::create_int(false, /*is_unsure=*/false);
     return do_eval_float(type, context, lhs, rhs);
   };
   value_container eval_string(const value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
@@ -82,6 +94,7 @@ struct even_simpler_bool_binary_operator_impl : simple_bool_binary_operator_impl
       context->error("invalid type");
       return value_container::create_int(false, /*is_unsure=*/true);
     }
+    if (lhs.is_no_value || rhs.is_no_value) return value_container::create_int(false, /*is_unsure=*/false);
     return do_eval_string(type, context, lhs, rhs);
   };
 
@@ -429,6 +442,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     if (nil_lhs_unsure(lhs, type_int, context)) return value_container::create_int(false, /*is_unsure=*/true);
+    if (lhs.is_no_value) return value_container::create_int(false, /*is_unsure=*/false);
     const long long val = lhs.get_int();
     for (const node_type& itm : right->get_list_value(context)) {
       if (itm->get_int_value(context) == val) return value_container::create_int(false, lhs.is_unsure);
@@ -438,6 +452,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
   value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_float);
     if (nil_lhs_unsure(lhs, type_float, context)) return value_container::create_int(false, /*is_unsure=*/true);
+    if (lhs.is_no_value) return value_container::create_int(false, /*is_unsure=*/false);
     const double val = lhs.get_float();
     for (const node_type& itm : right->get_list_value(context)) {
       if (itm->get_float_value(context) == val) return value_container::create_int(false, lhs.is_unsure);
@@ -447,6 +462,7 @@ struct operator_not_in : simple_bool_binary_operator_impl {
   value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     if (nil_lhs_unsure(lhs, type_string, context)) return value_container::create_int(false, /*is_unsure=*/true);
+    if (lhs.is_no_value) return value_container::create_int(false, /*is_unsure=*/false);
     const std::string val = lhs.get_string();
     for (const node_type& itm : right->get_list_value(context)) {
       if (itm->get_string_value(context) == val) return value_container::create_int(false, lhs.is_unsure);
@@ -459,6 +475,7 @@ struct operator_in : simple_bool_binary_operator_impl {
   value_container eval_int(value_type type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_int);
     if (nil_lhs_unsure(lhs, type_int, context)) return value_container::create_int(false, /*is_unsure=*/true);
+    if (lhs.is_no_value) return value_container::create_int(false, /*is_unsure=*/false);
     const long long val = lhs.get_int();
     for (const node_type &itm : right->get_list_value(context)) {
       const long long cmp = itm->get_int_value(context);
@@ -469,6 +486,7 @@ struct operator_in : simple_bool_binary_operator_impl {
   value_container eval_float(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_float);
     if (nil_lhs_unsure(lhs, type_float, context)) return value_container::create_int(false, /*is_unsure=*/true);
+    if (lhs.is_no_value) return value_container::create_int(false, /*is_unsure=*/false);
     const double val = lhs.get_float();
     for (const node_type &itm : right->get_list_value(context)) {
       if (itm->get_float_value(context) == val) return value_container::create_int(true, lhs.is_unsure);
@@ -478,6 +496,7 @@ struct operator_in : simple_bool_binary_operator_impl {
   value_container eval_string(value_type, const evaluation_context context, const node_type left, const node_type right) const override {
     const value_container lhs = left->get_value(context, type_string);
     if (nil_lhs_unsure(lhs, type_string, context)) return value_container::create_int(false, /*is_unsure=*/true);
+    if (lhs.is_no_value) return value_container::create_int(false, /*is_unsure=*/false);
     const std::string val = lhs.get_string();
     for (const node_type &itm : right->get_list_value(context)) {
       if (itm->get_string_value(context) == val) return value_container::create_int(true, lhs.is_unsure);

@@ -17,6 +17,7 @@ struct mock_object {
   long long int_val;
   double float_val;
   std::string str_val;
+  boost::optional<long long> opt_val;
 };
 
 struct mock_summary {
@@ -935,4 +936,95 @@ TEST(SummaryIntVariableNode, ToStringWithSummaryProducesValueOnly) {
   native(ctx)->set_object(mock_object{0, 0.0, ""});
 
   EXPECT_EQ(node.to_string(ctx), "3");
+}
+
+// ======================================================================
+// optional_int_variable_node
+// ======================================================================
+
+namespace {
+typedef optional_int_variable_node<mock_variable_context> opt_node_type;
+
+std::shared_ptr<opt_node_type> make_opt_node() {
+  return std::make_shared<opt_node_type>(
+      "ovar", type_int, [](mock_object o, evaluation_context) { return o.opt_val; }, "unknown", std::list<opt_node_type::int_performance_generator>{});
+}
+
+mock_object with_opt(long long v) {
+  mock_object o{};
+  o.opt_val = v;
+  return o;
+}
+
+mock_object without_opt() { return mock_object{}; }
+}  // namespace
+
+TEST(OptionalIntVariableNode, GetValueIntWhenSet) {
+  auto node = make_opt_node();
+  auto ctx = make_var_context_with_object(with_opt(42));
+  const value_container v = node->get_value(ctx, type_int);
+  EXPECT_TRUE(v.is(type_int));
+  EXPECT_EQ(42, v.get_int());
+  EXPECT_FALSE(v.is_no_value);
+  EXPECT_FALSE(v.is_unsure);
+}
+
+TEST(OptionalIntVariableNode, GetValueIntWhenUnsetIsNoValue) {
+  auto node = make_opt_node();
+  auto ctx = make_var_context_with_object(without_opt());
+  const value_container v = node->get_value(ctx, type_int);
+  // Typed (a neutral 0 is carried so stray get_int() callers do not throw)
+  // but flagged: the operators treat it as incomparable, not as 0.
+  EXPECT_TRUE(v.is(type_int));
+  EXPECT_TRUE(v.is_no_value);
+  EXPECT_FALSE(v.is_unsure);
+  EXPECT_FALSE(native(ctx)->has_error());
+}
+
+TEST(OptionalIntVariableNode, GetValueFloatWhenUnsetIsNoValue) {
+  auto node = make_opt_node();
+  auto ctx = make_var_context_with_object(without_opt());
+  const value_container v = node->get_value(ctx, type_float);
+  EXPECT_TRUE(v.is(type_float));
+  EXPECT_TRUE(v.is_no_value);
+}
+
+TEST(OptionalIntVariableNode, GetValueStringRendersNumberOrNoValueString) {
+  auto node = make_opt_node();
+  auto set_ctx = make_var_context_with_object(with_opt(7));
+  EXPECT_EQ("7", node->get_value(set_ctx, type_string).get_string());
+  auto unset_ctx = make_var_context_with_object(without_opt());
+  const value_container v = node->get_value(unset_ctx, type_string);
+  EXPECT_EQ("unknown", v.get_string());
+  // The string form is a real string, not a no-value: `jitter = 'unknown'`
+  // must compare it, not short-circuit to false.
+  EXPECT_FALSE(v.is_no_value);
+}
+
+TEST(OptionalIntVariableNode, ToStringRendersNumberOrNoValueString) {
+  auto node = make_opt_node();
+  auto set_ctx = make_var_context_with_object(with_opt(1234));
+  EXPECT_EQ("1234", node->to_string(set_ctx));
+  auto unset_ctx = make_var_context_with_object(without_opt());
+  EXPECT_EQ("unknown", node->to_string(unset_ctx));
+}
+
+TEST(OptionalIntVariableNode, NoObjectIsUnsureNotNoValue) {
+  // No current object (the no-rows force-evaluate path) is a different
+  // condition from "the object has no value": it stays unsure so match_post
+  // can escalate, exactly like the plain int node.
+  auto node = make_opt_node();
+  auto ctx = make_var_context();
+  const value_container v = node->get_value(ctx, type_int);
+  EXPECT_TRUE(v.is_unsure);
+  EXPECT_FALSE(v.is_no_value);
+}
+
+TEST(OptionalIntVariableNode, InferTypeRoutesStringSuggestionToString) {
+  auto node = make_opt_node();
+  auto converter = make_converter();
+  EXPECT_EQ(type_string, node->infer_type(converter, type_string));
+  EXPECT_EQ(type_string, node->get_type());
+  EXPECT_EQ(type_int, node->infer_type(converter, type_int));
+  EXPECT_EQ(type_int, node->get_type());
 }
