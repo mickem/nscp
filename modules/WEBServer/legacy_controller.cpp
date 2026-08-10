@@ -125,15 +125,27 @@ void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamR
     response.setCodeForbidden("403 You're not allowed");
     return;
   }
-  if (session->validate_user("admin", request.get("password"))) {
-    const std::string token = session->generate_token("admin");
-    response.setHeader("__TOKEN", token);
-    response.get_headers()["Content-Type"] = "application/json";
-    response.append("{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }");
-    NSC_DEBUG_MSG("Issued legacy /auth/token for allowlisted User-Agent: " + user_agent);
-  } else {
-    response.setCodeForbidden("403 Invalid password");
+  // Delegate to the shared password-header path rather than calling
+  // validate_user directly. That is the only place that applies the per-IP
+  // failure backoff, the credential size cap and a single generic 403 for
+  // every failure mode; going around it turned this endpoint into an
+  // unthrottled guessing oracle against the admin account, with a distinct
+  // "403 Invalid password" reply confirming when a guess was right. The
+  // User-Agent allowlist above is not a control here - the client picks its
+  // own User-Agent.
+  //
+  // Same contract as the header form: the password alone, the user implied to
+  // be "admin". On success it generates the session token and stores it in the
+  // response cookie, which is where the legacy body/header below read it from.
+  if (!session->process_password_header("login.get", request, response, request.get("password"))) {
+    return;
   }
+  std::string user, token;
+  session_manager_interface::get_user_from_response(response, user, token);
+  response.setHeader("__TOKEN", token);
+  response.get_headers()["Content-Type"] = "application/json";
+  response.append("{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }");
+  NSC_DEBUG_MSG("Issued legacy /auth/token for allowlisted User-Agent: " + user_agent);
 }
 void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   // Same per-branch Content-Type pattern as auth_token above.
