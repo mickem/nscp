@@ -24,6 +24,11 @@ struct scanner_context {
   // UNKNOWN with a useful message instead of silently returning OK / "No
   // files found" when the operator has misconfigured the path. See #613.
   std::vector<std::string> missing_paths;
+  // When the caller passed ignore-missing, a missing top-level path is an
+  // expected condition rather than a misconfiguration, so it is logged at
+  // debug instead of error. It is still recorded above; the caller decides
+  // what to do with it.
+  bool ignore_missing = false;
   bool is_valid_level(int current_level) const;
   static void report_error(const std::string &str);
   void report_debug(const std::string &str) const;

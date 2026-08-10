@@ -15,3 +15,29 @@ Behaviour at a glance:
   decide the status. With no thresholds the result is **OK** confirming
   the file exists.
 
+
+#### Files that are legitimately absent (`ignore-missing`)
+
+By default a missing file fails the check, which is what you want when the file
+is supposed to be there:
+
+```
+check_single_file file=/var/reports/nightly.csv
+File not found: /var/reports/nightly.csv
+```
+
+Some files are only there some of the time — a lock file, a report written
+after a run, a spool entry. `ignore-missing=true` returns OK instead, naming
+the path so the result cannot be mistaken for "the file was inspected and was
+fine":
+
+```
+check_single_file file=/var/reports/nightly.csv ignore-missing=true
+File not found (ignored): /var/reports/nightly.csv
+```
+
+A file that *is* present is checked exactly as before; the option only affects
+the missing case.
+
+The same option exists on [`check_files`](#check_files) (for scan paths) and
+[`check_drivesize`](#check_drivesize) (for optional mounts).

@@ -48,7 +48,10 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
       // Top-level path supplied by the user does not exist / is inaccessible.
       // Record it so the caller surfaces UNKNOWN rather than "No files found".
       context.missing_paths.push_back(dir.string());
-      context.report_error("Invalid file specified: " + dir.string());
+      if (context.ignore_missing)
+        context.report_debug("Ignoring missing path: " + dir.string());
+      else
+        context.report_error("Invalid file specified: " + dir.string());
     } else {
       context.report_warning("Invalid file specified: " + dir.string());
     }

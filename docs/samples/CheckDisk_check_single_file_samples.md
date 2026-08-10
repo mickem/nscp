@@ -46,3 +46,10 @@ check_single_file path=C:/Windows/win.ini
 L        cli OK: win.ini (size=92, age=873123)
 ```
 
+
+**Treat a file that is not there yet as OK (`ignore-missing`):**
+
+```
+check_single_file file=/tmp/no-such-report.csv ignore-missing=true
+File not found (ignored): /tmp/no-such-report.csv
+```
