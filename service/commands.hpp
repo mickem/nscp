@@ -77,6 +77,7 @@ class commands : boost::noncopyable {
     }
     descriptions_.clear();
     commands_.clear();
+    aliases_.clear();
     plugins_.clear();
   }
 
@@ -97,6 +98,24 @@ class commands : boost::noncopyable {
         if (dit != descriptions_.end()) descriptions_.erase(dit);
       } else
         ++it;
+    }
+    // Aliases resolve through the same get() fallback as commands, so they
+    // have to go too. Leaving them behind meant an alias registered by an
+    // unloaded module still resolved to the old plugin, and dispatch reached
+    // dll_plugin::handleCommand - which rejects it with "Library is not
+    // loaded" instead of the correct "command not found", while the
+    // shared_ptr held here kept the whole plugin object alive after unload.
+    command_list_type::iterator ait = aliases_.begin();
+    while (ait != aliases_.end()) {
+      if ((*ait).second->get_id() == id) {
+        std::string key = (*ait).first;
+        command_list_type::iterator to_erase = ait;
+        ++ait;
+        aliases_.erase(to_erase);
+        description_list_type::iterator dit = descriptions_.find(key);
+        if (dit != descriptions_.end()) descriptions_.erase(dit);
+      } else
+        ++ait;
     }
     plugin_list_type::iterator pit = plugins_.find(id);
     if (pit != plugins_.end()) plugins_.erase(pit);
