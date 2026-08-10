@@ -47,6 +47,13 @@ class icmp_header {
     address_reply = 18
   };
 
+  // ICMPv6 (RFC 4443) reuses this header layout but numbers its messages
+  // differently: echo request/reply are 128/129 rather than 8/0.
+  enum {
+    echo_request_v6 = 128,
+    echo_reply_v6 = 129
+  };
+
   icmp_header() = default;
 
   unsigned char type() const { return rep_[0]; }

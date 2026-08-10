@@ -20,8 +20,23 @@ struct filter_obj {
   std::string exe;
   std::string command_line;
   int pid = 0;
+  // Parent pid from /proc/[pid]/stat. 0 for the synthetic "not found" and
+  // "total" rows, and genuinely 0 for the init process itself.
+  int ppid = 0;
   bool started = false;
   std::string error;
+
+  // Process owner. `uid` is the real uid from /proc/[pid]/status and is always
+  // populated (it is a plain read); `username` is resolved through NSS and is
+  // therefore only populated with resolve-owner=true. -1 means "not known"
+  // (the synthetic not-found / total rows).
+  long long uid = -1;
+  std::string username;
+
+  // Raw process state character from /proc/[pid]/stat (R, S, D, Z, T, ...).
+  // This is the Linux state, exposed as the `proc_state` keyword; the
+  // cross-platform `state` keyword keeps its started/stopped meaning.
+  char proc_state = '?';
 
   // Memory counters
   unsigned long long virtual_size = 0;
@@ -47,6 +62,9 @@ struct filter_obj {
   // timestamp exposed as the `creation` keyword.
   unsigned long long start_time_jiffies = 0;
   unsigned long long creation_time = 0;
+  // Wall-clock seconds since the process started, derived from creation_time
+  // when it could be established. 0 when unknown.
+  unsigned long long elapsed = 0;
 
   filter_obj() {}
 
@@ -61,6 +79,9 @@ struct filter_obj {
   std::string get_command_line() const { return command_line; }
   std::string get_error() const { return error; }
   long long get_pid() const { return pid; }
+  long long get_ppid() const { return ppid; }
+  long long get_uid() const { return uid; }
+  std::string get_username() const { return username; }
 
   bool get_started() const { return started; }
   bool get_stopped() const { return !started; }
@@ -82,9 +103,95 @@ struct filter_obj {
   }
 
   static long long parse_state(const std::string &s) {
-    if (s == "started") return state_started;
+    // "running" is accepted as a synonym for "started" (as on Windows).
+    // The rendered state string stays "started" for backward compatibility.
+    if (s == "started" || s == "running") return state_started;
     if (s == "stopped") return state_stopped;
     return state_unknown;
+  }
+
+  // The raw Linux process state, exposed as `proc_state`. This is deliberately
+  // a separate keyword from `state`: `state` is the cross-platform
+  // started/stopped verdict (and a zombie counts as stopped there), whereas
+  // `proc_state` is the scheduler state `ps` prints in its STAT column, which
+  // is what "alert on a zombie" or "alert on uninterruptible sleep" needs.
+  static constexpr long long proc_state_unknown = 0;
+  static constexpr long long proc_state_running = 1;       // R
+  static constexpr long long proc_state_sleeping = 2;      // S
+  static constexpr long long proc_state_disk_sleep = 3;    // D
+  static constexpr long long proc_state_zombie = 4;        // Z
+  static constexpr long long proc_state_stopped = 5;       // T
+  static constexpr long long proc_state_tracing_stop = 6;  // t
+  static constexpr long long proc_state_dead = 7;          // X / x
+  static constexpr long long proc_state_idle = 8;          // I
+  static constexpr long long proc_state_parked = 9;        // P
+
+  static long long proc_state_from_char(const char state) {
+    switch (state) {
+      case 'R':
+        return proc_state_running;
+      case 'S':
+        return proc_state_sleeping;
+      case 'D':
+        return proc_state_disk_sleep;
+      case 'Z':
+        return proc_state_zombie;
+      case 'T':
+        return proc_state_stopped;
+      case 't':
+        return proc_state_tracing_stop;
+      case 'X':
+      case 'x':
+        return proc_state_dead;
+      case 'I':
+        return proc_state_idle;
+      case 'P':
+        return proc_state_parked;
+      default:
+        return proc_state_unknown;
+    }
+  }
+
+  long long get_proc_state_i() const { return proc_state_from_char(proc_state); }
+
+  std::string get_proc_state_s() const {
+    switch (get_proc_state_i()) {
+      case proc_state_running:
+        return "running";
+      case proc_state_sleeping:
+        return "sleeping";
+      case proc_state_disk_sleep:
+        return "disk_sleep";
+      case proc_state_zombie:
+        return "zombie";
+      case proc_state_stopped:
+        return "stopped";
+      case proc_state_tracing_stop:
+        return "tracing_stop";
+      case proc_state_dead:
+        return "dead";
+      case proc_state_idle:
+        return "idle";
+      case proc_state_parked:
+        return "parked";
+      default:
+        return "unknown";
+    }
+  }
+
+  static long long parse_proc_state(const std::string &s) {
+    if (s == "running") return proc_state_running;
+    if (s == "sleeping") return proc_state_sleeping;
+    // "uninterruptible" is accepted for D since that is how the state is
+    // usually described when people go looking for an I/O hang.
+    if (s == "disk_sleep" || s == "uninterruptible") return proc_state_disk_sleep;
+    if (s == "zombie" || s == "defunct") return proc_state_zombie;
+    if (s == "stopped") return proc_state_stopped;
+    if (s == "tracing_stop" || s == "traced") return proc_state_tracing_stop;
+    if (s == "dead") return proc_state_dead;
+    if (s == "idle") return proc_state_idle;
+    if (s == "parked") return proc_state_parked;
+    return proc_state_unknown;
   }
 
   // Memory getters
@@ -104,6 +211,7 @@ struct filter_obj {
   long long get_kernel_time() const { return kernel_time; }
   long long get_total_time() const { return total_time; }
   long long get_creation_time() const { return creation_time; }
+  long long get_elapsed() const { return elapsed; }
 
   // Compute `part * 100 / whole` rounded to the nearest whole percent rather
   // than truncated, so small-but-real usage stays visible (same rounding as
@@ -163,6 +271,7 @@ struct filter_obj {
 struct proc_stat_data {
   std::string comm;
   char state = '?';
+  int ppid = 0;
   unsigned long long major_faults = 0;
   unsigned long long utime_jiffies = 0;
   unsigned long long stime_jiffies = 0;
@@ -180,6 +289,18 @@ bool parse_proc_pid_stat(const std::string &line, proc_stat_data &data);
 // (kernel threads have no Vm* entries).
 bool parse_proc_status_bytes(const std::string &content, const std::string &key, unsigned long long &bytes);
 
+// Extract the real uid from the "Uid:" line of /proc/[pid]/status content.
+// The line holds four values (real, effective, saved, filesystem); the real
+// uid is the one reported as the process owner. Returns false when the line is
+// missing or unparsable.
+bool parse_proc_status_uid(const std::string &content, long long &uid);
+
+// Resolve a uid to a user name through NSS (getpwuid_r), memoised per uid.
+// Returns an empty string for unknown / unresolvable uids. Only called with
+// resolve-owner=true: NSS can block for seconds when it is backed by a remote
+// directory (LDAP/SSSD).
+std::string lookup_username(long long uid);
+
 // Total CPU jiffies (all cores, including idle) from the aggregate "cpu "
 // line of /proc/stat. guest/guest_nice are already folded into user/nice by
 // the kernel and are NOT summed again.
@@ -195,12 +316,13 @@ struct filter_obj_handler : native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 
 // Enumerate every process from /proc (used by check_process and the real-time
-// process filter).
-std::vector<filter_obj> enumerate_processes();
+// process filter). `resolve_owner` additionally resolves each uid to a user
+// name; it is off by default because that goes through NSS.
+std::vector<filter_obj> enumerate_processes(bool resolve_owner = false);
 
 // Enumerate processes twice, one second apart, and report user/kernel/time as
 // whole-percent CPU usage over that window (delta=true mode).
-std::vector<filter_obj> enumerate_processes_delta();
+std::vector<filter_obj> enumerate_processes_delta(bool resolve_owner = false);
 
 }  // namespace check_proc_filter
 

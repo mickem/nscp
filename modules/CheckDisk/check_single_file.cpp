@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/protobuf/functions_query.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/helpers.hpp>
@@ -20,6 +21,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   modern_filter::data_container data;
   modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
   std::string file_path;
+  bool ignore_missing = false;
 
   file_filter::filter filter;
   // No "empty" state: a single-file check either has the file (and runs the
@@ -45,6 +47,9 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   filter_helper.get_desc().add_options()
     ("file", po::value<std::string>(&file_path), "The file to check.")
     ("path", po::value<std::string>(&file_path), "Alias for file.")
+    ("ignore-missing", po::value<bool>(&ignore_missing)->implicit_value(true)->default_value(false),
+        "Return OK instead of failing when the file does not exist. Intended for files that are legitimately absent some of the time, such as a "
+        "lock file or a report that is only written after a run.")
     ;
   // clang-format on
 
@@ -60,6 +65,14 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   const long long now = parsers::where::constants::get_now();
   const std::shared_ptr<file_filter::filter_obj> info = file_finder::stat_single_file(file_path, now);
   if (!info) {
+    if (ignore_missing) {
+      // Deliberately not routed through the filter: there is no object to
+      // match, and saying so plainly beats an empty-syntax line that reads
+      // like the file was inspected and found fine.
+      nscapi::protobuf::functions::append_simple_query_response_payload(response, "check_single_file", NSCAPI::query_return_codes::returnOK,
+                                                                       "File not found (ignored): " + file_path, "");
+      return;
+    }
     return nscapi::protobuf::functions::set_response_bad(*response, "File not found: " + file_path);
   }
 

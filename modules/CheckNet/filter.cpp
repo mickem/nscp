@@ -33,7 +33,13 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
       .add_int_perf("ms")
       .add_int_var("sent", type_int, &filter_obj::get_sent, "Number of packets sent to the host")
       .add_int_var("recv", type_int, &filter_obj::get_recv, "Number of packets received from the host")
-      .add_int_var("timeout", type_int, &filter_obj::get_timeout, "Number of packets which timed out from the host");
+      .add_int_var("timeout", type_int, &filter_obj::get_timeout, "Number of packets which timed out from the host")
+      .add_int_var("jitter", type_int, &filter_obj::get_jitter,
+                   "Mean variation between the round trip times, in ms; -1 when fewer than 2 packets came back (raise count= to measure it)")
+      .add_int_perf("ms", "", "_jitter")
+      .add_int_var("ttl", type_int, &filter_obj::get_ttl,
+                   "TTL of the last reply; -1 when unknown (no reply, or IPv6, where the hop limit is not available)")
+      .add_int_perf("", "", "_ttl");
   registry_.add_converter(type_custom_pct, &get_percentage);
 }
 
@@ -43,6 +49,13 @@ void ping_filter::filter_obj::add(std::shared_ptr<ping_filter::filter_obj> other
   result.num_replies_ += other->result.num_replies_;
   result.num_timeouts_ += other->result.num_timeouts_;
   result.time_ += other->result.time_;
+  // Worst jitter across the hosts, not a jitter over the pooled round trip
+  // times: those come from different hosts and their spread is not jitter.
+  const long long other_jitter = other->get_jitter();
+  if (other_jitter > total_jitter_) total_jitter_ = other_jitter;
+  // Lowest TTL wins: that is the reply closest to running out of hops.
+  const long long other_ttl = other->get_ttl();
+  if (other_ttl >= 0 && (total_ttl_ < 0 || other_ttl < total_ttl_)) total_ttl_ = other_ttl;
 }
 
 //////////////////////////////////////////////////////////////////////////

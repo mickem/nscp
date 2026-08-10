@@ -19,6 +19,25 @@
 #include <string>
 
 namespace ping_filter {
+
+// Mean absolute difference between consecutive round trip times, in
+// milliseconds. This is the definition ping and VoIP tooling reports as
+// "jitter", so the number is directly comparable with those tools.
+//
+// Returns -1 for fewer than two replies: jitter describes the variation
+// between packets and is undefined for one of them. -1 can never collide with
+// a real reading, since a mean of absolute values is never negative.
+inline long long mean_abs_delta_ms(const std::vector<std::size_t>& rtts) {
+  if (rtts.size() < 2) return -1;
+  long long total = 0;
+  for (std::size_t i = 1; i < rtts.size(); ++i) {
+    const long long a = static_cast<long long>(rtts[i]);
+    const long long b = static_cast<long long>(rtts[i - 1]);
+    total += a > b ? a - b : b - a;
+  }
+  return total / static_cast<long long>(rtts.size() - 1);
+}
+
 struct filter_obj {
   filter_obj(result_container result) : is_total_(false), result(result) {}
   filter_obj() : is_total_(true) {}
@@ -65,7 +84,24 @@ struct filter_obj {
   }
   long long get_time() { return result.time_; }
 
+  // Variation between the round trip times of the packets sent to this host.
+  // Needs count >= 2 to mean anything; -1 until then.
+  //
+  // The total row cannot pool round trip times across hosts - the spread
+  // between two different hosts' latencies is not jitter - so it carries the
+  // worst per-host jitter instead, which is what a fleet-wide alert wants.
+  long long get_jitter() const { return is_total_ ? total_jitter_ : mean_abs_delta_ms(result.rtts_); }
+
+  // TTL of the last reply, or -1 when unknown (nothing came back, or IPv6).
+  //
+  // The total row carries the LOWEST TTL across the hosts: a low TTL is the
+  // interesting end (a reply nearly out of hops, or a route that grew), so the
+  // minimum is what a fleet-wide threshold wants.
+  long long get_ttl() const { return is_total_ ? total_ttl_ : result.ttl_; }
+
   bool is_total_;
+  long long total_jitter_ = -1;
+  long long total_ttl_ = -1;
   result_container result;
 };
 

@@ -21,7 +21,7 @@ TEST(ResultContainer, DefaultConstruction) {
   EXPECT_EQ(0u, r.num_timeouts_);
   EXPECT_EQ(0u, r.length_);
   EXPECT_EQ(0, r.sequence_number_);
-  EXPECT_EQ(0, r.ttl_);
+  EXPECT_EQ(-1, r.ttl_);  // unknown until a reply carries one
   EXPECT_EQ(0u, r.time_);
   EXPECT_TRUE(r.destination_.empty());
   EXPECT_TRUE(r.ip_.empty());
@@ -135,6 +135,16 @@ TEST(IcmpHeader, TypeConstants) {
   EXPECT_EQ(16, icmp_header::info_reply);
   EXPECT_EQ(17, icmp_header::address_request);
   EXPECT_EQ(18, icmp_header::address_reply);
+}
+
+TEST(IcmpHeader, IcmpV6TypeConstants) {
+  // ICMPv6 (RFC 4443) reuses the header layout but renumbers echo: 128/129
+  // rather than 8/0. Sending an ICMPv4 type 8 over an ICMPv6 socket gets no
+  // reply, so these must not be confused.
+  EXPECT_EQ(128, icmp_header::echo_request_v6);
+  EXPECT_EQ(129, icmp_header::echo_reply_v6);
+  EXPECT_NE(static_cast<int>(icmp_header::echo_request), static_cast<int>(icmp_header::echo_request_v6));
+  EXPECT_NE(static_cast<int>(icmp_header::echo_reply), static_cast<int>(icmp_header::echo_reply_v6));
 }
 
 // ============================================================================
@@ -608,6 +618,30 @@ TEST(Ipv4Header, ParseBroadcastAddress) {
 // ============================================================================
 // pinger construction (requires no actual network)
 // ============================================================================
+
+TEST(Pinger, RejectsADestinationWithNoAddressInTheRequestedFamily) {
+  // Resolution happens before the (privileged) raw socket is opened, so this
+  // case is reachable without any capability: an IPv4 literal simply has no
+  // IPv6 address, and the pinger must say so rather than silently pinging over
+  // the other family.
+  boost::asio::io_context io_service;
+  result_container result;
+  EXPECT_THROW(pinger(io_service, result, "127.0.0.1", 1000, 42, "payload", net::address_family::ipv6), std::exception);
+  EXPECT_THROW(pinger(io_service, result, "::1", 1000, 42, "payload", net::address_family::ipv4), std::exception);
+}
+
+TEST(Pinger, PingerSendsToResolvedEndpointOverIpv6) {
+  boost::asio::io_context io_service;
+  result_container result;
+  try {
+    pinger p(io_service, result, "::1", 1000, 42, "payload", net::address_family::ipv6);
+  } catch (const std::exception &e) {
+    GTEST_SKIP() << "Skipping: unable to create ICMPv6 socket or resolve address: " << e.what();
+  }
+  EXPECT_EQ("::1", result.destination_);
+  EXPECT_EQ("::1", result.ip_);
+  EXPECT_EQ(0u, result.num_send_);
+}
 
 TEST(Pinger, PingerSendsToResolvedEndpoint) {
   // Construct a pinger targeting localhost — constructor resolves the name

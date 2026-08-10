@@ -4,12 +4,15 @@
 #include "check_process.h"
 
 #include <dirent.h>
+#include <pwd.h>
 #include <unistd.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
+#include <ctime>
 #include <fstream>
 #include <map>
+#include <mutex>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_query.hpp>
@@ -36,20 +39,31 @@ node_type parse_state(std::shared_ptr<filter_obj> object, evaluation_context con
   return factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
 }
 
+node_type parse_proc_state(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
+  return factory::create_int(filter_obj::parse_proc_state(subject->get_string_value(context)));
+}
+
 filter_obj_handler::filter_obj_handler() {
   static const value_type type_custom_state = type_custom_int_1;
+  static const value_type type_custom_proc_state = type_custom_int_2;
 
   registry_.add_string_var("filename", &filter_obj::get_filename, "Name of process (with path)")
       .add_string_var("exe", &filter_obj::get_exe, "The name of the executable")
       .add_string_var("error", &filter_obj::get_error, "Any error messages associated with fetching info")
-      .add_string_var("command_line", &filter_obj::get_command_line, "Command line of process");
+      .add_string_var("command_line", &filter_obj::get_command_line, "Command line of process")
+      .add_string_var("username", &filter_obj::get_username, "Process owner user name (empty unless resolve-owner=true)");
 
   registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
+      .add_int_var("ppid", &filter_obj::get_ppid, "Parent process id")
+      .add_int_var("uid", &filter_obj::get_uid, "Process owner uid (-1 when not known)")
       .add_int_var("started", &filter_obj::get_started, "Process is started")
       .add_int_var("stopped", &filter_obj::get_stopped, "Process is stopped")
-      .add_int_var("state", type_custom_state, &filter_obj::get_state_i, "The current state (started, stopped, hung)");
+      .add_int_var("state", type_custom_state, &filter_obj::get_state_i, "The current state (started, stopped, hung)")
+      .add_int_var("proc_state", type_custom_proc_state, &filter_obj::get_proc_state_i,
+                   "Raw Linux process state: running, sleeping, disk_sleep, zombie, stopped, tracing_stop, dead, idle, parked");
 
   registry_.add_human_string("state", &filter_obj::get_state_s, "The current state (started, stopped, hung)");
+  registry_.add_human_string("proc_state", &filter_obj::get_proc_state_s, "The raw Linux process state");
 
   // Memory counters. Perfdata mirrors the Windows check_process: working set and
   // virtual size are emitted as scaled bytes, page faults as a plain counter.
@@ -68,7 +82,14 @@ filter_obj_handler::filter_obj_handler() {
       .add_scaled_byte(std::string(""), " pws_size")("page_fault", [](auto obj, auto context) { return obj->get_page_faults(); }, "Page fault count")
       .add_perf("", "", " pf_count");
 
+  // `rss` is a straight alias for `working_set`, matching the Windows
+  // check_process keyword set so the same expression works on both platforms.
+  registry_.add_int_legacy()("rss", parsers::where::type_size, [](auto obj, auto context) { return obj->get_working_set(); },
+                             "Resident set size; alias for working_set (g,m,k,b)")
+      .add_scaled_byte(std::string(""), " rss");
+
   registry_.add_human_string("virtual", &filter_obj::get_virtual_size_human, "").add_human_string("working_set", &filter_obj::get_working_set_human, "");
+  registry_.add_human_string("rss", &filter_obj::get_working_set_human, "");
   registry_.add_human_string("peak_virtual", &filter_obj::get_peak_virtual_size_human, "")
       .add_human_string("peak_working_set", &filter_obj::get_peak_working_set_human, "");
 
@@ -79,9 +100,12 @@ filter_obj_handler::filter_obj_handler() {
       .add_perf("", "", " creation")("user", [](auto obj, auto context) { return obj->get_user_time(); }, "User time in seconds")
       .add_perf("", "", " user")("kernel", [](auto obj, auto context) { return obj->get_kernel_time(); }, "Kernel time in seconds")
       .add_perf("", "", " kernel")("time", [](auto obj, auto context) { return obj->get_total_time(); }, "User-kernel time in seconds")
-      .add_perf("", "", " total");
+      .add_perf("", "", " total")("elapsed", [](auto obj, auto context) { return obj->get_elapsed(); },
+                                  "Wall-clock seconds since the process started (0 when not known)")
+      .add_perf("s", "", " elapsed");
 
   registry_.add_converter(type_custom_state, &parse_state);
+  registry_.add_converter(type_custom_proc_state, &parse_proc_state);
 }
 
 bool parse_proc_pid_stat(const std::string &line, proc_stat_data &data) {
@@ -106,6 +130,7 @@ bool parse_proc_pid_stat(const std::string &line, proc_stat_data &data) {
   if (iss.fail()) return false;
 
   data.state = state;
+  data.ppid = ppid;
   data.major_faults = majflt;
   data.utime_jiffies = utime;
   data.stime_jiffies = stime;
@@ -128,6 +153,55 @@ bool parse_proc_status_bytes(const std::string &content, const std::string &key,
     }
   }
   return false;
+}
+
+bool parse_proc_status_uid(const std::string &content, long long &uid) {
+  std::istringstream iss(content);
+  std::string line;
+  while (std::getline(iss, line)) {
+    if (line.compare(0, 4, "Uid:") == 0) {
+      // "Uid:\t<real>\t<effective>\t<saved>\t<filesystem>" — the real uid is
+      // the process owner.
+      std::istringstream value(line.substr(4));
+      long long real_uid = -1;
+      value >> real_uid;
+      if (value.fail() || real_uid < 0) return false;
+      uid = real_uid;
+      return true;
+    }
+  }
+  return false;
+}
+
+std::string lookup_username(const long long uid) {
+  if (uid < 0) return "";
+
+  // Memoised: a host has a handful of distinct uids but can have thousands of
+  // processes, and each miss is an NSS lookup. Negative results are cached too
+  // so a deleted uid is not retried once per process. The cache lives for the
+  // lifetime of the agent, so a uid renamed underneath us stays stale until
+  // restart — an acceptable trade for not hammering NSS.
+  static std::mutex cache_mutex;
+  static std::map<long long, std::string> cache;
+  {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    const auto it = cache.find(uid);
+    if (it != cache.end()) return it->second;
+  }
+
+  std::string name;
+  long bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+  if (bufsize <= 0) bufsize = 16384;
+  std::vector<char> buffer(static_cast<std::size_t>(bufsize));
+  struct passwd pwd;
+  struct passwd *result = nullptr;
+  if (getpwuid_r(static_cast<uid_t>(uid), &pwd, buffer.data(), buffer.size(), &result) == 0 && result != nullptr && result->pw_name != nullptr) {
+    name = result->pw_name;
+  }
+
+  std::lock_guard<std::mutex> lock(cache_mutex);
+  cache[uid] = name;
+  return name;
 }
 
 bool parse_proc_stat_cpu_total(const std::string &content, unsigned long long &total_jiffies) {
@@ -193,7 +267,7 @@ unsigned long long get_boot_time() {
 }  // namespace
 
 // Read process information from /proc
-filter_obj read_process_info(int pid) {
+filter_obj read_process_info(int pid, bool resolve_owner = false) {
   filter_obj info;
   info.pid = pid;
   info.started = true;
@@ -273,6 +347,8 @@ filter_obj read_process_info(int pid) {
       if (parse_proc_pid_stat(line, stat_data)) {
         // State: R=running, S=sleeping, D=disk sleep, Z=zombie, T=stopped, t=tracing stop, X=dead
         info.started = (stat_data.state == 'R' || stat_data.state == 'S' || stat_data.state == 'D');
+        info.proc_state = stat_data.state;
+        info.ppid = stat_data.ppid;
 
         info.user_time_raw = stat_data.utime_jiffies;
         info.kernel_time_raw = stat_data.stime_jiffies;
@@ -280,10 +356,18 @@ filter_obj read_process_info(int pid) {
 
         // Convert jiffies to seconds (typically 100 Hz = USER_HZ)
         long ticks_per_sec = sysconf(_SC_CLK_TCK);
+        const unsigned long long boot_time = get_boot_time();
         if (ticks_per_sec > 0) {
           info.user_time = stat_data.utime_jiffies / ticks_per_sec;
           info.kernel_time = stat_data.stime_jiffies / ticks_per_sec;
-          info.creation_time = get_boot_time() + stat_data.starttime_jiffies / ticks_per_sec;
+          info.creation_time = boot_time + stat_data.starttime_jiffies / ticks_per_sec;
+          // Only meaningful once the boot time is known; without it
+          // creation_time is an offset from the epoch and the elapsed seconds
+          // would be nonsense rather than merely imprecise.
+          if (boot_time != 0) {
+            const unsigned long long now = static_cast<unsigned long long>(::time(nullptr));
+            info.elapsed = now > info.creation_time ? now - info.creation_time : 0;
+          }
         }
         info.total_time = info.user_time + info.kernel_time;
 
@@ -294,8 +378,8 @@ filter_obj read_process_info(int pid) {
     info.error = "Cannot read stat";
   }
 
-  // Read /proc/[pid]/status for the peak memory counters. Kernel threads have
-  // no Vm* entries; the peaks then stay 0.
+  // Read /proc/[pid]/status for the peak memory counters and the owner uid.
+  // Kernel threads have no Vm* entries; the peaks then stay 0.
   try {
     std::ifstream status_file(proc_path + "/status");
     if (status_file.is_open()) {
@@ -304,6 +388,10 @@ filter_obj read_process_info(int pid) {
       const std::string content = ss.str();
       parse_proc_status_bytes(content, "VmPeak", info.peak_virtual_size);
       parse_proc_status_bytes(content, "VmHWM", info.peak_working_set);
+      // The uid itself is free (it is in the file we just read); turning it
+      // into a name is what costs, so that stays behind resolve-owner.
+      parse_proc_status_uid(content, info.uid);
+      if (resolve_owner) info.username = lookup_username(info.uid);
     }
   } catch (...) {
     info.error = "Cannot read status";
@@ -330,7 +418,7 @@ filter_obj read_process_info(int pid) {
 }
 
 // Enumerate all processes from /proc
-std::vector<filter_obj> enumerate_processes() {
+std::vector<filter_obj> enumerate_processes(bool resolve_owner) {
   std::vector<filter_obj> result;
 
   DIR *proc_dir = opendir("/proc");
@@ -347,7 +435,7 @@ std::vector<filter_obj> enumerate_processes() {
     if (is_pid) {
       int pid = std::stoi(name);
       try {
-        filter_obj info = read_process_info(pid);
+        filter_obj info = read_process_info(pid, resolve_owner);
         if (!info.exe.empty() || !info.command_line.empty()) {
           result.push_back(info);
         }
@@ -367,13 +455,15 @@ std::vector<filter_obj> enumerate_processes() {
 // two /proc/stat reads bracket both process snapshots so the numerator
 // (per-process jiffies) and denominator (system jiffies) cover the same
 // wall-clock window.
-std::vector<filter_obj> enumerate_processes_delta() {
+std::vector<filter_obj> enumerate_processes_delta(bool resolve_owner) {
   unsigned long long capacity_start = 0;
   const bool have_start = parse_proc_stat_cpu_total(read_file("/proc/stat"), capacity_start);
 
+  // Only the second (reported) snapshot needs owner names; the first is used
+  // purely for the CPU counters it carries.
   const std::vector<filter_obj> first = enumerate_processes();
   usleep(1000 * 1000);
-  std::vector<filter_obj> second = enumerate_processes();
+  std::vector<filter_obj> second = enumerate_processes(resolve_owner);
 
   unsigned long long capacity_end = 0;
   const bool have_end = parse_proc_stat_cpu_total(read_file("/proc/stat"), capacity_end);
@@ -432,6 +522,7 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
   std::vector<std::string> processes;
   bool delta_scan = false;
   bool total = false;
+  bool resolve_owner = false;
 
   filter_type filter;
   filter_helper.add_filter_option("state != 'unreadable'");
@@ -446,6 +537,8 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
     ("process", po::value<std::vector<std::string>>(&processes), "The process to check, set this to * to check all processes")
     ("delta", po::value<bool>(&delta_scan), "Measure CPU usage as a delta over a one second interval.\nThe check samples process and system CPU times, sleeps for one second, then samples again. With delta=true the 'time' (and 'kernel'/'user') fields report the process CPU usage during that second as a whole percentage of total CPU, instead of cumulative CPU seconds.")
     ("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching processes")
+    ("resolve-owner", po::value<bool>(&resolve_owner)->implicit_value(true)->default_value(false),
+        "Populate the username keyword with the process owner's user name. Off by default: the lookup goes through NSS and can block for seconds when it is backed by a remote directory (LDAP/SSSD). The numeric uid keyword is always populated and needs no flag.")
     ;
   // clang-format on
 
@@ -474,7 +567,7 @@ void check_process(const PB::Commands::QueryRequestMessage::Request &request, PB
 
   std::vector<std::string> matched;
   std::vector<check_proc_filter::filter_obj> process_list =
-      delta_scan ? check_proc_filter::enumerate_processes_delta() : check_proc_filter::enumerate_processes();
+      delta_scan ? check_proc_filter::enumerate_processes_delta(resolve_owner) : check_proc_filter::enumerate_processes(resolve_owner);
 
   for (const check_proc_filter::filter_obj &info : process_list) {
     bool wanted = procs.count(info.exe) > 0;

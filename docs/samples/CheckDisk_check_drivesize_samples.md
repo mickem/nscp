@@ -125,3 +125,17 @@ OK: / inodes 350474/67108864 (1%)
 
 The inode keywords are `inodes_total`, `inodes_free`, `inodes_used`,
 `inodes_free_pct` and `inodes_used_pct`.
+
+**Treat a drive that is not mounted as OK rather than an error (`ignore-missing`):**
+
+```
+check_drivesize drive=/data ignore-missing=true
+OK: No drives found
+```
+
+**Optional and mandatory drives in one call — the real one is still checked:**
+
+```
+check_drivesize drive=/ drive=/data ignore-missing=true "warn=used > 90%" "crit=used > 95%"
+OK All 1 drive(s) are ok|'/ used'=43.555GB;906.169;956.511;0;1006.854 '/ used %'=4%;90;95;0;100
+```

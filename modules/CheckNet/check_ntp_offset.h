@@ -21,6 +21,18 @@ struct filter_obj {
   long long time;  // round trip time, ms
   std::string result;
 
+  // Number of samples actually collected, and the RMS variation between their
+  // offsets. jitter is -1 when fewer than two samples were taken (the default),
+  // since the variation between measurements needs at least two of them.
+  long long samples = 0;
+  long long jitter = -1;
+
+  // The server's own advertised time quality, straight out of the packet
+  // header: root_delay is the round-trip to its reference clock, and
+  // root_dispersion the error bound it claims. Both in milliseconds.
+  long long root_delay = 0;
+  long long root_dispersion = 0;
+
   filter_obj() : port(0), offset_ms(0), stratum(0), time(0) {}
 
   std::string show() const { return server + " offset=" + std::to_string(offset_ms) + "ms stratum=" + std::to_string(stratum) + " (" + result + ")"; }
@@ -32,6 +44,10 @@ struct filter_obj {
   long long get_offset_signed() const { return offset_ms; }
   long long get_stratum() const { return stratum; }
   long long get_time() const { return time; }
+  long long get_samples() const { return samples; }
+  long long get_jitter() const { return jitter; }
+  long long get_root_delay() const { return root_delay; }
+  long long get_root_dispersion() const { return root_dispersion; }
   std::string get_result() const { return result; }
 };
 

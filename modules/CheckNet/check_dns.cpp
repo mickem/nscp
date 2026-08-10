@@ -7,6 +7,7 @@
 #include <boost/asio.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
+#include <net/address_family.hpp>
 #include <chrono>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
@@ -40,7 +41,8 @@ namespace {
 
 // Resolve "host" using the system resolver.
 // Optionally checks that all "expected" addresses appear in the answer.
-void run_dns_check(const std::string &host, int timeout_ms, const std::vector<std::string> &expected, check_dns_filter::filter_obj &out) {
+void run_dns_check(const std::string &host, int timeout_ms, net::address_family af, const std::vector<std::string> &expected,
+                   check_dns_filter::filter_obj &out) {
   using boost::asio::ip::tcp;
 
   out.host = host;
@@ -67,7 +69,10 @@ void run_dns_check(const std::string &host, int timeout_ms, const std::vector<st
   });
 
   try {
-    resolver.async_resolve(host, "", [&](const boost::system::error_code &ec, const tcp::resolver::results_type &results) {
+    // With a family pinned the resolver is asked for that family only, so the
+    // answer contains just those records (a dual-stack name otherwise returns
+    // both).
+    const auto collect = [&](const boost::system::error_code &ec, const tcp::resolver::results_type &results) {
       resolve_done = true;
       resolve_ec = ec;
       std::set<std::string> seen;
@@ -82,7 +87,13 @@ void run_dns_check(const std::string &host, int timeout_ms, const std::vector<st
         timer.cancel();
       } catch (...) {
       }
-    });
+    };
+    if (af == net::address_family::ipv4)
+      resolver.async_resolve(tcp::v4(), host, "", collect);
+    else if (af == net::address_family::ipv6)
+      resolver.async_resolve(tcp::v6(), host, "", collect);
+    else
+      resolver.async_resolve(host, "", collect);
 
     io_service.run();
   } catch (const std::exception &e) {
@@ -143,7 +154,7 @@ std::string default_nameserver() {
 // Query `server` over UDP for `host`/`qtype` and fill the result. Used for
 // non-A/AAAA record types and for an explicitly chosen server.
 void run_dns_udp_check(const std::string &host, int qtype, const std::string &server, unsigned short port, int timeout_ms, bool recursion,
-                       const std::vector<std::string> &expected, check_dns_filter::filter_obj &out) {
+                       net::address_family af, const std::vector<std::string> &expected, check_dns_filter::filter_obj &out) {
   using boost::asio::ip::udp;
   namespace dns = check_dns_internal;
 
@@ -166,13 +177,15 @@ void run_dns_udp_check(const std::string &host, int qtype, const std::string &se
   try {
     udp::resolver resolver(io);
     boost::system::error_code rec;
-    auto endpoints = resolver.resolve(udp::v4(), server, std::to_string(port), rec);
+    auto endpoints = net::resolve_for_family(resolver, af, server, std::to_string(port), rec);
     if (rec || endpoints.empty()) {
       out.result = "server_unresolved";
       return;
     }
     const udp::endpoint dest = *endpoints.begin();
-    socket.open(udp::v4());
+    // Open the socket in whatever family the server resolved to. This used to
+    // be hardcoded to v4, which made an IPv6 DNS server unreachable.
+    socket.open(dest.protocol());
     socket.send_to(boost::asio::buffer(query), dest);
 
     std::array<char, 4096> buf{};
@@ -264,6 +277,7 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
   std::string server;
   unsigned short port = 53;
   bool norec = false;
+  std::string address_family_arg;
 
   filter f;
   filter_helper.add_options("time > 1000", "result != 'ok'", "", f.get_filter_syntax(), "ignored");
@@ -282,10 +296,17 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
         "Record that must be present in the answer (may be given multiple times).")
     ("expected", po::value<std::string>(&expected_string),
         "Comma separated list of records that must all be present in the answer.")
+    ("address-family", po::value<std::string>(&address_family_arg),
+        "IP version to use: any (default), ipv4 or ipv6. Selects which address of the DNS server to query; with the system resolver "
+        "(A/AAAA and no server=) it also restricts the answer to that family. Accepts 4/v4/inet and 6/v6/inet6 as aliases.")
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  net::address_family af = net::address_family::any;
+  if (!net::parse_address_family(address_family_arg, af))
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid address-family: " + address_family_arg + " (expected any, ipv4 or ipv6)");
 
   if (host.empty()) return nscapi::protobuf::functions::set_response_bad(*response, "No host specified");
 
@@ -308,7 +329,7 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
   if (server.empty() && a_or_aaaa) {
     // A/AAAA without an explicit server: the system resolver (honours
     // /etc/hosts and nsswitch; may return both families).
-    run_dns_check(host, timeout_ms, expected, *obj);
+    run_dns_check(host, timeout_ms, af, expected, *obj);
     obj->type = type;
   } else {
     std::string dns_server = server;
@@ -316,7 +337,7 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
     if (dns_server.empty()) {
       return nscapi::protobuf::functions::set_response_bad(*response, "No DNS server configured; specify one with server=<ip>");
     }
-    run_dns_udp_check(host, qtype, dns_server, port, timeout_ms, !norec, expected, *obj);
+    run_dns_udp_check(host, qtype, dns_server, port, timeout_ms, !norec, af, expected, *obj);
   }
   f.match(obj);
 

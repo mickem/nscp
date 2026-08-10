@@ -27,6 +27,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   file_finder::scanner_context context;
   context.max_depth = -1;
   std::string total;
+  bool ignore_missing = false;
 
   file_filter::filter filter;
   filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
@@ -41,6 +42,10 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     ("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"), "The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
     ("max-depth", po::value<int>(&context.max_depth), "Maximum depth to recurse")
     ("total", po::value(&total)->implicit_value("filter"), "Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter")
+    ("ignore-missing", po::value<bool>(&ignore_missing)->implicit_value(true)->default_value(false),
+        "Silently skip top-level paths that do not exist, instead of failing the whole check. Intended for directories that are legitimately absent "
+        "some of the time. Implies empty-state=ok, so a scan whose paths are all missing reports OK rather than UNKNOWN (pass empty-state= to choose "
+        "a different one).")
   ;
   // clang-format on
 
@@ -51,6 +56,12 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   context.now = parsers::where::constants::get_now();
 
   if (!filter_helper.parse_options()) return;
+
+  // See check_drivesize: ignoring missing paths only helps if an entirely
+  // empty result is OK too, otherwise the false CRITICAL becomes a false
+  // UNKNOWN. An explicit empty-state= still wins.
+  if (ignore_missing && data.empty_state == "unknown") data.empty_state = "ok";
+  context.ignore_missing = ignore_missing;
 
   if (!files_string.empty()) boost::split(file_list, files_string, boost::is_any_of(","));
 
@@ -64,7 +75,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   for (const std::string &path : file_list) {
     file_finder::recursive_scan(filter, context, path, total_obj, total == "all");
   }
-  if (!context.missing_paths.empty()) {
+  if (!context.missing_paths.empty() && !ignore_missing) {
     // One or more user-supplied top-level paths could not be opened. Surface
     // this as UNKNOWN with the offending path(s) so operators see a clear
     // error instead of a misleading OK / "No files found" (issue #613).

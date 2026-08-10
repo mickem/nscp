@@ -65,6 +65,39 @@ check_tcp host=mail.example.com port=25 "crit=response not regexp '^220'"
 OK: mail.example.com:25 ok in 8ms
 ```
 
+**Check how long the peer's TLS certificate is still valid (`ssl_expiry_days`):**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "top-syntax=${list}" "detail-syntax=cert expires in ${ssl_expiry_days} days"
+OK: cert expires in 399 days|'secure.example.com_443_ssl_expiry_days'=399;30;10
+```
+
+```
+check_tcp host=expiring.example.com port=443 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "top-syntax=${list}" "detail-syntax=cert expires in ${ssl_expiry_days} days"
+WARNING: cert expires in 19 days|'expiring.example.com_443_ssl_expiry_days'=19;30;10
+```
+
+**Guard the threshold with `has_certificate` so a plain connection cannot look like an expired one:**
+
+```
+check_tcp host=expiring.example.com port=443 ssl=true "crit=has_certificate = 1 and ssl_expiry_days < 30" "top-syntax=${list}" "detail-syntax=${host}:${port} expires in ${ssl_expiry_days} days"
+CRITICAL: expiring.example.com:443 expires in 19 days|'expiring.example.com_443_ssl_expiry_days'=19;0;30
+```
+
+**The certificate keywords also work through the implicit-TLS presets:**
+
+```
+check_tcp host=imap.example.com service=simap "top-syntax=${list}" "detail-syntax=${host}:${port} cert=${has_certificate} days=${ssl_expiry_days}"
+OK: imap.example.com:993 cert=1 days=399
+```
+
+**Without TLS there is no certificate at all:**
+
+```
+check_tcp host=mail.example.com port=110 "top-syntax=${list}" "detail-syntax=cert=${has_certificate} days=${ssl_expiry_days}"
+OK: cert=0 days=-1
+```
+
 **Verify the server certificate when using TLS (needs a CA bundle):**
 
 ```

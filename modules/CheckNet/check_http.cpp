@@ -8,6 +8,7 @@
 #include <boost/program_options.hpp>
 #include <bytes/base64.hpp>
 #include <memory>
+#include <net/address_family.hpp>
 #include <net/http/client.hpp>
 #include <net/http/http_packet.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -48,6 +49,7 @@ filter_obj_handler::filter_obj_handler() {
 
 namespace {
 
+using check_http_internal::host_header_value;
 using check_http_internal::parse_url;
 using check_http_internal::parsed_url;
 using check_http_internal::resolve_redirect;
@@ -69,6 +71,7 @@ struct http_check_options {
   std::string sni;
   bool follow_redirects = false;
   int max_redirs = 15;
+  net::address_family address_family = net::address_family::any;
   std::vector<std::pair<std::string, std::string>> json_paths;  // (alias, dotted path)
 };
 
@@ -97,9 +100,10 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
 
       http::http_client_options options(u.protocol, opt.tls_version, opt.verify_mode, opt.ca_file);
       if (!opt.sni.empty()) options.sni_ = opt.sni;
+      options.address_family_ = opt.address_family;
       http::simple_client client(options);
 
-      http::request rq(opt.method, u.host, u.path);
+      http::request rq(opt.method, host_header_value(u.host), u.path);
       if (!opt.user_agent.empty()) rq.add_header("User-Agent", opt.user_agent);
       if (!opt.username.empty() || !opt.password.empty())
         rq.add_header("Authorization", "Basic " + bytes::base64_encode(opt.username + ":" + opt.password));
@@ -185,6 +189,7 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
   bool use_ssl = false;
   std::string onredirect = "ok";
   std::string ca_file;
+  std::string address_family_arg;
   std::vector<std::string> json_paths_raw;
 
   http_check_options opt;
@@ -227,10 +232,14 @@ void check_http(const std::string &default_ca_file, const PB::Commands::QueryReq
         "Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). "
         "Numeric segments index arrays; single-quote a segment containing a dot. "
         "Example: --json-path qlen:data.queue.length \"crit=qlen > 100\".")
+    ("address-family", po::value<std::string>(&address_family_arg), net::address_family_option_help())
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  if (!net::parse_address_family(address_family_arg, opt.address_family))
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid address-family: " + address_family_arg + " (expected any, ipv4 or ipv6)");
 
   for (const std::string &jp : json_paths_raw) {
     const auto pos = jp.find(':');

@@ -56,16 +56,19 @@ function closeNetServer(srv: net.Server): () => Promise<void> {
   return () => new Promise<void>((res) => srv.close(() => res()));
 }
 
-/** A plain-TCP server that greets each client and closes (FTP/SMTP style). */
-function startTcpGreeter(greeting: string): Promise<Listener> {
+/**
+ * A plain-TCP server that greets each client and closes (FTP/SMTP style).
+ * `bind` selects the loopback address, so passing "::1" gives a listener that
+ * only an IPv6 connection can reach - which is how the address-family tests
+ * prove the flag actually changed the transport.
+ */
+function startTcpGreeter(greeting: string, bind = "127.0.0.1"): Promise<Listener> {
   return new Promise((resolve) => {
     const srv = net.createServer((sock) => {
       sock.on("error", () => {});
       sock.end(greeting); // write banner then FIN → the check sees a clean EOF
     });
-    srv.listen(0, "127.0.0.1", () =>
-      resolve(track({ port: portOf(srv), close: closeNetServer(srv) })),
-    );
+    srv.listen(0, bind, () => resolve(track({ port: portOf(srv), close: closeNetServer(srv) })));
   });
 }
 
@@ -88,12 +91,16 @@ function startTlsGreeter(greeting: string, cert: CertPair): Promise<Listener> {
 }
 
 /** An http or https server driven by the supplied request handler. */
-function startHttp(handler: http.RequestListener, cert?: CertPair): Promise<Listener> {
+function startHttp(
+  handler: http.RequestListener,
+  cert?: CertPair,
+  bind = "127.0.0.1",
+): Promise<Listener> {
   return new Promise((resolve) => {
     const srv = cert
       ? https.createServer({ key: cert.keyPem, cert: cert.certPem }, handler)
       : http.createServer(handler);
-    srv.listen(0, "127.0.0.1", () =>
+    srv.listen(0, bind, () =>
       resolve(
         track({
           port: portOf(srv as unknown as net.Server),
@@ -111,9 +118,10 @@ function startHttp(handler: http.RequestListener, cert?: CertPair): Promise<List
  */
 function startDnsResponder(
   ip: [number, number, number, number] = [93, 184, 216, 34],
+  bind = "127.0.0.1",
 ): Promise<Listener> {
   return new Promise((resolve) => {
-    const sock = dgram.createSocket("udp4");
+    const sock = dgram.createSocket(bind.includes(":") ? "udp6" : "udp4");
     sock.on("message", (msg, rinfo) => {
       // Question starts at offset 12; walk the length-prefixed labels to the 0.
       let p = 12;
@@ -147,7 +155,63 @@ function startDnsResponder(
       ]);
       sock.send(Buffer.concat([header, question, answer]), rinfo.port, rinfo.address);
     });
-    sock.bind(0, "127.0.0.1", () =>
+    sock.bind(0, bind, () =>
+      resolve(
+        track({
+          port: (sock.address() as AddressInfo).port,
+          close: () => new Promise<void>((r) => sock.close(() => r())),
+        }),
+      ),
+    );
+  });
+}
+
+interface NtpOptions {
+  stratum?: number;
+  bind?: string;
+  /**
+   * Milliseconds added to the served time, cycled per request. A varying series
+   * produces jitter; a constant one produces a steady offset with no jitter.
+   */
+  skewSequenceMs?: number[];
+  /** Root delay / root dispersion to advertise, in milliseconds. */
+  rootDelayMs?: number;
+  rootDispersionMs?: number;
+}
+
+/**
+ * A minimal UDP NTP responder: answers every request with a server-mode packet
+ * carrying the current time at the given stratum. Enough to exercise
+ * check_ntp_offset's client end to end without touching a real time server.
+ */
+function startNtpResponder(opts: NtpOptions = {}): Promise<Listener> {
+  const stratum = opts.stratum ?? 2;
+  const bind = opts.bind ?? "127.0.0.1";
+  const skews = opts.skewSequenceMs ?? [0];
+  let call = 0;
+  return new Promise((resolve) => {
+    const sock = dgram.createSocket(bind.includes(":") ? "udp6" : "udp4");
+    sock.on("message", (_msg, rinfo) => {
+      const pkt = Buffer.alloc(48);
+      pkt[0] = 0x1c; // LI=0, VN=3, mode=4 (server)
+      pkt[1] = stratum;
+      // Root delay (byte 4) and dispersion (byte 8) are 16.16 fixed-point secs.
+      const toShort = (ms: number) => Math.round((ms / 1000) * 65536);
+      pkt.writeUInt32BE(toShort(opts.rootDelayMs ?? 0), 4);
+      pkt.writeUInt32BE(toShort(opts.rootDispersionMs ?? 0), 8);
+      // NTP timestamps are seconds since 1900 plus a 32-bit fraction.
+      const skew = skews[call % skews.length];
+      call += 1;
+      const nowMs = Date.now() + skew;
+      const secs = Math.floor(nowMs / 1000) + 2208988800;
+      const frac = Math.floor(((nowMs % 1000) / 1000) * 4294967296);
+      for (const off of [16, 24, 32, 40]) {
+        pkt.writeUInt32BE(secs, off);
+        pkt.writeUInt32BE(frac, off + 4);
+      }
+      sock.send(pkt, rinfo.port, rinfo.address);
+    });
+    sock.bind(0, bind, () =>
       resolve(
         track({
           port: (sock.address() as AddressInfo).port,
@@ -235,6 +299,105 @@ describe("CheckNet commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  it("check_tcp exposes the peer certificate expiry via ssl_expiry_days", async () => {
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      verify: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "cert=${has_certificate} days=${ssl_expiry_days}",
+    });
+    expect(q.result).toBe(OK);
+    const m = messageOf(q).match(/cert=(\d+) days=(\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m?.[1])).toBe(1); // a certificate was presented
+    // The shared fixture cert is valid for 365 days.
+    expect(Number(m?.[2])).toBeGreaterThan(300);
+  });
+
+  it("check_tcp reads the certificate without verifying it", async () => {
+    // verify=none is the default: the expiry is a property of the certificate
+    // the peer served, so it must be readable without a trust decision (the
+    // fixture cert is signed by a CA nscp does not trust).
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      critical: "has_certificate = 0",
+    });
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_tcp alerts on a certificate that expires soon", async () => {
+    // A 20-day cert against a 30-day threshold: this is the check the keyword
+    // exists for, and it must fire on the real remaining lifetime.
+    const shortLived = generateCertChain({
+      outDir: nscp.scratch("checknet_shortlived"),
+      signed: { server: { commonName: "localhost", isServer: true } },
+      days: 20,
+    }).signed.server;
+    const s = await startTlsGreeter("220 secure service\r\n", shortLived);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      critical: "has_certificate = 1 and ssl_expiry_days < 30",
+      "top-syntax": "${list}",
+      "detail-syntax": "expires in ${ssl_expiry_days} days",
+    });
+    expect(q.result).toBe(CRITICAL);
+    // Whole days, with the sub-day remainder dropped, so a cert issued for 20
+    // days reads as 20 or 19 depending on where in the second the check lands.
+    const days = Number(messageOf(q).match(/expires in (\d+) days/)?.[1]);
+    expect(days).toBeGreaterThanOrEqual(19);
+    expect(days).toBeLessThanOrEqual(20);
+  });
+
+  it("check_tcp emits ssl_expiry_days as perfdata when thresholded", async () => {
+    const s = await startTlsGreeter("220 secure service\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      ssl: "true",
+      warning: "ssl_expiry_days < 30",
+    });
+    expect(q.result).toBe(OK);
+    expect(perfValue(q, "127.0.0.1_" + s.port + "_ssl_expiry_days")).toBeGreaterThan(300);
+  });
+
+  it("check_tcp reports no certificate on a plain connection", async () => {
+    // Without ssl=true there is no certificate at all: has_certificate must be
+    // 0 so a threshold can tell that apart from an expired one (both of which
+    // would otherwise look like a negative ssl_expiry_days).
+    const s = await startTcpGreeter("220 service ready\r\n");
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "cert=${has_certificate} days=${ssl_expiry_days}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("cert=0 days=-1");
+  });
+
+  it("check_tcp certificate keywords work through a service preset", async () => {
+    // The s-prefixed presets (spop/simap/ssmtp) imply TLS, so they get the
+    // certificate keywords without ssl=true being passed explicitly.
+    const s = await startTlsGreeter("+OK ready\r\n", serverCert);
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      service: "spop",
+      "top-syntax": "${list}",
+      "detail-syntax": "cert=${has_certificate}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("cert=1");
+  });
+
   // --- check_ssh ------------------------------------------------------------
 
   it("check_ssh accepts a valid SSH banner", async () => {
@@ -247,6 +410,99 @@ describe("CheckNet commands", () => {
     const s = await startTcpGreeter("HELLO not ssh\r\n");
     const q = await executeQuery(key, "check_ssh", { host: "127.0.0.1", port: String(s.port) });
     expect(q.result).toBe(CRITICAL);
+  });
+
+  it("check_ssh splits the identification string into keywords", async () => {
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax":
+        "proto=${protocol} major=${protocol_major} minor=${protocol_minor} version=${version} sw=${software} swver=${software_version} comments=[${comments}]",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe(
+      "proto=2.0 major=2 minor=0 version=OpenSSH_9.6p1 sw=OpenSSH swver=9.6p1 comments=[Ubuntu-3ubuntu13.5]",
+    );
+  });
+
+  it("check_ssh banner keyword carries the raw identification string", async () => {
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "${banner}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("SSH-2.0-OpenSSH_9.6p1");
+  });
+
+  it("check_ssh can alert on an outdated software version", async () => {
+    // The point of the software/version keywords: express "not this build"
+    // without hand-writing a regex over the raw banner.
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_7.4\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      critical: "software = 'OpenSSH' and software_version not like '9.'",
+      "top-syntax": "${list}",
+      "detail-syntax": "${software} ${software_version} is outdated",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("OpenSSH 7.4 is outdated");
+  });
+
+  it("check_ssh protocol_major flags an SSHv1-capable server", async () => {
+    // "1.99" means the server still speaks the insecure SSHv1.
+    const legacy = await startTcpGreeter("SSH-1.99-OpenSSH_3.9p1\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(legacy.port),
+      critical: "protocol_major < 2",
+      "top-syntax": "${list}",
+      "detail-syntax": "${host} speaks SSH ${protocol}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("127.0.0.1 speaks SSH 1.99");
+
+    // ...and a 2.0-only server passes the same threshold.
+    const modern = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n");
+    const ok = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(modern.port),
+      critical: "protocol_major < 2",
+    });
+    expect(ok.result).toBe(OK);
+  });
+
+  it("check_ssh leaves the banner keywords empty when nothing was read", async () => {
+    // Nothing is listening: the check fails on `result`, and the banner
+    // keywords must be empty rather than stale.
+    const dead = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n");
+    const port = dead.port;
+    await dead.close();
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(port),
+      "top-syntax": "${list}",
+      "detail-syntax": "result=${result} sw=[${software}] major=${protocol_major}",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toBe("result=refused sw=[] major=0");
+  });
+
+  it("check_ssh still supports the check_tcp keywords", async () => {
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "${host}:${port} ${result} connected=${connected}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe(`127.0.0.1:${s.port} ok connected=1`);
   });
 
   // --- check_http -----------------------------------------------------------
@@ -459,6 +715,293 @@ describe("CheckNet commands", () => {
     });
     expect(messageOf(q)).not.toMatch(/does not take any arguments/);
     expect(q.result).toBe(OK);
+  });
+
+  // --- check_ntp_offset -----------------------------------------------------
+
+  it("check_ntp_offset reports the server's advertised root delay and dispersion", async () => {
+    // These come straight out of the packet header, so they are available from
+    // a single sample and say what the server claims about its own accuracy.
+    const s = await startNtpResponder({ rootDelayMs: 12, rootDispersionMs: 34 });
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "delay=${root_delay} disp=${root_dispersion}",
+    });
+    expect(q.result).toBe(OK);
+    // The wire format is 16.16 fixed point, so the millisecond value is
+    // truncated on the way back out.
+    expect(messageOf(q)).toBe("delay=11 disp=33");
+  });
+
+  it("check_ntp_offset reports jitter as unmeasured with a single sample", async () => {
+    const s = await startNtpResponder();
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      "top-syntax": "${list}",
+      "detail-syntax": "samples=${samples} jitter=${jitter}",
+    });
+    expect(q.result).toBe(OK);
+    // One sample is the default, and jitter needs two to mean anything.
+    expect(messageOf(q)).toBe("samples=1 jitter=-1");
+  });
+
+  it("check_ntp_offset measures jitter across samples", async () => {
+    // The server alternates its served time by +/-100ms, so successive offsets
+    // differ by ~200ms regardless of how fast loopback is.
+    const s = await startNtpResponder({ skewSequenceMs: [100, -100] });
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      samples: "6",
+      // The swing also moves the offset past its default threshold; this test
+      // is about the jitter measurement, so neutralise those.
+      warning: "none",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "samples=${samples} jitter=${jitter}",
+    });
+    const m = messageOf(q).match(/samples=(\d+) jitter=(\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m?.[1])).toBe(6);
+    // ~200ms of swing, allowing for loopback scheduling noise.
+    expect(Number(m?.[2])).toBeGreaterThan(150);
+    expect(Number(m?.[2])).toBeLessThan(250);
+  });
+
+  it("check_ntp_offset separates a steady offset from jitter", async () => {
+    // A clock that is consistently 5s wrong is inaccurate but perfectly
+    // stable: the offset must be large and the jitter near zero, so the two
+    // conditions can be alerted on independently.
+    const s = await startNtpResponder({ skewSequenceMs: [5000] });
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      samples: "5",
+      warning: "none",
+      critical: "none",
+      "top-syntax": "${list}",
+      "detail-syntax": "offset=${offset} jitter=${jitter}",
+    });
+    const m = messageOf(q).match(/offset=(\d+) jitter=(\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m?.[1])).toBeGreaterThan(4000);
+    expect(Number(m?.[2])).toBeLessThan(50);
+  });
+
+  it("check_ntp_offset alerts on jitter alone", async () => {
+    const s = await startNtpResponder({ skewSequenceMs: [80, -80] });
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(s.port),
+      samples: "6",
+      warning: "none",
+      critical: "jitter > 50",
+      "top-syntax": "${list}",
+      "detail-syntax": "jitter=${jitter}",
+    });
+    expect(q.result).toBe(CRITICAL);
+  });
+
+  it("check_ntp_offset stops sampling at the first failure", async () => {
+    // Nothing is listening: a burst must still cost a single timeout, not one
+    // per sample, so a dead server does not multiply the check's runtime.
+    const port = await closedPort();
+    const started = Date.now();
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "127.0.0.1",
+      port: String(port),
+      samples: "5",
+      timeout: "700",
+    });
+    const elapsed = Date.now() - started;
+    expect(q.result).toBe(CRITICAL);
+    // One timeout (~700ms), not five (~3500ms).
+    expect(elapsed).toBeLessThan(2000);
+  });
+
+  // --- address-family (ipv4 / ipv6) -----------------------------------------
+  //
+  // Each case binds the target to ONE loopback family and then asks the check
+  // for that family and the other one. A check that ignored the flag would pass
+  // both halves (the resolver would just pick the family that works), so the
+  // negative half is what actually proves the transport changed.
+
+  it("check_tcp address-family=ipv6 connects over IPv6", async () => {
+    const s = await startTcpGreeter("220 service ready\r\n", "::1");
+    const ok = await executeQuery(key, "check_tcp", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv6",
+      expect: "220",
+    });
+    expect(ok.result).toBe(OK);
+
+    // Same name and port over IPv4: nothing is listening there.
+    const bad = await executeQuery(key, "check_tcp", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv4",
+    });
+    expect(bad.result).toBe(CRITICAL);
+  });
+
+  it("check_tcp address-family=ipv4 connects over IPv4", async () => {
+    const s = await startTcpGreeter("220 service ready\r\n", "127.0.0.1");
+    const ok = await executeQuery(key, "check_tcp", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv4",
+      expect: "220",
+    });
+    expect(ok.result).toBe(OK);
+
+    const bad = await executeQuery(key, "check_tcp", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv6",
+    });
+    expect(bad.result).toBe(CRITICAL);
+  });
+
+  it("check_tcp accepts the short address-family aliases", async () => {
+    const s = await startTcpGreeter("220 service ready\r\n", "::1");
+    for (const alias of ["6", "v6", "inet6", "IPv6"]) {
+      const q = await executeQuery(key, "check_tcp", {
+        host: "localhost",
+        port: String(s.port),
+        "address-family": alias,
+        expect: "220",
+      });
+      expect(q.result).toBe(OK);
+    }
+  });
+
+  it("check_tcp rejects an unknown address-family", async () => {
+    const s = await startTcpGreeter("220 service ready\r\n");
+    const q = await executeQuery(key, "check_tcp", {
+      host: "127.0.0.1",
+      port: String(s.port),
+      "address-family": "ipv64",
+    });
+    expect(messageOf(q)).toMatch(/Invalid address-family: ipv64/);
+  });
+
+  it("check_ping rejects a size/count combination that would flood the target", async () => {
+    // size= is caller-controlled up to 64KB and count= is unbounded, so the
+    // product decides how many bytes the agent throws at an arbitrary host.
+    // The guard runs before any socket is opened, so this case does not need
+    // the raw-socket privileges check_ping normally requires.
+    const q = await executeQuery(key, "check_ping", {
+      host: "127.0.0.1",
+      size: "65507",
+      count: "5000",
+    });
+    expect(messageOf(q)).toMatch(/Refusing to send/);
+    expect(messageOf(q)).toMatch(/limit is/);
+  });
+
+  it("check_ping still accepts an ordinary size and count", async () => {
+    // The guard bounds bytes, not count: the same count that is refused with a
+    // 64KB payload above must pass with the default ~22 byte one, so existing
+    // high-count checks are unaffected.
+    //
+    // No host is given on purpose. The volume guard runs before the host list
+    // is examined, so "No host specified" means execution got past it - and
+    // this stays a check that opens no socket, like its sibling above. Actually
+    // pinging would need raw-socket privileges, and 5000 sequential pings (each
+    // one waiting out its own timeout when loopback ICMP is not answered, as on
+    // Windows) take far longer than the suite's timeout, blocking every test
+    // that follows on the shared nscp instance.
+    const q = await executeQuery(key, "check_ping", {
+      count: "5000",
+    });
+    expect(messageOf(q)).not.toMatch(/Refusing to send/);
+    expect(messageOf(q)).toMatch(/No host specified/);
+  });
+
+  it("check_ssh honours address-family", async () => {
+    const s = await startTcpGreeter("SSH-2.0-OpenSSH_9.6p1\r\n", "::1");
+    const q = await executeQuery(key, "check_ssh", {
+      host: "localhost",
+      port: String(s.port),
+      "address-family": "ipv6",
+      "top-syntax": "${list}",
+      "detail-syntax": "${software} ${software_version}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("OpenSSH 9.6p1");
+  });
+
+  it("check_http address-family=ipv6 fetches over IPv6", async () => {
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("ok");
+    }, undefined, "::1");
+    const ok = await executeQuery(key, "check_http", {
+      url: `http://localhost:${s.port}/`,
+      "address-family": "ipv6",
+    });
+    expect(ok.result).toBe(OK);
+
+    const bad = await executeQuery(key, "check_http", {
+      url: `http://localhost:${s.port}/`,
+      "address-family": "ipv4",
+    });
+    expect(bad.result).toBe(CRITICAL);
+  });
+
+  it("check_http accepts a bracketed IPv6 literal URL", async () => {
+    // The host is echoed back so the Host header can be asserted: RFC 7230
+    // wants the brackets kept there even though the resolver needs them gone.
+    const s = await startHttp((req, res) => {
+      const body = `host=${req.headers.host}`;
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(body);
+    }, undefined, "::1");
+    const q = await executeQuery(key, "check_http", {
+      url: `http://[::1]:${s.port}/`,
+      "top-syntax": "${list}",
+      "detail-syntax": "${host}|${port}|${code}|${body}",
+    });
+    expect(q.result).toBe(OK);
+    // Brackets are kept in the Host header. (The port is not sent there for any
+    // address family - a separate, pre-existing gap, not an IPv6 one.)
+    expect(messageOf(q)).toBe(`::1|${s.port}|200|host=[::1]`);
+  });
+
+  it("check_dns queries an IPv6 DNS server", async () => {
+    // The DNS server itself is reached over IPv6; the record it returns is an
+    // ordinary A record, which keeps the two concepts (transport vs record
+    // type) visibly separate.
+    const s = await startDnsResponder([10, 1, 2, 3], "::1");
+    const q = await executeQuery(key, "check_dns", {
+      host: "example.com",
+      server: "::1",
+      port: String(s.port),
+      "address-family": "ipv6",
+      "top-syntax": "${list}",
+      "detail-syntax": "${addresses}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("10.1.2.3");
+  });
+
+  it("check_ntp_offset queries an IPv6 NTP server", async () => {
+    const s = await startNtpResponder({ bind: "::1" });
+    const q = await executeQuery(key, "check_ntp_offset", {
+      server: "::1",
+      port: String(s.port),
+      "address-family": "ipv6",
+      warning: "stratum >= 16",
+      critical: "result != 'ok'",
+      "top-syntax": "${list}",
+      "detail-syntax": "${result} stratum=${stratum}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("ok stratum=2");
   });
 
   // --- check_nsclient_web_online -------------------------------------------

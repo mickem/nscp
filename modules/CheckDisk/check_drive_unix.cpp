@@ -449,6 +449,7 @@ void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Com
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
   std::vector<std::string> drives, excludes;
   bool total = false;
+  bool ignore_missing = false;
 
   // clang-format off
   filter_type filter;
@@ -459,11 +460,20 @@ void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Com
       "The drives to check.\nMultiple options can be used to check more than one mount or wildcards can be used to indicate multiple drives to check. Examples: drive=/, drive=/home, drive=*, drive=all-drives")
     ("exclude", po::value<std::vector<std::string>>(&excludes), "A list of drives (mount points) not to check")
     ("total", po::value<bool>(&total)->implicit_value(true)->default_value(false), "Include the total of all matching drives")
+    ("ignore-missing", po::value<bool>(&ignore_missing)->implicit_value(true)->default_value(false),
+      "Silently skip drives named with drive= that do not exist, instead of failing the whole check. Intended for optional mounts. "
+      "Implies empty-state=ok, so a check whose drives are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one).")
     ;
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
+
+  // "Ignore missing" only makes sense if a check whose drives are ALL missing
+  // is OK too - otherwise the false CRITICAL is merely traded for a false
+  // UNKNOWN. Only the default is overridden, so an explicit empty-state= still
+  // wins.
+  if (ignore_missing && data.empty_state == "unknown") data.empty_state = "ok";
 
   if (drives.empty()) drives.emplace_back("*");
   if (!total) {
@@ -480,7 +490,7 @@ void do_check(const PB::Commands::QueryRequestMessage::Request &request, PB::Com
 
   std::vector<std::string> not_found;
   const std::list<drive_container> resolved = find_drives(drives, not_found);
-  if (!not_found.empty()) {
+  if (!not_found.empty() && !ignore_missing) {
     std::string msg = "Drive";
     msg += not_found.size() == 1 ? " " : "s ";
     bool first = true;

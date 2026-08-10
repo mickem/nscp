@@ -13,6 +13,7 @@
 #include <boost/regex.hpp>
 #include <chrono>
 #include <memory>
+#include <net/address_family.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -26,15 +27,47 @@ namespace check_net {
 namespace check_tcp_filter {
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string_var("host", &filter_obj::get_host, "Host the check connected to");
-  registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, refused, timeout, no_match, ...)");
-  registry_.add_string_var("response", &filter_obj::get_response, "The data received from the peer (use with 'like'/'regexp' for custom matching)");
-  registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port the check connected to");
-  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds").add_int_perf("ms");
-  registry_.add_int_var("connected", parsers::where::type_int, &filter_obj::get_connected, "1 when the connection succeeded, 0 otherwise");
+  register_common_keywords(registry_);
+
+  // TLS certificate of the connected peer. Registered here rather than in the
+  // common set because check_ssh is never TLS and would only advertise a
+  // keyword that can never be populated.
+  registry_
+      .add_int_var("ssl_expiry_days", parsers::where::type_int, &filter_obj::get_ssl_expiry_days,
+                   "Days until the peer's TLS certificate expires; negative once it has expired, and -1 when the connection is not TLS or the peer presented "
+                   "no certificate (guard with has_certificate to tell those apart)")
+      .add_int_perf("", "", "_ssl_expiry_days");
+  registry_
+      .add_int_var("has_certificate", parsers::where::type_int, &filter_obj::get_has_certificate,
+                   "1 when the peer presented a TLS certificate, 0 otherwise")
+      .no_perf();
 }
 
 }  // namespace check_tcp_filter
+
+namespace check_ssh_filter {
+
+filter_obj_handler::filter_obj_handler() {
+  check_tcp_filter::register_common_keywords(registry_);
+
+  // Fields parsed out of the SSH identification string. They are empty (and the
+  // numeric ones 0) whenever no banner was read — a refused/timed-out
+  // connection, or a port that is not speaking SSH — so guard on `result` when
+  // that distinction matters.
+  registry_.add_string_var("banner", &filter_obj::get_banner, "The raw SSH identification string, e.g. SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5");
+  registry_.add_string_var("protocol", &filter_obj::get_protocol, "SSH protocol version the server announced, e.g. 2.0 or 1.99");
+  registry_.add_string_var("version", &filter_obj::get_version, "Software version the server announced, e.g. OpenSSH_9.6p1");
+  registry_.add_string_var("software", &filter_obj::get_software, "Software name from the version string, e.g. OpenSSH or dropbear");
+  registry_.add_string_var("software_version", &filter_obj::get_software_version, "Software version number from the version string, e.g. 9.6p1");
+  registry_.add_string_var("comments", &filter_obj::get_comments, "Trailing comments of the identification string, e.g. the distribution patch level");
+  registry_.add_int_var("protocol_major", parsers::where::type_int, &filter_obj::get_protocol_major,
+                        "Major SSH protocol version as a number (2 for 2.0); use protocol_major < 2 to catch an SSHv1-only server")
+      .no_perf();
+  registry_.add_int_var("protocol_minor", parsers::where::type_int, &filter_obj::get_protocol_minor, "Minor SSH protocol version as a number (0 for 2.0)")
+      .no_perf();
+}
+
+}  // namespace check_ssh_filter
 
 namespace {
 
@@ -121,8 +154,8 @@ void tcp_converse(Stream &stream, tcp::socket &lowest, boost::asio::io_context &
 // "no_match" when the response fails either. "result" gets a short status word
 // (ok/timeout/refused/no_match/tls_handshake_failed/error).
 void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms, const std::string &send_data, const std::string &expect,
-                   const std::string &expect_regex, bool use_tls, const std::string &tls_version, const std::string &verify_mode,
-                   const std::string &ca_file, check_tcp_filter::filter_obj &out) {
+                   const std::string &expect_regex, bool use_tls, const std::string &tls_version, const std::string &verify_mode, const std::string &ca_file,
+                   net::address_family af, check_tcp_filter::filter_obj &out) {
   out.host = host;
   out.port = port;
   out.connected = false;
@@ -140,8 +173,11 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
   try {
     bool connect_done = false;
     boost::system::error_code resolve_ec;
-    auto endpoints = resolver.resolve(host, std::to_string(port), resolve_ec);
-    if (resolve_ec) {
+    auto endpoints = net::resolve_for_family(resolver, af, host, std::to_string(port), resolve_ec);
+    if (resolve_ec || endpoints.empty()) {
+      // With address-family pinned this also covers "the name exists but has no
+      // address in the requested family", which is the answer the check is
+      // being asked for rather than an internal error.
       out.result = "resolve_failed";
       return;
     }
@@ -233,6 +269,13 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
         return;
       }
 
+      // Read the peer certificate straight after the handshake: it is available
+      // regardless of `verify`, so an expiry check needs no trust decision.
+      if (const auto expiry = socket_helpers::peer_certificate_expiry_days(ssl_stream.native_handle())) {
+        out.has_certificate = true;
+        out.ssl_expiry_days = *expiry;
+      }
+
       tcp_converse(ssl_stream, socket, io_service, timeout_ms, send_data, expect, expect_regex, out);
 #else
       out.result = "error: TLS requested but this build has no TLS support";
@@ -252,11 +295,13 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
 namespace {
 // Shared core for check_tcp and check_ssh. When `forced` is non-null (check_ssh)
 // its preset is always applied; otherwise the preset is chosen from a `service`
-// argument.
+// argument. FilterT/ObjT let check_ssh plug in its own object, which adds the
+// parsed identification string on top of the TCP fields.
+template <typename FilterT, typename ObjT>
 void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                     const service_preset *forced) {
-  using check_tcp_filter::filter;
-  using check_tcp_filter::filter_obj;
+  typedef FilterT filter;
+  typedef ObjT filter_obj;
 
   modern_filter::data_container data;
   modern_filter::cli_helper<filter> filter_helper(request, response, data);
@@ -272,6 +317,7 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
   std::string tls_version = "tlsv1.2+";
   std::string verify_mode = "none";
   std::string ca_file;
+  std::string address_family_arg;
 
   filter f;
   filter_helper.add_options("time > 1000", "time > 5000 or result != 'ok'", "", f.get_filter_syntax(), "ignored");
@@ -290,6 +336,7 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
     ("verify", po::value<std::string>(&verify_mode)->default_value("none"),
         "Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).")
     ("ca", po::value<std::string>(&ca_file), "CA bundle used to verify the server certificate when --ssl --verify peer is used.")
+    ("address-family", po::value<std::string>(&address_family_arg), net::address_family_option_help())
     ;
   if (forced == nullptr) {
     filter_helper.get_desc().add_options()
@@ -301,6 +348,10 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  net::address_family af = net::address_family::any;
+  if (!net::parse_address_family(address_family_arg, af))
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid address-family: " + address_family_arg + " (expected any, ipv4 or ipv6)");
 
   // Resolve the preset: forced (check_ssh) or from the `service` argument.
   const service_preset *preset = forced;
@@ -333,7 +384,8 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
 
   for (const auto &host : hosts) {
     auto obj = std::make_shared<filter_obj>();
-    run_tcp_check(host, port, timeout_ms, send_data, expect, expect_regex, use_ssl, tls_version, verify_mode, ca_file, *obj);
+    run_tcp_check(host, port, timeout_ms, send_data, expect, expect_regex, use_ssl, tls_version, verify_mode, ca_file, af, *obj);
+    obj->post_read();
     f.match(obj);
   }
 
@@ -342,11 +394,11 @@ void check_tcp_impl(const PB::Commands::QueryRequestMessage::Request &request, P
 }  // namespace
 
 void check_tcp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_tcp_impl(request, response, nullptr);
+  check_tcp_impl<check_tcp_filter::filter, check_tcp_filter::filter_obj>(request, response, nullptr);
 }
 
 void check_ssh(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_tcp_impl(request, response, find_service_preset("SSH"));
+  check_tcp_impl<check_ssh_filter::filter, check_ssh_filter::filter_obj>(request, response, find_service_preset("SSH"));
 }
 
 }  // namespace check_net

@@ -24,10 +24,20 @@ onLinux("CheckDisk (Unix)", () => {
 
   /** Run a CheckDisk query and return the combined output. */
   async function query(command: string, args: string[] = []): Promise<string> {
+    return (await queryWithCode(command, args)).out;
+  }
+
+  /**
+   * As query(), but also returns the process exit code, which is the Nagios
+   * status (0 OK / 1 WARNING / 2 CRITICAL / 3 UNKNOWN). The client-query path
+   * prints the raw message with no status word, so for checks whose syntax
+   * does not embed %(status) this is the only way to assert the verdict.
+   */
+  async function queryWithCode(command: string, args: string[] = []): Promise<{ out: string; code: number }> {
     const r = await nscp.run(["client", "--module", "CheckDisk", "--boot", "--query", command, ...args], {
       allowFailure: true,
     });
-    return r.all ?? `${r.stdout}\n${r.stderr}`;
+    return { out: r.all ?? `${r.stdout}\n${r.stderr}`, code: r.exitCode };
   }
 
   beforeAll(() => {
@@ -72,6 +82,45 @@ onLinux("CheckDisk (Unix)", () => {
   it("rejects a non-existent drive", async () => {
     const out = await query("check_drivesize", ["drive=/no/such/mount/point"]);
     expect(out).toMatch(/not be found|not found|was not found/i);
+  });
+
+  it("ignore-missing turns a non-existent drive into OK", async () => {
+    const out = await query("check_drivesize", ["drive=/no/such/mount/point", "ignore-missing=true"]);
+    expect(out).not.toMatch(/not found/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("ignore-missing still checks the drives that do exist", async () => {
+    // The missing one is dropped; the real one is checked normally, so this
+    // must not silently degrade into "nothing was checked".
+    const out = await query("check_drivesize", [
+      "drive=/",
+      "drive=/no/such/mount/point",
+      "ignore-missing=true",
+      "warning=used>99%",
+      "critical=used>99%",
+    ]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/'\/ used'=/);
+  });
+
+  it("ignore-missing does not override an explicit empty-state", async () => {
+    // ignore-missing implies empty-state=ok, but only as a default: asking for
+    // something else must still win.
+    const out = await query("check_drivesize", [
+      "drive=/no/such/mount/point",
+      "ignore-missing=true",
+      "empty-state=warning",
+    ]);
+    expect(out).toMatch(/WARNING/);
+  });
+
+  it("require= is Windows-only, so its interaction with ignore-missing is not reachable here", async () => {
+    // On Windows require= asserts a drive IS present and stays CRITICAL when
+    // it is not, even under ignore-missing. Linux has no such option at all,
+    // which is pinned here so this is revisited if it is ever added.
+    const out = await query("check_drivesize", ["drive=/", "ignore-missing=true", "require=/no/such/mount/point"]);
+    expect(out).toMatch(/unrecognised option 'require/i);
   });
 
   // Regression: `total` is a boolean option passed as the token `total=true`
@@ -189,6 +238,44 @@ onLinux("CheckDisk (Unix)", () => {
     expect(out).not.toContain("<small.log>");
   });
 
+  it("check_files fails on a missing path by default", async () => {
+    const out = await query("check_files", [`path=${path.join(scratch, "no-such-dir")}`]);
+    expect(out).toMatch(/Path was not found/i);
+  });
+
+  it("check_files ignore-missing turns a missing path into OK", async () => {
+    const missing = path.join(scratch, "no-such-dir");
+    const bad = await queryWithCode("check_files", [`path=${missing}`]);
+    expect(bad.code).toBe(3); // UNKNOWN
+
+    const ok = await queryWithCode("check_files", [`path=${missing}`, "ignore-missing=true"]);
+    expect(ok.code).toBe(0); // OK
+    expect(ok.out).not.toMatch(/Path was not found/i);
+  });
+
+  it("check_files ignore-missing still scans the paths that do exist", async () => {
+    const out = await query("check_files", [
+      `path=${scratch}`,
+      `path=${path.join(scratch, "no-such-dir")}`,
+      "ignore-missing=true",
+      "pattern=*.log",
+      "top-syntax=%(status): %(count) files",
+    ]);
+    // small.log + big.log are there; the missing directory contributes nothing
+    // rather than wiping out the result.
+    expect(out).toMatch(/All 2 files are ok/);
+  });
+
+  it("check_files ignore-missing does not log the skipped path as an error", async () => {
+    // An intentionally-absent path is an expected condition, so it must not
+    // show up as an ERROR line in the log.
+    const out = await query("check_files", [
+      `path=${path.join(scratch, "no-such-dir")}`,
+      "ignore-missing=true",
+    ]);
+    expect(out).not.toMatch(/Invalid file specified/i);
+  });
+
   // --- check_single_file ---------------------------------------------------
 
   it("inspects a single file", async () => {
@@ -200,6 +287,25 @@ onLinux("CheckDisk (Unix)", () => {
   it("fails clearly on a missing single file", async () => {
     const out = await query("check_single_file", [`file=${path.join(scratch, "missing.log")}`]);
     expect(out).toMatch(/File not found/i);
+  });
+
+  it("ignore-missing makes a missing single file OK", async () => {
+    const out = await query("check_single_file", [
+      `file=${path.join(scratch, "missing.log")}`,
+      "ignore-missing=true",
+    ]);
+    expect(out).toMatch(/ignored/i);
+    // The path is named so the result is not mistaken for "the file was fine".
+    expect(out).toMatch(/missing\.log/);
+  });
+
+  it("ignore-missing does not change a file that is present", async () => {
+    const out = await query("check_single_file", [
+      `file=${path.join(scratch, "big.log")}`,
+      "ignore-missing=true",
+    ]);
+    expect(out).toMatch(/size=5000/);
+    expect(out).not.toMatch(/ignored/i);
   });
 
   // --- check_disk_write ------------------------------------------------------

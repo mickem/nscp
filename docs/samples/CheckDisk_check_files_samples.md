@@ -66,3 +66,10 @@ CRITICAL: largest=250M avg=12M folders=3
 
 These four keywords are meaningful on the `total` object (they aggregate across
 everything `add`-ed into it); on an individual file row they read as 0.
+
+**Skip a scan path that does not exist (`ignore-missing`):**
+
+```
+check_files path=/var/spool/exports ignore-missing=true
+No files found
+```

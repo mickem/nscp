@@ -79,14 +79,15 @@ std::string sign_bundle(EVP_PKEY *key, const std::string &payload) {
   return bytes::base64_encode(signature);
 }
 
-// A minimal self-signed certificate expiring `days` from now.
-std::string make_cert_expiring_in(const long days) {
+// A minimal self-signed certificate expiring `seconds` from now (negative for
+// one that has already expired).
+std::string make_cert_expiring_in_seconds(const long seconds) {
   const pkey_ptr key = generate_ed25519();
   const std::unique_ptr<X509, x509_deleter> cert(X509_new());
   X509_set_version(cert.get(), 2);
   ASN1_INTEGER_set(X509_get_serialNumber(cert.get()), 1);
-  X509_gmtime_adj(X509_getm_notBefore(cert.get()), -3600);
-  X509_gmtime_adj(X509_getm_notAfter(cert.get()), days * 24 * 3600);
+  X509_gmtime_adj(X509_getm_notBefore(cert.get()), seconds < 0 ? seconds - 3600 : -3600);
+  X509_gmtime_adj(X509_getm_notAfter(cert.get()), seconds);
   X509_set_pubkey(cert.get(), key.get());
   X509_NAME *name = X509_get_subject_name(cert.get());
   X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("test"), -1, -1, 0);
@@ -98,6 +99,9 @@ std::string make_cert_expiring_in(const long days) {
   const long len = BIO_get_mem_data(bio.get(), &data);
   return std::string(data, static_cast<std::size_t>(len));
 }
+
+// A minimal self-signed certificate expiring `days` from now.
+std::string make_cert_expiring_in(const long days) { return make_cert_expiring_in_seconds(days * 24 * 3600); }
 
 // A 64 character hex digest made of one repeated character - shape-valid
 // without pretending to be a real digest.
@@ -895,6 +899,21 @@ TEST(SyncCert, DaysUntilExpiry) {
 }
 
 TEST(SyncCert, ExpiredCertIsNegative) { EXPECT_LT(onboarding::days_until_expiry(make_cert_expiring_in(-10)), 0); }
+
+TEST(SyncCert, ACertExpiredLessThanADayAgoIsStillNegative) {
+  // ASN1_TIME_diff reports this as days=0 with negative seconds. Returning the
+  // day count as-is made it 0 - the same answer as "expires later today" - so
+  // an already-expired certificate read as merely urgent, and any "< 0" test
+  // stayed false for the whole first day of expiry.
+  EXPECT_LT(onboarding::days_until_expiry(make_cert_expiring_in_seconds(-3600)), 0) << "expired an hour ago";
+  EXPECT_LT(onboarding::days_until_expiry(make_cert_expiring_in_seconds(-60)), 0) << "expired a minute ago";
+}
+
+TEST(SyncCert, ACertValidForLessThanADayIsNotNegative) {
+  // The other side of the same rounding: still valid must never read as expired.
+  EXPECT_EQ(onboarding::days_until_expiry(make_cert_expiring_in_seconds(23 * 3600)), 0);
+  EXPECT_EQ(onboarding::days_until_expiry(make_cert_expiring_in_seconds(60)), 0);
+}
 
 TEST(SyncCert, GarbagePemThrows) { EXPECT_THROW(onboarding::days_until_expiry("not a pem"), onboarding::onboarding_error); }
 
