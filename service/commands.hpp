@@ -94,8 +94,11 @@ class commands : boost::noncopyable {
         command_list_type::iterator to_erase = it;
         ++it;
         commands_.erase(to_erase);
+        // The description may since have been overwritten by another plugin
+        // registering the same name (register_command/register_alias allow
+        // that, they only log): only drop it while it is still ours.
         description_list_type::iterator dit = descriptions_.find(key);
-        if (dit != descriptions_.end()) descriptions_.erase(dit);
+        if (dit != descriptions_.end() && dit->second.plugin_id == id) descriptions_.erase(dit);
       } else
         ++it;
     }
@@ -112,8 +115,10 @@ class commands : boost::noncopyable {
         command_list_type::iterator to_erase = ait;
         ++ait;
         aliases_.erase(to_erase);
+        // Same ownership check as for commands above: the name may have been
+        // re-registered by a plugin that is staying loaded.
         description_list_type::iterator dit = descriptions_.find(key);
-        if (dit != descriptions_.end()) descriptions_.erase(dit);
+        if (dit != descriptions_.end() && dit->second.plugin_id == id) descriptions_.erase(dit);
       } else
         ++ait;
     }
@@ -153,9 +158,16 @@ class commands : boost::noncopyable {
       log_info(__FILE__, __LINE__, "Command not found: ", cmd);
       return;
     }
+    if (it->second->get_id() != plugin_id) {
+      // register_command lets a later plugin take over an existing name (it
+      // only logs "Duplicate command"), so by the time the first owner
+      // unregisters, the entry can belong to someone else - leave it alone.
+      log_info(__FILE__, __LINE__, "Command re-registered by another plugin, not unregistering: ", cmd);
+      return;
+    }
     commands_.erase(it);
     description_list_type::iterator dit = descriptions_.find(lc);
-    if (dit != descriptions_.end()) descriptions_.erase(dit);
+    if (dit != descriptions_.end() && dit->second.plugin_id == plugin_id) descriptions_.erase(dit);
   }
   void register_alias(unsigned long plugin_id, std::string cmd, std::string desc) {
     boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
