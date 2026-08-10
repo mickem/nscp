@@ -21,6 +21,15 @@ struct provider_interface {
   // opened, so that overrides take effect for every subsequent path lookup
   // (including the main INI's own location).
   virtual void apply_path_overrides(std::map<std::string, std::string> overrides) = 0;
+  // Materialise anything the settings transport needs to verify a peer, before
+  // the main settings store is opened. A remote (https://) settings source is
+  // fetched as part of opening that store, and on Windows the CA bundle it
+  // verifies against (${ca-path}) is a file this service exports itself - so it
+  // has to exist by now, not merely by the end of startup. Called from boot()
+  // after boot.ini's [paths] overrides have been applied, so ${ca-path}
+  // resolves against the operator's final paths. Implementations must be
+  // idempotent; the default is a no-op for providers with nothing to prepare.
+  virtual void prepare_trust_store() {}
 };
 
 class NSCSettingsImpl : public settings::settings_handler_impl {

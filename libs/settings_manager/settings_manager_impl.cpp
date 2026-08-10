@@ -167,6 +167,12 @@ void NSCSettingsImpl::boot(std::string key) {
       provider_->apply_path_overrides(std::move(path_overrides));
     }
   }
+  // Everything below opens the master settings store, and for an http(s)://
+  // source that means an immediate network fetch. Give the provider its chance
+  // to lay down the trust material that fetch verifies against first - after
+  // the [paths] overrides above, so it lands where the operator asked.
+  provider_->prepare_trust_store();
+
   if (order.size() == 0) {
     get_logger()->debug("settings", __FILE__, __LINE__, "No entries found looking in (adding default): " + boot_.string());
 #ifdef WIN32

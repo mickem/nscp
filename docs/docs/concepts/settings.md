@@ -152,8 +152,11 @@ be configured in the `boot.ini` file.
 This is a special file which is used to load configuration before the configuration is loaded.
 For instance, it defines which settings store to use but you can also configure TLS options.
 
-> It is advised to set `verify mode` to `peer` and use a CA certificate to verify the server certificate.
-> This will become the default in the future.
+> **Changed in 0.14:** the settings download now verifies the server certificate by default
+> (`verify mode = peer` against `${ca-path}`, the platform CA bundle). Earlier versions defaulted to
+> `verify mode = none`, which meant anyone who could answer for the settings host controlled the
+> agent's entire configuration - including `[/settings/external scripts]`, which is command
+> execution by design. See [Upgrading to verified settings downloads](#upgrading-to-verified-settings-downloads).
 
 ```ini
 [tls]
@@ -165,8 +168,34 @@ ca = c:\program files\NSClient++\security\ca.pem
 | Key         | Default Value | Values          | Description                                                                |
 |-------------|---------------|-----------------|----------------------------------------------------------------------------|
 | version     | 1.3           | 1.0, 1.1, 1.3   | The TLS version to use.                                                    |
-| verify mode | none          | none, peer      | The verify mode to use (Set this to none to use self signed certificates). |
-| ca          |               | Path to CA file | The path to the CA certificate to use.                                     |
+| verify mode | peer          | none, peer      | The verify mode to use (Set this to none to use self signed certificates). |
+| ca          | `${ca-path}`  | Path to CA file | The path to the CA certificate to use. Defaults to the platform CA bundle: the auto-exported Windows ROOT store on Windows, the distribution bundle on Linux. |
+
+##### Upgrading to verified settings downloads
+
+If your settings server presents a certificate issued by a public CA, the new defaults work with no
+configuration change.
+
+If it presents a self-signed certificate, or one issued by a private/internal CA, the download will
+now fail with a certificate verification error where it previously succeeded silently. Either point
+`ca` at the issuing CA (recommended):
+
+```ini
+[tls]
+verify mode = peer
+ca = c:\program files\NSClient++\security\my-internal-ca.pem
+```
+
+or restore the previous behaviour explicitly, accepting that the configuration channel is
+unauthenticated:
+
+```ini
+[tls]
+verify mode = none
+```
+
+`verify mode = none` is still honoured, but it is now logged as an error on every fetch - it can only
+be reached by writing it out, never by omission.
 
 #### Using a proxy
 
