@@ -15,7 +15,7 @@ class Scheduler : public schedules::task_handler, public nscapi::impl::simple_pl
 
  public:
   Scheduler() { scheduler_.set_handler(this); }
-  virtual ~Scheduler() { scheduler_.set_handler(NULL); }
+  virtual ~Scheduler() { scheduler_.set_handler(nullptr); }
   // Module calls
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
   void prepareShutdown();

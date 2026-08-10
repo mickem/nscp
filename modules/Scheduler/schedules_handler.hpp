@@ -155,7 +155,10 @@ struct scheduler : public simple_scheduler::handler {
   typedef boost::unordered_map<int, target_object> metadata_map;
   metadata_map metadata;
   simple_scheduler::scheduler tasks;
-  std::atomic<task_handler*> handler_;
+  // Explicitly initialised: a default-constructed std::atomic holds an
+  // indeterminate value before C++20, and this struct has no constructor
+  // that would otherwise set it before the first load().
+  std::atomic<task_handler*> handler_{nullptr};
 
   target_object get(int id);
 
@@ -166,7 +169,7 @@ struct scheduler : public simple_scheduler::handler {
 
   void set_handler(task_handler* handler) { handler_ = handler; }
   void prepare_shutdown() { tasks.prepare_shutdown(); }
-  void unset_handler() { handler_ = NULL; }
+  void unset_handler() { handler_ = nullptr; }
   void clear();
 
   void set_threads(int count) { tasks.set_threads(count); }
