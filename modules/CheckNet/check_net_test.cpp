@@ -132,13 +132,16 @@ TEST(CheckPingTtl, ReportsTheReplyTtl) {
 TEST(CheckPingTtl, TotalCarriesTheLowestTtlAcrossHosts) {
   // A low TTL is the interesting end - a reply nearly out of hops, or a route
   // that has grown - so the total reports the minimum rather than the maximum.
-  result_container near;
-  near.ttl_ = 64;
-  result_container far;
-  far.ttl_ = 6;
+  // Not `near`/`far`: <minwindef.h> still defines both as empty macros for
+  // 16-bit source compatibility, so `near.ttl_` preprocesses to `.ttl_` and the
+  // Windows build fails with "syntax error: '.'".
+  result_container nearby;
+  nearby.ttl_ = 64;
+  result_container distant;
+  distant.ttl_ = 6;
 
-  auto a = std::make_shared<ping_filter::filter_obj>(near);
-  auto b = std::make_shared<ping_filter::filter_obj>(far);
+  auto a = std::make_shared<ping_filter::filter_obj>(nearby);
+  auto b = std::make_shared<ping_filter::filter_obj>(distant);
   auto total = ping_filter::filter_obj::get_total();
   total->add(a);
   total->add(b);
