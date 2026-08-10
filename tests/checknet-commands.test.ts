@@ -904,13 +904,22 @@ describe("CheckNet commands", () => {
   });
 
   it("check_ping still accepts an ordinary size and count", async () => {
-    // The guard bounds bytes, not count: a high count with the default payload
-    // must keep working, so existing checks are unaffected.
+    // The guard bounds bytes, not count: the same count that is refused with a
+    // 64KB payload above must pass with the default ~22 byte one, so existing
+    // high-count checks are unaffected.
+    //
+    // No host is given on purpose. The volume guard runs before the host list
+    // is examined, so "No host specified" means execution got past it - and
+    // this stays a check that opens no socket, like its sibling above. Actually
+    // pinging would need raw-socket privileges, and 5000 sequential pings (each
+    // one waiting out its own timeout when loopback ICMP is not answered, as on
+    // Windows) take far longer than the suite's timeout, blocking every test
+    // that follows on the shared nscp instance.
     const q = await executeQuery(key, "check_ping", {
-      host: "127.0.0.1",
       count: "5000",
     });
     expect(messageOf(q)).not.toMatch(/Refusing to send/);
+    expect(messageOf(q)).toMatch(/No host specified/);
   });
 
   it("check_ssh honours address-family", async () => {
