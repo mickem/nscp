@@ -380,6 +380,16 @@ NSCP_CREATE_TEST(
 )
 
 NSCP_CREATE_TEST(
+    trend_buffer_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/trend/trend_buffer_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
     bytes_test
     SOURCES
         ${NSCP_INCLUDEDIR}/bytes/base64_test.cpp

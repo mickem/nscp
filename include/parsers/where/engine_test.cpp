@@ -13,6 +13,8 @@
 #include <parsers/where/node.hpp>
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/variable.hpp>
+#include <str/format.hpp>
+#include <str/xtos.hpp>
 #include <string>
 #include <vector>
 
@@ -100,10 +102,34 @@ struct mock_native_context : object_factory_interface {
   std::string get_debug() const override { return ""; }
   void debug(object_match) override {}
 
-  // ---- Converter (no implicit conversions in this test fixture) -----------
-  bool can_convert(value_type, value_type) override { return false; }
-  bool can_convert(std::string, std::shared_ptr<any_node>, value_type) override { return false; }
-  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type) override { return nullptr; }
+  // ---- Converter -----------------------------------------------------------
+  // One custom int type with a duration converter ("12h" -> seconds),
+  // mirroring how check_uptime/check_drivesize register threshold literals.
+  // Everything else: no implicit conversions.
+  struct duration_converter : binary_function_impl {
+    node_type evaluate(value_type, evaluation_context context, node_type subject) const override {
+      // Same literal-vs-[number, unit]-list reassembly as production
+      // parse_time (check_uptime.cpp, drive_trend.hpp).
+      std::list<node_type> tokens = subject->get_list_value(context);
+      std::string expr;
+      if (tokens.size() == 2) {
+        auto cit = tokens.begin();
+        const long long n = (*cit)->get_int_value(context);
+        ++cit;
+        const std::string unit = (*cit)->get_value(context, type_string).get_string("");
+        expr = str::xtos(n) + unit;
+      } else {
+        expr = subject->get_string_value(context);
+      }
+      return factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
+    }
+  };
+  bool can_convert(value_type, value_type to) override { return to == type_custom_int_1; }
+  bool can_convert(std::string, std::shared_ptr<any_node>, value_type to) override { return to == type_custom_int_1; }
+  std::shared_ptr<binary_function_impl> create_converter(std::string, std::shared_ptr<any_node>, value_type to) override {
+    if (to == type_custom_int_1) return std::make_shared<duration_converter>();
+    return nullptr;
+  }
 
   // ---- Variables ----------------------------------------------------------
   // Recognised names:
@@ -113,7 +139,7 @@ struct mock_native_context : object_factory_interface {
   //   scount  -> summary_->count   (summary int — does NOT require object)
   //   sstatus -> summary_->status  (summary string — does NOT require object)
   bool has_variable(const std::string& name) override {
-    return name == "ivar" || name == "fvar" || name == "svar" || name == "ovar" || name == "scount" || name == "sstatus";
+    return name == "ivar" || name == "fvar" || name == "svar" || name == "ovar" || name == "odur" || name == "scount" || name == "sstatus";
   }
 
   node_type create_variable(const std::string& name, bool /*human_readable*/) override;
@@ -155,6 +181,13 @@ node_type mock_native_context::create_variable(const std::string& name, bool /*h
   if (name == "ovar") {
     return std::make_shared<ovar_node>(
         name, type_int, [](mock_object o, evaluation_context) -> boost::optional<long long> { return o.oval; }, "unknown",
+        std::list<ovar_node::int_performance_generator>{});
+  }
+  if (name == "odur") {
+    // Duration-typed optional (seconds in oval): the check_drivesize full_in
+    // shape — custom int type + duration converter + 'never' no-value string.
+    return std::make_shared<ovar_node>(
+        name, type_custom_int_1, [](mock_object o, evaluation_context) -> boost::optional<long long> { return o.oval; }, "never",
         std::list<ovar_node::int_performance_generator>{});
   }
   if (name == "scount") {
@@ -1648,4 +1681,47 @@ TEST(EngineOptionalInt, PerfDataSkippedWhenUnset) {
   EXPECT_EQ(55.0, set_perf.front().float_value->value);
   // (unit is not asserted: the mock factory's get_performance_config_key
   // returns "" rather than echoing defaults, which blanks it in configure())
+}
+
+// ============================================================================
+// Optional number with a custom int type + converter (the check_drivesize
+// full_in shape: duration literals in thresholds, 'never' as presence test)
+// ============================================================================
+
+TEST(EngineOptionalDuration, DurationLiteralRoutesThroughConverter) {
+  // odur holds seconds; `12h` must reach the duration converter (list-form
+  // [12, h] -> 43200), not a lexical comparison.
+  auto ten_hours = ctx_with_oval(10 * 3600);
+  EXPECT_TRUE(eval_match("odur < 12h", ten_hours, true));
+  EXPECT_FALSE(eval_match("odur > 12h", ten_hours, true));
+  EXPECT_TRUE(eval_match("odur > 5h", ten_hours, true));
+  EXPECT_TRUE(eval_match("odur < 5d", ten_hours, true));
+
+  auto two_days = ctx_with_oval(2 * 24 * 3600);
+  EXPECT_FALSE(eval_match("odur < 12h", two_days, true));
+  EXPECT_TRUE(eval_match("odur > 12h", two_days, true));
+}
+
+TEST(EngineOptionalDuration, DurationThresholdNeverFiresWhenUnset) {
+  // The design point of full_in: `full_in < 12h` on a shrinking disk (no
+  // value) is simply false, in both directions.
+  auto ctx = ctx_without_oval();
+  EXPECT_FALSE(eval_match("odur < 12h", ctx, true));
+  EXPECT_FALSE(eval_match("odur > 12h", ctx, true));
+  EXPECT_FALSE(eval_match("odur <= 5d", ctx, true));
+  EXPECT_FALSE(eval_match("odur >= 1m", ctx, true));
+}
+
+TEST(EngineOptionalDuration, NoValueStringIsThePresenceTestNotConverterInput) {
+  // A quoted string literal routes to the string comparison (type_multi
+  // inference), NOT through the duration converter — so the no-value string
+  // works as the presence test even though 'never' is not a parseable
+  // duration.
+  auto unset = ctx_without_oval();
+  EXPECT_TRUE(eval_match("odur = 'never'", unset, true));
+  EXPECT_FALSE(eval_match("odur != 'never'", unset, true));
+
+  auto set = ctx_with_oval(3600);
+  EXPECT_FALSE(eval_match("odur = 'never'", set, true));
+  EXPECT_TRUE(eval_match("odur != 'never'", set, true));
 }

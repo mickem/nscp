@@ -39,7 +39,12 @@ describe("CheckDisk commands", () => {
 
   beforeAll(async () => {
     nscp = new NscpInstance();
-    key = await setupQueryNscp(nscp, "CheckDisk");
+    // 1s trend cadence so the drivesize trend keywords (full_in/rate) can
+    // accumulate a valid trend (>= 3 samples spanning >= 3x the interval)
+    // within the suite's runtime; samples arrive on the collector's 10s tick.
+    key = await setupQueryNscp(nscp, "CheckDisk", {
+      "/settings/disk": { "trend interval": "1s" },
+    });
   });
 
   afterAll(async () => {
@@ -65,6 +70,57 @@ describe("CheckDisk commands", () => {
       critical: "used > 0",
     });
     expect(q.result).toBe(CRITICAL);
+  });
+
+  // --- check_drivesize trend keywords (full_in / rate) ------------------------
+
+  it("check_drivesize accepts a duration threshold on full_in over REST", async () => {
+    // `full_in < 1s` arrives as the single token `warning=full_in < 1s`
+    // (duration literal through the k=v path). It can only fire if the drive
+    // would fill within one second, so the verdict is deterministically OK.
+    const q = await executeQuery(key, "check_drivesize", {
+      drive: ROOT_DRIVE,
+      warning: "full_in < 1s",
+      critical: "full_in < 1s",
+    });
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_drivesize reports a live growth trend after collector warm-up", async () => {
+    // With trend interval=1s a valid trend exists once three 10s collector
+    // ticks have landed; then rate is a real (signed) number and full_in is
+    // either a projected duration or 'never' - but no longer 'unknown'.
+    const args = {
+      drive: ROOT_DRIVE,
+      "detail-syntax": "samples=%(trend_samples);span=%(trend_span);rate=%(rate);full_in=%(full_in)",
+      "top-syntax": "${list}",
+      warning: "used > 100%",
+      critical: "used > 100%",
+    };
+    const q = await pollQuery(key, "check_drivesize", args, (r) => /samples=([3-9]|\d\d+)/.test(messageOf(r)), 90_000);
+    const msg = messageOf(q);
+    expect(msg).toMatch(/samples=([3-9]|\d\d+)/);
+    expect(msg).toMatch(/rate=-?[\d.]+\s?[KMGTP]?i?B\/day/);
+    expect(msg).not.toMatch(/rate=unknown/);
+    expect(msg).toMatch(/full_in=(never|[\dwd: hms]+)/);
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_drivesize accepts trend-window and rejects garbage", async () => {
+    const ok = await executeQuery(key, "check_drivesize", {
+      drive: ROOT_DRIVE,
+      "trend-window": "6h",
+      warning: "used > 100%",
+      critical: "used > 100%",
+    });
+    expect(ok.result).toBe(OK);
+
+    const bad = await executeQuery(key, "check_drivesize", {
+      drive: ROOT_DRIVE,
+      "trend-window": "bogus",
+    });
+    expect(bad.result).toBe(UNKNOWN);
+    expect(messageOf(bad)).toMatch(/Invalid trend-window/i);
   });
 
   // --- check_disk_io ----------------------------------------------------------

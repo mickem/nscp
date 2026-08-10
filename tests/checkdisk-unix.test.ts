@@ -134,6 +134,67 @@ onLinux("CheckDisk (Unix)", () => {
     expect(out).toMatch(/'total used'=/);
   });
 
+  // --- check_drivesize trend keywords (full_in / rate) ----------------------
+  //
+  // In the one-shot client-query path the collector has (at most) a single
+  // fresh sample by the time the check runs — deterministically NOT a valid
+  // trend (that needs >= 3 samples spanning >= 3x the sampling interval).
+  // These cases pin the documented no-data contract: never/unknown/0-span,
+  // thresholds that cannot fire, and no perfdata poisoning.
+
+  it("trend keywords report the no-data contract before a trend exists", async () => {
+    const out = await query("check_drivesize", [
+      "drive=/",
+      "detail-syntax=%(drive)|full_in=%(full_in)|rate=%(rate)|span=%(trend_span)|samples=%(trend_samples)",
+      "top-syntax=${list}",
+    ]);
+    expect(out).toMatch(/\/\|full_in=never\|rate=unknown\|span=0\|samples=[01]\b/);
+  });
+
+  it("a full_in duration threshold parses over the k=v token path and cannot fire on no data", async () => {
+    const r = await queryWithCode("check_drivesize", [
+      "drive=/",
+      "warning=full_in < 12h",
+      "critical=full_in < 1h",
+    ]);
+    expect(r.out).not.toMatch(/does not take any arguments|unrecognised|Invalid syntax/i);
+    expect(r.code).toBe(0); // a missing value satisfies no numeric predicate
+  });
+
+  it("a missing full_in emits no perfdata even when thresholded", async () => {
+    const out = await query("check_drivesize", ["drive=/", "warning=full_in < 12h"]);
+    expect(out).not.toMatch(/full_in'?=/);
+  });
+
+  it("full_in = 'never' is the presence test for a missing trend", async () => {
+    // No trend -> the presence test matches the drive (count=1, rendering the
+    // all-ok syntax); had it not matched, empty-state=critical would have
+    // produced "CRITICAL: No drives found" instead.
+    const r = await queryWithCode("check_drivesize", [
+      "drive=/",
+      "filter=full_in = 'never'",
+      "empty-state=critical",
+    ]);
+    expect(r.out).toMatch(/All 1 drive\(s\) are ok/);
+    expect(r.code).toBe(0);
+  });
+
+  it("rejects an invalid trend-window", async () => {
+    const r = await queryWithCode("check_drivesize", ["drive=/", "trend-window=bogus"]);
+    expect(r.out).toMatch(/Invalid trend-window/i);
+    expect(r.code).toBe(3);
+  });
+
+  it("accepts a trend-window duration", async () => {
+    const r = await queryWithCode("check_drivesize", [
+      "drive=/",
+      "trend-window=6h",
+      "warning=used>99%",
+      "critical=used>99%",
+    ]);
+    expect(r.code).toBe(0);
+  });
+
   // --- check_files ---------------------------------------------------------
 
   it("scans a directory and exposes size / line_count / age", async () => {

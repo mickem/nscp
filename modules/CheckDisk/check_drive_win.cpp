@@ -6,6 +6,7 @@
 #include <boost/program_options.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <bytes/char_buffer.hpp>
+#include <ctime>
 #include <error/error.hpp>
 #include <memory>
 #include <nscapi/macros.hpp>
@@ -20,6 +21,8 @@
 #include <str/format.hpp>
 #include <str/xtos.hpp>
 #include <utility>
+
+#include "drive_trend.hpp"
 
 #ifdef WIN32
 #include <Windows.h>
@@ -92,9 +95,14 @@ struct filter_obj {
   bool has_size;
   bool has_type;
   bool unreadable;
+  // Used-space trend over the chosen window (invalid/0-sample when the drive
+  // has no collector history); the total row aggregates instead.
+  trend::slope_result trend_;
+  bool is_total_;
+  drive_trend::total_values trend_total_;
 
   explicit filter_obj(const drive_container &drive)
-      : drive(drive), drive_type(0), user_free(0), total_free(0), drive_size(0), has_size(false), has_type(false), unreadable(true) {};
+      : drive(drive), drive_type(0), user_free(0), total_free(0), drive_size(0), has_size(false), has_type(false), unreadable(true), is_total_(false) {};
 
   std::string get_drive() const { return drive.letter; }
   std::string get_letter() const {
@@ -271,14 +279,34 @@ struct filter_obj {
     drive_size = totalNumberOfBytes.QuadPart;
   }
 
+  // Trend keywords. full_in projects from the current free space, so it pulls
+  // the (lazy) GetDiskFreeSpaceEx numbers; rate/span/samples come from the
+  // history alone.
+  boost::optional<long long> get_full_in(parsers::where::evaluation_context context) {
+    if (is_total_) return trend_total_.full_in;
+    get_size(context);
+    return drive_trend::full_in(trend_, total_free, drive_size);
+  }
+  boost::optional<long long> get_rate() const {
+    if (is_total_) return trend_total_.rate;
+    return drive_trend::rate_per_day(trend_);
+  }
+  long long get_trend_span() const { return is_total_ ? trend_total_.span : trend_.span; }
+  long long get_trend_samples() const { return is_total_ ? trend_total_.samples : trend_.samples; }
+  std::string get_full_in_human(parsers::where::evaluation_context context) { return drive_trend::format_full_in(get_full_in(context)); }
+  std::string get_rate_human(parsers::where::evaluation_context) const { return drive_trend::format_rate(get_rate()); }
+
   void append(std::shared_ptr<filter_obj> other) {
     user_free += other->user_free;
     total_free += other->total_free;
     drive_size += other->drive_size;
+    trend_total_.append(drive_trend::full_in(other->trend_, other->total_free, other->drive_size), drive_trend::rate_per_day(other->trend_),
+                        other->trend_.span, other->trend_.samples);
   }
   void make_total() {
     has_size = true;
     has_type = true;
+    is_total_ = true;
     total_free = 0;
     user_free = 0;
     drive_size = 0;
@@ -352,6 +380,7 @@ struct filter_obj_handler : public native_context {
   static const parsers::where::value_type type_custom_total_free = parsers::where::type_custom_int_2;
   static const parsers::where::value_type type_custom_user_used = parsers::where::type_custom_int_3;
   static const parsers::where::value_type type_custom_user_free = parsers::where::type_custom_int_4;
+  static const parsers::where::value_type type_custom_full_in = parsers::where::type_custom_int_5;
   static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_9;
 
   filter_obj_handler() {
@@ -406,6 +435,32 @@ struct filter_obj_handler : public native_context {
     ;
     // clang-format on
 
+    // Trend keywords (fed by the CheckDisk collector's used-space history).
+    // full_in/rate are optional numbers: no value (and no perfdata) until a
+    // trend exists; the no-value string is the presence test
+    // (full_in = 'never', rate = 'unknown').
+    registry_
+        .add_optional_int_var_w_context(
+            "full_in", type_custom_full_in, [](std::shared_ptr<filter_obj> obj, parsers::where::evaluation_context context) { return obj->get_full_in(context); },
+            "never",
+            "Estimated seconds until the drive is full at the current growth rate, projected from the current free space. Thresholds take durations "
+            "(full_in < 12h, full_in < 5d); renders 'never' (and no threshold fires) while the drive is shrinking or no trend exists yet. Window set "
+            "by trend-window (default 24h)")
+        .add_int_perf("s", "", " full_in");
+    registry_
+        .add_optional_int_var(
+            "rate", [](std::shared_ptr<filter_obj> obj) { return obj->get_rate(); }, "unknown",
+            "Growth of used space in bytes/day over the trend window (negative = emptying); 'unknown' until enough history exists")
+        .add_int_perf("", "", " rate");
+    registry_
+        .add_int_var("trend_span", [](std::shared_ptr<filter_obj> obj) { return obj->get_trend_span(); },
+                     "Seconds of history behind the trend estimate (0 = no data); use e.g. warn=trend_span < 1h to assert data sufficiency")
+        .no_perf();
+    registry_
+        .add_int_var("trend_samples", [](std::shared_ptr<filter_obj> obj) { return obj->get_trend_samples(); },
+                     "Number of samples behind the trend estimate")
+        .no_perf();
+
     registry_.add_human_string_context("free", &filter_obj::get_total_free_human, "")
         .add_human_string_context("total_free", &filter_obj::get_total_free_human, "")
         .add_human_string_context("user_free", &filter_obj::get_user_free_human, "")
@@ -421,12 +476,18 @@ struct filter_obj_handler : public native_context {
         .add_human_string_context("user_free_pct", &filter_obj::get_user_free_pct_human, "")
         .add_human_string_context("used_pct", &filter_obj::get_total_used_pct_human, "")
         .add_human_string_context("total_used_pct", &filter_obj::get_total_used_pct_human, "")
-        .add_human_string_context("user_used_pct", &filter_obj::get_user_used_pct_human, "");
+        .add_human_string_context("user_used_pct", &filter_obj::get_user_used_pct_human, "")
+        .add_human_string_context("full_in", &filter_obj::get_full_in_human, "")
+        .add_human_string_context("rate", &filter_obj::get_rate_human, "");
 
     registry_.add_converter(type_custom_total_free, &calculate_total_used)
         .add_converter(type_custom_total_used, &calculate_total_used)
         .add_converter(type_custom_user_free, &calculate_user_used)
         .add_converter(type_custom_user_used, &calculate_user_used)
+        .add_converter(type_custom_full_in,
+                       [](std::shared_ptr<filter_obj>, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+                         return drive_trend::parse_time_node(context, subject);
+                       })
         .add_converter(type_custom_type, &convert_type);
   }
 };
@@ -760,7 +821,8 @@ std::list<drive_container> find_drives(std::vector<std::string> drives, std::vec
 }
 void add_custom_options(po::options_description desc) {}
 
-void check_drive::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+void check_drive::check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                        const trend_map &trends) {
   // `fetch-only` short-circuits the filter machinery and emits one line per
   // mounted volume in `<<<df>>>` format: device fs total_kb used_kb avail_kb pct% mountpoint.
   for (int i = 0; i < request.arguments_size(); i++) {
@@ -793,7 +855,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
   std::vector<std::string> drives, excludes, require;
   bool ignore_unreadable = false, total = false, only_mounted = false, ignore_missing = false;
-  ;
+  std::string trend_window_str;
   double magic;
 
   // clang-format off
@@ -817,11 +879,23 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
 			"Silently skip drives named with drive= that do not exist, instead of failing the whole check. Intended for optional mounts. "
 			"Implies empty-state=ok, so a check whose drives are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one). "
 			"Drives listed in require= are unaffected: those are still CRITICAL when absent, which is the point of listing them.")
+		("trend-window", po::value<std::string>(&trend_window_str)->default_value("24h"),
+			"Lookback window for the full_in/rate trend keywords (e.g. 2h, 24h, 7d). A long window measures the net growth across cleanup cycles; a short "
+			"one catches something filling the disk right now. Bounded by the collector's trend retention (default 7d).")
 		;
 	add_custom_options(filter_helper.get_desc());
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  long long trend_window = 0;
+  try {
+    trend_window = str::format::stox_as_time_sec<long long>(trend_window_str, "s");
+    if (trend_window <= 0) throw std::invalid_argument("must be positive");
+  } catch (const std::exception &e) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Invalid trend-window '" + trend_window_str + "': " + e.what());
+  }
+  const long long now = static_cast<long long>(std::time(nullptr));
 
   // "Ignore missing" only makes sense if a check whose drives are ALL missing
   // is OK too - otherwise the false CRITICAL is merely traded for a false
@@ -881,6 +955,7 @@ void check_drive::check(const PB::Commands::QueryRequestMessage::Request &reques
         std::find(excludes.begin(), excludes.end(), drive.letter_only) != excludes.end())
       continue;
     std::shared_ptr<filter_obj> obj(new filter_obj(drive));
+    obj->trend_ = drive_trend::compute(drive_trend::lookup_win(trends, drive.letter), now, trend_window);
     filter.match(obj);
     if (filter.has_errors()) return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
     if (total) {

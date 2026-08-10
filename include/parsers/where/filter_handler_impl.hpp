@@ -210,6 +210,17 @@ struct function_registry {
     add(var, false);
     return *this;
   }
+  // Context-taking form of add_optional_int_var, for optional values that can
+  // only be computed against the evaluation context (e.g. check_drivesize's
+  // full_in, which projects from the lazily-fetched current free space).
+  function_registry<T>& add_optional_int_var_w_context(std::string key, value_type type, typename filter_variable<T>::opt_int_fun_type fun,
+                                                       std::string no_value, std::string description) {
+    std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
+    var->o_function = fun;
+    var->no_value = no_value;
+    add(var, false);
+    return *this;
+  }
   function_registry<T>& add_int_var_w_context(std::string key, std::function<long long(T, evaluation_context)> i_fun, std::string description) {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type_int, description));
     var->i_function = i_fun;
