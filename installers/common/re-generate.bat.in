@@ -1,4 +1,4 @@
-"@WIX_ROOT_DIR@\bin\heat.exe" dir ..\..\web -cg WEBResources -gg -out web.wxs -var var.WebSource
-"@WIX_ROOT_DIR@\bin\heat.exe" dir ..\..\scripts -cg ScriptResources -gg -out scripts.wxs -var var.ScriptSource
-"@WIX_ROOT_DIR@\bin\heat.exe" dir ..\..\op5\scripts -cg Op5ScriptResources -gg -out op5_scripts.wxs -var var.OP5ScriptSource
-"@WIX_ROOT_DIR@\bin\heat.exe" dir ..\..\op5\config -cg Op5ConfigResources -gg -out op5_config.wxs -var var.OP5ConfigSource
+"@WIX_ROOT_DIR@\bin\heat.exe" dir "@RE_GENERATE_SOURCE_ROOT@\web" -cg WEBResources -gg -out "@RE_GENERATE_WXS_FOLDER@\web.wxs" -var var.WebSource
+"@WIX_ROOT_DIR@\bin\heat.exe" dir "@RE_GENERATE_SOURCE_ROOT@\scripts" -cg ScriptResources -gg -out "@RE_GENERATE_WXS_FOLDER@\scripts.wxs" -var var.ScriptSource
+"@WIX_ROOT_DIR@\bin\heat.exe" dir "@RE_GENERATE_SOURCE_ROOT@\op5\scripts" -cg Op5ScriptResources -gg -out "@RE_GENERATE_WXS_FOLDER@\op5_scripts.wxs" -var var.OP5ScriptSource
+"@WIX_ROOT_DIR@\bin\heat.exe" dir "@RE_GENERATE_SOURCE_ROOT@\op5\config" -cg Op5ConfigResources -gg -out "@RE_GENERATE_WXS_FOLDER@\op5_config.wxs" -var var.OP5ConfigSource
