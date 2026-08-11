@@ -21,19 +21,20 @@
 #include "check_cpu.h"
 #include "check_cpu_frequency.h"
 #include "check_cpu_utilization.h"
+#include "check_hostname.h"
+#include "check_installed_software.h"
 #include "check_kernel_stats.h"
 #include "check_load.h"
 #include "check_memory.h"
 #include "check_network.h"
-#include "check_installed_software.h"
 #include "check_os_updates.h"
 #include "check_os_version.h"
 #include "check_pagefile.h"
 #include "check_process.h"
 #include "check_process_history.h"
 #include "check_service.h"
-#include "check_temperature.h"
 #include "check_swap_io.h"
+#include "check_temperature.h"
 #include "check_uptime.h"
 
 namespace sh = nscapi::settings_helper;
@@ -172,6 +173,9 @@ void CheckSystem::check_os_updates(const PB::Commands::QueryRequestMessage::Requ
 }
 void CheckSystem::check_installed_software(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   installed_software::check_installed_software(request, response);
+}
+void CheckSystem::check_hostname(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  hostname_check::check_hostname(request, response);
 }
 void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   cpu_frequency_check::check_cpu_frequency(request, response);

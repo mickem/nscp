@@ -27,6 +27,7 @@
 #include "check_battery.hpp"
 #include "check_cpu_frequency.hpp"
 #include "check_hardware.hpp"
+#include "check_hostname.hpp"
 #include "check_installed_software.hpp"
 #include "check_load.hpp"
 #include "check_memory.hpp"
@@ -1156,6 +1157,10 @@ void CheckSystem::check_load(const PB::Commands::QueryRequestMessage::Request &r
 
 void CheckSystem::check_hardware(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   hardware_check::check(request, response);
+}
+
+void CheckSystem::check_hostname(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  hostname_check::check(request, response);
 }
 
 void CheckSystem::check_printqueue(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

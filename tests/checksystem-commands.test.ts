@@ -645,6 +645,36 @@ describe("CheckSystem commands", () => {
     expect(perfValue(q, "count")).toBeGreaterThan(0);
   });
 
+  // --- check_hostname (both platforms) -----------------------------------------
+
+  it("check_hostname reports host identity", async () => {
+    const q = await executeQuery(key, "check_hostname", {
+      "detail-syntax": "h=${hostname} f=${fqdn} c=${fqdn_consistent}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/h=\S+ f=\S+ c=\d/);
+  });
+
+  it("check_hostname pinned identity expressions parse and stay quiet", async () => {
+    // The identity-pinning policy patterns as single k=v tokens. None can
+    // match: no host answers to these sentinel names.
+    const q = await executeQuery(key, "check_hostname", {
+      warning: "hostname = 'zz_no_such_host_zz'",
+      critical: "fqdn = 'zz_no_such_fqdn_zz' or domain = 'zz.example.invalid'",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_hostname exposes the domain-join state (Windows)", async () => {
+    if (!onWindows) return; // join/join_name have no Linux equivalent.
+    const q = await executeQuery(key, "check_hostname", {
+      "detail-syntax": "join=${join} nb=${netbios_matches_dns}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/join=(domain|workgroup|standalone|unknown) nb=\d/);
+  });
+
   // --- check_hardware (Windows) ------------------------------------------------
 
   it("check_hardware inventories the machine with memory perf (Windows)", async () => {
