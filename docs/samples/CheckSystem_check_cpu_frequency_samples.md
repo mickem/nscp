@@ -17,3 +17,17 @@ check_cpu_frequency "filter=socket_id = 'CPU0'" "warn=load_pct > 90" "detail-syn
 OK: CPU 1: 12% @ 2900MHz
 'CPU0 load_pct'=12%;90;;
 ```
+
+**CPU hardware inventory (model, architecture, cores/threads, cache):**
+
+```
+check_cpu_frequency "detail-syntax=${name}: ${architecture}, ${cores}c/${logical_processors}t, L2 ${l2_cache}, L3 ${l3_cache}"
+OK: Intel(R) Core(TM) Ultra 7 265H: x64, 16c/16t, L2 28MB, L3 24MB
+```
+
+**Pin expected hardware (re-imaged / migrated box detection):**
+
+```
+check_cpu_frequency "warn=l3_cache < 1M" "crit=architecture != 'x64'"
+OK: Intel(R) Core(TM) Ultra 7 265H: 2200/2200 MHz (100%)
+```

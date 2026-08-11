@@ -17,6 +17,7 @@
 			"type": "query",
 			"metadata"	: { "guide" : "http://nsclient.org/nscp/wiki/doc/usage/nagios/nsca" }
 			},
+		"check_load"		: "Check the system load average (1/5/15 minutes), synthesised from the processor queue length plus busy cores.",
 		"check_uptime"		: "Check time since last server re-boot." ,
 		"check_service"		: "Check the state of one or more of the computer services.",
 		"check_process"		: "Check state/metrics of one or more of the processes running on the computer.",
@@ -38,6 +39,11 @@
 		"check_registry_value"	: "Check the type, content, and size of one or more Windows registry values.",
 		"check_pending_reboot"	: "Check whether the system is waiting for a reboot, aggregating the servicing, Windows Update, file-rename, computer-rename and domain-join signals.",
 		"check_patch_age"		: "Check installed-hotfix hygiene: how long since the newest hotfix was installed and whether specific required hotfixes are present.",
+		"check_installed_software"	: "Check installed software from the registry Uninstall hives (64-bit, 32-bit and per-user views): inventory, unwanted/EOL software policy and recent-install detection.",
+		"check_hardware"	: "Check hardware inventory (vendor, model, serial, chassis type, memory modules) with pinned-expectation alerting: serial changed, DIMM dropped, laptop in a server fleet.",
+		"check_hostname"	: "Check host identity: hostname, FQDN, DNS domain and domain-join state, with drift detection for the name mismatches that silently break auth and monitoring.",
+		"check_kernel_memory"	: "Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes and page-fault rates — the pool-exhaustion and hard-fault-storm signals free-RAM thresholds miss.",
+		"check_kernel_stats"	: "Check system-wide kernel activity: context-switch and system-call rates plus live process and thread counts.",
 		"check_printqueue"		: "Check Windows print queues: queue depth, oldest-job age, offline and error states per printer.",
 
 		"checkServiceState"	: "Legacy version of check_service",

@@ -18,6 +18,9 @@ set(SRCS
     check_uptime.cpp
     check_os_version.cpp
     check_os_updates.cpp
+    check_installed_software.cpp
+    check_hostname.cpp
+    check_kernel_memory.cpp
     check_memory.cpp
     check_cpu.cpp
     check_load.cpp
@@ -48,6 +51,9 @@ if(WIN32)
         check_uptime.h
         check_os_version.h
         check_os_updates.h
+        check_installed_software.h
+        check_hostname.h
+        check_kernel_memory.h
         check_memory.h
         check_cpu.h
         check_load.h
@@ -88,6 +94,12 @@ NSCP_CREATE_TEST(
         check_battery.cpp
         check_os_updates_test.cpp
         check_os_updates.cpp
+        check_installed_software_test.cpp
+        check_installed_software.cpp
+        check_hostname_test.cpp
+        check_hostname.cpp
+        check_kernel_memory_test.cpp
+        check_kernel_memory.cpp
         check_os_version_test.cpp
         check_os_version.cpp
         check_process_test.cpp

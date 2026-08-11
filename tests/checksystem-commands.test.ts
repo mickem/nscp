@@ -469,6 +469,32 @@ describe("CheckSystem commands", () => {
     expect(mhz!.value as number).toBeGreaterThan(0);
   });
 
+  it("check_cpu_frequency exposes CPU inventory keywords (Windows)", async () => {
+    if (!onWindows) return; // architecture/l2_cache/l3_cache come from Win32_Processor.
+    const q = await pollQuery(
+      key,
+      "check_cpu_frequency",
+      {
+        warning: "l2_cache > 999999G",
+        critical: "l3_cache > 999999G",
+        "detail-syntax": "arch=${architecture} cores=${cores}/${logical_processors} l2=${l2_cache} l3=${l3_cache}",
+      },
+      (r) => r.result !== UNKNOWN,
+      20_000,
+    );
+    if (q.result === UNKNOWN) {
+      expect(messageOf(q)).toMatch(/no cpu frequency/i);
+      return; // Same no-WMI-clock-data contract as the base test above.
+    }
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    // Architecture always maps to a name; cache sizes render as sizes (0B on
+    // VMs that do not report them).
+    expect(msg).toMatch(/arch=(x86|x64|ARM64|ARM|ia64|unknown)/);
+    expect(msg).toMatch(/cores=[1-9]\d*\/[1-9]\d*/);
+    expect(msg).toMatch(/l2=\S+ l3=\S+/);
+  });
+
   // --- check_network ----------------------------------------------------------
 
   it("check_network lists at least one interface with throughput perf", async () => {
@@ -579,6 +605,160 @@ describe("CheckSystem commands", () => {
     expect(perfOf(q)["patch_missing"].value as number).toBe(1);
   });
 
+  // --- check_installed_software (both platforms) ------------------------------
+
+  it("check_installed_software inventories installed packages with count perf", async () => {
+    // Windows walks the registry Uninstall hives; Linux asks dpkg/rpm/pacman.
+    // Any real host has at least one visible package, so a bare call is an
+    // OK inventory with the aggregate count as perf.
+    const q = await executeQuery(key, "check_installed_software", {});
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/software packages installed/i);
+    expect(perfValue(q, "count")).toBeGreaterThan(0);
+  });
+
+  it("check_installed_software policy expressions parse and stay quiet when nothing matches", async () => {
+    // The unwanted-software pattern (crit=name like ...) and the
+    // recent-install pattern (warn=install_date > -Nd) passed as single k=v
+    // tokens — REST-style argument parsing. Nothing can match either
+    // expression (no product has this name; nothing installed within 1s),
+    // so the result must be a clean OK.
+    const q = await executeQuery(key, "check_installed_software", {
+      warning: "install_date > -1s",
+      critical: "name like 'zz_no_such_product_zz'",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_installed_software flags matching software as critical", async () => {
+    // Inverted match: every installed package trips the expression, proving
+    // that a hit is escalated and named in the problem list.
+    const q = await executeQuery(key, "check_installed_software", {
+      critical: "name not like 'zz_no_such_product_zz'",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/critical/i);
+  });
+
+  it("check_installed_software empty filter result takes the empty state", async () => {
+    // The absent-unwanted-software probe: a filter matching nothing is OK
+    // with the documented no-data message, never UNKNOWN or an error.
+    const q = await executeQuery(key, "check_installed_software", {
+      filter: "name like 'zz_no_such_product_zz'",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/no installed software found/i);
+  });
+
+  it("check_installed_software windows keywords filter machine-wide software (Windows)", async () => {
+    if (!onWindows) return; // hive/architecture/system_component are registry-view concepts.
+    const q = await executeQuery(key, "check_installed_software", {
+      filter: "hive = 'machine' and system_component = 0",
+    });
+    expect(q.result).toBe(OK);
+    expect(perfValue(q, "count")).toBeGreaterThan(0);
+  });
+
+  it("check_installed_software exposes the package manager keyword (Linux)", async () => {
+    if (onWindows) return; // manager is the unix package-manager keyword.
+    // Whatever manager owns this host, every entry carries the same value, so
+    // filtering on the full known set must keep the inventory non-empty.
+    const q = await executeQuery(key, "check_installed_software", {
+      filter: "manager = 'dpkg' or manager = 'rpm' or manager = 'pacman'",
+    });
+    expect(q.result).toBe(OK);
+    expect(perfValue(q, "count")).toBeGreaterThan(0);
+  });
+
+  // --- check_kernel_memory (both platforms) -------------------------------------
+
+  it("check_kernel_memory reports kernel gauges and fault rates with perf", async () => {
+    // Windows samples the PDH Memory counters; Linux reads /proc/meminfo and
+    // /proc/vmstat. Both take a 1s window for the fault rates.
+    const q = await executeQuery(key, "check_kernel_memory", {});
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/cache/i);
+    const perf = perfOf(q);
+    // The byte gauges are never zero on a live kernel.
+    const gauge = onWindows ? "kernel_pool_nonpaged" : "kernel_slab_unreclaimable";
+    expect(perf[gauge]).toBeDefined();
+    expect(perf[gauge].value as number).toBeGreaterThan(0);
+    expect(perf["kernel_cache"].value as number).toBeGreaterThan(0);
+    expect(perf["kernel_page_faults_per_sec"]).toBeDefined();
+  });
+
+  it("check_kernel_memory size-unit and rate thresholds parse over REST", async () => {
+    // Pool/slab thresholds use size units and the fault thresholds are rates,
+    // all passed as single k=v tokens. Pinned so they can never trip.
+    const gauge = onWindows ? "pool_nonpaged" : "slab_unreclaimable";
+    const rate = onWindows ? "hard_faults_per_sec" : "major_faults_per_sec";
+    const q = await executeQuery(key, "check_kernel_memory", {
+      warning: `${gauge} > 999999G`,
+      critical: `${rate} > 99999999`,
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+  });
+
+  // --- check_hostname (both platforms) -----------------------------------------
+
+  it("check_hostname reports host identity", async () => {
+    const q = await executeQuery(key, "check_hostname", {
+      "detail-syntax": "h=${hostname} f=${fqdn} c=${fqdn_consistent}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/h=\S+ f=\S+ c=\d/);
+  });
+
+  it("check_hostname pinned identity expressions parse and stay quiet", async () => {
+    // The identity-pinning policy patterns as single k=v tokens. None can
+    // match: no host answers to these sentinel names.
+    const q = await executeQuery(key, "check_hostname", {
+      warning: "hostname = 'zz_no_such_host_zz'",
+      critical: "fqdn = 'zz_no_such_fqdn_zz' or domain = 'zz.example.invalid'",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_hostname exposes the domain-join state (Windows)", async () => {
+    if (!onWindows) return; // join/join_name have no Linux equivalent.
+    const q = await executeQuery(key, "check_hostname", {
+      "detail-syntax": "join=${join} nb=${netbios_matches_dns}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/join=(domain|workgroup|standalone|unknown) nb=\d/);
+  });
+
+  // --- check_hardware (Windows) ------------------------------------------------
+
+  it("check_hardware inventories the machine with memory perf (Windows)", async () => {
+    if (!onWindows) return; // WMI-based hardware inventory is Windows-only.
+    // Even a stripped-down VM answers at least one of the four classes, so a
+    // bare call is an OK inventory line with memory/module perf.
+    const q = await executeQuery(key, "check_hardware", {});
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/memory module/i);
+    const perf = perfOf(q);
+    expect(perf["hardware_memory"]).toBeDefined();
+    expect(perf["hardware_modules"]).toBeDefined();
+    expect(perf["hardware_modules"].value as number).toBeGreaterThanOrEqual(0);
+  });
+
+  it("check_hardware pinned-expectation expressions parse over REST (Windows)", async () => {
+    if (!onWindows) return;
+    // The serial-pinning / DIMM-drop policy patterns as single k=v tokens.
+    // Neither can trip: the sentinel serial matches nothing and the module
+    // count is never that large.
+    const q = await executeQuery(key, "check_hardware", {
+      warning: "modules > 99999",
+      critical: "serial = 'zz_no_such_serial_zz' or chassis like 'zz_no_such_chassis'",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_printqueue (Windows) --------------------------------------------
 
   it("check_printqueue runs and reports a valid status (Windows)", async () => {
@@ -605,25 +785,32 @@ describe("CheckSystem commands", () => {
     expect(q.result).toBe(OK);
   });
 
-  // --- Linux-only checks (no Windows CheckSystem equivalent) ------------------
+  // --- check_load (both platforms) ---------------------------------------------
 
-  it("check_load reports the three load averages (Linux)", async () => {
-    if (onWindows) return; // check_load is CheckSystemUnix-only.
-    const q = await executeQuery(key, "check_load", {
-      "detail-syntax": "l1=${load1} l5=${load5} l15=${load15} type=${type}",
-    });
+  it("check_load reports the three load averages", async () => {
+    // Linux reads /proc/loadavg; Windows synthesises the averages on the 1 Hz
+    // collector tick (processor queue length + busy cores) and reports "not
+    // available yet" until the first sample lands, so poll until it is OK.
+    const q = await pollQuery(
+      key,
+      "check_load",
+      { "detail-syntax": "l1=${load1} l5=${load5} l15=${load15} type=${type}" },
+      (r) => r.result === OK,
+    );
     expect(q.result).toBe(OK); // no default thresholds -> always OK
     expect(messageOf(q)).toMatch(/l1=[\d.]+ l5=[\d.]+ l15=[\d.]+ type=total/);
     // load1/5/15 perf is emitted.
     expect(Object.keys(perfOf(q)).some((k) => /load1/.test(k))).toBe(true);
   });
 
-  it("check_load percpu reports the scaled per-core load (Linux)", async () => {
-    if (onWindows) return;
-    const q = await executeQuery(key, "check_load", { percpu: "true", "detail-syntax": "${type}" });
+  it("check_load percpu reports the scaled per-core load", async () => {
+    // percpu is a valued boolean over REST (the bool_switch trap).
+    const q = await pollQuery(key, "check_load", { percpu: "true", "detail-syntax": "${type}" }, (r) => r.result === OK);
     expect(q.result).toBe(OK);
     expect(messageOf(q)).toMatch(/scaled/);
   });
+
+  // --- Linux-only checks (no Windows CheckSystem equivalent) ------------------
 
   it("check_cpu_utilization exposes iowait/steal breakdown (Linux)", async () => {
     if (onWindows) return; // check_cpu_utilization is CheckSystemUnix-only.
@@ -639,8 +826,10 @@ describe("CheckSystem commands", () => {
     expect(total).toBeLessThanOrEqual(100);
   });
 
-  it("check_kernel_stats reports ctxt/processes/threads (Linux)", async () => {
-    if (onWindows) return; // check_kernel_stats is CheckSystemUnix-only.
+  it("check_kernel_stats reports ctxt/processes/threads", async () => {
+    // Linux reads /proc/stat; Windows samples the PDH System counters. Both
+    // expose ctxt/processes/threads rows (Windows adds a syscalls row, and its
+    // processes row is a gauge rather than a fork rate).
     const q = await executeQuery(key, "check_kernel_stats", {
       "detail-syntax": "${name}=${current}",
     });
@@ -651,8 +840,7 @@ describe("CheckSystem commands", () => {
     expect(msg).toMatch(/threads=[1-9]\d*/); // there is always at least one thread
   });
 
-  it("check_kernel_stats type= selects a single metric (Linux)", async () => {
-    if (onWindows) return;
+  it("check_kernel_stats type= selects a single metric", async () => {
     const q = await executeQuery(key, "check_kernel_stats", {
       type: "threads",
       "detail-syntax": "${name}",

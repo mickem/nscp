@@ -36,7 +36,7 @@ TEST(disable_list, empty_and_blank_entries_are_ignored) {
 }
 
 TEST(disable_list, all_documented_values_are_known) {
-  const auto tokens = disable_list::parse("battery,cpu,handles,network,temperature,cpu_frequency,os_updates,metrics,pdh");
+  const auto tokens = disable_list::parse("battery,cpu,handles,load,network,temperature,cpu_frequency,os_updates,metrics,pdh");
   for (const std::string &token : tokens) {
     EXPECT_EQ(disable_list::known_tokens().count(token), 1u) << "unexpected token: " << token;
   }

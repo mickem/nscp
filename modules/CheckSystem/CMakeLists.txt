@@ -29,6 +29,12 @@ set(SRCS
     check_registry.cpp
     check_pending_reboot.cpp
     check_patch_age.cpp
+    check_installed_software.cpp
+    check_load.cpp
+    check_hardware.cpp
+    check_hostname.cpp
+    check_kernel_memory.cpp
+    check_kernel_stats.cpp
     check_printqueue.cpp
     filter_config_object.cpp
     realtime_data.cpp
@@ -81,6 +87,12 @@ if(WIN32)
         check_registry.hpp
         check_pending_reboot.hpp
         check_patch_age.hpp
+        check_installed_software.hpp
+        check_load.hpp
+        check_hardware.hpp
+        check_hostname.hpp
+        check_kernel_memory.hpp
+        check_kernel_stats.hpp
         check_printqueue.hpp
         ${NSCP_INCLUDEDIR}/win/registry.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
@@ -117,6 +129,8 @@ target_link_libraries(
     Wbemuuid.lib
     OleAut32
     Advapi32
+    # NetGetJoinInformation (check_hostname).
+    Netapi32
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("pdh" REGULAR_EXPRESSION .*include/pdh/.*)
@@ -140,6 +154,12 @@ NSCP_CREATE_TEST(
         check_swap_io_test.cpp
         check_pending_reboot_test.cpp
         check_patch_age_test.cpp
+        check_installed_software_test.cpp
+        check_load_test.cpp
+        check_hardware_test.cpp
+        check_hostname_test.cpp
+        check_kernel_memory_test.cpp
+        check_kernel_stats_test.cpp
         check_printqueue_test.cpp
         check_os_version_test.cpp
         check_pdh_test.cpp
@@ -163,6 +183,12 @@ NSCP_CREATE_TEST(
         check_registry.cpp
         check_pending_reboot.cpp
         check_patch_age.cpp
+        check_installed_software.cpp
+        check_load.cpp
+        check_hardware.cpp
+        check_hostname.cpp
+        check_kernel_memory.cpp
+        check_kernel_stats.cpp
         check_printqueue.cpp
         pdh_thread.cpp
         filter_config_object.cpp
@@ -208,6 +234,7 @@ NSCP_CREATE_TEST(
         OleAut32
         psapi
         Advapi32
+        Netapi32
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}

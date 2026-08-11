@@ -26,6 +26,12 @@
 
 #include "check_battery.hpp"
 #include "check_cpu_frequency.hpp"
+#include "check_hardware.hpp"
+#include "check_hostname.hpp"
+#include "check_installed_software.hpp"
+#include "check_kernel_memory.hpp"
+#include "check_kernel_stats.hpp"
+#include "check_load.hpp"
 #include "check_memory.hpp"
 #include "check_os_updates.hpp"
 #include "check_patch_age.hpp"
@@ -233,7 +239,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       "Sample per-process CPU", "Sample per-process CPU usage once a second in the background so that 'check_process delta=true' can report CPU% without stalling the check for a second. Off by default (adds one system-process-table query per second); required for the delta=true CPU fields.")
 
     .add_string("disable", sh::string_key(&collector->disable_, ""),
-        "Disable automatic checks", "A comma separated list of checks to disable in the collector: battery,cpu,handles,network,temperature,cpu_frequency,os_updates,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+        "Disable automatic checks", "A comma separated list of checks to disable in the collector: battery,cpu,handles,load,network,temperature,cpu_frequency,os_updates,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
     ;
 
   // Cache the configured timezone (issue #365). The value is owned by the
@@ -1141,6 +1147,30 @@ void CheckSystem::check_pending_reboot(const PB::Commands::QueryRequestMessage::
 
 void CheckSystem::check_patch_age(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   patch_age_check::check_patch_age(request, response);
+}
+
+void CheckSystem::check_installed_software(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  installed_software_check::check(request, response);
+}
+
+void CheckSystem::check_load(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  load_check::check_load(request, response, collector);
+}
+
+void CheckSystem::check_hardware(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  hardware_check::check(request, response);
+}
+
+void CheckSystem::check_hostname(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  hostname_check::check(request, response);
+}
+
+void CheckSystem::check_kernel_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  kernel_memory_check::check_kernel_memory(request, response);
+}
+
+void CheckSystem::check_kernel_stats(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  kernel_stats_check::check_kernel_stats(request, response);
 }
 
 void CheckSystem::check_printqueue(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

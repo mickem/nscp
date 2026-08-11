@@ -112,8 +112,29 @@ TEST(CpuFrequency, BuildMetrics) {
   PB::Metrics::MetricsBundle section;
   c.build_metrics(&section);
 
-  // Should produce 6 metrics: current_mhz, max_mhz, frequency_pct, cores, logical_processors, load_pct
-  EXPECT_EQ(section.value_size(), 6);
+  // current_mhz, max_mhz, frequency_pct, cores, logical_processors, load_pct, l2_cache, l3_cache
+  EXPECT_EQ(section.value_size(), 8);
+}
+
+TEST(CpuFrequency, ArchitectureMapping) {
+  EXPECT_EQ(cpu_frequency_check::architecture_to_string(0), "x86");
+  EXPECT_EQ(cpu_frequency_check::architecture_to_string(9), "x64");
+  EXPECT_EQ(cpu_frequency_check::architecture_to_string(12), "ARM64");
+  EXPECT_EQ(cpu_frequency_check::architecture_to_string(5), "ARM");
+  EXPECT_EQ(cpu_frequency_check::architecture_to_string(42), "unknown (42)");
+}
+
+TEST(CpuFrequency, CacheAccessorsAndHumanRendering) {
+  cpu_frequency_check::cpu_frequency c;
+  c.l2_cache = 512LL * 1024;
+  c.l3_cache = 16LL * 1024 * 1024;
+  EXPECT_EQ(c.get_l2_cache(), 512LL * 1024);
+  EXPECT_EQ(c.get_l3_cache(), 16LL * 1024 * 1024);
+  EXPECT_EQ(c.get_l2_cache_human(), "512KB");
+  EXPECT_EQ(c.get_l3_cache_human(), "16MB");
+  // Unreported caches render as 0B rather than failing.
+  const cpu_frequency_check::cpu_frequency empty;
+  EXPECT_EQ(empty.get_l2_cache_human(), "0B");
 }
 
 TEST(CpuFrequency, SocketAndLoadAccessors) {
