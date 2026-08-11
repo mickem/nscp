@@ -1,5 +1,5 @@
-Reports per-CPU-socket frequency and load, sourced from the `Win32_Processor`
-WMI class (one instance per physical socket).
+Reports per-CPU-socket frequency, load and hardware inventory, sourced from the
+`Win32_Processor` WMI class (one instance per physical socket).
 
 | Keyword | Description |
 |---|---|
@@ -12,7 +12,13 @@ WMI class (one instance per physical socket).
 | `load_pct` | Per-socket CPU load from `Win32_Processor.LoadPercentage` (perf). |
 | `cores` | Number of physical cores. |
 | `logical_processors` | Number of logical processors (threads). |
+| `architecture` | Processor architecture (`x86`, `x64`, `ARM64`, ...). |
+| `l2_cache` | L2 cache size; size units work (`l2_cache < 1M`), renders human-readable. 0 when not reported. |
+| `l3_cache` | L3 cache size; 0 when not reported (common on VMs). |
 
 There are no default warning/critical thresholds: modern CPUs legitimately clock
 far below their maximum at idle, so a `frequency_pct` default would warn on every
-idle machine. Use `load_pct` for a per-socket utilisation alert.
+idle machine. Use `load_pct` for a per-socket utilisation alert. The inventory
+columns (`architecture`, `l2_cache`, `l3_cache`) make the check double as the
+per-socket CPU hardware inventory; pin them to detect a re-imaged or migrated
+box (`crit=architecture != 'x64'`).

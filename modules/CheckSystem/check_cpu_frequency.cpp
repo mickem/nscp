@@ -10,14 +10,52 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <str/format.hpp>
 
 namespace cpu_frequency_check {
 
 // Win32_Processor provides per-socket CPU info including current and max clock speed.
 std::string helper::query =
-    "select DeviceId, SocketDesignation, Name, CurrentClockSpeed, MaxClockSpeed, NumberOfCores, NumberOfLogicalProcessors, LoadPercentage"
+    "select DeviceId, SocketDesignation, Name, CurrentClockSpeed, MaxClockSpeed, NumberOfCores, NumberOfLogicalProcessors, LoadPercentage,"
+    " L2CacheSize, L3CacheSize, Architecture"
     " from Win32_Processor";
 std::string helper::ns = "root\\CIMV2";
+
+std::string architecture_to_string(const long long architecture) {
+  // Win32_Processor.Architecture values.
+  switch (architecture) {
+    case 0:
+      return "x86";
+    case 1:
+      return "MIPS";
+    case 2:
+      return "Alpha";
+    case 3:
+      return "PowerPC";
+    case 5:
+      return "ARM";
+    case 6:
+      return "ia64";
+    case 9:
+      return "x64";
+    case 12:
+      return "ARM64";
+    default:
+      return "unknown (" + std::to_string(architecture) + ")";
+  }
+}
+
+namespace {
+// The inventory columns are absent or NULL on some platforms (VMs, older
+// Windows); read them best-effort instead of failing the whole row.
+long long get_int_or_zero(const wmi_impl::row &r, const char *col) {
+  try {
+    return r.get_int(col);
+  } catch (...) {
+    return 0;
+  }
+}
+}  // namespace
 
 void cpu_frequency::read_wmi(const wmi_impl::row &r) {
   socket_id = r.get_string("DeviceId");
@@ -28,7 +66,19 @@ void cpu_frequency::read_wmi(const wmi_impl::row &r) {
   number_of_cores = r.get_int("NumberOfCores");
   number_of_logical_processors = r.get_int("NumberOfLogicalProcessors");
   load_pct = r.get_int("LoadPercentage");
+  // L2/L3CacheSize are reported in KB.
+  l2_cache = get_int_or_zero(r, "L2CacheSize") * 1024;
+  l3_cache = get_int_or_zero(r, "L3CacheSize") * 1024;
+  try {
+    architecture = architecture_to_string(r.get_int("Architecture"));
+  } catch (...) {
+    // Cannot default to 0 here: 0 is a valid value (x86).
+    architecture = "unknown";
+  }
 }
+
+std::string cpu_frequency::get_l2_cache_human() const { return str::format::format_byte_units(l2_cache); }
+std::string cpu_frequency::get_l3_cache_human() const { return str::format::format_byte_units(l3_cache); }
 
 void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using namespace nscapi::metrics;
@@ -38,6 +88,8 @@ void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
   add_metric(section, name + ".cores", number_of_cores);
   add_metric(section, name + ".logical_processors", number_of_logical_processors);
   add_metric(section, name + ".load_pct", load_pct);
+  add_metric(section, name + ".l2_cache", l2_cache);
+  add_metric(section, name + ".l3_cache", l3_cache);
 }
 
 cpus_type cpu_frequency_data::query_wmi() {
@@ -100,7 +152,16 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("load_pct", &filter_obj::get_load_pct, "Per-socket CPU load as reported by Win32_Processor.LoadPercentage")
       .add_int_perf("%")
       .add_int_var("cores", &filter_obj::get_number_of_cores, "Number of physical cores")
-      .add_int_var("logical_processors", &filter_obj::get_number_of_logical_processors, "Number of logical processors (threads)");
+      .add_int_var("logical_processors", &filter_obj::get_number_of_logical_processors, "Number of logical processors (threads)")
+      .add_int_var("l2_cache", parsers::where::type_size, &filter_obj::get_l2_cache,
+                   "L2 cache size (size units work, e.g. 'l2_cache < 1M'); 0 when not reported")
+      .add_int_var("l3_cache", parsers::where::type_size, &filter_obj::get_l3_cache, "L3 cache size; 0 when not reported (common on VMs)");
+
+  registry_.add_string_var("architecture", &filter_obj::get_architecture, "Processor architecture (x86, x64, ARM64, ...)");
+
+  // Render the cache sizes human-readable; expressions keep comparing bytes.
+  registry_.add_human_string("l2_cache", &filter_obj::get_l2_cache_human, "L2 cache as a human-readable size")
+      .add_human_string("l3_cache", &filter_obj::get_l3_cache_human, "L3 cache as a human-readable size");
 }
 
 void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,

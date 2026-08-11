@@ -34,6 +34,7 @@ set(SRCS
     check_hardware.cpp
     check_hostname.cpp
     check_kernel_memory.cpp
+    check_kernel_stats.cpp
     check_printqueue.cpp
     filter_config_object.cpp
     realtime_data.cpp
@@ -91,6 +92,7 @@ if(WIN32)
         check_hardware.hpp
         check_hostname.hpp
         check_kernel_memory.hpp
+        check_kernel_stats.hpp
         check_printqueue.hpp
         ${NSCP_INCLUDEDIR}/win/registry.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
@@ -157,6 +159,7 @@ NSCP_CREATE_TEST(
         check_hardware_test.cpp
         check_hostname_test.cpp
         check_kernel_memory_test.cpp
+        check_kernel_stats_test.cpp
         check_printqueue_test.cpp
         check_os_version_test.cpp
         check_pdh_test.cpp
@@ -185,6 +188,7 @@ NSCP_CREATE_TEST(
         check_hardware.cpp
         check_hostname.cpp
         check_kernel_memory.cpp
+        check_kernel_stats.cpp
         check_printqueue.cpp
         pdh_thread.cpp
         filter_config_object.cpp

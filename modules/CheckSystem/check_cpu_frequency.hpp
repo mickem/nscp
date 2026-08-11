@@ -30,8 +30,13 @@ struct cpu_frequency {
   long long number_of_cores;
   long long number_of_logical_processors;
   long long load_pct;
+  // Inventory columns: cache sizes in bytes (0 when the platform does not
+  // report them — common on VMs) and the architecture mapped to a name.
+  long long l2_cache;
+  long long l3_cache;
+  std::string architecture;
 
-  cpu_frequency() : current_mhz(0), max_mhz(0), number_of_cores(0), number_of_logical_processors(0), load_pct(0) {}
+  cpu_frequency() : current_mhz(0), max_mhz(0), number_of_cores(0), number_of_logical_processors(0), load_pct(0), l2_cache(0), l3_cache(0) {}
   cpu_frequency(const cpu_frequency &other) = default;
   cpu_frequency &operator=(const cpu_frequency &other) = default;
 
@@ -47,9 +52,18 @@ struct cpu_frequency {
   long long get_number_of_logical_processors() const { return number_of_logical_processors; }
   long long get_load_pct() const { return load_pct; }
   long long get_frequency_pct() const { return max_mhz == 0 ? 0 : (current_mhz * 100 / max_mhz); }
+  long long get_l2_cache() const { return l2_cache; }
+  long long get_l3_cache() const { return l3_cache; }
+  std::string get_l2_cache_human() const;
+  std::string get_l3_cache_human() const;
+  std::string get_architecture() const { return architecture; }
 
   std::string show() const { return name; }
 };
+
+// Map a Win32_Processor.Architecture value to a name (0=x86, 5=ARM, 6=ia64,
+// 9=x64, 12=ARM64, ...). Pure, exposed for unit tests.
+std::string architecture_to_string(long long architecture);
 
 typedef std::list<cpu_frequency> cpus_type;
 

@@ -469,6 +469,32 @@ describe("CheckSystem commands", () => {
     expect(mhz!.value as number).toBeGreaterThan(0);
   });
 
+  it("check_cpu_frequency exposes CPU inventory keywords (Windows)", async () => {
+    if (!onWindows) return; // architecture/l2_cache/l3_cache come from Win32_Processor.
+    const q = await pollQuery(
+      key,
+      "check_cpu_frequency",
+      {
+        warning: "l2_cache > 999999G",
+        critical: "l3_cache > 999999G",
+        "detail-syntax": "arch=${architecture} cores=${cores}/${logical_processors} l2=${l2_cache} l3=${l3_cache}",
+      },
+      (r) => r.result !== UNKNOWN,
+      20_000,
+    );
+    if (q.result === UNKNOWN) {
+      expect(messageOf(q)).toMatch(/no cpu frequency/i);
+      return; // Same no-WMI-clock-data contract as the base test above.
+    }
+    expect(q.result).toBe(OK);
+    const msg = messageOf(q);
+    // Architecture always maps to a name; cache sizes render as sizes (0B on
+    // VMs that do not report them).
+    expect(msg).toMatch(/arch=(x86|x64|ARM64|ARM|ia64|unknown)/);
+    expect(msg).toMatch(/cores=[1-9]\d*\/[1-9]\d*/);
+    expect(msg).toMatch(/l2=\S+ l3=\S+/);
+  });
+
   // --- check_network ----------------------------------------------------------
 
   it("check_network lists at least one interface with throughput perf", async () => {
@@ -800,8 +826,10 @@ describe("CheckSystem commands", () => {
     expect(total).toBeLessThanOrEqual(100);
   });
 
-  it("check_kernel_stats reports ctxt/processes/threads (Linux)", async () => {
-    if (onWindows) return; // check_kernel_stats is CheckSystemUnix-only.
+  it("check_kernel_stats reports ctxt/processes/threads", async () => {
+    // Linux reads /proc/stat; Windows samples the PDH System counters. Both
+    // expose ctxt/processes/threads rows (Windows adds a syscalls row, and its
+    // processes row is a gauge rather than a fork rate).
     const q = await executeQuery(key, "check_kernel_stats", {
       "detail-syntax": "${name}=${current}",
     });
@@ -812,8 +840,7 @@ describe("CheckSystem commands", () => {
     expect(msg).toMatch(/threads=[1-9]\d*/); // there is always at least one thread
   });
 
-  it("check_kernel_stats type= selects a single metric (Linux)", async () => {
-    if (onWindows) return;
+  it("check_kernel_stats type= selects a single metric", async () => {
     const q = await executeQuery(key, "check_kernel_stats", {
       type: "threads",
       "detail-syntax": "${name}",
