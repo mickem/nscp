@@ -645,6 +645,34 @@ describe("CheckSystem commands", () => {
     expect(perfValue(q, "count")).toBeGreaterThan(0);
   });
 
+  // --- check_hardware (Windows) ------------------------------------------------
+
+  it("check_hardware inventories the machine with memory perf (Windows)", async () => {
+    if (!onWindows) return; // WMI-based hardware inventory is Windows-only.
+    // Even a stripped-down VM answers at least one of the four classes, so a
+    // bare call is an OK inventory line with memory/module perf.
+    const q = await executeQuery(key, "check_hardware", {});
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/memory module/i);
+    const perf = perfOf(q);
+    expect(perf["hardware_memory"]).toBeDefined();
+    expect(perf["hardware_modules"]).toBeDefined();
+    expect(perf["hardware_modules"].value as number).toBeGreaterThanOrEqual(0);
+  });
+
+  it("check_hardware pinned-expectation expressions parse over REST (Windows)", async () => {
+    if (!onWindows) return;
+    // The serial-pinning / DIMM-drop policy patterns as single k=v tokens.
+    // Neither can trip: the sentinel serial matches nothing and the module
+    // count is never that large.
+    const q = await executeQuery(key, "check_hardware", {
+      warning: "modules > 99999",
+      critical: "serial = 'zz_no_such_serial_zz' or chassis like 'zz_no_such_chassis'",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_printqueue (Windows) --------------------------------------------
 
   it("check_printqueue runs and reports a valid status (Windows)", async () => {

@@ -31,6 +31,7 @@ set(SRCS
     check_patch_age.cpp
     check_installed_software.cpp
     check_load.cpp
+    check_hardware.cpp
     check_printqueue.cpp
     filter_config_object.cpp
     realtime_data.cpp
@@ -85,6 +86,7 @@ if(WIN32)
         check_patch_age.hpp
         check_installed_software.hpp
         check_load.hpp
+        check_hardware.hpp
         check_printqueue.hpp
         ${NSCP_INCLUDEDIR}/win/registry.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
@@ -146,6 +148,7 @@ NSCP_CREATE_TEST(
         check_patch_age_test.cpp
         check_installed_software_test.cpp
         check_load_test.cpp
+        check_hardware_test.cpp
         check_printqueue_test.cpp
         check_os_version_test.cpp
         check_pdh_test.cpp
@@ -171,6 +174,7 @@ NSCP_CREATE_TEST(
         check_patch_age.cpp
         check_installed_software.cpp
         check_load.cpp
+        check_hardware.cpp
         check_printqueue.cpp
         pdh_thread.cpp
         filter_config_object.cpp

@@ -40,6 +40,7 @@
 		"check_pending_reboot"	: "Check whether the system is waiting for a reboot, aggregating the servicing, Windows Update, file-rename, computer-rename and domain-join signals.",
 		"check_patch_age"		: "Check installed-hotfix hygiene: how long since the newest hotfix was installed and whether specific required hotfixes are present.",
 		"check_installed_software"	: "Check installed software from the registry Uninstall hives (64-bit, 32-bit and per-user views): inventory, unwanted/EOL software policy and recent-install detection.",
+		"check_hardware"	: "Check hardware inventory (vendor, model, serial, chassis type, memory modules) with pinned-expectation alerting: serial changed, DIMM dropped, laptop in a server fleet.",
 		"check_printqueue"		: "Check Windows print queues: queue depth, oldest-job age, offline and error states per printer.",
 
 		"checkServiceState"	: "Legacy version of check_service",
