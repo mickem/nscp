@@ -237,7 +237,10 @@ class disk_free_data {
  public:
   disk_free_data() {}
 
-  void fetch();
+  // False when the enumeration could not be performed at all; the previously
+  // fetched data is then left untouched. Callers that timestamp the data (the
+  // trend collector) must not treat a stale snapshot as a fresh sample.
+  bool fetch();
   drives_type get();
   void set(const drives_type &drives);
 };

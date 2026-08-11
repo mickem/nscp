@@ -44,3 +44,61 @@ compose in one call.
 
 The same option exists on [`check_files`](#check_files) (for scan paths) and
 [`check_single_file`](#check_single_file) (for the file itself).
+
+#### Time until full (`full_in`, `rate`)
+
+Percent thresholds answer "how full is the disk", but a capacity alert is
+really asking "how long until it *is* full" — a 4 TB volume at 91% may have
+months left while a 10 GB volume at 70% has hours. The trend keywords answer
+that question directly:
+
+| Keyword         | Meaning |
+|-----------------|---------|
+| `full_in`       | Estimated time until the drive is full at the current growth rate, projected from the current free space. Renders as a duration (`3d 04:00`) or `never`. |
+| `rate`          | Growth of used space in bytes/day over the trend window, signed (negative = emptying). Renders auto-scaled (`12.3MB/day`) or `unknown`. |
+| `trend_span`    | Seconds of history behind the estimate (0 = no data). |
+| `trend_samples` | Number of samples behind the estimate. |
+
+Thresholds on `full_in` take duration literals:
+
+```
+check_drivesize "warn=full_in < 5d" "crit=full_in < 12h"
+```
+
+The estimate is an ordinary least-squares regression of used bytes over the
+`trend-window` (default 24h), fed by the CheckDisk background collector which
+keeps one sample per `trend interval` (default 5m) for `trend retention`
+(default 7d) per drive — the same approach as Prometheus `predict_linear` and
+Zabbix `timeleft`. History survives agent restarts (persisted hourly and on
+shutdown at 30-minute granularity), and a filesystem resize discards the
+now-meaningless history for that drive.
+
+**Window choice is the sawtooth knob.** Over a window spanning several
+cleanup cycles (log rotation etc.) the regression measures the *net* growth,
+which is what capacity planning wants; a short window inside one cycle
+reports the burst rate, which is what "something is filling the disk right
+now" wants. Both are legitimate; pick per check:
+
+```
+check_drivesize "crit=full_in < 2h" trend-window=30m   # burst detector
+check_drivesize "warn=full_in < 5d" trend-window=24h   # capacity planning
+```
+
+**`never` vs `unknown`.** `full_in`/`rate` are optional numbers: while the
+drive is shrinking, flat, or has no usable history yet (fewer than 3 samples
+or less than 3x the sampling interval of span — 15 minutes at the default
+cadence), they simply have no value. A missing value satisfies *no* numeric
+threshold (`full_in < 12h` is false on a shrinking disk, in both directions),
+renders as `never` (`full_in`) / `unknown` (`rate`), and emits no perfdata.
+`full_in = 'never'` matches exactly when there is no projection; use
+`trend_span`/`trend_samples` to tell "no data yet" apart from "not growing",
+e.g. `warn=trend_span < 1h`.
+
+With `total=true` the total row reports the **minimum** `full_in` across the
+matched drives (the soonest-full disk is the one that matters) and the sum of
+their rates.
+
+The collector can be tuned or disabled under `/settings/disk`:
+`trend interval`, `trend retention`, and `trend` in the `disable` list
+(disabling `disk_free` disables trends too, since they ride on the same
+fetch). Without a collector the keywords stay at their no-value forms.

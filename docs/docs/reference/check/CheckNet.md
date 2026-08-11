@@ -2,6 +2,94 @@
 
 Network related checks such as check_ping, check_tcp, check_dns, check_http, check_connections and check_ntp_offset.
 
+#### Choosing the IP version (`address-family`)
+
+Every network check in this module accepts an `address-family` argument that
+pins which IP version it uses:
+
+| Value  | Aliases              | Meaning                                                     |
+|--------|----------------------|-------------------------------------------------------------|
+| `any`  | `both`, `unspec`, `` | **Default.** Let the resolver choose (the historic behaviour). |
+| `ipv4` | `4`, `v4`, `inet`    | Resolve and connect over IPv4 only.                          |
+| `ipv6` | `6`, `v6`, `inet6`   | Resolve and connect over IPv6 only.                          |
+
+Values are case-insensitive. Anything else is rejected with
+`Invalid address-family: <value>` rather than silently falling back to `any` —
+a typo must not quietly stop testing the family you asked for.
+
+Supported by `check_ping`, `check_tcp`, `check_ssh`, `check_http`, `check_dns`
+and `check_ntp_offset`.
+
+On a dual-stack host the default leaves the choice to the resolver, so a check
+that passes tells you *one* of the two stacks works, not which. Pinning the
+family is what turns that into an assertion:
+
+```
+check_ssh host=srv.example.com address-family=ipv6
+OK: localhost:22 ok in 1ms
+```
+
+```
+check_http url=http://srv.example.com/health address-family=ipv6
+OK: http://srv.example.com/health -> 200 ok (2B in 3ms)
+```
+
+Run the same check twice — once per family — to monitor both paths
+independently. A host with no address in the requested family fails rather than
+falling back:
+
+```
+check_tcp host=v6-only.example.com port=443 address-family=ipv4
+CRITICAL: v6-only.example.com:443 resolve_failed in 0ms
+```
+
+The failure is `resolve_failed`, not `refused`: with the family pinned there is
+no address to connect to, so the check never gets as far as a connection
+attempt. "The name exists but has nothing in this family" is the answer being
+asked for here, not an internal error.
+
+For `check_dns` the flag selects how the **DNS server** is reached, which is
+independent of the record `type=` being queried — you can ask an IPv6-reachable
+server for an A record. When no `server=` is given and the type is A/AAAA (the
+system-resolver path), it additionally restricts the answer to that family.
+
+```
+check_dns host=example.com server=2001:db8::53 address-family=ipv6
+OK: example.com -> 10.1.2.3 (1) in 0ms [ok]
+```
+
+`check_dns` and `check_ntp_offset` were previously IPv4-only regardless of the
+server address; they now open the socket in whichever family the server
+resolves to, so an IPv6 DNS or NTP server is reachable at all.
+
+#### IPv6 literals in URLs
+
+`check_http` accepts a bracketed IPv6 literal, as required by RFC 3986:
+
+```
+check_http url=http://[::1]:8080/health
+OK: http://[::1]:8080/health -> 200 ok (2B in 1ms)
+```
+
+The brackets are part of the URL syntax (an unbracketed `::1` is ambiguous with
+the `host:port` separator) and are kept in the `Host:` header, while the `host`
+keyword reports the bare address.
+
+#### A note on `check_ping`
+
+`check_ping` uses ICMP echo, and ICMPv4 and ICMPv6 are separate protocols
+rather than two modes of one: with `address-family=ipv6` the check sends an
+ICMPv6 echo request (type 128) on an ICMPv6 socket. Two consequences:
+
+* The `ttl` field is not populated over IPv6. The IPv6 hop limit is only
+  available through ancillary data the check does not request, so it reports
+  `-1` there instead of an invented value. `-1` is the "not known" marker
+  generally — an unanswered host reports it too, and the `total` row ignores
+  those rather than letting them win its minimum.
+* Raw ICMP sockets need privileges (root / `CAP_NET_RAW` on Linux,
+  Administrator on Windows) for both families, exactly as before.
+
+
 ## Enable module
 
 To enable this module and and allow using the commands you need to ass `CheckNet = enabled` to the `[/modules]` section in nsclient.ini:
@@ -981,19 +1069,19 @@ Path to a CA bundle to use when verifying the server certificate.
 <a id="check_http_filter_keys"></a>
 #### Filter keywords
 
-| Option          | Description                                                                                      |
-|-----------------|--------------------------------------------------------------------------------------------------|
-| body            | Body of the response (use with substr/regex matching)                                            |
-| code            | HTTP status code                                                                                 |
-| host            | Host part of the URL                                                                             |
-| path            | Path part of the URL                                                                             |
-| port            | TCP port that was used                                                                           |
-| protocol        | Protocol used (http or https)                                                                    |
-| result          | Textual result of the check (ok, error, ...)                                                     |
-| size            | Size of the response body in bytes                                                               |
-| ssl_expiry_days | Days until the server's TLS certificate expires (-1 for plain http; negative if already expired) |
-| time            | Time taken by the request in milliseconds                                                        |
-| url             | Full URL that was requested                                                                      |
+| Option          | Description                                                                                                                                                                                                                                                                 |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| body            | Body of the response (use with substr/regex matching)                                                                                                                                                                                                                       |
+| code            | HTTP status code                                                                                                                                                                                                                                                            |
+| host            | Host part of the URL                                                                                                                                                                                                                                                        |
+| path            | Path part of the URL                                                                                                                                                                                                                                                        |
+| port            | TCP port that was used                                                                                                                                                                                                                                                      |
+| protocol        | Protocol used (http or https)                                                                                                                                                                                                                                               |
+| result          | Textual result of the check (ok, error, ...)                                                                                                                                                                                                                                |
+| size            | Size of the response body in bytes                                                                                                                                                                                                                                          |
+| ssl_expiry_days | Days until the server's TLS certificate expires; negative if already expired. Renders as 'no certificate' (and compares false against every number) for plain http, so `ssl_expiry_days < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests for that state. |
+| time            | Time taken by the request in milliseconds                                                                                                                                                                                                                                   |
+| url             | Full URL that was requested                                                                                                                                                                                                                                                 |
 
 **Common options for all checks:**
 
@@ -1111,6 +1199,85 @@ CRITICAL: Failed to reach https://192.168.56.10:9999: Connection refused
 
 Query an NTP server and check the offset between the local clock and the server.
 
+#### Is the clock wrong, or is the source unstable?
+
+`offset` answers the first question. A source can answer promptly with a
+believable offset and still be unusable, because that offset will not hold
+still — that is what the remaining keywords are for.
+
+| Keyword           | Description                                                                                      |
+|-------------------|--------------------------------------------------------------------------------------------------|
+| `jitter`          | RMS variation between the sampled offsets, in ms. **`unknown` until `samples` is raised to 2 or more.** |
+| `samples`         | How many samples actually answered.                                                               |
+| `root_delay`      | Round-trip delay the server reports to its own reference clock, in ms.                            |
+| `root_dispersion` | Maximum error the server claims for the time it serves, in ms.                                    |
+
+`root_delay` and `root_dispersion` come straight out of the packet header, so
+they need no extra traffic and are available from the default single query.
+They are the server's own statement about its accuracy — useful for spotting a
+source that has lost its upstream and is coasting on a free-running clock,
+which it will happily keep serving:
+
+```
+check_ntp_offset server=ntp.example.com "top-syntax=${list}" "detail-syntax=${server} root_delay=${root_delay}ms root_dispersion=${root_dispersion}ms stratum=${stratum}"
+OK: ntp.example.com root_delay=11ms root_dispersion=33ms stratum=2
+```
+
+#### Measuring jitter (`samples`)
+
+Jitter is the variation *between* measurements, so it needs more than one.
+**`samples` defaults to 1**, which sends a single query exactly as before and
+leaves `jitter` unmeasured:
+
+```
+check_ntp_offset server=ntp.example.com "top-syntax=${list}" "detail-syntax=samples=${samples} jitter=${jitter}"
+OK: samples=1 jitter=unknown
+```
+
+Raise it to measure:
+
+```
+check_ntp_offset server=ntp.example.com samples=6 "warn=jitter > 50" "crit=jitter > 100" "top-syntax=${list}" "detail-syntax=${server} jitter=${jitter}ms over ${samples} samples"
+WARNING: ntp.example.com jitter=70ms over 6 samples|'ntp.example.com_jitter'=70ms;50;100
+```
+
+`jitter` is an *optional number*: until measured it renders as `unknown`,
+**every numeric comparison on it is false** (in both directions), and no jitter
+perfdata is emitted — a sentinel would poison the series. The string form is
+the presence test:
+
+```
+check_ntp_offset server=ntp.example.com samples=6 "warn=jitter > 50" "crit=jitter = 'unknown'"
+```
+
+Note that a threshold like `jitter > 50` is simply false while unmeasured, so
+leaving `samples` at its default silently never alerts — set both together, or
+add the `= 'unknown'` clause to catch a misconfiguration.
+
+> **Upgrading.** `jitter` used to report `-1` before two samples existed. A
+> filter written against that sentinel (`jitter = -1`) no longer matches and
+> must become `jitter = 'unknown'`; perfdata is omitted rather than plotted as
+> `-1` until the value is real.
+
+Three things worth knowing about how the burst behaves:
+
+* **Sampling stops at the first failure.** An unreachable or slow server costs
+  one timeout, not `samples` of them, so raising `samples` does not multiply
+  the worst-case runtime of the check.
+* **The reported `offset` and `time` come from the quickest exchange.** A
+  delayed packet biases the offset by roughly half its extra delay, so the
+  fastest round trip is the most trustworthy estimate. With the default of one
+  sample this is simply that sample.
+* **A steady offset produces no jitter.** A clock that is consistently five
+  seconds wrong is inaccurate but perfectly stable, so it shows a large
+  `offset` and a near-zero `jitter`. The two conditions are independent and
+  worth alerting on separately:
+
+```
+check_ntp_offset server=ntp.example.com samples=6 "warn=offset > 100 or jitter > 50" "crit=offset > 1000 or jitter > 200 or stratum >= 16" "top-syntax=${list}" "detail-syntax=offset=${offset_signed}ms jitter=${jitter}ms"
+WARNING: offset=35ms jitter=70ms|'ntp.example.com_jitter'=70ms;50;200
+```
+
 **Jump to section:**
 
 * [Sample Commands](#check_ntp_offset_samples)
@@ -1169,6 +1336,27 @@ check_nscp_client --host 192.168.56.103 --command check_ntp_offset --argument "s
 OK: pool.ntp.org offset=1326ms stratum=2| 'pool.ntp.org_offset'=1326;60000;120000 'pool.ntp.org_stratum'=2;16;16
 ```
 
+
+**Measure jitter across a burst of samples (needs `samples` >= 2):**
+
+```
+check_ntp_offset server=ntp.example.com samples=6 "warn=jitter > 50" "crit=jitter > 100" "top-syntax=${list}" "detail-syntax=${server} jitter=${jitter}ms over ${samples} samples"
+WARNING: ntp.example.com jitter=70ms over 6 samples|'ntp.example.com_jitter'=70ms;50;100
+```
+
+**Alert on an inaccurate clock and an unstable source independently:**
+
+```
+check_ntp_offset server=ntp.example.com samples=6 "warn=offset > 100 or jitter > 50" "crit=offset > 1000 or jitter > 200 or stratum >= 16" "top-syntax=${list}" "detail-syntax=offset=${offset_signed}ms jitter=${jitter}ms"
+WARNING: offset=35ms jitter=70ms|'ntp.example.com_jitter'=70ms;50;200
+```
+
+**Report what the server claims about its own accuracy (no extra traffic):**
+
+```
+check_ntp_offset server=ntp.example.com "top-syntax=${list}" "detail-syntax=${server} root_delay=${root_delay}ms root_dispersion=${root_dispersion}ms stratum=${stratum}"
+OK: ntp.example.com root_delay=11ms root_dispersion=33ms stratum=2
+```
 
 
 
@@ -1371,6 +1559,120 @@ Timeout in milliseconds.
 
 Ping another host and check the result.
 
+#### Jitter
+
+Beyond "does it answer" (`loss`) and "how fast" (`time`), `check_ping` reports
+how *steady* the latency is:
+
+| Keyword  | Description                                                                                 |
+|----------|---------------------------------------------------------------------------------------------|
+| `jitter` | Mean variation between the round trip times, in ms. **`unknown` until `count` is 2 or more.** |
+
+Jitter is the variation *between* packets, so it needs more than one. **`count`
+defaults to 1**, which leaves `jitter` unmeasured; raise it to measure:
+
+```
+check_ping host=gw.example.com count=10 "warn=jitter > 20" "crit=jitter > 50" "top-syntax=${list}" "detail-syntax=${host} rtt=${time}ms jitter=${jitter}ms"
+```
+
+`jitter` is an *optional number*: until it can be measured it renders as
+`unknown`, **every numeric comparison on it is false** (in both directions —
+`jitter > 20` and `jitter < 20` alike), and no jitter perfdata is emitted. Test
+for the unmeasured state explicitly with the string form:
+
+```
+check_ping host=gw.example.com count=10 "warn=jitter > 20 or jitter = 'unknown'"
+```
+
+Note that leaving `count` at its default means `jitter > 20` silently never
+alerts — set both together, or add the `= 'unknown'` clause to catch it.
+
+> **Upgrading.** `jitter` and `ttl` used to report `-1` when unmeasurable.
+> Filters written against that sentinel (`jitter = -1`, `ttl != -1`) no longer
+> match anything and must become `jitter = 'unknown'` / `ttl != 'unknown'`.
+> Perfdata for an unmeasured value is now omitted rather than plotted as `-1`,
+> so RRD-backed graphs will see the metric appear and disappear.
+
+**A slow link is not a jittery one.** A host that consistently answers in 250 ms
+has a large `time` and near-zero `jitter`; a host alternating between 10 ms and
+200 ms has a small average `time` and large `jitter`. Latency-sensitive traffic
+(VoIP, RDP, database replication) cares about the second far more than the
+first, which is why they threshold separately:
+
+```
+check_ping host=voip-gw.example.com count=20 "warn=jitter > 30 or loss > 1%" "crit=jitter > 60 or loss > 5%"
+```
+
+**On the `total` row, `jitter` is the worst value across hosts**, not a jitter
+computed over all the hosts' round trip times pooled together — mixing a fast
+host with a slow one would manufacture a large number that describes nothing.
+So a fleet-wide `crit=jitter > 50` fires when *any* host is that unstable:
+
+```
+check_ping hosts=a.example.com,b.example.com,c.example.com count=10 total=true "crit=jitter > 50"
+```
+
+Note that `time` remains the round trip time of the **last** reply, not an
+average over the burst.
+
+#### TTL
+
+`ttl` and the `ttl=` argument are two different numbers that share a name, the
+same way `ping -t` and the `ttl=` in its output do:
+
+| Name              | Meaning                                                                        |
+|-------------------|--------------------------------------------------------------------------------|
+| `ttl=N` (argument)| TTL / hop limit stamped on the packets **we send**. `0` (default) keeps the system default. |
+| `${ttl}` (keyword)| TTL of the **reply we got back** — what is left of the remote host's own outgoing TTL after the return path. |
+
+```
+check_ping host=router.example.com "top-syntax=${list}" "detail-syntax=${host} replied with ttl=${ttl}"
+```
+
+The reply TTL is a rough proxy for path length, so a drop in it means the route
+changed — traffic failing over to a longer path, for instance:
+
+```
+check_ping host=peer.example.com "warn=ttl < 50" "crit=ttl < 20"
+```
+
+Limiting the outgoing TTL is how you check that a host is where you think it is
+on the network: with `ttl=1` only a directly attached neighbour can answer.
+
+```
+check_ping host=gw.example.com ttl=1
+```
+
+`ttl` is **`unknown`** when no reply carried one — nothing came back, or the
+check ran over IPv6, where the hop limit is not available without ancillary
+data the check does not request. Like `jitter` it is an optional number: while
+unknown it renders as `unknown`, every numeric comparison on it is false (so
+`ttl < 20` will not fire on an unanswered host — use `loss` for that), no ttl
+perfdata is emitted, and `ttl = 'unknown'` tests for the state directly.
+
+On the `total` row `ttl` is the **lowest** value across hosts (the reply closest
+to running out of hops), and hosts with no TTL are ignored rather than dragging
+the fleet-wide value to "unknown".
+
+#### Packet size
+
+`size=N` sets the ICMP payload to exactly N bytes. The `payload` string is
+repeated and cut to length, so the bytes on the wire stay recognisable rather
+than being a run of zeroes. `size=0` (the default) sends the `payload` string
+as-is, unchanged from previous behaviour.
+
+The 8-byte ICMP header sits on top of the payload, and IPv4 adds 20 more, so
+**1472 bytes is the largest payload that fits an untagged 1500-byte MTU**. That
+makes `size` the tool for finding a path-MTU or fragmentation problem — a link
+that passes small packets and silently drops big ones:
+
+```
+check_ping host=remote.example.com size=1472 count=5 "crit=loss > 0%"
+```
+
+The accepted range is 0–65507 (65535 minus the IPv4 and ICMP headers); anything
+outside it is rejected with a message rather than being silently clamped.
+
 **Jump to section:**
 
 * [Sample Commands](#check_ping_samples)
@@ -1417,6 +1719,41 @@ L        cli  Performance data: '1.1.1.1_loss'=0%;5;10 '1.1.1.1'=2ms;60;100 '8.8
 ```
 check_nscp_client --host 192.168.56.103 --command check_ping --argument "host=192.168.56.1"
 OK: All 1 hosts are ok|'192.168.56.1_loss'=0%;5;10 '192.168.56.1'=1ms;60;100
+```
+
+**Report the TTL of the reply (a rough proxy for path length):**
+
+```
+check_ping host=192.168.56.10 "top-syntax=${list}" "detail-syntax=${host} replied with ttl=${ttl}"
+OK: 192.168.56.10 replied with ttl=64
+```
+
+**Alert when the route grows (the reply TTL drops):**
+
+```
+check_ping host=peer.example.com "warn=ttl < 50" "crit=ttl < 20"
+OK: peer.example.com Packet loss = 0%, RTA = 12ms
+```
+
+**Limit the outgoing TTL to check a host is a directly attached neighbour:**
+
+```
+check_ping host=192.168.56.1 ttl=1
+OK: 192.168.56.1 Packet loss = 0%, RTA = 1ms
+```
+
+**Send a full-MTU packet to find a path-MTU or fragmentation problem:**
+
+```
+check_ping host=remote.example.com size=1472 count=5 "crit=loss > 0%"
+OK: remote.example.com Packet loss = 0%, RTA = 24ms
+```
+
+**Sizes outside the ICMP payload range are rejected rather than clamped:**
+
+```
+check_ping host=192.168.56.10 size=99999
+Invalid size: 99999 (expected 0-65507)
 ```
 
 
@@ -1643,7 +1980,7 @@ the server sends on connect, and requires it to start with `SSH-` (e.g.
 a key exchange or authenticate — it is a lightweight "is sshd up and answering"
 probe.
 
-It is a thin preset over [`check_tcp`](#check_tcp) (`service=ssh`), so it shares
+It builds on [`check_tcp`](#check_tcp) (the `service=ssh` preset), so it shares
 `check_tcp`'s keywords and thresholds:
 
 | Keyword     | Description                                             |
@@ -1658,6 +1995,47 @@ It is a thin preset over [`check_tcp`](#check_tcp) (`service=ssh`), so it shares
 Default thresholds: **warning** `time > 1000`, **critical**
 `time > 5000 or result != 'ok'`. A port that answers but is not SSH yields
 `result = no_match` (CRITICAL); a closed port yields `result = refused`.
+
+#### The parsed identification string
+
+On top of those, `check_ssh` splits the SSH identification string
+(RFC 4253 §4.2) into its parts, so the server's protocol and software version
+can be thresholded directly instead of regex-matching the raw `response`:
+
+```
+SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5
+    │   │             └── comments
+    │   └── version ─────── software "OpenSSH" + software_version "9.6p1"
+    └── protocol
+```
+
+| Keyword            | Type   | Description                                                                 |
+|--------------------|--------|-----------------------------------------------------------------------------|
+| `banner`           | string | The raw identification line, e.g. `SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5` |
+| `protocol`         | string | Protocol version as announced, e.g. `2.0` or `1.99`                         |
+| `protocol_major`   | int    | Major protocol version as a number (`2` for `2.0`)                          |
+| `protocol_minor`   | int    | Minor protocol version as a number (`0` for `2.0`, `99` for `1.99`)         |
+| `version`          | string | The whole software version field, e.g. `OpenSSH_9.6p1`                      |
+| `software`         | string | Software name, e.g. `OpenSSH`, `dropbear`, `OpenSSH_for_Windows`            |
+| `software_version` | string | Version number, e.g. `9.6p1`, `2022.83`                                     |
+| `comments`         | string | Anything after the first space, typically a distribution patch level        |
+
+`software` / `software_version` are split on the last `_` that is followed by a
+digit, which keeps multi-word names intact (`OpenSSH_for_Windows_9.5` →
+`OpenSSH_for_Windows` + `9.5`). A server that publishes an opaque build id
+rather than a version (e.g. `SSH-2.0-GitLab-SSHD`) keeps the whole string as
+`software` and leaves `software_version` empty; `version` always holds the full
+field, so it is the safe one to regex against.
+
+All of these are **empty** (and the numeric ones `0`) when no banner was read —
+a refused or timed-out connection, or a port that is not speaking SSH. Since
+the default critical already covers `result != 'ok'`, that case is caught
+regardless; guard on `result = 'ok'` explicitly if you add your own thresholds
+and want to keep the two failure modes apart.
+
+A note on `protocol`: `1.99` is not "older than 2.0" — it means the server
+speaks 2.0 *and* still accepts the insecure SSHv1, which is exactly what
+`protocol_major < 2` is for.
 
 **Jump to section:**
 
@@ -1689,6 +2067,41 @@ OK: 192.168.56.10:2222 ok in 2ms
 ```
 check_ssh host=www.google.com port=443
 CRITICAL: www.google.com:443 no_match in 12ms
+```
+
+**Report what the server is running:**
+
+```
+check_ssh host=192.168.56.10 "top-syntax=${list}" "detail-syntax=${host} runs ${software} ${software_version} (SSH ${protocol}, ${comments})"
+OK: 192.168.56.10 runs OpenSSH 9.6p1 (SSH 2.0, Ubuntu-3ubuntu13.5)
+```
+
+**Show the raw identification string:**
+
+```
+check_ssh host=gitlab.com "top-syntax=${list}" "detail-syntax=${banner}"
+OK: SSH-2.0-GitLab-SSHD
+```
+
+**Alert when the server still speaks the insecure SSHv1 (`1.99` or `1.x`):**
+
+```
+check_ssh host=192.168.56.10 "crit=protocol_major < 2" "top-syntax=${list}" "detail-syntax=${host} speaks SSH ${protocol}"
+OK: 192.168.56.10 speaks SSH 2.0
+```
+
+**Alert on an outdated sshd:**
+
+```
+check_ssh host=192.168.56.10 "crit=software = 'OpenSSH' and software_version not like '9.'" "top-syntax=${list}" "detail-syntax=${software} ${software_version}"
+OK: OpenSSH 9.6p1
+```
+
+**Check a fleet and list each server's version:**
+
+```
+check_ssh hosts=github.com,gitlab.com,bitbucket.org "top-syntax=${list}" "detail-syntax=${host}: ${version}"
+OK: github.com: 7f27de7, gitlab.com: GitLab-SSHD, bitbucket.org: conker_20260806-85ca5cadcf
 ```
 
 **Tighter response-time thresholds:**
@@ -1927,6 +2340,61 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 
 Connect to a TCP port and optionally send/expect data to check that a service is reachable.
 
+#### TLS certificate expiry (`ssl_expiry_days` / `has_certificate`)
+
+When the connection is wrapped in TLS — `ssl=true`, or one of the implicit-TLS
+service presets (`spop`, `simap`, `ssmtp`) — `check_tcp` reads the certificate
+the peer serves and exposes it as two keywords:
+
+| Keyword           | Type | Description                                                                     |
+|-------------------|------|---------------------------------------------------------------------------------|
+| `ssl_expiry_days` | int  | Whole days until the peer's certificate expires; **negative** once it has expired. Renders as **`no certificate`** when the connection is not TLS or the peer presented none. Emitted as perfdata (only when a certificate exists). |
+| `has_certificate` | int  | `1` when the peer presented a certificate, `0` otherwise.                       |
+
+This makes certificate monitoring work for any TLS service, not just HTTPS —
+LDAPS, IMAPS, SMTPS, RDP, a database listener, or anything else that speaks TLS
+on a port:
+
+```
+check_tcp host=ldap.example.com port=636 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10"
+```
+
+Two details worth knowing.
+
+**The count is truncated, not rounded.** A certificate with 23 hours left reads
+as `0`, not `1` — the remainder is dropped rather than rounded up into a
+reassuring number.
+
+**A missing certificate is not a number.** `ssl_expiry_days` is an *optional
+number*: with no certificate it renders as `no certificate`, every numeric
+comparison on it is false, and no perfdata is emitted. A bare
+`crit=ssl_expiry_days < 30` is therefore safe — it cannot fire on a plain
+connection, while an expired certificate still reports its real (negative) day
+count and fires as it should. Test for the no-certificate state explicitly with
+the string form, or with `has_certificate`:
+
+```
+check_tcp host=mail.example.com port=993 ssl=true "crit=ssl_expiry_days < 30 or ssl_expiry_days = 'no certificate'"
+```
+
+> **Upgrading.** `ssl_expiry_days` used to report `-1` for a connection with no
+> certificate, which made a bare `crit=ssl_expiry_days < 30` fire on every plain
+> connection. That sentinel is gone: filters written as `ssl_expiry_days = -1`
+> must become `ssl_expiry_days = 'no certificate'` (or use `has_certificate`),
+> and no expiry perfdata is emitted when there is no certificate. The same
+> change applies to `check_http`'s `ssl_expiry_days`.
+
+**Reading the certificate does not verify it.** The expiry is a property of what
+the peer served, so it is available at the default `verify=none` — a
+self-signed or otherwise untrusted certificate still reports its real remaining
+lifetime. Use `verify=peer` with a `ca=` bundle when you want the chain checked
+as well; the two are independent.
+
+This complements the other two certificate checks: `check_http`'s
+`ssl_expiry_days` covers HTTPS endpoints specifically, and `check_certificate`
+inspects certificates at rest (files on disk, the Windows certificate store)
+rather than ones served over a connection.
+
 **Jump to section:**
 
 * [Sample Commands](#check_tcp_samples)
@@ -2002,6 +2470,44 @@ OK: smtp.gmail.com:465 ok in 16ms|'smtp.gmail.com_465_time'=16;1000;5000
 ```
 check_tcp host=mail.example.com port=25 "crit=response not regexp '^220'"
 OK: mail.example.com:25 ok in 8ms
+```
+
+**Check how long the peer's TLS certificate is still valid (`ssl_expiry_days`):**
+
+```
+check_tcp host=secure.example.com port=443 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "top-syntax=${list}" "detail-syntax=cert expires in ${ssl_expiry_days} days"
+OK: cert expires in 399 days|'secure.example.com_443_ssl_expiry_days'=399;30;10
+```
+
+```
+check_tcp host=expiring.example.com port=443 ssl=true "warn=ssl_expiry_days < 30" "crit=ssl_expiry_days < 10" "top-syntax=${list}" "detail-syntax=cert expires in ${ssl_expiry_days} days"
+WARNING: cert expires in 19 days|'expiring.example.com_443_ssl_expiry_days'=19;30;10
+```
+
+**A plain connection cannot trip the expiry threshold — and can be tested for explicitly:**
+
+```
+check_tcp host=mail.example.com port=110 "warn=none" "crit=ssl_expiry_days < 30"
+OK: mail.example.com:110 ok in 1ms
+```
+
+```
+check_tcp host=mail.example.com port=110 "warn=none" "crit=ssl_expiry_days = 'no certificate'"
+CRITICAL: mail.example.com:110 ok in 0ms
+```
+
+**The certificate keywords also work through the implicit-TLS presets:**
+
+```
+check_tcp host=imap.example.com service=simap "top-syntax=${list}" "detail-syntax=${host}:${port} cert=${has_certificate} days=${ssl_expiry_days}"
+OK: imap.example.com:993 cert=1 days=399
+```
+
+**Without TLS there is no certificate at all:**
+
+```
+check_tcp host=mail.example.com port=110 "top-syntax=${list}" "detail-syntax=cert=${has_certificate} days=${ssl_expiry_days}"
+OK: cert=0 days=no certificate
 ```
 
 **Verify the server certificate when using TLS (needs a CA bundle):**

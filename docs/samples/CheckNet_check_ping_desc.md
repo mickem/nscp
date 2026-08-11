@@ -5,19 +5,32 @@ how *steady* the latency is:
 
 | Keyword  | Description                                                                                 |
 |----------|---------------------------------------------------------------------------------------------|
-| `jitter` | Mean variation between the round trip times, in ms. **`-1` until `count` is 2 or more.**    |
+| `jitter` | Mean variation between the round trip times, in ms. **`unknown` until `count` is 2 or more.** |
 
 Jitter is the variation *between* packets, so it needs more than one. **`count`
-defaults to 1**, which leaves `jitter` at `-1`; raise it to measure:
+defaults to 1**, which leaves `jitter` unmeasured; raise it to measure:
 
 ```
 check_ping host=gw.example.com count=10 "warn=jitter > 20" "crit=jitter > 50" "top-syntax=${list}" "detail-syntax=${host} rtt=${time}ms jitter=${jitter}ms"
 ```
 
-`-1` is a safe "not measured" marker rather than a magic number: jitter is a
-magnitude, so a real reading is never negative and cannot be confused with it.
-Note that a threshold like `jitter > 20` is simply false at `-1`, so leaving
-`count` at its default silently never alerts — set both together.
+`jitter` is an *optional number*: until it can be measured it renders as
+`unknown`, **every numeric comparison on it is false** (in both directions —
+`jitter > 20` and `jitter < 20` alike), and no jitter perfdata is emitted. Test
+for the unmeasured state explicitly with the string form:
+
+```
+check_ping host=gw.example.com count=10 "warn=jitter > 20 or jitter = 'unknown'"
+```
+
+Note that leaving `count` at its default means `jitter > 20` silently never
+alerts — set both together, or add the `= 'unknown'` clause to catch it.
+
+> **Upgrading.** `jitter` and `ttl` used to report `-1` when unmeasurable.
+> Filters written against that sentinel (`jitter = -1`, `ttl != -1`) no longer
+> match anything and must become `jitter = 'unknown'` / `ttl != 'unknown'`.
+> Perfdata for an unmeasured value is now omitted rather than plotted as `-1`,
+> so RRD-backed graphs will see the metric appear and disappear.
 
 **A slow link is not a jittery one.** A host that consistently answers in 250 ms
 has a large `time` and near-zero `jitter`; a host alternating between 10 ms and
@@ -69,10 +82,12 @@ on the network: with `ttl=1` only a directly attached neighbour can answer.
 check_ping host=gw.example.com ttl=1
 ```
 
-`ttl` is **`-1` when unknown** — nothing came back, or the check ran over IPv6,
-where the hop limit is not available without ancillary data the check does not
-request. As with `jitter`, a `ttl < 20` threshold is false at `-1`, so it will
-not fire on an unanswered host; use `loss` for that.
+`ttl` is **`unknown`** when no reply carried one — nothing came back, or the
+check ran over IPv6, where the hop limit is not available without ancillary
+data the check does not request. Like `jitter` it is an optional number: while
+unknown it renders as `unknown`, every numeric comparison on it is false (so
+`ttl < 20` will not fire on an unanswered host — use `loss` for that), no ttl
+perfdata is emitted, and `ttl = 'unknown'` tests for the state directly.
 
 On the `total` row `ttl` is the **lowest** value across hosts (the reply closest
 to running out of hops), and hosts with no TTL are ignored rather than dragging

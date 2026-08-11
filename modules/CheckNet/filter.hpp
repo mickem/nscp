@@ -91,6 +91,13 @@ struct filter_obj {
   // between two different hosts' latencies is not jitter - so it carries the
   // worst per-host jitter instead, which is what a fleet-wide alert wants.
   long long get_jitter() const { return is_total_ ? total_jitter_ : mean_abs_delta_ms(result.rtts_); }
+  // Registered form: an optional number — no value until two replies exist,
+  // so `${jitter}` renders "unknown" and `jitter = 'unknown'` tests presence.
+  boost::optional<long long> get_jitter_opt() const {
+    const long long v = get_jitter();
+    if (v < 0) return boost::none;
+    return v;
+  }
 
   // TTL of the last reply, or -1 when unknown (nothing came back, or IPv6).
   //
@@ -98,6 +105,11 @@ struct filter_obj {
   // interesting end (a reply nearly out of hops, or a route that grew), so the
   // minimum is what a fleet-wide threshold wants.
   long long get_ttl() const { return is_total_ ? total_ttl_ : result.ttl_; }
+  boost::optional<long long> get_ttl_opt() const {
+    const long long v = get_ttl();
+    if (v < 0) return boost::none;
+    return v;
+  }
 
   bool is_total_;
   long long total_jitter_ = -1;

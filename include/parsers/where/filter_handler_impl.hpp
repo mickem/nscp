@@ -6,7 +6,10 @@
 #include <NSCAPI.h>
 
 #include <boost/function.hpp>
+#include <boost/optional.hpp>
 #include <boost/unordered_map.hpp>
+#include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <nscapi/nscapi_helper.hpp>
@@ -14,6 +17,7 @@
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/variable.hpp>
 #include <str/format.hpp>
+#include <string>
 
 namespace parsers {
 namespace where {
@@ -33,9 +37,16 @@ struct filter_variable {
   typedef boost::function<long long(T, evaluation_context)> int_fun_type;
   typedef boost::function<long long(T)> int_fun_type_no_context;
   typedef boost::function<double(T, evaluation_context)> float_fun_type;
+  typedef boost::function<boost::optional<long long>(T, evaluation_context)> opt_int_fun_type;
   str_fun_type s_function;
   int_fun_type i_function;
   float_fun_type f_function;
+  // Optional number: when set, this variable is created as an
+  // optional_int_variable_node and o_function/no_value take precedence over
+  // the plain accessors above. no_value is the string the variable renders
+  // (and compares equal to) when the getter returns an empty optional.
+  opt_int_fun_type o_function;
+  std::string no_value;
   std::list<int_perf_generator_type> int_perf;
   std::list<float_perf_generator_type> float_perf;
   bool add_default_perf;
@@ -183,6 +194,34 @@ struct function_registry {
     std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
     var->i_function = [i_fun](auto obj, auto) { return i_fun(obj); };
     var->s_function = [s_fun](auto obj, auto) { return s_fun(obj); };
+    add(var, false);
+    return *this;
+  }
+  // An optional number: a variable that can have no value. `fun` returns an
+  // empty optional when there is nothing to report; the variable then renders
+  // as `no_value` (which is also what it compares equal to as a string, e.g.
+  // `jitter = 'unknown'`), every numeric comparison on it is false, and no
+  // perfdata is emitted. Chain .add_int_perf()/.no_perf() as usual.
+  function_registry<T>& add_optional_int_var(std::string key, std::function<boost::optional<long long>(T)> fun, std::string no_value,
+                                             std::string description) {
+    return add_optional_int_var(key, type_int, fun, no_value, description);
+  }
+  function_registry<T>& add_optional_int_var(std::string key, value_type type, std::function<boost::optional<long long>(T)> fun, std::string no_value,
+                                             std::string description) {
+    std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
+    var->o_function = [fun](auto obj, auto) { return fun(obj); };
+    var->no_value = no_value;
+    add(var, false);
+    return *this;
+  }
+  // Context-taking form of add_optional_int_var, for optional values that can
+  // only be computed against the evaluation context (e.g. check_drivesize's
+  // full_in, which projects from the lazily-fetched current free space).
+  function_registry<T>& add_optional_int_var_w_context(std::string key, value_type type, typename filter_variable<T>::opt_int_fun_type fun,
+                                                       std::string no_value, std::string description) {
+    std::shared_ptr<filter_variable<T>> var(new filter_variable<T>(key, type, description));
+    var->o_function = fun;
+    var->no_value = no_value;
     add(var, false);
     return *this;
   }
@@ -512,6 +551,17 @@ struct filter_handler_impl : evaluation_context_impl<TObject> {
     if (registry_.has_variable(name)) {
       std::shared_ptr<filter_variable<object_type>> var = registry_.get_variable(name, human_readable);
       if (var) {
+        // Optional number: takes precedence over the plain accessors — the
+        // node handles numeric + string + rendering + perf-suppression
+        // itself (see optional_int_variable_node).
+        if (var->o_function) {
+          if (var->int_perf.empty() && var->add_default_perf) {
+            typename filter_variable<object_type>::int_perf_generator_type gen(
+                new simple_number_performance_generator<object_type, long long>("", "", "_" + var->name));
+            var->int_perf.push_back(gen);
+          }
+          return node_type(new optional_int_variable_node<filter_handler_impl>(name, var->type, var->o_function, var->no_value, var->int_perf));
+        }
         // A dynamically-typed value (int + float + string accessors all set,
         // e.g. check_http's --json-path aliases): route each comparison to the
         // matching accessor so numeric thresholds keep float precision while

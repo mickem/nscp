@@ -204,6 +204,33 @@ TEST(CheckPingJitter, FilterObjExposesItPerHost) {
   EXPECT_EQ(10, o.get_jitter());
 }
 
+TEST(CheckPingJitter, OptionalFormIsEmptyUntilMeasurable) {
+  // The registered keyword: none (renders 'unknown') below two replies, the
+  // real value from there on.
+  result_container one;
+  one.rtts_ = {10};
+  ping_filter::filter_obj single(one);
+  EXPECT_FALSE(single.get_jitter_opt());
+
+  result_container two;
+  two.rtts_ = {10, 25};
+  ping_filter::filter_obj measured(two);
+  ASSERT_TRUE(measured.get_jitter_opt());
+  EXPECT_EQ(15, *measured.get_jitter_opt());
+}
+
+TEST(CheckPingTtl, OptionalFormIsEmptyWhenUnknown) {
+  result_container unknown;
+  ping_filter::filter_obj o(unknown);
+  EXPECT_FALSE(o.get_ttl_opt());
+
+  result_container answered;
+  answered.ttl_ = 57;
+  ping_filter::filter_obj a(answered);
+  ASSERT_TRUE(a.get_ttl_opt());
+  EXPECT_EQ(57, *a.get_ttl_opt());
+}
+
 TEST(CheckPingJitter, FilterObjIsMinusOneWithASingleReply) {
   result_container r;
   r.num_send_ = 1;
@@ -268,6 +295,22 @@ TEST(CheckTcp, filter_obj_certificate_getters) {
   o.ssl_expiry_days = 42;
   EXPECT_EQ(o.get_has_certificate(), 1);
   EXPECT_EQ(o.get_ssl_expiry_days(), 42);
+}
+
+TEST(CheckTcp, optional_ssl_expiry_maps_absence_to_none) {
+  // The registered keyword is the optional form: no certificate -> no value
+  // (renders 'no certificate', numeric thresholds cannot fire); an expired
+  // certificate keeps its real, negative day count.
+  check_net::check_tcp_filter::filter_obj o;
+  EXPECT_FALSE(o.get_ssl_expiry_days_opt());
+
+  o.has_certificate = true;
+  o.ssl_expiry_days = -7;  // expired last week: a value, not an absence
+  ASSERT_TRUE(o.get_ssl_expiry_days_opt());
+  EXPECT_EQ(-7, *o.get_ssl_expiry_days_opt());
+
+  o.ssl_expiry_days = 42;
+  EXPECT_EQ(42, *o.get_ssl_expiry_days_opt());
 }
 
 TEST(CheckTcp, filter_obj_expired_certificate_is_negative_but_present) {
@@ -879,6 +922,14 @@ TEST(CheckNtp, filter_obj_jitter_defaults_to_unmeasured) {
   EXPECT_EQ(o.get_samples(), 0);
   EXPECT_EQ(o.get_root_delay(), 0);
   EXPECT_EQ(o.get_root_dispersion(), 0);
+}
+
+TEST(CheckNtp, optional_jitter_is_empty_until_two_samples) {
+  check_net::check_ntp_filter::filter_obj o;
+  EXPECT_FALSE(o.get_jitter_opt());
+  o.jitter = 0;  // a real, measured zero (perfectly steady) is a value
+  ASSERT_TRUE(o.get_jitter_opt());
+  EXPECT_EQ(0, *o.get_jitter_opt());
 }
 
 TEST(CheckNtp, rms_jitter_needs_two_samples) {

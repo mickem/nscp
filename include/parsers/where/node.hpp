@@ -113,12 +113,22 @@ struct NSCAPI_EXPORT value_container {
   boost::optional<double> f_value;
   boost::optional<std::string> s_value;
   bool is_unsure;
+  // True when this value comes from an "optional number" that currently has no
+  // value (e.g. jitter before two samples exist). Distinct from is_unsure: an
+  // unsure value is a real value we could not fully trust (no-object
+  // evaluation), and may escalate the verdict to UNKNOWN; a no-value is a
+  // perfectly certain "there is nothing to compare", so every numeric
+  // comparison involving it is sure-false. A neutral numeric value (0) is
+  // still carried so legacy get_int()/get_float() callers see something sane
+  // instead of throwing.
+  bool is_no_value;
 
-  value_container() : is_unsure(false) {}
-  value_container(const bool is_unsure) : is_unsure(is_unsure) {}
-  value_container(const value_container &other) : is_unsure(other.is_unsure) { set_value(other); }
+  value_container() : is_unsure(false), is_no_value(false) {}
+  value_container(const bool is_unsure) : is_unsure(is_unsure), is_no_value(false) {}
+  value_container(const value_container &other) : is_unsure(other.is_unsure), is_no_value(other.is_no_value) { set_value(other); }
   value_container &operator=(const value_container &other) {
     is_unsure = other.is_unsure;
+    is_no_value = other.is_no_value;
     set_value(other);
     return *this;
   }
@@ -144,6 +154,16 @@ struct NSCAPI_EXPORT value_container {
   }
   static value_container create_nil(const bool is_unsure = false) {
     value_container ret(is_unsure);
+    return ret;
+  }
+  // An optional number that currently has no value. Carries a neutral 0 (int
+  // and float) so type checks pass and stray get_int()/get_float() callers do
+  // not throw; the flag is what the comparison operators act on.
+  static value_container create_no_value() {
+    value_container ret(false);
+    ret.set_int(0);
+    ret.set_float(0.0);
+    ret.is_no_value = true;
     return ret;
   }
   void set_string(std::string value) { s_value = value; }

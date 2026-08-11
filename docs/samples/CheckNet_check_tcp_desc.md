@@ -6,7 +6,7 @@ the peer serves and exposes it as two keywords:
 
 | Keyword           | Type | Description                                                                     |
 |-------------------|------|---------------------------------------------------------------------------------|
-| `ssl_expiry_days` | int  | Whole days until the peer's certificate expires; **negative** once it has expired. `-1` when the connection is not TLS or the peer presented no certificate. Emitted as perfdata. |
+| `ssl_expiry_days` | int  | Whole days until the peer's certificate expires; **negative** once it has expired. Renders as **`no certificate`** when the connection is not TLS or the peer presented none. Emitted as perfdata (only when a certificate exists). |
 | `has_certificate` | int  | `1` when the peer presented a certificate, `0` otherwise.                       |
 
 This makes certificate monitoring work for any TLS service, not just HTTPS —
@@ -23,15 +23,24 @@ Two details worth knowing.
 as `0`, not `1` — the remainder is dropped rather than rounded up into a
 reassuring number.
 
-**`-1` is ambiguous on its own, which is what `has_certificate` is for.** An
-expired certificate legitimately reports a negative day count, so
-`ssl_expiry_days = -1` could mean either "no certificate here" or "expired
-yesterday". A bare `crit=ssl_expiry_days < 30` therefore also fires on every
-plain connection. Guard it when that matters:
+**A missing certificate is not a number.** `ssl_expiry_days` is an *optional
+number*: with no certificate it renders as `no certificate`, every numeric
+comparison on it is false, and no perfdata is emitted. A bare
+`crit=ssl_expiry_days < 30` is therefore safe — it cannot fire on a plain
+connection, while an expired certificate still reports its real (negative) day
+count and fires as it should. Test for the no-certificate state explicitly with
+the string form, or with `has_certificate`:
 
 ```
-check_tcp host=mail.example.com port=993 ssl=true "crit=has_certificate = 1 and ssl_expiry_days < 30"
+check_tcp host=mail.example.com port=993 ssl=true "crit=ssl_expiry_days < 30 or ssl_expiry_days = 'no certificate'"
 ```
+
+> **Upgrading.** `ssl_expiry_days` used to report `-1` for a connection with no
+> certificate, which made a bare `crit=ssl_expiry_days < 30` fire on every plain
+> connection. That sentinel is gone: filters written as `ssl_expiry_days = -1`
+> must become `ssl_expiry_days = 'no certificate'` (or use `has_certificate`),
+> and no expiry perfdata is emitted when there is no certificate. The same
+> change applies to `check_http`'s `ssl_expiry_days`.
 
 **Reading the certificate does not verify it.** The expiry is a property of what
 the peer served, so it is available at the default `verify=none` — a

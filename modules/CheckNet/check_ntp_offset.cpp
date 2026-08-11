@@ -38,8 +38,10 @@ filter_obj_handler::filter_obj_handler() {
   // can answer promptly with an accurate-looking offset and still be unusable
   // because that offset will not hold still.
   registry_
-      .add_int_var("jitter", parsers::where::type_int, &filter_obj::get_jitter,
-                   "RMS variation between the sampled offsets, in milliseconds; -1 when fewer than 2 samples were taken (raise samples= to measure it)")
+      .add_optional_int_var("jitter", [](auto obj) { return obj->get_jitter_opt(); }, "unknown",
+                            "RMS variation between the sampled offsets, in milliseconds; 'unknown' when fewer than 2 samples were taken (raise samples= to "
+                            "measure it). Renders as 'unknown', compares false against every number until measured, and emits no perfdata until real; "
+                            "`jitter = 'unknown'` tests for it.")
       .add_int_perf("ms", "", "_jitter");
   registry_.add_int_var("samples", parsers::where::type_int, &filter_obj::get_samples, "Number of samples that answered").no_perf();
   registry_

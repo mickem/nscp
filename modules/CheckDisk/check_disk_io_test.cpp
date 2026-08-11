@@ -397,7 +397,11 @@ TEST(DiskFreeData, GetReturnsEmptyBeforeFetch) {
 
 TEST(DiskFreeData, FetchPopulatesData) {
   disk_free_check::disk_free_data data;
-  EXPECT_NO_THROW(data.fetch());
+  bool fetched = false;
+  EXPECT_NO_THROW(fetched = data.fetch());
+  // fetch() reports whether it actually enumerated anything: the trend
+  // collector must not timestamp a stale snapshot as a fresh sample.
+  EXPECT_TRUE(fetched);
   auto result = data.get();
   EXPECT_FALSE(result.empty());
 }

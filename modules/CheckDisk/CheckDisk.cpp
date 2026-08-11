@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cctype>
 #include <compat.hpp>
+#include <nscapi/macros.hpp>
+#include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -42,6 +44,14 @@ namespace po = boost::program_options;
 CheckDisk::CheckDisk() : show_errors_(false) {}
 
 namespace {
+// The collector hands out an immutable, shared snapshot (null before it has
+// ticked, or when no collector is running); the check wants a plain map. The
+// caller keeps the snapshot alive for the duration of the check.
+const check_drive::trend_map &deref_trends(const collector_thread::trend_snapshot &snapshot) {
+  static const check_drive::trend_map empty;
+  return snapshot ? *snapshot : empty;
+}
+
 // Publish the logical drive list as a host tag (`drives=c:,d:`), consumed by
 // the web UI and by fleet group selectors. Windows-only: on other platforms
 // mount points are too dynamic to make a useful identity-style tag.
@@ -72,16 +82,33 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("disk", alias);
 
+  std::string trend_interval, trend_retention;
   // clang-format off
   settings.alias().add_key_to_settings()
     .add_string("disable", sh::string_key(&collector_->disable_, ""),
         "Disable automatic checks",
-        "A comma separated list of checks to disable in the collector: disk_io, disk_free. "
+        "A comma separated list of checks to disable in the collector: disk_io, disk_free, trend. "
         "Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+    .add_string("trend interval", sh::string_key(&trend_interval, "5m"),
+        "Trend sampling interval",
+        "How often a used-space sample is kept per drive for the check_drivesize trend keywords (full_in/rate). Duration, e.g. 5m.", true)
+    .add_string("trend retention", sh::string_key(&trend_retention, "7d"),
+        "Trend history retention",
+        "How much used-space history is kept per drive; bounds the largest useful trend-window. Duration, e.g. 7d.", true)
     ;
   // clang-format on
   settings.register_all();
   settings.notify();
+
+  try {
+    collector_->trend_interval = str::format::stox_as_time_sec<long long>(trend_interval, "s");
+    collector_->trend_retention = str::format::stox_as_time_sec<long long>(trend_retention, "s");
+    if (collector_->trend_interval <= 0 || collector_->trend_retention <= 0) throw std::invalid_argument("must be positive");
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Invalid trend interval/retention (using defaults 5m/7d): " + std::string(e.what()));
+    collector_->trend_interval = 300;
+    collector_->trend_retention = 7 * 24 * 3600;
+  }
 
   if (mode == NSCAPI::normalStart) {
     collector_->start();
@@ -254,11 +281,13 @@ void CheckDisk::checkDriveSize(PB::Commands::QueryRequestMessage::Request &reque
     request.add_arguments("filter=type in (" + type_list + ")");
   }
   compat::log_args(request);
-  check_drive::check(request, response);
+  const collector_thread::trend_snapshot trends = collector_ ? collector_->get_drive_trends() : collector_thread::trend_snapshot();
+  check_drive::check(request, response, deref_trends(trends));
 }
 
 void CheckDisk::check_drivesize(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  check_drive::check(request, response);
+  const collector_thread::trend_snapshot trends = collector_ ? collector_->get_drive_trends() : collector_thread::trend_snapshot();
+  check_drive::check(request, response, deref_trends(trends));
 }
 
 void CheckDisk::checkFiles(PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

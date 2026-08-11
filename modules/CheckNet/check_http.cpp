@@ -40,8 +40,11 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code").add_int_perf("", "", "_code");
   registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the request in milliseconds").add_int_perf("ms");
   registry_.add_int_var("size", parsers::where::type_int, &filter_obj::get_size, "Size of the response body in bytes").add_int_perf("B", "", "_size");
-  registry_.add_int_var("ssl_expiry_days", parsers::where::type_int, &filter_obj::get_ssl_expiry_days,
-                        "Days until the server's TLS certificate expires (-1 for plain http; negative if already expired)")
+  registry_
+      .add_optional_int_var("ssl_expiry_days", [](auto obj) { return obj->get_ssl_expiry_days_opt(); }, "no certificate",
+                            "Days until the server's TLS certificate expires; negative if already expired. Renders as 'no certificate' (and compares false "
+                            "against every number) for plain http, so `ssl_expiry_days < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests "
+                            "for that state.")
       .add_int_perf("", "", "_ssl_expiry_days");
 }
 
@@ -125,7 +128,11 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
       // fetch() connects, sends, reads the full (de-chunked) body and does NOT
       // throw on non-2xx — we want to inspect any status code / body ourselves.
       const http::response resp = client.fetch(u.host, u.port, rq);
-      out.ssl_expiry_days = client.peer_certificate_expiry_days();
+      // Assign unconditionally: with follow-redirects an https hop can be
+      // followed by a plain http one, and keeping the earlier hop's expiry
+      // would report a certificate for a URL that never presented one.
+      const boost::optional<long> expiry = client.peer_certificate_expiry_days_opt();
+      out.ssl_expiry_days = expiry ? boost::optional<long long>(static_cast<long long>(*expiry)) : boost::none;
 
       // Follow redirects when asked to, up to the configured limit.
       if (opt.follow_redirects && redirects < opt.max_redirs && is_redirect(resp.status_code_)) {

@@ -3,13 +3,28 @@
 
 #include "collector_thread.hpp"
 
+#include <ctime>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nsclient/nsclient_exception.hpp>
+
+namespace {
+// Granularity of the persisted form: coarse enough to keep nsclient.db small,
+// fine enough that a long-window trend survives a restart usefully. The
+// in-memory 5-minute resolution rebuilds within the hour after a restart.
+const long long trend_save_granularity = 30 * 60;
+const long long trend_save_interval = 3600;
+}  // namespace
 
 disk_io_check::disks_type collector_thread::get_disk_io() { return disk_io_.get(); }
 
 disk_free_check::drives_type collector_thread::get_disk_free() { return disk_free_.get(); }
+
+collector_thread::trend_snapshot collector_thread::get_drive_trends() {
+  const boost::lock_guard<boost::mutex> lock(trends_mutex_);
+  return snapshot_;
+}
 
 bool collector_thread::start() {
   {
@@ -33,6 +48,89 @@ bool collector_thread::stop() {
   return true;
 }
 
+void collector_thread::update_trends(const long long now) {
+  const disk_free_check::drives_type drives = disk_free_.get();
+  const boost::lock_guard<boost::mutex> lock(trends_mutex_);
+  for (const disk_free_check::disk_free &d : drives) {
+    // A drive that momentarily reports no size at all is not a resize: taking
+    // it at face value would flip the trend context to 0, discard the whole
+    // history, and flip back on the next tick.
+    if (d.total <= 0) continue;
+    trend_map::iterator it = trends_.find(d.name);
+    if (it == trends_.end()) it = trends_.insert(trend_map::value_type(d.name, trend::trend_buffer(trend_interval, trend_retention))).first;
+    // Track used bytes; the total is the reset context (a resize invalidates
+    // the history).
+    it->second.append(now, d.total - d.free, d.total);
+  }
+  // Drives that have come and gone age out with their samples.
+  for (trend_map::iterator it = trends_.begin(); it != trends_.end();) {
+    if (it->second.empty() || it->second.newest_ts() < now - trend_retention)
+      it = trends_.erase(it);
+    else
+      ++it;
+  }
+  publish_trends();
+}
+
+// Republish the immutable snapshot handed to checks. Rebuilt once per
+// collector tick rather than copied per check: at a 5-minute cadence and 7-day
+// retention one drive carries ~2000 samples, and a busy poller would otherwise
+// deep-copy every drive's history (under the collector's lock) on every single
+// check_drivesize invocation.
+void collector_thread::publish_trends() { snapshot_ = std::make_shared<const trend_map>(trends_); }
+
+void collector_thread::load_trends() {
+  try {
+    nscapi::core_helper core(core_, plugin_id_);
+    const long long now = static_cast<long long>(std::time(nullptr));
+    trend_map loaded;
+    for (const nscapi::core_helper::storage_map::value_type &e : core.get_storage_strings("disk.trends")) {
+      // Remember every key we saw, including the ones that decode to nothing:
+      // save_trends() clears the rows that no longer back a live drive.
+      saved_keys_.insert(e.first);
+      trend::trend_buffer buf = trend::trend_buffer::decode(e.second, trend_interval, trend_retention, now);
+      if (!buf.empty()) loaded[e.first] = buf;
+    }
+    if (loaded.empty()) return;
+    const boost::lock_guard<boost::mutex> lock(trends_mutex_);
+    trends_.swap(loaded);
+    publish_trends();
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Failed to load drive trends: " + std::string(e.what()));
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to load drive trends");
+  }
+}
+
+void collector_thread::save_trends() {
+  try {
+    const trend_snapshot snapshot = get_drive_trends();
+    if (!snapshot) return;
+    nscapi::core_helper core(core_, plugin_id_);
+    for (const trend_map::value_type &v : *snapshot) {
+      if (v.second.empty()) continue;
+      core.put_storage("disk.trends", v.first, v.second.encode(trend_save_granularity), false, false);
+      saved_keys_.insert(v.first);
+    }
+    // Drives that have aged out of memory keep their stored row forever
+    // otherwise: on a host with churning mounts (containers, removable media)
+    // nsclient.db would grow without bound. An empty value decodes to an empty
+    // buffer, which load_trends() drops.
+    for (std::set<std::string>::iterator it = saved_keys_.begin(); it != saved_keys_.end();) {
+      if (snapshot->find(*it) != snapshot->end()) {
+        ++it;
+        continue;
+      }
+      core.put_storage("disk.trends", *it, "", false, false);
+      it = saved_keys_.erase(it);
+    }
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Failed to save drive trends: " + std::string(e.what()));
+  } catch (...) {
+    NSC_LOG_ERROR("Failed to save drive trends");
+  }
+}
+
 void collector_thread::thread_proc() {
   bool disable_disk_io = disable_.find("disk_io") != std::string::npos;
   if (disable_disk_io) {
@@ -42,6 +140,13 @@ void collector_thread::thread_proc() {
   if (disable_disk_free) {
     NSC_LOG_MESSAGE("WARNING: disk free checking is disabled");
   }
+  // Trends ride on the disk_free fetch, so disabling that disables them too.
+  bool disable_trend = disable_disk_free || disable_.find("trend") != std::string::npos;
+  if (disable_trend && !disable_disk_free) {
+    NSC_LOG_MESSAGE("WARNING: disk trend tracking is disabled");
+  }
+
+  if (!disable_trend) load_trends();
 
   // Initial fetch to populate data immediately.
   if (!disable_disk_io) {
@@ -51,18 +156,20 @@ void collector_thread::thread_proc() {
       NSC_LOG_ERROR("Initial disk I/O fetch failed: " + e.reason());
     } catch (...) {
       NSC_LOG_ERROR("Initial disk I/O fetch failed");
-      disable_disk_io = false;
+      disable_disk_io = true;
     }
   }
   if (!disable_disk_free) {
     try {
-      disk_free_.fetch();
+      if (!disk_free_.fetch()) NSC_LOG_ERROR("Initial disk free fetch returned no data");
     } catch (...) {
       NSC_LOG_ERROR("Initial disk free fetch failed");
       disable_disk_free = true;
     }
   }
 
+  const long long started = static_cast<long long>(std::time(nullptr));
+  long long last_save = started;
   for (;;) {
     if (!disable_disk_io) {
       try {
@@ -76,12 +183,25 @@ void collector_thread::thread_proc() {
       }
     }
     if (!disable_disk_free) {
+      // A failed fetch leaves the previous snapshot in place. Timestamping it
+      // as a fresh sample would feed the regression a fabricated flat segment,
+      // so the trend simply skips the tick and leaves a gap (which OLS over
+      // irregular timestamps handles natively).
+      bool fetched = false;
       try {
-        disk_free_.fetch();
+        fetched = disk_free_.fetch();
       } catch (const std::exception &e) {
         NSC_LOG_ERROR("Failed to get disk free metrics: " + std::string(e.what()));
       } catch (...) {
         NSC_LOG_ERROR("Failed to get disk free metrics");
+      }
+      if (!disable_trend && fetched) {
+        const long long now = static_cast<long long>(std::time(nullptr));
+        update_trends(now);
+        if (now - last_save >= trend_save_interval) {
+          save_trends();
+          last_save = now;
+        }
       }
     }
     // Sleep until the next interval, waking early if stop() was requested.
@@ -90,4 +210,9 @@ void collector_thread::thread_proc() {
       break;  // stop requested
     }
   }
+  // Skip the shutdown save when the collector ran for less than one trend
+  // interval: nothing worth persisting can have accumulated, and one-shot
+  // client runs (nscp client --boot) would otherwise attempt (and, without a
+  // writable data path, noisily fail) a storage write on every invocation.
+  if (!disable_trend && static_cast<long long>(std::time(nullptr)) - started >= trend_interval) save_trends();
 }

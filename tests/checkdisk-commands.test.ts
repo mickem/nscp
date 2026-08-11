@@ -39,7 +39,12 @@ describe("CheckDisk commands", () => {
 
   beforeAll(async () => {
     nscp = new NscpInstance();
-    key = await setupQueryNscp(nscp, "CheckDisk");
+    // 1s trend cadence so the drivesize trend keywords (full_in/rate) can
+    // accumulate a valid trend (>= 3 samples spanning >= 3x the interval)
+    // within the suite's runtime; samples arrive on the collector's 10s tick.
+    key = await setupQueryNscp(nscp, "CheckDisk", {
+      "/settings/disk": { "trend interval": "1s" },
+    });
   });
 
   afterAll(async () => {
@@ -65,6 +70,83 @@ describe("CheckDisk commands", () => {
       critical: "used > 0",
     });
     expect(q.result).toBe(CRITICAL);
+  });
+
+  // --- check_drivesize trend keywords (full_in / rate) ------------------------
+
+  it("check_drivesize accepts a duration threshold on full_in over REST", async () => {
+    // `full_in < 1s` arrives as the single token `warning=full_in < 1s`
+    // (duration literal through the k=v path). It can only fire if the drive
+    // would fill within one second, so the verdict is deterministically OK.
+    const q = await executeQuery(key, "check_drivesize", {
+      drive: ROOT_DRIVE,
+      warning: "full_in < 1s",
+      critical: "full_in < 1s",
+    });
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_drivesize trend keywords follow the sample count, live or not", async () => {
+    // Two outcomes are correct here, and which one you get depends on whether
+    // the collector tracks this drive at all:
+    //
+    //  - it does (a real filesystem): with trend interval=1s a valid trend
+    //    exists once three 10s collector ticks have landed, and rate/full_in
+    //    go live;
+    //  - it does not: `/` inside a container is an overlay mount, which the
+    //    collector skips as a pseudo filesystem, so no history is ever
+    //    recorded for it and the keywords must report the documented no-data
+    //    contract.
+    //
+    // Asserting "live trend" unconditionally is therefore wrong on
+    // containerised CI. What must hold either way is the contract tying the
+    // keywords to the sample count - never a sentinel, and never a half state
+    // such as a real rate with no samples behind it.
+    const args = {
+      drive: ROOT_DRIVE,
+      "detail-syntax": "samples=%(trend_samples);span=%(trend_span);rate=%(rate);full_in=%(full_in)",
+      "top-syntax": "${list}",
+      warning: "used > 100%",
+      critical: "used > 100%",
+    };
+    const q = await pollQuery(key, "check_drivesize", args, (r) => /samples=([3-9]|\d\d+)/.test(messageOf(r)), 90_000);
+    const msg = messageOf(q);
+    expect(q.result).toBe(OK);
+
+    const samples = Number(/samples=(\d+)/.exec(msg)?.[1]);
+    expect(Number.isFinite(samples)).toBe(true);
+    // full_in is a duration or 'never' in both branches - never a number of
+    // seconds, and never the empty string.
+    expect(msg).toMatch(/full_in=(never|[\dwd: hms]+)/);
+
+    if (samples >= 3) {
+      // Enough history for a regression: the trend is live.
+      expect(msg).toMatch(/rate=-?[\d.]+\s?[KMGTP]?i?B\/day/);
+      expect(msg).not.toMatch(/rate=unknown/);
+      expect(Number(/span=(\d+)/.exec(msg)?.[1])).toBeGreaterThan(0);
+    } else {
+      // Below the three-sample minimum (or no history at all): the optional
+      // numbers have no value and say so, rather than reporting a sentinel.
+      expect(msg).toMatch(/rate=unknown/);
+      expect(msg).toMatch(/full_in=never/);
+    }
+  });
+
+  it("check_drivesize accepts trend-window and rejects garbage", async () => {
+    const ok = await executeQuery(key, "check_drivesize", {
+      drive: ROOT_DRIVE,
+      "trend-window": "6h",
+      warning: "used > 100%",
+      critical: "used > 100%",
+    });
+    expect(ok.result).toBe(OK);
+
+    const bad = await executeQuery(key, "check_drivesize", {
+      drive: ROOT_DRIVE,
+      "trend-window": "bogus",
+    });
+    expect(bad.result).toBe(UNKNOWN);
+    expect(messageOf(bad)).toMatch(/Invalid trend-window/i);
   });
 
   // --- check_disk_io ----------------------------------------------------------

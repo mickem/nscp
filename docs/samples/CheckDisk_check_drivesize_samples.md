@@ -139,3 +139,45 @@ OK: No drives found
 check_drivesize drive=/ drive=/data ignore-missing=true "warn=used > 90%" "crit=used > 95%"
 OK All 1 drive(s) are ok|'/ used'=43.555GB;906.169;956.511;0;1006.854 '/ used %'=4%;90;95;0;100
 ```
+
+**Alert on time-until-full instead of a percentage (`full_in`, `rate`):**
+
+```
+check_drivesize "warn=full_in < 5d" "crit=full_in < 12h"
+OK All 1 drive(s) are ok
+```
+
+The projection comes from the background collector's used-space history, so a
+freshly started agent reports `never`/`unknown` until a trend exists (at least
+3 samples spanning 3x the sampling interval — 15 minutes at the default
+5-minute cadence). A missing value fires no threshold and emits no perfdata.
+
+Show the growth rate and projection per drive:
+
+```
+check_drivesize drive=/ show-all "warn=used > 99%" "detail-syntax=%(drive): %(used)/%(size) used, %(rate) (full in %(full_in), span %(trend_span)s)"
+OK: /: 43.716GB/0.983TB used, 9.67MB/day (full in 14570w 5d 08:49, span 31s)
+```
+
+Before any history exists the same check renders the no-data forms:
+
+```
+check_drivesize drive=/ "detail-syntax=${drive}: ${used}/${size} used, ${rate} (full in ${full_in})" "top-syntax=${status}: ${list}"
+OK: /: 43.715GB/0.983TB used, unknown (full in never)
+```
+
+Pick the window per purpose — long for capacity planning (net growth across
+log rotations), short to catch a runaway writer right now:
+
+```
+check_drivesize "warn=full_in < 5d" trend-window=24h    # capacity planning
+check_drivesize "crit=full_in < 2h" trend-window=30m    # burst detector
+```
+
+Assert data sufficiency separately from the projection, and match drives with
+no projection at all:
+
+```
+check_drivesize "warn=trend_span < 1h" "crit=full_in < 12h"
+check_drivesize "filter=full_in = 'never'"
+```
