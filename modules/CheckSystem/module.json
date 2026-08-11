@@ -17,6 +17,7 @@
 			"type": "query",
 			"metadata"	: { "guide" : "http://nsclient.org/nscp/wiki/doc/usage/nagios/nsca" }
 			},
+		"check_load"		: "Check the system load average (1/5/15 minutes), synthesised from the processor queue length plus busy cores.",
 		"check_uptime"		: "Check time since last server re-boot." ,
 		"check_service"		: "Check the state of one or more of the computer services.",
 		"check_process"		: "Check state/metrics of one or more of the processes running on the computer.",

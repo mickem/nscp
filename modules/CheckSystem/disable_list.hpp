@@ -11,7 +11,7 @@ namespace disable_list {
 
 // The values accepted by the `disable` setting in [/settings/system/windows].
 inline const std::set<std::string> &known_tokens() {
-  static const std::set<std::string> tokens = {"battery", "cpu", "cpu_frequency", "handles", "metrics", "network", "os_updates", "pdh", "temperature"};
+  static const std::set<std::string> tokens = {"battery", "cpu", "cpu_frequency", "handles", "load", "metrics", "network", "os_updates", "pdh", "temperature"};
   return tokens;
 }
 

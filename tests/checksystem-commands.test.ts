@@ -671,25 +671,32 @@ describe("CheckSystem commands", () => {
     expect(q.result).toBe(OK);
   });
 
-  // --- Linux-only checks (no Windows CheckSystem equivalent) ------------------
+  // --- check_load (both platforms) ---------------------------------------------
 
-  it("check_load reports the three load averages (Linux)", async () => {
-    if (onWindows) return; // check_load is CheckSystemUnix-only.
-    const q = await executeQuery(key, "check_load", {
-      "detail-syntax": "l1=${load1} l5=${load5} l15=${load15} type=${type}",
-    });
+  it("check_load reports the three load averages", async () => {
+    // Linux reads /proc/loadavg; Windows synthesises the averages on the 1 Hz
+    // collector tick (processor queue length + busy cores) and reports "not
+    // available yet" until the first sample lands, so poll until it is OK.
+    const q = await pollQuery(
+      key,
+      "check_load",
+      { "detail-syntax": "l1=${load1} l5=${load5} l15=${load15} type=${type}" },
+      (r) => r.result === OK,
+    );
     expect(q.result).toBe(OK); // no default thresholds -> always OK
     expect(messageOf(q)).toMatch(/l1=[\d.]+ l5=[\d.]+ l15=[\d.]+ type=total/);
     // load1/5/15 perf is emitted.
     expect(Object.keys(perfOf(q)).some((k) => /load1/.test(k))).toBe(true);
   });
 
-  it("check_load percpu reports the scaled per-core load (Linux)", async () => {
-    if (onWindows) return;
-    const q = await executeQuery(key, "check_load", { percpu: "true", "detail-syntax": "${type}" });
+  it("check_load percpu reports the scaled per-core load", async () => {
+    // percpu is a valued boolean over REST (the bool_switch trap).
+    const q = await pollQuery(key, "check_load", { percpu: "true", "detail-syntax": "${type}" }, (r) => r.result === OK);
     expect(q.result).toBe(OK);
     expect(messageOf(q)).toMatch(/scaled/);
   });
+
+  // --- Linux-only checks (no Windows CheckSystem equivalent) ------------------
 
   it("check_cpu_utilization exposes iowait/steal breakdown (Linux)", async () => {
     if (onWindows) return; // check_cpu_utilization is CheckSystemUnix-only.

@@ -3,7 +3,6 @@
 
 #include "pdh_thread.hpp"
 
-#include <win/com_helpers.hpp>
 #include <win/sysinfo/sysinfo.h>
 
 #include <nscapi/macros.hpp>
@@ -11,6 +10,7 @@
 #include <parsers/filter/realtime_helper.hpp>
 #include <str/format.hpp>
 #include <str/utils_no_boost.hpp>
+#include <win/com_helpers.hpp>
 #include <win/processes.hpp>
 
 #include "check_memory.hpp"
@@ -95,8 +95,8 @@ void pdh_thread::sample_process_cpu(error_list &errors) {
     process_checks::cpu_delta_map out;
     for (const auto &cur : current) {
       const auto prev = prev_proc_cpu_.find(cur.first);
-      if (prev == prev_proc_cpu_.end()) continue;                  // process is new since last tick
-      if (prev->second.creation != cur.second.creation) continue;  // PID reused by a different process
+      if (prev == prev_proc_cpu_.end()) continue;                                                    // process is new since last tick
+      if (prev->second.creation != cur.second.creation) continue;                                    // PID reused by a different process
       if (cur.second.kernel < prev->second.kernel || cur.second.user < prev->second.user) continue;  // counter went backwards
       const unsigned long long kd = cur.second.kernel - prev->second.kernel;
       const unsigned long long ud = cur.second.user - prev->second.user;
@@ -341,7 +341,7 @@ void pdh_thread::thread_proc() {
   for (const std::string &token : disabled) {
     if (disable_list::known_tokens().count(token) == 0) {
       NSC_LOG_ERROR("Ignoring unknown value in disable: '" + token +
-                    "' (valid values: battery, cpu, cpu_frequency, handles, metrics, network, os_updates, pdh, temperature)");
+                    "' (valid values: battery, cpu, cpu_frequency, handles, load, metrics, network, os_updates, pdh, temperature)");
     }
   }
   // network, temperature, cpu_frequency, battery and os_updates now run on
@@ -363,6 +363,40 @@ void pdh_thread::thread_proc() {
     check_pdh = false;
     NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
   }
+  const bool disable_load = disabled.count("load") > 0;
+  if (disable_load) {
+    NSC_LOG_MESSAGE("WARNING: load average sampling is disabled");
+  }
+
+  // Dedicated single-counter query for the synthetic load average: the ready
+  // queue depth sampled every tick. Kept separate from the user-configured
+  // `pdh` query above so `disable = pdh` and user counter failures do not take
+  // check_load down with them. On failure (e.g. corrupt perflib) the load
+  // degrades to the CPU-utilization component only.
+  PDH::PDHQuery load_query;
+  PDH::pdh_instance queue_counter;
+  bool check_queue = false;
+  bool queue_error_logged = false;
+  if (!disable_load) {
+    try {
+      PDH::pdh_object obj;
+      obj.set_counter("\\System\\Processor Queue Length");
+      obj.set_alias("system_load_queue");
+      obj.set_strategy_static();
+      obj.set_type("double");
+      obj.set_resolution("english");
+      queue_counter = PDH::factory::create(obj);
+      load_query.addCounter(queue_counter);
+      load_query.open();
+      load_query.collect();
+      check_queue = true;
+    } catch (const std::exception &e) {
+      NSC_LOG_MESSAGE("\\System\\Processor Queue Length is unavailable; check_load will report CPU-utilization-based load only: " +
+                      utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      NSC_LOG_MESSAGE("\\System\\Processor Queue Length is unavailable; check_load will report CPU-utilization-based load only");
+    }
+  }
   spi_container handles;
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
@@ -378,6 +412,7 @@ void pdh_thread::thread_proc() {
         }
       }
       windows::system_info::cpu_load load;
+      bool have_cpu = false;
       if (!disable_cpu) {
         try {
           if (read_core_load) {
@@ -385,12 +420,35 @@ void pdh_thread::thread_proc() {
           } else {
             load = windows::system_info::get_cpu_load_total();
           }
+          have_cpu = true;
         } catch (...) {
           errors.emplace_back("Failed to get cpu load");
         }
       }
       if (!disable_metrics) {
         write_metrics(handles, load, check_pdh ? &pdh : nullptr, errors);
+      }
+      if (!disable_load) {
+        double queue = 0.0;
+        if (check_queue) {
+          try {
+            load_query.gatherData();
+            queue = queue_counter->get_float_value();
+          } catch (const std::exception &e) {
+            queue = 0.0;
+            if (!queue_error_logged) {
+              queue_error_logged = true;
+              NSC_LOG_ERROR("Failed to read processor queue length (load averages degrade to CPU utilization only): " + utf8::utf8_from_native(e.what()));
+            }
+          } catch (...) {
+            queue = 0.0;
+            if (!queue_error_logged) {
+              queue_error_logged = true;
+              NSC_LOG_ERROR("Failed to read processor queue length (load averages degrade to CPU utilization only)");
+            }
+          }
+        }
+        update_load_avg(queue, have_cpu, load, handles, errors);
       }
     }
     // network, temperature, cpu_frequency, battery and os_updates are collected
@@ -716,6 +774,37 @@ std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load
   int i = 0;
   for (const windows::system_info::load_entry &l : load.core) ret["core " + str::xtos(i++)] = l;
   return ret;
+}
+
+void pdh_thread::update_load_avg(const double queue, const bool have_cpu, const windows::system_info::cpu_load &load, const spi_container &spi,
+                                 error_list &errors) {
+  double busy_cores = 0.0;
+  long long cores = load.cores;
+  if (cores <= 0) cores = static_cast<long long>(windows::system_info::get_numberOfProcessorscores());
+  if (have_cpu && cores > 0) {
+    // load.total.idle is the averaged idle percentage across all cores.
+    double busy_fraction = (100.0 - load.total.idle) / 100.0;
+    if (busy_fraction < 0.0) busy_fraction = 0.0;
+    if (busy_fraction > 1.0) busy_fraction = 1.0;
+    busy_cores = busy_fraction * static_cast<double>(cores);
+  }
+  boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+  if (!writeLock.owns_lock()) {
+    errors.emplace_back("Failed to get mutex for load average");
+    return;
+  }
+  load_avg_.update(queue < 0.0 ? 0.0 : queue, busy_cores);
+  if (spi.threads > 0) load_avg_.procs_total = spi.threads;
+  if (cores > 0) load_avg_.cores = cores;
+}
+
+load_check::load_avg_state pdh_thread::get_load_avg() {
+  boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+  if (!readLock.owns_lock()) {
+    NSC_LOG_ERROR("Failed to get Mutex for: load average");
+    return load_check::load_avg_state();
+  }
+  return load_avg_;
 }
 
 pdh_thread::metrics_hash pdh_thread::get_metrics() {
