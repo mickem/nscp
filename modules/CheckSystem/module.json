@@ -42,6 +42,7 @@
 		"check_installed_software"	: "Check installed software from the registry Uninstall hives (64-bit, 32-bit and per-user views): inventory, unwanted/EOL software policy and recent-install detection.",
 		"check_hardware"	: "Check hardware inventory (vendor, model, serial, chassis type, memory modules) with pinned-expectation alerting: serial changed, DIMM dropped, laptop in a server fleet.",
 		"check_hostname"	: "Check host identity: hostname, FQDN, DNS domain and domain-join state, with drift detection for the name mismatches that silently break auth and monitoring.",
+		"check_kernel_memory"	: "Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes and page-fault rates — the pool-exhaustion and hard-fault-storm signals free-RAM thresholds miss.",
 		"check_printqueue"		: "Check Windows print queues: queue depth, oldest-job age, offline and error states per printer.",
 
 		"checkServiceState"	: "Legacy version of check_service",

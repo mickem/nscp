@@ -29,6 +29,7 @@
 #include "check_hardware.hpp"
 #include "check_hostname.hpp"
 #include "check_installed_software.hpp"
+#include "check_kernel_memory.hpp"
 #include "check_load.hpp"
 #include "check_memory.hpp"
 #include "check_os_updates.hpp"
@@ -1161,6 +1162,10 @@ void CheckSystem::check_hardware(const PB::Commands::QueryRequestMessage::Reques
 
 void CheckSystem::check_hostname(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   hostname_check::check(request, response);
+}
+
+void CheckSystem::check_kernel_memory(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  kernel_memory_check::check_kernel_memory(request, response);
 }
 
 void CheckSystem::check_printqueue(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

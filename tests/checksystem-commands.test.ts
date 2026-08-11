@@ -645,6 +645,36 @@ describe("CheckSystem commands", () => {
     expect(perfValue(q, "count")).toBeGreaterThan(0);
   });
 
+  // --- check_kernel_memory (both platforms) -------------------------------------
+
+  it("check_kernel_memory reports kernel gauges and fault rates with perf", async () => {
+    // Windows samples the PDH Memory counters; Linux reads /proc/meminfo and
+    // /proc/vmstat. Both take a 1s window for the fault rates.
+    const q = await executeQuery(key, "check_kernel_memory", {});
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/cache/i);
+    const perf = perfOf(q);
+    // The byte gauges are never zero on a live kernel.
+    const gauge = onWindows ? "kernel_pool_nonpaged" : "kernel_slab_unreclaimable";
+    expect(perf[gauge]).toBeDefined();
+    expect(perf[gauge].value as number).toBeGreaterThan(0);
+    expect(perf["kernel_cache"].value as number).toBeGreaterThan(0);
+    expect(perf["kernel_page_faults_per_sec"]).toBeDefined();
+  });
+
+  it("check_kernel_memory size-unit and rate thresholds parse over REST", async () => {
+    // Pool/slab thresholds use size units and the fault thresholds are rates,
+    // all passed as single k=v tokens. Pinned so they can never trip.
+    const gauge = onWindows ? "pool_nonpaged" : "slab_unreclaimable";
+    const rate = onWindows ? "hard_faults_per_sec" : "major_faults_per_sec";
+    const q = await executeQuery(key, "check_kernel_memory", {
+      warning: `${gauge} > 999999G`,
+      critical: `${rate} > 99999999`,
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_hostname (both platforms) -----------------------------------------
 
   it("check_hostname reports host identity", async () => {
