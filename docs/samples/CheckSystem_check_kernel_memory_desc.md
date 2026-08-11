@@ -16,15 +16,17 @@ Keywords (a single aggregate row):
 | `cache`                     | Cache Bytes              | System file-cache working set                                            |
 | `page_faults_per_sec`       | Page Faults/sec          | Total faults (soft + hard)                                               |
 | `transition_faults_per_sec` | Transition Faults/sec    | The dominant soft-fault kind (resolved without disk I/O)                 |
-| `hard_faults_per_sec`       | Pages Input/sec          | Faults that had to read from disk — the fault-storm signal               |
+| `hard_faults_per_sec`       | Page Reads/sec           | Faults that had to read from disk — the fault-storm signal               |
 
 All six are always emitted as perf data (`kernel_pool_paged`,
 `kernel_hard_faults_per_sec`, ...), which is what makes the slow nonpaged-pool
 leak visible: it is inherently a trend signal, so let the backend graph it.
 
-There are no default thresholds. `hard_faults_per_sec` is the same counter
-`check_swap_io` reports as `swap_in` — included here deliberately so a fault
-storm can be read soft-vs-hard side by side. On Linux the same command is
+There are no default thresholds. `hard_faults_per_sec` counts hard-fault
+*events* (`Page Reads/sec`), not the pages they bring in: `check_swap_io`
+reports the latter as `swap_in` (`Pages Input/sec`), and a read that pages in a
+whole cluster makes `swap_in` several times larger than the fault rate. Read
+the two side by side to tell a fault storm from a paging storm. On Linux the same command is
 provided by the unix CheckSystem module with `slab`/`slab_reclaimable`/
 `slab_unreclaimable` as the platform-native gauges and
 `major_faults_per_sec` as the hard-fault rate.

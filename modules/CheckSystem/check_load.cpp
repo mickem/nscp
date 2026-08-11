@@ -14,21 +14,25 @@ namespace po = boost::program_options;
 
 namespace load_check {
 
-void load_avg_state::update(const double queue, const double busy_cores) {
+void load_avg_state::update(const double queue, const double busy_cores, const double elapsed_seconds) {
   const double v = queue + busy_cores;
   if (samples == 0) {
     load1 = load5 = load15 = v;
     queue1 = queue;
   } else {
-    // Decay constants for a fixed 1-second cadence (the kernel's loadavg
-    // formula sampled at 1 Hz instead of 5 s).
-    static const double F1 = std::exp(-1.0 / 60.0);
-    static const double F5 = std::exp(-1.0 / 300.0);
-    static const double F15 = std::exp(-1.0 / 900.0);
-    load1 = load1 * F1 + v * (1.0 - F1);
-    load5 = load5 * F5 + v * (1.0 - F5);
-    load15 = load15 * F15 + v * (1.0 - F15);
-    queue1 = queue1 * F1 + queue * (1.0 - F1);
+    // Decay over the interval actually elapsed (the kernel's loadavg formula,
+    // sampled on the collector tick instead of every 5 s). Clamped so a stalled
+    // or backwards clock cannot freeze the averages or wipe them in one step.
+    double dt = elapsed_seconds;
+    if (!(dt > 0.001)) dt = 0.001;  // also catches NaN
+    if (dt > 900.0) dt = 900.0;
+    const double f1 = std::exp(-dt / 60.0);
+    const double f5 = std::exp(-dt / 300.0);
+    const double f15 = std::exp(-dt / 900.0);
+    load1 = load1 * f1 + v * (1.0 - f1);
+    load5 = load5 * f5 + v * (1.0 - f5);
+    load15 = load15 * f15 + v * (1.0 - f15);
+    queue1 = queue1 * f1 + queue * (1.0 - f1);
   }
   last_instant = v;
   ++samples;

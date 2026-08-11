@@ -46,7 +46,7 @@ filter_obj_handler::filter_obj_handler() {
                       "alert on hard_faults_per_sec instead")
       .add_float("transition_faults_per_sec", &kernel_memory_obj::get_transition_faults, "Transition (soft) faults per second, resolved without disk I/O")
       .add_float("hard_faults_per_sec", &kernel_memory_obj::get_hard_faults,
-                 "Hard faults per second (Pages Input/sec): faults that had to read from disk — the fault-storm signal");
+                 "Hard faults per second (Page Reads/sec): faults that had to read from disk — the fault-storm signal");
   // Render the three byte gauges human-readable; expressions keep comparing bytes.
   registry_.add_human_string("pool_paged", &kernel_memory_obj::get_pool_paged_human, "Paged pool as a human-readable size")
       .add_human_string("pool_nonpaged", &kernel_memory_obj::get_pool_nonpaged_human, "Nonpaged pool as a human-readable size")
@@ -101,7 +101,10 @@ void check_kernel_memory(const PB::Commands::QueryRequestMessage::Request &reque
     const PDH::pdh_instance cache = make_memory_counter(pdh, "\\Memory\\Cache Bytes", "cache");
     const PDH::pdh_instance page_faults = make_memory_counter(pdh, "\\Memory\\Page Faults/sec", "page_faults");
     const PDH::pdh_instance transition_faults = make_memory_counter(pdh, "\\Memory\\Transition Faults/sec", "transition_faults");
-    const PDH::pdh_instance hard_faults = make_memory_counter(pdh, "\\Memory\\Pages Input/sec", "hard_faults");
+    // Page Reads/sec counts hard-fault *events* (disk read operations). Pages
+    // Input/sec counts the pages those reads brought in — several per fault —
+    // so it would overstate the fault rate this keyword documents.
+    const PDH::pdh_instance hard_faults = make_memory_counter(pdh, "\\Memory\\Page Reads/sec", "hard_faults");
 
     // The fault counters are rates and need two samples an interval apart;
     // the byte gauges simply read their current value on the second sample.

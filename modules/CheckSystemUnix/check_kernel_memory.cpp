@@ -146,13 +146,18 @@ void check_kernel_memory(const PB::Commands::QueryRequestMessage::Request &reque
   if (!prev.valid) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/vmstat");
   }
+  // Rates are divided by the interval actually slept, not the requested one:
+  // on a loaded host the wake-up can be noticeably late and a fixed 1.0 would
+  // overstate the fault rates.
+  const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
   std::this_thread::sleep_for(std::chrono::seconds(1));
+  const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
   const vmstat_faults cur = parse_vmstat_faults(read_file("/proc/vmstat"));
   const meminfo_kernel mem = parse_meminfo_kernel(read_file("/proc/meminfo"));
   if (!cur.valid || !mem.valid) {
     return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read /proc/vmstat or /proc/meminfo");
   }
-  check_from(request, response, compute_kernel_memory(mem, prev, cur, 1.0));
+  check_from(request, response, compute_kernel_memory(mem, prev, cur, elapsed));
 }
 
 }  // namespace kernel_memory_check

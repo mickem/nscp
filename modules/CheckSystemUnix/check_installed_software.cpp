@@ -4,6 +4,7 @@
 #include "check_installed_software.h"
 
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <array>
@@ -12,6 +13,7 @@
 #include <ctime>
 #include <memory>
 #include <parsers/filter/cli_helper.hpp>
+#include <parsers/helpers.hpp>
 
 namespace installed_software {
 
@@ -45,17 +47,22 @@ std::string format_epoch_date(const long long epoch) {
 
 namespace {
 
-// Execute a command via popen and capture stdout.
-std::string run_command(const std::string &cmd) {
+// Execute a command via popen, capture stdout and keep the exit status: an
+// empty package list from a failed query must not be mistaken for an empty
+// package database.
+command_result run_command(const std::string &cmd) {
   std::array<char, 4096> buffer{};
   std::string result;
-  using pclose_fn_t = int (*)(FILE *);
-  const std::unique_ptr<FILE, pclose_fn_t> pipe(popen(cmd.c_str(), "r"), pclose);
-  if (!pipe) return "";
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+  FILE *pipe = popen(cmd.c_str(), "r");
+  if (pipe == nullptr) return command_result("", false);
+  while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
     result += buffer.data();
   }
-  return result;
+  const int status = pclose(pipe);
+  // pclose returns -1 on failure, otherwise a wait(2) status: only a normal
+  // exit with code 0 counts as a successful query.
+  const bool ok = status != -1 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+  return command_result(result, ok);
 }
 
 bool binary_exists(const std::string &path) { return access(path.c_str(), X_OK) == 0; }
@@ -72,19 +79,42 @@ std::string strip_email(const std::string &maintainer) {
   return boost::trim_copy(angle == std::string::npos ? maintainer : maintainer.substr(0, angle));
 }
 
+// First existing candidate, or empty when the binary is not installed.
+std::string first_existing(const std::string &a, const std::string &b) {
+  if (binary_exists(a)) return a;
+  if (binary_exists(b)) return b;
+  return "";
+}
+
 }  // namespace
 
-std::string detect_manager() {
-  if (binary_exists("/usr/bin/dpkg-query") || binary_exists("/usr/local/bin/dpkg-query")) return "dpkg";
-  if (binary_exists("/usr/bin/rpm") || binary_exists("/usr/local/bin/rpm")) return "rpm";
-  if (binary_exists("/usr/bin/pacman") || binary_exists("/usr/local/bin/pacman")) return "pacman";
-  return "";
+package_manager detect_manager() {
+  package_manager pm;
+  // Commands are run by the absolute path probed here rather than by bare
+  // name, so the collector cannot be redirected through an inherited PATH.
+  pm.binary = first_existing("/usr/bin/dpkg-query", "/usr/local/bin/dpkg-query");
+  if (!pm.binary.empty()) {
+    pm.name = "dpkg";
+    return pm;
+  }
+  pm.binary = first_existing("/usr/bin/rpm", "/usr/local/bin/rpm");
+  if (!pm.binary.empty()) {
+    pm.name = "rpm";
+    return pm;
+  }
+  pm.binary = first_existing("/usr/bin/pacman", "/usr/local/bin/pacman");
+  if (!pm.binary.empty()) {
+    pm.name = "pacman";
+    return pm;
+  }
+  return package_manager();
 }
 
 // Parse dpkg-query -W output with the format
 //   ${Package}\t${Version}\t${Architecture}\t${Maintainer}\t${Installed-Size}\t${Status}
-// Status is three words ("install ok installed"); anything whose final word is
-// not "installed" (config-files leftovers, half-configured) is skipped.
+// Status is three words ("<desired> <error> <state>"). Only a state of exactly
+// "installed" counts: the states that merely end in it ("not-installed",
+// "half-installed") are removed or broken packages, not installed ones.
 std::vector<software_entry> parse_dpkg_output(const std::string &output) {
   std::vector<software_entry> out;
   std::vector<std::string> lines;
@@ -94,7 +124,11 @@ std::vector<software_entry> parse_dpkg_output(const std::string &output) {
     std::vector<std::string> parts;
     boost::split(parts, line, boost::is_any_of("\t"));
     if (parts.size() < 6) continue;
-    if (!boost::ends_with(boost::trim_copy(parts[5]), "installed")) continue;
+    std::vector<std::string> status_words;
+    boost::split(status_words, boost::trim_copy(parts[5]), boost::is_any_of(" \t"), boost::token_compress_on);
+    // The desired state (hold, deinstall, ...) does not change the fact that
+    // the package is currently on disk, so only the current state is checked.
+    if (status_words.empty() || status_words.back() != "installed") continue;
     software_entry e;
     e.manager = "dpkg";
     e.name = boost::trim_copy(parts[0]);
@@ -181,18 +215,29 @@ void apply_dpkg_install_dates(std::vector<software_entry> &entries, const mtime_
   }
 }
 
-std::vector<software_entry> fetch_installed(const std::string &manager, const exec_fn &exec) {
-  if (manager == "dpkg") {
-    return parse_dpkg_output(
-        exec("dpkg-query -W -f='${Package}\\t${Version}\\t${Architecture}\\t${Maintainer}\\t${Installed-Size}\\t${Status}\\n' 2>/dev/null"));
+fetch_result fetch_installed(const package_manager &manager, const exec_fn &exec) {
+  fetch_result result;
+  if (manager.name == "dpkg") {
+    const command_result r =
+        exec(manager.binary + " -W -f='${Package}\\t${Version}\\t${Architecture}\\t${Maintainer}\\t${Installed-Size}\\t${Status}\\n' 2>/dev/null");
+    result.ok = r.ok;
+    if (r.ok) result.entries = parse_dpkg_output(r.output);
+    return result;
   }
-  if (manager == "rpm") {
-    return parse_rpm_output(exec("rpm -qa --qf '%{NAME}\\t%{VERSION}-%{RELEASE}\\t%{ARCH}\\t%{VENDOR}\\t%{SIZE}\\t%{INSTALLTIME}\\n' 2>/dev/null"));
+  if (manager.name == "rpm") {
+    const command_result r =
+        exec(manager.binary + " -qa --qf '%{NAME}\\t%{VERSION}-%{RELEASE}\\t%{ARCH}\\t%{VENDOR}\\t%{SIZE}\\t%{INSTALLTIME}\\n' 2>/dev/null");
+    result.ok = r.ok;
+    if (r.ok) result.entries = parse_rpm_output(r.output);
+    return result;
   }
-  if (manager == "pacman") {
-    return parse_pacman_output(exec("pacman -Q 2>/dev/null"));
+  if (manager.name == "pacman") {
+    const command_result r = exec(manager.binary + " -Q 2>/dev/null");
+    result.ok = r.ok;
+    if (r.ok) result.entries = parse_pacman_output(r.output);
+    return result;
   }
-  return {};
+  return result;
 }
 
 void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
@@ -227,15 +272,20 @@ void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::C
 }
 
 void check_installed_software(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  const std::string manager = detect_manager();
+  const package_manager manager = detect_manager();
   if (manager.empty()) {
     return nscapi::protobuf::functions::set_response_bad(*response, "No supported package manager found (dpkg/rpm/pacman)");
   }
 
-  std::vector<software_entry> entries = fetch_installed(manager, run_command);
-  if (manager == "dpkg") apply_dpkg_install_dates(entries, file_mtime);
+  fetch_result fetched = fetch_installed(manager, run_command);
+  if (!fetched.ok) {
+    // A failed query yields an empty list; reporting that as "no installed
+    // software found" would turn a broken package database into a clean OK.
+    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to query installed software from " + manager.name + " (" + manager.binary + ")");
+  }
+  if (manager.name == "dpkg") apply_dpkg_install_dates(fetched.entries, file_mtime);
 
-  check_from(request, response, entries);
+  check_from(request, response, fetched.entries);
 }
 
 }  // namespace installed_software

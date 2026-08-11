@@ -400,6 +400,7 @@ void pdh_thread::thread_proc() {
   spi_container handles;
   DWORD sleep_ms = 1000;
   ULONGLONG last_overrun_warning = 0;
+  ULONGLONG last_load_tick = 0;  // tick_start of the previous load fold (0 = none yet)
   do {
     const ULONGLONG tick_start = nscpGetTickCount64();
     std::list<std::string> errors;
@@ -448,7 +449,12 @@ void pdh_thread::thread_proc() {
             }
           }
         }
-        update_load_avg(queue, have_cpu, load, handles, errors);
+        // Decay over the time actually elapsed since the previous fold: the
+        // loop targets 1 Hz but runs long whenever a tick overruns. A tick that
+        // could not take the lock folded nothing, so its interval is carried
+        // into the next one instead of being dropped.
+        const double elapsed_seconds = last_load_tick == 0 ? 1.0 : static_cast<double>(tick_start - last_load_tick) / 1000.0;
+        if (update_load_avg(queue, have_cpu, load, handles, elapsed_seconds, errors)) last_load_tick = tick_start;
       }
     }
     // network, temperature, cpu_frequency, battery and os_updates are collected
@@ -776,8 +782,8 @@ std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load
   return ret;
 }
 
-void pdh_thread::update_load_avg(const double queue, const bool have_cpu, const windows::system_info::cpu_load &load, const spi_container &spi,
-                                 error_list &errors) {
+bool pdh_thread::update_load_avg(const double queue, const bool have_cpu, const windows::system_info::cpu_load &load, const spi_container &spi,
+                                 const double elapsed_seconds, error_list &errors) {
   double busy_cores = 0.0;
   long long cores = load.cores;
   if (cores <= 0) cores = static_cast<long long>(windows::system_info::get_numberOfProcessorscores());
@@ -791,11 +797,12 @@ void pdh_thread::update_load_avg(const double queue, const bool have_cpu, const 
   boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
   if (!writeLock.owns_lock()) {
     errors.emplace_back("Failed to get mutex for load average");
-    return;
+    return false;
   }
-  load_avg_.update(queue < 0.0 ? 0.0 : queue, busy_cores);
+  load_avg_.update(queue < 0.0 ? 0.0 : queue, busy_cores, elapsed_seconds);
   if (spi.threads > 0) load_avg_.procs_total = spi.threads;
   if (cores > 0) load_avg_.cores = cores;
+  return true;
 }
 
 load_check::load_avg_state pdh_thread::get_load_avg() {

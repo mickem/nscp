@@ -33,8 +33,12 @@ Keywords (one row per installed package):
 
 There are no default thresholds (a bare call is an inventory), an empty match
 set returns OK, and the matched package count is emitted as `count` perf data.
-Packages the manager reports as not fully installed (dpkg `config-files`
-leftovers, half-configured states) are skipped.
+Only packages whose dpkg state is exactly `installed` are listed: removed
+(`not-installed`), `config-files` leftovers and broken (`half-installed`,
+`unpacked`) packages are skipped, while held packages (`hold ok installed`)
+are kept. If the package-manager query itself fails, the check returns UNKNOWN
+rather than an empty "no installed software found" inventory, so a broken
+package database can never read as a clean OK.
 
 **Caveats:** install dates are exact on rpm (`INSTALLTIME`); dpkg does not
 record them, so they are approximated from the mtime of the package's

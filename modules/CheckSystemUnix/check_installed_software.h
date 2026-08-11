@@ -52,9 +52,39 @@ struct filter_obj_handler : public native_context {
 
 typedef modern_filter::modern_filters<software_entry, filter_obj_handler> filter;
 
+// Result of running one package-manager query. `ok` is false when the command
+// could not be started or exited non-zero: an empty package list is then a
+// query failure, not an empty package database, and must not be reported as a
+// clean "no software installed" inventory.
+struct command_result {
+  std::string output;
+  bool ok;
+
+  command_result() : ok(false) {}
+  command_result(std::string out, const bool success) : output(std::move(out)), ok(success) {}
+};
+
 // Helpers for command execution / filesystem access (injectable for tests).
-typedef std::function<std::string(const std::string &)> exec_fn;
+typedef std::function<command_result(const std::string &)> exec_fn;
 typedef std::function<long long(const std::string &)> mtime_fn;
+
+// The package manager owning this host: the manager name plus the absolute
+// path of its query binary (commands are invoked by absolute path so a
+// manipulated PATH cannot redirect them).
+struct package_manager {
+  std::string name;    // dpkg, rpm, pacman
+  std::string binary;  // absolute path to the query binary
+
+  bool empty() const { return name.empty(); }
+};
+
+// The installed-package list plus whether the underlying query succeeded.
+struct fetch_result {
+  std::vector<software_entry> entries;
+  bool ok;
+
+  fetch_result() : ok(false) {}
+};
 
 // Render an epoch as YYYY-MM-DD (UTC); empty for epoch <= 0.
 std::string format_epoch_date(long long epoch);
@@ -71,14 +101,15 @@ std::vector<software_entry> parse_pacman_output(const std::string &output);
 // epoch seconds, or 0 when the path does not exist.
 void apply_dpkg_install_dates(std::vector<software_entry> &entries, const mtime_fn &mtime);
 
-// Detection of the available package manager (returns empty string if none
-// found). Order: dpkg-query, rpm, pacman — dpkg first because Debian-family
-// hosts frequently have an rpm binary installed as well.
-std::string detect_manager();
+// Detection of the available package manager (name is empty if none found).
+// Order: dpkg-query, rpm, pacman — dpkg first because Debian-family hosts
+// frequently have an rpm binary installed as well.
+package_manager detect_manager();
 
 // Run the query + parse pipeline for the given manager. exec is called with
-// the shell command and must return the captured stdout.
-std::vector<software_entry> fetch_installed(const std::string &manager, const exec_fn &exec);
+// the shell command and must return the captured stdout plus whether the
+// command succeeded.
+fetch_result fetch_installed(const package_manager &manager, const exec_fn &exec);
 
 // Testable core: renders / thresholds a pre-gathered entry list.
 void check_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,

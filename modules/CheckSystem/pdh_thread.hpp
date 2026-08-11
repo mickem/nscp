@@ -181,7 +181,12 @@ class pdh_thread {
   // Fold one collector tick into load_avg_ (takes the write lock). have_cpu is
   // false when CPU sampling is disabled or failed this tick: the load then
   // degrades to the queue component instead of counting unknown cores as busy.
-  void update_load_avg(double queue, bool have_cpu, const windows::system_info::cpu_load &load, const spi_container &spi, error_list &errors);
+  // elapsed_seconds is the measured time since the previous fold, so the
+  // averages stay correct when a tick overruns the 1-second cadence. Returns
+  // false when the lock could not be taken (nothing was folded, so the caller
+  // must keep accumulating the interval rather than dropping it).
+  bool update_load_avg(double queue, bool have_cpu, const windows::system_info::cpu_load &load, const spi_container &spi, double elapsed_seconds,
+                       error_list &errors);
 
   std::map<DWORD, proc_cpu_raw> prev_proc_cpu_;
   unsigned long long prev_sys_kernel_ = 0;

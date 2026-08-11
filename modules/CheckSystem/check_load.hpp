@@ -35,10 +35,15 @@ struct load_avg_state {
 
   load_avg_state() : load1(0.0), load5(0.0), load15(0.0), queue1(0.0), last_instant(0.0), samples(0), procs_total(0), cores(0) {}
 
-  // Fold one 1 Hz sample into the averages. The first sample seeds the EMAs
-  // directly (an unbiased point estimate) instead of decaying up from zero,
-  // so a freshly restarted agent does not under-report load for minutes.
-  void update(double queue, double busy_cores);
+  // Fold one collector sample into the averages. The first sample seeds the
+  // EMAs directly (an unbiased point estimate) instead of decaying up from
+  // zero, so a freshly restarted agent does not under-report load for minutes.
+  //
+  // elapsed_seconds is the wall time since the previous sample: the collector
+  // aims for 1 Hz but explicitly runs long when a tick overruns, and assuming
+  // a fixed second there would under-decay the averages exactly on the busy
+  // hosts this check exists for. Values outside [0.001, 900] are clamped.
+  void update(double queue, double busy_cores, double elapsed_seconds);
 };
 
 // One aggregate row exposed to the filter (mirrors the Unix check_load

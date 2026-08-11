@@ -79,6 +79,40 @@ TEST(CheckInstalledSoftware, ParsesDpkgOutput) {
   EXPECT_EQ(entries[1].name, "libc6");
 }
 
+TEST(CheckInstalledSoftware, SkipsNonInstalledDpkgStates) {
+  // Every dpkg state that is not exactly "installed" is a package that is not
+  // (fully) on disk — including the two that end in the word "installed".
+  const std::string output =
+      "purged-pkg\t1.0\tamd64\tX\t0\tunknown ok not-installed\n"
+      "broken-pkg\t1.0\tamd64\tX\t0\tinstall ok half-installed\n"
+      "unpacked-pkg\t1.0\tamd64\tX\t0\tinstall ok unpacked\n"
+      "held-pkg\t2.0\tamd64\tX\t7\thold ok installed\n";
+  const std::vector<software_entry> entries = installed_software::parse_dpkg_output(output);
+  ASSERT_EQ(entries.size(), 1u);
+  EXPECT_EQ(entries[0].name, "held-pkg");  // held packages are still installed
+}
+
+TEST(CheckInstalledSoftware, FetchInstalledPropagatesCommandFailure) {
+  installed_software::package_manager pm;
+  pm.name = "dpkg";
+  pm.binary = "/usr/bin/dpkg-query";
+
+  // A failed query must not be reported as an empty package database.
+  const installed_software::fetch_result failed =
+      installed_software::fetch_installed(pm, [](const std::string &) { return installed_software::command_result("", false); });
+  EXPECT_FALSE(failed.ok);
+  EXPECT_TRUE(failed.entries.empty());
+
+  const installed_software::fetch_result ok = installed_software::fetch_installed(pm, [](const std::string &cmd) {
+    // Commands are invoked by absolute path, never by bare name.
+    EXPECT_EQ(cmd.compare(0, 20, "/usr/bin/dpkg-query "), 0) << cmd;
+    return installed_software::command_result("bash\t5.1\tamd64\tX\t1\tinstall ok installed\n", true);
+  });
+  EXPECT_TRUE(ok.ok);
+  ASSERT_EQ(ok.entries.size(), 1u);
+  EXPECT_EQ(ok.entries[0].name, "bash");
+}
+
 TEST(CheckInstalledSoftware, ParsesRpmOutput) {
   const std::string output =
       "bash\t5.2.26-3.fc40\tx86_64\tFedora Project\t8654321\t1717200000\n"

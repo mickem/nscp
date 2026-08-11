@@ -8,6 +8,12 @@
 #include <Windows.h>
 #include <sddl.h>
 
+// Older Windows SDKs (still used by the 32-bit build) do not define the ARM64
+// architecture constant; the value is fixed by the platform ABI.
+#ifndef PROCESSOR_ARCHITECTURE_ARM64
+#define PROCESSOR_ARCHITECTURE_ARM64 12
+#endif
+
 #include <boost/algorithm/string.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>

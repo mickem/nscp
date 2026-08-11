@@ -14,7 +14,10 @@ load = processor queue length + busy cores
 ```
 
 into three exponential moving averages (the Linux loadavg formula sampled at
-1 Hz). The queue length is the PDH counter `\System\Processor Queue Length`
+1 Hz). Each fold decays over the interval actually measured rather than an
+assumed second, so the averages stay correct when a collector tick overruns
+the 1-second cadence — which is exactly what happens on the loaded hosts this
+check exists for. The queue length is the PDH counter `\System\Processor Queue Length`
 (threads ready to run but not running, system-wide) and busy cores is
 `cores x CPU busy%` from the same tick. This reproduces Linux semantics —
 running + runnable tasks — so a fully-busy 8-core box reads ~8.0 and a
