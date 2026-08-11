@@ -579,6 +579,72 @@ describe("CheckSystem commands", () => {
     expect(perfOf(q)["patch_missing"].value as number).toBe(1);
   });
 
+  // --- check_installed_software (both platforms) ------------------------------
+
+  it("check_installed_software inventories installed packages with count perf", async () => {
+    // Windows walks the registry Uninstall hives; Linux asks dpkg/rpm/pacman.
+    // Any real host has at least one visible package, so a bare call is an
+    // OK inventory with the aggregate count as perf.
+    const q = await executeQuery(key, "check_installed_software", {});
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/software packages installed/i);
+    expect(perfValue(q, "count")).toBeGreaterThan(0);
+  });
+
+  it("check_installed_software policy expressions parse and stay quiet when nothing matches", async () => {
+    // The unwanted-software pattern (crit=name like ...) and the
+    // recent-install pattern (warn=install_date > -Nd) passed as single k=v
+    // tokens — REST-style argument parsing. Nothing can match either
+    // expression (no product has this name; nothing installed within 1s),
+    // so the result must be a clean OK.
+    const q = await executeQuery(key, "check_installed_software", {
+      warning: "install_date > -1s",
+      critical: "name like 'zz_no_such_product_zz'",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|failed to parse|exception/i);
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_installed_software flags matching software as critical", async () => {
+    // Inverted match: every installed package trips the expression, proving
+    // that a hit is escalated and named in the problem list.
+    const q = await executeQuery(key, "check_installed_software", {
+      critical: "name not like 'zz_no_such_product_zz'",
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/critical/i);
+  });
+
+  it("check_installed_software empty filter result takes the empty state", async () => {
+    // The absent-unwanted-software probe: a filter matching nothing is OK
+    // with the documented no-data message, never UNKNOWN or an error.
+    const q = await executeQuery(key, "check_installed_software", {
+      filter: "name like 'zz_no_such_product_zz'",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/no installed software found/i);
+  });
+
+  it("check_installed_software windows keywords filter machine-wide software (Windows)", async () => {
+    if (!onWindows) return; // hive/architecture/system_component are registry-view concepts.
+    const q = await executeQuery(key, "check_installed_software", {
+      filter: "hive = 'machine' and system_component = 0",
+    });
+    expect(q.result).toBe(OK);
+    expect(perfValue(q, "count")).toBeGreaterThan(0);
+  });
+
+  it("check_installed_software exposes the package manager keyword (Linux)", async () => {
+    if (onWindows) return; // manager is the unix package-manager keyword.
+    // Whatever manager owns this host, every entry carries the same value, so
+    // filtering on the full known set must keep the inventory non-empty.
+    const q = await executeQuery(key, "check_installed_software", {
+      filter: "manager = 'dpkg' or manager = 'rpm' or manager = 'pacman'",
+    });
+    expect(q.result).toBe(OK);
+    expect(perfValue(q, "count")).toBeGreaterThan(0);
+  });
+
   // --- check_printqueue (Windows) --------------------------------------------
 
   it("check_printqueue runs and reports a valid status (Windows)", async () => {

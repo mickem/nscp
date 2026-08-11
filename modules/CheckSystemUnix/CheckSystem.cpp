@@ -25,6 +25,7 @@
 #include "check_load.h"
 #include "check_memory.h"
 #include "check_network.h"
+#include "check_installed_software.h"
 #include "check_os_updates.h"
 #include "check_os_version.h"
 #include "check_pagefile.h"
@@ -168,6 +169,9 @@ void CheckSystem::check_os_version(const PB::Commands::QueryRequestMessage::Requ
 }
 void CheckSystem::check_os_updates(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   os_updates::check_os_updates(request, response);
+}
+void CheckSystem::check_installed_software(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  installed_software::check_installed_software(request, response);
 }
 void CheckSystem::check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   cpu_frequency_check::check_cpu_frequency(request, response);

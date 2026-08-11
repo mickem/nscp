@@ -28,6 +28,7 @@
 #include "check_cpu_frequency.hpp"
 #include "check_memory.hpp"
 #include "check_os_updates.hpp"
+#include "check_installed_software.hpp"
 #include "check_patch_age.hpp"
 #include "check_pending_reboot.hpp"
 #include "check_printqueue.hpp"
@@ -1141,6 +1142,10 @@ void CheckSystem::check_pending_reboot(const PB::Commands::QueryRequestMessage::
 
 void CheckSystem::check_patch_age(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   patch_age_check::check_patch_age(request, response);
+}
+
+void CheckSystem::check_installed_software(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  installed_software_check::check(request, response);
 }
 
 void CheckSystem::check_printqueue(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
