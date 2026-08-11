@@ -21,6 +21,23 @@
 // on OpenSSL, Boost and the bundled HTTP client - no plugin API.
 namespace onboarding {
 
+// ALPN protocol offered on every mTLS call to the fleet server (its
+// `fleet_proto::AGENT_ALPN`), and not optional.
+//
+// `mtls_url` normally points at port 443, shared with the operator web UI, and
+// the server reads ALPN out of the ClientHello to decide which TLS
+// configuration answers: this name gets the pinned certificate and a
+// client-certificate request, anything else gets the public web certificate and
+// no client-cert request. Omitting it does not fail at connect - the TCP
+// connection comes up, and the handshake then fails pin validation with a
+// misleading "untrusted certificate".
+//
+// Offer it first with "http/1.1" behind it, which is what a deployment running
+// a dedicated mTLS port advertises. It applies to the agent API only: enrolment
+// goes to the public endpoint, which must be reached through the ordinary web
+// branch and so offers no ALPN of its own.
+constexpr const char *kAgentAlpn = "nsclient-fleet/1";
+
 // Thrown for all onboarding failures. `retryable()` distinguishes transient
 // conditions (rate limit, server error, network) from fatal ones - most
 // importantly a rejected bootstrap token, which is burned server-side on
