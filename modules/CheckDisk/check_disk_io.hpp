@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/thread/shared_mutex.hpp>
 #include <list>
 #include <map>
@@ -88,7 +89,11 @@ class disk_io_data {
   boost::shared_mutex mutex_;
   bool fetch_disk_io_;
   disks_type disks_;
-  bool stored_data_ = false;
+  // Only ever touched by the collector thread today (fetch() writes it, the
+  // collector reads it right after), but the class locks disks_ precisely
+  // because it is shared, and set() is public - so the flag is atomic rather
+  // than relying on that staying true.
+  std::atomic<bool> stored_data_{false};
 
  public:
   disk_io_data() : fetch_disk_io_(true) {}
