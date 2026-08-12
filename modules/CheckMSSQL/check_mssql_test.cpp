@@ -7,6 +7,7 @@
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 
+#include "check_mssql_availability_groups.hpp"
 #include "check_mssql_backup.hpp"
 #include "check_mssql_blocking.hpp"
 #include "check_mssql_counters.hpp"
@@ -253,6 +254,28 @@ TEST(BuildBlocking, DirectBlockerFieldsPassThrough) {
   EXPECT_EQ(out[0].root_blocker, 52);  // blocker not itself blocked
   EXPECT_EQ(out[0].get_blocker_idle(), 1);
   EXPECT_EQ(out[0].show(), "61");
+}
+
+TEST(BuildReplicas, DatabaseRowsUseDatabaseHealthAndComposeTheName) {
+  std::vector<check_mssql_availability_groups_command::replica_row> rows(2);
+  rows[0].group = "ag1";
+  rows[0].replica = "sql1";
+  rows[0].role = "PRIMARY";
+  rows[0].replica_health = "HEALTHY";
+  rows[0].database = "appdb";
+  rows[0].db_health = "NOT_HEALTHY";
+  rows[0].sync_state = "NOT SYNCHRONIZING";
+  rows[1].group = "ag1";
+  rows[1].replica = "sql2";
+  rows[1].role = "SECONDARY";
+  rows[1].replica_health = "PARTIALLY_HEALTHY";  // replica-level row, no database
+
+  const auto out = check_mssql_availability_groups_command::build_replicas(rows);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].name, "ag1/sql1/appdb");
+  EXPECT_EQ(out[0].health, "NOT_HEALTHY");  // database health wins on database rows
+  EXPECT_EQ(out[1].name, "ag1/sql2");
+  EXPECT_EQ(out[1].health, "PARTIALLY_HEALTHY");  // replica health on replica rows
 }
 
 namespace {

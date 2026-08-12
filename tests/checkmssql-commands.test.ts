@@ -112,6 +112,16 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
   });
 
+  it("check_mssql_availability_groups parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_availability_groups", [
+      "timeout=5",
+      "warning=redo_queue > 500M",
+      "critical=log_send_queue > 1G",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
   it("check_mssql_counters parses its options and hits a server or the contract", async () => {
     const out = await query("check_mssql_counters", [
       "timeout=5",
@@ -402,6 +412,22 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).not.toMatch(/invalid expression/i);
     expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_availability_groups reports the documented no-AG contract", async () => {
+    // The test container has no availability groups: the check must report
+    // the documented OK + message, not an error or a skip.
+    const out = await query("check_mssql_availability_groups");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/No availability groups found/);
+  });
+
+  it("check_mssql_availability_groups honors empty-state for must-have-AG hosts", async () => {
+    const out = await query("check_mssql_availability_groups", ["empty-state=critical"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/No availability groups found/);
   });
 
   it("rejects a wrong SA password with the connect contract (SQL auth path)", async () => {
