@@ -20,6 +20,7 @@
 #include "check_mssql_query.hpp"
 #include "check_mssql_sessions.hpp"
 #include "check_mssql_tempdb.hpp"
+#include "check_mssql_transactions.hpp"
 #include "check_mssql_waits.hpp"
 #include "mssql_facts.hpp"
 #include "mssql_options.hpp"
@@ -180,4 +181,8 @@ void CheckMSSQL::check_mssql_tempdb(const PB::Commands::QueryRequestMessage::Req
 
 void CheckMSSQL::check_mssql_integrity(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_mssql_integrity_command::check(*defaults_.get(), request, response);
+}
+
+void CheckMSSQL::check_mssql_transactions(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_mssql_transactions_command::check(*defaults_.get(), request, response);
 }
