@@ -15,6 +15,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <str/format.hpp>
 
 #include "realtime_thread.hpp"
@@ -66,6 +67,10 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("received_human", &filter_obj::get_received_human, "Bytes received per second (human readable, auto-scaled)")
       .add_string_var("sent_human", &filter_obj::get_sent_human, "Bytes sent per second (human readable, auto-scaled)")
       .add_string_var("total_human", &filter_obj::get_total_human, "Bytes total per second (human readable, auto-scaled)");
+
+  // The *_human strings above auto-scale; these let a template or a threshold
+  // pick the unit, e.g. `convert_bytes(total, 'MB') > 100` (#1392).
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_network(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,

@@ -10,6 +10,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <vector>
@@ -118,6 +119,10 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_human_string("size", &filter_obj::get_size_human, "")
       .add_human_string("free", &filter_obj::get_free_human, "")
       .add_human_string("used", &filter_obj::get_used_human, "");
+
+  // The human strings above auto-scale; these let a template or a threshold
+  // pick the unit (and cover user_free, which has no human form).
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_uncpath(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

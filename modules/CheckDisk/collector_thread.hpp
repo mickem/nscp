@@ -15,6 +15,39 @@
 
 #include "check_disk_io.hpp"
 
+// Consecutive-failure tracker for a single collection.
+//
+// A collection is only given up on after `limit` failures in a row; a single
+// failed fetch is not evidence that the data source is unavailable (WMI is
+// routinely busy for a tick), so the collector keeps retrying until the
+// failures persist. A limit of 0 or less never gives up. Any success resets
+// the count, so intermittent errors never accumulate into a give-up.
+class collector_failure_tracker {
+  int limit_;
+  int consecutive_;
+  bool given_up_;
+
+ public:
+  explicit collector_failure_tracker(const int limit = 0) : limit_(limit), consecutive_(0), given_up_(false) {}
+
+  bool given_up() const { return given_up_; }
+  int consecutive() const { return consecutive_; }
+  int limit() const { return limit_; }
+
+  void succeeded() { consecutive_ = 0; }
+  // Records a failure; returns true when this was the failure that gave up
+  // (so the caller can log the transition exactly once).
+  bool failed() {
+    if (given_up_) return false;
+    ++consecutive_;
+    if (limit_ > 0 && consecutive_ >= limit_) {
+      given_up_ = true;
+      return true;
+    }
+    return false;
+  }
+};
+
 class collector_thread {
  public:
   typedef std::map<std::string, trend::trend_buffer> trend_map;
@@ -53,6 +86,12 @@ class collector_thread {
   // `trend retention` under the disk alias); set before start().
   long long trend_interval;
   long long trend_retention;
+  // How many consecutive failed fetches disable a collection for the rest of
+  // the process lifetime (setting `max collection errors`; 0 = never give up).
+  // A single failure is not evidence that the source is gone - WMI is
+  // routinely busy for a tick - so the collector retries and only stops once
+  // the failures persist. Success resets the count.
+  int max_collection_errors;
 
   collector_thread(nscapi::core_wrapper *core, const int plugin_id)
       : stop_requested_(false),
@@ -60,7 +99,8 @@ class collector_thread {
         core_(core),
         collection_interval(10),
         trend_interval(300),
-        trend_retention(7 * 24 * 3600) {}
+        trend_retention(7 * 24 * 3600),
+        max_collection_errors(10) {}
 
   disk_io_check::disks_type get_disk_io();
   disk_free_check::drives_type get_disk_free();

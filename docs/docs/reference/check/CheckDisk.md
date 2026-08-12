@@ -64,6 +64,15 @@ collection interval), so a single check can join free space with the most
 portable saturation signal: `"warn=total_latency > 20" "crit=total_latency > 50"`.
 See `check_disk_io` for details on how latency is measured.
 
+The space keywords have no value at all on a row without a filesystem behind it
+(an I/O or device row). They render as `-`, every numeric comparison against
+them is false, and they emit no performance data, so a graph of a device row
+records nothing rather than a fabricated 0%. Test for it with
+`free_pct = 'no space data'`, or keep using the `has_space = 1` guard.
+
+Byte-valued keywords can be formatted and scaled with `format_bytes`,
+`convert_bytes` and `scale` — see [Formatting byte values](#check_disk_io_formatting).
+
 ### Device-state keywords (Windows)
 
 | Keyword              | Description                                                      |
@@ -103,7 +112,7 @@ is over 80% busy, or a physical disk reports `Warning` health; and CRITICAL belo
 ```
 check_disk_health
 OK: All disks are healthy.
-'C: free_pct'=61%;20;10 'C: percent_disk_time'=2%;80;95 ...
+'C:_free_pct'=61%;20;10 'C:_percent_disk_time'=2%;80;95 ...
 ```
 
 **Physical-disk device health:**
@@ -163,7 +172,7 @@ Device-state keywords (populated on `has_device = 1` rows): `friendly_name`,
 | [top-syntax](#check_disk_health_top-syntax)         | ${status}: ${list}                                                                                                                  | Top level syntax.                                                                                                         |
 | [ok-syntax](#check_disk_health_ok-syntax)           | %(status): All disks are healthy.                                                                                                   | ok syntax.                                                                                                                |
 | [empty-syntax](#check_disk_health_empty-syntax)     |                                                                                                                                     | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_disk_health_detail-syntax)   | ${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}                                              | Detail level syntax.                                                                                                      |
+| [detail-syntax](#check_disk_health_detail-syntax)   | ${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}                                              | Detail level syntax.                                                                                                      |
 | [perf-syntax](#check_disk_health_perf-syntax)       | ${name}                                                                                                                             | Performance alias syntax.                                                                                                 |
 
 
@@ -267,7 +276,7 @@ Used to format each resulting item in the message.
 %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-*Default Value:* `${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}`
+*Default Value:* `${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}`
 
 <h5 id="check_disk_health_perf-syntax">perf-syntax:</h5>
 
@@ -283,8 +292,8 @@ This is the syntax for the base names of the performance data.
 | Option              | Description                                                                                                    |
 |---------------------|----------------------------------------------------------------------------------------------------------------|
 | disk_number         | Physical disk number/index (device rows)                                                                       |
-| free                | Free disk space in bytes                                                                                       |
-| free_pct            | Percentage of free disk space                                                                                  |
+| free                | Free disk space in bytes (I/O-only rows have none)                                                             |
+| free_pct            | Percentage of free disk space (I/O-only rows have none)                                                        |
 | friendly_name       | Physical disk friendly name (device rows)                                                                      |
 | has_device          | 1 if the row carries physical-disk device state (a per-disk row), 0 otherwise                                  |
 | has_space           | 1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or a disk with no mounted filesystem) |
@@ -305,9 +314,9 @@ This is the syntax for the base names of the performance data.
 | split_io_per_sec    | Split I/O operations per second                                                                                |
 | total_bytes_per_sec | Total bytes per second (read + write)                                                                          |
 | total_latency       | Average latency per I/O (read + write) in milliseconds (over the collection interval)                          |
-| used                | Used disk space in bytes                                                                                       |
-| used_pct            | Percentage of used disk space                                                                                  |
-| user_free           | Free disk space available to current user in bytes                                                             |
+| used                | Used disk space in bytes (I/O-only rows have none)                                                             |
+| used_pct            | Percentage of used disk space (I/O-only rows have none)                                                        |
+| user_free           | Free disk space available to current user in bytes (I/O-only rows have none)                                   |
 | write_bytes_per_sec | Bytes written per second                                                                                       |
 | write_latency       | Average write latency in milliseconds (over the collection interval)                                           |
 | writes_per_sec      | Write IOPS                                                                                                     |
@@ -374,7 +383,47 @@ One accuracy caveat: the underlying counters are 32-bit and accrue time per
 depth) they can wrap more than once within a long sampling window, which
 understates the reported latency. Perfmon has the same limitation and avoids it
 by sampling every second — if you monitor extremely busy disks, lower the
-module's `collection interval` accordingly.
+module's [`collection interval`](#/settings/disk) accordingly:
+
+```ini
+[/settings/disk]
+collection interval=2s
+```
+
+<a id="check_disk_io_formatting"></a>
+### Formatting byte values
+
+The byte-rate keywords are plain byte counts, and the filter language has no
+arithmetic of its own, so three functions are available in both `detail-syntax`
+and threshold expressions:
+
+| Function                     | Description                                                                          |
+|------------------------------|--------------------------------------------------------------------------------------|
+| `format_bytes(value)`        | Human-readable string, auto-scaled to B/KB/MB/GB/... (1024-based).                   |
+| `format_bytes(value,unit)`   | Human-readable string in a fixed unit (`B`, `K`/`KB`, `M`/`MB`, `G`/`GB`, `T`/`TB`). |
+| `convert_bytes(value,unit)`  | The numeric value in that unit — use it in `warn`/`crit`.                            |
+| `scale(value,divisor)`       | Plain division, for units the byte helpers do not cover (e.g. decimal Mbps).         |
+
+```
+check_disk_io "detail-syntax=%(name): %(format_bytes(total_bytes_per_sec))/s" "warn=convert_bytes(total_bytes_per_sec,'MB') > 100"
+OK: C:: 20.95MB/s, D:: 1.10MB/s
+```
+
+Write the argument list without a space after the comma: the command-line
+client splits an argument on whitespace, so `format_bytes(value, 'MB')` is
+passed as two tokens and the option fails to parse. Over REST, and in
+`nsclient.ini`, both spellings work.
+
+### Performance data labels
+
+Each keyword is graphed under `<perf-syntax>_<keyword>` — `'C:_queue_length'`,
+`'C:_total_latency'` and so on — so a check that reports several keywords for a
+disk produces one series per keyword. To pin a different name (or to get back
+the bare drive name a single metric used to be graphed under), use `perf-config`:
+
+```
+check_disk_io "perf-config=percent_disk_time(suffix:none)"
+```
 
 **Jump to section:**
 
@@ -4033,18 +4082,43 @@ This is the syntax for the base names of the performance data.
 
 
 
-| Key                                         | Default Value | Description              |
-|---------------------------------------------|---------------|--------------------------|
-| [disable](#disable-automatic-checks)        |               | Disable automatic checks |
-| [trend interval](#trend-sampling-interval)  | 5m            | Trend sampling interval  |
-| [trend retention](#trend-history-retention) | 7d            | Trend history retention  |
+| Key                                                          | Default Value | Description                            |
+|--------------------------------------------------------------|---------------|----------------------------------------|
+| [collection interval](#collection-interval)                  | 10s           | Collection interval                    |
+| [disable](#disable-automatic-checks)                         |               | Disable automatic checks               |
+| [max collection errors](#maximum-consecutive-collection-errors) | 10         | Maximum consecutive collection errors  |
+| [trend interval](#trend-sampling-interval)                   | 5m            | Trend sampling interval                |
+| [trend retention](#trend-history-retention)                  | 7d            | Trend history retention                |
 
 
 ```ini
 # 
 [/settings/disk]
+collection interval=10s
+max collection errors=10
 trend interval=5m
 trend retention=7d
+```
+
+#### Collection interval <a id="/settings/disk/collection interval"></a>
+
+How often disk I/O and disk free data is sampled. All rates (IOPS, bytes/sec) and latencies reported by check_disk_io and check_disk_health are averages over one such interval, so lowering it makes them react faster and follow short spikes more closely, at the cost of more frequent sampling. Duration, e.g. 10s.
+
+
+| Key            | Description                         |
+|----------------|-------------------------------------|
+| Path:          | [/settings/disk](#/settings/disk)   |
+| Key:           | collection interval                 |
+| Advanced:      | Yes (means it is not commonly used) |
+| Default value: | `10s`                               |
+
+
+**Sample:**
+
+```
+[/settings/disk]
+# Collection interval
+collection interval=10s
 ```
 
 #### Disable automatic checks <a id="/settings/disk/disable"></a>
@@ -4066,6 +4140,27 @@ A comma separated list of checks to disable in the collector: disk_io, disk_free
 [/settings/disk]
 # Disable automatic checks
 disable=
+```
+
+#### Maximum consecutive collection errors <a id="/settings/disk/max collection errors"></a>
+
+How many consecutive failed fetches disable a collection (disk I/O or disk free) for the rest of the process lifetime. A single failure is not treated as the source being unavailable: the collector retries on the next interval and any success resets the count. Set to 0 to retry forever.
+
+
+| Key            | Description                         |
+|----------------|-------------------------------------|
+| Path:          | [/settings/disk](#/settings/disk)   |
+| Key:           | max collection errors               |
+| Advanced:      | Yes (means it is not commonly used) |
+| Default value: | `10`                                |
+
+
+**Sample:**
+
+```
+[/settings/disk]
+# Maximum consecutive collection errors
+max collection errors=10
 ```
 
 #### Trend sampling interval <a id="/settings/disk/trend interval"></a>

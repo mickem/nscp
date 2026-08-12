@@ -43,7 +43,14 @@ describe("CheckDisk commands", () => {
     // accumulate a valid trend (>= 3 samples spanning >= 3x the interval)
     // within the suite's runtime; samples arrive on the collector's 10s tick.
     key = await setupQueryNscp(nscp, "CheckDisk", {
-      "/settings/disk": { "trend interval": "1s" },
+      "/settings/disk": {
+        "trend interval": "1s",
+        // Both keys are new in #1392; setting them here also pins that the
+        // module boots with them configured. A 1s cadence makes the collector
+        // reach its second sample (needed for every rate and latency) quickly.
+        "collection interval": "1s",
+        "max collection errors": "3",
+      },
     });
   });
 
@@ -176,7 +183,99 @@ describe("CheckDisk commands", () => {
     expect(perfKeys.some((k) => /total_latency/.test(k))).toBe(true);
   });
 
+  it("check_disk_io gives every load keyword its own perf label", async () => {
+    // Both generators used to be registered without a suffix, so queue_length
+    // and percent_disk_time were emitted under the bare ${name} alias and a
+    // store that keys by label kept only one of the two.
+    const q = await pollQuery(
+      key,
+      "check_disk_io",
+      {
+        warning: "queue_length > 999999",
+        critical: "percent_disk_time > 999999",
+      },
+      (r) => r.result === OK,
+    );
+    expect(q.result).toBe(OK);
+    const perfKeys = Object.keys(perfOf(q));
+    expect(perfKeys.some((k) => k.endsWith("_queue_length"))).toBe(true);
+    expect(perfKeys.some((k) => k.endsWith("_percent_disk_time"))).toBe(true);
+  });
+
+  it("check_disk_io formats byte rates through format_bytes", async () => {
+    // The filter language has no arithmetic, so without these functions a
+    // template can only print the raw byte count.
+    const q = await pollQuery(
+      key,
+      "check_disk_io",
+      {
+        filter: "none",
+        "detail-syntax": "%(name)=%(format_bytes(total_bytes_per_sec,'KB'))KB",
+        warning: "iops > 999999",
+        critical: "iops > 999999",
+      },
+      (r) => r.result === OK,
+    );
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/=[0-9.]+KB/);
+  });
+
+  it("check_disk_io compares byte rates in a chosen unit", async () => {
+    // convert_bytes returns a number, so the comparison must be numeric: a
+    // string comparison would order any two-digit value above 999999.
+    const q = await pollQuery(
+      key,
+      "check_disk_io",
+      {
+        warning: "convert_bytes(total_bytes_per_sec,'MB') > 999999",
+        critical: "convert_bytes(total_bytes_per_sec,'MB') > 999999",
+      },
+      (r) => r.result !== UNKNOWN,
+    );
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_disk_health -------------------------------------------------------
+
+  it("check_disk_health gives space and load keywords distinct perf labels", async () => {
+    // The default thresholds reference free_pct and percent_disk_time, so the
+    // plain command emitted two entries under one label on every row.
+    const q = await pollQuery(
+      key,
+      "check_disk_health",
+      {
+        filter: "has_space = 1",
+        warning: "free_pct < 0",
+        critical: "percent_disk_time > 999999",
+      },
+      (r) => r.result === OK,
+    );
+    expect(q.result).toBe(OK);
+    const perfKeys = Object.keys(perfOf(q));
+    expect(perfKeys.some((k) => k.endsWith("_free_pct"))).toBe(true);
+    expect(perfKeys.some((k) => k.endsWith("_percent_disk_time"))).toBe(true);
+  });
+
+  it("check_disk_health reports no space rather than 0% on IO-only rows", async () => {
+    // Rows with no filesystem behind them used to render "0% free" and record
+    // a flat 0% free_pct series. Hosts where every device maps to a filesystem
+    // select zero rows, which is also a pass.
+    const q = await pollQuery(
+      key,
+      "check_disk_health",
+      {
+        filter: "has_space = 0",
+        "detail-syntax": "${name}=${free_pct}",
+        warning: "percent_disk_time > 999999",
+        critical: "percent_disk_time > 999999",
+      },
+      (r) => r.result !== UNKNOWN,
+    );
+    expect(q.result).toBe(OK);
+    const message = messageOf(q);
+    expect(message).not.toMatch(/=0%/);
+    expect(Object.keys(perfOf(q)).some((k) => k.endsWith("_free_pct"))).toBe(false);
+  });
 
   it("check_disk_health merges space and IO data", async () => {
     const args = {

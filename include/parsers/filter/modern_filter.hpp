@@ -12,7 +12,9 @@
 #include <parsers/perfconfig/perfconfig.hpp>
 #include <parsers/where/engine.hpp>
 #include <parsers/where/engine_impl.hpp>
+#include <set>
 #include <str/xtos.hpp>
+#include <string>
 
 #ifdef WIN32
 #pragma warning(push)
@@ -286,6 +288,34 @@ struct modern_filters {
   typedef std::map<std::string, perf_entry> leaf_performance_entry_type;
   leaf_performance_entry_type leaf_performance_data;
 
+  // Appends one variable's perfdata for the current row, keeping every label in
+  // that row distinct.
+  //
+  // A perf generator registered with neither prefix nor suffix emits the bare
+  // perf-syntax alias, so two such variables on the same row (check_disk_health
+  // reported both free_pct and percent_disk_time as `'C:'`) produced two
+  // entries under one label. Icinga keeps both, but anything that keys a time
+  // series by label - Graphite's metric path, InfluxDB's tag set - stores them
+  // as the same series with the same timestamp, so one silently overwrote the
+  // other and the survivor was whichever the iteration happened to write last
+  // (#1392).
+  //
+  // The first variable to claim a label keeps it, so the common case of a
+  // single bare-alias metric per row is unchanged; a later collision is
+  // disambiguated with the variable's own name, which is what the default
+  // generator would have produced anyway.
+  void append_row_performance_data(parsers::where::perf_list_type &perf, const std::string &variable, std::set<std::string> &used_labels) {
+    for (parsers::where::performance_data &data : perf) {
+      if (used_labels.insert(data.alias).second) continue;
+      std::string candidate = data.alias + "_" + variable;
+      for (int i = 2; !used_labels.insert(candidate).second; ++i) {
+        candidate = data.alias + "_" + variable + "_" + str::xtos(i);
+      }
+      data.alias = candidate;
+    }
+    performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+  }
+
   // A deferred record represents a row that passed the top-level filter but
   // whose warn/crit verdict has been postponed to match_post(). Deferring
   // ensures summary variables such as `count` see their final post-iteration
@@ -508,10 +538,11 @@ struct modern_filters {
       // below still emits one perf entry per matched row but with an
       // empty alias, producing output like ''=4;0;1 ''=4;0;1 ... (#681).
       if (!renderer_perf.empty()) {
+        std::set<std::string> used_labels;
         for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
           parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(
               context, perf_alias, entry.second.warn_value, entry.second.crit_value, entry.second.minimum_value, entry.second.maximum_value);
-          if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+          if (perf.size() > 0) append_row_performance_data(perf, entry.first, used_labels);
         }
       }
       if (second_unique_match)
@@ -593,10 +624,11 @@ struct modern_filters {
       // The object was just removed from the context, so only summary_*
       // nodes emit on this path and they ignore the alias (they use their
       // own variable name). An empty alias is the honest value.
+      std::set<std::string> used_labels;
       for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
         parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, "", entry.second.warn_value, entry.second.crit_value,
                                                                                                entry.second.minimum_value, entry.second.maximum_value);
-        if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+        if (perf.size() > 0) append_row_performance_data(perf, entry.first, used_labels);
       }
     }
     // When the iteration produced no matched rows the warn/crit expressions

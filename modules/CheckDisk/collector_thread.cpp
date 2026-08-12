@@ -4,10 +4,13 @@
 #include "collector_thread.hpp"
 
 #include <ctime>
+#include <functional>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#include <str/xtos.hpp>
+#include <string>
 
 namespace {
 // Granularity of the persisted form: coarse enough to keep nsclient.db small,
@@ -148,53 +151,63 @@ void collector_thread::thread_proc() {
 
   if (!disable_trend) load_trends();
 
+  // A failed fetch is retried on the next tick; only a run of consecutive
+  // failures gives up on a collection (see collector_failure_tracker). The
+  // fetchers keep their own permanent-disable paths for sources that answer
+  // "this query is not supported here" (WBEM_E_INVALID_QUERY / _NOT_FOUND),
+  // which is a different thing from a source that failed to answer.
+  collector_failure_tracker io_failures(max_collection_errors);
+  collector_failure_tracker free_failures(max_collection_errors);
+
+  // Runs one fetch, logging the error and updating the tracker. `fetch`
+  // returns false for "could not collect at all"; exceptions count the same.
+  const auto run_fetch = [](collector_failure_tracker &failures, const char *what, const std::function<bool()> &fetch) -> bool {
+    bool fetched = false;
+    try {
+      fetched = fetch();
+      if (!fetched) NSC_LOG_ERROR(std::string("Failed to get ") + what + ": no data returned");
+    } catch (const nsclient::nsclient_exception &e) {
+      NSC_LOG_ERROR(std::string("Failed to get ") + what + ": " + e.reason());
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR(std::string("Failed to get ") + what + ": " + e.what());
+    } catch (...) {
+      NSC_LOG_ERROR(std::string("Failed to get ") + what);
+    }
+    if (fetched) {
+      failures.succeeded();
+    } else if (failures.failed()) {
+      NSC_LOG_ERROR(std::string("Giving up on ") + what + " after " + str::xtos(failures.consecutive()) +
+                    " consecutive failures, it will not be collected again until NSClient++ is restarted (see the 'max collection errors' setting)");
+    }
+    return fetched;
+  };
+
   // Initial fetch to populate data immediately.
   if (!disable_disk_io) {
-    try {
+    run_fetch(io_failures, "disk I/O metrics", [this]() {
       disk_io_.fetch();
-    } catch (const nsclient::nsclient_exception &e) {
-      NSC_LOG_ERROR("Initial disk I/O fetch failed: " + e.reason());
-    } catch (...) {
-      NSC_LOG_ERROR("Initial disk I/O fetch failed");
-      disable_disk_io = true;
-    }
+      return true;
+    });
   }
   if (!disable_disk_free) {
-    try {
-      if (!disk_free_.fetch()) NSC_LOG_ERROR("Initial disk free fetch returned no data");
-    } catch (...) {
-      NSC_LOG_ERROR("Initial disk free fetch failed");
-      disable_disk_free = true;
-    }
+    run_fetch(free_failures, "disk free metrics", [this]() { return disk_free_.fetch(); });
   }
 
   const long long started = static_cast<long long>(std::time(nullptr));
   long long last_save = started;
   for (;;) {
-    if (!disable_disk_io) {
-      try {
+    if (!disable_disk_io && !io_failures.given_up()) {
+      run_fetch(io_failures, "disk I/O metrics", [this]() {
         disk_io_.fetch();
-      } catch (const nsclient::nsclient_exception &e) {
-        NSC_LOG_ERROR("Failed to get disk I/O metrics: " + e.reason());
-      } catch (const std::exception &e) {
-        NSC_LOG_ERROR("Failed to get disk I/O metrics: " + std::string(e.what()));
-      } catch (...) {
-        NSC_LOG_ERROR("Failed to get disk I/O metrics");
-      }
+        return true;
+      });
     }
-    if (!disable_disk_free) {
+    if (!disable_disk_free && !free_failures.given_up()) {
       // A failed fetch leaves the previous snapshot in place. Timestamping it
       // as a fresh sample would feed the regression a fabricated flat segment,
       // so the trend simply skips the tick and leaves a gap (which OLS over
       // irregular timestamps handles natively).
-      bool fetched = false;
-      try {
-        fetched = disk_free_.fetch();
-      } catch (const std::exception &e) {
-        NSC_LOG_ERROR("Failed to get disk free metrics: " + std::string(e.what()));
-      } catch (...) {
-        NSC_LOG_ERROR("Failed to get disk free metrics");
-      }
+      const bool fetched = run_fetch(free_failures, "disk free metrics", [this]() { return disk_free_.fetch(); });
       if (!disable_trend && fetched) {
         const long long now = static_cast<long long>(std::time(nullptr));
         update_trends(now);
@@ -203,6 +216,12 @@ void collector_thread::thread_proc() {
           last_save = now;
         }
       }
+    }
+    // Everything this thread collects is either disabled or has been given up
+    // on: keep the trends we have, but stop waking up to do nothing.
+    if ((disable_disk_io || io_failures.given_up()) && (disable_disk_free || free_failures.given_up())) {
+      NSC_LOG_MESSAGE("WARNING: nothing left to collect, stopping the disk collector");
+      break;
     }
     // Sleep until the next interval, waking early if stop() was requested.
     boost::unique_lock<boost::mutex> lock(stop_mutex_);

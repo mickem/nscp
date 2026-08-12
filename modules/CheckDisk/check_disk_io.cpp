@@ -14,6 +14,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <parsers/where/node.hpp>
 
 namespace disk_io_check {
@@ -64,9 +65,14 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("writes_per_sec", &filter_obj::get_writes_per_sec, "Write IOPS")
       .add_int_var("iops", &filter_obj::get_iops, "Total IOPS (reads + writes)")
       .add_int_var("queue_length", &filter_obj::get_queue_length, "Current disk queue length")
-      .add_int_perf("")
+      // Suffixed like the latencies below: a generator with neither prefix nor
+      // suffix emits the bare perf-syntax alias, so two of them on the same row
+      // (queue_length + percent_disk_time) produced two entries under one
+      // label, and anything keying a time series by label kept only the last
+      // (#1392).
+      .add_int_perf("", "", "_queue_length")
       .add_int_var("percent_disk_time", &filter_obj::get_percent_disk_time, "Percent of time the disk is busy")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_percent_disk_time")
       .add_int_var("percent_idle_time", &filter_obj::get_percent_idle_time, "Percent of time the disk is idle")
       .add_int_var("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second")
       .add_float("read_latency", &filter_obj::get_read_latency, "Average read latency in milliseconds (over the collection interval)")
@@ -75,6 +81,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_float_perf("ms", "", "_write_latency")
       .add_float("total_latency", &filter_obj::get_total_latency, "Average latency per I/O (read + write) in milliseconds (over the collection interval)")
       .add_float_perf("ms", "", "_total_latency");
+
+  // Byte rates are the norm here and the filter grammar has no arithmetic, so
+  // without these a template can only print the raw count (#1392).
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, disks_type data) {

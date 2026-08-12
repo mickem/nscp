@@ -11,6 +11,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <str/format.hpp>
 
 #ifdef WIN32
@@ -147,6 +148,10 @@ filter_obj_handler::filter_obj_handler() {
       .no_perf()
       .add_int_var("used_pct", &filter_obj::get_used_pct, "Percentage of the shadow-storage maximum in use")
       .add_int_perf("%", "", "_used_pct");
+
+  // Shadow storage is reported in raw bytes and the filter grammar has no
+  // arithmetic, so without these a template can only print the raw count.
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_shadowcopy(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

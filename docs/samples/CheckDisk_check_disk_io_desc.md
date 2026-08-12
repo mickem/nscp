@@ -37,4 +37,43 @@ One accuracy caveat: the underlying counters are 32-bit and accrue time per
 depth) they can wrap more than once within a long sampling window, which
 understates the reported latency. Perfmon has the same limitation and avoids it
 by sampling every second — if you monitor extremely busy disks, lower the
-module's `collection interval` accordingly.
+module's `collection interval` accordingly:
+
+```ini
+[/settings/disk]
+collection interval=2s
+```
+
+### Formatting byte values
+
+The byte-rate keywords are plain byte counts, and the filter language has no
+arithmetic of its own, so three functions are available in both `detail-syntax`
+and threshold expressions:
+
+| Function                     | Description                                                                          |
+|------------------------------|--------------------------------------------------------------------------------------|
+| `format_bytes(value)`        | Human-readable string, auto-scaled to B/KB/MB/GB/... (1024-based).                   |
+| `format_bytes(value,unit)`   | Human-readable string in a fixed unit (`B`, `K`/`KB`, `M`/`MB`, `G`/`GB`, `T`/`TB`). |
+| `convert_bytes(value,unit)`  | The numeric value in that unit — use it in `warn`/`crit`.                            |
+| `scale(value,divisor)`       | Plain division, for units the byte helpers do not cover (e.g. decimal Mbps).         |
+
+```
+check_disk_io "detail-syntax=%(name): %(format_bytes(total_bytes_per_sec))/s" "warn=convert_bytes(total_bytes_per_sec,'MB') > 100"
+OK: C:: 20.95MB/s, D:: 1.10MB/s
+```
+
+Write the argument list without a space after the comma: the command-line
+client splits an argument on whitespace, so `format_bytes(value, 'MB')` is
+passed as two tokens and the option fails to parse. Over REST, and in
+`nsclient.ini`, both spellings work.
+
+### Performance data labels
+
+Each keyword is graphed under `<perf-syntax>_<keyword>` — `'C:_queue_length'`,
+`'C:_total_latency'` and so on — so a check that reports several keywords for a
+disk produces one series per keyword. To pin a different name (or to get back
+the bare drive name a single metric used to be graphed under), use `perf-config`:
+
+```
+check_disk_io "perf-config=percent_disk_time(suffix:none)"
+```

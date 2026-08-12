@@ -5,7 +5,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <set>
+#include <string>
+#include <vector>
 
 // Provide the NSCAPI singleton so modern_filter.cpp can link.
 // nscapi::plugin_singleton is defined once per test binary: in
@@ -444,6 +448,57 @@ PB::Common::ResultCode run_health_check(const disk_health_check::health_type &da
   disk_health_check::check::check_disk_health(request, &response, data);
   return response.result();
 }
+
+PB::Common::ResultCode run_health_check(const disk_health_check::health_type &data, const std::vector<std::string> &args,
+                                        PB::Commands::QueryResponseMessage::Response &response) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_disk_health");
+  for (const std::string &a : args) request.add_arguments(a);
+  disk_health_check::check::check_disk_health(request, &response, data);
+  return response.result();
+}
+
+std::string all_messages(const PB::Commands::QueryResponseMessage::Response &r) {
+  std::string out;
+  for (int i = 0; i < r.lines_size(); ++i) {
+    if (!out.empty()) out += "\n";
+    out += r.lines(i).message();
+  }
+  return out;
+}
+
+std::vector<std::string> perf_aliases(const PB::Commands::QueryResponseMessage::Response &r) {
+  std::vector<std::string> out;
+  for (int i = 0; i < r.lines_size(); ++i) {
+    for (int j = 0; j < r.lines(i).perf_size(); ++j) out.push_back(r.lines(i).perf(j).alias());
+  }
+  return out;
+}
+
+bool has_perf(const PB::Commands::QueryResponseMessage::Response &r, const std::string &alias) {
+  const std::vector<std::string> aliases = perf_aliases(r);
+  return std::find(aliases.begin(), aliases.end(), alias) != aliases.end();
+}
+
+disk_health_check::health_type one_space_row() {
+  disk_free_check::drives_type df;
+  disk_free_check::disk_free f;
+  f.name = "C:";
+  f.total = 100000;
+  f.free = 60000;
+  f.user_free = 60000;
+  df.push_back(f);
+
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "C:";
+  d.percent_disk_time = 10;
+  d.queue_length = 3;
+  d.read_bytes_per_sec = 21967407;
+  io.push_back(d);
+
+  return disk_health_check::join(io, df);
+}
 }  // namespace
 
 TEST(CheckDiskHealth, IoOnlyRowIsNotEvaluatedAgainstSpaceThresholds) {
@@ -474,6 +529,104 @@ TEST(CheckDiskHealth, IoOnlyRowStillEvaluatedAgainstIoThresholds) {
   io.push_back(d);
 
   EXPECT_EQ(run_health_check(disk_health_check::join(io, {})), PB::Common::ResultCode::CRITICAL);
+}
+
+// ============================================================================
+// Performance data labels (#1392)
+//
+// Every entry of a row must carry its own label: two entries under one label
+// survive in Icinga's array but collapse into a single series in anything that
+// keys by label (Graphite, InfluxDB), silently keeping only the last one.
+// ============================================================================
+
+TEST(CheckDiskHealth, DefaultCheckEmitsDistinctPerfLabels) {
+  // The default thresholds reference both free_pct and percent_disk_time, so
+  // the plain command used to emit 'C:' twice.
+  PB::Commands::QueryResponseMessage::Response response;
+  run_health_check(one_space_row(), {}, response);
+
+  const std::vector<std::string> aliases = perf_aliases(response);
+  ASSERT_FALSE(aliases.empty());
+  const std::set<std::string> unique(aliases.begin(), aliases.end());
+  EXPECT_EQ(unique.size(), aliases.size()) << all_messages(response);
+  EXPECT_TRUE(has_perf(response, "C:_free_pct"));
+  EXPECT_TRUE(has_perf(response, "C:_percent_disk_time"));
+  EXPECT_FALSE(has_perf(response, "C:"));
+}
+
+TEST(CheckDiskHealth, LoadKeywordsCarryTheirOwnPerfLabel) {
+  PB::Commands::QueryResponseMessage::Response response;
+  run_health_check(one_space_row(), {"perf-config=extra(queue_length) extra(used_pct) extra(user_free)"}, response);
+
+  EXPECT_TRUE(has_perf(response, "C:_queue_length")) << all_messages(response);
+  EXPECT_TRUE(has_perf(response, "C:_used_pct"));
+  EXPECT_TRUE(has_perf(response, "C:_user_free"));
+}
+
+// ============================================================================
+// Rows without filesystem data (#1392)
+// ============================================================================
+
+TEST(CheckDiskHealth, IoOnlyRowReportsNoSpaceInsteadOfZero) {
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  io.push_back(d);
+
+  PB::Commands::QueryResponseMessage::Response response;
+  run_health_check(disk_health_check::join(io, {}), {"filter=none"}, response);
+
+  const std::string message = all_messages(response);
+  // A row with no filesystem behind it used to render as "0% free", which
+  // reads as a full disk.
+  EXPECT_EQ(message.find("0% free"), std::string::npos) << message;
+  EXPECT_NE(message.find("- free"), std::string::npos) << message;
+}
+
+TEST(CheckDiskHealth, IoOnlyRowEmitsNoSpacePerfData) {
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  d.percent_disk_time = 5;
+  io.push_back(d);
+
+  PB::Commands::QueryResponseMessage::Response response;
+  run_health_check(disk_health_check::join(io, {}), {"filter=none", "perf-config=extra(free_pct)"}, response);
+
+  // Graphing a fabricated 0% free for a device with no filesystem is worse
+  // than graphing nothing.
+  EXPECT_FALSE(has_perf(response, "sda_free_pct")) << all_messages(response);
+}
+
+TEST(CheckDiskHealth, SpaceKeywordsComparableAgainstTheNoValueString) {
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  io.push_back(d);
+
+  PB::Commands::QueryResponseMessage::Response response;
+  // The presence test documented for optional keywords.
+  run_health_check(disk_health_check::join(io, {}), {"filter=none", "warning=free_pct = 'no space data'"}, response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::WARNING) << all_messages(response);
+}
+
+// ============================================================================
+// Byte formatting (#1392)
+// ============================================================================
+
+TEST(CheckDiskHealth, FormatBytesIsAvailableInDetailSyntax) {
+  PB::Commands::QueryResponseMessage::Response response;
+  run_health_check(one_space_row(), {"filter=none", "detail-syntax=%(name)=%(format_bytes(read_bytes_per_sec, 'MB'))"}, response);
+
+  const std::string message = all_messages(response);
+  EXPECT_NE(message.find("C:=20.95"), std::string::npos) << message;
+}
+
+TEST(CheckDiskHealth, ConvertBytesIsAvailableInThresholds) {
+  PB::Commands::QueryResponseMessage::Response response;
+  // 21967407 B/s is ~20.9MB/s, so a 10MB/s threshold must trip.
+  run_health_check(one_space_row(), {"filter=none", "warning=convert_bytes(read_bytes_per_sec, 'MB') > 10"}, response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::WARNING) << all_messages(response);
 }
 
 TEST(CheckDiskHealth, LowFreeSpaceStillGoesCritical) {

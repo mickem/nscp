@@ -113,6 +113,7 @@ if(WIN32)
         check_disk_test
         SOURCES
             check_disk_io_test.cpp
+            check_disk_io_check_test.cpp
             check_disk_health_test.cpp
             check_disk_write_test.cpp
             check_drive_test.cpp
@@ -178,6 +179,7 @@ else()
         SOURCES
             check_disk_unix_test.cpp
             check_disk_health_test.cpp
+            check_disk_io_check_test.cpp
             check_disk_health.cpp
             check_disk_io.cpp
             check_disk_io_unix.cpp
@@ -190,6 +192,8 @@ else()
             check_mount.cpp
             check_mount_test.cpp
             check_single_file.cpp
+            collector_thread.cpp
+            collector_thread_test.cpp
             file_finder_unix.cpp
             filter.cpp
             filter_unix.cpp

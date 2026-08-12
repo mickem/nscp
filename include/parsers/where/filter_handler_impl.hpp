@@ -610,13 +610,13 @@ struct filter_handler_impl : evaluation_context_impl<TObject> {
   node_type create_function(const std::string& name, node_type subject) override {
     if (!registry_.has_function(name)) return factory::create_false();
     std::shared_ptr<filter_function> var = registry_.get_function(name);
-    if (var) {
-      if (helpers::type_is_int(var->type)) {
-        if (var->function) return std::make_shared<custom_function_node>(name, var->function, subject, var->type);
-      }
-      if (var->type == type_string) {
-        if (var->function) return std::make_shared<custom_function_node>(name, var->function, subject, var->type);
-      }
+    // type_is_float covers the integer types too, so this accepts every
+    // numeric return type. Float-returning functions used to fall through to
+    // create_false() here, which silently disabled them wherever they were
+    // registered - `convert_bytes(value, 'MB') > 100` and `scale(...)` never
+    // evaluated (#1392; they were added for #281).
+    if (var && var->function && (helpers::type_is_float(var->type) || helpers::type_is_string(var->type))) {
+      return std::make_shared<custom_function_node>(name, var->function, subject, var->type);
     }
     return factory::create_false();
   }

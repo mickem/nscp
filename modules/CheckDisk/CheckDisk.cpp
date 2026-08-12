@@ -82,13 +82,23 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
   settings.set_alias("disk", alias);
 
-  std::string trend_interval, trend_retention;
+  std::string collection_interval, trend_interval, trend_retention;
   // clang-format off
   settings.alias().add_key_to_settings()
     .add_string("disable", sh::string_key(&collector_->disable_, ""),
         "Disable automatic checks",
         "A comma separated list of checks to disable in the collector: disk_io, disk_free, trend. "
         "Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+    .add_string("collection interval", sh::string_key(&collection_interval, "10s"),
+        "Collection interval",
+        "How often disk I/O and disk free data is sampled. All rates (IOPS, bytes/sec) and latencies reported by check_disk_io and check_disk_health "
+        "are averages over one such interval, so lowering it makes them react faster and follow short spikes more closely, at the cost of more "
+        "frequent sampling. Duration, e.g. 10s.", true)
+    .add_int("max collection errors", sh::int_key(&collector_->max_collection_errors, 10),
+        "Maximum consecutive collection errors",
+        "How many consecutive failed fetches disable a collection (disk I/O or disk free) for the rest of the process lifetime. "
+        "A single failure is not treated as the source being unavailable: the collector retries on the next interval and any success resets the "
+        "count. Set to 0 to retry forever.", true)
     .add_string("trend interval", sh::string_key(&trend_interval, "5m"),
         "Trend sampling interval",
         "How often a used-space sample is kept per drive for the check_drivesize trend keywords (full_in/rate). Duration, e.g. 5m.", true)
@@ -101,6 +111,17 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.notify();
 
   try {
+    const long long interval = str::format::stox_as_time_sec<long long>(collection_interval, "s");
+    // One second is the floor: it is what the Windows performance counters
+    // themselves update at, so a shorter interval only costs queries.
+    if (interval < 1) throw std::invalid_argument("must be at least 1 second");
+    collector_->collection_interval = static_cast<int>(interval);
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR("Invalid collection interval (using the default 10s): " + std::string(e.what()));
+    collector_->collection_interval = 10;
+  }
+
+  try {
     collector_->trend_interval = str::format::stox_as_time_sec<long long>(trend_interval, "s");
     collector_->trend_retention = str::format::stox_as_time_sec<long long>(trend_retention, "s");
     if (collector_->trend_interval <= 0 || collector_->trend_retention <= 0) throw std::invalid_argument("must be positive");
@@ -109,6 +130,7 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     collector_->trend_interval = 300;
     collector_->trend_retention = 7 * 24 * 3600;
   }
+  if (collector_->max_collection_errors < 0) collector_->max_collection_errors = 0;
 
   if (mode == NSCAPI::normalStart) {
     collector_->start();

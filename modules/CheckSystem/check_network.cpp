@@ -13,6 +13,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
@@ -364,11 +365,18 @@ filter_obj_handler::filter_obj_handler() {
   // Byte-rate counters. `add_int_perf` is NOT a "register as perf"
   // shorthand - it chains onto the last-registered variable and marks
   // that one as also emitting a perf entry. So the pattern is
-  // `add_int_var(...).add_int_perf("UOM")` per metric. Issue #329 #1: now
-  // each direction emits its own perf entry ('<iface>_received',
-  // '<iface>_sent', '<iface>_total') instead of being collapsed into a
+  // `add_int_var(...).add_int_perf("UOM")` per metric. Issue #329 #1: each
+  // direction emits its own perf entry instead of being collapsed into a
   // single combined value. Unit "Bps" (bytes/sec) matches the underlying
   // counter; consumers that prefer bits-per-sec can multiply by 8.
+  //
+  // These generators carry no suffix, so a single referenced direction is
+  // graphed under the bare interface name - the label this check has always
+  // emitted. Referencing two of them puts two metrics under that one name, so
+  // the filter disambiguates the later ones as '<iface>_sent' etc. when it
+  // emits the row (#1392); pin your own names with
+  // `perf-config=received(suffix:_received) ...` if you would rather they were
+  // symmetric.
   registry_.add_int_var("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
       .add_int_perf("Bps")
       .add_int_var("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
@@ -444,6 +452,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var(
           "total_human", [](auto obj) { return str::format::format_byte_units(obj->getBytesTotalPersec()); },
           "Bytes total per second, formatted as a human-readable string (auto-scaled).");
+
+  // The *_human strings above auto-scale; these let a template or a threshold
+  // pick the unit, e.g. `convert_bytes(total, 'MB') > 100` (#1392).
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, nics_type nicdata) {
