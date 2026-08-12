@@ -101,6 +101,16 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
   });
+
+  it("check_mssql_sessions parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_sessions", [
+      "timeout=5",
+      "warning=sessions > 500",
+      "critical=max_idle > 2h",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
 });
 
 const dockerDescribe = onWindows ? dockerOrSkip() : describe.skip;
@@ -309,6 +319,29 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).toMatch(/^OK/m);
     expect(out).toMatch(/No enabled SQL Agent jobs/);
+  });
+
+  it("check_mssql_sessions reports the monitoring session itself", async () => {
+    // The check's own connection is a user session, so at least one
+    // (database, login) group always exists on a live server.
+    const out = await query("check_mssql_sessions");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/\/sa: \d+ sessions \(\d+ running\)/);
+  });
+
+  it("check_mssql_sessions emits session perfdata when referenced", async () => {
+    const out = await query("check_mssql_sessions", ["warning=sessions > 500"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/_sessions'?=\d+/);
+  });
+
+  it("check_mssql_sessions accepts time units on max_idle (REST-style token)", async () => {
+    const out = await query("check_mssql_sessions", ["critical=max_idle > 12h"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/Invalid time specification|invalid expression/i);
+    expect(out).toMatch(/^OK/m);
   });
 
   it("rejects a wrong SA password with the connect contract (SQL auth path)", async () => {

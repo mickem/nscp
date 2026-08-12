@@ -11,6 +11,7 @@
 #include "check_mssql_databases.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
+#include "check_mssql_sessions.hpp"
 #include "mssql_filter_helpers.hpp"
 #include "odbc_query.hpp"
 
@@ -202,6 +203,36 @@ TEST(BuildJobs, NeverRanJob) {
   ASSERT_EQ(out.size(), 1u);
   EXPECT_EQ(out[0].last_run_status, "never");
   EXPECT_EQ(out[0].last_run_age, -1);
+}
+
+TEST(BuildSessions, UnknownIdleAgeMapsToMinusOne) {
+  std::vector<check_mssql_sessions_command::session_row> rows(2);
+  rows[0].database = "appdb";
+  rows[0].login = "app";
+  rows[0].sessions = 12;
+  rows[0].running = 3;
+  rows[0].idle = 9;
+  rows[0].connections = 12;
+  rows[0].has_max_idle = true;
+  rows[0].max_idle = 3600;
+  rows[1].database = "master";
+  rows[1].login = "monitor";  // just connected: no completed request yet
+  rows[1].sessions = 1;
+
+  const auto out = check_mssql_sessions_command::build_sessions(rows);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].max_idle, 3600);
+  EXPECT_EQ(out[0].show(), "appdb/app");
+  EXPECT_EQ(out[1].max_idle, -1);  // unknown-idle contract
+  EXPECT_EQ(out[1].show(), "master/monitor");
+}
+
+TEST(BuildSessions, MissingDatabaseShowsLoginOnly) {
+  std::vector<check_mssql_sessions_command::session_row> rows(1);
+  rows[0].login = "app";
+  const auto out = check_mssql_sessions_command::build_sessions(rows);
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].show(), "app");
 }
 
 // --- result helpers --------------------------------------------------------------
