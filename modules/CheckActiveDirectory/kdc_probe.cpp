@@ -23,13 +23,14 @@ bytes der(unsigned char tag, const bytes &content) {
   const std::size_t len = content.size();
   if (len < 0x80) {
     out.push_back(static_cast<unsigned char>(len));
-  } else if (len <= 0xff) {
-    out.push_back(0x81);
-    out.push_back(static_cast<unsigned char>(len));
   } else {
-    out.push_back(0x82);
-    out.push_back(static_cast<unsigned char>(len >> 8));
-    out.push_back(static_cast<unsigned char>(len & 0xff));
+    // Long form with however many length octets the size needs: a probe
+    // request is tiny, but the realm is caller-supplied and a truncated
+    // length octet string would silently corrupt the whole request.
+    bytes len_octets;
+    for (std::size_t v = len; v != 0; v >>= 8) len_octets.insert(len_octets.begin(), static_cast<unsigned char>(v & 0xff));
+    out.push_back(static_cast<unsigned char>(0x80 | len_octets.size()));
+    out.insert(out.end(), len_octets.begin(), len_octets.end());
   }
   out.insert(out.end(), content.begin(), content.end());
   return out;
