@@ -8,8 +8,8 @@ OK: tempdb 4% used of 67108864B (version store 0B, user 1572864B, internal 0B)|'
 **Usage and volume thresholds:**
 
 ```
-check_mssql_tempdb "warning=used_pct > 80" "critical=used_pct > 90 or volume_free < 1G"
-OK: tempdb 4% used of 67108864B (version store 0B, user 1572864B, internal 0B)|'tempdb_free'=64094208B;0;0 'tempdb_internal_objects'=0B;0;0 'tempdb_size'=67108864B;0;0 'tempdb_used'=3014656B;0;0 'tempdb_used_pct'=4%;80;90 'tempdb_user_objects'=1572864B;0;0 'tempdb_version_store'=0B;0;0 'tempdb_volume_free'=992251518976B;0;1073741824
+check_mssql_tempdb "warning=used_pct > 80" "critical=used_pct > 90 or volume_free < 1G and volume_free >= 0"
+OK: tempdb 4% used of 67108864B (version store 0B, user 1507328B, internal 0B)|'tempdb_free'=64225280B;0;0 'tempdb_internal_objects'=0B;0;0 'tempdb_size'=67108864B;0;0 'tempdb_used'=2883584B;0;0 'tempdb_used_pct'=4%;80;90 'tempdb_user_objects'=1507328B;0;0 'tempdb_version_store'=0B;0;0 'tempdb_volume_free'=991920017408B;0;1073741824
 ```
 
 **During temp-table pressure — the split shows the consumer:**

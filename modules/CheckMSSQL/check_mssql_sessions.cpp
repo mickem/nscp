@@ -18,9 +18,13 @@ namespace {
 // One row per (database, login) pair over the user sessions. Connections are
 // counted per session with OUTER APPLY: joining sys.dm_exec_connections
 // directly would multiply the session rows for MARS sessions and break the
-// COUNT(*). last_request_end_time is NULL (or the 1900-01-01 epoch default)
-// for sessions that never completed a request; both would break or skew the
-// idle age (DATEDIFF overflows on the epoch), so they map to NULL = unknown.
+// COUNT(*). max_idle only considers sleeping/dormant sessions (the same
+// statuses the idle count uses): a running session's last_request_end_time
+// describes its *previous* request, and counting it would flag a session that
+// is busy, not leaked. last_request_end_time is NULL (or the 1900-01-01 epoch
+// default) for sessions that never completed a request; both would break or
+// skew the idle age (DATEDIFF overflows on the epoch), so they map to
+// NULL = unknown.
 const char *SESSIONS_SQL =
     "SELECT ISNULL(DB_NAME(s.database_id), '') AS database_name,"
     " ISNULL(s.login_name, '') AS login_name,"
@@ -28,8 +32,8 @@ const char *SESSIONS_SQL =
     " SUM(CASE WHEN s.status = 'running' THEN 1 ELSE 0 END) AS running,"
     " SUM(CASE WHEN s.status IN ('sleeping', 'dormant') THEN 1 ELSE 0 END) AS idle,"
     " ISNULL(SUM(c.conns), 0) AS connections,"
-    " MAX(CASE WHEN s.last_request_end_time IS NULL OR s.last_request_end_time < '2000-01-01' THEN NULL"
-    " ELSE DATEDIFF(second, s.last_request_end_time, GETDATE()) END) AS max_idle"
+    " MAX(CASE WHEN s.status IN ('sleeping', 'dormant') AND s.last_request_end_time >= '2000-01-01'"
+    " THEN DATEDIFF(second, s.last_request_end_time, GETDATE()) END) AS max_idle"
     " FROM sys.dm_exec_sessions s"
     " OUTER APPLY (SELECT COUNT(*) AS conns FROM sys.dm_exec_connections c WHERE c.session_id = s.session_id) c"
     " WHERE s.is_user_process = 1"
@@ -58,7 +62,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("connections", &filter_obj::get_connections, "Number of physical connections for this database/login pair")
       .add_int_perf("", "", "_connections")
       .add_int_var("max_idle", type_age, &filter_obj::get_max_idle,
-                   "Seconds since the most idle session last completed a request, -1 = unknown (supports units, e.g. max_idle > 2h)")
+                   "Seconds since the most idle sleeping/dormant session last completed a request (running sessions are excluded), -1 = unknown (supports "
+                   "units, e.g. max_idle > 2h)")
       .add_int_perf("s", "", "_max_idle");
 }
 

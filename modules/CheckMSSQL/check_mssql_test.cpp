@@ -419,9 +419,17 @@ TEST(CategorizeWait, IdleHousekeepingWaitsAreBenign) {
   EXPECT_EQ(categorize_wait("LAZYWRITER_SLEEP"), "benign");
   EXPECT_EQ(categorize_wait("SOS_WORK_DISPATCHER"), "benign");
   EXPECT_EQ(categorize_wait("HADR_TIMER_TASK"), "benign");
+  EXPECT_EQ(categorize_wait("HADR_WORK_QUEUE"), "benign");
+  EXPECT_EQ(categorize_wait("HADR_FILESTREAM_IOMGR_IOCOMPLETION"), "benign");
   EXPECT_EQ(categorize_wait("XE_TIMER_EVENT"), "benign");
   EXPECT_EQ(categorize_wait("WAITFOR"), "benign");  // includes this check's own sampling delay
   EXPECT_EQ(categorize_wait("CHECKPOINT_QUEUE"), "benign");
+}
+
+TEST(CategorizeWait, HadrSyncCommitIsNotBenign) {
+  // The primary synchronous-AG commit-latency signal: a blanket HADR_ prefix
+  // exclusion would report a quiet wait profile during an AG latency incident.
+  EXPECT_EQ(check_mssql_waits_command::categorize_wait("HADR_SYNC_COMMIT"), "other");
 }
 
 namespace {

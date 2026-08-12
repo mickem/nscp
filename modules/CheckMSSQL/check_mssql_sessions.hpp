@@ -20,7 +20,7 @@ struct session_row {
   long long running = 0;
   long long idle = 0;
   long long connections = 0;
-  bool has_max_idle = false;  // false when no session in the group ever completed a request
+  bool has_max_idle = false;  // false when the group has no sleeping/dormant session with a completed request
   long long max_idle = 0;
 };
 
@@ -32,7 +32,7 @@ struct session_info {
   long long running = 0;
   long long idle = 0;
   long long connections = 0;
-  long long max_idle = -1;  // seconds since the most idle session's last request ended, -1 = unknown
+  long long max_idle = -1;  // seconds since the most idle sleeping/dormant session's last request ended, -1 = unknown
 
   std::string get_database() const { return database; }
   std::string get_login() const { return login; }
@@ -47,8 +47,8 @@ struct session_info {
 
 typedef std::vector<session_info> sessions_type;
 
-// Pure: map the aggregated rows into filter objects; groups where no session
-// has completed a request keep max_idle = -1.
+// Pure: map the aggregated rows into filter objects; groups with no idle
+// session that has completed a request keep max_idle = -1.
 sessions_type build_sessions(const std::vector<session_row> &rows);
 
 void check(const mssql_odbc::connection_info &defaults, const PB::Commands::QueryRequestMessage::Request &request,
