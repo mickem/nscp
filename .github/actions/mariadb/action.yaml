@@ -59,10 +59,20 @@ runs:
     # extra file. auth_gssapi_client is dropped: it is the only plugin that
     # would drag in an external dependency, and CheckMySQL does not offer
     # Kerberos auth.
+    #
+    # CMAKE_SYSTEM_VERSION=10.0 selects the newest installed Windows 10 SDK.
+    # Without it CMake reports "Selecting Windows SDK version 8.1 to target
+    # Windows 6.2.9200" (the runner has the Windows 8.1 SDK installed for the
+    # legacy XP/cryptopp build path, and the runner reports itself as 6.2) and
+    # the connector's Schannel backend then fails to compile: schannel.c needs
+    # SCH_CREDENTIALS / TLS_PARAMETERS and both it and ma_schannel.c need
+    # SP_PROT_TLS1_3_CLIENT, none of which exist in the 8.1 SDK headers.
+    # Only the SDK is bumped, the toolset stays as the caller asked.
     - name: Build
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
         cmake -S . -B build -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -T ${{ inputs.toolset }} `
+          -DCMAKE_SYSTEM_VERSION=10.0 `
           -DCMAKE_INSTALL_PREFIX="$pwd/install" `
           -DWITH_UNIT_TESTS=OFF `
           -DWITH_SSL=SCHANNEL `
