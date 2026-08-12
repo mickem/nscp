@@ -68,11 +68,18 @@ runs:
     # SCH_CREDENTIALS / TLS_PARAMETERS and both it and ma_schannel.c need
     # SP_PROT_TLS1_3_CLIENT, none of which exist in the 8.1 SDK headers.
     # Only the SDK is bumped, the toolset stays as the caller asked.
+    #
+    # The quotes around that argument are load-bearing: unquoted, PowerShell
+    # splits "-DCMAKE_SYSTEM_VERSION=10.0" into "-DCMAKE_SYSTEM_VERSION=10"
+    # plus a stray ".0" positional, CMake shrugs ("Ignoring extra path from
+    # command line: .0") and falls straight back to the 8.1 SDK. The assert
+    # below turns that class of silent fallback into one clear line instead of
+    # forty compiler errors.
     - name: Build
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
         cmake -S . -B build -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -T ${{ inputs.toolset }} `
-          -DCMAKE_SYSTEM_VERSION=10.0 `
+          "-DCMAKE_SYSTEM_VERSION=10.0" `
           -DCMAKE_INSTALL_PREFIX="$pwd/install" `
           -DWITH_UNIT_TESTS=OFF `
           -DWITH_SSL=SCHANNEL `
@@ -83,6 +90,16 @@ runs:
           -DCLIENT_PLUGIN_CLIENT_ED25519=STATIC `
           -DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC `
           -DCLIENT_PLUGIN_AUTH_GSSAPI_CLIENT=OFF
+
+        $match = Select-String -Path "build/libmariadb/*.vcxproj" `
+          -Pattern "<WindowsTargetPlatformVersion>([^<]+)<" | Select-Object -First 1
+        $sdk = if ($match) { $match.Matches[0].Groups[1].Value } else { "" }
+        Write-Host "* Connector configured against Windows SDK '$sdk'"
+        if ($sdk -notlike "10.*") {
+          Write-Error "Expected a Windows 10 SDK, got '$sdk': the connector's Schannel backend needs SCH_CREDENTIALS / SP_PROT_TLS1_3_*, which the 8.1 SDK does not have."
+          exit 1
+        }
+
         cmake --build build --config Release
         cmake --install build --config Release
       working-directory: tmp/mariadb-connector-c
