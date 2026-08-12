@@ -1,0 +1,14 @@
+{
+	"module"		: {
+		"title"			: "Active Directory checker",
+		"description"	: "CheckActiveDirectory checks Active Directory health: replication on domain controllers, the machine-account secure channel and Kerberos KDC availability.",
+		"name"			: "CheckActiveDirectory",
+		"alias"			: "ad",
+		"version"		: "auto"
+	},
+	"commands" : {
+		"check_ad_replication"	: "Check inbound Active Directory replication links on a domain controller (last success, consecutive failures). Windows only.",
+		"check_secure_channel"	: "Verify the machine-account secure channel to the domain via netlogon. Windows only.",
+		"check_kdc"				: "Check that Kerberos KDCs answer an AS-REQ probe on port 88 (a real Kerberos exchange, not just a port check). Windows only."
+	}
+}
