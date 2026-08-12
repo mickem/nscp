@@ -133,3 +133,33 @@ TEST(CheckDiskIo, ScaleDrivesNumericThresholds) {
   run_io_check({"filter=none", "warning=scale(read_bytes_per_sec, 1000000) > 20"}, response);
   EXPECT_EQ(response.result(), PB::Common::ResultCode::WARNING) << all_messages(response);
 }
+
+// ============================================================================
+// Fetch status
+//
+// The collector counts failed fetches, so fetch() has to report whether it
+// collected anything rather than returning silently.
+// ============================================================================
+
+TEST(DiskIoData, FetchReportsWhetherItCollected) {
+  disk_io_check::disk_io_data data;
+  // On a host with the data source available this collects; where it is not
+  // (no /proc/diskstats, or a Windows counter class that is not there) it must
+  // say so instead of looking like a successful empty fetch.
+  const bool fetched = data.fetch();
+  EXPECT_EQ(fetched, !data.get().empty());
+  EXPECT_EQ(data.stored_data(), fetched);
+}
+
+TEST(DiskIoData, StoredDataTracksTheLastSet) {
+  disk_io_check::disk_io_data data;
+  EXPECT_FALSE(data.stored_data());
+  disk_io_check::disks_type disks;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  disks.push_back(d);
+  data.set(disks);
+  // set() is what a partial (latency-only) failure calls before raising its
+  // error; the collector reads this to tell that apart from a dead source.
+  EXPECT_TRUE(data.stored_data());
+}

@@ -28,6 +28,20 @@ namespace parsers {
 namespace where {
 namespace format_functions {
 
+// True when `node` is an optional number that currently has no value (e.g.
+// check_disk_health's space keywords on a row with no filesystem).
+//
+// Such a value must survive being passed through one of these functions
+// untouched: reading it as a number yields the neutral 0 the container
+// carries for legacy callers, which would render as `0B` and make
+// `convert_bytes(free,'GB') < 10` true on a disk that has no free space to
+// speak of. Handing the original node back instead keeps both halves of the
+// contract - it renders as the variable's no-value string, and every numeric
+// comparison against it stays sure-false.
+inline bool has_no_value(const evaluation_context &context, const node_type &node, const value_type numeric_type) {
+  return node->get_value(context, numeric_type).is_no_value;
+}
+
 // Format a number as a human-readable byte string: format_bytes(value) auto-
 // scales, format_bytes(value, unit) pins the unit.
 inline node_type fn_format_bytes(value_type, evaluation_context context, const node_type subject) {
@@ -38,6 +52,7 @@ inline node_type fn_format_bytes(value_type, evaluation_context context, const n
       return factory::create_false();
     }
     auto it = args.begin();
+    if (has_no_value(context, *it, type_int)) return *it;
     const long long v = (*it)->get_int_value(context);
     if (args.size() == 1) {
       return factory::create_string(str::format::format_byte_units(v));
@@ -61,6 +76,7 @@ inline node_type fn_convert_bytes(value_type, evaluation_context context, const 
       return factory::create_false();
     }
     auto it = args.begin();
+    if (has_no_value(context, *it, type_int)) return *it;
     const long long v = (*it)->get_int_value(context);
     ++it;
     const std::string unit = (*it)->get_string_value(context);
@@ -81,6 +97,7 @@ inline node_type fn_scale(value_type, evaluation_context context, const node_typ
       return factory::create_false();
     }
     auto it = args.begin();
+    if (has_no_value(context, *it, type_float)) return *it;
     const double v = (*it)->get_float_value(context);
     ++it;
     const double divisor = (*it)->get_float_value(context);

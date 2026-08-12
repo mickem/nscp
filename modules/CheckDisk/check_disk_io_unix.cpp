@@ -136,9 +136,10 @@ bool is_pseudo_fs(const std::string &fstype) {
 
 namespace disk_io_check {
 
-void disk_io_data::fetch() {
+bool disk_io_data::fetch() {
+  stored_data_ = false;
   std::ifstream f("/proc/diskstats");
-  if (!f) return;
+  if (!f) return false;
 
   const long long t = now_ms();
   const double dt = prev_time_ms_ > 0 ? (t - prev_time_ms_) / 1000.0 : 0.0;
@@ -213,6 +214,7 @@ void disk_io_data::fetch() {
   prev_raw_.swap(current);
   prev_time_ms_ = t;
   set(disks);
+  return true;
 }
 
 }  // namespace disk_io_check

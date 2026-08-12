@@ -622,6 +622,39 @@ TEST(CheckDiskHealth, FormatBytesIsAvailableInDetailSyntax) {
   EXPECT_NE(message.find("C:=20.95"), std::string::npos) << message;
 }
 
+TEST(CheckDiskHealth, FormatBytesKeepsTheNoValueOfASpaceKeyword) {
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  io.push_back(d);
+
+  PB::Commands::QueryResponseMessage::Response response;
+  run_health_check(disk_health_check::join(io, {}), {"filter=none", "detail-syntax=%(name)=%(format_bytes(free))"}, response);
+
+  // Reading the optional as a number would yield the neutral 0 it carries and
+  // render "0B", which reads as a full disk on a row that has no filesystem.
+  const std::string message = all_messages(response);
+  EXPECT_EQ(message.find("0B"), std::string::npos) << message;
+  EXPECT_NE(message.find("no space data"), std::string::npos) << message;
+}
+
+TEST(CheckDiskHealth, ConvertBytesKeepsTheNoValueOfASpaceKeyword) {
+  disk_io_check::disks_type io;
+  disk_io_check::disk_io d;
+  d.name = "sda";
+  io.push_back(d);
+
+  PB::Commands::QueryResponseMessage::Response response;
+  // Every numeric comparison against a missing value is sure-false, and
+  // passing it through a function must not turn it into a comparable zero.
+  run_health_check(disk_health_check::join(io, {}), {"filter=none", "warning=convert_bytes(free, 'GB') < 10"}, response);
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << all_messages(response);
+
+  PB::Commands::QueryResponseMessage::Response scaled;
+  run_health_check(disk_health_check::join(io, {}), {"filter=none", "warning=scale(free, 1024) < 1"}, scaled);
+  EXPECT_EQ(scaled.result(), PB::Common::ResultCode::OK) << all_messages(scaled);
+}
+
 TEST(CheckDiskHealth, ConvertBytesIsAvailableInThresholds) {
   PB::Commands::QueryResponseMessage::Response response;
   // 21967407 B/s is ~20.9MB/s, so a 10MB/s threshold must trip.

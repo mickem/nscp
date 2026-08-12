@@ -159,19 +159,26 @@ void collector_thread::thread_proc() {
   collector_failure_tracker io_failures(max_collection_errors);
   collector_failure_tracker free_failures(max_collection_errors);
 
-  // Runs one fetch, logging the error and updating the tracker. `fetch`
-  // returns false for "could not collect at all"; exceptions count the same.
-  const auto run_fetch = [](collector_failure_tracker &failures, const char *what, const std::function<bool()> &fetch) -> bool {
+  // Runs one fetch, logging the error and updating the tracker. `fetch` returns
+  // false for "could not collect at all"; exceptions count the same, except
+  // when `collected_anyway` says the source stored data before raising the
+  // error - a partial failure degrades one part of the data, not the
+  // collection, and must not count towards giving up on it.
+  const auto run_fetch = [](collector_failure_tracker &failures, const char *what, const std::function<bool()> &fetch,
+                            const std::function<bool()> &collected_anyway) -> bool {
     bool fetched = false;
     try {
       fetched = fetch();
       if (!fetched) NSC_LOG_ERROR(std::string("Failed to get ") + what + ": no data returned");
     } catch (const nsclient::nsclient_exception &e) {
       NSC_LOG_ERROR(std::string("Failed to get ") + what + ": " + e.reason());
+      fetched = collected_anyway && collected_anyway();
     } catch (const std::exception &e) {
       NSC_LOG_ERROR(std::string("Failed to get ") + what + ": " + e.what());
+      fetched = collected_anyway && collected_anyway();
     } catch (...) {
       NSC_LOG_ERROR(std::string("Failed to get ") + what);
+      fetched = collected_anyway && collected_anyway();
     }
     if (fetched) {
       failures.succeeded();
@@ -182,32 +189,33 @@ void collector_thread::thread_proc() {
     return fetched;
   };
 
+  const std::function<bool()> fetch_disk_io = [this]() { return disk_io_.fetch(); };
+  // The Windows fetch stores the rates before raising a latency error, so the
+  // rates keep flowing and only latency degrades; that must not accumulate
+  // towards giving up on disk I/O altogether.
+  const std::function<bool()> disk_io_stored_data = [this]() { return disk_io_.stored_data(); };
+  const std::function<bool()> fetch_disk_free = [this]() { return disk_free_.fetch(); };
+
   // Initial fetch to populate data immediately.
   if (!disable_disk_io) {
-    run_fetch(io_failures, "disk I/O metrics", [this]() {
-      disk_io_.fetch();
-      return true;
-    });
+    run_fetch(io_failures, "disk I/O metrics", fetch_disk_io, disk_io_stored_data);
   }
   if (!disable_disk_free) {
-    run_fetch(free_failures, "disk free metrics", [this]() { return disk_free_.fetch(); });
+    run_fetch(free_failures, "disk free metrics", fetch_disk_free, nullptr);
   }
 
   const long long started = static_cast<long long>(std::time(nullptr));
   long long last_save = started;
   for (;;) {
     if (!disable_disk_io && !io_failures.given_up()) {
-      run_fetch(io_failures, "disk I/O metrics", [this]() {
-        disk_io_.fetch();
-        return true;
-      });
+      run_fetch(io_failures, "disk I/O metrics", fetch_disk_io, disk_io_stored_data);
     }
     if (!disable_disk_free && !free_failures.given_up()) {
       // A failed fetch leaves the previous snapshot in place. Timestamping it
       // as a fresh sample would feed the regression a fabricated flat segment,
       // so the trend simply skips the tick and leaves a gap (which OLS over
       // irregular timestamps handles natively).
-      const bool fetched = run_fetch(free_failures, "disk free metrics", [this]() { return disk_free_.fetch(); });
+      const bool fetched = run_fetch(free_failures, "disk free metrics", fetch_disk_free, nullptr);
       if (!disable_trend && fetched) {
         const long long now = static_cast<long long>(std::time(nullptr));
         update_trends(now);

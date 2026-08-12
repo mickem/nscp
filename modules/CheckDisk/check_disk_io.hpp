@@ -88,11 +88,20 @@ class disk_io_data {
   boost::shared_mutex mutex_;
   bool fetch_disk_io_;
   disks_type disks_;
+  bool stored_data_ = false;
 
  public:
   disk_io_data() : fetch_disk_io_(true) {}
 
-  void fetch();
+  // False when nothing at all was collected: the source could not be read, or
+  // querying it has been permanently disabled (see fetch_disk_io_). The
+  // collector counts that as a failed fetch; throwing does the same.
+  bool fetch();
+  // True when the last fetch() stored a set of disks, even if it then failed.
+  // A latency failure is deliberately partial - the rates are stored before
+  // the error is raised - so the collector must not count it against the
+  // fetch-failure limit and stop collecting rates that are arriving fine.
+  bool stored_data() const { return stored_data_; }
   disks_type get();
   void set(const disks_type &disks);
 

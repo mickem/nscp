@@ -101,8 +101,9 @@ void disk_io_data::apply_latency(disks_type &disks) {
   prev_raw_.swap(current);
 }
 
-void disk_io_data::fetch() {
-  if (!fetch_disk_io_) return;
+bool disk_io_data::fetch() {
+  stored_data_ = false;
+  if (!fetch_disk_io_) return false;
 
   disks_type disks;
   try {
@@ -131,6 +132,7 @@ void disk_io_data::fetch() {
     }
   }
   set(disks);
+  return true;
 }
 
 }  // namespace disk_io_check

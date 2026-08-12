@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <limits>
 #include <compat.hpp>
 #include <nscapi/macros.hpp>
 #include <str/format.hpp>
@@ -97,8 +98,8 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     .add_int("max collection errors", sh::int_key(&collector_->max_collection_errors, 10),
         "Maximum consecutive collection errors",
         "How many consecutive failed fetches disable a collection (disk I/O or disk free) for the rest of the process lifetime. "
-        "A single failure is not treated as the source being unavailable: the collector retries on the next interval and any success resets the "
-        "count. Set to 0 to retry forever.", true)
+        "A single failure is not treated as the source being unavailable, since the collector retries on the next interval and any success resets "
+        "the count. Set to 0 to retry forever.", true)
     .add_string("trend interval", sh::string_key(&trend_interval, "5m"),
         "Trend sampling interval",
         "How often a used-space sample is kept per drive for the check_drivesize trend keywords (full_in/rate). Duration, e.g. 5m.", true)
@@ -113,8 +114,11 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   try {
     const long long interval = str::format::stox_as_time_sec<long long>(collection_interval, "s");
     // One second is the floor: it is what the Windows performance counters
-    // themselves update at, so a shorter interval only costs queries.
+    // themselves update at, so a shorter interval only costs queries. The
+    // ceiling is what the collector can hold without narrowing: a value past
+    // it would wrap to a negative wait, and the collector would spin.
     if (interval < 1) throw std::invalid_argument("must be at least 1 second");
+    if (interval > std::numeric_limits<int>::max()) throw std::invalid_argument("is too large");
     collector_->collection_interval = static_cast<int>(interval);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("Invalid collection interval (using the default 10s): " + std::string(e.what()));

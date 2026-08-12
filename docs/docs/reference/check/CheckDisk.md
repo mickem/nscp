@@ -4144,7 +4144,7 @@ disable=
 
 #### Maximum consecutive collection errors <a id="/settings/disk/max collection errors"></a>
 
-How many consecutive failed fetches disable a collection (disk I/O or disk free) for the rest of the process lifetime. A single failure is not treated as the source being unavailable: the collector retries on the next interval and any success resets the count. Set to 0 to retry forever.
+How many consecutive failed fetches disable a collection (disk I/O or disk free) for the rest of the process lifetime. A single failure is not treated as the source being unavailable, since the collector retries on the next interval and any success resets the count. Set to 0 to retry forever.
 
 
 | Key            | Description                         |

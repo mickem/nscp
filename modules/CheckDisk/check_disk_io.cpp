@@ -43,6 +43,7 @@ void disk_io_data::set(const disks_type &disks) {
   const boost::unique_lock<boost::shared_mutex> write_lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!write_lock.owns_lock()) throw nsclient::nsclient_exception("Failed to get mutex for writing disk I/O data");
   disks_ = disks;
+  stored_data_ = true;
 }
 
 namespace check {
