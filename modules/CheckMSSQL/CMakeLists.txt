@@ -21,6 +21,7 @@ set(SRCS
     check_mssql_counters.cpp
     check_mssql_availability_groups.cpp
     check_mssql_waits.cpp
+    check_mssql_tempdb.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
@@ -45,6 +46,7 @@ if(WIN32)
         check_mssql_counters.hpp
         check_mssql_availability_groups.hpp
         check_mssql_waits.hpp
+        check_mssql_tempdb.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}
@@ -90,6 +92,7 @@ if(WIN32)
             check_mssql_counters.cpp
             check_mssql_availability_groups.cpp
             check_mssql_waits.cpp
+            check_mssql_tempdb.cpp
             ${NSCP_FILTER_CPP}
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

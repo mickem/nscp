@@ -34,6 +34,7 @@ class CheckMSSQL : public nscapi::impl::simple_plugin {
   void check_mssql_counters(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_mssql_availability_groups(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_mssql_waits(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_mssql_tempdb(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
  private:
   // The module's connection defaults, swapped whole on every load and read

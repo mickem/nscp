@@ -15,6 +15,7 @@
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
 #include "check_mssql_sessions.hpp"
+#include "check_mssql_tempdb.hpp"
 #include "check_mssql_waits.hpp"
 #include "mssql_filter_helpers.hpp"
 #include "odbc_query.hpp"
@@ -429,6 +430,27 @@ TEST(BuildWaits, QuietWindowReportsMinusOneSignalPct) {
   const auto out = check_mssql_waits_command::build_waits({});
   EXPECT_DOUBLE_EQ(out.signal_wait_pct, -1);
   EXPECT_DOUBLE_EQ(out.total_waits, 0.0);
+}
+
+TEST(BuildTempdb, DerivesUsedAndPercent) {
+  check_mssql_tempdb_command::tempdb_row row;
+  row.size = 1000 * 8192;
+  row.free = 250 * 8192;
+  row.version_store = 100 * 8192;
+  row.user_objects = 400 * 8192;
+  row.internal_objects = 200 * 8192;
+  row.volume_free = 5LL * 1024 * 1024 * 1024;
+
+  const auto out = check_mssql_tempdb_command::build_tempdb(row);
+  EXPECT_EQ(out.used, 750 * 8192);
+  EXPECT_EQ(out.used_pct, 75);
+  EXPECT_EQ(out.volume_free, 5LL * 1024 * 1024 * 1024);
+}
+
+TEST(BuildTempdb, EmptyTempdbDoesNotDivideByZero) {
+  const auto out = check_mssql_tempdb_command::build_tempdb({});
+  EXPECT_EQ(out.used_pct, 0);
+  EXPECT_EQ(out.volume_free, -1);  // default: unknown
 }
 
 // --- result helpers --------------------------------------------------------------
