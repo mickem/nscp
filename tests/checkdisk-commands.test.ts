@@ -41,7 +41,8 @@ describe("CheckDisk commands", () => {
     nscp = new NscpInstance();
     // 1s trend cadence so the drivesize trend keywords (full_in/rate) can
     // accumulate a valid trend (>= 3 samples spanning >= 3x the interval)
-    // within the suite's runtime; samples arrive on the collector's 10s tick.
+    // within the suite's runtime; samples arrive on the collector's tick,
+    // which the collection interval below puts at 1s.
     key = await setupQueryNscp(nscp, "CheckDisk", {
       "/settings/disk": {
         "trend interval": "1s",
@@ -98,8 +99,7 @@ describe("CheckDisk commands", () => {
     // the collector tracks this drive at all:
     //
     //  - it does (a real filesystem): with trend interval=1s a valid trend
-    //    exists once three 10s collector ticks have landed, and rate/full_in
-    //    go live;
+    //    exists once the samples span three seconds, and rate/full_in go live;
     //  - it does not: `/` inside a container is an overlay mount, which the
     //    collector skips as a pseudo filesystem, so no history is ever
     //    recorded for it and the keywords must report the documented no-data
@@ -107,8 +107,8 @@ describe("CheckDisk commands", () => {
     //
     // Asserting "live trend" unconditionally is therefore wrong on
     // containerised CI. What must hold either way is the contract tying the
-    // keywords to the sample count - never a sentinel, and never a half state
-    // such as a real rate with no samples behind it.
+    // keywords to the history behind them - never a sentinel, and never a half
+    // state such as a real rate with too little history behind it.
     const args = {
       drive: ROOT_DRIVE,
       "detail-syntax": "samples=%(trend_samples);span=%(trend_span);rate=%(rate);full_in=%(full_in)",
@@ -116,7 +116,16 @@ describe("CheckDisk commands", () => {
       warning: "used > 100%",
       critical: "used > 100%",
     };
-    const q = await pollQuery(key, "check_drivesize", args, (r) => /samples=([3-9]|\d\d+)/.test(messageOf(r)), 90_000);
+    // trend_buffer trusts a slope only with >= 3 samples spanning >= 3x the
+    // trend interval (min_span), which is 3s with the 1s interval configured
+    // above. The sample count alone is not that condition: at a 1s collection
+    // cadence three samples land inside two seconds, which is a legitimate
+    // "not yet", not a live trend.
+    const TREND_MIN_SPAN_SECONDS = 3;
+    const trendIsLive = (m: string) =>
+      Number(/samples=(\d+)/.exec(m)?.[1] ?? 0) >= 3 && Number(/span=(\d+)/.exec(m)?.[1] ?? 0) >= TREND_MIN_SPAN_SECONDS;
+
+    const q = await pollQuery(key, "check_drivesize", args, (r) => trendIsLive(messageOf(r)), 90_000);
     const msg = messageOf(q);
     expect(q.result).toBe(OK);
 
@@ -126,14 +135,15 @@ describe("CheckDisk commands", () => {
     // seconds, and never the empty string.
     expect(msg).toMatch(/full_in=(never|[\dwd: hms]+)/);
 
-    if (samples >= 3) {
+    if (trendIsLive(msg)) {
       // Enough history for a regression: the trend is live.
       expect(msg).toMatch(/rate=-?[\d.]+\s?[KMGTP]?i?B\/day/);
       expect(msg).not.toMatch(/rate=unknown/);
-      expect(Number(/span=(\d+)/.exec(msg)?.[1])).toBeGreaterThan(0);
+      expect(Number(/span=(\d+)/.exec(msg)?.[1])).toBeGreaterThanOrEqual(TREND_MIN_SPAN_SECONDS);
     } else {
-      // Below the three-sample minimum (or no history at all): the optional
-      // numbers have no value and say so, rather than reporting a sentinel.
+      // Below the minimum history (too few samples, too short a span, or no
+      // history at all): the optional numbers have no value and say so,
+      // rather than reporting a sentinel.
       expect(msg).toMatch(/rate=unknown/);
       expect(msg).toMatch(/full_in=never/);
     }
