@@ -184,6 +184,25 @@ TEST_F(AsReqTest, EncodesTillNonceAndEtypes) {
   EXPECT_EQ(23, read_int(etype_list[2]));  // rc4-hmac
 }
 
+TEST(AsReq, EncodesElementsLargerThan64k) {
+  // A realm this large pushes the req-body (where the realm appears twice)
+  // past 0xFFFF, forcing 3-byte long-form DER lengths; an encoder that
+  // truncates to 2 length octets would emit a self-inconsistent blob this
+  // independent reader could not walk.
+  const std::string realm(70000, 'R');
+  const bytes req = kdc_probe::build_as_req(realm, "c", 1UL);
+  const std::vector<tlv> outer = parse_tlvs(req);
+  ASSERT_EQ(1u, outer.size());
+  ASSERT_EQ(0x6a, outer[0].tag);
+  const std::vector<tlv> fields = parse_tlvs(parse_tlvs(outer[0].content)[0].content);
+  const tlv *body = find_tag(fields, 0xa4);
+  ASSERT_NE(nullptr, body);
+  const std::vector<tlv> body_fields = parse_tlvs(parse_tlvs(body->content)[0].content);
+  const tlv *realm_field = find_tag(body_fields, 0xa2);
+  ASSERT_NE(nullptr, realm_field);
+  EXPECT_EQ(realm, read_string(parse_tlvs(realm_field->content)[0]));
+}
+
 TEST(AsReq, NonceWithHighBitGetsLeadingZeroByte) {
   // 0x80000000 would read as negative without a leading 0x00 pad octet.
   const bytes req = kdc_probe::build_as_req("R", "c", 0x80000000UL);

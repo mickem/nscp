@@ -24,13 +24,18 @@ Keywords (a single row):
 Defaults: **CRITICAL** when `healthy = 0`; no warning threshold.
 
 Options: `domain=<name>` checks the channel to a specific trusted domain
-(default: the domain this machine is joined to); `server=<host>` queries
-another computer's netlogon service.
+(default: the domain the checked machine is joined to); `server=<host>`
+queries another computer's netlogon service (its join state is then also read
+from that computer when `domain=` is not given).
 
 **Not-joined contract:** on a workgroup or standalone machine the check
 returns **UNKNOWN** ("not joined to a domain") rather than a hard error, so it
 is safe to deploy fleet-wide.
 
-Note: verifying the channel requires administrator rights on the target, which
-the NSClient++ service (LocalSystem) has; running the check as an unprivileged
-user may yield access-denied instead.
+**CRITICAL means a broken channel, nothing else:** when the netlogon query
+itself fails — the service is stopped or restarting, the caller lacks
+administrator rights, or the RPC connection to `server=` fails — the check
+returns **UNKNOWN** with the failure message instead of scoring the channel as
+broken. Verifying the channel requires administrator rights on the target,
+which the NSClient++ service (LocalSystem) has; running the check as an
+unprivileged user yields that UNKNOWN.

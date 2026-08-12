@@ -29,5 +29,6 @@ Defaults: **WARNING** when `time > 1000`, **CRITICAL** when `responding = 0`.
 Options: `server=<host>` (repeatable) picks the KDC(s) to probe and
 `realm=<REALM>` the realm; both default to what the domain join discovers
 (`DsGetDcName`). On a machine that is not domain-joined, `server=` and
-`realm=` are required and the check says so with **UNKNOWN**. `timeout=<s>`
-(default 5) bounds each probe.
+`realm=` are required and the check says so with **UNKNOWN**. `timeout=<ms>`
+(default 5000) bounds the probes; all KDCs are probed concurrently, so it also
+bounds the whole check even when several KDCs are unreachable.

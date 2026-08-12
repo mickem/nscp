@@ -74,9 +74,11 @@ namespace check_secure_channel_command {
 namespace {
 
 // Query (or verify, which re-pings the DC) the secure channel for `domain` on
-// `server` (empty = local). Always produces a row: netlogon call failures land
-// in error_code/error_message so thresholds and rendering stay uniform.
-secure_channel_filter::filter_obj_ptr query_channel(const std::string &server, const std::string &domain, bool verify) {
+// `server` (empty = local). Returns an empty pointer (with `error` set) when
+// the netlogon call itself failed — service stopped, access denied, RPC
+// failure — which says nothing about the channel and must not be scored as a
+// broken one; only netlog2_tc_connection_status judges channel health.
+secure_channel_filter::filter_obj_ptr query_channel(const std::string &server, const std::string &domain, bool verify, std::string &error) {
   secure_channel_filter::filter_obj_ptr obj(new secure_channel_filter::filter_obj());
   obj->domain = domain;
 
@@ -87,9 +89,8 @@ secure_channel_filter::filter_obj_ptr query_channel(const std::string &server, c
   const DWORD rc = I_NetLogonControl2(server.empty() ? nullptr : server_w.c_str(), verify ? NETLOGON_CONTROL_TC_VERIFY : NETLOGON_CONTROL_TC_QUERY, 2,
                                       reinterpret_cast<LPBYTE>(&domain_ptr), reinterpret_cast<LPBYTE *>(&info));
   if (rc != NERR_Success) {
-    obj->error_code = rc;
-    obj->error_message = error::lookup::last_error(rc);
-    return obj;
+    error = "Failed to query the netlogon service" + (server.empty() ? std::string() : " on " + server) + ": " + error::lookup::last_error(rc);
+    return secure_channel_filter::filter_obj_ptr();
   }
   obj->error_code = info->netlog2_tc_connection_status;
   if (info->netlog2_trusted_dc_name != nullptr) {
@@ -130,23 +131,33 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   if (!filter_helper.build_filter(filter)) return;
 
   if (domain.empty()) {
+    // The join state must come from the machine being checked: with server=
+    // given, the local join state is the wrong computer's (and a workgroup
+    // monitoring host would wrongly conclude there is nothing to check).
+    const std::wstring server_w = utf8::cvt<std::wstring>(server);
+    const std::string target = server.empty() ? "This machine" : server;
     LPWSTR name_buf = nullptr;
     NETSETUP_JOIN_STATUS status = NetSetupUnknownStatus;
-    if (NetGetJoinInformation(nullptr, &name_buf, &status) == NERR_Success) {
+    if (NetGetJoinInformation(server.empty() ? nullptr : server_w.c_str(), &name_buf, &status) == NERR_Success) {
       const std::string join_name = name_buf != nullptr ? utf8::cvt<std::string>(std::wstring(name_buf)) : "";
       if (name_buf != nullptr) NetApiBufferFree(name_buf);
       if (status != NetSetupDomainName) {
-        return nscapi::protobuf::functions::set_response_bad(*response, "This machine is not joined to a domain (" +
+        return nscapi::protobuf::functions::set_response_bad(*response, target + " is not joined to a domain (" +
                                                                             (join_name.empty() ? std::string("standalone") : "workgroup " + join_name) +
                                                                             "); there is no secure channel to check");
       }
       domain = join_name;
     } else {
-      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read the domain join state (and no domain= was given)");
+      return nscapi::protobuf::functions::set_response_bad(*response,
+                                                           "Failed to read the domain join state" + (server.empty() ? std::string() : " of " + server) +
+                                                               " (and no domain= was given)");
     }
   }
 
-  filter.match(query_channel(server, domain, verify));
+  std::string error;
+  const secure_channel_filter::filter_obj_ptr channel = query_channel(server, domain, verify, error);
+  if (!channel) return nscapi::protobuf::functions::set_response_bad(*response, error);
+  filter.match(channel);
   filter_helper.post_process(filter);
 }
 

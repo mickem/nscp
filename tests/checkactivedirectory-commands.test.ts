@@ -129,10 +129,35 @@ onWindows("CheckActiveDirectory", () => {
       // The default warning (time > 1000) references `time`, which is what
       // makes the perf series appear; keep it and pin only critical.
       const out = await query("check_kdc", ["server=127.0.0.1", `port=${kdc.port}`, "realm=EXAMPLE.TEST"]);
-      expect(out).toMatch(/'127\.0\.0\.1'=\d+ms/);
+      expect(out).toMatch(/'127\.0\.0\.1'=\d+ms;1000/);
+      // The default critical (responding = 0) carries no `time` bound, so the
+      // crit field must stay empty — a crit of 0 reads as "always critical"
+      // to perfdata consumers.
+      expect(out).not.toMatch(/'127\.0\.0\.1'=\d+ms;1000;/);
     } finally {
       await kdc.close();
     }
+  });
+
+  it("check_kdc timeout= is in milliseconds and bounds all probes together", async () => {
+    // 127.0.0.1:1 is never serviced and Windows retries the refused connect
+    // internally for ~2s (per probe), so with four servers a sequential
+    // implementation needs 4 x 1500ms of deadline while the concurrent one
+    // finishes in ~1.5s. The wall-clock bound is deliberately generous to
+    // absorb process startup on a loaded CI machine.
+    const started = Date.now();
+    const out = await query("check_kdc", [
+      "server=127.0.0.1",
+      "server=127.0.0.2",
+      "server=127.0.0.3",
+      "server=127.0.0.4",
+      "port=1",
+      "realm=EXAMPLE.TEST",
+      "timeout=1500",
+    ]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/timeout after 1500ms|connect failed/);
+    expect(Date.now() - started).toBeLessThan(5500);
   });
 
   it("check_kdc accepts custom rendering keywords", async () => {

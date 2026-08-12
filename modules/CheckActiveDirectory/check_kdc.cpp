@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <deque>
 #include <error/error.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
@@ -91,13 +92,44 @@ struct probe_outcome {
   probe_outcome() : exchanged(false), time_ms(-1) {}
 };
 
+// The in-flight state of one KDC probe on the shared io_context.
+struct probe_state {
+  explicit probe_state(boost::asio::io_context &io) : resolver(io), socket(io), done(false), timed(false) { header[0] = header[1] = header[2] = header[3] = 0; }
+
+  boost::asio::ip::tcp::resolver resolver;
+  boost::asio::ip::tcp::socket socket;
+  unsigned char header[4];
+  bool done;
+  // Round-trip time is measured from when the resolver answered (timed set),
+  // so a slow DNS server is not billed to the KDC.
+  bool timed;
+  std::chrono::steady_clock::time_point exchange_start;
+  probe_outcome out;
+
+  void start_exchange() {
+    exchange_start = std::chrono::steady_clock::now();
+    timed = true;
+  }
+  // Terminal handlers stamp the time here; measuring after the event loop
+  // exits would bill a fast KDC for the full deadline whenever a slow one
+  // keeps the loop running.
+  void finish(const std::string &error) {
+    out.error = error;
+    if (timed) out.time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - exchange_start).count();
+    done = true;
+  }
+};
+
 // One framed request/response exchange (RFC 4120 7.2.2: 4-byte big-endian
-// length prefix) against host:port with an overall deadline.
-probe_outcome exchange_with_kdc(const std::string &host, int port, int timeout_ms, const kdc_probe::bytes &request) {
+// length prefix) per host against host:port. All hosts are probed concurrently
+// on one io_context with a single deadline, so the worst case costs one
+// timeout rather than one per unreachable KDC. A DNS lookup the OS never
+// answers can still hold the io_context destructor past the deadline (asio
+// runs getaddrinfo on a worker thread it joins on shutdown), but at most once
+// for the whole batch.
+std::vector<probe_outcome> exchange_with_kdcs(const std::vector<std::string> &hosts, int port, int timeout_ms, const kdc_probe::bytes &request) {
   namespace asio = boost::asio;
   using boost::asio::ip::tcp;
-
-  probe_outcome out;
 
   kdc_probe::bytes framed;
   framed.reserve(request.size() + 4);
@@ -108,68 +140,67 @@ probe_outcome exchange_with_kdc(const std::string &host, int port, int timeout_m
   framed.insert(framed.end(), request.begin(), request.end());
 
   asio::io_context io;
-  tcp::resolver resolver(io);
-  tcp::socket socket(io);
-  unsigned char header[4] = {0, 0, 0, 0};
-  bool done = false;
-  std::string error;
+  // deque: the completion handlers hold references into the container.
+  std::deque<probe_state> states;
 
-  const auto start = std::chrono::steady_clock::now();
-  resolver.async_resolve(host, str::xtos(port), [&](const boost::system::error_code &ec, tcp::resolver::results_type results) {
-    if (ec) {
-      error = "resolve failed: " + ec.message();
-      done = true;
-      return;
-    }
-    asio::async_connect(socket, results, [&](const boost::system::error_code &ec, const tcp::endpoint &) {
+  for (const std::string &host : hosts) {
+    states.emplace_back(io);
+    probe_state &st = states.back();
+    st.resolver.async_resolve(host, str::xtos(port), [&st, &framed](const boost::system::error_code &ec, tcp::resolver::results_type results) {
       if (ec) {
-        error = "connect failed: " + ec.message();
-        done = true;
+        st.finish("resolve failed: " + ec.message());
         return;
       }
-      asio::async_write(socket, asio::buffer(framed), [&](const boost::system::error_code &ec, std::size_t) {
+      st.start_exchange();
+      asio::async_connect(st.socket, results, [&st, &framed](const boost::system::error_code &ec, const tcp::endpoint &) {
         if (ec) {
-          error = "send failed: " + ec.message();
-          done = true;
+          st.finish("connect failed: " + ec.message());
           return;
         }
-        asio::async_read(socket, asio::buffer(header), [&](const boost::system::error_code &ec, std::size_t) {
+        asio::async_write(st.socket, asio::buffer(framed), [&st](const boost::system::error_code &ec, std::size_t) {
           if (ec) {
-            error = "read failed: " + ec.message();
-            done = true;
+            st.finish("send failed: " + ec.message());
             return;
           }
-          const std::size_t len = (static_cast<std::size_t>(header[0]) << 24) | (static_cast<std::size_t>(header[1]) << 16) |
-                                  (static_cast<std::size_t>(header[2]) << 8) | static_cast<std::size_t>(header[3]);
-          if (len == 0 || len > 512 * 1024) {
-            error = "invalid response length";
-            done = true;
-            return;
-          }
-          out.response.resize(len);
-          asio::async_read(socket, asio::buffer(out.response), [&](const boost::system::error_code &ec, std::size_t) {
+          asio::async_read(st.socket, asio::buffer(st.header), [&st](const boost::system::error_code &ec, std::size_t) {
             if (ec) {
-              error = "read failed: " + ec.message();
-              out.response.clear();
-              done = true;
+              st.finish("read failed: " + ec.message());
               return;
             }
-            out.exchanged = true;
-            done = true;
+            const std::size_t len = (static_cast<std::size_t>(st.header[0]) << 24) | (static_cast<std::size_t>(st.header[1]) << 16) |
+                                    (static_cast<std::size_t>(st.header[2]) << 8) | static_cast<std::size_t>(st.header[3]);
+            if (len == 0 || len > 512 * 1024) {
+              st.finish("invalid response length");
+              return;
+            }
+            st.out.response.resize(len);
+            asio::async_read(st.socket, asio::buffer(st.out.response), [&st](const boost::system::error_code &ec, std::size_t) {
+              if (ec) {
+                st.out.response.clear();
+                st.finish("read failed: " + ec.message());
+                return;
+              }
+              st.out.exchanged = true;
+              st.finish("");
+            });
           });
         });
       });
     });
-  });
+  }
 
   io.run_for(std::chrono::milliseconds(timeout_ms));
-  out.time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-  if (!done) {
-    error = "timeout after " + str::xtos(timeout_ms) + "ms";
-    boost::system::error_code ignored;
-    socket.close(ignored);
+
+  std::vector<probe_outcome> out;
+  for (probe_state &st : states) {
+    if (!st.done) {
+      boost::system::error_code ignored;
+      st.socket.close(ignored);
+      st.resolver.cancel();
+      st.finish("timeout after " + str::xtos(timeout_ms) + "ms");
+    }
+    out.push_back(st.out);
   }
-  out.error = error;
   return out;
 }
 
@@ -187,7 +218,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   std::vector<std::string> servers;
   std::string realm;
   int port = 88;
-  int timeout = 5;
+  int timeout_ms = 5000;
 
   kdc_filter::filter filter;
   filter_helper.add_options("time > 1000", "responding = 0", "", filter.get_filter_syntax(), "ignored");
@@ -200,7 +231,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     ("server", po::value<std::vector<std::string>>(&servers), "KDC host to probe; can be given multiple times (default: the KDC located via the domain join).")
     ("realm", po::value<std::string>(&realm), "Kerberos realm to request a ticket for (default: the joined domain; required when not domain-joined).")
     ("port", po::value<int>(&port)->default_value(88), "TCP port to probe.")
-    ("timeout", po::value<int>(&timeout)->default_value(5), "Seconds to wait for each KDC before considering it down.")
+    ("timeout", po::value<int>(&timeout_ms)->default_value(5000), "Timeout in milliseconds. All KDCs are probed concurrently, so this also bounds the whole check.")
     ;
   // clang-format on
 
@@ -228,13 +259,15 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   const kdc_probe::bytes as_req = kdc_probe::build_as_req(realm, "nscp-probe", 12345678UL);
 
+  const std::vector<probe_outcome> outcomes = exchange_with_kdcs(servers, port, timeout_ms, as_req);
+
   parsers::where::constants::reset();
-  for (const std::string &server : servers) {
+  for (std::size_t i = 0; i < servers.size(); ++i) {
     kdc_filter::filter_obj_ptr obj(new kdc_filter::filter_obj());
-    obj->kdc = server;
+    obj->kdc = servers[i];
     obj->realm = realm;
     obj->port = port;
-    const probe_outcome outcome = exchange_with_kdc(server, port, timeout * 1000, as_req);
+    const probe_outcome &outcome = outcomes[i];
     obj->time = outcome.time_ms;
     if (outcome.exchanged) {
       const kdc_probe::classification c = kdc_probe::classify_response(outcome.response);
