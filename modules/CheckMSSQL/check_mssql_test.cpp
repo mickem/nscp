@@ -8,6 +8,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 #include "check_mssql_backup.hpp"
+#include "check_mssql_blocking.hpp"
 #include "check_mssql_databases.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
@@ -203,6 +204,54 @@ TEST(BuildJobs, NeverRanJob) {
   ASSERT_EQ(out.size(), 1u);
   EXPECT_EQ(out[0].last_run_status, "never");
   EXPECT_EQ(out[0].last_run_age, -1);
+}
+
+TEST(BuildBlocking, ResolvesChainsToTheRootBlocker) {
+  // 70 -> 60 -> 50, where 50 is not blocked: 50 is the root for both.
+  std::vector<check_mssql_blocking_command::blocking_row> rows(2);
+  rows[0].session_id = 60;
+  rows[0].blocking_session_id = 50;
+  rows[1].session_id = 70;
+  rows[1].blocking_session_id = 60;
+
+  const auto out = check_mssql_blocking_command::build_blocking(rows);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].root_blocker, 50);
+  EXPECT_EQ(out[1].root_blocker, 50);
+}
+
+TEST(BuildBlocking, CycleTerminatesInsteadOfLooping) {
+  // 60 -> 70 -> 60: a deadlock in flight must not hang the chain walk.
+  std::vector<check_mssql_blocking_command::blocking_row> rows(2);
+  rows[0].session_id = 60;
+  rows[0].blocking_session_id = 70;
+  rows[1].session_id = 70;
+  rows[1].blocking_session_id = 60;
+
+  const auto out = check_mssql_blocking_command::build_blocking(rows);
+  ASSERT_EQ(out.size(), 2u);
+  // The walk stops at the first revisited session; both roots stay in the cycle.
+  EXPECT_TRUE(out[0].root_blocker == 60 || out[0].root_blocker == 70);
+  EXPECT_TRUE(out[1].root_blocker == 60 || out[1].root_blocker == 70);
+}
+
+TEST(BuildBlocking, DirectBlockerFieldsPassThrough) {
+  std::vector<check_mssql_blocking_command::blocking_row> rows(1);
+  rows[0].session_id = 61;
+  rows[0].blocking_session_id = 52;
+  rows[0].database = "appdb";
+  rows[0].login = "app";
+  rows[0].blocking_login = "batch";
+  rows[0].wait_time = 42;
+  rows[0].wait_type = "LCK_M_X";
+  rows[0].command = "UPDATE";
+  rows[0].blocker_idle = true;
+
+  const auto out = check_mssql_blocking_command::build_blocking(rows);
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].root_blocker, 52);  // blocker not itself blocked
+  EXPECT_EQ(out[0].get_blocker_idle(), 1);
+  EXPECT_EQ(out[0].show(), "61");
 }
 
 TEST(BuildSessions, UnknownIdleAgeMapsToMinusOne) {

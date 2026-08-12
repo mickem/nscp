@@ -17,6 +17,7 @@ set(SRCS
     check_mssql_jobs.cpp
     mssql_facts.cpp
     check_mssql_sessions.cpp
+    check_mssql_blocking.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
@@ -37,6 +38,7 @@ if(WIN32)
         check_mssql_jobs.hpp
         mssql_facts.hpp
         check_mssql_sessions.hpp
+        check_mssql_blocking.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
         ${NSCP_ERROR_HPP}
@@ -78,6 +80,7 @@ if(WIN32)
             check_mssql_jobs.cpp
             mssql_facts.cpp
             check_mssql_sessions.cpp
+            check_mssql_blocking.cpp
             ${NSCP_FILTER_CPP}
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
             ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
