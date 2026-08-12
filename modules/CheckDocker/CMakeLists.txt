@@ -10,6 +10,9 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     check_docker.cpp
+    check_docker_stats.cpp
+    check_docker_restarts.cpp
+    check_docker_df.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
@@ -38,6 +41,10 @@ if(WIN32)
         ${SRCS}
         "${TARGET}.h"
         check_docker.hpp
+        check_docker_stats.hpp
+        check_docker_restarts.hpp
+        check_docker_df.hpp
+        docker_client.hpp
         docker_endpoint.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
@@ -61,6 +68,38 @@ NSCP_CREATE_TEST(
         docker_endpoint_test.cpp
     LIBRARIES
         GTest::gtest_main
+)
+
+# The check logic is tested through an injected fetcher serving canned daemon
+# payloads, so this target needs no HTTP/socket sources.
+NSCP_CREATE_TEST(
+    check_docker_test
+    SOURCES
+        check_docker_test.cpp
+        check_docker.cpp
+        check_docker_stats.cpp
+        check_docker_restarts.cpp
+        check_docker_df.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${PLUGIN_API_TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)

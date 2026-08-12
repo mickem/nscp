@@ -232,6 +232,69 @@ struct tcp_socket final : generic_socket {
   void set_timeouts(const unsigned int seconds) override { timeout_ = seconds; }
 };
 
+#ifndef WIN32
+// Unix domain socket transport: what the "pipe" protocol means on non-Windows
+// platforms (e.g. the docker daemon socket /var/run/docker.sock). The `server`
+// argument is the socket path; `port` is ignored. Windows uses file_socket
+// (named pipes) for the same protocol instead.
+struct unix_socket final : generic_socket {
+  boost::asio::local::stream_protocol::socket socket_;
+  boost::asio::io_context &io_;
+  unsigned int timeout_ = 0;
+
+  explicit unix_socket(boost::asio::io_context &io_service) : socket_(io_service), io_(io_service) {}
+  ~unix_socket() override {
+    try {
+      socket_.close();
+    } catch (...) {
+    }
+  }
+
+  void connect(const std::string &server, const std::string &) override {
+    boost::system::error_code error;
+    socket_.connect(boost::asio::local::stream_protocol::endpoint(server), error);
+    if (error) {
+      throw socket_helpers::socket_exception("Failed to connect to " + server + ": " + error.message());
+    }
+  }
+
+  void write(boost::asio::streambuf &buffer) override {
+    if (timeout_ == 0) {
+      boost::asio::write(socket_, buffer);
+      return;
+    }
+    boost::system::error_code ec;
+    run_with_deadline(io_, socket_, timeout_, "Write", ec, [&](auto handler) { boost::asio::async_write(socket_, buffer, handler); });
+    if (ec) throw socket_helpers::socket_exception("Failed to send request: " + ec.message());
+  }
+  void read_until(boost::asio::streambuf &buffer, const std::string &until) override {
+    if (timeout_ == 0) {
+      boost::asio::read_until(socket_, buffer, until);
+      return;
+    }
+    boost::system::error_code ec;
+    run_with_deadline(io_, socket_, timeout_, "Read", ec, [&](auto handler) { boost::asio::async_read_until(socket_, buffer, until, handler); });
+    if (ec) throw socket_helpers::socket_exception("Failed to read response: " + ec.message());
+  }
+  bool is_open() const override { return socket_.is_open(); }
+  std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) override {
+    if (timeout_ == 0) {
+      return boost::asio::read(socket_, buffer, boost::asio::transfer_at_least(1), error);
+    }
+    // See tcp_socket::read_some: a deadline here ends the body instead of
+    // throwing, so the caller fails on a truncated payload rather than hanging.
+    try {
+      return run_with_deadline(io_, socket_, timeout_, "Read", error,
+                               [&](auto handler) { boost::asio::async_read(socket_, buffer, boost::asio::transfer_at_least(1), handler); });
+    } catch (const socket_helpers::socket_exception &) {
+      error = boost::asio::error::timed_out;
+      return 0;
+    }
+  }
+  void set_timeouts(const unsigned int seconds) override { timeout_ = seconds; }
+};
+#endif
+
 // In-memory TLS material for mutual TLS: a client certificate + key presented
 // to the server, and optionally a pinned server certificate used as the only
 // trust root (instead of a CA file / system store). All fields are PEM
@@ -641,6 +704,12 @@ class simple_client {
 #ifdef WIN32
     } else if (options.is_pipe()) {
       socket_ = std::make_unique<file_socket>(io_service_);
+#else
+    } else if (options.is_pipe()) {
+      // On non-Windows "pipe" means a unix domain socket (the server argument
+      // is the socket path). Previously this fell through to tcp_socket, which
+      // tried to DNS-resolve the path and could never connect.
+      socket_ = std::make_unique<unix_socket>(io_service_);
 #endif
     } else {
       socket_ = std::make_unique<tcp_socket>(io_service_);

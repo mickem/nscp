@@ -96,6 +96,7 @@ std::string installer_feature_hint(const std::string &module) {
       {"SimpleFileWriter", "Check Plugins"},
       {"CheckLogFile", "Check Plugins"},
       {"CheckNet", "Check Plugins"},
+      {"CheckDocker", "Check Plugins"},
   };
   for (const auto &e : table) {
     if (name == e.module) {
