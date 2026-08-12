@@ -31,8 +31,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("ms");
   registry_.add_int_var("offset_signed", parsers::where::type_int, &filter_obj::get_offset_signed,
                         "Signed clock offset (positive = local clock is ahead of server), in milliseconds");
-  registry_.add_int_var("stratum", parsers::where::type_int, &filter_obj::get_stratum, "Stratum reported by the server (0..16)").add_int_perf("");
-  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Round trip time of the NTP query in milliseconds").add_int_perf("ms");
+  registry_.add_int_var("stratum", parsers::where::type_int, &filter_obj::get_stratum, "Stratum reported by the server (0..16)").add_int_perf("", "", "_stratum");
+  registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Round trip time of the NTP query in milliseconds").add_int_perf("ms", "", "_time");
 
   // How steady the server's time is, rather than how far off it is: a source
   // can answer promptly with an accurate-looking offset and still be unusable

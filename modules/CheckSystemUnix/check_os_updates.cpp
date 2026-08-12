@@ -37,7 +37,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("count", &filter_obj::get_count, "Total number of available updates")
       .add_int_perf("")
       .add_int_var("security", &filter_obj::get_security, "Number of available security updates")
-      .add_int_perf("");
+      .add_int_perf("", "", "_security");
 }
 
 namespace {

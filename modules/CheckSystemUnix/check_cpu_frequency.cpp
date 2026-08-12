@@ -110,10 +110,10 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("current_mhz", &filter_obj::get_current_mhz, "Current frequency in MHz")
       .add_int_perf("MHz")
       .add_int_var("max_mhz", &filter_obj::get_max_mhz, "Maximum frequency in MHz")
-      .add_int_perf("MHz")
+      .add_int_perf("MHz", "", "_max_mhz")
       .add_int_var("min_mhz", &filter_obj::get_min_mhz, "Minimum frequency in MHz")
       .add_int_var("frequency_pct", &filter_obj::get_frequency_pct, "Current frequency as percent of max")
-      .add_int_perf("%");
+      .add_int_perf("%", "", "_frequency_pct");
 }
 
 void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

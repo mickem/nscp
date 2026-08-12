@@ -13,6 +13,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
@@ -364,15 +365,20 @@ filter_obj_handler::filter_obj_handler() {
   // Byte-rate counters. `add_int_perf` is NOT a "register as perf"
   // shorthand - it chains onto the last-registered variable and marks
   // that one as also emitting a perf entry. So the pattern is
-  // `add_int_var(...).add_int_perf("UOM")` per metric. Issue #329 #1: now
-  // each direction emits its own perf entry ('<iface>_received',
-  // '<iface>_sent', '<iface>_total') instead of being collapsed into a
+  // `add_int_var(...).add_int_perf("UOM")` per metric. Issue #329 #1: each
+  // direction emits its own perf entry instead of being collapsed into a
   // single combined value. Unit "Bps" (bytes/sec) matches the underlying
   // counter; consumers that prefer bits-per-sec can multiply by 8.
+  //
+  // `total` is this check's primary metric and keeps the bare interface name,
+  // which is the label it has always been graphed under; the other directions
+  // carry their own suffix ('<iface>_received', ...). They all used to share
+  // the bare name, which put several metrics in one series as soon as two of
+  // them were referenced (#1392).
   registry_.add_int_var("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
-      .add_int_perf("Bps")
+      .add_int_perf("Bps", "", "_received")
       .add_int_var("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
-      .add_int_perf("Bps")
+      .add_int_perf("Bps", "", "_sent")
       .add_int_var("total", &filter_obj::getBytesTotalPersec, "Bytes total per second")
       .add_int_perf("Bps");
 
@@ -418,17 +424,17 @@ filter_obj_handler::filter_obj_handler() {
                    "Percent of negotiated link speed used by received traffic. "
                    "BEST-EFFORT: reads as 0 when speed is unknown - "
                    "filter on speed_bps > 0 to distinguish idle from unknown.")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_usage_in")
       .add_int_var("usage_out", &filter_obj::getUsageOutPct,
                    "Percent of negotiated link speed used by sent traffic. "
                    "BEST-EFFORT: reads as 0 when speed is unknown - "
                    "filter on speed_bps > 0 to distinguish idle from unknown.")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_usage_out")
       .add_int_var("usage_total", &filter_obj::getUsageTotalPct,
                    "Percent of negotiated link speed used by total traffic. "
                    "BEST-EFFORT: reads as 0 when speed is unknown - "
                    "filter on speed_bps > 0 to distinguish idle from unknown.")
-      .add_int_perf("%");
+      .add_int_perf("%", "", "_usage_total");
 
   // Human-readable byte-rate strings for use in detail-syntax templates
   // (issue #329 #3). Issued as `*_human` rather than touching `sent` /
@@ -444,6 +450,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var(
           "total_human", [](auto obj) { return str::format::format_byte_units(obj->getBytesTotalPersec()); },
           "Bytes total per second, formatted as a human-readable string (auto-scaled).");
+
+  // The *_human strings above auto-scale; these let a template or a threshold
+  // pick the unit, e.g. `convert_bytes(total, 'MB') > 100` (#1392).
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, nics_type nicdata) {

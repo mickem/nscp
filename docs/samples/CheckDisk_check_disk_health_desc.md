@@ -15,6 +15,15 @@ collection interval), so a single check can join free space with the most
 portable saturation signal: `"warn=total_latency > 20" "crit=total_latency > 50"`.
 See `check_disk_io` for details on how latency is measured.
 
+The space keywords have no value at all on a row without a filesystem behind it
+(an I/O or device row). They render as `-`, every numeric comparison against
+them is false, and they emit no performance data, so a graph of a device row
+records nothing rather than a fabricated 0%. Test for it with
+`free_pct = 'no space data'`, or keep using the `has_space = 1` guard.
+
+Byte-valued keywords can be formatted and scaled with `format_bytes`,
+`convert_bytes` and `scale`; see the same section under `check_disk_io`.
+
 ### Device-state keywords (Windows)
 
 | Keyword              | Description                                                      |

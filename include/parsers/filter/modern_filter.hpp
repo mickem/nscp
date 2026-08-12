@@ -12,7 +12,9 @@
 #include <parsers/perfconfig/perfconfig.hpp>
 #include <parsers/where/engine.hpp>
 #include <parsers/where/engine_impl.hpp>
+#include <set>
 #include <str/xtos.hpp>
+#include <string>
 
 #ifdef WIN32
 #pragma warning(push)
@@ -286,6 +288,29 @@ struct modern_filters {
   typedef std::map<std::string, perf_entry> leaf_performance_entry_type;
   leaf_performance_entry_type leaf_performance_data;
 
+  // Appends one variable's perfdata for the current row.
+  //
+  // Two variables must never emit the same label: Icinga keeps both entries,
+  // but anything that keys a time series by label - Graphite's metric path,
+  // InfluxDB's tag set - stores them as the same series with the same
+  // timestamp, so one silently overwrites the other (#1392). That is a
+  // registration bug: every generator needs a prefix or suffix of its own, so
+  // the label a keyword is graphed under is fixed and a graph template can
+  // rely on it. Renaming here instead would make the label depend on which
+  // other keywords the query happens to mention.
+  //
+  // Nothing is rewritten, then; a collision is only reported, and only in
+  // debug, where whoever is looking at the check can act on it.
+  void append_row_performance_data(parsers::where::perf_list_type &perf, const std::string &variable, std::set<std::string> &used_labels) {
+    for (const parsers::where::performance_data &data : perf) {
+      if (!used_labels.insert(data.alias).second && should_log_debug()) {
+        log_debug("Two metrics share the performance data label '" + data.alias + "' on this row (" + variable +
+                  " is one of them); only one of them will survive in a store that keys by label.");
+      }
+    }
+    performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+  }
+
   // A deferred record represents a row that passed the top-level filter but
   // whose warn/crit verdict has been postponed to match_post(). Deferring
   // ensures summary variables such as `count` see their final post-iteration
@@ -508,10 +533,11 @@ struct modern_filters {
       // below still emits one perf entry per matched row but with an
       // empty alias, producing output like ''=4;0;1 ''=4;0;1 ... (#681).
       if (!renderer_perf.empty()) {
+        std::set<std::string> used_labels;
         for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
           parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(
               context, perf_alias, entry.second.warn_value, entry.second.crit_value, entry.second.minimum_value, entry.second.maximum_value);
-          if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+          if (perf.size() > 0) append_row_performance_data(perf, entry.first, used_labels);
         }
       }
       if (second_unique_match)
@@ -593,10 +619,11 @@ struct modern_filters {
       // The object was just removed from the context, so only summary_*
       // nodes emit on this path and they ignore the alias (they use their
       // own variable name). An empty alias is the honest value.
+      std::set<std::string> used_labels;
       for (const typename leaf_performance_entry_type::value_type &entry : leaf_performance_data) {
         parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, "", entry.second.warn_value, entry.second.crit_value,
                                                                                                entry.second.minimum_value, entry.second.maximum_value);
-        if (perf.size() > 0) performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+        if (perf.size() > 0) append_row_performance_data(perf, entry.first, used_labels);
       }
     }
     // When the iteration produced no matched rows the warn/crit expressions

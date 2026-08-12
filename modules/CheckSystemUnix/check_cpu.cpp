@@ -42,9 +42,9 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("load", type_custom_pct, &filter_obj::get_total, "The current load for a given core (deprecated, use total)")
       .add_int_perf("%")
       .add_int_var("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_total")
       .add_int_var("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_user")
       .add_int_var("idle", &filter_obj::get_idle, "The current idle load for a given core")
       .add_int_var("system", &filter_obj::get_kernel, "The current load used by the system (kernel)")
       .add_int_var("kernel", &filter_obj::get_kernel, "deprecated (use system instead)");

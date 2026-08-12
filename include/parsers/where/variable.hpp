@@ -764,8 +764,12 @@ struct custom_function_node : any_node {
     return "(string)fun:" + name_;
   }
   std::string to_string() const override { return "{string}" + name_ + "()"; }
-  value_type infer_type(object_converter converter, value_type) override { return type_string; }
-  value_type infer_type(object_converter converter) override { return type_string; }
+  // The function's declared return type, not always type_string: a numeric
+  // function on one side of a comparison must make the other side numeric too,
+  // or `convert_bytes(value, 'MB') > 100` compares as text and orders 9 above
+  // 100 (#1392). String functions are unaffected - their type is type_string.
+  value_type infer_type(object_converter converter, value_type) override { return get_type(); }
+  value_type infer_type(object_converter converter) override { return get_type(); }
   bool find_performance_data(evaluation_context context, performance_collector &) override {
     // collector.set_candidate_variable(name_);
     return false;

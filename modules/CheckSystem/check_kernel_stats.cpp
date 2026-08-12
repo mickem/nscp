@@ -63,7 +63,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &kstat_row::get_name, "Metric name: ctxt, syscalls, processes or threads")
       .add_string_var("label", &kstat_row::get_label, "Human-friendly metric label")
       .add_string_var("human", &kstat_row::get_human, "Human-readable value");
-  registry_.add_float("rate", &kstat_row::get_rate, "Per-second rate (0 for the processes/threads gauge rows)").add_float_perf("/s");
+  registry_.add_float("rate", &kstat_row::get_rate, "Per-second rate (0 for the processes/threads gauge rows)").add_float_perf("/s", "", "_rate");
   registry_.add_int_var("current", &kstat_row::get_current, "Gauge value (process/thread count); for the rate rows the rounded per-second rate")
       .add_int_perf("");
 }

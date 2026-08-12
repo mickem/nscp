@@ -15,6 +15,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <str/format.hpp>
 
 #include "realtime_thread.hpp"
@@ -42,9 +43,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("MAC", &filter_obj::get_mac, "The hardware (MAC) address");
 
   registry_.add_int_var("received", &filter_obj::get_received, "Bytes received per second")
-      .add_int_perf("Bps")
+      .add_int_perf("Bps", "", "_received")
       .add_int_var("sent", &filter_obj::get_sent, "Bytes sent per second")
-      .add_int_perf("Bps")
+      .add_int_perf("Bps", "", "_sent")
       .add_int_var("total", &filter_obj::get_total, "Bytes total (received + sent) per second")
       .add_int_perf("Bps")
       .add_int_var("received_packets", &filter_obj::get_received_packets, "Packets received per second")
@@ -57,15 +58,19 @@ filter_obj_handler::filter_obj_handler() {
   // applying the usage_* percent thresholds.
   registry_.add_int_var("speed_bps", &filter_obj::get_speed_bps, "Link speed in bits/sec (0 when unknown, e.g. virtual interfaces)")
       .add_int_var("usage_in", &filter_obj::get_usage_in, "Percent of link speed used by received traffic (0 when speed unknown)")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_usage_in")
       .add_int_var("usage_out", &filter_obj::get_usage_out, "Percent of link speed used by sent traffic (0 when speed unknown)")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_usage_out")
       .add_int_var("usage_total", &filter_obj::get_usage_total, "Percent of link speed used by total traffic (0 when speed unknown)")
-      .add_int_perf("%");
+      .add_int_perf("%", "", "_usage_total");
 
   registry_.add_string_var("received_human", &filter_obj::get_received_human, "Bytes received per second (human readable, auto-scaled)")
       .add_string_var("sent_human", &filter_obj::get_sent_human, "Bytes sent per second (human readable, auto-scaled)")
       .add_string_var("total_human", &filter_obj::get_total_human, "Bytes total per second (human readable, auto-scaled)");
+
+  // The *_human strings above auto-scale; these let a template or a threshold
+  // pick the unit, e.g. `convert_bytes(total, 'MB') > 100` (#1392).
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_network(std::shared_ptr<pdh_thread> collector, const PB::Commands::QueryRequestMessage::Request &request,

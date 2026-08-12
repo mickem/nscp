@@ -8,6 +8,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 
 #ifdef WIN32
 #include <win/wmi/wmi_query.hpp>
@@ -84,6 +85,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("%", "", "_used_pct")
       .add_int_var("is_readonly", &filter_obj::get_is_readonly, "1 if the pool is read-only")
       .no_perf();
+
+  // Capacity keywords are raw byte counts and the filter grammar has no
+  // arithmetic, so without these a template can only print the raw count.
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_storagepool(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {

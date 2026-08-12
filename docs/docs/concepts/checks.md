@@ -625,6 +625,23 @@ check_cpu "perf-syntax=%(core)_%(time)"     # 'total_5m'=...
 
 Useful when your graphing system is picky about names.
 
+### How a metric name is built
+
+A check has one **primary** metric — the one it is really about, which its
+default thresholds report — and that one is graphed under the bare alias
+`perf-syntax` renders. Every other keyword adds its own name:
+`<perf-syntax>_<keyword>`. `check_cpu` reports `load`, so a row aliased
+`total 5m` is graphed as `'total 5m'`; asking the same check for `user` as well
+adds `'total 5m_user'` rather than a second `'total 5m'`.
+
+The name a keyword is graphed under is therefore fixed: it does not change when
+the query mentions another keyword, so a graph template can rely on it.
+Override the pieces per keyword with `perf-config`:
+
+```
+check_cpu "perf-config=load(prefix:cpu_ suffix:_load)"   # 'cpu_total 5m_load'=...
+```
+
 ---
 
 ## 8. Putting It Together

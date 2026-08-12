@@ -41,9 +41,17 @@ describe("CheckDisk commands", () => {
     nscp = new NscpInstance();
     // 1s trend cadence so the drivesize trend keywords (full_in/rate) can
     // accumulate a valid trend (>= 3 samples spanning >= 3x the interval)
-    // within the suite's runtime; samples arrive on the collector's 10s tick.
+    // within the suite's runtime; samples arrive on the collector's tick,
+    // which the collection interval below puts at 1s.
     key = await setupQueryNscp(nscp, "CheckDisk", {
-      "/settings/disk": { "trend interval": "1s" },
+      "/settings/disk": {
+        "trend interval": "1s",
+        // Both keys are new in #1392; setting them here also pins that the
+        // module boots with them configured. A 1s cadence makes the collector
+        // reach its second sample (needed for every rate and latency) quickly.
+        "collection interval": "1s",
+        "max collection errors": "3",
+      },
     });
   });
 
@@ -91,8 +99,7 @@ describe("CheckDisk commands", () => {
     // the collector tracks this drive at all:
     //
     //  - it does (a real filesystem): with trend interval=1s a valid trend
-    //    exists once three 10s collector ticks have landed, and rate/full_in
-    //    go live;
+    //    exists once the samples span three seconds, and rate/full_in go live;
     //  - it does not: `/` inside a container is an overlay mount, which the
     //    collector skips as a pseudo filesystem, so no history is ever
     //    recorded for it and the keywords must report the documented no-data
@@ -100,8 +107,8 @@ describe("CheckDisk commands", () => {
     //
     // Asserting "live trend" unconditionally is therefore wrong on
     // containerised CI. What must hold either way is the contract tying the
-    // keywords to the sample count - never a sentinel, and never a half state
-    // such as a real rate with no samples behind it.
+    // keywords to the history behind them - never a sentinel, and never a half
+    // state such as a real rate with too little history behind it.
     const args = {
       drive: ROOT_DRIVE,
       "detail-syntax": "samples=%(trend_samples);span=%(trend_span);rate=%(rate);full_in=%(full_in)",
@@ -109,7 +116,16 @@ describe("CheckDisk commands", () => {
       warning: "used > 100%",
       critical: "used > 100%",
     };
-    const q = await pollQuery(key, "check_drivesize", args, (r) => /samples=([3-9]|\d\d+)/.test(messageOf(r)), 90_000);
+    // trend_buffer trusts a slope only with >= 3 samples spanning >= 3x the
+    // trend interval (min_span), which is 3s with the 1s interval configured
+    // above. The sample count alone is not that condition: at a 1s collection
+    // cadence three samples land inside two seconds, which is a legitimate
+    // "not yet", not a live trend.
+    const TREND_MIN_SPAN_SECONDS = 3;
+    const trendIsLive = (m: string) =>
+      Number(/samples=(\d+)/.exec(m)?.[1] ?? 0) >= 3 && Number(/span=(\d+)/.exec(m)?.[1] ?? 0) >= TREND_MIN_SPAN_SECONDS;
+
+    const q = await pollQuery(key, "check_drivesize", args, (r) => trendIsLive(messageOf(r)), 90_000);
     const msg = messageOf(q);
     expect(q.result).toBe(OK);
 
@@ -119,14 +135,15 @@ describe("CheckDisk commands", () => {
     // seconds, and never the empty string.
     expect(msg).toMatch(/full_in=(never|[\dwd: hms]+)/);
 
-    if (samples >= 3) {
+    if (trendIsLive(msg)) {
       // Enough history for a regression: the trend is live.
       expect(msg).toMatch(/rate=-?[\d.]+\s?[KMGTP]?i?B\/day/);
       expect(msg).not.toMatch(/rate=unknown/);
-      expect(Number(/span=(\d+)/.exec(msg)?.[1])).toBeGreaterThan(0);
+      expect(Number(/span=(\d+)/.exec(msg)?.[1])).toBeGreaterThanOrEqual(TREND_MIN_SPAN_SECONDS);
     } else {
-      // Below the three-sample minimum (or no history at all): the optional
-      // numbers have no value and say so, rather than reporting a sentinel.
+      // Below the minimum history (too few samples, too short a span, or no
+      // history at all): the optional numbers have no value and say so,
+      // rather than reporting a sentinel.
       expect(msg).toMatch(/rate=unknown/);
       expect(msg).toMatch(/full_in=never/);
     }
@@ -176,7 +193,103 @@ describe("CheckDisk commands", () => {
     expect(perfKeys.some((k) => /total_latency/.test(k))).toBe(true);
   });
 
+  it("check_disk_io gives every secondary keyword its own perf label", async () => {
+    // Both generators used to be registered without a suffix, so queue_length
+    // and percent_disk_time were emitted under the bare ${name} alias and a
+    // store that keys by label kept only one of the two. percent_disk_time is
+    // the primary metric and keeps the bare device name.
+    const q = await pollQuery(
+      key,
+      "check_disk_io",
+      {
+        warning: "queue_length > 999999",
+        critical: "percent_disk_time > 999999",
+      },
+      (r) => r.result === OK,
+    );
+    expect(q.result).toBe(OK);
+    const perfKeys = Object.keys(perfOf(q));
+    expect(perfKeys.some((k) => k.endsWith("_queue_length"))).toBe(true);
+    // One label per metric: the two never share one.
+    expect(perfKeys.some((k) => !k.endsWith("_queue_length"))).toBe(true);
+    expect(new Set(perfKeys).size).toBe(perfKeys.length);
+  });
+
+  it("check_disk_io formats byte rates through format_bytes", async () => {
+    // The filter language has no arithmetic, so without these functions a
+    // template can only print the raw byte count.
+    const q = await pollQuery(
+      key,
+      "check_disk_io",
+      {
+        filter: "none",
+        "detail-syntax": "%(name)=%(format_bytes(total_bytes_per_sec,'KB'))KB",
+        warning: "iops > 999999",
+        critical: "iops > 999999",
+      },
+      (r) => r.result === OK,
+    );
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/=[0-9.]+KB/);
+  });
+
+  it("check_disk_io compares byte rates in a chosen unit", async () => {
+    // convert_bytes returns a number, so the comparison must be numeric: a
+    // string comparison would order any two-digit value above 999999.
+    const q = await pollQuery(
+      key,
+      "check_disk_io",
+      {
+        warning: "convert_bytes(total_bytes_per_sec,'MB') > 999999",
+        critical: "convert_bytes(total_bytes_per_sec,'MB') > 999999",
+      },
+      (r) => r.result !== UNKNOWN,
+    );
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_disk_health -------------------------------------------------------
+
+  it("check_disk_health gives space and load keywords distinct perf labels", async () => {
+    // The default thresholds reference free_pct and percent_disk_time, so the
+    // plain command emitted two entries under one label on every row. free_pct
+    // is the primary metric and keeps the bare drive name.
+    const q = await pollQuery(
+      key,
+      "check_disk_health",
+      {
+        filter: "has_space = 1",
+        warning: "free_pct < 0",
+        critical: "percent_disk_time > 999999",
+      },
+      (r) => r.result === OK,
+    );
+    expect(q.result).toBe(OK);
+    const perfKeys = Object.keys(perfOf(q));
+    expect(perfKeys.some((k) => k.endsWith("_percent_disk_time"))).toBe(true);
+    expect(perfKeys.some((k) => !k.endsWith("_percent_disk_time"))).toBe(true);
+    expect(new Set(perfKeys).size).toBe(perfKeys.length);
+  });
+
+  it("check_disk_health reports no space rather than 0% on IO-only rows", async () => {
+    // Rows with no filesystem behind them used to render "0% free" and record
+    // a flat 0% free_pct series. Hosts where every device maps to a filesystem
+    // select zero rows, which is also a pass.
+    const q = await pollQuery(
+      key,
+      "check_disk_health",
+      {
+        filter: "has_space = 0",
+        "detail-syntax": "${name}=${free_pct}",
+        warning: "percent_disk_time > 999999",
+        critical: "percent_disk_time > 999999",
+      },
+      (r) => r.result !== UNKNOWN,
+    );
+    expect(q.result).toBe(OK);
+    const message = messageOf(q);
+    expect(message).not.toMatch(/=0%/);
+  });
 
   it("check_disk_health merges space and IO data", async () => {
     const args = {

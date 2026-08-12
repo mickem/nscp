@@ -168,11 +168,11 @@ filter_obj_handler::filter_obj_handler() {
 
   registry_.add_int_var("first_seen", parsers::where::type_date, &filter_obj::get_first_seen, "Unix timestamp when process was first seen")
       .add_int_var("last_seen", parsers::where::type_date, &filter_obj::get_last_seen, "Unix timestamp when process was last seen")
-      .add_int_perf("")
+      .add_int_perf("", "", "_last_seen")
       .add_int_var("times_seen", &filter_obj::get_times_seen, "Number of times the process has been observed running")
       .add_int_perf("")
       .add_int_var("currently_running", parsers::where::type_bool, &filter_obj::get_currently_running_i, "Whether the process is currently running (1/0)")
-      .add_int_perf("");
+      .add_int_perf("", "", "_currently_running");
   // clang-format on
 
   registry_.add_human_string("first_seen", &filter_obj::get_first_seen_s, "When the process was first seen (human readable)")

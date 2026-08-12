@@ -14,6 +14,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <parsers/where/node.hpp>
 
 namespace disk_io_check {
@@ -42,6 +43,7 @@ void disk_io_data::set(const disks_type &disks) {
   const boost::unique_lock<boost::shared_mutex> write_lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
   if (!write_lock.owns_lock()) throw nsclient::nsclient_exception("Failed to get mutex for writing disk I/O data");
   disks_ = disks;
+  stored_data_ = true;
 }
 
 namespace check {
@@ -64,7 +66,12 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("writes_per_sec", &filter_obj::get_writes_per_sec, "Write IOPS")
       .add_int_var("iops", &filter_obj::get_iops, "Total IOPS (reads + writes)")
       .add_int_var("queue_length", &filter_obj::get_queue_length, "Current disk queue length")
-      .add_int_perf("")
+      // Suffixed like the latencies below. percent_disk_time is this check's
+      // primary metric and keeps the bare perf-syntax alias; every other
+      // keyword adds its own name, so they stop sharing one label - two
+      // metrics under one label survive in Icinga but collapse into a single
+      // series in anything that keys by it (#1392).
+      .add_int_perf("", "", "_queue_length")
       .add_int_var("percent_disk_time", &filter_obj::get_percent_disk_time, "Percent of time the disk is busy")
       .add_int_perf("%")
       .add_int_var("percent_idle_time", &filter_obj::get_percent_idle_time, "Percent of time the disk is idle")
@@ -75,6 +82,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_float_perf("ms", "", "_write_latency")
       .add_float("total_latency", &filter_obj::get_total_latency, "Average latency per I/O (read + write) in milliseconds (over the collection interval)")
       .add_float_perf("ms", "", "_total_latency");
+
+  // Byte rates are the norm here and the filter grammar has no arithmetic, so
+  // without these a template can only print the raw count (#1392).
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_disk_io(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, disks_type data) {

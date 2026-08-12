@@ -3,11 +3,18 @@
 
 #include "check_disk_health.hpp"
 
+#include <boost/optional.hpp>
+#include <functional>
 #include <map>
+#include <memory>
 #include <set>
+#include <string>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
+#include <str/format.hpp>
+#include <str/xtos.hpp>
 
 namespace disk_health_check {
 
@@ -104,6 +111,39 @@ struct filter_obj_handler : native_context {
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
+namespace {
+// What a space keyword renders as, and compares equal to, on a row with no
+// filesystem behind it (`free_pct = 'no space data'` is the presence test).
+const char *no_space = "no space data";
+
+typedef long long (filter_obj::*space_getter)() const;
+
+// Wraps a space accessor so it only yields a value on rows that actually have
+// filesystem data; every other row reports "no value" (see no_space above).
+std::function<boost::optional<long long>(std::shared_ptr<filter_obj>)> space_value(const space_getter getter) {
+  return [getter](const std::shared_ptr<filter_obj> obj) -> boost::optional<long long> {
+    if (!obj->has_space) return boost::none;
+    return ((*obj).*getter)();
+  };
+}
+
+// Rendering counterpart of the above: bytes as a human-readable string,
+// percentages with their sign, and a dash where there is no space data.
+std::function<std::string(std::shared_ptr<filter_obj>)> space_bytes_human(const space_getter getter) {
+  return [getter](const std::shared_ptr<filter_obj> obj) -> std::string {
+    if (!obj->has_space) return "-";
+    return str::format::format_byte_units(((*obj).*getter)());
+  };
+}
+
+std::function<std::string(std::shared_ptr<filter_obj>)> space_pct_human(const space_getter getter) {
+  return [getter](const std::shared_ptr<filter_obj> obj) -> std::string {
+    if (!obj->has_space) return "-";
+    return str::xtos(((*obj).*getter)()) + "%";
+  };
+}
+}  // namespace
+
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &filter_obj::get_name, "Drive name (e.g. C:, D:, _Total)");
 
@@ -115,28 +155,40 @@ filter_obj_handler::filter_obj_handler() {
                    "1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or a disk with no mounted filesystem)")
       .no_perf();
 
-  // Space metrics
-  registry_.add_int_var("total", &filter_obj::get_total, "Total disk size in bytes")
-      .add_int_var("free", &filter_obj::get_free, "Free disk space in bytes")
-      .add_int_var("used", &filter_obj::get_used, "Used disk space in bytes")
-      .add_int_var("user_free", &filter_obj::get_user_free, "Free disk space available to current user in bytes")
-      .add_int_perf("B")
-      .add_int_var("free_pct", &filter_obj::get_free_pct, "Percentage of free disk space")
+  // Space metrics. free_pct is this check's primary metric and keeps the bare
+  // perf-syntax alias (the drive name, as check_drivesize graphs it); the rest
+  // carry their own suffix so no two share a label.
+  //
+  // Optional rather than plain ints: an I/O-only or device row
+  // has no filesystem behind it, and reporting its zeroed total as `0% free`
+  // both read as a full disk in the message and recorded a flat 0% in the
+  // graphs (#1392). As optionals they render as `-`, compare false against
+  // every numeric threshold, and emit no perfdata on those rows.
+  registry_.add_optional_int_var("total", space_value(&filter_obj::get_total), no_space, "Total disk size in bytes (I/O-only rows have none)")
+      .add_int_perf("B", "", "_total")
+      .add_optional_int_var("free", space_value(&filter_obj::get_free), no_space, "Free disk space in bytes (I/O-only rows have none)")
+      .add_int_perf("B", "", "_free")
+      .add_optional_int_var("used", space_value(&filter_obj::get_used), no_space, "Used disk space in bytes (I/O-only rows have none)")
+      .add_int_perf("B", "", "_used")
+      .add_optional_int_var("user_free", space_value(&filter_obj::get_user_free), no_space,
+                            "Free disk space available to current user in bytes (I/O-only rows have none)")
+      .add_int_perf("B", "", "_user_free")
+      .add_optional_int_var("free_pct", space_value(&filter_obj::get_free_pct), no_space, "Percentage of free disk space (I/O-only rows have none)")
       .add_int_perf("%")
-      .add_int_var("used_pct", &filter_obj::get_used_pct, "Percentage of used disk space")
-      .add_int_perf("%")
+      .add_optional_int_var("used_pct", space_value(&filter_obj::get_used_pct), no_space, "Percentage of used disk space (I/O-only rows have none)")
+      .add_int_perf("%", "", "_used_pct");
 
-      // I/O metrics
-      .add_int_var("read_bytes_per_sec", &filter_obj::get_read_bytes_per_sec, "Bytes read per second")
+  // I/O metrics
+  registry_.add_int_var("read_bytes_per_sec", &filter_obj::get_read_bytes_per_sec, "Bytes read per second")
       .add_int_var("write_bytes_per_sec", &filter_obj::get_write_bytes_per_sec, "Bytes written per second")
       .add_int_var("total_bytes_per_sec", &filter_obj::get_total_bytes_per_sec, "Total bytes per second (read + write)")
       .add_int_var("reads_per_sec", &filter_obj::get_reads_per_sec, "Read IOPS")
       .add_int_var("writes_per_sec", &filter_obj::get_writes_per_sec, "Write IOPS")
       .add_int_var("iops", &filter_obj::get_iops, "Total IOPS (reads + writes)")
       .add_int_var("queue_length", &filter_obj::get_queue_length, "Current disk queue length")
-      .add_int_perf("")
+      .add_int_perf("", "", "_queue_length")
       .add_int_var("percent_disk_time", &filter_obj::get_percent_disk_time, "Percent of time the disk is busy")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_percent_disk_time")
       .add_int_var("percent_idle_time", &filter_obj::get_percent_idle_time, "Percent of time the disk is idle")
       .add_int_var("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second")
       .add_float("read_latency", &filter_obj::get_read_latency, "Average read latency in milliseconds (over the collection interval)")
@@ -163,6 +215,21 @@ filter_obj_handler::filter_obj_handler() {
       .no_perf()
       .add_int_var("is_readonly", &filter_obj::get_is_readonly, "1 if the physical disk is read-only (device rows)")
       .no_perf();
+
+  // Rendering forms of the space keywords: `${free}` prints 12.3G rather than
+  // a raw byte count, and a row with no filesystem prints `-` instead of a
+  // fabricated zero. Thresholds and perfdata keep using the numeric variables
+  // above, exactly as in check_drivesize.
+  registry_.add_human_string("total", space_bytes_human(&filter_obj::get_total), "")
+      .add_human_string("free", space_bytes_human(&filter_obj::get_free), "")
+      .add_human_string("used", space_bytes_human(&filter_obj::get_used), "")
+      .add_human_string("user_free", space_bytes_human(&filter_obj::get_user_free), "")
+      .add_human_string("free_pct", space_pct_human(&filter_obj::get_free_pct), "")
+      .add_human_string("used_pct", space_pct_human(&filter_obj::get_used_pct), "");
+
+  // Byte-valued keywords with no arithmetic in the grammar: without these a
+  // template can only print the raw count (#1392).
+  parsers::where::format_functions::register_format_functions(registry_);
 }
 
 void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response, health_type data) {
@@ -179,8 +246,9 @@ void check_disk_health(const PB::Commands::QueryRequestMessage::Request &request
       "(has_space = 1 and free_pct < 20) or percent_disk_time > 80 or (has_device = 1 and health_status = 'Warning')",
       "(has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1 and (health_status = 'Unhealthy' or is_offline = 1))",
       "name != '_Total'", filter.get_filter_syntax(), "critical");
-  filter_helper.add_syntax("${status}: ${list}",
-                           "${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}", "${name}", "",
+  // `${free_pct}` renders through the human form, which carries its own `%`
+  // (and a `-` where the row has no filesystem).
+  filter_helper.add_syntax("${status}: ${list}", "${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}", "${name}", "",
                            "%(status): All disks are healthy.");
 
   if (!filter_helper.parse_options()) return;
