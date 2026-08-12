@@ -305,6 +305,33 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     expect(out).toMatch(/All \d+ databases are ONLINE/);
   });
 
+  it("check_mssql_databases reports growth headroom with size units", async () => {
+    // The container's files are uncapped with autogrowth on, so headroom is
+    // the (large, positive) volume free space and never trips these. The
+    // `>= 0` guard excludes the -1 unknown sentinel: plain integers only
+    // parse against headroom keywords thanks to the custom size converter.
+    const out = await query("check_mssql_databases", [
+      "warning=data_headroom < 1K and data_headroom >= 0",
+      "critical=log_headroom < 1K and log_headroom >= 0",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression|is not valid/i);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/master_data_headroom'?=\d+B/); // real volume-derived value
+  });
+
+  it("check_mssql_databases matches the -1 headroom sentinel exactly", async () => {
+    // Volume stats work in the container, so nothing reports unknown: the
+    // expression must parse and not fire.
+    const out = await query("check_mssql_databases", [
+      "warning=data_headroom = -1",
+      "critical=none",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression|is not valid/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
   it("check_mssql_databases emits size perfdata when size keywords are referenced", async () => {
     // Perfdata is emitted for variables referenced in expressions; type_size
     // keywords accept unit suffixes like 100G.
