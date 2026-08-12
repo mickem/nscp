@@ -92,6 +92,7 @@ std::string installer_feature_hint(const std::string &module) {
       {"CheckTaskSched", "Check Plugins"},
       {"CheckSecurity", "Check Plugins"},
       {"CheckMSSQL", "Check Plugins"},
+      {"CheckMySQL", "Check Plugins"},
       {"SimpleCache", "Check Plugins"},
       {"SimpleFileWriter", "Check Plugins"},
       {"CheckLogFile", "Check Plugins"},

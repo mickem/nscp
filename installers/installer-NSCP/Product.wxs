@@ -153,6 +153,15 @@
               <File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
               <File Id="ModCheckSecurity.dll" Name="CheckSecurity.dll" DiskId="1" Source="$(var.Source)/modules/CheckSecurity.dll" Vital="no" />
               <File Id="ModCheckMSSQL.dll" Name="CheckMSSQL.dll" DiskId="1" Source="$(var.Source)/modules/CheckMSSQL.dll" Vital="no" />
+              <!--
+              CheckMySQL is an optional module: it only builds when MariaDB
+              Connector/C is available (see modules/CheckMySQL/module.cmake).
+              Enable these two entries once the connector is part of the
+              Windows build dependencies; libmariadb.dll must be staged next
+              to the module for the DLL to load.
+              <File Id="ModCheckMySQL.dll" Name="CheckMySQL.dll" DiskId="1" Source="$(var.Source)/modules/CheckMySQL.dll" Vital="no" />
+              <File Id="LibMariaDB.dll" Name="libmariadb.dll" DiskId="1" Source="$(var.Source)/modules/libmariadb.dll" Vital="no" />
+              -->
               <File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
               <File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
               <File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />
