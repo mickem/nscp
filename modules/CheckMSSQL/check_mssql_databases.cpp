@@ -29,12 +29,12 @@ const char *DATABASES_SQL =
 // of that type because SQL Server cannot move allocations between files - the
 // most constrained file is the one that errors first. A file capped by
 // max_size can grow to the cap (the log's default 268435456-page cap = 2TB is
-// a real limit and treated as one); an uncapped file is limited by the free
-// space on its volume; growth = 0 means the file cannot grow at all. Sizes
-// are in 8KB pages.
+// a real limit and treated as one); an uncapped file (max_size = -1) is
+// limited by the free space on its volume; growth = 0 or max_size = 0 both
+// mean the file cannot grow at all. Sizes are in 8KB pages.
 const char *HEADROOM_SQL =
     "SELECT d.name, f.type,"
-    " MIN(CASE WHEN f.growth = 0 THEN 0"
+    " MIN(CASE WHEN f.growth = 0 OR f.max_size = 0 THEN 0"
     " WHEN f.max_size > 0 THEN (CAST(f.max_size AS bigint) - CAST(f.size AS bigint)) * 8192"
     " ELSE CAST(vs.available_bytes AS bigint) END) AS headroom"
     " FROM sys.master_files f"

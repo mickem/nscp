@@ -9,6 +9,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 
+#include "mssql_filter_helpers.hpp"
 #include "mssql_options.hpp"
 
 namespace check_mssql_tempdb_command {
@@ -47,6 +48,12 @@ struct filter_obj_handler : native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 filter_obj_handler::filter_obj_handler() {
+  // Not type_size for volume_free: the -1 unknown sentinel must be expressible
+  // (see mssql_filter::parse_size) and type_size cannot compare against plain
+  // integers at all - worse, `volume_free < 1G` would silently match -1 and
+  // turn a denied dm_os_volume_stats into a false capacity alert.
+  static const parsers::where::value_type type_volume = parsers::where::type_custom_int_1;
+  registry_.add_converter(type_volume, &mssql_filter::parse_size<std::shared_ptr<filter_obj>>);
   registry_
       .add_int_var("size", parsers::where::type_size, &filter_obj::get_size, "Allocated tempdb data-file bytes (supports units, e.g. size > 50G)")
       .add_int_perf("B", "", "_size")
@@ -65,8 +72,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("internal_objects", parsers::where::type_size, &filter_obj::get_internal_objects,
                    "Bytes held by internal objects: sort/hash spills and work tables (supports units)")
       .add_int_perf("B", "", "_internal_objects")
-      .add_int_var("volume_free", parsers::where::type_size, &filter_obj::get_volume_free,
-                   "Free bytes on the most constrained volume holding a tempdb data file, -1 = unknown (supports units, e.g. volume_free < 5G)")
+      .add_int_var("volume_free", type_volume, &filter_obj::get_volume_free,
+                   "Free bytes on the most constrained volume holding a tempdb data file, -1 = unknown (supports units and plain integers, e.g. "
+                   "volume_free < 5G and volume_free >= 0)")
       .add_int_perf("B", "", "_volume_free");
 }
 

@@ -10,9 +10,11 @@ time is going.
 **two snapshots one second apart** (a server-side `WAITFOR DELAY`; the check
 takes ~1s longer than the others) and reports each category as **milliseconds
 of wait accumulated per second of wall clock** over that window. Idle
-housekeeping waits (`LAZYWRITER_SLEEP`, `CHECKPOINT_QUEUE`, `XE_*`, `HADR_*`
-timers, and the other community benign-wait suspects — including this check's
-own `WAITFOR`) are excluded, so `0` really means nothing waited.
+housekeeping waits (`LAZYWRITER_SLEEP`, `CHECKPOINT_QUEUE`, `XE_*`, the
+`HADR_` housekeeping timers, and the other community benign-wait suspects —
+including this check's own `WAITFOR`) are excluded, so `0` really means
+nothing waited. `HADR_SYNC_COMMIT` is **not** excluded: synchronous
+availability-group commit latency counts towards `other_waits`/`total_waits`.
 
 Keywords (one row per instance):
 

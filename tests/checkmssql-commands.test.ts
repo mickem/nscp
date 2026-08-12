@@ -136,7 +136,7 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     const out = await query("check_mssql_tempdb", [
       "timeout=5",
       "warning=used_pct > 80",
-      "critical=volume_free < 1G",
+      "critical=volume_free < 1G and volume_free >= 0",
     ]);
     expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
@@ -536,6 +536,21 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     ]);
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).not.toMatch(/invalid expression/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_tempdb matches the -1 volume_free sentinel exactly", async () => {
+    // volume_free carries the -1 unknown sentinel, so it uses the custom size
+    // converter: plain integers must parse, and the container's working
+    // volume stats mean the sentinel expression must not fire. With plain
+    // type_size this expression would fail to parse - and worse,
+    // `volume_free < 1G` would silently match -1.
+    const out = await query("check_mssql_tempdb", [
+      "warning=volume_free = -1",
+      "critical=volume_free < 1G and volume_free >= 0",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression|is not valid/i);
     expect(out).toMatch(/^OK/m);
   });
 

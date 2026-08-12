@@ -95,8 +95,14 @@ filter_obj_handler::filter_obj_handler() {
 std::string categorize_wait(const std::string &w) {
   // Idle/housekeeping waits that accumulate by design and would drown every
   // real signal (the usual suspects from the community benign-wait lists).
+  // HADR_ deliberately gets an explicit allowlist rather than the prefix:
+  // HADR_SYNC_COMMIT is the primary synchronous-AG commit-latency signal and
+  // must keep counting (it lands in other_waits/total_waits), while the
+  // listed HADR housekeeping waits idle-accumulate on every AG instance.
   if (starts_with(w, "SLEEP_") || starts_with(w, "BROKER_") || starts_with(w, "SQLTRACE_") || starts_with(w, "XE_") || starts_with(w, "FT_") ||
-      starts_with(w, "QDS_") || starts_with(w, "HADR_") || starts_with(w, "DBMIRROR") || starts_with(w, "PREEMPTIVE_") ||
+      starts_with(w, "QDS_") || starts_with(w, "HADR_FILESTREAM_") || w == "HADR_CLUSAPI_CALL" || w == "HADR_CLUSTER_INTEGRATION" ||
+      w == "HADR_FAILOVER_PARTNER" || w == "HADR_LOGCAPTURE_WAIT" || w == "HADR_NOTIFICATION_DEQUEUE" || w == "HADR_TIMER_TASK" ||
+      w == "HADR_WORK_QUEUE" || starts_with(w, "DBMIRROR") || starts_with(w, "PREEMPTIVE_") ||
       starts_with(w, "PARALLEL_REDO_") || starts_with(w, "PWAIT_") || starts_with(w, "SP_SERVER_DIAGNOSTICS") || starts_with(w, "VDI_CLIENT_") ||
       starts_with(w, "WAIT_XTP_") || w == "LAZYWRITER_SLEEP" || w == "LOGMGR_QUEUE" || w == "CHECKPOINT_QUEUE" || w == "REQUEST_FOR_DEADLOCK_SEARCH" ||
       w == "WAITFOR" || w == "WAITFOR_TASKSHUTDOWN" || w == "ONDEMAND_TASK_QUEUE" || w == "DIRTY_PAGE_POLL" || w == "SOS_WORK_DISPATCHER" ||

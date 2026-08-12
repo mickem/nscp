@@ -17,14 +17,16 @@ Keywords (one row per database/login pair):
 | `running`     | Sessions currently executing a request                                         |
 | `idle`        | Sessions that are sleeping or dormant                                          |
 | `connections` | Number of physical connections (differs from `sessions` under MARS)            |
-| `max_idle`    | Seconds since the most idle session last completed a request, `-1` = unknown (accepts units) |
+| `max_idle`    | Seconds since the most idle **sleeping/dormant** session last completed a request, `-1` = unknown (accepts units) |
 
 There are **no default thresholds**: healthy session counts are entirely
 workload-specific, so the check lists the pairs and stays OK until you add
 thresholds, e.g. `warning=sessions > 100` sized to your application's
 connection-pool limit, or `critical=max_idle > 12h` to catch leaked
-connections that were never returned to the pool. `max_idle` is `-1` when no
-session in the group has completed a request yet (a just-opened connection).
+connections that were never returned to the pool. Only sleeping/dormant
+sessions count towards `max_idle` — a session busy executing a long request is
+working, not leaked. `max_idle` is `-1` when the group has no idle session
+that has completed a request (e.g. just-opened or all-running connections).
 
 The check's own monitoring connection counts as one session (typically
 `master/<monitoring login>`), so a live server always reports at least one
