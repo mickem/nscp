@@ -18,6 +18,7 @@
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
 #include "check_mssql_sessions.hpp"
+#include "check_mssql_waits.hpp"
 #include "mssql_facts.hpp"
 #include "mssql_options.hpp"
 
@@ -165,4 +166,8 @@ void CheckMSSQL::check_mssql_counters(const PB::Commands::QueryRequestMessage::R
 void CheckMSSQL::check_mssql_availability_groups(const PB::Commands::QueryRequestMessage::Request &request,
                                                  PB::Commands::QueryResponseMessage::Response *response) {
   check_mssql_availability_groups_command::check(*defaults_.get(), request, response);
+}
+
+void CheckMSSQL::check_mssql_waits(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_mssql_waits_command::check(*defaults_.get(), request, response);
 }
