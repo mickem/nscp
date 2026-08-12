@@ -100,7 +100,7 @@ check_kdc
 ### Expected output
 
 ```
-OK: dc01.example.com: KRB-ERROR KDC_ERR_PREAUTH_REQUIRED (2ms)|'dc01.example.com'=2ms;1000;0
+OK: dc01.example.com: KRB-ERROR KDC_ERR_PREAUTH_REQUIRED (2ms)|'dc01.example.com'=2ms;1000
 ```
 
 On a domain-joined machine the KDC and realm are discovered automatically; from
