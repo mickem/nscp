@@ -59,6 +59,29 @@ target_link_libraries(
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 
+# Stage libmariadb.dll next to nscp.exe, NOT next to this module.
+#
+# The plugin loader calls plain LoadLibrary() with a full path
+# (include/dll/impl_w32.hpp), which does not add the loaded DLL's own directory
+# to the dependency search path - so a copy in modules/ is never found and the
+# module fails to load with "the specified module could not be found". The
+# application directory is searched, which is where nscp.exe lives; lua.dll and
+# the Python runtime DLL are shipped the same way (see Product.wxs).
+if(WIN32 AND MARIADB_DLL)
+    add_custom_command(
+        TARGET ${TARGET}
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different "${MARIADB_DLL}"
+            "${NSCP_PROJECT_BINARY_DIR}"
+    )
+elseif(WIN32)
+    message(
+        WARNING
+        "libmariadb.dll not found next to ${MARIADB_LIBRARY}: CheckMySQL will build but not load. Set MARIADB_ROOT_DIR at a Connector/C install tree."
+    )
+endif()
+
 # The unit tests exercise the checks through an injected session factory, so
 # they compile without mysql_session.cpp and never link the connector.
 NSCP_CREATE_TEST(

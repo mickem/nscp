@@ -1,0 +1,98 @@
+---
+name: Build MariaDB Connector/C
+description: Build and cache MariaDB Connector/C (the client library CheckMySQL links against)
+inputs:
+  version:
+    description: The MariaDB Connector/C version to build
+    required: true
+  architecture:
+    description: The architecture to build
+    required: true
+  toolset:
+    description: The toolset to use for building
+    required: true
+outputs:
+  path:
+    description: The path to the install tree (windows \ format)
+    value: ${{ steps.path.outputs.path }}
+  path_unix:
+    description: The path to the install tree (unix / format)
+    value: ${{ steps.path.outputs.path_unix }}
+runs:
+  using: composite
+  steps:
+    - id: cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-mariadb-${{ inputs.version }}-${{ inputs.architecture }}-${{ inputs.toolset }}
+        path: |
+          tmp/mariadb-connector-c
+
+    - id: setup
+      run: |
+        switch ("${{ inputs.architecture }}") {
+          "x86"   { echo "platform=Win32" >> $env:GITHUB_OUTPUT }
+          "arm64" { echo "platform=ARM64" >> $env:GITHUB_OUTPUT }
+          default { echo "platform=x64"   >> $env:GITHUB_OUTPUT }
+        }
+      shell: pwsh
+
+    - name: Download
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        curl -sSfL https://github.com/mariadb-corporation/mariadb-connector-c/archive/refs/tags/v${{ inputs.version }}.tar.gz --output connector-c.tar.gz
+        mkdir -p mariadb-connector-c
+        tar xzf connector-c.tar.gz -C mariadb-connector-c --strip-components=1
+        rm connector-c.tar.gz
+      working-directory: tmp
+      shell: bash
+
+    # WITH_SSL=SCHANNEL keeps the connector on the platform TLS stack instead of
+    # pulling in a second OpenSSL next to the one NSClient++ links statically.
+    #
+    # The auth plugins are built STATIC on purpose. By default the connector
+    # loads them as separate DLLs out of a plugin directory baked in at compile
+    # time - a path that does not exist on a target machine - and MySQL 8
+    # accounts default to caching_sha2_password, so a stock MySQL 8 server would
+    # be unreachable unless the operator also passed plugin-dir=. Linking them
+    # in makes libmariadb.dll self-contained and leaves the MSI with exactly one
+    # extra file. auth_gssapi_client is dropped: it is the only plugin that
+    # would drag in an external dependency, and CheckMySQL does not offer
+    # Kerberos auth.
+    - name: Build
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        cmake -S . -B build -G "Visual Studio 17" -A ${{ steps.setup.outputs.platform }} -T ${{ inputs.toolset }} `
+          -DCMAKE_INSTALL_PREFIX="$pwd/install" `
+          -DWITH_UNIT_TESTS=OFF `
+          -DWITH_SSL=SCHANNEL `
+          -DWITH_EXTERNAL_ZLIB=OFF `
+          -DCLIENT_PLUGIN_CACHING_SHA2_PASSWORD=STATIC `
+          -DCLIENT_PLUGIN_SHA256_PASSWORD=STATIC `
+          -DCLIENT_PLUGIN_DIALOG=STATIC `
+          -DCLIENT_PLUGIN_CLIENT_ED25519=STATIC `
+          -DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC `
+          -DCLIENT_PLUGIN_AUTH_GSSAPI_CLIENT=OFF
+        cmake --build build --config Release
+        cmake --install build --config Release
+      working-directory: tmp/mariadb-connector-c
+      shell: pwsh
+
+    # Fail loudly here rather than letting FindMariaDB quietly skip the module
+    # and the installer fail later on a missing CheckMySQL.dll.
+    - name: Verify
+      run: |
+        foreach ($f in @("install/include/mariadb/mysql.h", "install/lib/mariadb/libmariadb.lib", "install/lib/mariadb/libmariadb.dll")) {
+          if (-not (Test-Path $f)) { Write-Error "MariaDB Connector/C build is missing $f"; exit 1 }
+        }
+      working-directory: tmp/mariadb-connector-c
+      shell: pwsh
+
+    - id: path
+      run: |
+        $path=$pwd.path
+        $path_unix=$pwd.path.replace('\','/')
+        echo "path=$path" >> $env:GITHUB_OUTPUT
+        echo "path_unix=$path_unix" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+      working-directory: tmp/mariadb-connector-c/install

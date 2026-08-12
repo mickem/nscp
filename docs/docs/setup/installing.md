@@ -255,6 +255,7 @@ NSClient++ consists of the following features most which can be disabled when do
 | FirewallConfig    | Firewall Exception     | A firewall exception to allow NSClient++ to open ports                                    |
 | LuaScript         | Lua Scripting          | Allows running INTERNAL scripts written in Lua                                            |
 | NRPEPlugins       | NRPE Support           | NRPE Server Plugin. Support for the more versatile NRPE protocol (check_nrpe)             |
+| MySQLPlugin       | MySQL Support          | Plugin to check MySQL, MariaDB and Percona servers (includes the MariaDB Connector/C client library) |
 | NSCAPlugin        | NSCA plugin            | Plugin to submit passive results to an NSCA server                                        |
 | CheckMK           | Check MK support       | Experimental support for check_mk server and clients                                      |
 | ElasticPlugin     | Elastic Search support | Support for submitting metrics to elastic                                                 |

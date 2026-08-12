@@ -4,6 +4,9 @@
 #include "mysql_client.hpp"
 
 #include <algorithm>
+// std::tolower lives in <cctype>. libstdc++ drags it in through <algorithm>,
+// MSVC's does not, so leaving it out builds on Linux and fails on Windows.
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 

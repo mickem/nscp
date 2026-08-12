@@ -252,3 +252,26 @@ def validate_files(target_folder, required_files):
             missing_files_str = ", ".join(missing_files)
             print(f"! Required file in {file_group} does not exist: {missing_files_str}", flush=True)
     return all_exist
+
+
+def validate_files_absent(target_folder, forbidden_files):
+    """Validate that files which a deselected feature owns are NOT installed.
+
+    The mirror of validate_files: a feature that can be turned off is only
+    really optional if leaving it out actually leaves its files out, and that
+    is exactly what a stray ComponentRef in another feature breaks without
+    anything else failing.
+    """
+    none_exist = True
+    for file_group in forbidden_files.keys():
+        present_files = []
+        print(f"- Validating absent files in block: {file_group}", flush=True)
+        for bad_file in forbidden_files[file_group]:
+            file_path = path.join(target_folder, bad_file.replace('/', path.sep))
+            if path.exists(file_path):
+                present_files.append(bad_file)
+                none_exist = False
+        if present_files:
+            present_files_str = ", ".join(present_files)
+            print(f"! File in {file_group} should not have been installed: {present_files_str}", flush=True)
+    return none_exist

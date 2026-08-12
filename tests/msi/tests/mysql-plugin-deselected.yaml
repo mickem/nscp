@@ -1,0 +1,47 @@
+# CheckMySQL is its own installer feature (MySQLPlugin) so an operator with no
+# MySQL to monitor can leave out both the module and the third-party client
+# library it needs. Installing everything *except* that feature must therefore
+# leave neither file behind - a stray ComponentRef in another feature would ship
+# them anyway, and nothing else in the suite would notice.
+#
+# The rest of the install is expected to be identical to normal-install.yaml:
+# no other module depends on the connector, so dropping the feature must not
+# change the generated configuration at all.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "REMOVE=MySQLPlugin" ]
+replace_password: true
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  insecure = false
+  tls version = tlsv1.2+
+  verify mode = peer-cert
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$
+
+forbidden_files:
+  mysql:
+    - libmariadb.dll
+    - modules/CheckMySQL.dll
+
+required_files:
+  # The agent itself and a neighbouring check module still have to be there:
+  # this proves the feature was deselected, not that the install failed.
+  exe-files:
+    - nscp.exe
+  other-modules:
+    - modules/CheckDisk.dll

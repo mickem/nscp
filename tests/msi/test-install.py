@@ -2,7 +2,7 @@ from os import path, listdir
 from glob import glob
 from argparse import ArgumentParser
 
-from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config, validate_files
+from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config, validate_files, validate_files_absent
 
 # Argument parsing for test selection
 parser = ArgumentParser(description="Run NSCP MSI installer tests.")
@@ -60,6 +60,10 @@ for test_case_file in test_cases:
         failure = True
     if 'required_files' in test_case:
         if not validate_files(target_folder, test_case['required_files']):
+            print("! Test failed.", flush=True)
+            failure = True
+    if 'forbidden_files' in test_case:
+        if not validate_files_absent(target_folder, test_case['forbidden_files']):
             print("! Test failed.", flush=True)
             failure = True
 

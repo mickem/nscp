@@ -71,6 +71,7 @@ set is pinned in `build/python/requirements.txt`.
 | Python 3 dev libs + Boost.Python       | embedding CPython                                         | `python3.12-dev` (+ Boost built `--with-python`) | `PythonScript` module                                                                        |
 | Google Test                            | unit tests                                                | bundled via FetchContent (or `libgmock-dev`)     | unit tests (also toggled by `NSCP_BUILD_TESTS`)                                              |
 | Mongoose                               | web / REST server (mongoose backend)                      | vendored source (`MONGOOSE_SOURCE_DIR`)          | only needed when `NSCP_WEB_BACKEND=mongoose` (the default); not needed with `beast`          |
+| MariaDB Connector/C                    | MySQL / MariaDB / Percona checks                          | `libmariadb-dev` (RHEL: `mariadb-connector-c-devel`) | `CheckMySQL` module                                                                      |
 | Rust toolchain                         | builds the bundled `check_nsclient` plugin                | [`rustup`](https://rust-lang.org/tools/install/) | bundled `check_nsclient` (skip with `-DCHECK_NSCLIENT_MISSING=TRUE`)                         |
 
 A few additional Linux packages are pulled in for packaging and supporting
@@ -117,6 +118,7 @@ path); on Linux the system packages are found automatically.
 | `TINY_XML2_SOURCE_DIR`                         | unpacked TinyXML2 source                          |
 | `MONGOOSE_SOURCE_DIR`                          | unpacked Mongoose source (mongoose backend)       |
 | `MINIZ_INCLUDE_DIR`                            | unpacked miniz source (Windows ZIP backend)       |
+| `MARIADB_ROOT_DIR`                             | MariaDB Connector/C install tree (`CheckMySQL`)   |
 | `DEPENDENCIES_FOLDER`                          | base folder several of the above are derived from |
 
 ### Selecting individual modules
@@ -296,6 +298,64 @@ mkdir miniz-%MINIZ_VERSION%
 del miniz.zip
 ```
 
+
+#### Build MariaDB Connector/C
+
+The client library the `CheckMySQL` module links against. It is optional: without
+it the module is skipped (with a reason) at configure time and everything else
+builds as usual.
+
+There are prebuilt Windows installers on mariadb.com, but building from source is
+what CI does and what these instructions cover - it is the only way to get an
+ARM64 build, and it lets us fold the authentication plugins into the library:
+
+```commandline
+SET MARIADB_CONNECTOR_VERSION=3.4.9
+cd %BUILD_FOLDER%
+curl -L https://github.com/mariadb-corporation/mariadb-connector-c/archive/refs/tags/v%MARIADB_CONNECTOR_VERSION%.tar.gz --output connector-c.tar.gz
+7z x connector-c.tar.gz
+7z x connector-c.tar
+del connector-c.tar connector-c.tar.gz
+
+cd %BUILD_FOLDER%\mariadb-connector-c-%MARIADB_CONNECTOR_VERSION%
+cmake -S . -B build -G "Visual Studio 17" -A x64 -T v141 ^
+  -DCMAKE_INSTALL_PREFIX=%BUILD_FOLDER%\mariadb-connector-c-%MARIADB_CONNECTOR_VERSION%\install ^
+  -DWITH_UNIT_TESTS=OFF -DWITH_SSL=SCHANNEL -DWITH_EXTERNAL_ZLIB=OFF ^
+  -DCLIENT_PLUGIN_CACHING_SHA2_PASSWORD=STATIC -DCLIENT_PLUGIN_SHA256_PASSWORD=STATIC ^
+  -DCLIENT_PLUGIN_DIALOG=STATIC -DCLIENT_PLUGIN_CLIENT_ED25519=STATIC ^
+  -DCLIENT_PLUGIN_MYSQL_CLEAR_PASSWORD=STATIC -DCLIENT_PLUGIN_AUTH_GSSAPI_CLIENT=OFF
+cmake --build build --config Release
+cmake --install build --config Release
+```
+
+`MARIADB_ROOT_DIR` then points at the `install` folder, which holds
+`include/mariadb`, `lib/mariadb/libmariadb.lib` and `lib/mariadb/libmariadb.dll`.
+
+Two of those options matter more than they look:
+
+- **`WITH_SSL=SCHANNEL`** puts the connector on the platform TLS stack. The
+  alternative (`OPENSSL`) links a second OpenSSL beside the one NSClient++
+  already links statically.
+- **The `..._STATIC` plugin options** compile the authentication plugins into
+  `libmariadb.dll`. By default they are separate DLLs loaded from a plugin
+  directory baked in at compile time - a path that does not exist on a target
+  machine. MySQL 8 accounts default to `caching_sha2_password`, which is one of
+  those plugins, so a stock MySQL 8 server would be unreachable without either
+  this or an explicit `plugin-dir=` on every check.
+
+`libmariadb.dll` is a runtime dependency of `CheckMySQL.dll`, and the build copies
+it next to `nscp.exe` for you. It has to live there rather than in `modules\`:
+the plugin loader calls `LoadLibrary` with a full path, and Windows resolves that
+module's own imports against the *application* directory - never against the
+folder the module itself was loaded from.
+
+In the MSI the two travel together as their own feature, `MySQLPlugin` ("MySQL
+Support"), installed by default and removable with `REMOVE=MySQLPlugin` on a
+silent install. It is separate from `CheckPlugins` because it is the one check
+module that pulls in a third-party runtime library. The feature only exists in
+the dynamic-runtime builds; the static XP installer below has no connector and
+leaves `CheckMySQL` out entirely.
+
 ### Build installer library
 
 ```commandline
@@ -335,7 +395,12 @@ SET(CRYPTOPP_ROOT "BUILD_FOLDER/CRYPTOPP_VERSION")
 SET(TINY_XML2_SOURCE_DIR "BUILD_FOLDER/tinyxml2-VERSION")
 SET(MONGOOSE_SOURCE_DIR "BUILD_FOLDER/mongoose-VERSION")
 SET(MINIZ_INCLUDE_DIR "BUILD_FOLDER/miniz-VERSION")
+SET(MARIADB_ROOT_DIR "BUILD_FOLDER/mariadb-connector-c-VERSION/install")
 ```
+
+> `FindMariaDB` caches what it resolves, so pointing `MARIADB_ROOT_DIR` at a
+> different tree later has no effect until the stale entries are dropped:
+> `cmake <build-dir> -U MARIADB_INCLUDE_DIR -U MARIADB_LIBRARY -U MARIADB_DLL`.
 
 ### Build NSClient++
 
@@ -529,8 +594,13 @@ msbuild nscp.sln /p:Configuration=Release /p:Platform=Win32
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libzip-dev libffi-dev python3.12-dev python3-protobuf python3-jinja2 libdbus-1-dev pkg-config rpm libgmock-dev
+sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev libprotobuf-dev protobuf-compiler liblua5.4-dev libtinyxml2-dev libzip-dev libmariadb-dev libffi-dev python3.12-dev python3-protobuf python3-jinja2 libdbus-1-dev pkg-config rpm libgmock-dev
 ```
+
+`libmariadb-dev` (RHEL/Fedora: `mariadb-connector-c-devel`) is what the
+`CheckMySQL` module builds against; it is found through the system prefixes, so
+no `MARIADB_ROOT_DIR` is needed. Leave it out and the module is skipped with a
+reason at configure time.
 
 The build generates each module's glue code at build time with a Python script
 that uses **Jinja2** (`python3-jinja2` above). The full set of Python build
