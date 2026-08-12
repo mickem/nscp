@@ -112,6 +112,16 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
   });
 
+  it("check_mssql_transactions parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_transactions", [
+      "timeout=5",
+      "warning=transaction_age > 30m",
+      "critical=is_idle = 1 and transaction_age > 1h",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
   it("check_mssql_integrity parses its options and hits a server or the contract", async () => {
     const out = await query("check_mssql_integrity", [
       "timeout=5",
@@ -523,6 +533,26 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).toMatch(/^OK/m);
     expect(out).toMatch(/master_checkdb_age'?=\d+s/); // a real, recent timestamp
+  });
+
+  it("check_mssql_transactions reports OK when nothing is open", async () => {
+    // The check excludes its own session, so an idle server reports the
+    // empty-state contract.
+    const out = await query("check_mssql_transactions");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).not.toMatch(/invalid expression/i);
+  });
+
+  it("check_mssql_transactions accepts time units and the idle keyword", async () => {
+    const out = await query("check_mssql_transactions", [
+      "warning=is_idle = 1 and transaction_age > 5m",
+      "critical=transaction_age > 2h",
+      "detail-syntax=${session_id}: ${transaction_name} ${request_age}",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/Invalid time specification|invalid expression/i);
+    expect(out).toMatch(/^OK/m);
   });
 
   it("rejects a wrong SA password with the connect contract (SQL auth path)", async () => {

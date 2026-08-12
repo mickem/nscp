@@ -17,6 +17,7 @@
 #include "check_mssql_query.hpp"
 #include "check_mssql_sessions.hpp"
 #include "check_mssql_tempdb.hpp"
+#include "check_mssql_transactions.hpp"
 #include "check_mssql_waits.hpp"
 #include "mssql_filter_helpers.hpp"
 #include "odbc_query.hpp"
@@ -536,6 +537,24 @@ TEST(CheckMssqlQuery, NoQuerySpecifiedReturnsUnknown) {
 }
 
 #ifdef WIN32
+// The default thresholds mix or/and ("transaction_age > 1800 or is_idle = 1
+// and transaction_age > 300"): guard that the expression builds. A precedence
+// regression would surface here as an UNKNOWN parse error instead of the
+// connect-failure contract.
+TEST(CheckMssqlTransactions, DefaultThresholdExpressionParses) {
+  PB::Commands::QueryRequestMessage::Request request;
+  PB::Commands::QueryResponseMessage::Response response;
+  request.set_command("check_mssql_transactions");
+  request.add_arguments("server=localhost");
+  request.add_arguments("driver=No Such Driver 99");
+
+  const mssql_odbc::connection_info defaults;
+  check_mssql_transactions_command::check(defaults, request, &response);
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_NE(join_lines(response).find("Failed to connect to SQL Server 'localhost'"), std::string::npos) << join_lines(response);
+}
+
 // The bogus driver makes SQLDriverConnectW fail immediately (IM002) with no
 // network involved, pinning the connect-failure contract on every machine.
 TEST(CheckMssql, ConnectFailureReturnsUnknownWithContractMessage) {

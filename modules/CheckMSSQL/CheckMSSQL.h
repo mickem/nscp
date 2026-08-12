@@ -30,6 +30,7 @@ class CheckMSSQL : public nscapi::impl::simple_plugin {
   void check_mssql_waits(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_mssql_tempdb(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_mssql_integrity(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_mssql_transactions(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
  private:
   // Connection defaults from /settings/mssql; each check copies these and
