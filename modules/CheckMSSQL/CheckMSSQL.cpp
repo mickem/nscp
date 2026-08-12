@@ -11,6 +11,7 @@
 #include "check_mssql.hpp"
 #include "check_mssql_backup.hpp"
 #include "check_mssql_blocking.hpp"
+#include "check_mssql_counters.hpp"
 #include "check_mssql_databases.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
@@ -86,4 +87,8 @@ void CheckMSSQL::check_mssql_sessions(const PB::Commands::QueryRequestMessage::R
 
 void CheckMSSQL::check_mssql_blocking(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_mssql_blocking_command::check(defaults_, request, response);
+}
+
+void CheckMSSQL::check_mssql_counters(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_mssql_counters_command::check(defaults_, request, response);
 }

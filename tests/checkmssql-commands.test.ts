@@ -112,6 +112,15 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
   });
 
+  it("check_mssql_counters parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_counters", [
+      "timeout=5",
+      "warning=hit_ratio < 90 or page_life_expectancy < 300",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
   it("check_mssql_sessions parses its options and hits a server or the contract", async () => {
     const out = await query("check_mssql_sessions", [
       "timeout=5",
@@ -369,6 +378,29 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     ]);
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).not.toMatch(/Invalid time specification|invalid expression/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_counters reports rates and emits perfdata by default", async () => {
+    const out = await query("check_mssql_counters");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/hit ratio/);
+    // Default perf-config emits all counters without any threshold.
+    expect(out).toMatch(/mssql_page_life_expectancy'?=\d+s/);
+    expect(out).toMatch(/mssql_batch_requests'?=/);
+    // The 1s sampling window ran: batch rate is a finite number, not -1.
+    expect(out).not.toMatch(/mssql_batch_requests'?=-1/);
+  });
+
+  it("check_mssql_counters thresholds on the health keywords", async () => {
+    // A fresh container serves everything from memory: hit_ratio ~100, PLE > 0.
+    const out = await query("check_mssql_counters", [
+      "warning=hit_ratio < 0",
+      "critical=page_life_expectancy < 0 or deadlocks > 1000",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression/i);
     expect(out).toMatch(/^OK/m);
   });
 
