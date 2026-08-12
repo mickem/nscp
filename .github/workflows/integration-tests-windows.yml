@@ -90,7 +90,6 @@ jobs:
         shell: bash
         env:
           NSCP_BIN: ${{ github.workspace }}/tmp/nscp/nscp.exe
-          NSCP_SKIP_DOCKER: "1"
         run: npm test
 
       # TODO: Disabled for now due to issues with docker on windows runners
