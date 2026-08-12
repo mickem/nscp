@@ -112,6 +112,16 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
   });
 
+  it("check_mssql_tempdb parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_tempdb", [
+      "timeout=5",
+      "warning=used_pct > 80",
+      "critical=volume_free < 1G",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
   it("check_mssql_waits parses its options and hits a server or the contract", async () => {
     const out = await query("check_mssql_waits", [
       "timeout=5",
@@ -455,6 +465,27 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     const out = await query("check_mssql_waits", [
       "warning=work_queue > 0",
       "critical=runnable_tasks > 10000",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_tempdb reports the space split and emits perfdata by default", async () => {
+    const out = await query("check_mssql_tempdb");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/tempdb \d+% used/);
+    expect(out).toMatch(/tempdb_size'?=\d+B/);
+    expect(out).toMatch(/tempdb_version_store'?=\d+B/);
+    // The Linux container exposes volume stats: headroom is a real number.
+    expect(out).toMatch(/tempdb_volume_free'?=\d+B/);
+  });
+
+  it("check_mssql_tempdb thresholds with size units deterministically", async () => {
+    const out = await query("check_mssql_tempdb", [
+      "warning=used_pct > 100",
+      "critical=size > 10T",
     ]);
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).not.toMatch(/invalid expression/i);
