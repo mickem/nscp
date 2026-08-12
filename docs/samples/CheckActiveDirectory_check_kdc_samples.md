@@ -1,8 +1,8 @@
-**Default check (domain-joined; probes the discovered KDC):**
+﻿**Default check (domain-joined; probes the discovered KDC):**
 
 ```
 check_kdc
-OK: dc01.example.com: KRB-ERROR KDC_ERR_PREAUTH_REQUIRED (2ms)|'dc01.example.com'=2ms;1000;0
+OK: dc01.example.com: KRB-ERROR KDC_ERR_PREAUTH_REQUIRED (2ms)|'dc01.example.com'=2ms;1000
 ```
 
 `KDC_ERR_PREAUTH_REQUIRED` is the *healthy* answer: the KDC processed the
@@ -12,21 +12,21 @@ request and asked for pre-authentication.
 
 ```
 check_kdc server=dc01.example.com server=dc02.example.com realm=EXAMPLE.COM
-OK: all 2 KDC(s) are responding|'dc01.example.com'=2ms;1000;0 'dc02.example.com'=3ms;1000;0
+OK: all 2 KDC(s) are responding|'dc01.example.com'=2ms;1000 'dc02.example.com'=3ms;1000
 ```
 
 **KDC down (nothing answering on the port):**
 
 ```
 check_kdc server=dc01.example.com realm=EXAMPLE.COM
-CRITICAL: dc01.example.com: connect failed: No connection could be made because the target machine actively refused it (2028ms)|'dc01.example.com'=2028ms;1000;0
+CRITICAL: dc01.example.com: connect failed: No connection could be made because the target machine actively refused it (2028ms)|'dc01.example.com'=2028ms;1000
 ```
 
 **Something answered, but it does not speak Kerberos:**
 
 ```
 check_kdc server=dc01.example.com realm=EXAMPLE.COM
-CRITICAL: dc01.example.com: invalid response (5ms)|'dc01.example.com'=5ms;1000;0
+CRITICAL: dc01.example.com: invalid response (5ms)|'dc01.example.com'=5ms;1000
 ```
 
 **Tighten the latency alert (Kerberos slowness precedes logon storms):**
