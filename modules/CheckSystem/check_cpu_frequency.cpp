@@ -144,13 +144,13 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("socket", &filter_obj::get_socket, "Socket designation (e.g. \"CPU 1\"), for per-socket filtering");
 
   registry_.add_int_var("current_mhz", &filter_obj::get_current_mhz, "Current clock speed in MHz")
-      .add_int_perf("MHz")
+      .add_int_perf("MHz", "", "_current_mhz")
       .add_int_var("max_mhz", &filter_obj::get_max_mhz, "Maximum clock speed in MHz")
-      .add_int_perf("MHz")
+      .add_int_perf("MHz", "", "_max_mhz")
       .add_int_var("frequency_pct", &filter_obj::get_frequency_pct, "Current frequency as percentage of maximum")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_frequency_pct")
       .add_int_var("load_pct", &filter_obj::get_load_pct, "Per-socket CPU load as reported by Win32_Processor.LoadPercentage")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_load_pct")
       .add_int_var("cores", &filter_obj::get_number_of_cores, "Number of physical cores")
       .add_int_var("logical_processors", &filter_obj::get_number_of_logical_processors, "Number of logical processors (threads)")
       .add_int_var("l2_cache", parsers::where::type_size, &filter_obj::get_l2_cache,

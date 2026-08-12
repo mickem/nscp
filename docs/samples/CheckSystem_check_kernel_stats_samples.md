@@ -2,7 +2,7 @@
 
 ```
 check_kernel_stats
-OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417|'ctxt'=119059;8000;10000 'syscalls'=268703;8000;10000 'processes'=628;8000;10000 'threads'=3417;8000;10000
+OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417|'ctxt_current'=119059;8000;10000 'syscalls_current'=268703;8000;10000 'processes_current'=628;8000;10000 'threads_current'=3417;8000;10000
 ```
 
 **Threshold a context-switch storm (baseline the host first):**

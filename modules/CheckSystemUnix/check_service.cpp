@@ -336,20 +336,20 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("pid", &filter_obj::get_pid, "Main process id")
       .add_int_var("state", type_custom_state, &filter_obj::get_state_i,
                    "The mapped service state (stopped, starting, oneshot, running, static, unknown)")
-      .add_int_perf("", "")
+      .add_int_perf("", "", "_state")
       .add_int_var("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type (enabled, disabled, static, masked)")
       .add_int_var("started", type_bool, &filter_obj::get_started, "Service is started/active")
       .add_int_var("stopped", type_bool, &filter_obj::get_stopped, "Service is stopped/inactive")
       .add_int_var("rss", &filter_obj::get_rss, "Resident memory of the main process in bytes")
-      .add_int_perf("B")
+      .add_int_perf("B", "", "_rss")
       .add_int_var("vms", &filter_obj::get_vms, "Virtual memory of the main process in bytes")
-      .add_int_perf("B")
+      .add_int_perf("B", "", "_vms")
       .add_int_var("tasks", &filter_obj::get_tasks, "Number of tasks (cgroup) for this service")
-      .add_int_perf("")
+      .add_int_perf("", "", "_tasks")
       .add_int_var("created", type_date, &filter_obj::get_created, "Unix timestamp when the main process started")
       .add_int_var("age", &filter_obj::get_age, "Seconds since the main process started");
 
-  registry_.add_float("cpu", &filter_obj::get_cpu, "CPU usage of the main process in percent (lifetime average)").add_float_perf("%");
+  registry_.add_float("cpu", &filter_obj::get_cpu, "CPU usage of the main process in percent (lifetime average)").add_float_perf("%", "", "_cpu");
 
   // clang-format off
   registry_.add_custom_fun("state_is_perfect", type_bool, &state_is_perfect, "Check if the state is perfect (enabled services running, disabled services stopped)")

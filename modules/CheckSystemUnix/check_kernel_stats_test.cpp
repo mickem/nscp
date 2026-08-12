@@ -5,9 +5,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <map>
+#include <vector>
 
 namespace fs = boost::filesystem;
 using kernel_stats_check::build_rows;
@@ -29,6 +31,14 @@ std::map<std::string, kstat_row> by_name(const kernel_stats_check::rows_type &ro
   std::map<std::string, kstat_row> m;
   for (const kstat_row &r : rows) m[r.name] = r;
   return m;
+}
+
+std::vector<std::string> perf_aliases(const PB::Commands::QueryResponseMessage::Response &r) {
+  std::vector<std::string> out;
+  for (int i = 0; i < r.lines_size(); ++i) {
+    for (int j = 0; j < r.lines(i).perf_size(); ++j) out.push_back(r.lines(i).perf(j).alias());
+  }
+  return out;
 }
 
 PB::Common::ResultCode run_ks(long long thread_count, const std::vector<std::string> &args, PB::Commands::QueryResponseMessage::Response &response) {
@@ -116,6 +126,28 @@ TEST(CheckKernelStats, DefaultThresholdTargetsThreads) {
 
   PB::Commands::QueryResponseMessage::Response crit;
   EXPECT_EQ(run_ks(11000, {}, crit), PB::Common::ResultCode::CRITICAL) << join_lines(crit);
+}
+
+TEST(CheckKernelStats, PerfLabelsAreStableAcrossQueries) {
+  // rate and current used to share the bare ${name} alias, so a query naming
+  // both put two metrics in one series. Each keyword now carries its own
+  // suffix, which also means the label a keyword is graphed under does not
+  // depend on what else the query mentions - graph templates can rely on it
+  // (#1392).
+  PB::Commands::QueryResponseMessage::Response current_only;
+  run_ks(500, {"filter=name = 'threads'"}, current_only);
+  const std::vector<std::string> alone = perf_aliases(current_only);
+  ASSERT_EQ(alone.size(), 1u) << join_lines(current_only);
+  EXPECT_EQ(alone.front(), "threads_current");
+
+  PB::Commands::QueryResponseMessage::Response both;
+  run_ks(500, {"filter=name = 'threads'", "warning=current > 100000 or rate > 100000"}, both);
+  const std::vector<std::string> together = perf_aliases(both);
+  ASSERT_EQ(together.size(), 2u) << join_lines(both);
+  // The same keyword keeps the same label whether or not the other is asked
+  // for, and the two never collide.
+  EXPECT_NE(std::find(together.begin(), together.end(), "threads_current"), together.end());
+  EXPECT_NE(std::find(together.begin(), together.end(), "threads_rate"), together.end());
 }
 
 TEST(CheckKernelStats, HugeCtxtCounterDoesNotTripThreadThreshold) {

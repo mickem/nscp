@@ -43,11 +43,11 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("MAC", &filter_obj::get_mac, "The hardware (MAC) address");
 
   registry_.add_int_var("received", &filter_obj::get_received, "Bytes received per second")
-      .add_int_perf("Bps")
+      .add_int_perf("Bps", "", "_received")
       .add_int_var("sent", &filter_obj::get_sent, "Bytes sent per second")
-      .add_int_perf("Bps")
+      .add_int_perf("Bps", "", "_sent")
       .add_int_var("total", &filter_obj::get_total, "Bytes total (received + sent) per second")
-      .add_int_perf("Bps")
+      .add_int_perf("Bps", "", "_total")
       .add_int_var("received_packets", &filter_obj::get_received_packets, "Packets received per second")
       .add_int_var("sent_packets", &filter_obj::get_sent_packets, "Packets sent per second")
       .add_int_var("rx_errors", &filter_obj::get_rx_errors, "Cumulative receive errors since boot")
@@ -58,11 +58,11 @@ filter_obj_handler::filter_obj_handler() {
   // applying the usage_* percent thresholds.
   registry_.add_int_var("speed_bps", &filter_obj::get_speed_bps, "Link speed in bits/sec (0 when unknown, e.g. virtual interfaces)")
       .add_int_var("usage_in", &filter_obj::get_usage_in, "Percent of link speed used by received traffic (0 when speed unknown)")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_usage_in")
       .add_int_var("usage_out", &filter_obj::get_usage_out, "Percent of link speed used by sent traffic (0 when speed unknown)")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_usage_out")
       .add_int_var("usage_total", &filter_obj::get_usage_total, "Percent of link speed used by total traffic (0 when speed unknown)")
-      .add_int_perf("%");
+      .add_int_perf("%", "", "_usage_total");
 
   registry_.add_string_var("received_human", &filter_obj::get_received_human, "Bytes received per second (human readable, auto-scaled)")
       .add_string_var("sent_human", &filter_obj::get_sent_human, "Bytes sent per second (human readable, auto-scaled)")

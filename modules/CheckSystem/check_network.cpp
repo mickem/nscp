@@ -370,19 +370,17 @@ filter_obj_handler::filter_obj_handler() {
   // single combined value. Unit "Bps" (bytes/sec) matches the underlying
   // counter; consumers that prefer bits-per-sec can multiply by 8.
   //
-  // These generators carry no suffix, so a single referenced direction is
-  // graphed under the bare interface name - the label this check has always
-  // emitted. Referencing two of them puts two metrics under that one name, so
-  // the filter disambiguates the later ones as '<iface>_sent' etc. when it
-  // emits the row (#1392); pin your own names with
-  // `perf-config=received(suffix:_received) ...` if you would rather they were
-  // symmetric.
+  // Each carries its own suffix, so the label a direction is graphed under is
+  // fixed ('<iface>_received', ...) whatever else the query asks for. They used
+  // to share the bare interface name, which put two metrics in one series as
+  // soon as two directions were referenced (#1392). `perf-config=received(suffix:none)`
+  // restores the old name for one of them.
   registry_.add_int_var("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
-      .add_int_perf("Bps")
+      .add_int_perf("Bps", "", "_received")
       .add_int_var("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
-      .add_int_perf("Bps")
+      .add_int_perf("Bps", "", "_sent")
       .add_int_var("total", &filter_obj::getBytesTotalPersec, "Bytes total per second")
-      .add_int_perf("Bps");
+      .add_int_perf("Bps", "", "_total");
 
   // Packet-rate, error-rate and discard-rate counters. All are per-second rates
   // derived from the cumulative Win32_PerfRawData_Tcpip counters, so a healthy
@@ -426,17 +424,17 @@ filter_obj_handler::filter_obj_handler() {
                    "Percent of negotiated link speed used by received traffic. "
                    "BEST-EFFORT: reads as 0 when speed is unknown - "
                    "filter on speed_bps > 0 to distinguish idle from unknown.")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_usage_in")
       .add_int_var("usage_out", &filter_obj::getUsageOutPct,
                    "Percent of negotiated link speed used by sent traffic. "
                    "BEST-EFFORT: reads as 0 when speed is unknown - "
                    "filter on speed_bps > 0 to distinguish idle from unknown.")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_usage_out")
       .add_int_var("usage_total", &filter_obj::getUsageTotalPct,
                    "Percent of negotiated link speed used by total traffic. "
                    "BEST-EFFORT: reads as 0 when speed is unknown - "
                    "filter on speed_bps > 0 to distinguish idle from unknown.")
-      .add_int_perf("%");
+      .add_int_perf("%", "", "_usage_total");
 
   // Human-readable byte-rate strings for use in detail-syntax templates
   // (issue #329 #3). Issued as `*_human` rather than touching `sent` /

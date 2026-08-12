@@ -82,7 +82,7 @@ Now we can run the check:
 ```
 check_cpu
 L     client OK: CPU Load ok
-L     client  Performance data: 'total 5m'=0%;80;90 'total 1m'=1%;80;90 'total 5s'=11%;80;90
+L     client  Performance data: 'total 5m_load'=0%;80;90 'total 1m_load'=1%;80;90 'total 5s_load'=11%;80;90
 ```
 
 Options are passed as `keyword=value`, with quotes when the value contains spaces or shell-meta
@@ -132,12 +132,12 @@ The same `check_cpu`, with progressively more customisation:
 # Defaults
 check_cpu
 OK: CPU load is ok.
-'total 5m'=2%;80;90 'total 1m'=5%;80;90 'total 5s'=11%;80;90
+'total 5m_load'=2%;80;90 'total 1m_load'=5%;80;90 'total 5s_load'=11%;80;90
 
 # Custom thresholds
 check_cpu "warn=load > 50" "crit=load > 70"
 OK: CPU load is ok.
-'total 5m'=2%;50;70 ...
+'total 5m_load'=2%;50;70 ...
 
 # Per-core data instead of just the total
 check_cpu filter=none "warn=load > 80" "crit=load > 90"
@@ -542,7 +542,7 @@ Performance data is the machine-readable metrics used for graphing, in the stand
 Example:
 
 ```
-'total 5m'=2%;80;90 'total 1m'=5%;80;90 'total 5s'=11%;80;90
+'total 5m_load'=2%;80;90 'total 1m_load'=5%;80;90 'total 5s_load'=11%;80;90
 ```
 
 ### Perfdata needs thresholds
@@ -551,7 +551,7 @@ Without `warn`/`crit`, perfdata values are emitted but empty:
 
 ```
 check_cpu warning=none critical=none
-'total 5m'= 'total 1m'= 'total 5s'=
+'total 5m_load'= 'total 1m_load'= 'total 5s_load'=
 ```
 
 To get values without alerts, use `perf-config` to mark metrics as "extra":
@@ -619,11 +619,27 @@ C:\ used %    95      %       79      89      100     0
 `perf-syntax` controls the metric **name** (not its value), using the same template variables as `detail-syntax`:
 
 ```
-check_cpu "perf-syntax=%(core) %(time)"     # 'total 5m'=...
-check_cpu "perf-syntax=%(core)_%(time)"     # 'total_5m'=...
+check_cpu "perf-syntax=%(core) %(time)"     # 'total 5m_load'=...
+check_cpu "perf-syntax=%(core)_%(time)"     # 'total_5m_load'=...
 ```
 
 Useful when your graphing system is picky about names.
+
+### How a metric name is built
+
+The label of every metric is `<perf-syntax>_<keyword>` — the alias `perf-syntax`
+renders for the row, then the name of the keyword being reported. `check_cpu`
+above reports `load`, so the row aliased `total 5m` is graphed as
+`'total 5m_load'`; asking the same check for `user` as well adds
+`'total 5m_user'` rather than a second `'total 5m'`.
+
+That makes the name a keyword asks to be graphed under fixed: it does not
+change when the query mentions another keyword, so a graph template can rely on
+it. Override the pieces per keyword with `perf-config`:
+
+```
+check_cpu "perf-config=load(prefix:cpu_ suffix:none)"   # 'cpu_total 5m'=...
+```
 
 ---
 

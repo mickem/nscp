@@ -29,15 +29,15 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
       .add_string_var("core_id", &filter_obj::get_core_id, &filter_obj::get_core_i, "The core to check (total or core_##)");
   registry_.add_int_var("load", type_custom_pct, &filter_obj::get_total, "deprecated (use total instead)")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_load")
       .add_int_var("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_total")
       .add_int_var("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_user")
       .add_int_var("idle", &filter_obj::get_idle, "The current idle load for a given core")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_idle")
       .add_int_var("system", &filter_obj::get_kernel, "The current load used by the system (kernel)")
-      .add_int_perf("%")
+      .add_int_perf("%", "", "_system")
       // kernel is a deprecated alias of system and reports the same value; it is
       // intentionally left without perf so we do not emit a duplicate perf
       // column for the same metric (the value is already graphed as system).
@@ -135,13 +135,13 @@ filter_obj_handler::filter_obj_handler() {
 namespace os_version_filter {
 filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("major", &filter_obj::get_major, "Major version number")
-      .add_int_perf("")
+      .add_int_perf("", "", "_major")
       .add_int_var("version", &filter_obj::get_version_i, &filter_obj::get_version_s, "The system version")
-      .add_int_perf("")
+      .add_int_perf("", "", "_version")
       .add_int_var("minor", &filter_obj::get_minor, "Minor version number")
-      .add_int_perf("")
+      .add_int_perf("", "", "_minor")
       .add_int_var("build", &filter_obj::get_build, "Build version number")
-      .add_int_perf("")
+      .add_int_perf("", "", "_build")
       .add_int_var("ubr", &filter_obj::get_ubr, "Update Build Revision (patch level within a build; 0 when unavailable, e.g. pre-Windows 10)");
   registry_.add_string_var(
       "suite", &filter_obj::get_suite_string,

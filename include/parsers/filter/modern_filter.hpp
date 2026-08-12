@@ -288,30 +288,25 @@ struct modern_filters {
   typedef std::map<std::string, perf_entry> leaf_performance_entry_type;
   leaf_performance_entry_type leaf_performance_data;
 
-  // Appends one variable's perfdata for the current row, keeping every label in
-  // that row distinct.
+  // Appends one variable's perfdata for the current row.
   //
-  // A perf generator registered with neither prefix nor suffix emits the bare
-  // perf-syntax alias, so two such variables on the same row (check_disk_health
-  // reported both free_pct and percent_disk_time as `'C:'`) produced two
-  // entries under one label. Icinga keeps both, but anything that keys a time
-  // series by label - Graphite's metric path, InfluxDB's tag set - stores them
-  // as the same series with the same timestamp, so one silently overwrote the
-  // other and the survivor was whichever the iteration happened to write last
-  // (#1392).
+  // Two variables must never emit the same label: Icinga keeps both entries,
+  // but anything that keys a time series by label - Graphite's metric path,
+  // InfluxDB's tag set - stores them as the same series with the same
+  // timestamp, so one silently overwrites the other (#1392). That is a
+  // registration bug: every generator needs a prefix or suffix of its own, so
+  // the label a keyword is graphed under is fixed and a graph template can
+  // rely on it. Renaming here instead would make the label depend on which
+  // other keywords the query happens to mention.
   //
-  // The first variable to claim a label keeps it, so the common case of a
-  // single bare-alias metric per row is unchanged; a later collision is
-  // disambiguated with the variable's own name, which is what the default
-  // generator would have produced anyway.
+  // Nothing is rewritten, then; a collision is only reported, and only in
+  // debug, where whoever is looking at the check can act on it.
   void append_row_performance_data(parsers::where::perf_list_type &perf, const std::string &variable, std::set<std::string> &used_labels) {
-    for (parsers::where::performance_data &data : perf) {
-      if (used_labels.insert(data.alias).second) continue;
-      std::string candidate = data.alias + "_" + variable;
-      for (int i = 2; !used_labels.insert(candidate).second; ++i) {
-        candidate = data.alias + "_" + variable + "_" + str::xtos(i);
+    for (const parsers::where::performance_data &data : perf) {
+      if (!used_labels.insert(data.alias).second && should_log_debug()) {
+        log_debug("Two metrics share the performance data label '" + data.alias + "' on this row (" + variable +
+                  " is one of them); only one of them will survive in a store that keys by label.");
       }
-      data.alias = candidate;
     }
     performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
   }
