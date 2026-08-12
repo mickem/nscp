@@ -118,7 +118,9 @@ bool CheckDisk::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     // ceiling is what the collector can hold without narrowing: a value past
     // it would wrap to a negative wait, and the collector would spin.
     if (interval < 1) throw std::invalid_argument("must be at least 1 second");
-    if (interval > std::numeric_limits<int>::max()) throw std::invalid_argument("is too large");
+    // Parenthesised so the Windows `max` macro (windows.h, included above)
+    // does not eat the call.
+    if (interval > (std::numeric_limits<int>::max)()) throw std::invalid_argument("is too large");
     collector_->collection_interval = static_cast<int>(interval);
   } catch (const std::exception &e) {
     NSC_LOG_ERROR("Invalid collection interval (using the default 10s): " + std::string(e.what()));
