@@ -13,6 +13,7 @@
 		"check_mssql_databases"		: "Check database state, recovery model and data/log size.",
 		"check_mssql_backup"		: "Check the age of the last full/differential/log backup per database.",
 		"check_mssql_jobs"		: "Check SQL Server Agent job status.",
-		"check_mssql_sessions"		: "Check session and connection counts per database and login."
+		"check_mssql_sessions"		: "Check session and connection counts per database and login.",
+		"check_mssql_blocking"		: "Check for blocked sessions and blocking chains."
 	}
 }

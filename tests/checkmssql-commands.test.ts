@@ -102,6 +102,16 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
   });
 
+  it("check_mssql_blocking parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_blocking", [
+      "timeout=5",
+      "warning=wait_time > 30s",
+      "critical=wait_time > 5m",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
   it("check_mssql_sessions parses its options and hits a server or the contract", async () => {
     const out = await query("check_mssql_sessions", [
       "timeout=5",
@@ -339,6 +349,24 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
 
   it("check_mssql_sessions accepts time units on max_idle (REST-style token)", async () => {
     const out = await query("check_mssql_sessions", ["critical=max_idle > 12h"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/Invalid time specification|invalid expression/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_blocking reports OK with no blocked sessions", async () => {
+    const out = await query("check_mssql_blocking");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/No blocked sessions/);
+  });
+
+  it("check_mssql_blocking accepts time units and the blocker keywords", async () => {
+    const out = await query("check_mssql_blocking", [
+      "warning=wait_time > 30s and blocker_idle = 1",
+      "critical=wait_time > 5m",
+      "detail-syntax=${session_id} blocked by ${root_blocker}",
+    ]);
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).not.toMatch(/Invalid time specification|invalid expression/i);
     expect(out).toMatch(/^OK/m);
