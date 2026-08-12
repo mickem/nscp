@@ -112,6 +112,16 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
   });
 
+  it("check_mssql_waits parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_waits", [
+      "timeout=5",
+      "warning=work_queue > 0",
+      "critical=signal_wait_pct > 50",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
   it("check_mssql_availability_groups parses its options and hits a server or the contract", async () => {
     const out = await query("check_mssql_availability_groups", [
       "timeout=5",
@@ -428,6 +438,27 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).toMatch(/^CRITICAL/m);
     expect(out).toMatch(/No availability groups found/);
+  });
+
+  it("check_mssql_waits reports scheduler pressure and the wait profile", async () => {
+    const out = await query("check_mssql_waits");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/runnable tasks on \d+ schedulers/);
+    // Default perf-config emits the whole wait profile without thresholds.
+    expect(out).toMatch(/mssql_total_waits'?=/);
+    expect(out).toMatch(/mssql_runnable_tasks'?=\d+/);
+  });
+
+  it("check_mssql_waits thresholds on scheduler pressure deterministically", async () => {
+    // An idle container has no THREADPOOL starvation: work_queue is 0.
+    const out = await query("check_mssql_waits", [
+      "warning=work_queue > 0",
+      "critical=runnable_tasks > 10000",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression/i);
+    expect(out).toMatch(/^OK/m);
   });
 
   it("rejects a wrong SA password with the connect contract (SQL auth path)", async () => {

@@ -16,6 +16,7 @@
 		"check_mssql_sessions"		: "Check session and connection counts per database and login.",
 		"check_mssql_blocking"		: "Check for blocked sessions and blocking chains.",
 		"check_mssql_counters"		: "Check engine performance counters: buffer cache, page life expectancy, batch and lock rates.",
-		"check_mssql_availability_groups"	: "Check Always On availability group replica and database health."
+		"check_mssql_availability_groups"	: "Check Always On availability group replica and database health.",
+		"check_mssql_waits"		: "Check wait statistics by category and scheduler pressure."
 	}
 }

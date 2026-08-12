@@ -15,6 +15,7 @@
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
 #include "check_mssql_sessions.hpp"
+#include "check_mssql_waits.hpp"
 #include "mssql_filter_helpers.hpp"
 #include "odbc_query.hpp"
 
@@ -371,6 +372,63 @@ TEST(BuildSessions, MissingDatabaseShowsLoginOnly) {
   const auto out = check_mssql_sessions_command::build_sessions(rows);
   ASSERT_EQ(out.size(), 1u);
   EXPECT_EQ(out[0].show(), "app");
+}
+
+TEST(CategorizeWait, MapsTheDiagnosticCategories) {
+  using check_mssql_waits_command::categorize_wait;
+  EXPECT_EQ(categorize_wait("SOS_SCHEDULER_YIELD"), "cpu");
+  EXPECT_EQ(categorize_wait("THREADPOOL"), "cpu");
+  EXPECT_EQ(categorize_wait("CXPACKET"), "cpu");
+  EXPECT_EQ(categorize_wait("PAGEIOLATCH_SH"), "io");
+  EXPECT_EQ(categorize_wait("WRITELOG"), "log");
+  EXPECT_EQ(categorize_wait("LCK_M_X"), "lock");
+  EXPECT_EQ(categorize_wait("PAGELATCH_EX"), "latch");
+  EXPECT_EQ(categorize_wait("RESOURCE_SEMAPHORE"), "memory");
+  EXPECT_EQ(categorize_wait("ASYNC_NETWORK_IO"), "network");
+  EXPECT_EQ(categorize_wait("SOME_FUTURE_WAIT"), "other");
+}
+
+TEST(CategorizeWait, IdleHousekeepingWaitsAreBenign) {
+  using check_mssql_waits_command::categorize_wait;
+  EXPECT_EQ(categorize_wait("LAZYWRITER_SLEEP"), "benign");
+  EXPECT_EQ(categorize_wait("SOS_WORK_DISPATCHER"), "benign");
+  EXPECT_EQ(categorize_wait("HADR_TIMER_TASK"), "benign");
+  EXPECT_EQ(categorize_wait("XE_TIMER_EVENT"), "benign");
+  EXPECT_EQ(categorize_wait("WAITFOR"), "benign");  // includes this check's own sampling delay
+  EXPECT_EQ(categorize_wait("CHECKPOINT_QUEUE"), "benign");
+}
+
+namespace {
+
+check_mssql_waits_command::wait_row make_wait(const std::string &type, long long wait_ms, long long signal_ms, long long elapsed_ms = 1000) {
+  check_mssql_waits_command::wait_row row;
+  row.wait_type = type;
+  row.wait_ms = wait_ms;
+  row.signal_ms = signal_ms;
+  row.elapsed_ms = elapsed_ms;
+  return row;
+}
+
+}  // namespace
+
+TEST(BuildWaits, RatesAndSignalPctExcludeBenignWaits) {
+  std::vector<check_mssql_waits_command::wait_row> rows;
+  rows.push_back(make_wait("PAGEIOLATCH_SH", 500, 50, 2000));  // io: 250 ms/s over a 2s window
+  rows.push_back(make_wait("LCK_M_X", 300, 30, 2000));         // lock: 150 ms/s
+  rows.push_back(make_wait("LAZYWRITER_SLEEP", 100000, 0, 2000));  // benign: excluded everywhere
+
+  const auto out = check_mssql_waits_command::build_waits(rows);
+  EXPECT_DOUBLE_EQ(out.io_waits, 250.0);
+  EXPECT_DOUBLE_EQ(out.lock_waits, 150.0);
+  EXPECT_DOUBLE_EQ(out.total_waits, 400.0);
+  EXPECT_DOUBLE_EQ(out.other_waits, 0.0);
+  EXPECT_DOUBLE_EQ(out.signal_wait_pct, 10.0);  // (50 + 30) / (500 + 300)
+}
+
+TEST(BuildWaits, QuietWindowReportsMinusOneSignalPct) {
+  const auto out = check_mssql_waits_command::build_waits({});
+  EXPECT_DOUBLE_EQ(out.signal_wait_pct, -1);
+  EXPECT_DOUBLE_EQ(out.total_waits, 0.0);
 }
 
 // --- result helpers --------------------------------------------------------------

@@ -27,6 +27,7 @@ class CheckMSSQL : public nscapi::impl::simple_plugin {
   void check_mssql_blocking(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_mssql_counters(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
   void check_mssql_availability_groups(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_mssql_waits(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 
  private:
   // Connection defaults from /settings/mssql; each check copies these and
