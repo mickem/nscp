@@ -14,6 +14,7 @@
 #include "check_mssql_databases.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
+#include "check_mssql_sessions.hpp"
 #include "mssql_facts.hpp"
 #include "mssql_options.hpp"
 
@@ -144,4 +145,8 @@ void CheckMSSQL::check_mssql_backup(const PB::Commands::QueryRequestMessage::Req
 
 void CheckMSSQL::check_mssql_jobs(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_mssql_jobs_command::check(*defaults_.get(), request, response);
+}
+
+void CheckMSSQL::check_mssql_sessions(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_mssql_sessions_command::check(*defaults_.get(), request, response);
 }
