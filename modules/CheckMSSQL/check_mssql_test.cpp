@@ -9,6 +9,7 @@
 
 #include "check_mssql_backup.hpp"
 #include "check_mssql_blocking.hpp"
+#include "check_mssql_counters.hpp"
 #include "check_mssql_databases.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
@@ -252,6 +253,71 @@ TEST(BuildBlocking, DirectBlockerFieldsPassThrough) {
   EXPECT_EQ(out[0].root_blocker, 52);  // blocker not itself blocked
   EXPECT_EQ(out[0].get_blocker_idle(), 1);
   EXPECT_EQ(out[0].show(), "61");
+}
+
+namespace {
+
+check_mssql_counters_command::counter_row make_counter(const std::string &name, long long value, long long prev, long long elapsed_ms = 1000) {
+  check_mssql_counters_command::counter_row row;
+  row.name = name;
+  row.value = value;
+  row.has_prev = true;
+  row.prev_value = prev;
+  row.elapsed_ms = elapsed_ms;
+  return row;
+}
+
+}  // namespace
+
+TEST(BuildCounters, RatesUseTheMeasuredWindowNotTheNominalSecond) {
+  // 250 batches in a 2000ms window is 125/s, not 250/s.
+  std::vector<check_mssql_counters_command::counter_row> rows;
+  rows.push_back(make_counter("Batch Requests/sec", 10250, 10000, 2000));
+  rows.push_back(make_counter("Page life expectancy", 4211, 4210));
+
+  const auto out = check_mssql_counters_command::build_counters(rows);
+  EXPECT_DOUBLE_EQ(out.batch_requests, 125.0);
+  EXPECT_EQ(out.page_life_expectancy, 4211);  // point-in-time, no delta
+}
+
+TEST(BuildCounters, HitRatioIsComputedOverTheWindow) {
+  // Lifetime ratio is ~99.99% but the window saw 90/100: report 90%.
+  std::vector<check_mssql_counters_command::counter_row> rows;
+  rows.push_back(make_counter("Buffer cache hit ratio", 1000090, 1000000));
+  rows.push_back(make_counter("Buffer cache hit ratio base", 1000200, 1000100));
+
+  const auto out = check_mssql_counters_command::build_counters(rows);
+  EXPECT_DOUBLE_EQ(out.hit_ratio, 90.0);
+}
+
+TEST(BuildCounters, HitRatioFallsBackToLifetimeWhenTheBaseDidNotMove) {
+  std::vector<check_mssql_counters_command::counter_row> rows;
+  rows.push_back(make_counter("Buffer cache hit ratio", 999, 999));
+  rows.push_back(make_counter("Buffer cache hit ratio base", 1000, 1000));
+
+  const auto out = check_mssql_counters_command::build_counters(rows);
+  EXPECT_DOUBLE_EQ(out.hit_ratio, 99.9);
+}
+
+TEST(BuildCounters, MissingCountersReportMinusOne) {
+  const auto out = check_mssql_counters_command::build_counters({});
+  EXPECT_DOUBLE_EQ(out.hit_ratio, -1);
+  EXPECT_EQ(out.page_life_expectancy, -1);
+  EXPECT_DOUBLE_EQ(out.batch_requests, -1);
+  EXPECT_DOUBLE_EQ(out.deadlocks, -1);
+  EXPECT_DOUBLE_EQ(out.lock_waits, -1);
+}
+
+TEST(BuildCounters, MissingFirstSnapshotYieldsMinusOneRate) {
+  // A counter present only in the second snapshot has no delta to rate.
+  check_mssql_counters_command::counter_row row;
+  row.name = "SQL Compilations/sec";
+  row.value = 500;
+  row.has_prev = false;
+  row.elapsed_ms = 1000;
+
+  const auto out = check_mssql_counters_command::build_counters({row});
+  EXPECT_DOUBLE_EQ(out.compilations, -1);
 }
 
 TEST(BuildSessions, UnknownIdleAgeMapsToMinusOne) {
