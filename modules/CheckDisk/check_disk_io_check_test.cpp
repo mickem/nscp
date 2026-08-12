@@ -146,11 +146,21 @@ TEST(CheckDiskIo, ScaleDrivesNumericThresholds) {
 
 TEST(DiskIoData, FetchReportsWhetherItCollected) {
   disk_io_check::disk_io_data data;
-  // On a host with the data source available this collects; where it is not
-  // (no /proc/diskstats, or a Windows counter class that is not there) it must
-  // say so instead of looking like a successful empty fetch.
-  const bool fetched = data.fetch();
-  EXPECT_EQ(fetched, !data.get().empty());
+  bool fetched = false;
+  try {
+    fetched = data.fetch();
+  } catch (const std::exception &) {
+    // The Windows fetch queries WMI, which needs COM initialised on the
+    // calling thread (DiskIoDataTest does that for the tests that want live
+    // data) and can fail outright in a build container. It reports that by
+    // throwing; either nothing was collected, or the rates were stored before
+    // a latency error was raised. Both keep the flag and the snapshot in
+    // agreement, which is what the collector relies on.
+    EXPECT_EQ(data.stored_data(), !data.get().empty());
+    return;
+  }
+  // A fetch that reported success stored a snapshot; one that reported
+  // "nothing collected" never claims it did.
   EXPECT_EQ(data.stored_data(), fetched);
 }
 
