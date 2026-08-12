@@ -170,12 +170,12 @@ Example:
 
 ```
 OK: CPU load is ok.
-'total 5m_load'=2%;80;90 'total 1m_load'=5%;80;90 'total 5s_load'=11%;80;90
+'total 5m'=2%;80;90 'total 1m'=5%;80;90 'total 5s'=11%;80;90
 ```
 
 - `OK` is the status
 - `CPU load is ok.` is the message
-- `'total 5m_load'=2%;80;90` means: metric named `total 5m_load`, value `2%`, warn threshold `80%`, crit threshold `90%`
+- `'total 5m'=2%;80;90` means: metric named `total 5m`, value `2%`, warn threshold `80%`, crit threshold `90%`
 
 ---
 

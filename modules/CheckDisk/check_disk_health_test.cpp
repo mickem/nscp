@@ -549,12 +549,13 @@ TEST(CheckDiskHealth, DefaultCheckEmitsDistinctPerfLabels) {
   ASSERT_FALSE(aliases.empty());
   const std::set<std::string> unique(aliases.begin(), aliases.end());
   EXPECT_EQ(unique.size(), aliases.size()) << all_messages(response);
-  EXPECT_TRUE(has_perf(response, "C:_free_pct"));
+  // free_pct is the primary metric and keeps the bare drive name; the busy
+  // percentage no longer lands on top of it.
+  EXPECT_TRUE(has_perf(response, "C:"));
   EXPECT_TRUE(has_perf(response, "C:_percent_disk_time"));
-  EXPECT_FALSE(has_perf(response, "C:"));
 }
 
-TEST(CheckDiskHealth, LoadKeywordsCarryTheirOwnPerfLabel) {
+TEST(CheckDiskHealth, SecondaryKeywordsCarryTheirOwnPerfLabel) {
   PB::Commands::QueryResponseMessage::Response response;
   run_health_check(one_space_row(), {"perf-config=extra(queue_length) extra(used_pct) extra(user_free)"}, response);
 
@@ -591,11 +592,12 @@ TEST(CheckDiskHealth, IoOnlyRowEmitsNoSpacePerfData) {
   io.push_back(d);
 
   PB::Commands::QueryResponseMessage::Response response;
-  run_health_check(disk_health_check::join(io, {}), {"filter=none", "perf-config=extra(free_pct)"}, response);
+  // free_pct is the only metric asked for, so any perfdata at all would be the
+  // fabricated 0% free of a device that has no filesystem - worse than
+  // graphing nothing.
+  run_health_check(disk_health_check::join(io, {}), {"filter=none", "warning=none", "critical=none", "perf-config=extra(free_pct)"}, response);
 
-  // Graphing a fabricated 0% free for a device with no filesystem is worse
-  // than graphing nothing.
-  EXPECT_FALSE(has_perf(response, "sda_free_pct")) << all_messages(response);
+  EXPECT_TRUE(perf_aliases(response).empty()) << all_messages(response);
 }
 
 TEST(CheckDiskHealth, SpaceKeywordsComparableAgainstTheNoValueString) {

@@ -172,7 +172,7 @@ forwarded to the check.
     "lines": [
         {
             "message": "OK: CPU load is ok.",
-            "perf": "'total 3m_load'=41%;80;90"
+            "perf": "'total 3m'=41%;80;90"
         }
     ]
 }

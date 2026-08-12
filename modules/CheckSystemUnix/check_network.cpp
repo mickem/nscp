@@ -47,7 +47,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("sent", &filter_obj::get_sent, "Bytes sent per second")
       .add_int_perf("Bps", "", "_sent")
       .add_int_var("total", &filter_obj::get_total, "Bytes total (received + sent) per second")
-      .add_int_perf("Bps", "", "_total")
+      .add_int_perf("Bps")
       .add_int_var("received_packets", &filter_obj::get_received_packets, "Packets received per second")
       .add_int_var("sent_packets", &filter_obj::get_sent_packets, "Packets sent per second")
       .add_int_var("rx_errors", &filter_obj::get_rx_errors, "Cumulative receive errors since boot")

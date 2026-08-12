@@ -225,7 +225,7 @@ Example — query CPU load with thresholds:
 
 ```commandline
 $ check_nrpe -H 127.0.0.1 -c check_cpu -a "warn=load>80" "crit=load>90"
-OK: CPU load is ok.|'total 5m_load'=0%;80;90 'total 1m_load'=1%;80;90 'total 5s_load'=2%;80;90
+OK: CPU load is ok.|'total 5m'=0%;80;90 'total 1m'=1%;80;90 'total 5s'=2%;80;90
 ```
 
 For this to work the agent has to **accept** arguments — see the next

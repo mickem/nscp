@@ -29,7 +29,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
       .add_string_var("core_id", &filter_obj::get_core_id, &filter_obj::get_core_i, "The core to check (total or core_##)");
   registry_.add_int_var("load", type_custom_pct, &filter_obj::get_total, "deprecated (use total instead)")
-      .add_int_perf("%", "", "_load")
+      .add_int_perf("%")
       .add_int_var("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
       .add_int_perf("%", "", "_total")
       .add_int_var("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
@@ -137,7 +137,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("major", &filter_obj::get_major, "Major version number")
       .add_int_perf("", "", "_major")
       .add_int_var("version", &filter_obj::get_version_i, &filter_obj::get_version_s, "The system version")
-      .add_int_perf("", "", "_version")
+      .add_int_perf("")
       .add_int_var("minor", &filter_obj::get_minor, "Minor version number")
       .add_int_perf("", "", "_minor")
       .add_int_var("build", &filter_obj::get_build, "Build version number")

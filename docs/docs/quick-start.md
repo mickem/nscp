@@ -66,7 +66,7 @@ Expected output:
 
 ```
 OK: CPU load is ok.
-'total 5m_load'=2%;80;90 'total 1m_load'=5%;80;90 'total 5s_load'=11%;80;90
+'total 5m'=2%;80;90 'total 1m'=5%;80;90 'total 5s'=11%;80;90
 ```
 
 If you instead see `Unknown command(s): check_cpu`, load the module first:
@@ -80,9 +80,9 @@ check_cpu
 
 ```
 OK: CPU load is ok.
-'total 5m_load'=2%;80;90   ← 5-minute average: 2% used, warn at 80%, crit at 90%
-'total 1m_load'=5%;80;90   ← 1-minute average
-'total 5s_load'=11%;80;90  ← 5-second average
+'total 5m'=2%;80;90   ← 5-minute average: 2% used, warn at 80%, crit at 90%
+'total 1m'=5%;80;90   ← 1-minute average
+'total 5s'=11%;80;90  ← 5-second average
 ```
 
 - The status (`OK`, `WARNING`, `CRITICAL`, `UNKNOWN`) is what your monitoring server receives.

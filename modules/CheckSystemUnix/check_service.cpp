@@ -336,7 +336,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("pid", &filter_obj::get_pid, "Main process id")
       .add_int_var("state", type_custom_state, &filter_obj::get_state_i,
                    "The mapped service state (stopped, starting, oneshot, running, static, unknown)")
-      .add_int_perf("", "", "_state")
+      .add_int_perf("")
       .add_int_var("start_type", type_custom_start_type, &filter_obj::get_start_type_i, "The configured start type (enabled, disabled, static, masked)")
       .add_int_var("started", type_bool, &filter_obj::get_started, "Service is started/active")
       .add_int_var("stopped", type_bool, &filter_obj::get_stopped, "Service is stopped/inactive")

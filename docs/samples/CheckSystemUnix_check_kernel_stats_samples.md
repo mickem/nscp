@@ -3,7 +3,7 @@
 ```
 check_kernel_stats
 OK - Context Switches 57111.0/s, Process Creations 317.0/s, Threads 363
-L        cli  Performance data: 'ctxt_current'=2747325827;8000;10000 'processes_current'=2888772;8000;10000 'threads_current'=363;8000;10000
+L        cli  Performance data: 'ctxt'=2747325827;8000;10000 'processes'=2888772;8000;10000 'threads'=363;8000;10000
 ```
 
 **Only the thread count, with a custom threshold:**
@@ -11,7 +11,7 @@ L        cli  Performance data: 'ctxt_current'=2747325827;8000;10000 'processes_
 ```
 check_kernel_stats type=threads "warn=current > 100000"
 OK - Threads 368
-L        cli  Performance data: 'threads_current'=368;100000;10000
+L        cli  Performance data: 'threads'=368;100000;10000
 ```
 
 **Alert on a runaway context-switch rate:**

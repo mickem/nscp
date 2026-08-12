@@ -218,7 +218,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("battery_present", &filter_obj::get_battery_present, "Whether a battery is present: 'true' or 'false'");
 
   registry_.add_int_var("charge", &filter_obj::get_charge_percent, "Battery charge level in percent (0-100)")
-      .add_int_perf("%", "", "_charge")
+      .add_int_perf("%")
       .add_int_var("health", &filter_obj::get_health_percent, "Battery health in percent (full_capacity / design_capacity * 100)")
       .add_int_perf("%", "", "_health")
       .add_int_var("time_remaining", &filter_obj::get_time_remaining, "Estimated time remaining in seconds (-1 if unknown or on AC)")

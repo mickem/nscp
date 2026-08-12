@@ -108,7 +108,7 @@ filter_obj_handler::filter_obj_handler() {
   // add_int_perf chains onto the last-registered variable, marking it as also
   // emitting a perf entry; so the idiom is add_int_var(...).add_int_perf("UOM").
   registry_.add_int_var("current_mhz", &filter_obj::get_current_mhz, "Current frequency in MHz")
-      .add_int_perf("MHz", "", "_current_mhz")
+      .add_int_perf("MHz")
       .add_int_var("max_mhz", &filter_obj::get_max_mhz, "Maximum frequency in MHz")
       .add_int_perf("MHz", "", "_max_mhz")
       .add_int_var("min_mhz", &filter_obj::get_min_mhz, "Minimum frequency in MHz")

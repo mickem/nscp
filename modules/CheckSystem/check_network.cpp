@@ -370,17 +370,17 @@ filter_obj_handler::filter_obj_handler() {
   // single combined value. Unit "Bps" (bytes/sec) matches the underlying
   // counter; consumers that prefer bits-per-sec can multiply by 8.
   //
-  // Each carries its own suffix, so the label a direction is graphed under is
-  // fixed ('<iface>_received', ...) whatever else the query asks for. They used
-  // to share the bare interface name, which put two metrics in one series as
-  // soon as two directions were referenced (#1392). `perf-config=received(suffix:none)`
-  // restores the old name for one of them.
+  // `total` is this check's primary metric and keeps the bare interface name,
+  // which is the label it has always been graphed under; the other directions
+  // carry their own suffix ('<iface>_received', ...). They all used to share
+  // the bare name, which put several metrics in one series as soon as two of
+  // them were referenced (#1392).
   registry_.add_int_var("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
       .add_int_perf("Bps", "", "_received")
       .add_int_var("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
       .add_int_perf("Bps", "", "_sent")
       .add_int_var("total", &filter_obj::getBytesTotalPersec, "Bytes total per second")
-      .add_int_perf("Bps", "", "_total");
+      .add_int_perf("Bps");
 
   // Packet-rate, error-rate and discard-rate counters. All are per-second rates
   // derived from the cumulative Win32_PerfRawData_Tcpip counters, so a healthy

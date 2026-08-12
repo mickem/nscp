@@ -144,7 +144,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("socket", &filter_obj::get_socket, "Socket designation (e.g. \"CPU 1\"), for per-socket filtering");
 
   registry_.add_int_var("current_mhz", &filter_obj::get_current_mhz, "Current clock speed in MHz")
-      .add_int_perf("MHz", "", "_current_mhz")
+      .add_int_perf("MHz")
       .add_int_var("max_mhz", &filter_obj::get_max_mhz, "Maximum clock speed in MHz")
       .add_int_perf("MHz", "", "_max_mhz")
       .add_int_var("frequency_pct", &filter_obj::get_frequency_pct, "Current frequency as percentage of maximum")

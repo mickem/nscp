@@ -183,10 +183,11 @@ describe("CheckDisk commands", () => {
     expect(perfKeys.some((k) => /total_latency/.test(k))).toBe(true);
   });
 
-  it("check_disk_io gives every load keyword its own perf label", async () => {
+  it("check_disk_io gives every secondary keyword its own perf label", async () => {
     // Both generators used to be registered without a suffix, so queue_length
     // and percent_disk_time were emitted under the bare ${name} alias and a
-    // store that keys by label kept only one of the two.
+    // store that keys by label kept only one of the two. percent_disk_time is
+    // the primary metric and keeps the bare device name.
     const q = await pollQuery(
       key,
       "check_disk_io",
@@ -199,7 +200,9 @@ describe("CheckDisk commands", () => {
     expect(q.result).toBe(OK);
     const perfKeys = Object.keys(perfOf(q));
     expect(perfKeys.some((k) => k.endsWith("_queue_length"))).toBe(true);
-    expect(perfKeys.some((k) => k.endsWith("_percent_disk_time"))).toBe(true);
+    // One label per metric: the two never share one.
+    expect(perfKeys.some((k) => !k.endsWith("_queue_length"))).toBe(true);
+    expect(new Set(perfKeys).size).toBe(perfKeys.length);
   });
 
   it("check_disk_io formats byte rates through format_bytes", async () => {
@@ -239,7 +242,8 @@ describe("CheckDisk commands", () => {
 
   it("check_disk_health gives space and load keywords distinct perf labels", async () => {
     // The default thresholds reference free_pct and percent_disk_time, so the
-    // plain command emitted two entries under one label on every row.
+    // plain command emitted two entries under one label on every row. free_pct
+    // is the primary metric and keeps the bare drive name.
     const q = await pollQuery(
       key,
       "check_disk_health",
@@ -252,8 +256,9 @@ describe("CheckDisk commands", () => {
     );
     expect(q.result).toBe(OK);
     const perfKeys = Object.keys(perfOf(q));
-    expect(perfKeys.some((k) => k.endsWith("_free_pct"))).toBe(true);
     expect(perfKeys.some((k) => k.endsWith("_percent_disk_time"))).toBe(true);
+    expect(perfKeys.some((k) => !k.endsWith("_percent_disk_time"))).toBe(true);
+    expect(new Set(perfKeys).size).toBe(perfKeys.length);
   });
 
   it("check_disk_health reports no space rather than 0% on IO-only rows", async () => {
@@ -274,7 +279,6 @@ describe("CheckDisk commands", () => {
     expect(q.result).toBe(OK);
     const message = messageOf(q);
     expect(message).not.toMatch(/=0%/);
-    expect(Object.keys(perfOf(q)).some((k) => k.endsWith("_free_pct"))).toBe(false);
   });
 
   it("check_disk_health merges space and IO data", async () => {

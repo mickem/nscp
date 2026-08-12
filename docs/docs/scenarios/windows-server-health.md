@@ -35,14 +35,14 @@ check_cpu
 
 ```
 OK: CPU load is ok.
-'total 5m_load'=2%;80;90 'total 1m_load'=5%;80;90 'total 5s_load'=11%;80;90
+'total 5m'=2%;80;90 'total 1m'=5%;80;90 'total 5s'=11%;80;90
 ```
 
 ### Expected output (alert)
 
 ```
 WARNING: WARNING: 5m: 85%, 1m: 88%, 5s: 91%
-'total 5m_load'=85%;80;90 'total 1m_load'=88%;80;90 'total 5s_load'=91%;80;90
+'total 5m'=85%;80;90 'total 1m'=88%;80;90 'total 5s'=91%;80;90
 ```
 
 ### How it works

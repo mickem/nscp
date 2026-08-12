@@ -275,7 +275,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("present", &filter_obj::get_battery_present, "Alias for battery_present");
 
   registry_.add_int_var("charge", &filter_obj::get_charge_percent, "Battery charge percent")
-      .add_int_perf("%", "", "_charge")
+      .add_int_perf("%")
       .add_int_var("health", &filter_obj::get_health_percent, "Battery health percent (full/design capacity)")
       .add_int_perf("%", "", "_health")
       .add_int_var("time_remaining", &filter_obj::get_time_remaining, "Estimated time remaining in seconds (-1 if unknown or on AC)")

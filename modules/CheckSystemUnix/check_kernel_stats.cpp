@@ -123,7 +123,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("label", &kstat_row::get_label, "Human-friendly metric label")
       .add_string_var("human", &kstat_row::get_human, "Human-readable value");
   registry_.add_float("rate", &kstat_row::get_rate, "Per-second rate (0 for the threads row)").add_float_perf("/s", "", "_rate");
-  registry_.add_int_var("current", &kstat_row::get_current, "Current raw value (cumulative counter, or thread count)").add_int_perf("", "", "_current");
+  registry_.add_int_var("current", &kstat_row::get_current, "Current raw value (cumulative counter, or thread count)").add_int_perf("");
 }
 
 void check_kernel_stats_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,

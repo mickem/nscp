@@ -155,7 +155,11 @@ filter_obj_handler::filter_obj_handler() {
                    "1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or a disk with no mounted filesystem)")
       .no_perf();
 
-  // Space metrics. Optional rather than plain ints: an I/O-only or device row
+  // Space metrics. free_pct is this check's primary metric and keeps the bare
+  // perf-syntax alias (the drive name, as check_drivesize graphs it); the rest
+  // carry their own suffix so no two share a label.
+  //
+  // Optional rather than plain ints: an I/O-only or device row
   // has no filesystem behind it, and reporting its zeroed total as `0% free`
   // both read as a full disk in the message and recorded a flat 0% in the
   // graphs (#1392). As optionals they render as `-`, compare false against
@@ -170,7 +174,7 @@ filter_obj_handler::filter_obj_handler() {
                             "Free disk space available to current user in bytes (I/O-only rows have none)")
       .add_int_perf("B", "", "_user_free")
       .add_optional_int_var("free_pct", space_value(&filter_obj::get_free_pct), no_space, "Percentage of free disk space (I/O-only rows have none)")
-      .add_int_perf("%", "", "_free_pct")
+      .add_int_perf("%")
       .add_optional_int_var("used_pct", space_value(&filter_obj::get_used_pct), no_space, "Percentage of used disk space (I/O-only rows have none)")
       .add_int_perf("%", "", "_used_pct");
 

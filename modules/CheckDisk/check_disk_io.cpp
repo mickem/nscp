@@ -66,14 +66,14 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("writes_per_sec", &filter_obj::get_writes_per_sec, "Write IOPS")
       .add_int_var("iops", &filter_obj::get_iops, "Total IOPS (reads + writes)")
       .add_int_var("queue_length", &filter_obj::get_queue_length, "Current disk queue length")
-      // Suffixed like the latencies below: a generator with neither prefix nor
-      // suffix emits the bare perf-syntax alias, so two of them on the same row
-      // (queue_length + percent_disk_time) produced two entries under one
-      // label, and anything keying a time series by label kept only the last
-      // (#1392).
+      // Suffixed like the latencies below. percent_disk_time is this check's
+      // primary metric and keeps the bare perf-syntax alias; every other
+      // keyword adds its own name, so they stop sharing one label - two
+      // metrics under one label survive in Icinga but collapse into a single
+      // series in anything that keys by it (#1392).
       .add_int_perf("", "", "_queue_length")
       .add_int_var("percent_disk_time", &filter_obj::get_percent_disk_time, "Percent of time the disk is busy")
-      .add_int_perf("%", "", "_percent_disk_time")
+      .add_int_perf("%")
       .add_int_var("percent_idle_time", &filter_obj::get_percent_idle_time, "Percent of time the disk is idle")
       .add_int_var("split_io_per_sec", &filter_obj::get_split_io_per_sec, "Split I/O operations per second")
       .add_float("read_latency", &filter_obj::get_read_latency, "Average read latency in milliseconds (over the collection interval)")

@@ -66,16 +66,18 @@ std::string all_messages(const PB::Commands::QueryResponseMessage::Response &r) 
 //
 // queue_length and percent_disk_time used to register their generator with
 // neither prefix nor suffix, so both were emitted as the bare perf-syntax
-// alias and a store that keys by label kept only one of them.
+// alias and a store that keys by label kept only one of them. The primary
+// metric keeps that bare alias; everything else names itself.
 // ============================================================================
 
-TEST(CheckDiskIo, LoadKeywordsCarryTheirOwnPerfLabel) {
+TEST(CheckDiskIo, SecondaryKeywordsCarryTheirOwnPerfLabel) {
   PB::Commands::QueryResponseMessage::Response response;
   run_io_check({"filter=none", "perf-config=extra(queue_length)"}, response);
 
-  EXPECT_TRUE(has_perf(response, "C:_queue_length")) << all_messages(response);
-  EXPECT_TRUE(has_perf(response, "C:_percent_disk_time"));
-  EXPECT_FALSE(has_perf(response, "C:"));
+  // percent_disk_time is the primary metric and keeps the bare drive name;
+  // queue_length adds its own rather than landing on the same label.
+  EXPECT_TRUE(has_perf(response, "C:")) << all_messages(response);
+  EXPECT_TRUE(has_perf(response, "C:_queue_length"));
 }
 
 TEST(CheckDiskIo, CoReferencedKeywordsGetDistinctLabels) {
@@ -88,12 +90,13 @@ TEST(CheckDiskIo, CoReferencedKeywordsGetDistinctLabels) {
   EXPECT_EQ(unique.size(), aliases.size());
 }
 
-TEST(CheckDiskIo, PerfConfigCanPinTheOldBareLabel) {
-  // The escape hatch for anyone who wants the pre-#1392 name back.
+TEST(CheckDiskIo, PerfConfigOverridesTheLabel) {
+  // Both halves of the name stay configurable per keyword.
   PB::Commands::QueryResponseMessage::Response response;
-  run_io_check({"filter=none", "perf-config=percent_disk_time(suffix:none)"}, response);
+  run_io_check({"filter=none", "perf-config=percent_disk_time(suffix:_busy)"}, response);
 
-  EXPECT_TRUE(has_perf(response, "C:")) << all_messages(response);
+  EXPECT_TRUE(has_perf(response, "C:_busy")) << all_messages(response);
+  EXPECT_FALSE(has_perf(response, "C:"));
 }
 
 // ============================================================================

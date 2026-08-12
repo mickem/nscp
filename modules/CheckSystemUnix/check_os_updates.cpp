@@ -35,7 +35,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("manager", &filter_obj::get_manager, "Package manager used to query updates")
       .add_string_var("packages", &filter_obj::get_packages, "Comma separated list of available package updates");
   registry_.add_int_var("count", &filter_obj::get_count, "Total number of available updates")
-      .add_int_perf("", "", "_count")
+      .add_int_perf("")
       .add_int_var("security", &filter_obj::get_security, "Number of available security updates")
       .add_int_perf("", "", "_security");
 }

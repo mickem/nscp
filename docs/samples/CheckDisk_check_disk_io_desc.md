@@ -69,11 +69,16 @@ passed as two tokens and the option fails to parse. Over REST, and in
 
 ### Performance data labels
 
-Each keyword is graphed under `<perf-syntax>_<keyword>` — `'C:_queue_length'`,
-`'C:_total_latency'` and so on — so a check that reports several keywords for a
-disk produces one series per keyword. To pin a different name (or to get back
-the bare drive name a single metric used to be graphed under), use `perf-config`:
+`percent_disk_time` is what this check is about, so it is graphed under the bare
+drive name — `'C:'` — as it always has been. Every other keyword adds its own:
+`'C:_queue_length'`, `'C:_total_latency'`, `'C:_iops'` and so on, one series per
+keyword rather than several sharing the drive name. `check_disk_health` works
+the same way with `free_pct` as its primary metric.
+
+The name a keyword is graphed under does not depend on what else the query asks
+for, so a graph template can rely on it. Override the pieces per keyword with
+`perf-config`:
 
 ```
-check_disk_io "perf-config=percent_disk_time(suffix:none)"
+check_disk_io "perf-config=percent_disk_time(suffix:_busy)"
 ```
