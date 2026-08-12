@@ -60,6 +60,7 @@ nav:
       - Kubernetes Cluster Monitoring: scenarios/kubernetes.md
       - Network Checks: scenarios/network-checks.md
       - Host Security Posture: scenarios/security-posture.md
+      - Active Directory & Identity: scenarios/active-directory.md
       - Active Monitoring with NRPE: scenarios/nrpe.md
       - Passive Monitoring (NSCA/NRDP): scenarios/passive-monitoring-nsca.md
       - Passive Monitoring (NSCA-NG): scenarios/passive-monitoring-nsca-ng.md
