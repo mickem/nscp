@@ -13,6 +13,7 @@
 #include "check_mssql_backup.hpp"
 #include "check_mssql_blocking.hpp"
 #include "check_mssql_counters.hpp"
+#include "check_mssql_integrity.hpp"
 #include "check_mssql_databases.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
@@ -107,4 +108,8 @@ void CheckMSSQL::check_mssql_waits(const PB::Commands::QueryRequestMessage::Requ
 
 void CheckMSSQL::check_mssql_tempdb(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_mssql_tempdb_command::check(defaults_, request, response);
+}
+
+void CheckMSSQL::check_mssql_integrity(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_mssql_integrity_command::check(defaults_, request, response);
 }

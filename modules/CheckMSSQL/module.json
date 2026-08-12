@@ -18,6 +18,7 @@
 		"check_mssql_counters"		: "Check engine performance counters: buffer cache, page life expectancy, batch and lock rates.",
 		"check_mssql_availability_groups"	: "Check Always On availability group replica and database health.",
 		"check_mssql_waits"		: "Check wait statistics by category and scheduler pressure.",
-		"check_mssql_tempdb"		: "Check tempdb space usage by consumer and volume headroom."
+		"check_mssql_tempdb"		: "Check tempdb space usage by consumer and volume headroom.",
+		"check_mssql_integrity"		: "Check suspect pages and the age of the last successful DBCC CHECKDB."
 	}
 }

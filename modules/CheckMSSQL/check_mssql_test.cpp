@@ -12,6 +12,7 @@
 #include "check_mssql_blocking.hpp"
 #include "check_mssql_counters.hpp"
 #include "check_mssql_databases.hpp"
+#include "check_mssql_integrity.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
 #include "check_mssql_sessions.hpp"
@@ -430,6 +431,35 @@ TEST(BuildWaits, QuietWindowReportsMinusOneSignalPct) {
   const auto out = check_mssql_waits_command::build_waits({});
   EXPECT_DOUBLE_EQ(out.signal_wait_pct, -1);
   EXPECT_DOUBLE_EQ(out.total_waits, 0.0);
+}
+
+TEST(ParseSqlDatetime, ParsesAndDiffsWithoutTimezone) {
+  using check_mssql_integrity_command::parse_sql_datetime;
+  const long long a = parse_sql_datetime("2026-08-12 10:00:00.000");
+  const long long b = parse_sql_datetime("2026-08-11 10:00:00.000");
+  ASSERT_GT(a, 0);
+  EXPECT_EQ(a - b, 86400);
+  EXPECT_EQ(parse_sql_datetime("not a date"), -1);
+  EXPECT_EQ(parse_sql_datetime(""), -1);
+  EXPECT_EQ(parse_sql_datetime("2026-13-40 10:00:00"), -1);
+}
+
+TEST(BuildIntegrity, MapsNeverUnknownAndAge) {
+  std::vector<check_mssql_integrity_command::integrity_row> rows(3);
+  rows[0].name = "appdb";
+  rows[0].last_checkdb = "2026-08-10 03:00:00.000";
+  rows[0].suspect_pages = 2;
+  rows[1].name = "newdb";
+  rows[1].last_checkdb = "1900-01-01 00:00:00.000";  // never checked
+  rows[2].name = "nodbcc";
+  rows[2].last_checkdb = "";  // DBCC DBINFO unavailable
+
+  const auto out = check_mssql_integrity_command::build_integrity(rows, "2026-08-12 03:00:00.000");
+  ASSERT_EQ(out.size(), 3u);
+  EXPECT_EQ(out[0].checkdb_age, 2 * 86400);
+  EXPECT_EQ(out[0].suspect_pages, 2);
+  EXPECT_EQ(out[1].checkdb_age, -1);
+  EXPECT_EQ(out[2].checkdb_age, -2);
 }
 
 TEST(BuildTempdb, DerivesUsedAndPercent) {

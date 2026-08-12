@@ -112,6 +112,16 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
   });
 
+  it("check_mssql_integrity parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_integrity", [
+      "timeout=5",
+      "warning=checkdb_age > 14d or checkdb_age = -1",
+      "critical=suspect_pages > 0",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
   it("check_mssql_tempdb parses its options and hits a server or the contract", async () => {
     const out = await query("check_mssql_tempdb", [
       "timeout=5",
@@ -490,6 +500,29 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).not.toMatch(/invalid expression/i);
     expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_integrity warns on never-checked databases by default", async () => {
+    // A fresh container has never run CHECKDB: checkdb_age = -1 must warn.
+    const out = await query("check_mssql_integrity");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^WARNING/m);
+    expect(out).not.toMatch(/^CRITICAL/m); // no suspect pages on a fresh instance
+  });
+
+  it("check_mssql_integrity reports a fresh CHECKDB age after one runs", async () => {
+    await query("check_mssql_query", [
+      "query=DBCC CHECKDB('master') WITH NO_INFOMSGS; SELECT 1 AS done;",
+      "top-syntax=${status}",
+    ]);
+    const out = await query("check_mssql_integrity", [
+      "filter=name = 'master'",
+      "warning=checkdb_age > 1h or checkdb_age < 0",
+      "critical=suspect_pages > 0",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/master_checkdb_age'?=\d+s/); // a real, recent timestamp
   });
 
   it("rejects a wrong SA password with the connect contract (SQL auth path)", async () => {
