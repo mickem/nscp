@@ -17,3 +17,19 @@ always exist, so an empty result indicates a broken query).
 permission for it (requires `VIEW SERVER STATE`), the check still works and
 reports `-1`. Perfdata is emitted for the size keywords referenced in your
 warning/critical expressions.
+
+`data_headroom`/`log_headroom` answer "how much further can this database
+grow before it errors": per file, the distance to `max_size` for capped files
+(the log's default 2TB cap counts as one), the free space on the file's
+volume (`sys.dm_os_volume_stats`) for uncapped autogrow files, and `0` when
+autogrowth is disabled — then the **minimum across the files of each type**,
+because SQL Server cannot move allocations between files and the most
+constrained file errors first. A threshold like
+`"critical=data_headroom < 1G and data_headroom >= 0"` catches both a file
+approaching its cap and a volume filling up — the `>= 0` guard excludes the
+`-1` unknown sentinel (unlike the plain size keywords, the headroom keywords
+accept plain integers as well as units, so `= -1` and `>= 0` work). Note that a fixed-size
+pre-allocated file reports headroom `0` by design — free space *inside* the
+files is a different measure (`log_used_pct` covers it for logs). Like
+`log_used_pct`, the keywords degrade to `-1` when `dm_os_volume_stats` is
+unavailable.

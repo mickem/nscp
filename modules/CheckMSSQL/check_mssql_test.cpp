@@ -120,11 +120,34 @@ TEST(BuildDatabases, MergesLogspaceByNameAndDefaultsToUnknown) {
   logspace[0].name = "master";
   logspace[0].used_pct = 42;
 
-  const auto out = check_mssql_databases_command::build_databases(databases, logspace);
+  const auto out = check_mssql_databases_command::build_databases(databases, logspace, {});
   ASSERT_EQ(out.size(), 2u);
   EXPECT_EQ(out[0].log_used_pct, 42);
   EXPECT_EQ(out[0].data_size, 8 * 1024 * 1024);
   EXPECT_EQ(out[1].log_used_pct, -1);  // not present in LOGSPACE output
+  EXPECT_EQ(out[0].data_headroom, -1);  // no headroom rows: unknown
+  EXPECT_EQ(out[0].log_headroom, -1);
+}
+
+TEST(BuildDatabases, HeadroomMergesByTypeAndClampsNegatives) {
+  std::vector<check_mssql_databases_command::database_row> databases(2);
+  databases[0].name = "appdb";
+  databases[1].name = "restricted";  // offline in the headroom query: stays unknown
+
+  std::vector<check_mssql_databases_command::headroom_row> headroom(2);
+  headroom[0].name = "appdb";
+  headroom[0].type = 0;      // data file shrunk below a former cap:
+  headroom[0].headroom = -4096;  // clamp, do not report negative room
+  headroom[1].name = "appdb";
+  headroom[1].type = 1;  // log
+  headroom[1].headroom = 1024 * 1024;
+
+  const auto out = check_mssql_databases_command::build_databases(databases, {}, headroom);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].data_headroom, 0);
+  EXPECT_EQ(out[0].log_headroom, 1024 * 1024);
+  EXPECT_EQ(out[1].data_headroom, -1);
+  EXPECT_EQ(out[1].log_headroom, -1);
 }
 
 TEST(BuildBackups, NeverBackedUpMapsToMinusOne) {
@@ -511,6 +534,17 @@ TEST(ParseTime, PlainIntegersIncludingNegativesAreRecognized) {
   EXPECT_TRUE(mssql_filter::is_plain_integer("-2"));
   EXPECT_TRUE(mssql_filter::is_plain_integer("+259200"));
   EXPECT_TRUE(mssql_filter::is_plain_integer("259200"));
+}
+
+TEST(ApplySizeUnit, MatchesTheBuiltinSizeLiterals) {
+  using mssql_filter::apply_size_unit;
+  EXPECT_EQ(apply_size_unit(5, ""), 5);
+  EXPECT_EQ(apply_size_unit(5, "B"), 5);
+  EXPECT_EQ(apply_size_unit(5, "K"), 5 * 1024);
+  EXPECT_EQ(apply_size_unit(5, "m"), 5 * 1024 * 1024);
+  EXPECT_EQ(apply_size_unit(5, "G"), 5LL * 1024 * 1024 * 1024);
+  EXPECT_EQ(apply_size_unit(5, "t"), 5LL * 1024 * 1024 * 1024 * 1024);
+  EXPECT_EQ(apply_size_unit(-1, ""), -1);  // the unknown sentinel passes through
 }
 
 TEST(ParseTime, DurationSpecsAreNotTreatedAsPlainIntegers) {
