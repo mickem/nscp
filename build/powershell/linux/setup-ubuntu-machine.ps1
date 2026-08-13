@@ -14,27 +14,69 @@
 .PARAMETER VmName
     The name for the new virtual machine.
 .PARAMETER Version
-    The version of the software to install, specified as a URL to the DEB installer.
+    The NSClient++ release to install (e.g. "0.15.0").
+.PARAMETER PackageUrl
+    Download the DEB from this url instead of the GitHub release for -Version.
+.PARAMETER SkipVersionCheck
+    Do not assert the installed version against -Version. For -PackageUrl builds
+    whose version is whatever the build says it is.
 .PARAMETER Arch
     The architecture of the software to install (e.g., "amd64" or "i386").
 .PARAMETER UbuntuVersion
     The Ubuntu version to deploy (e.g., "24.04", "22.04", "20.04").
 .PARAMETER AdminUsername
     The administrator username for the new VM.
+.PARAMETER FleetServer
+    Enroll the machine with this NSClient fleet server (e.g.
+    "https://fleet.example.com") once the package is installed. Requires
+    -FleetToken.
+.PARAMETER FleetToken
+    The one-time bootstrap token for -FleetServer, as minted by POST /api/hosts
+    (see fleet-api.ps1) or by the install command in the fleet UI.
+.PARAMETER FleetInsecure
+    Allow an unauthenticated enrollment - needed for a plain http:// fleet server.
+.PARAMETER FleetNoVerify
+    Also skip verification of the fleet server certificate (for a self-signed
+    test server without -FleetCaFile). Implies -FleetInsecure.
+.PARAMETER FleetCaFile
+    A local PEM file with the CA that issued the fleet server certificate. It is
+    copied to the VM and used to verify the enrollment call.
 #>
 param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$Location = "WestEurope",
     [string]$VmName = "NSCP-Ubuntu-Test",
     [string]$Version = "0.11.16",
+    [string]$PackageUrl = "",
+    [switch]$SkipVersionCheck,
     [string]$Arch = "amd64",
     [string]$UbuntuVersion = "24.04",
     [string]$AdminUsername = "azureadmin",
     # Where to write the credentials file. Defaults to the shared
     # build/powershell/.vm.pwd; the wrapper passes a per-machine path so parallel
     # runs don't clobber each other.
-    [string]$PwdFile = ""
+    [string]$PwdFile = "",
+    [string]$FleetServer = "",
+    [string]$FleetToken = "",
+    [switch]$FleetInsecure,
+    [switch]$FleetNoVerify,
+    [string]$FleetCaFile = ""
 )
+
+# Fleet options are all-or-nothing: half of them means a machine that quietly
+# never joins the fleet, which is exactly what we are here to test.
+if ($FleetServer -and -not $FleetToken) {
+    Write-Error "❌ -FleetServer needs -FleetToken (mint one with fleet-api.ps1's New-FleetHost, or copy it from the fleet UI's install command)."
+    exit 1
+}
+if ($FleetToken -and -not $FleetServer) {
+    Write-Error "❌ -FleetToken needs -FleetServer."
+    exit 1
+}
+if ($FleetCaFile -and -not (Test-Path $FleetCaFile)) {
+    Write-Error "❌ -FleetCaFile '$FleetCaFile' does not exist."
+    exit 1
+}
 
 Write-Host "Connecting to Azure account..."
 if (-not (Get-AzContext)) {
@@ -146,7 +188,7 @@ Write-Host "Connect via SSH: ssh -i $sshKeyPath $AdminUsername@$vmPublicIp"
 
 Write-Host "Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
-$DebUrl = "https://github.com/mickem/nscp/releases/download/${Version}/NSCP-${Version}-ubuntu-${UbuntuVersion}-${Arch}.deb"
+$DebUrl = if ($PackageUrl) { $PackageUrl } else { "https://github.com/mickem/nscp/releases/download/${Version}/NSCP-${Version}-ubuntu-${UbuntuVersion}-${Arch}.deb" }
 Write-Host "Fetching DEB from URL: $DebUrl"
 
 # Generate a random password for the web interface
@@ -198,6 +240,64 @@ if ($result.Status -ne "Succeeded") {
 }
 $result.Value | ForEach-Object { $_.Message }
 
+# --- Fleet enrollment --------------------------------------------------------
+# The Linux packages have no install-time enrollment (that is an MSI feature), so
+# the host joins the fleet with `nscp enroll`, which is the same code path the
+# installer's custom action runs: generate a key pair, post the CSR with the
+# bootstrap token, store the returned material as agent-state.json. The core
+# starts syncing on the next service start whenever that file exists.
+if ($FleetServer) {
+    Write-Host "Enrolling VM '$VmName' with the fleet server $FleetServer..."
+    $caWrite = ""
+    $enrollArgs = @("--server", "'$FleetServer'", "--token", "'$FleetToken'")
+    if ($FleetInsecure -or $FleetNoVerify) { $enrollArgs += "--insecure" }
+    if ($FleetNoVerify) { $enrollArgs += @("--verify", "none") }
+    if ($FleetCaFile) {
+        $enrollArgs += @("--ca", "/tmp/fleet-ca.pem")
+        # Quoted heredoc: the PEM goes to the VM verbatim, no shell expansion.
+        $caWrite = "cat > /tmp/fleet-ca.pem <<'NSCP_FLEET_CA_EOF'`n" + (Get-Content -Path $FleetCaFile -Raw).TrimEnd() + "`nNSCP_FLEET_CA_EOF"
+    }
+    $scriptBlock = @"
+#!/bin/bash
+set -e
+$caWrite
+sudo nscp enroll $($enrollArgs -join ' ')
+# The state file lives in the certificate path, which on Linux is under the
+# package's shared dir - find it rather than hard-code a path packaging may move.
+state=`$(sudo find /usr/lib/nsclient /var/lib/nsclient /etc/nsclient -name agent-state.json 2>/dev/null | head -1)
+if [ -z "`$state" ]; then
+    echo "FLEET: enrollment reported success but no agent-state.json was written"
+    exit 1
+fi
+echo "FLEET: enrolled (`$state)"
+# Restart so the fleet sync starts now instead of at the next reboot.
+sudo systemctl restart nsclient
+"@
+    $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
+    if ($result.Status -ne "Succeeded") {
+        Write-Error "❌ Failed to enroll the VM with the fleet server. Status: $($result.Status)"
+        exit 1
+    }
+    $messages = @($result.Value | ForEach-Object { $_.Message })
+    $messages | ForEach-Object { $_ }
+    # RunCommand reports "Succeeded" for a script that exited non-zero, so the
+    # marker - not the status - is what says the host actually joined.
+    if (-not ($messages -match 'FLEET: enrolled')) {
+        Write-Error "❌ The machine did not enroll with $FleetServer (see the output above)."
+        exit 1
+    }
+    Write-Host "✅ Enrolled with the fleet server."
+}
+
+if ($SkipVersionCheck) {
+    # -PackageUrl without a -Version to compare against (a local build's version
+    # is whatever it is), so just report what got installed.
+    Write-Host "Skipping the version check (-SkipVersionCheck); installed version:"
+    $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString "nscp --version"
+    $result.Value | ForEach-Object { $_.Message }
+}
+else {
+
 Write-Host "Checking version $Version on VM '$VmName' in resource group '$ResourceGroupName'..."
 $scriptBlock = @"
 #!/bin/bash
@@ -236,11 +336,14 @@ if ($value0 -match "SUCCESS: ") {
 
 Write-Host "✅ Correct version installed!"
 
+}
+
 $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
 
 # Save credentials to .vm.pwd (same format as the Windows setup script) so
 # run-tests.ps1 can point the live acceptance suite at this VM.
 if (-not $PwdFile) { $PwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd" }
+$fleetLine = if ($FleetServer) { "`nFleet Server:   $FleetServer" } else { "" }
 @"
 VM Name:        $VmName
 Resource Group: $ResourceGroupName
@@ -248,7 +351,7 @@ Public IP:      $vmPublicIp
 SSH:            ssh -i $sshKeyPath $AdminUsername@$vmPublicIp
 Admin Username: $AdminUsername
 Web URL:        https://$($vmPublicIp):8443
-Web Password:   $WebPassword
+Web Password:   $WebPassword$fleetLine
 "@ | Set-Content -Path $pwdFile -Force
 Write-Host "● Credentials saved to $pwdFile"
 

@@ -480,39 +480,41 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 <a id="check_dns_server"></a>
 <a id="check_dns_expected-address"></a>
 <a id="check_dns_expected"></a>
+<a id="check_dns_address-family"></a>
 
-| Option                                      | Default Value                                               | Description                                                                                                               |
-|---------------------------------------------|-------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_dns_filter)                 |                                                             | Filter which marks interesting items.                                                                                     |
-| [warning](#check_dns_warning)               | time > 1000                                                 | Filter which marks items which generates a warning state.                                                                 |
-| warn                                        |                                                             | Short alias for warning                                                                                                   |
-| [critical](#check_dns_critical)             | result != 'ok'                                              | Filter which marks items which generates a critical state.                                                                |
-| crit                                        |                                                             | Short alias for critical.                                                                                                 |
-| [ok](#check_dns_ok)                         |                                                             | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_dns_debug)                   | 1)] (=0                                                     | Show debugging information in the log                                                                                     |
-| [show-all](#check_dns_show-all)             | 1)] (=0                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_dns_empty-state)       | ignored                                                     | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_dns_perf-config)       |                                                             | Performance data generation configuration                                                                                 |
-| [escape-html](#check_dns_escape-html)       | 1)] (=0                                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_dns_list-separator) | ,                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                        | N/A                                                         | Show help screen (this screen)                                                                                            |
-| help-pb                                     | N/A                                                         | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                | N/A                                                         | Show default values for a given command                                                                                   |
-| help-short                                  | N/A                                                         | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_dns_top-syntax)         | ${status}: ${problem_list}                                  | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_dns_ok-syntax)           | %(status): %(list)                                          | ok syntax.                                                                                                                |
-| [empty-syntax](#check_dns_empty-syntax)     | No DNS lookup performed                                     | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_dns_detail-syntax)   | ${host} -> ${addresses} (${count}) in ${time}ms [${result}] | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_dns_perf-syntax)       | ${host}                                                     | Performance alias syntax.                                                                                                 |
-| host                                        |                                                             | Hostname to look up.                                                                                                      |
-| lookup                                      |                                                             | Alias for --host.                                                                                                         |
-| [type](#check_dns_type)                     | A                                                           | DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.                                                          |
-| server                                      |                                                             | DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf otherwise).                                |
-| [port](#check_dns_port)                     | 53                                                          | UDP port of the DNS server.                                                                                               |
-| [norecursion](#check_dns_norecursion)       | 1)] (=0                                                     | Do not request recursion (RD=0).                                                                                          |
-| [timeout](#check_dns_timeout)               | 5000                                                        | Timeout in milliseconds.                                                                                                  |
-| expected-address                            |                                                             | Record that must be present in the answer (may be given multiple times).                                                  |
-| expected                                    |                                                             | Comma separated list of records that must all be present in the answer.                                                   |
+| Option                                      | Default Value                                               | Description                                                                                                                                                                                                                                  |
+|---------------------------------------------|-------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_dns_filter)                 |                                                             | Filter which marks interesting items.                                                                                                                                                                                                        |
+| [warning](#check_dns_warning)               | time > 1000                                                 | Filter which marks items which generates a warning state.                                                                                                                                                                                    |
+| warn                                        |                                                             | Short alias for warning                                                                                                                                                                                                                      |
+| [critical](#check_dns_critical)             | result != 'ok'                                              | Filter which marks items which generates a critical state.                                                                                                                                                                                   |
+| crit                                        |                                                             | Short alias for critical.                                                                                                                                                                                                                    |
+| [ok](#check_dns_ok)                         |                                                             | Filter which marks items which generates an ok state.                                                                                                                                                                                        |
+| [debug](#check_dns_debug)                   | 1)] (=0                                                     | Show debugging information in the log                                                                                                                                                                                                        |
+| [show-all](#check_dns_show-all)             | 1)] (=0                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                             |
+| [empty-state](#check_dns_empty-state)       | ignored                                                     | Return status to use when nothing matched filter.                                                                                                                                                                                            |
+| [perf-config](#check_dns_perf-config)       |                                                             | Performance data generation configuration                                                                                                                                                                                                    |
+| [escape-html](#check_dns_escape-html)       | 1)] (=0                                                     | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                       |
+| [list-separator](#check_dns_list-separator) | ,                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                    |
+| help                                        | N/A                                                         | Show help screen (this screen)                                                                                                                                                                                                               |
+| help-pb                                     | N/A                                                         | Show help screen as a protocol buffer payload                                                                                                                                                                                                |
+| show-default                                | N/A                                                         | Show default values for a given command                                                                                                                                                                                                      |
+| help-short                                  | N/A                                                         | Show help screen (short format).                                                                                                                                                                                                             |
+| [top-syntax](#check_dns_top-syntax)         | ${status}: ${problem_list}                                  | Top level syntax.                                                                                                                                                                                                                            |
+| [ok-syntax](#check_dns_ok-syntax)           | %(status): %(list)                                          | ok syntax.                                                                                                                                                                                                                                   |
+| [empty-syntax](#check_dns_empty-syntax)     | No DNS lookup performed                                     | Empty syntax.                                                                                                                                                                                                                                |
+| [detail-syntax](#check_dns_detail-syntax)   | ${host} -> ${addresses} (${count}) in ${time}ms [${result}] | Detail level syntax.                                                                                                                                                                                                                         |
+| [perf-syntax](#check_dns_perf-syntax)       | ${host}                                                     | Performance alias syntax.                                                                                                                                                                                                                    |
+| host                                        |                                                             | Hostname to look up.                                                                                                                                                                                                                         |
+| lookup                                      |                                                             | Alias for --host.                                                                                                                                                                                                                            |
+| [type](#check_dns_type)                     | A                                                           | DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.                                                                                                                                                                             |
+| server                                      |                                                             | DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf otherwise).                                                                                                                                                   |
+| [port](#check_dns_port)                     | 53                                                          | UDP port of the DNS server.                                                                                                                                                                                                                  |
+| [norecursion](#check_dns_norecursion)       | 1)] (=0                                                     | Do not request recursion (RD=0).                                                                                                                                                                                                             |
+| [timeout](#check_dns_timeout)               | 5000                                                        | Timeout in milliseconds.                                                                                                                                                                                                                     |
+| expected-address                            |                                                             | Record that must be present in the answer (may be given multiple times).                                                                                                                                                                     |
+| expected                                    |                                                             | Comma separated list of records that must all be present in the answer.                                                                                                                                                                      |
+| address-family                              |                                                             | IP version to use: any (default), ipv4 or ipv6. Selects which address of the DNS server to query; with the system resolver (A/AAAA and no server=) it also restricts the answer to that family. Accepts 4/v4/inet and 6/v6/inet6 as aliases. |
 
 
 
@@ -836,6 +838,7 @@ OK: cert expires in 58 days
 <a id="check_http_header"></a>
 <a id="check_http_sni"></a>
 <a id="check_http_json-path"></a>
+<a id="check_http_address-family"></a>
 
 | Option                                       | Default Value                                       | Description                                                                                                                                                                                                                               |
 |----------------------------------------------|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -882,6 +885,7 @@ OK: cert expires in 58 days
 | [verify](#check_http_verify)                 | peer                                                | Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.                                                                                                                                |
 | [ca](#check_http_ca)                         | ${ca-path}                                          | Path to a CA bundle to use when verifying the server certificate.                                                                                                                                                                         |
 | json-path                                    |                                                     | Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). Numeric segments index arrays; single-quote a segment containing a dot. Example: --json-path qlen:data.queue.length "crit=qlen > 100". |
+| address-family                               |                                                     | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                     |
 
 
 
@@ -1371,34 +1375,37 @@ OK: ntp.example.com root_delay=11ms root_dispersion=33ms stratum=2
 <a id="check_ntp_offset_help-short"></a>
 <a id="check_ntp_offset_server"></a>
 <a id="check_ntp_offset_servers"></a>
+<a id="check_ntp_offset_address-family"></a>
 
-| Option                                             | Default Value                                          | Description                                                                                                               |
-|----------------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_ntp_offset_filter)                 |                                                        | Filter which marks interesting items.                                                                                     |
-| [warning](#check_ntp_offset_warning)               | offset > 50 or stratum >= 16                           | Filter which marks items which generates a warning state.                                                                 |
-| warn                                               |                                                        | Short alias for warning                                                                                                   |
-| [critical](#check_ntp_offset_critical)             | offset > 100 or stratum >= 16 or result != 'ok'        | Filter which marks items which generates a critical state.                                                                |
-| crit                                               |                                                        | Short alias for critical.                                                                                                 |
-| [ok](#check_ntp_offset_ok)                         |                                                        | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_ntp_offset_debug)                   | 1)] (=0                                                | Show debugging information in the log                                                                                     |
-| [show-all](#check_ntp_offset_show-all)             | 1)] (=0                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_ntp_offset_empty-state)       | ignored                                                | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_ntp_offset_perf-config)       |                                                        | Performance data generation configuration                                                                                 |
-| [escape-html](#check_ntp_offset_escape-html)       | 1)] (=0                                                | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_ntp_offset_list-separator) | ,                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                               | N/A                                                    | Show help screen (this screen)                                                                                            |
-| help-pb                                            | N/A                                                    | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                       | N/A                                                    | Show default values for a given command                                                                                   |
-| help-short                                         | N/A                                                    | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_ntp_offset_top-syntax)         | ${status}: ${problem_list}                             | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_ntp_offset_ok-syntax)           | %(status): %(list)                                     | ok syntax.                                                                                                                |
-| [empty-syntax](#check_ntp_offset_empty-syntax)     | No NTP server checked                                  | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_ntp_offset_detail-syntax)   | ${server} offset=${offset_signed}ms stratum=${stratum} | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_ntp_offset_perf-syntax)       | ${server}                                              | Performance alias syntax.                                                                                                 |
-| server                                             |                                                        | NTP server to query (may be given multiple times).                                                                        |
-| servers                                            |                                                        | Comma separated list of NTP servers to query.                                                                             |
-| [port](#check_ntp_offset_port)                     | 123                                                    | UDP port to use (default: 123).                                                                                           |
-| [timeout](#check_ntp_offset_timeout)               | 5000                                                   | Timeout in milliseconds.                                                                                                  |
+| Option                                             | Default Value                                          | Description                                                                                                                                                                                                                             |
+|----------------------------------------------------|--------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_ntp_offset_filter)                 |                                                        | Filter which marks interesting items.                                                                                                                                                                                                   |
+| [warning](#check_ntp_offset_warning)               | offset > 50 or stratum >= 16                           | Filter which marks items which generates a warning state.                                                                                                                                                                               |
+| warn                                               |                                                        | Short alias for warning                                                                                                                                                                                                                 |
+| [critical](#check_ntp_offset_critical)             | offset > 100 or stratum >= 16 or result != 'ok'        | Filter which marks items which generates a critical state.                                                                                                                                                                              |
+| crit                                               |                                                        | Short alias for critical.                                                                                                                                                                                                               |
+| [ok](#check_ntp_offset_ok)                         |                                                        | Filter which marks items which generates an ok state.                                                                                                                                                                                   |
+| [debug](#check_ntp_offset_debug)                   | 1)] (=0                                                | Show debugging information in the log                                                                                                                                                                                                   |
+| [show-all](#check_ntp_offset_show-all)             | 1)] (=0                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                        |
+| [empty-state](#check_ntp_offset_empty-state)       | ignored                                                | Return status to use when nothing matched filter.                                                                                                                                                                                       |
+| [perf-config](#check_ntp_offset_perf-config)       |                                                        | Performance data generation configuration                                                                                                                                                                                               |
+| [escape-html](#check_ntp_offset_escape-html)       | 1)] (=0                                                | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                  |
+| [list-separator](#check_ntp_offset_list-separator) | ,                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                               |
+| help                                               | N/A                                                    | Show help screen (this screen)                                                                                                                                                                                                          |
+| help-pb                                            | N/A                                                    | Show help screen as a protocol buffer payload                                                                                                                                                                                           |
+| show-default                                       | N/A                                                    | Show default values for a given command                                                                                                                                                                                                 |
+| help-short                                         | N/A                                                    | Show help screen (short format).                                                                                                                                                                                                        |
+| [top-syntax](#check_ntp_offset_top-syntax)         | ${status}: ${problem_list}                             | Top level syntax.                                                                                                                                                                                                                       |
+| [ok-syntax](#check_ntp_offset_ok-syntax)           | %(status): %(list)                                     | ok syntax.                                                                                                                                                                                                                              |
+| [empty-syntax](#check_ntp_offset_empty-syntax)     | No NTP server checked                                  | Empty syntax.                                                                                                                                                                                                                           |
+| [detail-syntax](#check_ntp_offset_detail-syntax)   | ${server} offset=${offset_signed}ms stratum=${stratum} | Detail level syntax.                                                                                                                                                                                                                    |
+| [perf-syntax](#check_ntp_offset_perf-syntax)       | ${server}                                              | Performance alias syntax.                                                                                                                                                                                                               |
+| server                                             |                                                        | NTP server to query (may be given multiple times).                                                                                                                                                                                      |
+| servers                                            |                                                        | Comma separated list of NTP servers to query.                                                                                                                                                                                           |
+| [port](#check_ntp_offset_port)                     | 123                                                    | UDP port to use (default: 123).                                                                                                                                                                                                         |
+| [timeout](#check_ntp_offset_timeout)               | 5000                                                   | Timeout in milliseconds.                                                                                                                                                                                                                |
+| address-family                                     |                                                        | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                   |
+| [samples](#check_ntp_offset_samples)               | 1                                                      | Number of queries to send to each server (default: 1). At least 2 are needed for the jitter keyword, which is the variation between samples; sampling stops at the first failure so an unreachable server still costs only one timeout. |
 
 
 
@@ -1522,19 +1529,29 @@ Timeout in milliseconds.
 
 *Default Value:* `5000`
 
+<h5 id="check_ntp_offset_samples">samples:</h5>
+
+Number of queries to send to each server (default: 1). At least 2 are needed for the jitter keyword, which is the variation between samples; sampling stops at the first failure so an unreachable server still costs only one timeout.
+
+*Default Value:* `1`
+
 
 <a id="check_ntp_offset_filter_keys"></a>
 #### Filter keywords
 
-| Option        | Description                                                                      |
-|---------------|----------------------------------------------------------------------------------|
-| offset        | Absolute clock offset between local host and server, in milliseconds             |
-| offset_signed | Signed clock offset (positive = local clock is ahead of server), in milliseconds |
-| port          | UDP port the query was sent to                                                   |
-| result        | Textual result of the query (ok, timeout, error, ...)                            |
-| server        | NTP server that was queried                                                      |
-| stratum       | Stratum reported by the server (0..16)                                           |
-| time          | Round trip time of the NTP query in milliseconds                                 |
+| Option          | Description                                                                                                                                                                                                                                                                               |
+|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| jitter          | RMS variation between the sampled offsets, in milliseconds; 'unknown' when fewer than 2 samples were taken (raise samples= to measure it). Renders as 'unknown', compares false against every number until measured, and emits no perfdata until real; `jitter = 'unknown'` tests for it. |
+| offset          | Absolute clock offset between local host and server, in milliseconds                                                                                                                                                                                                                      |
+| offset_signed   | Signed clock offset (positive = local clock is ahead of server), in milliseconds                                                                                                                                                                                                          |
+| port            | UDP port the query was sent to                                                                                                                                                                                                                                                            |
+| result          | Textual result of the query (ok, timeout, error, ...)                                                                                                                                                                                                                                     |
+| root_delay      | Round trip delay the server reports to its own reference clock, in milliseconds                                                                                                                                                                                                           |
+| root_dispersion | Maximum error the server claims for the time it is serving, in milliseconds                                                                                                                                                                                                               |
+| samples         | Number of samples that answered                                                                                                                                                                                                                                                           |
+| server          | NTP server that was queried                                                                                                                                                                                                                                                               |
+| stratum         | Stratum reported by the server (0..16)                                                                                                                                                                                                                                                    |
+| time            | Round trip time of the NTP query in milliseconds                                                                                                                                                                                                                                          |
 
 **Common options for all checks:**
 
@@ -1769,36 +1786,40 @@ Invalid size: 99999 (expected 0-65507)
 <a id="check_ping_help-short"></a>
 <a id="check_ping_host"></a>
 <a id="check_ping_hosts"></a>
+<a id="check_ping_address-family"></a>
 
-| Option                                       | Default Value                                     | Description                                                                                                               |
-|----------------------------------------------|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_ping_filter)                 |                                                   | Filter which marks interesting items.                                                                                     |
-| [warning](#check_ping_warning)               | time > 60 or loss > 5%                            | Filter which marks items which generates a warning state.                                                                 |
-| warn                                         |                                                   | Short alias for warning                                                                                                   |
-| [critical](#check_ping_critical)             | time > 100 or loss > 10%                          | Filter which marks items which generates a critical state.                                                                |
-| crit                                         |                                                   | Short alias for critical.                                                                                                 |
-| [ok](#check_ping_ok)                         |                                                   | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_ping_debug)                   | 1)] (=0                                           | Show debugging information in the log                                                                                     |
-| [show-all](#check_ping_show-all)             | 1)] (=0                                           | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_ping_empty-state)       | unknown                                           | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_ping_perf-config)       |                                                   | Performance data generation configuration                                                                                 |
-| [escape-html](#check_ping_escape-html)       | 1)] (=0                                           | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_ping_list-separator) | ,                                                 | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                         | N/A                                               | Show help screen (this screen)                                                                                            |
-| help-pb                                      | N/A                                               | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                 | N/A                                               | Show default values for a given command                                                                                   |
-| help-short                                   | N/A                                               | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_ping_top-syntax)         | ${status}: ${ok_count}/${count} (${problem_list}) | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_ping_ok-syntax)           | %(status): All %(count) hosts are ok              | ok syntax.                                                                                                                |
-| [empty-syntax](#check_ping_empty-syntax)     | No hosts found                                    | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_ping_detail-syntax)   | ${ip} Packet loss = ${loss}%, RTA = ${time}ms     | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_ping_perf-syntax)       | ${host}                                           | Performance alias syntax.                                                                                                 |
-| host                                         |                                                   | The host to check (or multiple hosts).                                                                                    |
-| [total](#check_ping_total)                   | 1)] (=0                                           | Include the total of all matching hosts                                                                                   |
-| hosts                                        |                                                   | The host to check (or multiple hosts).                                                                                    |
-| [count](#check_ping_count)                   | 1                                                 | Number of packets to send.                                                                                                |
-| [timeout](#check_ping_timeout)               | 500                                               | Timeout in milliseconds.                                                                                                  |
-| [payload](#check_ping_payload)               | Hello from NSClient++.                            | The payload to send in the ping request (default: 'Hello from NSClient++')                                                |
+| Option                                       | Default Value                                     | Description                                                                                                                                                                                                                                                           |
+|----------------------------------------------|---------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_ping_filter)                 |                                                   | Filter which marks interesting items.                                                                                                                                                                                                                                 |
+| [warning](#check_ping_warning)               | time > 60 or loss > 5%                            | Filter which marks items which generates a warning state.                                                                                                                                                                                                             |
+| warn                                         |                                                   | Short alias for warning                                                                                                                                                                                                                                               |
+| [critical](#check_ping_critical)             | time > 100 or loss > 10%                          | Filter which marks items which generates a critical state.                                                                                                                                                                                                            |
+| crit                                         |                                                   | Short alias for critical.                                                                                                                                                                                                                                             |
+| [ok](#check_ping_ok)                         |                                                   | Filter which marks items which generates an ok state.                                                                                                                                                                                                                 |
+| [debug](#check_ping_debug)                   | 1)] (=0                                           | Show debugging information in the log                                                                                                                                                                                                                                 |
+| [show-all](#check_ping_show-all)             | 1)] (=0                                           | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                      |
+| [empty-state](#check_ping_empty-state)       | unknown                                           | Return status to use when nothing matched filter.                                                                                                                                                                                                                     |
+| [perf-config](#check_ping_perf-config)       |                                                   | Performance data generation configuration                                                                                                                                                                                                                             |
+| [escape-html](#check_ping_escape-html)       | 1)] (=0                                           | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                |
+| [list-separator](#check_ping_list-separator) | ,                                                 | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                             |
+| help                                         | N/A                                               | Show help screen (this screen)                                                                                                                                                                                                                                        |
+| help-pb                                      | N/A                                               | Show help screen as a protocol buffer payload                                                                                                                                                                                                                         |
+| show-default                                 | N/A                                               | Show default values for a given command                                                                                                                                                                                                                               |
+| help-short                                   | N/A                                               | Show help screen (short format).                                                                                                                                                                                                                                      |
+| [top-syntax](#check_ping_top-syntax)         | ${status}: ${ok_count}/${count} (${problem_list}) | Top level syntax.                                                                                                                                                                                                                                                     |
+| [ok-syntax](#check_ping_ok-syntax)           | %(status): All %(count) hosts are ok              | ok syntax.                                                                                                                                                                                                                                                            |
+| [empty-syntax](#check_ping_empty-syntax)     | No hosts found                                    | Empty syntax.                                                                                                                                                                                                                                                         |
+| [detail-syntax](#check_ping_detail-syntax)   | ${ip} Packet loss = ${loss}%, RTA = ${time}ms     | Detail level syntax.                                                                                                                                                                                                                                                  |
+| [perf-syntax](#check_ping_perf-syntax)       | ${host}                                           | Performance alias syntax.                                                                                                                                                                                                                                             |
+| host                                         |                                                   | The host to check (or multiple hosts).                                                                                                                                                                                                                                |
+| [total](#check_ping_total)                   | 1)] (=0                                           | Include the total of all matching hosts                                                                                                                                                                                                                               |
+| hosts                                        |                                                   | The host to check (or multiple hosts).                                                                                                                                                                                                                                |
+| [count](#check_ping_count)                   | 1                                                 | Number of packets to send.                                                                                                                                                                                                                                            |
+| [timeout](#check_ping_timeout)               | 500                                               | Timeout in milliseconds.                                                                                                                                                                                                                                              |
+| [payload](#check_ping_payload)               | Hello from NSClient++.                            | The payload to send in the ping request (default: 'Hello from NSClient++')                                                                                                                                                                                            |
+| address-family                               |                                                   | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                                                 |
+| [size](#check_ping_size)                     | 0                                                 | Size of the ICMP payload in bytes (0 keeps the --payload string as-is). The payload is repeated or truncated to reach exactly this many bytes; the 8 byte ICMP header is on top, so a 1472 byte payload is the largest that fits an untagged 1500 byte MTU over IPv4. |
+| [ttl](#check_ping_ttl)                       | 0                                                 | TTL / hop limit to set on outgoing packets (0 keeps the system default). Note the ttl keyword reports the TTL of the reply, which is a different number: it is what is left of the remote host's own outgoing TTL after the return path.                              |
 
 
 
@@ -1934,19 +1955,33 @@ The payload to send in the ping request (default: 'Hello from NSClient++')
 
 *Default Value:* `Hello from NSClient++.`
 
+<h5 id="check_ping_size">size:</h5>
+
+Size of the ICMP payload in bytes (0 keeps the --payload string as-is). The payload is repeated or truncated to reach exactly this many bytes; the 8 byte ICMP header is on top, so a 1472 byte payload is the largest that fits an untagged 1500 byte MTU over IPv4.
+
+*Default Value:* `0`
+
+<h5 id="check_ping_ttl">ttl:</h5>
+
+TTL / hop limit to set on outgoing packets (0 keeps the system default). Note the ttl keyword reports the TTL of the reply, which is a different number: it is what is left of the remote host's own outgoing TTL after the return path.
+
+*Default Value:* `0`
+
 
 <a id="check_ping_filter_keys"></a>
 #### Filter keywords
 
-| Option  | Description                                            |
-|---------|--------------------------------------------------------|
-| host    | The host name or ip address (as given on command line) |
-| ip      | The ip address name                                    |
-| loss    | Packet loss                                            |
-| recv    | Number of packets received from the host               |
-| sent    | Number of packets sent to the host                     |
-| time    | Round trip time in ms                                  |
-| timeout | Number of packets which timed out from the host        |
+| Option  | Description                                                                                                                    |
+|---------|--------------------------------------------------------------------------------------------------------------------------------|
+| host    | The host name or ip address (as given on command line)                                                                         |
+| ip      | The ip address name                                                                                                            |
+| jitter  | Mean variation between the round trip times, in ms; 'unknown' when fewer than 2 packets came back (raise count= to measure it) |
+| loss    | Packet loss                                                                                                                    |
+| recv    | Number of packets received from the host                                                                                       |
+| sent    | Number of packets sent to the host                                                                                             |
+| time    | Round trip time in ms                                                                                                          |
+| timeout | Number of packets which timed out from the host                                                                                |
+| ttl     | TTL of the last reply; 'unknown' when no reply carried one (nothing came back, or IPv6, where the hop limit is not available)  |
 
 **Common options for all checks:**
 
@@ -2135,6 +2170,7 @@ OK: 192.168.56.10:22 ok in 2ms
 <a id="check_ssh_send"></a>
 <a id="check_ssh_expect"></a>
 <a id="check_ssh_ca"></a>
+<a id="check_ssh_address-family"></a>
 
 | Option                                      | Default Value                          | Description                                                                                                               |
 |---------------------------------------------|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
@@ -2169,6 +2205,7 @@ OK: 192.168.56.10:22 ok in 2ms
 | [tls-version](#check_ssh_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                     |
 | [verify](#check_ssh_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                               |
 | ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                         |
+| address-family                              |                                        | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.     |
 
 
 
@@ -2308,14 +2345,22 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 <a id="check_ssh_filter_keys"></a>
 #### Filter keywords
 
-| Option    | Description                                                                    |
-|-----------|--------------------------------------------------------------------------------|
-| connected | 1 when the connection succeeded, 0 otherwise                                   |
-| host      | Host the check connected to                                                    |
-| port      | TCP port the check connected to                                                |
-| response  | The data received from the peer (use with 'like'/'regexp' for custom matching) |
-| result    | Textual result of the check (ok, refused, timeout, no_match, ...)              |
-| time      | Connection time in milliseconds                                                |
+| Option           | Description                                                                                              |
+|------------------|----------------------------------------------------------------------------------------------------------|
+| banner           | The raw SSH identification string, e.g. SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5                         |
+| comments         | Trailing comments of the identification string, e.g. the distribution patch level                        |
+| connected        | 1 when the connection succeeded, 0 otherwise                                                             |
+| host             | Host the check connected to                                                                              |
+| port             | TCP port the check connected to                                                                          |
+| protocol         | SSH protocol version the server announced, e.g. 2.0 or 1.99                                              |
+| protocol_major   | Major SSH protocol version as a number (2 for 2.0); use protocol_major < 2 to catch an SSHv1-only server |
+| protocol_minor   | Minor SSH protocol version as a number (0 for 2.0)                                                       |
+| response         | The data received from the peer (use with 'like'/'regexp' for custom matching)                           |
+| result           | Textual result of the check (ok, refused, timeout, no_match, ...)                                        |
+| software         | Software name from the version string, e.g. OpenSSH or dropbear                                          |
+| software_version | Software version number from the version string, e.g. 9.6p1                                              |
+| time             | Connection time in milliseconds                                                                          |
+| version          | Software version the server announced, e.g. OpenSSH_9.6p1                                                |
 
 **Common options for all checks:**
 
@@ -2542,6 +2587,7 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 <a id="check_tcp_send"></a>
 <a id="check_tcp_expect"></a>
 <a id="check_tcp_ca"></a>
+<a id="check_tcp_address-family"></a>
 <a id="check_tcp_service"></a>
 
 | Option                                      | Default Value                          | Description                                                                                                                                                          |
@@ -2577,6 +2623,7 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 | [tls-version](#check_tcp_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                |
 | [verify](#check_tcp_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                                                                          |
 | ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                                                                    |
+| address-family                              |                                        | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                |
 | service                                     |                                        | Service preset (ftp, pop, imap, smtp, ssh, spop, simap, ssmtp): sets a default port, greeting and expected-response regex. The s-prefixed variants use implicit TLS. |
 
 
@@ -2717,14 +2764,16 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 <a id="check_tcp_filter_keys"></a>
 #### Filter keywords
 
-| Option    | Description                                                                    |
-|-----------|--------------------------------------------------------------------------------|
-| connected | 1 when the connection succeeded, 0 otherwise                                   |
-| host      | Host the check connected to                                                    |
-| port      | TCP port the check connected to                                                |
-| response  | The data received from the peer (use with 'like'/'regexp' for custom matching) |
-| result    | Textual result of the check (ok, refused, timeout, no_match, ...)              |
-| time      | Connection time in milliseconds                                                |
+| Option          | Description                                                                                                                                                                                                                                                                                                                           |
+|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| connected       | 1 when the connection succeeded, 0 otherwise                                                                                                                                                                                                                                                                                          |
+| has_certificate | 1 when the peer presented a TLS certificate, 0 otherwise                                                                                                                                                                                                                                                                              |
+| host            | Host the check connected to                                                                                                                                                                                                                                                                                                           |
+| port            | TCP port the check connected to                                                                                                                                                                                                                                                                                                       |
+| response        | The data received from the peer (use with 'like'/'regexp' for custom matching)                                                                                                                                                                                                                                                        |
+| result          | Textual result of the check (ok, refused, timeout, no_match, ...)                                                                                                                                                                                                                                                                     |
+| ssl_expiry_days | Days until the peer's TLS certificate expires; negative once it has expired. Renders as 'no certificate' (and compares false against every number) when the connection is not TLS or the peer presented none, so `ssl_expiry_days < 30` cannot fire on a plain connection; `ssl_expiry_days = 'no certificate'` tests for that state. |
+| time            | Connection time in milliseconds                                                                                                                                                                                                                                                                                                       |
 
 **Common options for all checks:**
 
