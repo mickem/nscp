@@ -51,6 +51,9 @@ class loopback_http {
         boost::asio::streambuf req;
         boost::system::error_code ec;
         boost::asio::read_until(socket, req, "\r\n\r\n", ec);
+        std::istream is(&req);
+        std::getline(is, request_line_);
+        if (!request_line_.empty() && request_line_.back() == '\r') request_line_.pop_back();
         boost::asio::write(socket, boost::asio::buffer(body_), ec);
       } catch (...) {
       }
@@ -64,9 +67,18 @@ class loopback_http {
 
   unsigned short port() const { return port_; }
 
+  // The request line ("GET /path HTTP/1.0") the client actually sent.  Joins
+  // the server thread first, so this must be called after whatever drives the
+  // fetch has returned.
+  std::string request_line() {
+    if (thread_.joinable()) thread_.join();
+    return request_line_;
+  }
+
  private:
   std::string body_;
   unsigned short port_;
+  std::string request_line_;
   std::thread thread_;
 };
 
@@ -170,4 +182,78 @@ TEST(settings_http, resolve_cache_file_uses_cache_folder_and_url_filename) {
   // Filename component of the URL path is what ends up in the cache directory.
   EXPECT_EQ(resolved.filename().string(), "foo.ini");
   EXPECT_EQ(resolved.parent_path(), cache.path());
+}
+
+// --- issue #460: settings urls carrying query parameters --------------------
+
+TEST(settings_http, download_sends_the_query_string) {
+  // The whole point of a "?" url in boot.ini is that the parameters select
+  // which configuration the server hands back, so they have to survive onto
+  // the request line.
+  loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  temp_dir cache;
+  http_test_core core(cache.path());
+  settings::settings_http s(&core, "test", http_url(server.port(), "/nsclient.php?RootFolder=myhost/&Filename=nsclient.ini"));
+
+  const std::string request = server.request_line();
+  EXPECT_NE(request.find("/nsclient.php?RootFolder=myhost/&Filename=nsclient.ini"), std::string::npos) << "request line was: " << request;
+}
+
+TEST(settings_http, download_without_query_is_unchanged) {
+  loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  temp_dir cache;
+  http_test_core core(cache.path());
+  settings::settings_http s(&core, "test", http_url(server.port(), "/settings.ini"));
+
+  const std::string request = server.request_line();
+  EXPECT_NE(request.find("GET /settings.ini "), std::string::npos) << "request line was: " << request;
+  EXPECT_EQ(request.find('?'), std::string::npos) << "request line was: " << request;
+}
+
+TEST(settings_http, resolve_cache_file_separates_urls_differing_only_in_query) {
+  loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  temp_dir cache;
+  http_test_core core(cache.path());
+  settings::settings_http s(&core, "test", http_url(server.port(), "/nsclient.php?host=a"));
+
+  net::url a;
+  a.path = "/nsclient.php";
+  a.query = "RootFolder=host-a";
+  net::url b;
+  b.path = "/nsclient.php";
+  b.query = "RootFolder=host-b";
+  net::url plain;
+  plain.path = "/nsclient.php";
+
+  const auto ra = s.resolve_cache_file(a);
+  const auto rb = s.resolve_cache_file(b);
+  const auto rp = s.resolve_cache_file(plain);
+
+  // Same script, different parameters: distinct configurations, so they must
+  // not share one cache file.
+  EXPECT_NE(ra, rb);
+  EXPECT_NE(ra, rp);
+  EXPECT_EQ(ra, s.resolve_cache_file(a)) << "cache file name must be stable across runs";
+  EXPECT_EQ(ra.parent_path(), cache.path());
+  // Still recognisable, and still a legal file name on every platform.
+  EXPECT_EQ(ra.filename().string().find("nsclient.php"), 0u);
+  EXPECT_EQ(ra.filename().string().find_first_of("?&=/\\:*\"<>|"), std::string::npos) << ra.filename().string();
+  // A url without a query keeps the plain, historic name.
+  EXPECT_EQ(rp.filename().string(), "nsclient.php");
+}
+
+TEST(settings_http, resolve_cache_file_handles_url_without_a_file_name) {
+  loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  temp_dir cache;
+  http_test_core core(cache.path());
+  settings::settings_http s(&core, "test", http_url(server.port(), "/settings.ini"));
+
+  net::url root;
+  root.path = "/";
+  root.query = "Filename=nsclient.ini";
+  const auto resolved = s.resolve_cache_file(root);
+  // Without this the cache path would collapse onto the cache directory itself.
+  EXPECT_NE(resolved, cache.path());
+  EXPECT_EQ(resolved.parent_path(), cache.path());
+  EXPECT_EQ(resolved.filename().string().find("cached.ini"), 0u);
 }

@@ -96,7 +96,21 @@ class settings_http : public settings::settings_interface_impl {
   boost::filesystem::path resolve_cache_file(const net::url &url) const {
     boost::filesystem::path local_file = get_core()->expand_path(CACHE_FOLDER);
     boost::filesystem::path remote_file_name = url.path;
-    local_file /= remote_file_name.filename();
+    std::string name = remote_file_name.filename().string();
+    // A url can perfectly well carry no file name at all ("http://host/" or
+    // "http://host/?file=x"), in which case filename() yields "", "/", "." or
+    // ".." and the cache path would collapse onto the cache folder itself.
+    if (name.empty() || name == "." || name == ".." || name == "/" || name == "\\") name = "cached.ini";
+    if (!url.query.empty()) {
+      // Two boot.ini entries may point at the same script and differ only in
+      // their parameters (issue #460) - the query is then the only thing that
+      // tells the two configurations apart, so it has to take part in the
+      // cache file name or they overwrite each other. It cannot be appended
+      // verbatim ('?' and '&' are not legal in a Windows file name), so use a
+      // short digest of it instead.
+      name += "-" + hash_string(url.query).substr(0, 16);
+    }
+    local_file /= name;
     return local_file;
   }
 
@@ -130,8 +144,6 @@ class settings_http : public settings::settings_interface_impl {
 
     try {
       std::string error;
-      http::request packet("GET", url.get_host(), url.path);
-
       std::string def_port = url.protocol == "https" ? "443" : "80";
 
       auto tls_version = get_core()->get_tls_version();
@@ -191,7 +203,11 @@ class settings_http : public settings::settings_interface_impl {
       if (proxy.is_set()) {
         get_logger()->debug("settings", __FILE__, __LINE__, "Using proxy: " + get_core()->get_proxy_url());
       }
-      if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.path, tls_version, verify_mode, ca, os, error, proxy)) {
+      // get_request_path(), not path: the query string is part of the resource
+      // being asked for, and a settings url that selects its configuration with
+      // parameters is useless without it (issue #460).
+      if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.get_request_path(), tls_version, verify_mode, ca, os,
+                                         error, proxy)) {
         os.close();
         get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);
         if (boost::filesystem::is_regular_file(local_file)) {

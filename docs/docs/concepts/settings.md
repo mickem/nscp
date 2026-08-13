@@ -144,6 +144,23 @@ Adding a script:
 scripts/myscript.bat = http://www.myserver.com/myscript.bat
 ```
 
+#### Query parameters
+
+The url may carry a query string, which is passed on to the server unchanged.
+This lets a script generate the configuration per host instead of serving a static file:
+
+```ini
+[settings]
+1 = http://nsclient.mydom.local/nsclient/nsclient.php?RootFolder=myhost/&Filename=nsclient.ini
+2 = ini://${shared-path}/nsclient.ini
+```
+
+Each distinct query gets its own file in the cache folder, so several urls pointing at the same
+script with different parameters do not overwrite each other's cached configuration.
+
+> **Changed in 0.14:** query parameters used to be silently dropped from the request, so the
+> server only ever saw the bare path.
+
 #### Using TLS
 
 You likely want to use TLS when using http settings.

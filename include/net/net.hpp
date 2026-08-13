@@ -26,8 +26,17 @@ struct url {
     std::stringstream ss;
     ss << protocol << string_traits::protocol_suffix() << host;
     if (port != 0) ss << string_traits::port_prefix() << port;
-    ss << path;
+    ss << get_request_path();
     return ss.str();
+  }
+
+  // The resource as it has to appear on the HTTP request line: everything
+  // after the authority, query string included. `path` on its own stops at
+  // the '?', so a caller that hands it straight to a downloader silently
+  // drops every parameter the user wrote (issue #460).
+  std::string get_request_path() const {
+    if (query.empty()) return path;
+    return path + "?" + query;
   }
 
   unsigned int get_port() const { return port; }
