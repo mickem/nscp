@@ -14,15 +14,15 @@ namespace check_mssql_integrity_command {
 // Raw per-database integrity inputs.
 struct integrity_row {
   std::string name;
-  long long suspect_pages = 0;
-  std::string last_checkdb;  // dbi_dbccLastKnownGood as text; empty = DBCC DBINFO unavailable
+  long long suspect_pages = -1;  // -1 = msdb.dbo.suspect_pages unreadable
+  std::string last_checkdb;      // dbi_dbccLastKnownGood as text; empty = DBCC DBINFO unavailable
 };
 
 // One database as exposed to the filter engine.
 struct integrity_info {
   std::string name;
-  long long suspect_pages = 0;
-  long long checkdb_age = -2;  // seconds since last successful CHECKDB; -1 = never, -2 = unknown
+  long long suspect_pages = -1;  // -1 = unknown (no msdb access)
+  long long checkdb_age = -2;    // seconds since last successful CHECKDB; -1 = never, -2 = unknown
 
   std::string get_name() const { return name; }
   long long get_suspect_pages() const { return suspect_pages; }

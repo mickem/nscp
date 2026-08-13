@@ -601,6 +601,44 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     expect(out).toMatch(/master_checkdb_age'?=\d+s/); // a real, recent timestamp
   });
 
+  it("check_mssql_integrity degrades per keyword without msdb or sysadmin", async () => {
+    // The suspect_pages half used to live in the same query as the database
+    // list, so a login that cannot reach msdb turned the whole check UNKNOWN.
+    // Each half now degrades to its own sentinel and the check still answers.
+    // The check has to run as the low-privilege login itself - sa bypasses the
+    // DENY - and msdb's guest user grants access by default, hence the DENY.
+    const setup = [
+      "IF SUSER_ID('lowpriv') IS NULL CREATE LOGIN lowpriv WITH PASSWORD = 'L0wPriv!Pass', CHECK_POLICY = OFF;",
+      "GRANT VIEW ANY DEFINITION TO lowpriv;",
+      "USE msdb; DENY SELECT ON dbo.suspect_pages TO guest;",
+      "SELECT 1 AS done;",
+    ].join(" ");
+    await query("check_mssql_query", [`query=${setup}`, "top-syntax=${status}"]);
+    try {
+      const r = await nscp.run(
+        [
+          "client", "--module", "CheckMSSQL", "--boot", "--query", "check_mssql_integrity",
+          `server=${server}`, "user=lowpriv", "password=L0wPriv!Pass",
+          "warning=none", "critical=none",
+          "detail-syntax=${name}=${checkdb_age}/${suspect_pages}",
+          "top-syntax=${status}: ${list}",
+          "show-all",
+        ],
+        { allowFailure: true, timeout: 120_000 },
+      );
+      const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+      if (!live) return expect(out).toMatch(CONNECT_FAILED);
+      expect(out).toMatch(/^OK/m); // not UNKNOWN: the check still answers
+      expect(out).toMatch(/master=-?\d+\/-1/); // suspect_pages unknown, not a reassuring 0
+      expect(out).toMatch(/=-2\//); // at least one database's CHECKDB age is unreadable
+    } finally {
+      await query("check_mssql_query", [
+        "query=USE msdb; REVOKE SELECT ON dbo.suspect_pages TO guest; SELECT 1 AS done;",
+        "top-syntax=${status}",
+      ]);
+    }
+  });
+
   it("check_mssql_transactions reports OK when nothing is open", async () => {
     // The check excludes its own session, so an idle server reports the
     // empty-state contract.
