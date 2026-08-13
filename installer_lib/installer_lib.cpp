@@ -1026,6 +1026,12 @@ std::wstring url_scheme(const std::wstring &url) {
   return boost::algorithm::to_lower_copy(url.substr(0, sep));
 }
 
+std::string url_scheme(const std::string &url) {
+  const std::string::size_type sep = url.find("://");
+  if (sep == std::string::npos) return "";
+  return boost::algorithm::to_lower_copy(url.substr(0, sep));
+}
+
 // ${shared-path}, ${exe-path} and ${base-path} all mean the install folder to
 // the installer, exactly as installer_settings_provider::expand_path resolves
 // them. Used to turn the compiled-in CERT_FOLDER token into a real path
@@ -1235,9 +1241,16 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
       }
     }
 
+    // Only an https:// enrollment has a certificate to verify. A plain HTTP
+    // one - which the immediate half allows only with FLEET_INSECURE=1 - makes
+    // no TLS handshake at all, so exporting a trust anchor for it (and failing
+    // the install when the ROOT store yields none) would refuse an install
+    // over a check that is never made. Same rule as `nscp enroll`, which only
+    // fills in a CA when the scheme is https.
     temp_ca_bundle bundle;
-    const bool verifying = !boost::algorithm::iequals(request.verify_mode, "none");
-    if (verifying && request.ca.empty()) {
+    const bool https = url_scheme(request.server_url) == "https";
+    const bool verify_disabled = boost::algorithm::iequals(request.verify_mode, "none");
+    if (https && !verify_disabled && request.ca.empty()) {
       const std::string error = bundle.export_root_store(h);
       if (!error.empty()) {
         h.errorMessage(L"Fleet enrollment failed: the fleet server certificate cannot be verified because " + utf8::cvt<std::wstring>(error) +
@@ -1247,10 +1260,10 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
       }
       request.ca = bundle.path();
     }
-    if (!verifying && insecure) {
+    if (insecure && (!https || verify_disabled)) {
       h.logMessage(
-          L"WARNING: enrolling without verifying the fleet server certificate. The trust anchors stored by this enrollment are only as trustworthy "
-          L"as the network path the install ran over.");
+          L"WARNING: enrolling over an unauthenticated connection (plain HTTP or FLEET_VERIFY_MODE=none). The bootstrap token was sent, and the trust "
+          L"anchors stored by this enrollment received, over a network path nothing verified.");
     }
 
     h.logMessage(L"Enrolling with the fleet server...");

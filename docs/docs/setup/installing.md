@@ -342,7 +342,12 @@ A few things worth knowing:
   with an error explaining what went wrong rather than leaving you with an agent that never joined the fleet. Bootstrap
   tokens are one-time and are burned on first use, so a rejected token means generating a new install command.
 - **An already enrolled host keeps its identity.** If `agent-state.json` already exists (an upgrade, a repair, or a
-  re-install) the enrollment is skipped and the existing identity is kept. Delete the file to enroll again.
+  re-install over an existing installation) the enrollment is skipped and the existing identity is kept. Delete the file
+  to enroll again.
+- **Uninstalling discards the enrollment.** `agent-state.json` holds this host's private key and client certificate, so
+  uninstalling removes it along with the other key material. The identity does not survive an uninstall/reinstall cycle,
+  and because bootstrap tokens are one-time you need a fresh install command from the fleet server to enroll again -
+  keep the host's registration on the server in mind before uninstalling to reinstall. Upgrading in place is unaffected.
 - **The fleet server is verified.** The enrollment response supplies the certificate the agent pins for every later call
   and the key it trusts for executable bundles, so the connection is verified against the Windows ROOT store by default.
   Use `FLEET_CA=<file>` if the fleet server uses a private CA. `FLEET_INSECURE=1` (with a `http://` url and/or
