@@ -12,11 +12,10 @@
 #include <dsgetdc.h>
 #include <lm.h>
 
-#include <algorithm>
-#include <cctype>
+#include <array>
+#include <boost/optional.hpp>
 #include <chrono>
 #include <deque>
-#include <error/error.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -26,9 +25,12 @@
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "kdc_probe.hpp"
+#include "netapi_buffer.hpp"
+#include "win32_error.hpp"
 
 namespace po = boost::program_options;
 
@@ -36,7 +38,7 @@ namespace kdc_filter {
 
 // The result of probing one KDC: did it answer the AS-REQ, with what, and how fast.
 struct filter_obj {
-  filter_obj() : port(0), responding(0), error_code(-1), time(-1) {}
+  filter_obj() : port(0), responding(0), error_code(-1) {}
 
   std::string get_kdc() const { return kdc; }
   std::string get_realm() const { return realm; }
@@ -44,7 +46,7 @@ struct filter_obj {
   long long get_port() const { return port; }
   long long get_responding() const { return responding; }
   long long get_error_code() const { return error_code; }
-  long long get_time() const { return time; }
+  boost::optional<long long> get_time() const { return time; }
 
   std::string show() const { return kdc; }
 
@@ -54,7 +56,10 @@ struct filter_obj {
   long long port;
   long long responding;  // 1 when a well-formed Kerberos answer arrived
   long long error_code;  // KRB-ERROR code (-1 when none)
-  long long time;        // round-trip in milliseconds
+  // Round-trip in milliseconds, empty when the exchange never started (a name
+  // that will not resolve). There is no round trip to report then, and a
+  // sentinel would put a negative latency into the graph for good.
+  boost::optional<long long> time;
 };
 
 typedef std::shared_ptr<filter_obj> filter_obj_ptr;
@@ -68,7 +73,10 @@ struct filter_obj_handler : native_context {
     registry_.add_string_var("kdc", &filter_obj::get_kdc, "The KDC host that was probed")
         .add_string_var("realm", &filter_obj::get_realm, "The Kerberos realm the probe requested a ticket for")
         .add_string_var("response", &filter_obj::get_response, "What the KDC answered (or the transport error)");
-    registry_.add_int_var("time", type_int, &filter_obj::get_time, "Probe round-trip time in milliseconds").add_int_perf("ms");
+    registry_
+        .add_optional_int_var("time", type_int, &filter_obj::get_time, "?",
+                              "Probe round-trip time in milliseconds (none when the host never resolved)")
+        .add_int_perf("ms");
     registry_.add_int_var("port", type_int, &filter_obj::get_port, "TCP port probed");
     registry_.add_int_var("responding", type_bool, &filter_obj::get_responding, "True when the KDC answered the AS-REQ with a well-formed Kerberos message");
     registry_.add_int_var("error_code", type_int, &filter_obj::get_error_code, "KRB-ERROR code from the response (-1 when none)");
@@ -87,18 +95,18 @@ struct probe_outcome {
   bool exchanged;
   std::string error;
   kdc_probe::bytes response;
-  long long time_ms;
+  boost::optional<long long> time_ms;  // empty until the exchange actually starts
 
-  probe_outcome() : exchanged(false), time_ms(-1) {}
+  probe_outcome() : exchanged(false) {}
 };
 
 // The in-flight state of one KDC probe on the shared io_context.
 struct probe_state {
-  explicit probe_state(boost::asio::io_context &io) : resolver(io), socket(io), done(false), timed(false) { header[0] = header[1] = header[2] = header[3] = 0; }
+  explicit probe_state(boost::asio::io_context &io) : resolver(io), socket(io), header{}, done(false), timed(false) {}
 
   boost::asio::ip::tcp::resolver resolver;
   boost::asio::ip::tcp::socket socket;
-  unsigned char header[4];
+  std::array<unsigned char, 4> header;  // RFC 4120 7.2.2 length prefix
   bool done;
   // Round-trip time is measured from when the resolver answered (timed set),
   // so a slow DNS server is not billed to the KDC.
@@ -131,12 +139,12 @@ std::vector<probe_outcome> exchange_with_kdcs(const std::vector<std::string> &ho
   namespace asio = boost::asio;
   using boost::asio::ip::tcp;
 
+  const std::size_t size = request.size();
+  const std::array<unsigned char, 4> prefix = {static_cast<unsigned char>((size >> 24) & 0xff), static_cast<unsigned char>((size >> 16) & 0xff),
+                                               static_cast<unsigned char>((size >> 8) & 0xff), static_cast<unsigned char>(size & 0xff)};
   kdc_probe::bytes framed;
-  framed.reserve(request.size() + 4);
-  framed.push_back(static_cast<unsigned char>((request.size() >> 24) & 0xff));
-  framed.push_back(static_cast<unsigned char>((request.size() >> 16) & 0xff));
-  framed.push_back(static_cast<unsigned char>((request.size() >> 8) & 0xff));
-  framed.push_back(static_cast<unsigned char>(request.size() & 0xff));
+  framed.reserve(size + prefix.size());
+  framed.insert(framed.end(), prefix.begin(), prefix.end());
   framed.insert(framed.end(), request.begin(), request.end());
 
   asio::io_context io;
@@ -199,7 +207,7 @@ std::vector<probe_outcome> exchange_with_kdcs(const std::vector<std::string> &ho
       st.resolver.cancel();
       st.finish("timeout after " + str::xtos(timeout_ms) + "ms");
     }
-    out.push_back(st.out);
+    out.push_back(std::move(st.out));
   }
   return out;
 }
@@ -208,6 +216,20 @@ std::string strip_leading_backslashes(std::string s) {
   while (!s.empty() && s[0] == '\\') s.erase(0, 1);
   return s;
 }
+
+// Kerberos realms are conventionally the uppercase DNS domain, and AD always
+// reports them that way. Uppercase ASCII only: std::toupper is locale
+// dependent and would mangle the UTF-8 bytes of an internationalised realm.
+std::string upper_ascii(std::string s) {
+  for (char &c : s) {
+    if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A');
+  }
+  return s;
+}
+
+// A Kerberos realm is a domain name, so it fits comfortably; the cap keeps a
+// caller from making the agent write a large payload at an arbitrary host.
+const std::size_t kMaxRealmLength = 255;
 
 }  // namespace
 
@@ -238,24 +260,39 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
 
+  if (realm.size() > kMaxRealmLength) {
+    return nscapi::protobuf::functions::set_response_bad(*response,
+                                                         "realm= is too long (max " + str::xtos(kMaxRealmLength) + " characters, got " +
+                                                             str::xtos(realm.size()) + ")");
+  }
+
+  const bool realm_was_given = !realm.empty();
   if (servers.empty() || realm.empty()) {
-    DOMAIN_CONTROLLER_INFOW *info = nullptr;
-    const DWORD rc = DsGetDcNameW(nullptr, nullptr, nullptr, nullptr, DS_KDC_REQUIRED | DS_RETURN_DNS_NAME, &info);
-    if (rc == ERROR_SUCCESS) {
+    DOMAIN_CONTROLLER_INFOW *raw_info = nullptr;
+    const DWORD rc = DsGetDcNameW(nullptr, nullptr, nullptr, nullptr, DS_KDC_REQUIRED | DS_RETURN_DNS_NAME, &raw_info);
+    const check_ad::net_api_ptr<DOMAIN_CONTROLLER_INFOW> info = check_ad::adopt_net_api(raw_info);
+    if (rc == ERROR_SUCCESS && info) {
       if (servers.empty() && info->DomainControllerName != nullptr) {
         servers.push_back(strip_leading_backslashes(utf8::cvt<std::string>(std::wstring(info->DomainControllerName))));
       }
       if (realm.empty() && info->DomainName != nullptr) realm = utf8::cvt<std::string>(std::wstring(info->DomainName));
-      NetApiBufferFree(info);
     } else if (servers.empty()) {
       return nscapi::protobuf::functions::set_response_bad(
-          *response, "Failed to locate a KDC (is this machine domain-joined?): " + error::lookup::last_error(rc) + ". Specify server= and realm=.");
+          *response, "Failed to locate a KDC (is this machine domain-joined?): " + check_ad::win32_error(rc) + ". Specify server= and realm=.");
     }
   }
   if (realm.empty()) {
     return nscapi::protobuf::functions::set_response_bad(*response, "realm= is required when no realm can be discovered from the domain join");
   }
-  std::transform(realm.begin(), realm.end(), realm.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+  if (servers.empty()) {
+    // The join lookup succeeded but named no controller. Probing nothing would
+    // otherwise render the ok-syntax as "all 0 KDC(s) are responding".
+    return nscapi::protobuf::functions::set_response_bad(*response, "No KDC could be discovered from the domain join; specify server=");
+  }
+  // Only normalise what we discovered: an explicit realm= is passed through as
+  // typed, since Kerberos realms are case sensitive and a non-AD KDC may well
+  // serve a lowercase one.
+  if (!realm_was_given) realm = upper_ascii(realm);
 
   const kdc_probe::bytes as_req = kdc_probe::build_as_req(realm, "nscp-probe", 12345678UL);
 
@@ -263,7 +300,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
 
   parsers::where::constants::reset();
   for (std::size_t i = 0; i < servers.size(); ++i) {
-    kdc_filter::filter_obj_ptr obj(new kdc_filter::filter_obj());
+    kdc_filter::filter_obj_ptr obj = std::make_shared<kdc_filter::filter_obj>();
     obj->kdc = servers[i];
     obj->realm = realm;
     obj->port = port;

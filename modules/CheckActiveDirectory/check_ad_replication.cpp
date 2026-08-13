@@ -22,6 +22,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   modern_filter::cli_helper<ad_replication_filter::filter> filter_helper(request, response, data);
 
   std::string server;
+  int timeout_ms = 5000;
 
   ad_replication_filter::filter filter;
   // A link is suspect on its first failed sync and clearly broken after
@@ -37,6 +38,8 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // clang-format off
   filter_helper.get_desc().add_options()
     ("server", po::value<std::string>(&server), "The domain controller to check (default: the local machine).")
+    ("timeout", po::value<int>(&timeout_ms)->default_value(5000),
+        "Timeout in milliseconds for reaching a remote server= before binding to it (ignored for the local machine).")
     ;
   // clang-format on
 
@@ -46,7 +49,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   std::vector<ad_replication_filter::filter_obj_ptr> neighbors;
   std::string error;
   bool not_a_dc = false;
-  if (!ad_replication_source::fetch(server, neighbors, error, not_a_dc)) {
+  if (!ad_replication_source::fetch(server, timeout_ms, neighbors, error, not_a_dc)) {
     // Both branches are UNKNOWN; the message distinguishes "this host is not a
     // domain controller" (safe to deploy fleet-wide) from a real read failure.
     return nscapi::protobuf::functions::set_response_bad(*response, not_a_dc ? "Not a domain controller: " + error : error);

@@ -8,7 +8,6 @@
 #include <Windows.h>
 #include <lm.h>
 
-#include <error/error.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -17,6 +16,9 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/utf8.hpp>
 #include <string>
+
+#include "netapi_buffer.hpp"
+#include "win32_error.hpp"
 
 // Older SDK headers spell only some of the netlogon function codes out.
 #ifndef NETLOGON_CONTROL_TC_QUERY
@@ -79,17 +81,21 @@ namespace {
 // failure — which says nothing about the channel and must not be scored as a
 // broken one; only netlog2_tc_connection_status judges channel health.
 secure_channel_filter::filter_obj_ptr query_channel(const std::string &server, const std::string &domain, bool verify, std::string &error) {
-  secure_channel_filter::filter_obj_ptr obj(new secure_channel_filter::filter_obj());
+  secure_channel_filter::filter_obj_ptr obj = std::make_shared<secure_channel_filter::filter_obj>();
   obj->domain = domain;
 
   const std::wstring server_w = utf8::cvt<std::wstring>(server);
+  // I_NetLogonControl2 takes the trusted domain name by address, so the buffer
+  // has to outlive the call; data() is valid (and NUL-terminated) since C++11
+  // even for an empty string, and check() has already rejected an empty domain.
   std::wstring domain_w = utf8::cvt<std::wstring>(domain);
-  LPWSTR domain_ptr = &domain_w[0];
-  PNETLOGON_INFO_2 info = nullptr;
+  LPWSTR domain_ptr = domain_w.data();
+  PNETLOGON_INFO_2 raw_info = nullptr;
   const DWORD rc = I_NetLogonControl2(server.empty() ? nullptr : server_w.c_str(), verify ? NETLOGON_CONTROL_TC_VERIFY : NETLOGON_CONTROL_TC_QUERY, 2,
-                                      reinterpret_cast<LPBYTE>(&domain_ptr), reinterpret_cast<LPBYTE *>(&info));
-  if (rc != NERR_Success) {
-    error = "Failed to query the netlogon service" + (server.empty() ? std::string() : " on " + server) + ": " + error::lookup::last_error(rc);
+                                      reinterpret_cast<LPBYTE>(&domain_ptr), reinterpret_cast<LPBYTE *>(&raw_info));
+  const check_ad::net_api_ptr<NETLOGON_INFO_2> info = check_ad::adopt_net_api(raw_info);
+  if (rc != NERR_Success || !info) {
+    error = "Failed to query the netlogon service" + (server.empty() ? std::string() : " on " + server) + ": " + check_ad::win32_error(rc);
     return secure_channel_filter::filter_obj_ptr();
   }
   obj->error_code = info->netlog2_tc_connection_status;
@@ -98,8 +104,7 @@ secure_channel_filter::filter_obj_ptr query_channel(const std::string &server, c
     while (!dc.empty() && dc[0] == '\\') dc.erase(0, 1);
     obj->dc = dc;
   }
-  obj->error_message = obj->error_code == 0 ? "OK" : error::lookup::last_error(static_cast<unsigned long>(obj->error_code));
-  NetApiBufferFree(info);
+  obj->error_message = obj->error_code == 0 ? "OK" : check_ad::win32_error(static_cast<unsigned long>(obj->error_code));
   return obj;
 }
 
@@ -136,15 +141,21 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
     // monitoring host would wrongly conclude there is nothing to check).
     const std::wstring server_w = utf8::cvt<std::wstring>(server);
     const std::string target = server.empty() ? "This machine" : server;
-    LPWSTR name_buf = nullptr;
+    LPWSTR raw_name = nullptr;
     NETSETUP_JOIN_STATUS status = NetSetupUnknownStatus;
-    if (NetGetJoinInformation(server.empty() ? nullptr : server_w.c_str(), &name_buf, &status) == NERR_Success) {
-      const std::string join_name = name_buf != nullptr ? utf8::cvt<std::string>(std::wstring(name_buf)) : "";
-      if (name_buf != nullptr) NetApiBufferFree(name_buf);
+    if (NetGetJoinInformation(server.empty() ? nullptr : server_w.c_str(), &raw_name, &status) == NERR_Success) {
+      const check_ad::net_api_ptr<WCHAR> name_buf = check_ad::adopt_net_api(raw_name);
+      const std::string join_name = name_buf ? utf8::cvt<std::string>(std::wstring(name_buf.get())) : "";
       if (status != NetSetupDomainName) {
         return nscapi::protobuf::functions::set_response_bad(*response, target + " is not joined to a domain (" +
                                                                             (join_name.empty() ? std::string("standalone") : "workgroup " + join_name) +
                                                                             "); there is no secure channel to check");
+      }
+      if (join_name.empty()) {
+        // A domain join with no name to query the channel for: nothing sane to
+        // pass to netlogon, so say so rather than asking about the empty domain.
+        return nscapi::protobuf::functions::set_response_bad(
+            *response, target + " reports a domain join but no domain name; pass domain= to name the trusted domain explicitly");
       }
       domain = join_name;
     } else {

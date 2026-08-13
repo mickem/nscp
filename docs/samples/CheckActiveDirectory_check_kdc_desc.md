@@ -22,13 +22,21 @@ Keywords (one row per probed KDC):
 | `responding` | True when a well-formed Kerberos answer arrived                      |
 | `response`   | What came back (`KRB-ERROR ...`, `AS-REP ...`, or the transport error) |
 | `error_code` | KRB-ERROR code from the response (-1 when none)                      |
-| `time`       | Round-trip time in milliseconds (perf data)                          |
+| `time`       | Round-trip time in milliseconds (perf data; `?` when the host never resolved) |
 
 Defaults: **WARNING** when `time > 1000`, **CRITICAL** when `responding = 0`.
 
+A host whose name does not resolve never starts an exchange, so it has no
+round-trip time to report: `time` renders as `?` and contributes no perf data
+rather than putting a sentinel into the series. It still goes **CRITICAL** on
+`responding = 0`.
+
 Options: `server=<host>` (repeatable) picks the KDC(s) to probe and
 `realm=<REALM>` the realm; both default to what the domain join discovers
-(`DsGetDcName`). On a machine that is not domain-joined, `server=` and
-`realm=` are required and the check says so with **UNKNOWN**. `timeout=<ms>`
-(default 5000) bounds the probes; all KDCs are probed concurrently, so it also
-bounds the whole check even when several KDCs are unreachable.
+(`DsGetDcName`). A discovered realm is uppercased the way Active Directory
+reports it; an explicit `realm=` is sent exactly as typed, since Kerberos
+realms are case sensitive and a non-AD KDC may serve a lowercase one (max 255
+characters). On a machine that is not domain-joined, `server=` and `realm=` are
+required and the check says so with **UNKNOWN**. `timeout=<ms>` (default 5000)
+bounds the probes; all KDCs are probed concurrently, so it also bounds the
+whole check even when several KDCs are unreachable.
