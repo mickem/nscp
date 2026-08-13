@@ -1,7 +1,9 @@
 /**
  * Exercises the CheckNet module's recently-added network checks end-to-end
  * against throwaway local servers (net / tls / http / https / dgram), so the
- * suite is fully self-contained and needs no external network:
+ * suite is self-contained apart from the "against the public internet" block at
+ * the end, which is the only place the platform's own CA bundle and real ICMP
+ * are exercised:
  *
  *   - check_tcp   — plain + TLS connect, greeting expect, connection refused
  *   - check_ssh   — SSH banner validation
@@ -1016,6 +1018,48 @@ describe("CheckNet commands", () => {
     });
     expect(messageOf(q)).not.toMatch(/Refusing to send/);
     expect(messageOf(q)).toMatch(/No host specified/);
+  });
+
+  // --- real network, real trust store ---------------------------------------
+  // Everything else in this file talks to a listener on loopback, and every TLS
+  // case passes `verify: none` or an explicit `ca=`. That is deliberate - the
+  // suite stays hermetic - but it means one thing is never exercised: the
+  // *default* CA bundle, `${ca-path}`, which CheckNet::loadModuleEx resolves
+  // once at load and hands to check_http whenever the caller does not override
+  // it. ${ca-path} is a single hardcoded path (service/path_manager.cpp), and it
+  // is the Debian/Ubuntu one on every non-Windows platform, so on RHEL-family -
+  // where the bundle is /etc/pki/tls/certs/ca-bundle.crt - every HTTPS check
+  // fails with "Failed to load CA /etc/ssl/certs/ca-certificates.crt". The
+  // integration suite runs in rockylinux containers (build-redhat.yml), so
+  // these two tests catch it there while passing on Debian.
+  //
+  // These are the only tests here that need egress. Both assert reachability,
+  // not latency: thresholds are pinned wide so a slow or busy runner cannot turn
+  // a working check into a red build.
+  describe("against the public internet", () => {
+    it("check_http validates a public HTTPS site using the platform CA bundle", async () => {
+      const q = await executeQuery(key, "check_http", {
+        url: "https://www.google.com",
+        // No ca= and no verify=none on purpose: the point is the default.
+        critical: "code != 200",
+      });
+      // Assert the CA failure separately from the result, so a broken trust
+      // store reads as itself instead of as a generic CRITICAL.
+      expect(messageOf(q)).not.toMatch(/Failed to load CA/);
+      expect(q.result).toBe(OK);
+    });
+
+    it("check_ping reaches a public host", async () => {
+      const q = await executeQuery(key, "check_ping", {
+        host: "google.com",
+        count: "2",
+        // The defaults are time > 60 / > 100 ms, which say more about the
+        // runner's distance to Google than about whether ICMP works.
+        warning: "loss > 50%",
+        critical: "loss > 99%",
+      });
+      expect(q.result).toBe(OK);
+    });
   });
 
   it("check_ssh honours address-family", async () => {
