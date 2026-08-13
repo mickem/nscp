@@ -1,4 +1,4 @@
-﻿**Default check (domain-joined; probes the discovered KDC):**
+**Default check (domain-joined; probes the discovered KDC):**
 
 ```
 check_kdc
@@ -47,6 +47,5 @@ OK: dc01.example.com port 88 realm EXAMPLE.COM: KRB-ERROR KDC_ERR_PREAUTH_REQUIR
 
 ```
 check_kdc
-Failed to locate a KDC (is this machine domain-joined?): 54b: The specified domain either does not exist or could not be contacted.
-. Specify server= and realm=.
+Failed to locate a KDC (is this machine domain-joined?): 54b: The specified domain either does not exist or could not be contacted. Specify server= and realm=.
 ```

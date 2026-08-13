@@ -160,6 +160,20 @@ onWindows("CheckActiveDirectory", () => {
     expect(Date.now() - started).toBeLessThan(5500);
   });
 
+  it("check_kdc omits perfdata (not a negative sample) when the host never resolves", async () => {
+    // Nothing resolves, so no exchange ever starts and there is no round trip
+    // to report: `time` must render as `?` and emit no perf sample rather than
+    // planting a -1ms point in the series for good.
+    const out = await query("check_kdc", ["server=nx.invalid.nscp-test", "realm=EXAMPLE.TEST"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).not.toMatch(/=-\d+ms/);
+  });
+
+  it("check_kdc rejects an oversized realm rather than sending it", async () => {
+    const out = await query("check_kdc", ["server=127.0.0.1", "port=1", `realm=${"R".repeat(300)}`]);
+    expect(out).toMatch(/realm= is too long/);
+  });
+
   it("check_kdc accepts custom rendering keywords", async () => {
     const kdc = await startFakeKdc(KRB_ERROR_PREAUTH);
     try {
@@ -216,6 +230,16 @@ onWindows("CheckActiveDirectory", () => {
     const out = await query("check_ad_replication", []);
     expect(out).toMatch(/replication links|replication partners|Not a domain controller/i);
     expect(out).not.toMatch(/does not take any arguments|unknown option/i);
+  });
+
+  it("check_ad_replication bounds an unreachable server= by timeout=", async () => {
+    // 127.0.0.1:135 refuses immediately on a CI runner; the point is that the
+    // option parses and the check returns well inside its own deadline rather
+    // than blocking on the RPC bind.
+    const started = Date.now();
+    const out = await query("check_ad_replication", ["server=127.0.0.1", "timeout=1500"]);
+    expect(out).not.toMatch(/does not take any arguments|unknown option/i);
+    expect(Date.now() - started).toBeLessThan(20_000);
   });
 
   it("check_ad_replication accepts its threshold keywords", async () => {
