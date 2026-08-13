@@ -31,14 +31,16 @@ synced trips the 24-hour rule by design.
 
 Options: `server=<dc>` checks another domain controller (default: the local
 machine — replication state is per-DC, so run the check on every DC).
+`timeout=<ms>` (default 5000) bounds the reachability probe made before binding
+to a remote `server=`.
 
-**Not-a-DC contract:** run without `server=` on a host that does not run the
-directory service, the check returns **UNKNOWN** with a "Not a domain
-controller" message rather than a hard error, so it is safe to deploy
-fleet-wide. The contract only applies locally: a `server=` target that cannot
-be bound is reported as a plain failure — an explicitly named DC being
-unreachable (powered off, firewalled, NTDS stopped) is an outage, not an
-ignorable non-DC. Remote targets are first probed on TCP port 135 (the RPC
-endpoint mapper) with a 5 second deadline so a black-holed host fails fast
-instead of hanging the check. A single-DC domain (no replication partners)
-returns **OK** with an explanatory empty-state message.
+**Not-a-DC contract:** on a host that is not a domain controller, the check
+returns **UNKNOWN** with a "Not a domain controller" message rather than a hard
+error, so it is safe to deploy fleet-wide. The machine role is what decides
+this (`DsRoleGetPrimaryDomainInformation`), not the bind failure itself: a real
+domain controller that fails to answer — stopped NTDS, access denied, RPC
+unavailable — is reported as a plain failure, because that is the outage this
+check exists to surface. Remote targets are first probed on TCP port 135 (the
+RPC endpoint mapper) within `timeout=` so a black-holed host fails fast instead
+of hanging the check. A single-DC domain (no replication partners) returns
+**OK** with an explanatory empty-state message.

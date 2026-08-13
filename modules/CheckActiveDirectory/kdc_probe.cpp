@@ -3,6 +3,7 @@
 
 #include "kdc_probe.hpp"
 
+#include <boost/optional.hpp>
 #include <str/xtos.hpp>
 
 namespace kdc_probe {
@@ -61,19 +62,76 @@ bytes principal_name(unsigned long name_type, std::initializer_list<std::string>
 
 // --- minimal DER reader (for KRB-ERROR) -------------------------------------
 
-bool read_len(const bytes &d, std::size_t &pos, std::size_t &out) {
-  if (pos >= d.size()) return false;
-  const unsigned char first = d[pos++];
-  if ((first & 0x80) == 0) {
-    out = first;
-  } else {
-    const std::size_t count = first & 0x7f;
-    if (count == 0 || count > 4 || pos + count > d.size()) return false;
-    out = 0;
-    for (std::size_t i = 0; i < count; ++i) out = (out << 8) | d[pos++];
+// A bounds-checked read cursor over a slice of a DER buffer. Everything the
+// classifier reads goes through here, so no caller can index the buffer or
+// advance an offset by hand.
+//
+// Every length is validated against the bytes *remaining* (`remaining() < n`),
+// never by comparing `pos + n` to the size: a response is attacker-supplied
+// (the probe talks to whatever host:port the check was pointed at) and on a
+// 32-bit build `pos + n` wraps, so a crafted 4-octet length such as
+// 0xfffffff2 passed the old check and then drove the walk offset *backwards* -
+// an unterminated parse loop that spun a worker thread forever.
+class cursor {
+ public:
+  explicit cursor(const bytes &data) : data_(&data), pos_(0), end_(data.size()) {}
+
+  bool done() const { return pos_ >= end_; }
+  std::size_t remaining() const { return done() ? 0 : end_ - pos_; }
+
+  boost::optional<unsigned char> take_byte() {
+    if (done()) return boost::none;
+    return (*data_)[pos_++];
   }
-  return pos + out <= d.size();
-}
+
+  // One TLV: returns a cursor over its contents and reports the tag, or an
+  // empty optional when the buffer is truncated or the length is malformed.
+  boost::optional<cursor> take_tlv(unsigned char &tag) {
+    const boost::optional<unsigned char> t = take_byte();
+    if (!t) return boost::none;
+    const boost::optional<std::size_t> len = take_length();
+    if (!len) return boost::none;
+    // Safe: take_length() guarantees *len <= remaining(), so pos_ + *len <= end_.
+    const cursor content(*data_, pos_, pos_ + *len);
+    pos_ += *len;
+    tag = *t;
+    return content;
+  }
+
+  // The whole remaining slice as a two's-complement big-endian DER INTEGER.
+  // Accumulated unsigned: shifting a negative value left is undefined before
+  // C++20, and the sign seed makes short encodings extend correctly.
+  boost::optional<long long> take_integer() {
+    const std::size_t len = remaining();
+    if (len < 1 || len > sizeof(long long)) return boost::none;
+    unsigned long long acc = ((*data_)[pos_] & 0x80) != 0 ? ~0ULL : 0ULL;
+    for (std::size_t i = 0; i < len; ++i) acc = (acc << 8) | *take_byte();
+    return static_cast<long long>(acc);
+  }
+
+ private:
+  cursor(const bytes &data, std::size_t from, std::size_t to) : data_(&data), pos_(from), end_(to) {}
+
+  // DER length octets: short form, or long form with up to 4 length octets
+  // (a Kerberos message is capped well below 4GB by the caller anyway).
+  boost::optional<std::size_t> take_length() {
+    const boost::optional<unsigned char> first = take_byte();
+    if (!first) return boost::none;
+    std::size_t len = *first & 0x7f;
+    if ((*first & 0x80) != 0) {
+      const std::size_t count = len;
+      if (count == 0 || count > 4 || remaining() < count) return boost::none;
+      len = 0;
+      for (std::size_t i = 0; i < count; ++i) len = (len << 8) | *take_byte();
+    }
+    if (remaining() < len) return boost::none;
+    return len;
+  }
+
+  const bytes *data_;  // pointer, not reference, so the cursor stays copyable
+  std::size_t pos_;
+  std::size_t end_;
+};
 
 }  // namespace
 
@@ -115,31 +173,21 @@ classification classify_response(const bytes &data) {
   // Walk KRB-ERROR ::= [APPLICATION 30] SEQUENCE { ... error-code [6] Int32 ... }
   // for the error code; a parse failure still counts as a live KDC, we just
   // cannot name the error.
-  std::size_t pos = 1, len = 0;
-  if (!read_len(data, pos, len)) return result;
-  if (pos >= data.size() || data[pos] != 0x30) return result;
-  ++pos;
-  std::size_t seq_len = 0;
-  if (!read_len(data, pos, seq_len)) return result;
-  const std::size_t seq_end = pos + seq_len;
-  while (pos < seq_end && pos < data.size()) {
-    const unsigned char tag = data[pos++];
-    std::size_t field_len = 0;
-    if (!read_len(data, pos, field_len)) return result;
-    if (tag == 0xa6) {  // error-code [6]: INTEGER
-      std::size_t ipos = pos;
-      if (ipos < data.size() && data[ipos] == 0x02) {
-        ++ipos;
-        std::size_t ilen = 0;
-        if (read_len(data, ipos, ilen) && ilen >= 1 && ilen <= 8) {
-          long long code = (data[ipos] & 0x80) != 0 ? -1 : 0;  // sign-extend
-          for (std::size_t i = 0; i < ilen; ++i) code = (code << 8) | data[ipos + i];
-          result.error_code = code;
-        }
-      }
-      return result;
+  cursor outer(data);
+  unsigned char tag = 0;
+  boost::optional<cursor> application = outer.take_tlv(tag);
+  if (!application) return result;
+  boost::optional<cursor> sequence = application->take_tlv(tag);
+  if (!sequence || tag != 0x30) return result;
+  while (!sequence->done()) {
+    boost::optional<cursor> field = sequence->take_tlv(tag);
+    if (!field) return result;
+    if (tag != 0xa6) continue;  // error-code [6]
+    boost::optional<cursor> integer = field->take_tlv(tag);
+    if (integer && tag == 0x02) {
+      if (const boost::optional<long long> code = integer->take_integer()) result.error_code = *code;
     }
-    pos += field_len;
+    return result;
   }
   return result;
 }

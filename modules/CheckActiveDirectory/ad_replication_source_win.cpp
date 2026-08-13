@@ -6,32 +6,102 @@
 // boost/asio must precede Windows.h so winsock2.h is included first.
 #include <boost/asio.hpp>
 
-// Windows.h must precede ntdsapi.h; the capital W keeps clang-format's
-// case-sensitive include sort from breaking that order. asio defines
-// WIN32_LEAN_AND_MEAN, which drops rpc.h from Windows.h, so pull it in
+// Windows.h must precede ntdsapi.h/dsrole.h; the capital W keeps
+// clang-format's case-sensitive include sort from breaking that order. asio
+// defines WIN32_LEAN_AND_MEAN, which drops rpc.h from Windows.h, so pull it in
 // explicitly: ntdsapi.h needs RPC_AUTH_IDENTITY_HANDLE.
 #include <Windows.h>
 #include <rpc.h>
 
+#include <dsrole.h>
 #include <ntdsapi.h>
 
 #include <chrono>
-#include <error/error.hpp>
+#include <memory>
 #include <str/utf8.hpp>
 #include <str/xtos.hpp>
 #include <vector>
+
+#include "win32_error.hpp"
 
 namespace ad_replication_source {
 
 namespace {
 
+// --- RAII wrappers over the directory-service handles -----------------------
+
+// DsBindW hands out a binding that DsUnBindW must take back (by address).
+class ds_binding {
+ public:
+  ds_binding() = default;
+  ~ds_binding() {
+    if (handle_ != nullptr) DsUnBindW(&handle_);
+  }
+  ds_binding(const ds_binding &) = delete;
+  ds_binding &operator=(const ds_binding &) = delete;
+
+  DWORD bind(const std::wstring &server) { return DsBindW(server.c_str(), nullptr, &handle_); }
+  HANDLE get() const { return handle_; }
+
+ private:
+  HANDLE handle_ = nullptr;
+};
+
+// DsReplicaGetInfoW allocates a result that DsReplicaFreeInfo releases, and
+// the release needs the same info type the fetch was made with - so the two
+// belong together rather than in a bare pointer plus a matching free call.
+class ds_replica_info {
+ public:
+  explicit ds_replica_info(DS_REPL_INFO_TYPE type) : type_(type) {}
+  ~ds_replica_info() {
+    if (data_ != nullptr) DsReplicaFreeInfo(type_, data_);
+  }
+  ds_replica_info(const ds_replica_info &) = delete;
+  ds_replica_info &operator=(const ds_replica_info &) = delete;
+
+  DWORD fetch(HANDLE binding) { return DsReplicaGetInfoW(binding, type_, nullptr, nullptr, &data_); }
+  const DS_REPL_NEIGHBORSW *neighbors() const { return static_cast<const DS_REPL_NEIGHBORSW *>(data_); }
+
+ private:
+  DS_REPL_INFO_TYPE type_;
+  VOID *data_ = nullptr;
+};
+
+// DsRoleGetPrimaryDomainInformation has its own allocator (not NetApiBuffer).
+struct ds_role_deleter {
+  void operator()(void *buffer) const noexcept {
+    if (buffer != nullptr) DsRoleFreeMemory(buffer);
+  }
+};
+typedef std::unique_ptr<DSROLE_PRIMARY_DOMAIN_INFO_BASIC, ds_role_deleter> ds_role_ptr;
+
+// --- helpers ----------------------------------------------------------------
+
 std::string local_dns_hostname() {
   DWORD size = 0;
   GetComputerNameExW(ComputerNameDnsHostname, nullptr, &size);
   if (size == 0) return "";
-  std::vector<wchar_t> buf(size + 1, L'\0');
-  if (!GetComputerNameExW(ComputerNameDnsHostname, buf.data(), &size)) return "";
-  return utf8::cvt<std::string>(std::wstring(buf.data()));
+  std::wstring buf(size, L'\0');
+  if (!GetComputerNameExW(ComputerNameDnsHostname, &buf[0], &size)) return "";
+  buf.resize(size);
+  return utf8::cvt<std::string>(buf);
+}
+
+// Is the target actually a domain controller? A failed DsBind says nothing
+// about that on its own: a member server and a DC whose NTDS service has
+// stopped both refuse the bind the same way. Asking the machine role first is
+// what separates "there is nothing here to check" (benign, deploy fleet-wide)
+// from "this DC is not answering" - the very outage this check exists for.
+// Returns false only when the role is known and is not a DC; an unavailable
+// role lookup leaves the benign reading in place rather than raising a false
+// alarm.
+bool looks_like_a_domain_controller(const std::string &server) {
+  const std::wstring server_w = utf8::cvt<std::wstring>(server);
+  PBYTE raw = nullptr;
+  if (DsRoleGetPrimaryDomainInformation(server.empty() ? nullptr : server_w.c_str(), DsRolePrimaryDomainInfoBasic, &raw) != ERROR_SUCCESS) return true;
+  const ds_role_ptr info(reinterpret_cast<DSROLE_PRIMARY_DOMAIN_INFO_BASIC *>(raw));
+  if (!info) return true;
+  return info->MachineRole == DsRole_RoleBackupDomainController || info->MachineRole == DsRole_RolePrimaryDomainController;
 }
 
 // DsBindW itself has no timeout: against a black-holed host it blocks for the
@@ -79,7 +149,7 @@ long long filetime_to_epoch(const FILETIME &ft) {
 
 }  // namespace
 
-bool fetch(const std::string &server, std::vector<ad_replication_filter::filter_obj_ptr> &out, std::string &error, bool &not_a_dc) {
+bool fetch(const std::string &server, int timeout_ms, std::vector<ad_replication_filter::filter_obj_ptr> &out, std::string &error, bool &not_a_dc) {
   not_a_dc = false;
   // DsBind with a NULL server binds to *some* DC in the domain, not this host,
   // so always name the target explicitly: replication state is per-DC.
@@ -88,39 +158,41 @@ bool fetch(const std::string &server, std::vector<ad_replication_filter::filter_
     error = "Failed to resolve the local computer name";
     return false;
   }
-  const std::wstring target_w = utf8::cvt<std::wstring>(target);
 
   if (!server.empty()) {
     std::string reach_error;
-    if (!can_reach_rpc(server, 5000, reach_error)) {
+    if (!can_reach_rpc(server, timeout_ms, reach_error)) {
       error = "Cannot reach the RPC endpoint mapper on " + server + " (port 135): " + reach_error;
       return false;
     }
   }
 
-  HANDLE hds = nullptr;
-  DWORD rc = DsBindW(target_w.c_str(), nullptr, &hds);
+  ds_binding binding;
+  DWORD rc = binding.bind(utf8::cvt<std::wstring>(target));
   if (rc != ERROR_SUCCESS) {
-    // Only the local host gets the benign not-a-DC contract: deployed
-    // fleet-wide, a local bind failure means a non-DC (or a stopped NTDS).
-    // An explicitly named server failing to bind is a dead or unreachable
-    // domain controller — the very outage the check exists to surface.
-    not_a_dc = server.empty();
-    error = "Failed to bind to the directory service on " + target + ": " + error::lookup::last_error(rc);
+    // Only a machine that is genuinely not a domain controller gets the benign
+    // contract. A DC that fails to bind (stopped NTDS, access denied, RPC
+    // unavailable) is a real failure and must not be filed as "nothing here".
+    not_a_dc = !looks_like_a_domain_controller(server);
+    error = "Failed to bind to the directory service on " + target + ": " + check_ad::win32_error(rc);
     return false;
   }
 
-  DS_REPL_NEIGHBORSW *neighbors = nullptr;
-  rc = DsReplicaGetInfoW(hds, DS_REPL_INFO_NEIGHBORS, nullptr, nullptr, reinterpret_cast<VOID **>(&neighbors));
+  ds_replica_info info(DS_REPL_INFO_NEIGHBORS);
+  rc = info.fetch(binding.get());
   if (rc != ERROR_SUCCESS) {
-    error = "Failed to read replication state from " + target + ": " + error::lookup::last_error(rc);
-    DsUnBindW(&hds);
+    error = "Failed to read replication state from " + target + ": " + check_ad::win32_error(rc);
+    return false;
+  }
+  const DS_REPL_NEIGHBORSW *neighbors = info.neighbors();
+  if (neighbors == nullptr) {
+    error = "The directory service on " + target + " returned no replication state";
     return false;
   }
 
   for (DWORD i = 0; i < neighbors->cNumNeighbors; ++i) {
     const DS_REPL_NEIGHBORW &n = neighbors->rgNeighbor[i];
-    ad_replication_filter::filter_obj_ptr obj(new ad_replication_filter::filter_obj());
+    ad_replication_filter::filter_obj_ptr obj = std::make_shared<ad_replication_filter::filter_obj>();
     if (n.pszNamingContext != nullptr) obj->naming_context = utf8::cvt<std::string>(std::wstring(n.pszNamingContext));
     if (n.pszSourceDsaDN != nullptr) {
       obj->source_dsa_dn = utf8::cvt<std::string>(std::wstring(n.pszSourceDsaDN));
@@ -131,12 +203,10 @@ bool fetch(const std::string &server, std::vector<ad_replication_filter::filter_
     obj->last_success = filetime_to_epoch(n.ftimeLastSyncSuccess);
     obj->last_error = n.dwLastSyncResult;
     obj->consecutive_failures = n.cNumConsecutiveSyncFailures;
-    if (n.dwLastSyncResult != ERROR_SUCCESS) obj->last_error_message = error::lookup::last_error(n.dwLastSyncResult);
+    if (n.dwLastSyncResult != ERROR_SUCCESS) obj->last_error_message = check_ad::win32_error(n.dwLastSyncResult);
     out.push_back(obj);
   }
 
-  DsReplicaFreeInfo(DS_REPL_INFO_NEIGHBORS, neighbors);
-  DsUnBindW(&hds);
   return true;
 }
 

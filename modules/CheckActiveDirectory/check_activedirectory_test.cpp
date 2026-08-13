@@ -38,11 +38,13 @@ bool read_der_len(const bytes &d, std::size_t &pos, std::size_t &out) {
     out = first;
   } else {
     const std::size_t count = first & 0x7f;
-    if (count == 0 || count > 4 || pos + count > d.size()) return false;
+    if (count == 0 || count > 4 || d.size() - pos < count) return false;
     out = 0;
     for (std::size_t i = 0; i < count; ++i) out = (out << 8) | d[pos++];
   }
-  return pos + out <= d.size();
+  // Against the bytes remaining, never `pos + out`: that overflows size_t on a
+  // 32-bit build and lets a crafted length walk the offset backwards.
+  return out <= d.size() - pos;
 }
 
 // Parse a run of sibling TLVs covering `data` exactly.
@@ -243,13 +245,41 @@ TEST(ClassifyResponse, KrbErrorPreauthRequiredIsAliveWithCode) {
 
 TEST(ClassifyResponse, SkipsUnknownFieldsBeforeErrorCode) {
   // Realistic KRB-ERROR carries stime [4]/susec [5] before error-code [6].
-  const bytes krb_error = {0x7e, 0x2b, 0x30, 0x29, 0xa0, 0x03, 0x02, 0x01, 0x05, 0xa1, 0x03, 0x02, 0x01, 0x1e, 0xa4, 0x11,
+  const bytes krb_error = {0x7e, 0x2c, 0x30, 0x2a, 0xa0, 0x03, 0x02, 0x01, 0x05, 0xa1, 0x03, 0x02, 0x01, 0x1e, 0xa4, 0x11,
                            0x18, 0x0f, '2',  '0',  '2',  '6',  '0',  '1',  '0',  '1',  '0',  '0',  '0',  '0',  '0',  '0',
                            'Z',  0xa5, 0x05, 0x02, 0x03, 0x01, 0x02, 0x03, 0xa6, 0x04, 0x02, 0x02, 0x00, 0x44};
   const kdc_probe::classification c = kdc_probe::classify_response(krb_error);
   EXPECT_EQ(kdc_probe::response_kind::krb_error, c.kind);
   EXPECT_EQ(68, c.error_code);
   EXPECT_NE(std::string::npos, c.describe().find("KRB_ERR_WRONG_REALM"));
+}
+
+TEST(ClassifyResponse, NegativeErrorCodeSignExtends) {
+  // error-code [6] is an Int32, so a short two's-complement encoding must
+  // extend rather than read as a huge positive number.
+  const bytes krb_error = {0x7e, 0x09, 0x30, 0x07, 0xa6, 0x05, 0x02, 0x03, 0xff, 0xff, 0xfb};
+  EXPECT_EQ(-5, kdc_probe::classify_response(krb_error).error_code);
+}
+
+TEST(ClassifyResponse, WrappingFieldLengthTerminates) {
+  // A 4-octet length of 0xfffffff2 at this offset makes `pos + len` wrap on a
+  // 32-bit build: the old bounds check passed and the walk offset then moved
+  // *backwards*, spinning the parser forever on a response the probe took from
+  // whatever host it was pointed at. The length must be rejected against the
+  // bytes remaining instead. (On 64-bit there is no wrap, so this only guards
+  // the rule - it is the x86 packages that were exposed.)
+  const bytes krb_error = {0x7e, 0x18, 0x30, 0x16, 0xa0, 0x03, 0x02, 0x01, 0x05, 0xa1, 0x03, 0x02, 0x01,
+                           0x1e, 0xa4, 0x84, 0xff, 0xff, 0xff, 0xf2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  const kdc_probe::classification c = kdc_probe::classify_response(krb_error);
+  EXPECT_EQ(kdc_probe::response_kind::krb_error, c.kind);
+  EXPECT_EQ(-1, c.error_code);
+}
+
+TEST(ClassifyResponse, TruncatedFieldInsideSequenceTerminates) {
+  const bytes krb_error = {0x7e, 0x06, 0x30, 0x04, 0xa6, 0x7f, 0x02, 0x01};
+  const kdc_probe::classification c = kdc_probe::classify_response(krb_error);
+  EXPECT_EQ(kdc_probe::response_kind::krb_error, c.kind);
+  EXPECT_EQ(-1, c.error_code);
 }
 
 TEST(ClassifyResponse, GarbageIsInvalid) {

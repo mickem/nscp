@@ -29,6 +29,8 @@ set(SRCS
     check_secure_channel.hpp
     check_kdc.hpp
     kdc_probe.hpp
+    netapi_buffer.hpp
+    win32_error.hpp
     ${NSCP_DEF_PLUGIN_HPP}
     ${NSCP_FILTER_HPP}
     ${NSCP_ERROR_HPP}
@@ -40,7 +42,8 @@ add_library(${TARGET} MODULE ${SRCS})
 NSCP_DEBUG_SYMBOLS(${TARGET})
 
 # Ntdsapi (DsBind/DsReplicaGetInfo), Netapi32 (I_NetLogonControl2,
-# NetGetJoinInformation, DsGetDcName), ws2_32/mswsock (asio KDC probe).
+# NetGetJoinInformation, DsGetDcName, DsRoleGetPrimaryDomainInformation),
+# ws2_32/mswsock (asio KDC probe).
 set(EXTRA_LIBS Ntdsapi Netapi32 ws2_32 mswsock)
 
 target_link_libraries(
