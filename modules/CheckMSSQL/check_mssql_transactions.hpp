@@ -11,6 +11,19 @@
 
 namespace check_mssql_transactions_command {
 
+// Raw row: one open user transaction, with the owning session's longest-running
+// request attached when it has one.
+struct transaction_row {
+  long long session_id = 0;
+  std::string login;
+  std::string database;
+  std::string transaction_name;
+  long long transaction_age = 0;
+  long long request_age = -1;
+  long long is_idle = 0;
+  std::string command;
+};
+
 // One open user transaction as exposed to the filter engine.
 struct transaction_info {
   long long session_id = 0;
@@ -33,6 +46,15 @@ struct transaction_info {
 
   std::string show() const { return std::to_string(session_id); }
 };
+
+typedef std::vector<transaction_info> transactions_type;
+
+// Pure: one entry per session, keeping its oldest transaction. A session can
+// hold more than one open transaction at a time (a distributed transaction
+// enlisting several, for instance), and the oldest is the one pinning log
+// truncation and version-store cleanup - reporting per session also keeps the
+// session_id perfdata keys unique. Oldest first, as the most urgent.
+transactions_type build_transactions(const std::vector<transaction_row> &rows);
 
 void check(const mssql_odbc::connection_info &defaults, const PB::Commands::QueryRequestMessage::Request &request,
            PB::Commands::QueryResponseMessage::Response *response);

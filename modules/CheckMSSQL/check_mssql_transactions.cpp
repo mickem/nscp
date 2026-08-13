@@ -3,6 +3,8 @@
 
 #include "check_mssql_transactions.hpp"
 
+#include <algorithm>
+#include <map>
 #include <memory>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -34,9 +36,13 @@ const char *TRANSACTIONS_SQL =
     " FROM sys.dm_tran_session_transactions st"
     " JOIN sys.dm_tran_active_transactions at ON at.transaction_id = st.transaction_id"
     " JOIN sys.dm_exec_sessions s ON s.session_id = st.session_id"
-    " LEFT JOIN sys.dm_exec_requests r ON r.session_id = st.session_id"
-    " WHERE st.is_user_transaction = 1 AND st.session_id <> @@SPID"
-    " ORDER BY transaction_age DESC";
+    // OUTER APPLY rather than a LEFT JOIN on session_id alone: a MARS connection
+    // runs several requests on one session, and joining them all multiplied the
+    // transaction row - two rows for one transaction, a doubled count and a
+    // duplicated perfdata key. The longest-running request is the relevant one.
+    " OUTER APPLY (SELECT TOP 1 req.session_id, req.start_time, req.command FROM sys.dm_exec_requests req"
+    " WHERE req.session_id = st.session_id ORDER BY req.start_time) r"
+    " WHERE st.is_user_transaction = 1 AND st.session_id <> @@SPID";
 
 typedef transaction_info filter_obj;
 
@@ -69,6 +75,35 @@ filter_obj_handler::filter_obj_handler() {
 
 }  // namespace
 
+transactions_type build_transactions(const std::vector<transaction_row> &rows) {
+  std::map<long long, const transaction_row *> oldest;
+  for (const transaction_row &row : rows) {
+    const auto it = oldest.find(row.session_id);
+    if (it == oldest.end() || row.transaction_age > it->second->transaction_age) oldest[row.session_id] = &row;
+  }
+
+  transactions_type result;
+  for (const auto &entry : oldest) {
+    const transaction_row &row = *entry.second;
+    transaction_info info;
+    info.session_id = row.session_id;
+    info.login = row.login;
+    info.database = row.database;
+    info.transaction_name = row.transaction_name;
+    info.transaction_age = row.transaction_age;
+    info.request_age = row.request_age;
+    info.is_idle = row.is_idle;
+    info.command = row.command;
+    result.push_back(info);
+  }
+  // Oldest first, as the query's own ORDER BY used to deliver; session id breaks
+  // ties so the output stays stable between runs.
+  std::sort(result.begin(), result.end(), [](const transaction_info &a, const transaction_info &b) {
+    return a.transaction_age != b.transaction_age ? a.transaction_age > b.transaction_age : a.session_id < b.session_id;
+  });
+  return result;
+}
+
 void check(const mssql_odbc::connection_info &defaults, const PB::Commands::QueryRequestMessage::Request &request,
            PB::Commands::QueryResponseMessage::Response *response) {
   modern_filter::data_container data;
@@ -90,16 +125,22 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
 
   mssql_options::with_session(info, response, [&](mssql_odbc::session &session) {
     const mssql_odbc::result res = session.execute(TRANSACTIONS_SQL);
+    std::vector<transaction_row> rows;
     for (std::size_t i = 0; i < res.rows.size(); i++) {
-      auto record = std::make_shared<filter_obj>();
-      record->session_id = res.get_int(i, "session_id");
-      record->login = res.get_string(i, "login_name");
-      record->database = res.get_string(i, "database_name");
-      record->transaction_name = res.get_string(i, "transaction_name");
-      record->transaction_age = res.get_int(i, "transaction_age");
-      record->request_age = res.get_int(i, "request_age");
-      record->is_idle = res.get_int(i, "is_idle");
-      record->command = res.get_string(i, "command");
+      transaction_row row;
+      row.session_id = res.get_int(i, "session_id");
+      row.login = res.get_string(i, "login_name");
+      row.database = res.get_string(i, "database_name");
+      row.transaction_name = res.get_string(i, "transaction_name");
+      row.transaction_age = res.get_int(i, "transaction_age");
+      row.request_age = res.get_int(i, "request_age");
+      row.is_idle = res.get_int(i, "is_idle");
+      row.command = res.get_string(i, "command");
+      rows.push_back(row);
+    }
+
+    for (const transaction_info &open : build_transactions(rows)) {
+      auto record = std::make_shared<filter_obj>(open);
       filter.match(record);
     }
     filter_helper.post_process(filter);

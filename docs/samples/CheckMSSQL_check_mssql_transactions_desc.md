@@ -2,12 +2,19 @@
 
 `check_mssql_transactions` reports **open user transactions** from
 `sys.dm_tran_session_transactions` / `sys.dm_tran_active_transactions`, one
-row per transaction. An old open transaction blocks log truncation (the log
+row per session. An old open transaction blocks log truncation (the log
 grows until the disk fills) and pins version-store cleanup (tempdb grows) —
 it is the *precursor* to two different outages, hours before either happens,
 and `check_mssql_blocking` only sees it once another session collides with it.
 
-Keywords (one row per open transaction):
+A session holding more than one open transaction (a distributed transaction
+enlisting several, for instance) is reported once, with its **oldest** — that is
+the one pinning log truncation and the version store. Likewise, a session
+running several concurrent requests on one transaction (a
+`MultipleActiveResultSets` connection) is one row, described by its
+longest-running request.
+
+Keywords (one row per session with an open transaction):
 
 | Keyword            | Description                                                                |
 |--------------------|-----------------------------------------------------------------------------|

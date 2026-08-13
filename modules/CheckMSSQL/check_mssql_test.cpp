@@ -398,51 +398,130 @@ TEST(BuildJobs, NeverRanJob) {
   EXPECT_EQ(out[0].last_run_age, -1);
 }
 
-TEST(BuildBlocking, ResolvesChainsToTheRootBlocker) {
-  // 70 -> 60 -> 50, where 50 is not blocked: 50 is the root for both.
-  std::vector<check_mssql_blocking_command::blocking_row> rows(2);
-  rows[0].session_id = 60;
-  rows[0].blocking_session_id = 50;
-  rows[1].session_id = 70;
-  rows[1].blocking_session_id = 60;
+namespace {
+check_mssql_blocking_command::request_row make_request(long long session_id, long long blocking_session_id) {
+  check_mssql_blocking_command::request_row row;
+  row.session_id = session_id;
+  row.blocking_session_id = blocking_session_id;
+  return row;
+}
+}  // namespace
 
-  const auto out = check_mssql_blocking_command::build_blocking(rows);
-  ASSERT_EQ(out.size(), 2u);
+TEST(BuildBlocking, ResolvesChainsToTheRootBlocker) {
+  // 70 -> 60 -> 50, where 50 runs unblocked: 50 is the root for both.
+  const std::vector<check_mssql_blocking_command::request_row> requests = {make_request(60, 50), make_request(70, 60), make_request(50, 0)};
+
+  const auto out = check_mssql_blocking_command::build_blocking(requests, {});
+  ASSERT_EQ(out.size(), 2u);  // 50 is not blocked, so it is not reported
   EXPECT_EQ(out[0].root_blocker, 50);
   EXPECT_EQ(out[1].root_blocker, 50);
 }
 
 TEST(BuildBlocking, CycleTerminatesInsteadOfLooping) {
   // 60 -> 70 -> 60: a deadlock in flight must not hang the chain walk.
-  std::vector<check_mssql_blocking_command::blocking_row> rows(2);
-  rows[0].session_id = 60;
-  rows[0].blocking_session_id = 70;
-  rows[1].session_id = 70;
-  rows[1].blocking_session_id = 60;
+  const std::vector<check_mssql_blocking_command::request_row> requests = {make_request(60, 70), make_request(70, 60)};
 
-  const auto out = check_mssql_blocking_command::build_blocking(rows);
+  const auto out = check_mssql_blocking_command::build_blocking(requests, {});
   ASSERT_EQ(out.size(), 2u);
   // The walk stops at the first revisited session; both roots stay in the cycle.
   EXPECT_TRUE(out[0].root_blocker == 60 || out[0].root_blocker == 70);
   EXPECT_TRUE(out[1].root_blocker == 60 || out[1].root_blocker == 70);
 }
 
-TEST(BuildBlocking, DirectBlockerFieldsPassThrough) {
-  std::vector<check_mssql_blocking_command::blocking_row> rows(1);
-  rows[0].session_id = 61;
-  rows[0].blocking_session_id = 52;
-  rows[0].database = "appdb";
-  rows[0].login = "app";
-  rows[0].blocking_login = "batch";
-  rows[0].wait_time = 42;
-  rows[0].wait_type = "LCK_M_X";
-  rows[0].command = "UPDATE";
-  rows[0].blocker_idle = true;
+TEST(BuildBlocking, SelfBlockingParallelQueryIsNotBlocking) {
+  // A parallel query waiting on its own threads reports itself as its blocker
+  // (CXPACKET/CXCONSUMER). It is one session, so nothing is blocked.
+  auto parallel = make_request(61, 61);
+  parallel.wait_type = "CXCONSUMER";
+  parallel.wait_time = 600;
+  EXPECT_TRUE(check_mssql_blocking_command::build_blocking({parallel}, {}).empty());
+}
 
-  const auto out = check_mssql_blocking_command::build_blocking(rows);
+TEST(BuildBlocking, NegativeBlockerSentinelsAreNotBlocking) {
+  // -2 orphaned distributed transaction, -3 deferred recovery, -4 latch state
+  // undetermined: real trouble, but none of them names a session to report.
+  for (long long sentinel : {-2LL, -3LL, -4LL}) {
+    auto row = make_request(61, sentinel);
+    row.wait_time = 600;
+    EXPECT_TRUE(check_mssql_blocking_command::build_blocking({row}, {}).empty()) << "sentinel " << sentinel;
+  }
+}
+
+TEST(BuildBlocking, MarsSessionBlockedTwiceIsOneRowWithTheLongestWait) {
+  auto first = make_request(61, 52);
+  first.wait_time = 12;
+  auto second = make_request(61, 52);  // same session, second concurrent request
+  second.wait_time = 47;
+
+  const auto out = check_mssql_blocking_command::build_blocking({first, second}, {});
   ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].wait_time, 47);
+}
+
+TEST(BuildBlocking, BlockerIdleWhenTheBlockerHasNoRequestOfItsOwn) {
+  const auto blocked = make_request(61, 52);
+  EXPECT_EQ(check_mssql_blocking_command::build_blocking({blocked}, {})[0].get_blocker_idle(), 1);
+
+  // 52 shows up with a request of its own: actively working, not idle.
+  const auto out = check_mssql_blocking_command::build_blocking({blocked, make_request(52, 0)}, {});
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].get_blocker_idle(), 0);
+}
+
+TEST(BuildBlocking, LoginsComeFromTheSessionRows) {
+  auto blocked = make_request(61, 52);
+  blocked.database = "appdb";
+  blocked.wait_time = 42;
+  blocked.wait_type = "LCK_M_X";
+  blocked.command = "UPDATE";
+  std::vector<check_mssql_blocking_command::session_row> sessions(2);
+  sessions[0].session_id = 61;
+  sessions[0].login = "app";
+  sessions[1].session_id = 52;
+  sessions[1].login = "batch";
+
+  const auto out = check_mssql_blocking_command::build_blocking({blocked}, sessions);
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].login, "app");
+  EXPECT_EQ(out[0].blocking_login, "batch");
   EXPECT_EQ(out[0].root_blocker, 52);  // blocker not itself blocked
-  EXPECT_EQ(out[0].get_blocker_idle(), 1);
+  EXPECT_EQ(out[0].show(), "61");
+}
+
+TEST(BuildTransactions, KeepsTheOldestTransactionPerSessionOldestFirst) {
+  // A MARS/DTC session with two open transactions must not report twice: the
+  // oldest is what pins log truncation, and one row keeps the perf key unique.
+  std::vector<check_mssql_transactions_command::transaction_row> rows(3);
+  rows[0].session_id = 61;
+  rows[0].transaction_age = 120;
+  rows[1].session_id = 61;
+  rows[1].transaction_age = 900;
+  rows[2].session_id = 55;
+  rows[2].transaction_age = 300;
+
+  const auto out = check_mssql_transactions_command::build_transactions(rows);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].session_id, 61);
+  EXPECT_EQ(out[0].transaction_age, 900);
+  EXPECT_EQ(out[1].session_id, 55);
+  EXPECT_EQ(out[1].transaction_age, 300);
+}
+
+TEST(BuildTransactions, PassesTheIdleAndRequestFieldsThrough) {
+  std::vector<check_mssql_transactions_command::transaction_row> rows(1);
+  rows[0].session_id = 61;
+  rows[0].login = "app";
+  rows[0].database = "appdb";
+  rows[0].transaction_name = "user_transaction";
+  rows[0].transaction_age = 3600;
+  rows[0].request_age = -1;
+  rows[0].is_idle = 1;
+
+  const auto out = check_mssql_transactions_command::build_transactions(rows);
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].get_is_idle(), 1);
+  EXPECT_EQ(out[0].get_request_age(), -1);
+  EXPECT_EQ(out[0].get_login(), "app");
   EXPECT_EQ(out[0].show(), "61");
 }
 
