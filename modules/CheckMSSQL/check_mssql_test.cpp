@@ -106,13 +106,167 @@ TEST(PickDriver, DefaultsToLegacyNameWhenNothingMatches) { EXPECT_EQ(mssql_odbc:
 
 // --- pure builders ---------------------------------------------------------------
 
+namespace {
+// A growable, uncapped 10MB data file in filegroup 1 of database 5, on volume
+// "/data" with `available` bytes free. Tests override only what they are about.
+check_mssql_databases_command::file_row make_file(long long available = 100 * 1024 * 1024) {
+  check_mssql_databases_command::file_row file;
+  file.database_id = 5;
+  file.file_id = 1;
+  file.type = 0;
+  file.data_space_id = 1;
+  file.growth = 1024;
+  file.size_bytes = 10 * 1024 * 1024;
+  file.max_size_bytes = -1;
+  file.volume = "/data";
+  file.available_bytes = available;
+  return file;
+}
+
+long long data_headroom(const std::vector<check_mssql_databases_command::file_row> &files) {
+  const auto out = check_mssql_databases_command::compute_headroom(files);
+  const auto it = out.find(5);
+  return it == out.end() ? -99 : it->second.data;
+}
+}  // namespace
+
+TEST(ComputeHeadroom, AutogrowthOffOrPinnedCannotGrow) {
+  auto file = make_file();
+  file.growth = 0;
+  EXPECT_EQ(data_headroom({file}), 0);
+
+  file = make_file();
+  file.max_size_bytes = 0;
+  EXPECT_EQ(data_headroom({file}), 0);
+}
+
+TEST(ComputeHeadroom, UncappedFileIsBoundedByItsVolume) { EXPECT_EQ(data_headroom({make_file(64 * 1024 * 1024)}), 64 * 1024 * 1024); }
+
+TEST(ComputeHeadroom, CappedFileIsBoundedByTheVolumeNotTheCap) {
+  // The case a plain cap-distance calculation gets wrong: a log file carrying
+  // the engine's default 2TB cap on a volume with 1GB left has 1GB of room.
+  auto file = make_file(1024 * 1024 * 1024);
+  file.type = 1;
+  file.data_space_id = 0;
+  file.max_size_bytes = 2199023255552LL;  // 268435456 pages
+  const auto out = check_mssql_databases_command::compute_headroom({file});
+  EXPECT_EQ(out.at(5).log, 1024 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, CappedFileIsBoundedByTheCapWhenTheVolumeIsRoomier) {
+  auto file = make_file(500LL * 1024 * 1024 * 1024);
+  file.max_size_bytes = 30 * 1024 * 1024;  // 20MB left of a 30MB cap
+  EXPECT_EQ(data_headroom({file}), 20 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, CapLoweredUnderTheFileReportsZeroNotNegative) {
+  auto file = make_file();
+  file.size_bytes = 30 * 1024 * 1024;
+  file.max_size_bytes = 20 * 1024 * 1024;
+  EXPECT_EQ(data_headroom({file}), 0);
+}
+
+TEST(ComputeHeadroom, UnknownVolumeIsUnknownNotZero) {
+  auto file = make_file(-1);  // no dm_os_volume_stats row: denied, or offline
+  file.volume.clear();
+  EXPECT_EQ(data_headroom({file}), -1);
+
+  file.max_size_bytes = 30 * 1024 * 1024;  // capped, but the volume is still unknown
+  EXPECT_EQ(data_headroom({file}), -1);
+
+  file.growth = 0;  // cannot grow at all, so the volume does not matter
+  EXPECT_EQ(data_headroom({file}), 0);
+}
+
+TEST(ComputeHeadroom, FilesSharingAVolumeCountItOnce) {
+  // A default tempdb has one file per core in a single filegroup on a single
+  // volume: summing per file reported eight times the free space on disk.
+  std::vector<check_mssql_databases_command::file_row> files;
+  for (int i = 0; i < 8; i++) {
+    auto file = make_file(50 * 1024 * 1024);
+    file.file_id = 1 + i;
+    files.push_back(file);
+  }
+  EXPECT_EQ(data_headroom(files), 50 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, FilesOnSeparateVolumesAddUp) {
+  auto first = make_file(50 * 1024 * 1024);
+  auto second = make_file(30 * 1024 * 1024);
+  second.file_id = 2;
+  second.volume = "/data2";
+  EXPECT_EQ(data_headroom({first, second}), 80 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, FixedFileDoesNotPinItsFilegroupButAFullFilegroupPinsTheDatabase) {
+  // Proportional fill keeps allocating in sibling files until the whole
+  // filegroup is full, so a fixed-size file must not pin its filegroup - but a
+  // constrained *filegroup* does limit the database.
+  std::vector<check_mssql_databases_command::file_row> files;
+  auto fixed = make_file();  // filegroup 1: no room of its own ...
+  fixed.growth = 0;
+  files.push_back(fixed);
+  auto growable = make_file(70 * 1024 * 1024);  // ... but 70MB via its sibling
+  growable.file_id = 2;
+  growable.volume = "/data2";
+  files.push_back(growable);
+  auto other_fg = make_file(9 * 1024 * 1024);  // filegroup 2: only 9MB
+  other_fg.file_id = 3;
+  other_fg.data_space_id = 2;
+  other_fg.volume = "/data3";
+  files.push_back(other_fg);
+
+  const auto out = check_mssql_databases_command::compute_headroom(files);
+  ASSERT_EQ(out.count(5), 1u);
+  EXPECT_EQ(out.at(5).data, 9 * 1024 * 1024);
+  EXPECT_EQ(out.at(5).log, -1);  // no log files in the input
+}
+
+TEST(ComputeHeadroom, CappedSiblingsShareTheVolumeBudget) {
+  // Two capped files on one volume: their caps allow 60MB but the disk has 50.
+  auto first = make_file(50 * 1024 * 1024);
+  first.max_size_bytes = 40 * 1024 * 1024;  // 30MB to the cap
+  auto second = first;
+  second.file_id = 2;  // another 30MB to its own cap
+  EXPECT_EQ(data_headroom({first, second}), 50 * 1024 * 1024);
+
+  // Same pair on a roomier disk: now the caps are what bind.
+  first.available_bytes = 500 * 1024 * 1024;
+  second.available_bytes = 500 * 1024 * 1024;
+  EXPECT_EQ(data_headroom({first, second}), 60 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, UnknownFilePoisonsItsFilegroupAndDatabase) {
+  auto known = make_file(20 * 1024 * 1024);
+  auto unknown = make_file(-1);
+  unknown.file_id = 2;
+  unknown.volume.clear();
+  EXPECT_EQ(data_headroom({known, unknown}), -1);
+}
+
+TEST(ComputeHeadroom, LogFilesRollUpAsOneGroup) {
+  std::vector<check_mssql_databases_command::file_row> files;
+  for (int i = 0; i < 2; i++) {
+    auto log = make_file(8 * 1024 * 1024);
+    log.file_id = 2 + i;
+    log.type = 1;
+    log.data_space_id = 0;                        // every log file reports 0
+    log.volume = i == 0 ? "/log1" : "/log2";      // separate volumes, so they add
+    files.push_back(log);
+  }
+
+  const auto out = check_mssql_databases_command::compute_headroom(files);
+  EXPECT_EQ(out.at(5).log, 16 * 1024 * 1024);
+  EXPECT_EQ(out.at(5).data, -1);
+}
+
 TEST(BuildDatabases, MergesLogspaceByNameAndDefaultsToUnknown) {
   std::vector<check_mssql_databases_command::database_row> databases(2);
+  databases[0].database_id = 1;
   databases[0].name = "master";
   databases[0].state = "ONLINE";
   databases[0].recovery_model = "SIMPLE";
-  databases[0].data_bytes = 8 * 1024 * 1024;
-  databases[0].log_bytes = 2 * 1024 * 1024;
+  databases[1].database_id = 2;
   databases[1].name = "orphan";
   databases[1].state = "OFFLINE";
 
@@ -123,29 +277,38 @@ TEST(BuildDatabases, MergesLogspaceByNameAndDefaultsToUnknown) {
   const auto out = check_mssql_databases_command::build_databases(databases, logspace, {});
   ASSERT_EQ(out.size(), 2u);
   EXPECT_EQ(out[0].log_used_pct, 42);
-  EXPECT_EQ(out[0].data_size, 8 * 1024 * 1024);
-  EXPECT_EQ(out[1].log_used_pct, -1);  // not present in LOGSPACE output
-  EXPECT_EQ(out[0].data_headroom, -1);  // no headroom rows: unknown
+  EXPECT_EQ(out[1].log_used_pct, -1);   // not present in LOGSPACE output
+  EXPECT_EQ(out[0].data_headroom, -1);  // no file rows: unknown
   EXPECT_EQ(out[0].log_headroom, -1);
 }
 
-TEST(BuildDatabases, HeadroomMergesByTypeAndClampsNegatives) {
+TEST(BuildDatabases, SumsFileSizesAndHeadroomByDatabaseId) {
   std::vector<check_mssql_databases_command::database_row> databases(2);
+  databases[0].database_id = 5;
   databases[0].name = "appdb";
-  databases[1].name = "restricted";  // offline in the headroom query: stays unknown
+  databases[1].database_id = 6;
+  databases[1].name = "restricted";  // no file rows of its own: stays unknown
 
-  std::vector<check_mssql_databases_command::headroom_row> headroom(2);
-  headroom[0].name = "appdb";
-  headroom[0].type = 0;      // data file shrunk below a former cap:
-  headroom[0].headroom = -4096;  // clamp, do not report negative room
-  headroom[1].name = "appdb";
-  headroom[1].type = 1;  // log
-  headroom[1].headroom = 1024 * 1024;
+  std::vector<check_mssql_databases_command::file_row> files;
+  files.push_back(make_file(64 * 1024 * 1024));  // 10MB data file
+  auto second_data = make_file(64 * 1024 * 1024);
+  second_data.file_id = 2;
+  files.push_back(second_data);  // sibling on the same volume: 64MB, not 128MB
+  auto log = make_file(64 * 1024 * 1024);
+  log.file_id = 3;
+  log.type = 1;
+  log.data_space_id = 0;
+  log.size_bytes = 4 * 1024 * 1024;
+  log.volume = "/log";
+  files.push_back(log);
 
-  const auto out = check_mssql_databases_command::build_databases(databases, {}, headroom);
+  const auto out = check_mssql_databases_command::build_databases(databases, {}, files);
   ASSERT_EQ(out.size(), 2u);
-  EXPECT_EQ(out[0].data_headroom, 0);
-  EXPECT_EQ(out[0].log_headroom, 1024 * 1024);
+  EXPECT_EQ(out[0].data_size, 20 * 1024 * 1024);  // both data files
+  EXPECT_EQ(out[0].log_size, 4 * 1024 * 1024);
+  EXPECT_EQ(out[0].data_headroom, 64 * 1024 * 1024);
+  EXPECT_EQ(out[0].log_headroom, 64 * 1024 * 1024);
+  EXPECT_EQ(out[1].data_size, 0);
   EXPECT_EQ(out[1].data_headroom, -1);
   EXPECT_EQ(out[1].log_headroom, -1);
 }

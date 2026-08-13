@@ -332,6 +332,30 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     expect(out).toMatch(/^OK/m);
   });
 
+  it("check_mssql_databases bounds headroom by the volume, counting it once", async () => {
+    // Two regressions in one assertion, both about headroom that ignores the
+    // disk. tempdb has one data file per core in a single filegroup on a single
+    // volume, so counting each file's volume free space reported 8x the disk;
+    // and a log file with unlimited growth still carries the engine's 2TB cap,
+    // so reporting distance-to-cap claimed ~2.2TB of room on a ~924GB volume.
+    // Both now report the volume's free space, so all three values agree.
+    const out = await query("check_mssql_databases", [
+      "warning=data_headroom < 1K and log_headroom < 1K",
+      "critical=none",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    const value = (key: string): number => {
+      const m = out.match(new RegExp(`'?${key}'?=(\\d+)B`));
+      expect(m).not.toBeNull();
+      return Number(m![1]);
+    };
+    const masterData = value("master_data_headroom");
+    expect(masterData).toBeGreaterThan(0);
+    // Same volume, so within rounding of each other rather than 8x / 2.2x off.
+    expect(value("tempdb_data_headroom") / masterData).toBeCloseTo(1, 2);
+    expect(value("master_log_headroom") / masterData).toBeCloseTo(1, 2);
+  });
+
   it("check_mssql_databases emits size perfdata when size keywords are referenced", async () => {
     // Perfdata is emitted for variables referenced in expressions; type_size
     // keywords accept unit suffixes like 100G.
