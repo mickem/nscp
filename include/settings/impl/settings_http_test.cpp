@@ -242,6 +242,49 @@ TEST(settings_http, resolve_cache_file_separates_urls_differing_only_in_query) {
   EXPECT_EQ(rp.filename().string(), "nsclient.php");
 }
 
+TEST(settings_http, expands_hostname_placeholders_in_the_query) {
+  // One boot.ini for a whole fleet: the script is told which host is asking.
+  loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  temp_dir cache;
+  http_test_core core(cache.path());
+  settings::settings_http s(&core, "test", http_url(server.port(), "/nsclient.php?host=${hostname}"));
+
+  const std::string expected = net::encode_query("host=" + boost::asio::ip::host_name());
+  const std::string request = server.request_line();
+  EXPECT_NE(request.find("/nsclient.php?" + expected), std::string::npos) << "request line was: " << request;
+  EXPECT_EQ(request.find("${"), std::string::npos) << "request line was: " << request;
+}
+
+TEST(settings_http, expands_hostname_placeholders_outside_the_query) {
+  // A placeholder is allowed anywhere in the url, not just in the parameters.
+  loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  temp_dir cache;
+  http_test_core core(cache.path());
+  settings::settings_http s(&core, "test", http_url(server.port(), "/hosts/${host}/nsclient.ini"));
+
+  const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
+  const std::string request = server.request_line();
+  EXPECT_NE(request.find("/hosts/" + host + "/nsclient.ini"), std::string::npos) << "request line was: " << request;
+}
+
+TEST(settings_http, expanded_query_drives_the_cache_file_name) {
+  // The cache name is derived from the expanded url, so it is stable for a
+  // given host rather than being one shared "${hostname}" bucket.
+  loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  temp_dir cache;
+  http_test_core core(cache.path());
+  settings::settings_http s(&core, "test", http_url(server.port(), "/nsclient.php?host=${hostname}"));
+
+  net::url expanded;
+  expanded.path = "/nsclient.php";
+  expanded.query = "host=" + boost::asio::ip::host_name();
+  net::url literal;
+  literal.path = "/nsclient.php";
+  literal.query = "host=${hostname}";
+  EXPECT_NE(s.resolve_cache_file(expanded), s.resolve_cache_file(literal));
+  EXPECT_TRUE(boost::filesystem::is_regular_file(s.resolve_cache_file(expanded))) << "the fetch should have cached under the expanded name";
+}
+
 TEST(settings_http, migrates_the_pre_460_cache_file_to_the_new_name) {
   // Upgrade scenario: the agent already has a cache file under the old
   // query-less name, and the settings server is unreachable on this boot.  The

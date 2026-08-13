@@ -30,6 +30,7 @@
 #include <net/http/proxy_config.hpp>
 #include <net/net.hpp>
 #include <net/socket/client.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
 
@@ -42,8 +43,21 @@ class settings_http : public settings::settings_interface_impl {
   instance_raw_ptr child_instance;
 
  public:
+  // Settings urls take the same host name placeholders as the submit clients
+  // (NRDP, Graphite, Syslog, ...): ${hostname}, ${host}, ${domain} and their
+  // _lc/_uc variants. That is what makes one boot.ini deployable to a whole
+  // fleet - every agent asks the same script for its own configuration:
+  //
+  //   [settings]
+  //   1 = http://cfgsrv/nsclient.php?host=${hostname}
+  //
+  // Expanded before parsing, so a placeholder may sit anywhere in the url
+  // (host, path or query), and before the query is percent-encoded, so a host
+  // name that needs escaping gets escaped rather than corrupting the request.
+  static net::url parse_settings_url(const std::string &url) { return net::parse(socket_helpers::expand_hostname(url)); }
+
   settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {
-    remote_url = net::parse(utf8::cvt<std::string>(context));
+    remote_url = parse_settings_url(utf8::cvt<std::string>(context));
     boost::filesystem::path path = core->expand_path(CACHE_FOLDER);
     if (!boost::filesystem::is_directory(path)) {
       if (boost::filesystem::is_regular_file(path)) throw new settings_exception(__FILE__, __LINE__, "Cache path not found: " + path.string());
@@ -353,7 +367,7 @@ class settings_http : public settings::settings_interface_impl {
       std::string target = get_core()->expand_path(k);
       op_string str = child->get_string("/attachments", k);
       if (!str) continue;
-      net::url source = net::parse(*str);
+      net::url source = parse_settings_url(*str);
       get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_log_safe_string() + " as " + target);
       cache_remote_file(source, target);
     }

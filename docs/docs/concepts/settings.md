@@ -164,6 +164,35 @@ Characters that are not legal in a url query - a space, most notably - are perce
 the request is sent. Anything already written as `%XX` is left as it is, so a query you encoded
 yourself is not encoded twice.
 
+#### Host name placeholders
+
+The url may contain the same host name placeholders the submit clients (NRDP, Graphite, Syslog and
+friends) accept, so a single `boot.ini` can be rolled out to an entire fleet and each agent asks for
+its own configuration:
+
+```ini
+[settings]
+1 = http://cfgsrv/nsclient.php?host=${hostname}
+```
+
+| Placeholder | Expands to |
+|---|---|
+| `${hostname}` | the system host name as reported, e.g. `srv01.example.com` |
+| `${host}` | the part before the first `.`, e.g. `srv01` |
+| `${domain}` | the part after the first `.`, e.g. `example.com` |
+
+Each of the three also has a `_lc` and a `_uc` variant (`${hostname_lc}`, `${host_uc}`, ...) that
+lower- or upper-cases the result.
+
+Placeholders are expanded before the url is parsed, so they may appear anywhere in it - in the
+query, in the path (`http://cfgsrv/hosts/${host}/nsclient.ini`) or even in the host name. They are
+expanded before percent-encoding, so a host name containing a character that needs escaping is
+escaped rather than corrupting the request. The cache file name is derived from the expanded url,
+so each host caches its own configuration.
+
+> **New in 0.14:** `${hostname}`, `${hostname_lc}` and `${hostname_uc}`. The other placeholders
+> already existed for the submit clients; this makes them available in settings urls too.
+
 If the query carries a credential (`?token=...`), note that it is still sent in clear text unless
 the url is `https://`. NSClient++ keeps query parameters out of its own log: it logs settings urls
 as scheme, host and path only.
