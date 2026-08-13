@@ -751,6 +751,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       ("tls-version", po::value<std::string>(&request.tls_version)->default_value("tlsv1.2+"), "TLS version for the enrollment call")
       ("verify", po::value<std::string>(&request.verify_mode), "TLS verify mode (default: certificate). 'none' disables server verification and requires --insecure")
       ("retries", po::value<unsigned int>(&request.max_attempts)->default_value(3), "Attempts for transient failures (rate limiting, server errors)")
+      ("timeout", po::value<unsigned int>(&request.timeout_seconds)->default_value(60), "Seconds a single read or write to the fleet server may take before the attempt is abandoned. 0 waits forever, which lets an unresponsive server block the command indefinitely")
       ("state-file", po::value<std::string>(&state_file), "Where to store the enrolled identity (default: ${certificate-path}/agent-state.json)")
       ("force", po::bool_switch(&force), "Overwrite an existing enrollment state file")
       ("insecure", po::bool_switch(&insecure), "Allow an unauthenticated enrollment: plain HTTP, or HTTPS with --verify none. Either way the fleet server is not authenticated, so an on-path attacker can read the bootstrap token and supply the trust anchors this agent will use from then on - only on a trusted network or for testing")

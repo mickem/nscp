@@ -6,5 +6,7 @@ EXPORTS
 	ApplyTool
 	DetectTool
 	BackupConfig
+	ScheduleEnrollFleet
+	ExecEnrollFleet
 	NeedUninstall
 	WriteArpUninstallStrings

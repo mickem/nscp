@@ -80,6 +80,15 @@ struct enrollment_request {
   std::string ca;           // CA bundle used to verify the server
 
   unsigned int max_attempts = 3;  // attempts for retryable failures (429/5xx/network)
+
+  // Deadline for a single read or write on the enrollment call, in seconds (0
+  // waits forever). max_attempts does not bound the wait on its own: it only
+  // counts requests that finished, and a server that accepts the connection
+  // and then stops answering never produces one. That matters most from the
+  // installer, where the call runs inside a deferred custom action - an
+  // unbounded wait wedges msiexec mid-script on an unattended install with
+  // nobody there to interrupt it. Same default as the fleet sync's `timeout`.
+  unsigned int timeout_seconds = 60;
 };
 
 // Everything a successful enrollment returns plus the locally generated

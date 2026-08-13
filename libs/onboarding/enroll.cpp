@@ -115,7 +115,11 @@ http::response default_post(const onboarding::enrollment_request &request, const
   // against the attacker's material. Callers that genuinely want an unverified
   // enrollment now have to ask for it explicitly (nscp enroll --insecure).
   const std::string verify = request.verify_mode.empty() ? "certificate" : request.verify_mode;
-  const http::http_client_options options(parsed.protocol, request.tls_version, verify, request.ca);
+  http::http_client_options options(parsed.protocol, request.tls_version, verify, request.ca);
+  // Bound every read and write: a server that accepts the connection and then
+  // goes quiet would otherwise block here forever, and the retry loop below
+  // never gets to count it as an attempt (see enrollment_request::timeout_seconds).
+  options.timeout_seconds_ = request.timeout_seconds;
   http::request rq("POST", parsed.host, parsed.path);
   rq.add_post_payload("application/json", payload);
   rq.add_header("Accept", "application/json");

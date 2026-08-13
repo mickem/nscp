@@ -42,6 +42,18 @@
 
 #define MONITORING_TOOL_OP5 L"OP5"
 
+// Fleet onboarding: enroll this host against an NSClient fleet server during
+// install. FLEET_SERVER + FLEET_TOKEN come from the install command generated
+// by the fleet server; the rest are escape hatches for unusual deployments.
+// These are plain properties (no KEY_/DEFAULT_ prefixes): they are one-shot
+// install-time instructions, not configuration we read back and diff.
+#define FLEET_SERVER L"FLEET_SERVER"
+#define FLEET_TOKEN L"FLEET_TOKEN"
+#define FLEET_HOSTNAME L"FLEET_HOSTNAME"
+#define FLEET_CA L"FLEET_CA"
+#define FLEET_VERIFY_MODE L"FLEET_VERIFY_MODE"
+#define FLEET_INSECURE L"FLEET_INSECURE"
+
 #define OP5_SERVER L"OP5_SERVER"
 #define OP5_USER L"OP5_USER"
 #define OP5_PASSWORD L"OP5_PASSWORD"

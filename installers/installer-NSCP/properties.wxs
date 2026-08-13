@@ -21,6 +21,22 @@
 	<Property Id="SERVICE_NAME">$(var.App.ServiceName)</Property>
 	<Property Id="APP_TITLE">$(var.App.Title) Monitoring Agent</Property>
   
+	<!-- FLEET ONBOARDING
+	     Declared (rather than just read by the custom actions) to mark them
+	     Secure, so they survive a managed/elevated install, and to hide the
+	     bootstrap token: it is a one-time credential that exchanges for this
+	     host's client certificate, so it must not end up in the MSI log -
+	     neither as the property itself nor as the CustomActionData of the
+	     deferred action (that data lives in a property named after the
+	     action). -->
+	<Property Id="FLEET_SERVER" Secure="yes" />
+	<Property Id="FLEET_TOKEN" Secure="yes" Hidden="yes" />
+	<Property Id="FLEET_HOSTNAME" Secure="yes" />
+	<Property Id="FLEET_CA" Secure="yes" />
+	<Property Id="FLEET_VERIFY_MODE" Secure="yes" />
+	<Property Id="FLEET_INSECURE" Secure="yes" />
+	<Property Id="ExecEnrollFleet" Hidden="yes" />
+
 	<!-- internal keys (required for the UI, never used) -->
 	<Property Id="KEY_NRPEMODE">SECURE</Property>
   
