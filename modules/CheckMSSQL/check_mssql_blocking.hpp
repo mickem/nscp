@@ -11,17 +11,23 @@
 
 namespace check_mssql_blocking_command {
 
-// Raw row from sys.dm_exec_requests: one row per currently blocked request.
-struct blocking_row {
+// Raw row from sys.dm_exec_requests: one row per request in flight, blocked or
+// not. The unblocked rows are needed too - whether the blocker has a request of
+// its own is what separates a working blocker from one sitting idle in an open
+// transaction.
+struct request_row {
   long long session_id = 0;
   long long blocking_session_id = 0;
   std::string database;
-  std::string login;
-  std::string blocking_login;
   long long wait_time = 0;  // seconds
   std::string wait_type;
   std::string command;
-  bool blocker_idle = false;  // the direct blocker has no active request (sleeping while holding locks)
+};
+
+// Raw row from sys.dm_exec_sessions.
+struct session_row {
+  long long session_id = 0;
+  std::string login;
 };
 
 // One blocked session as exposed to the filter engine.
@@ -53,11 +59,21 @@ struct blocking_info {
 
 typedef std::vector<blocking_info> blocking_type;
 
-// Pure: map the blocked-request rows into filter objects and resolve each
-// chain to its root blocker (the session everyone is ultimately waiting on).
-// Walks blocked -> blocker until the blocker is not itself blocked; a cycle
-// (deadlock in flight) terminates at the first revisited session.
-blocking_type build_blocking(const std::vector<blocking_row> &rows);
+// Pure: pick the blocked requests out of every request in flight, attach logins
+// from the session rows, and resolve each chain to its root blocker (the session
+// everyone is ultimately waiting on). Walks blocked -> blocker until the blocker
+// is not itself blocked; a cycle (a deadlock in flight) terminates at the first
+// revisited session.
+//
+// A request counts as blocked only when blocking_session_id names another
+// session: 0 means nothing blocks it, the documented negative values (-2
+// orphaned distributed transaction, -3 deferred recovery, -4 latch state
+// undetermined) name no session at all, and a value equal to session_id is a
+// parallel query waiting on its own threads (CXPACKET/CXCONSUMER), not a
+// conflict between two sessions. One blocked entry is reported per session,
+// keeping its longest-waiting request, so that a session with several requests
+// blocked at once stays a single row with a unique perfdata key.
+blocking_type build_blocking(const std::vector<request_row> &requests, const std::vector<session_row> &sessions);
 
 void check(const mssql_odbc::connection_info &defaults, const PB::Commands::QueryRequestMessage::Request &request,
            PB::Commands::QueryResponseMessage::Response *response);

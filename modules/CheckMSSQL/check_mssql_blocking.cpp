@@ -3,6 +3,7 @@
 
 #include "check_mssql_blocking.hpp"
 
+#include <map>
 #include <memory>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -17,24 +18,26 @@ namespace check_mssql_blocking_command {
 
 namespace {
 
-// One row per blocked request. The blocker's own request is LEFT JOINed to
-// tell an actively working blocker from a sleeping one: a blocker with no
-// active request is holding locks inside an open transaction while idle - the
-// classic orphaned-transaction "the application is frozen" case.
-const char *BLOCKING_SQL =
+// Two flat selects instead of one four-way join: which requests count as
+// blocked, which of a session's requests to report, and whether the blocker is
+// idle are all decisions, and build_blocking() makes them where they can be
+// unit-tested. Joining the blocker's request set in SQL also multiplied the
+// blocked row when the blocker had several requests in flight (a MARS
+// connection), inflating both the count and the perfdata.
+//
+// Every request is fetched, not just the blocked ones: a blocker with no
+// request of its own is holding locks inside an open transaction while idle -
+// the classic orphaned-transaction "the application is frozen" case - and that
+// is only visible if the unblocked rows come too.
+const char *REQUESTS_SQL =
     "SELECT r.session_id, r.blocking_session_id,"
     " ISNULL(DB_NAME(r.database_id), '') AS database_name,"
-    " ISNULL(s.login_name, '') AS login_name,"
-    " ISNULL(bs.login_name, '') AS blocking_login,"
     " r.wait_time / 1000 AS wait_time,"
     " ISNULL(r.wait_type, '') AS wait_type,"
-    " r.command,"
-    " CASE WHEN br.session_id IS NULL THEN 1 ELSE 0 END AS blocker_idle"
-    " FROM sys.dm_exec_requests r"
-    " JOIN sys.dm_exec_sessions s ON s.session_id = r.session_id"
-    " LEFT JOIN sys.dm_exec_sessions bs ON bs.session_id = r.blocking_session_id"
-    " LEFT JOIN sys.dm_exec_requests br ON br.session_id = r.blocking_session_id"
-    " WHERE r.blocking_session_id <> 0";
+    " r.command"
+    " FROM sys.dm_exec_requests r";
+
+const char *SESSIONS_SQL = "SELECT s.session_id, ISNULL(s.login_name, '') AS login_name FROM sys.dm_exec_sessions s";
 
 typedef blocking_info filter_obj;
 
@@ -67,24 +70,44 @@ filter_obj_handler::filter_obj_handler() {
       .no_perf();
 }
 
+bool is_blocked_by_another_session(const request_row &row) { return row.blocking_session_id > 0 && row.blocking_session_id != row.session_id; }
+
 }  // namespace
 
-blocking_type build_blocking(const std::vector<blocking_row> &rows) {
+blocking_type build_blocking(const std::vector<request_row> &requests, const std::vector<session_row> &sessions) {
+  std::unordered_map<long long, std::string> login_of;
+  for (const session_row &row : sessions) login_of[row.session_id] = row.login;
+  std::unordered_set<long long> has_request;
+  for (const request_row &row : requests) has_request.insert(row.session_id);
+
+  // Keyed by session, so a MARS session blocked on several requests at once
+  // stays one row; the longest wait is the one worth reporting. std::map also
+  // makes the output order deterministic.
+  std::map<long long, const request_row *> blocked;
+  for (const request_row &row : requests) {
+    if (!is_blocked_by_another_session(row)) continue;
+    const auto it = blocked.find(row.session_id);
+    if (it == blocked.end() || row.wait_time > it->second->wait_time) blocked[row.session_id] = &row;
+  }
+
   std::unordered_map<long long, long long> blocker_of;
-  for (const blocking_row &row : rows) blocker_of[row.session_id] = row.blocking_session_id;
+  for (const auto &entry : blocked) blocker_of[entry.first] = entry.second->blocking_session_id;
 
   blocking_type result;
-  for (const blocking_row &row : rows) {
+  for (const auto &entry : blocked) {
+    const request_row &row = *entry.second;
     blocking_info info;
     info.session_id = row.session_id;
     info.blocking_session_id = row.blocking_session_id;
     info.database = row.database;
-    info.login = row.login;
-    info.blocking_login = row.blocking_login;
     info.wait_time = row.wait_time;
     info.wait_type = row.wait_type;
     info.command = row.command;
-    info.blocker_idle = row.blocker_idle;
+    const auto login = login_of.find(row.session_id);
+    if (login != login_of.end()) info.login = login->second;
+    const auto blocking_login = login_of.find(row.blocking_session_id);
+    if (blocking_login != login_of.end()) info.blocking_login = blocking_login->second;
+    info.blocker_idle = has_request.count(row.blocking_session_id) == 0;
 
     long long root = row.blocking_session_id;
     std::unordered_set<long long> seen;
@@ -118,23 +141,37 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
   if (!filter_helper.build_filter(filter)) return;
 
   mssql_options::with_session(info, response, [&](mssql_odbc::session &session) {
-    const mssql_odbc::result res = session.execute(BLOCKING_SQL);
-    std::vector<blocking_row> rows;
+    const mssql_odbc::result res = session.execute(REQUESTS_SQL);
+    std::vector<request_row> requests;
+    bool any_blocked = false;
     for (std::size_t i = 0; i < res.rows.size(); i++) {
-      blocking_row row;
+      request_row row;
       row.session_id = res.get_int(i, "session_id");
       row.blocking_session_id = res.get_int(i, "blocking_session_id");
       row.database = res.get_string(i, "database_name");
-      row.login = res.get_string(i, "login_name");
-      row.blocking_login = res.get_string(i, "blocking_login");
       row.wait_time = res.get_int(i, "wait_time");
       row.wait_type = res.get_string(i, "wait_type");
       row.command = res.get_string(i, "command");
-      row.blocker_idle = res.get_int(i, "blocker_idle") != 0;
-      rows.push_back(row);
+      if (row.blocking_session_id > 0) any_blocked = true;
+      requests.push_back(row);
     }
 
-    for (const blocking_info &blocked : build_blocking(rows)) {
+    // Logins are only ever needed for a blocked session or its blocker, and
+    // dm_exec_sessions runs into the thousands on a host with connection pools.
+    // The guard is deliberately looser than build_blocking's own rule - a
+    // superset, so it can over-fetch but never miss a login.
+    std::vector<session_row> sessions;
+    if (any_blocked) {
+      const mssql_odbc::result ses = session.execute(SESSIONS_SQL);
+      for (std::size_t i = 0; i < ses.rows.size(); i++) {
+        session_row row;
+        row.session_id = ses.get_int(i, "session_id");
+        row.login = ses.get_string(i, "login_name");
+        sessions.push_back(row);
+      }
+    }
+
+    for (const blocking_info &blocked : build_blocking(requests, sessions)) {
       auto record = std::make_shared<filter_obj>(blocked);
       filter.match(record);
     }

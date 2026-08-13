@@ -1,12 +1,20 @@
 #### About `check_mssql_blocking`
 
 `check_mssql_blocking` reports **currently blocked sessions** from
-`sys.dm_exec_requests` (`blocking_session_id <> 0`), producing one row per
-blocked request. Blocking chains are the most common "the application is
-frozen" root cause on Windows application stacks, and this check points
-straight at the session everyone is waiting on.
+`sys.dm_exec_requests`, producing one row per blocked session. Blocking chains
+are the most common "the application is frozen" root cause on Windows
+application stacks, and this check points straight at the session everyone is
+waiting on.
 
-Keywords (one row per blocked request):
+A request counts as blocked only when `blocking_session_id` names a *different*
+session. A parallel query reports its own session id while waiting on its own
+threads (`CXPACKET`/`CXCONSUMER`), and the documented negative values (`-2`
+orphaned distributed transaction, `-3` deferred recovery, `-4` latch state
+undetermined) name no session at all; neither is one session blocking another,
+so neither is reported here. A session with several requests blocked at once (a
+`MultipleActiveResultSets` connection) is reported once, with its longest wait.
+
+Keywords (one row per blocked session):
 
 | Keyword               | Description                                                              |
 |-----------------------|--------------------------------------------------------------------------|
