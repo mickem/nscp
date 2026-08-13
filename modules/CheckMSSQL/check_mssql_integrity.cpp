@@ -4,6 +4,7 @@
 #include "check_mssql_integrity.hpp"
 
 #include <cstdio>
+#include <map>
 #include <memory>
 #include <nscapi/macros.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -17,19 +18,55 @@ namespace check_mssql_integrity_command {
 
 namespace {
 
-// Databases with their suspect-page count. suspect_pages rows mean the engine
-// has already *seen* corruption (823/824/825 errors); the msdb table keeps at
-// most 1000 rows and is not pruned automatically, so restored/repaired pages
-// (event_type 4/5/7) are excluded to avoid alerting on history. tempdb is
-// excluded: CHECKDB does not apply to it. The server clock is returned in the
-// same query so ages are computed against the server's own time, not the
-// agent's (which may be in another timezone).
-const char *INTEGRITY_SQL =
-    "SELECT d.name, CONVERT(varchar(23), GETDATE(), 121) AS server_now, ISNULL(sp.cnt, 0) AS suspect_pages"
-    " FROM sys.databases d"
-    " LEFT JOIN (SELECT database_id, COUNT(*) AS cnt FROM msdb.dbo.suspect_pages WHERE event_type IN (1, 2, 3, 6) GROUP BY database_id) sp"
-    " ON sp.database_id = d.database_id"
-    " WHERE d.state = 0 AND d.name <> 'tempdb' ORDER BY d.name";
+// The database list, with the server clock alongside it so ages are computed
+// against the server's own time and not the agent's (which may be in another
+// timezone). tempdb is excluded: CHECKDB does not apply to it.
+const char *DATABASES_SQL =
+    "SELECT d.name, CONVERT(varchar(23), GETDATE(), 121) AS server_now"
+    " FROM sys.databases d WHERE d.state = 0 AND d.name <> 'tempdb' ORDER BY d.name";
+
+// Kept out of the query above so that losing it costs only this one keyword.
+// msdb is unreachable on Azure SQL Database (error 40515 on the cross-database
+// reference) and for a monitoring login with no msdb user, and folding it into
+// the main query turned either into an UNKNOWN for the whole check.
+//
+// suspect_pages rows mean the engine has already *seen* corruption (823/824/825
+// errors); the table keeps at most 1000 rows and is not pruned automatically, so
+// restored/repaired pages (event_type 4/5/7) are excluded to avoid alerting on
+// history.
+const char *SUSPECT_PAGES_SQL =
+    "SELECT ISNULL(DB_NAME(database_id), '') AS name, COUNT(*) AS cnt FROM msdb.dbo.suspect_pages"
+    " WHERE event_type IN (1, 2, 3, 6) GROUP BY database_id";
+
+// dbi_dbccLastKnownGood only exists inside each database's boot page, so it
+// takes one DBCC DBINFO per database. Looping client-side meant one round trip
+// per database, each shipping the whole ~100-250-row boot-page dump back only to
+// discard all but one row; an instance with several hundred databases could not
+// finish inside the command timeout. Server-side, it is one round trip that
+// returns one row per database.
+//
+// The per-database TRY/CATCH keeps a single denied or failing database from
+// losing the rest, and MAX(Value) because some versions emit the field more than
+// once. DBCC DBINFO needs sysadmin, so a login without it simply gets no rows
+// and every database reports the -2 unknown sentinel.
+const char *CHECKDB_BATCH_SQL =
+    "SET NOCOUNT ON;"
+    " CREATE TABLE #dbinfo (ParentObject nvarchar(255), Object nvarchar(255), Field nvarchar(255), Value nvarchar(255));"
+    " CREATE TABLE #checkdb (name sysname, last_checkdb nvarchar(255) NULL);"
+    " DECLARE @name sysname, @sql nvarchar(max);"
+    " DECLARE dbs CURSOR LOCAL FAST_FORWARD FOR SELECT name FROM sys.databases WHERE state = 0 AND name <> 'tempdb';"
+    " OPEN dbs; FETCH NEXT FROM dbs INTO @name;"
+    " WHILE @@FETCH_STATUS = 0 BEGIN"
+    "  BEGIN TRY"
+    "   DELETE FROM #dbinfo;"
+    "   SET @sql = N'DBCC DBINFO(' + QUOTENAME(@name, '''') + N') WITH TABLERESULTS, NO_INFOMSGS';"
+    "   INSERT INTO #dbinfo EXEC (@sql);"
+    "   INSERT INTO #checkdb SELECT @name, MAX(Value) FROM #dbinfo WHERE Field = 'dbi_dbccLastKnownGood';"
+    "  END TRY BEGIN CATCH END CATCH;"
+    "  FETCH NEXT FROM dbs INTO @name;"
+    " END"
+    " CLOSE dbs; DEALLOCATE dbs;"
+    " SELECT name, ISNULL(last_checkdb, '') AS last_checkdb FROM #checkdb;";
 
 typedef integrity_info filter_obj;
 
@@ -49,7 +86,8 @@ filter_obj_handler::filter_obj_handler() {
                    "Seconds since the last successful DBCC CHECKDB, -1 = never checked, -2 = unknown/no access (supports units, e.g. checkdb_age > 14d)")
       .add_int_perf("s", "", "_checkdb_age")
       .add_int_var("suspect_pages", &filter_obj::get_suspect_pages,
-                   "Pages in msdb.dbo.suspect_pages with unresolved 823/824/825 errors - any value above 0 means the engine has seen corruption")
+                   "Pages in msdb.dbo.suspect_pages with unresolved 823/824/825 errors - any value above 0 means the engine has seen corruption, -1 = "
+                   "unknown/no msdb access")
       .add_int_perf("", "", "_suspect_pages");
 }
 
@@ -100,50 +138,77 @@ void check(const mssql_odbc::connection_info &defaults, const PB::Commands::Quer
 
   filter_type filter;
   // A backup of a corrupt database restores a corrupt database: suspect pages
-  // page immediately, and a stale (or never-run) CHECKDB warns. -2 (no access
-  // to DBCC DBINFO, which needs sysadmin) deliberately stays quiet.
+  // page immediately, and a stale (or never-run) CHECKDB warns. The unknown
+  // sentinels deliberately stay quiet - checkdb_age -2 (DBCC DBINFO needs
+  // sysadmin) and suspect_pages -1 (no msdb access) are missing permissions,
+  // not findings, and `suspect_pages > 0` does not match -1.
   filter_helper.add_options("checkdb_age > 1209600 or checkdb_age = -1", "suspect_pages > 0", "", filter.get_filter_syntax(), "unknown");
   filter_helper.add_syntax("${status}: ${problem_count}/${count} databases (${problem_list})", "${name}: checkdb age ${checkdb_age}s, ${suspect_pages} suspect pages",
-                           "${name}", "%(status): No databases found", "%(status): All %(count) databases checked recently, no suspect pages");
+                           // Not "all checked recently, no suspect pages": with a login that cannot
+                           // reach DBCC DBINFO or msdb, every value is a sentinel and that phrasing
+                           // would claim a clean bill of health nothing actually verified.
+                           "${name}", "%(status): No databases found", "%(status): No integrity problems found in %(count) databases");
   mssql_options::add_connection_options(filter_helper.get_desc(), info);
 
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(filter)) return;
 
   mssql_options::with_session(info, response, [&](mssql_odbc::session &session) {
-    const mssql_odbc::result res = session.execute(INTEGRITY_SQL);
+    const mssql_odbc::result res = session.execute(DATABASES_SQL);
     std::string server_now;
     std::vector<integrity_row> rows;
     for (std::size_t i = 0; i < res.rows.size(); i++) {
       integrity_row row;
       row.name = res.get_string(i, "name");
-      row.suspect_pages = res.get_int(i, "suspect_pages");
       server_now = res.get_string(i, "server_now");
       rows.push_back(row);
     }
 
-    // dbi_dbccLastKnownGood only exists inside the boot page, so one DBCC
-    // DBINFO per database. Read by position (ParentObject, Object, Field,
-    // VALUE): the Field *values* are internal names but play safe about
-    // localized headers, like the LOGSPACE parsing. DBCC DBINFO needs
-    // sysadmin; a denied or failed call leaves last_checkdb empty = unknown
-    // rather than failing the whole check.
-    for (integrity_row &row : rows) {
-      std::string quoted = row.name;
-      for (std::size_t pos = 0; (pos = quoted.find('\'', pos)) != std::string::npos; pos += 2) quoted.replace(pos, 1, "''");
-      try {
-        const mssql_odbc::result info_res = session.execute("DBCC DBINFO(N'" + quoted + "') WITH TABLERESULTS, NO_INFOMSGS");
-        if (info_res.columns.size() == 4) {
+    // Only once msdb answers do the counts mean anything: until then every
+    // database keeps the -1 unknown sentinel rather than a reassuring 0.
+    try {
+      const mssql_odbc::result sp = session.execute(SUSPECT_PAGES_SQL);
+      std::map<std::string, long long> by_name;
+      for (std::size_t i = 0; i < sp.rows.size(); i++) by_name[sp.get_string(i, "name")] = sp.get_int(i, "cnt");
+      for (integrity_row &row : rows) {
+        const auto it = by_name.find(row.name);
+        row.suspect_pages = it == by_name.end() ? 0 : it->second;
+      }
+    } catch (const mssql_odbc::odbc_exception &e) {
+      NSC_DEBUG_MSG("msdb.dbo.suspect_pages unreadable, suspect_pages will be -1: " + e.reason());
+    }
+
+    std::map<std::string, std::string> checkdb_by_name;
+    try {
+      const mssql_odbc::result cd = session.execute(CHECKDB_BATCH_SQL);
+      for (std::size_t i = 0; i < cd.rows.size(); i++) checkdb_by_name[cd.get_string(i, "name")] = cd.get_string(i, "last_checkdb");
+    } catch (const mssql_odbc::odbc_exception &e) {
+      // INSERT ... EXEC is refused in a few contexts (a nested INSERT-EXEC, some
+      // isolation settings) and not every DBCC failure is catchable server-side,
+      // so fall back to the one-round-trip-per-database walk. Read by position
+      // (ParentObject, Object, Field, Value): the Field values are internal
+      // names, but the column headers are localized on non-English servers.
+      NSC_DEBUG_MSG("batched DBCC DBINFO failed, falling back to one query per database: " + e.reason());
+      for (const integrity_row &row : rows) {
+        std::string quoted = row.name;
+        for (std::size_t pos = 0; (pos = quoted.find('\'', pos)) != std::string::npos; pos += 2) quoted.replace(pos, 1, "''");
+        try {
+          const mssql_odbc::result info_res = session.execute("DBCC DBINFO(N'" + quoted + "') WITH TABLERESULTS, NO_INFOMSGS");
+          if (info_res.columns.size() != 4) continue;
           for (std::size_t i = 0; i < info_res.rows.size(); i++) {
             if (info_res.get_string(i, 2) == "dbi_dbccLastKnownGood") {
-              row.last_checkdb = info_res.get_string(i, 3);
+              checkdb_by_name[row.name] = info_res.get_string(i, 3);
               break;
             }
           }
+        } catch (const mssql_odbc::odbc_exception &inner) {
+          NSC_DEBUG_MSG("DBCC DBINFO failed for '" + row.name + "', checkdb_age will be -2: " + inner.reason());
         }
-      } catch (const mssql_odbc::odbc_exception &e) {
-        NSC_DEBUG_MSG("DBCC DBINFO failed for '" + row.name + "', checkdb_age will be -2: " + e.reason());
       }
+    }
+    for (integrity_row &row : rows) {
+      const auto it = checkdb_by_name.find(row.name);
+      if (it != checkdb_by_name.end()) row.last_checkdb = it->second;
     }
 
     for (const integrity_info &db : build_integrity(rows, server_now)) {
