@@ -86,10 +86,12 @@ secure_channel_filter::filter_obj_ptr query_channel(const std::string &server, c
 
   const std::wstring server_w = utf8::cvt<std::wstring>(server);
   // I_NetLogonControl2 takes the trusted domain name by address, so the buffer
-  // has to outlive the call; data() is valid (and NUL-terminated) since C++11
-  // even for an empty string, and check() has already rejected an empty domain.
+  // has to outlive the call. Take it by &[0] rather than data(): the non-const
+  // data() overload is C++17 and the oldest supported MSVC toolset compiles
+  // this as C++14. check() has already rejected an empty domain, so index 0 is
+  // a real character, and netlogon only reads through the pointer.
   std::wstring domain_w = utf8::cvt<std::wstring>(domain);
-  LPWSTR domain_ptr = domain_w.data();
+  LPWSTR domain_ptr = &domain_w[0];
   PNETLOGON_INFO_2 raw_info = nullptr;
   const DWORD rc = I_NetLogonControl2(server.empty() ? nullptr : server_w.c_str(), verify ? NETLOGON_CONTROL_TC_VERIFY : NETLOGON_CONTROL_TC_QUERY, 2,
                                       reinterpret_cast<LPBYTE>(&domain_ptr), reinterpret_cast<LPBYTE *>(&raw_info));
