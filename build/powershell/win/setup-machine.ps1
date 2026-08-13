@@ -11,25 +11,66 @@
 .PARAMETER VmName
     The name for the new virtual machine.
 .PARAMETER Version
-    The version of the software to install, specified as a URL to the MSI installer.
+    The NSClient++ release to install (e.g. "0.15.0").
+.PARAMETER PackageUrl
+    Download the MSI from this url instead of the GitHub release for -Version.
+.PARAMETER SkipVersionCheck
+    Do not assert the installed version against -Version. For -PackageUrl builds
+    whose version is whatever the build says it is.
 .PARAMETER Arch
     The architecture of the software to install (e.g., "x64" or "Win32").
 .PARAMETER AdminUsername
     The administrator username for the new VM.
+.PARAMETER FleetServer
+    Enroll the machine with this NSClient fleet server (e.g.
+    "https://fleet.example.com"). Requires -FleetToken.
+.PARAMETER FleetToken
+    The one-time bootstrap token for -FleetServer, as minted by POST /api/hosts
+    (see fleet-api.ps1) or by the install command in the fleet UI.
+.PARAMETER FleetInsecure
+    Allow an unauthenticated enrollment - needed for a plain http:// fleet server.
+.PARAMETER FleetNoVerify
+    Also skip verification of the fleet server certificate (for a self-signed
+    test server without -FleetCaFile). Implies -FleetInsecure.
+.PARAMETER FleetCaFile
+    A local PEM file with the CA that issued the fleet server certificate. It is
+    copied to the VM and used to verify the enrollment call.
 #>
 param(
     [string]$ResourceGroupName = "NSCP-RG",
     [string]$Location = "WestEurope",
     [string]$VmName = "NSCP-Test",
     [string]$Version = "0.11.17",
+    [string]$PackageUrl = "",
+    [switch]$SkipVersionCheck,
     [string]$Arch = "x64",
     [string]$WindowsVersion = "windows-11",
     [string]$AdminUsername = "azureadmin",
     # Where to write the credentials file. Defaults to the shared
     # build/powershell/.vm.pwd; the wrapper passes a per-machine path so parallel
     # runs don't clobber each other.
-    [string]$PwdFile = ""
+    [string]$PwdFile = "",
+    [string]$FleetServer = "",
+    [string]$FleetToken = "",
+    [switch]$FleetInsecure,
+    [switch]$FleetNoVerify,
+    [string]$FleetCaFile = ""
 )
+
+# Fleet options are all-or-nothing: half of them means a machine that quietly
+# never joins the fleet, which is exactly what we are here to test.
+if ($FleetServer -and -not $FleetToken) {
+    Write-Error "❌ -FleetServer needs -FleetToken (mint one with fleet-api.ps1's New-FleetHost, or copy it from the fleet UI's install command)."
+    exit 1
+}
+if ($FleetToken -and -not $FleetServer) {
+    Write-Error "❌ -FleetToken needs -FleetServer."
+    exit 1
+}
+if ($FleetCaFile -and -not (Test-Path $FleetCaFile)) {
+    Write-Error "❌ -FleetCaFile '$FleetCaFile' does not exist."
+    exit 1
+}
 
 # Ensure required modules are installed
 foreach ($module in @('Az.Accounts', 'Az.Compute', 'Az.Network')) {
@@ -166,17 +207,54 @@ Write-Host "● RDP credentials saved to $pwdFile (web password will be added af
 
 Write-Host "● Installing NSCP on VM '$VmName' in resource group '$ResourceGroupName'..."
 
-$MsiUrl = "https://github.com/mickem/nscp/releases/download/${Version}/NSCP-${Version}-${Arch}.msi"
+$MsiUrl = if ($PackageUrl) { $PackageUrl } else { "https://github.com/mickem/nscp/releases/download/${Version}/NSCP-${Version}-${Arch}.msi" }
 Write-Host "● Fetching MSI from URL: $MsiUrl"
 
 # Generate a random password for the web interface
 $WebPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object { [char]$_ })
 Write-Host "● Generated web interface password."
 
+# Fleet enrollment, when asked for, is handed to the MSI as properties so the
+# host is enrolled by the installer itself (FLEET_SERVER/FLEET_TOKEN, 0.16+).
+# An older MSI silently ignores unknown properties, which would leave the token
+# unused - the step after the install detects that and falls back to
+# `nscp enroll`. The CA, if any, has to be on disk before msiexec runs.
+$remoteCaFile = 'C:\temp\fleet-ca.pem'
+$caScript = ""
+$msiFleetArgs = ""
+if ($FleetServer) {
+    Write-Host "● Fleet enrollment: $FleetServer (token from the fleet server, not shown)"
+    $fleetProps = @("FLEET_SERVER=$FleetServer", "FLEET_TOKEN=$FleetToken")
+    if ($FleetInsecure -or $FleetNoVerify) { $fleetProps += "FLEET_INSECURE=1" }
+    if ($FleetNoVerify) { $fleetProps += "FLEET_VERIFY_MODE=none" }
+    if ($FleetCaFile) {
+        $fleetProps += "FLEET_CA=$remoteCaFile"
+        $caPem = (Get-Content -Path $FleetCaFile -Raw).TrimEnd()
+        $caScript = @"
+Set-Content -Path '$remoteCaFile' -Encoding ascii -Value @'
+$caPem
+'@
+"@
+    }
+    # Emitted into the remote script as extra elements of the argument array.
+    $msiFleetArgs = "," + (($fleetProps | ForEach-Object { "'$_'" }) -join ",")
+}
+
 $scriptBlock = @"
 New-Item -ItemType Directory -Path 'C:\temp' -Force
+$caScript
 Invoke-WebRequest -Uri '$($MsiUrl)' -OutFile 'C:\temp\installer.msi'
-Start-Process msiexec.exe -ArgumentList '/i C:\temp\installer.msi /qn /l*v C:\temp\install.log' -Wait
+# Pass the arguments as an array (not one string) so a property value is quoted
+# as a single argument, and check the exit code: a fleet enrollment that fails
+# fails the install, and without this the run would sail on to a "web install"
+# against a product that was never installed.
+`$msiArgs = @('/i','C:\temp\installer.msi','/qn','/l*v','C:\temp\install.log'$msiFleetArgs)
+`$msi = Start-Process msiexec.exe -ArgumentList `$msiArgs -Wait -PassThru
+# 3010 is "installed, reboot required", which is still a successful install.
+if (`$msi.ExitCode -ne 0 -and `$msi.ExitCode -ne 3010) {
+    Get-Content 'C:\temp\install.log' -Tail 40 -ErrorAction SilentlyContinue
+    throw "msiexec failed with exit code `$(`$msi.ExitCode) (see C:\temp\install.log on the VM)"
+}
 "@
 $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
 if ($result.Status -ne "Succeeded") {
@@ -184,6 +262,48 @@ if ($result.Status -ne "Succeeded") {
     exit 1
 }
 $Result.Value | ForEach-Object { $_.Message }
+# RunCommand reports "Succeeded" for a script that threw; the error text is in
+# the stderr stream, so look at the output as well before moving on.
+if (($result.Value | ForEach-Object { $_.Message }) -match 'msiexec failed with exit code') {
+    Write-Error "❌ The MSI install failed on the VM (see the output above)."
+    exit 1
+}
+
+if ($FleetServer) {
+    Write-Host "● Verifying fleet enrollment on VM '$VmName'..."
+    $enrollArgs = @("--server", "'$FleetServer'", "--token", "'$FleetToken'")
+    if ($FleetInsecure -or $FleetNoVerify) { $enrollArgs += "--insecure" }
+    if ($FleetNoVerify) { $enrollArgs += @("--verify", "none") }
+    if ($FleetCaFile) { $enrollArgs += @("--ca", "'$remoteCaFile'") }
+    $scriptBlock = @"
+`$state = 'C:\Program Files\NSClient++\security\agent-state.json'
+if (Test-Path `$state) {
+    Write-Output "FLEET: enrolled by the installer (`$state)"
+} else {
+    # No manifest means this MSI predates FLEET_SERVER/FLEET_TOKEN and dropped
+    # them on the floor, so the bootstrap token is still unused: enroll from the
+    # command line instead. (Had the installer tried and failed, it would have
+    # failed the install above and we would never get here.)
+    Write-Output "FLEET: the installer did not enroll (MSI without fleet support?) - falling back to 'nscp enroll'"
+    & 'C:\Program Files\NSClient++\nscp.exe' enroll $($enrollArgs -join ' ')
+    if (`$LASTEXITCODE -ne 0) { throw "nscp enroll failed with exit code `$LASTEXITCODE" }
+    if (-not (Test-Path `$state)) { throw "nscp enroll reported success but `$state does not exist" }
+    Write-Output "FLEET: enrolled via nscp enroll (`$state)"
+}
+"@
+    $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
+    if ($result.Status -ne "Succeeded") {
+        Write-Error "❌ Failed to verify fleet enrollment on VM. Status: $($result.Status)"
+        exit 1
+    }
+    $messages = @($result.Value | ForEach-Object { $_.Message })
+    $messages | ForEach-Object { $_ }
+    if (-not ($messages -match 'FLEET: enrolled')) {
+        Write-Error "❌ The machine did not enroll with $FleetServer (see the output above)."
+        exit 1
+    }
+    Write-Host "✅ Enrolled with the fleet server."
+}
 
 Write-Host "● Configuring web server and firewall on VM '$VmName'..."
 $scriptBlock = @"
@@ -220,6 +340,16 @@ if ($result.Status -ne "Succeeded") {
 }
 $Result.Value | ForEach-Object { $_.Message }
 
+if ($SkipVersionCheck) {
+    # -PackageUrl without a -Version to compare against (a local build's version
+    # is whatever it is), so just report what got installed.
+    Write-Host "●️ Skipping the version check (-SkipVersionCheck); installed version:"
+    $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName `
+        -ScriptString "& 'C:\Program Files\NSClient++\nscp.exe' --version"
+    $result.Value | ForEach-Object { $_.Message }
+}
+else {
+
 Write-Host "●️ Checking version $Version on VM '$VmName' in resource group '$ResourceGroupName'..."
 $scriptBlock = @"
 `$output = & 'C:\Program Files\NSClient++\nscp.exe' --version
@@ -252,10 +382,13 @@ if ($value0 -match "SUCCESS: ")
 }
 Write-Host "✅ Correct version installed!"
 
+}
+
 $vmPublicIp = (Get-AzPublicIpAddress -Name "$($VmName)-pip" -ResourceGroupName $ResourceGroupName).IpAddress
 
 # Save credentials to .vm.pwd file
 if (-not $PwdFile) { $PwdFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".vm.pwd" }
+$fleetLine = if ($FleetServer) { "`nFleet Server:   $FleetServer" } else { "" }
 @"
 VM Name:        $VmName
 Resource Group: $ResourceGroupName
@@ -264,7 +397,7 @@ RDP:            $vmPublicIp:3389
 Admin Username: $AdminUsername
 Admin Password: $AdminPassword
 Web URL:        https://$($vmPublicIp):8443
-Web Password:   $WebPassword
+Web Password:   $WebPassword$fleetLine
 "@ | Set-Content -Path $pwdFile -Force
 Write-Host "● Credentials saved to $pwdFile"
 

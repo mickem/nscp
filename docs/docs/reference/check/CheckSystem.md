@@ -873,8 +873,8 @@ CPU Load ok
 
     Check CPU clock frequency (current vs max) per processor.
 
-    Reports per-CPU-socket frequency and load, sourced from the `Win32_Processor`
-    WMI class (one instance per physical socket).
+    Reports per-CPU-socket frequency, load and hardware inventory, sourced from the
+    `Win32_Processor` WMI class (one instance per physical socket).
 
     | Keyword | Description |
     |---|---|
@@ -887,17 +887,23 @@ CPU Load ok
     | `load_pct` | Per-socket CPU load from `Win32_Processor.LoadPercentage` (perf). |
     | `cores` | Number of physical cores. |
     | `logical_processors` | Number of logical processors (threads). |
+    | `architecture` | Processor architecture (`x86`, `x64`, `ARM64`, ...). |
+    | `l2_cache` | L2 cache size; size units work (`l2_cache < 1M`), renders human-readable. 0 when not reported. |
+    | `l3_cache` | L3 cache size; 0 when not reported (common on VMs). |
 
     There are no default warning/critical thresholds: modern CPUs legitimately clock
     far below their maximum at idle, so a `frequency_pct` default would warn on every
-    idle machine. Use `load_pct` for a per-socket utilisation alert.
+    idle machine. Use `load_pct` for a per-socket utilisation alert. The inventory
+    columns (`architecture`, `l2_cache`, `l3_cache`) make the check double as the
+    per-socket CPU hardware inventory; pin them to detect a re-imaged or migrated
+    box (`crit=architecture != 'x64'`).
 
 === "Linux"
 
     Check the CPU clock frequency (current vs max) per core.
 
-    Reports per-CPU-socket frequency and load, sourced from the `Win32_Processor`
-    WMI class (one instance per physical socket).
+    Reports per-CPU-socket frequency, load and hardware inventory, sourced from the
+    `Win32_Processor` WMI class (one instance per physical socket).
 
     | Keyword | Description |
     |---|---|
@@ -910,10 +916,16 @@ CPU Load ok
     | `load_pct` | Per-socket CPU load from `Win32_Processor.LoadPercentage` (perf). |
     | `cores` | Number of physical cores. |
     | `logical_processors` | Number of logical processors (threads). |
+    | `architecture` | Processor architecture (`x86`, `x64`, `ARM64`, ...). |
+    | `l2_cache` | L2 cache size; size units work (`l2_cache < 1M`), renders human-readable. 0 when not reported. |
+    | `l3_cache` | L3 cache size; 0 when not reported (common on VMs). |
 
     There are no default warning/critical thresholds: modern CPUs legitimately clock
     far below their maximum at idle, so a `frequency_pct` default would warn on every
-    idle machine. Use `load_pct` for a per-socket utilisation alert.
+    idle machine. Use `load_pct` for a per-socket utilisation alert. The inventory
+    columns (`architecture`, `l2_cache`, `l3_cache`) make the check double as the
+    per-socket CPU hardware inventory; pin them to detect a re-imaged or migrated
+    box (`crit=architecture != 'x64'`).
 
 **Jump to section:**
 
@@ -942,7 +954,21 @@ OK: Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz: 2900/4800 MHz (60%)
 ```
 check_cpu_frequency "filter=socket_id = 'CPU0'" "warn=load_pct > 90" "detail-syntax=${socket}: ${load_pct}% @ ${current_mhz}MHz"
 OK: CPU 1: 12% @ 2900MHz
-'CPU0 load_pct'=12%;90;;
+'Intel..._load_pct'=12%;90;;
+```
+
+**CPU hardware inventory (model, architecture, cores/threads, cache):**
+
+```
+check_cpu_frequency "detail-syntax=${name}: ${architecture}, ${cores}c/${logical_processors}t, L2 ${l2_cache}, L3 ${l3_cache}"
+OK: Intel(R) Core(TM) Ultra 7 265H: x64, 16c/16t, L2 28MB, L3 24MB
+```
+
+**Pin expected hardware (re-imaged / migrated box detection):**
+
+```
+check_cpu_frequency "warn=l3_cache < 1M" "crit=architecture != 'x64'"
+OK: Intel(R) Core(TM) Ultra 7 265H: 2200/2200 MHz (100%)
 ```
 
 
@@ -1319,10 +1345,82 @@ This is the syntax for the base names of the performance data.
 
 Check kernel activity: context-switch rate, fork rate and live thread count.
 
+#### About `check_kernel_stats` (Windows)
+
+`check_kernel_stats` reports system-wide kernel activity from the PDH `System`
+counter set — the Windows counterpart to the unix `check_kernel_stats`
+(`/proc/stat`). The rate counters are sampled over a 1-second window.
+
+It emits one row per metric, selected with `type=` (repeatable; default all):
+
+| Row (`name`) | Counter              | Kind  | Description                                     |
+|--------------|----------------------|-------|--------------------------------------------------|
+| `ctxt`       | Context Switches/sec | rate  | Scheduler churn; storms indicate lock contention |
+| `syscalls`   | System Calls/sec     | rate  | Kernel-transition rate (Windows only)            |
+| `processes`  | Processes            | gauge | Current process count                            |
+| `threads`    | Threads              | gauge | Current thread count                             |
+
+Row keywords match the unix check: `name`, `label`, `human`, `rate` (perf,
+0 for the gauge rows) and `current` (perf; the gauge value, or the *rounded
+rate* for the rate rows — Windows exposes no cumulative counter).
+
+**Platform differences:** unix's `processes` row is a fork *rate*
+(creations/sec from `/proc/stat`); Windows has no process-creation-rate counter
+in this set, so its `processes` row is a *gauge* (current count). Windows adds
+the `syscalls` row; unix does not have it. `Processor Queue Length` and
+`System Up Time` from the same counter set are deliberately not duplicated
+here — `check_load` and `check_uptime` own those.
+
+The default thresholds are the same thread-count guardrails as the unix check:
+`warn = name = 'threads' and current > 8000`,
+`crit = name = 'threads' and current > 10000`. Override them (`warn=none`) or
+threshold the rates explicitly, e.g. `crit=name = 'ctxt' and rate > 500000` —
+context-switch storms are workload-relative, so baseline before pinning.
+
 **Jump to section:**
 
+* [Sample Commands](#check_kernel_stats_samples)
 * [Command-line Arguments](#check_kernel_stats_options)
 * [Filter keywords](#check_kernel_stats_filter_keys)
+
+
+<a id="check_kernel_stats_samples"></a>
+#### Sample Commands
+
+**Default check (all four rows; thread-count guardrails apply):**
+
+```
+check_kernel_stats
+OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417|'ctxt'=119059;8000;10000 'syscalls'=268703;8000;10000 'processes'=628;8000;10000 'threads'=3417;8000;10000
+```
+
+**Threshold a context-switch storm (baseline the host first):**
+
+```
+check_kernel_stats "warn=none" "crit=name = 'ctxt' and rate > 500000"
+OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417
+```
+
+**Watch only the thread count with custom limits:**
+
+```
+check_kernel_stats type=threads "warn=current > 5000" "crit=current > 8000"
+OK - Threads 3417
+```
+
+**Select several rows and render the raw values:**
+
+```
+check_kernel_stats type=ctxt type=processes "detail-syntax=${name}=${current}"
+OK - ctxt=119059, processes=628
+```
+
+**Over NRPE against a remote host:**
+
+```
+check_nscp_client --host 192.168.56.103 --command check_kernel_stats --argument "warn=none" --argument "crit=name = 'threads' and current > 20000"
+OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Threads 3417
+```
 
 
 
@@ -1507,10 +1605,119 @@ This is the syntax for the base names of the performance data.
 
 Check the system load average (1/5/15 minutes).
 
+#### About `check_load` (Windows)
+
+`check_load` reports Unix-style 1/5/15-minute load averages on Windows —
+utilization tells you how busy the CPUs are, load tells you how much work is
+*queued for* them, which is the saturation signal utilization alone cannot
+give (100% CPU with an empty queue is a busy box; 100% with a deep queue is an
+overloaded one).
+
+Windows has no kernel-maintained load average, so the CheckSystem background
+collector synthesises one: every second it folds the instantaneous value
+
+```
+load = processor queue length + busy cores
+```
+
+into three exponential moving averages (the Linux loadavg formula sampled at
+1 Hz). Each fold decays over the interval actually measured rather than an
+assumed second, so the averages stay correct when a collector tick overruns
+the 1-second cadence — which is exactly what happens on the loaded hosts this
+check exists for. The queue length is the PDH counter `\System\Processor Queue Length`
+(threads ready to run but not running, system-wide) and busy cores is
+`cores x CPU busy%` from the same tick. This reproduces Linux semantics —
+running + runnable tasks — so a fully-busy 8-core box reads ~8.0 and a
+saturated one reads above it, and the familiar threshold conventions
+(`warn=load > <cores>`, or `percpu=true` with `warn=load > 1`) transfer as-is.
+
+Keywords (a single aggregate row, matching the Linux `check_load`):
+
+| Keyword         | Description                                                                     |
+|-----------------|---------------------------------------------------------------------------------|
+| `load1`         | Load average over the last 1 minute                                             |
+| `load5`         | Load average over the last 5 minutes                                            |
+| `load15`        | Load average over the last 15 minutes                                           |
+| `load`          | The largest of the three (threshold "any window")                               |
+| `type`          | `total`, or `scaled` with `percpu=true` (averages divided by the core count)    |
+| `queue`         | Smoothed (1-minute) processor queue length alone — the pure saturation signal   |
+| `procs_running` | Last tick's instantaneous runnable + running estimate                           |
+| `procs_total`   | Total threads on the system (scheduling entities)                               |
+| `cores`         | Logical processor count                                                         |
+| `samples`       | Collector ticks folded into the averages                                        |
+
+There are no default thresholds; the three averages are always emitted as perf
+data (`total_load1` etc., `scaled_*` with `percpu=true`). `queue` is never
+divided by `percpu` — it is an absolute thread count.
+
+**Caveats:** the averages live in the collector, so the check reports
+*"Load average data is not available yet"* right after service start. 
+If the `\System\Processor Queue Length` counter is unavailable (corrupt perflib), 
+the load degrades to the CPU-utilization component and a warning is logged. 
+Some hypervisors report a small nonzero queue on idle guests — the smoothing 
+absorbs the noise, but baseline before alerting tightly on `queue`. 
+Load sampling can be turned off with `disable = load` in 
+`/settings/system/windows` (the check then reports data-unavailable rather 
+than zeros).
+
 **Jump to section:**
 
+* [Sample Commands](#check_load_samples)
 * [Command-line Arguments](#check_load_options)
 * [Filter keywords](#check_load_filter_keys)
+
+
+<a id="check_load_samples"></a>
+#### Sample Commands
+
+**Show the system load average (1 / 5 / 15 minutes):**
+
+```
+check_load
+OK: total load average: 2.33528, 1.84625, 1.74261|'total_load1'=2.33528;0;0 'total_load5'=1.84625;0;0 'total_load15'=1.74261;0;0
+```
+
+**Normalise the load per CPU (divide by the core count):**
+
+```
+check_load percpu=true
+OK: scaled load average: 0.145955, 0.115391, 0.108913|'scaled_load1'=0.14595;0;0 'scaled_load5'=0.11539;0;0 'scaled_load15'=0.10891;0;0
+```
+
+**Warn / critical on any load window (`load` is the max of the three):**
+
+```
+check_load "warn=load > 20" "crit=load > 40"
+OK: total load average: 2.33528, 1.84625, 1.74261|'total_load'=2.33528;20;40 'total_load1'=2.33528;0;0 'total_load5'=1.84625;0;0 'total_load15'=1.74261;0;0
+```
+
+**Threshold on a specific window, e.g. the 1-minute average:**
+
+```
+check_load "warn=load1 > 4" "crit=load1 > 8"
+OK: total load average: 2.33528, 1.84625, 1.74261
+```
+
+**Per-CPU thresholds (portable across differently-sized hosts):**
+
+```
+check_load percpu=true "warn=load > 1" "crit=load > 2"
+OK: scaled load average: 0.145955, 0.115391, 0.108913
+```
+
+**Inspect the raw saturation signal and the collector state:**
+
+```
+check_load "detail-syntax=q=${queue} run=${procs_running} total=${procs_total} cores=${cores} samples=${samples}"
+OK: q=0.0294169 run=1 total=11221 cores=16 samples=31
+```
+
+**Alert on sustained queueing regardless of utilization (USE-method saturation):**
+
+```
+check_load "warn=queue > 16" "crit=queue > 32"
+OK: total load average: 2.33528, 1.84625, 1.74261
+```
 
 
 

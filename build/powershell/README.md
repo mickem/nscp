@@ -1,9 +1,10 @@
 # Azure test-machine scripts
 
 Hand-run PowerShell helpers for spinning up a throwaway Azure VM, installing a
-released NSClient++ on it, running the acceptance suite against it, and tearing
-it down again. These are **manual** tooling for personal/release verification —
-not a CI pipeline (that can be layered on top later).
+released NSClient++ on it, running the acceptance suite against it, enrolling it
+with a fleet server, and tearing it down again. These are **manual** tooling for
+personal/release verification — not a CI pipeline (that can be layered on top
+later).
 
 > Requires the Az PowerShell modules. Install them once with
 > `./install-azure.ps1`, then connect with `./connect-to-azure.ps1`
@@ -27,6 +28,100 @@ not a CI pipeline (that can be layered on top later).
                  show-log.ps1         →  pull nsclient.log / install log
                           │
               teardown-machine.ps1    →  delete the resource group
+```
+
+`provision-fleet-machines.ps1` wraps the setup scripts for the fleet case: it
+invents a machine name, mints a bootstrap token per machine, and provisions
+several of them (see [Build a fleet](#build-a-fleet-machines-enrolled-with-a-fleet-server)).
+
+## Build a fleet: machines enrolled with a fleet server
+
+`provision-fleet-machines.ps1` creates one or more machines that join an
+[NSClient fleet server](https://github.com/mickem/nsclient-fleet-server) as they
+are installed, so you get an estate to look at in the fleet UI rather than a
+single test box.
+
+```powershell
+$env:NSCLIENT_FLEET_API_KEY = "nsk_..."      # API keys, in the fleet sidebar
+./provision-fleet-machines.ps1 -FleetServer https://fleet.example.com
+
+# A bigger, mixed estate, provisioned concurrently:
+./provision-fleet-machines.ps1 -FleetServer https://fleet.example.com `
+    -Windows 3 -Ubuntu 2 -Rocky 1 -Parallel
+
+# See what it would create, without touching Azure or the fleet server:
+./provision-fleet-machines.ps1 -DryRun -Windows 2 -Ubuntu 2
+```
+
+Each machine gets
+
+- **a plausible name** — `<role>-<site>-<nn>`, e.g. `web-ams-04`, `sql-fra-12`,
+  which becomes the VM name, the computer name the fleet server sees and the
+  name of its own resource group (`NSCP-Fleet-web-ams-04`). Names are unique
+  within a run and against the machines already in the manifest, and stay inside
+  the 15-character Windows computer-name limit;
+- **its own bootstrap token**, minted from `POST /api/hosts` right before that
+  machine is provisioned. Tokens are single-use and expire in about an hour, so
+  they are not minted up front for the whole batch;
+- **its own resource group and `.vm.<name>.pwd`**, so machines never collide.
+
+Enrollment differs per platform, and both paths end at the same
+`agent-state.json`:
+
+| OS      | How it enrolls                                                                                                          |
+| ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Windows | `msiexec … FLEET_SERVER=… FLEET_TOKEN=…` — the installer enrolls (0.16+). An older MSI ignores those, and the script then falls back to `nscp enroll` |
+| Linux   | `nscp enroll --server … --token …` after the package is installed (the DEB/RPM have no install-time enrollment)          |
+
+Either way the setup script verifies that `agent-state.json` exists before it
+reports success — a machine that silently never joined the fleet is exactly the
+failure this tooling exists to catch.
+
+Every run appends to `.fleet-machines.json` (name, OS, resource group, public IP,
+fleet host id). Tear the whole estate down again with:
+
+```powershell
+./provision-fleet-machines.ps1 -Destroy -FleetServer https://fleet.example.com -RemoveFleetHosts
+```
+
+`-RemoveFleetHosts` also deletes the hosts from the fleet server, so a torn-down
+VM does not linger there as permanently offline. That needs an admin/owner API
+key (an `add_hosts` key may create hosts but not delete them); it is skipped with
+a warning if the key is not allowed, and the Azure teardown still runs.
+
+Useful options: `-Version` (release to install, default 0.15.0),
+`-WindowsPackageUrl` / `-UbuntuPackageUrl` / `-RockyPackageUrl` to install a
+build from your own url instead — needed to exercise the installer's own fleet
+enrollment before it ships in a release — `-WindowsVersions` (round-robined over
+the Windows machines), `-Location`, `-MaxParallel`, and `-ResourceGroupPrefix`.
+
+> **The VMs enroll from Azure**, so the fleet server url has to be reachable from
+> the internet. A `localhost` dev server passes the preflight check on your
+> machine and then fails on the VM.
+
+> **A test fleet server without a public certificate:** `-FleetInsecure` allows a
+> plain `http://` url, `-FleetNoVerify` additionally skips verification of the
+> server certificate, and `-FleetCaFile <pem>` (better) copies your CA to each
+> machine and verifies against it. The first two mean the bootstrap token and the
+> trust anchors the agent ends up pinning travel over an unauthenticated channel
+> — fine for a throwaway test estate, not for anything else.
+
+`fleet-api.ps1` holds the pieces on their own (`New-FleetHost`,
+`Remove-FleetHost`, `Test-FleetServer`, `New-FleetMachineName`) if you want to
+enroll something by hand:
+
+```powershell
+. ./fleet-api.ps1
+$h = New-FleetHost -FleetServer https://fleet.example.com -ApiKey $env:NSCLIENT_FLEET_API_KEY
+$h.InstallCommand      # nscp enroll --server … --token …
+```
+
+The individual setup scripts also take `-FleetServer`/`-FleetToken` directly, if
+you want one enrolled machine with a name you choose:
+
+```powershell
+./win/setup-machine.ps1 -VmName NSCP-Test -Version 0.15.0 `
+    -FleetServer https://fleet.example.com -FleetToken <bootstrap-token>
 ```
 
 ## Connect to a running VM

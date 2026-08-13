@@ -71,7 +71,7 @@ records nothing rather than a fabricated 0%. Test for it with
 `free_pct = 'no space data'`, or keep using the `has_space = 1` guard.
 
 Byte-valued keywords can be formatted and scaled with `format_bytes`,
-`convert_bytes` and `scale` — see [Formatting byte values](#check_disk_io_formatting).
+`convert_bytes` and `scale`; see the same section under `check_disk_io`.
 
 ### Device-state keywords (Windows)
 
@@ -112,7 +112,7 @@ is over 80% busy, or a physical disk reports `Warning` health; and CRITICAL belo
 ```
 check_disk_health
 OK: All disks are healthy.
-'C:'=61%;20;10 'C:_percent_disk_time'=2%;80;95 ...
+'C: free_pct'=61%;20;10 'C: percent_disk_time'=2%;80;95 ...
 ```
 
 **Physical-disk device health:**
@@ -172,7 +172,7 @@ Device-state keywords (populated on `has_device = 1` rows): `friendly_name`,
 | [top-syntax](#check_disk_health_top-syntax)         | ${status}: ${list}                                                                                                                  | Top level syntax.                                                                                                         |
 | [ok-syntax](#check_disk_health_ok-syntax)           | %(status): All disks are healthy.                                                                                                   | ok syntax.                                                                                                                |
 | [empty-syntax](#check_disk_health_empty-syntax)     |                                                                                                                                     | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_disk_health_detail-syntax)   | ${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}                                              | Detail level syntax.                                                                                                      |
+| [detail-syntax](#check_disk_health_detail-syntax)   | ${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}                                              | Detail level syntax.                                                                                                      |
 | [perf-syntax](#check_disk_health_perf-syntax)       | ${name}                                                                                                                             | Performance alias syntax.                                                                                                 |
 
 
@@ -276,7 +276,7 @@ Used to format each resulting item in the message.
 %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-*Default Value:* `${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}`
+*Default Value:* `${name}: ${free_pct}% free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}`
 
 <h5 id="check_disk_health_perf-syntax">perf-syntax:</h5>
 
@@ -383,14 +383,13 @@ One accuracy caveat: the underlying counters are 32-bit and accrue time per
 depth) they can wrap more than once within a long sampling window, which
 understates the reported latency. Perfmon has the same limitation and avoids it
 by sampling every second — if you monitor extremely busy disks, lower the
-module's [`collection interval`](#/settings/disk) accordingly:
+module's `collection interval` accordingly:
 
 ```ini
 [/settings/disk]
 collection interval=2s
 ```
 
-<a id="check_disk_io_formatting"></a>
 ### Formatting byte values
 
 The byte-rate keywords are plain byte counts, and the filter language has no
@@ -4087,13 +4086,13 @@ This is the syntax for the base names of the performance data.
 
 
 
-| Key                                                          | Default Value | Description                            |
-|--------------------------------------------------------------|---------------|----------------------------------------|
-| [collection interval](#collection-interval)                  | 10s           | Collection interval                    |
-| [disable](#disable-automatic-checks)                         |               | Disable automatic checks               |
-| [max collection errors](#maximum-consecutive-collection-errors) | 10         | Maximum consecutive collection errors  |
-| [trend interval](#trend-sampling-interval)                   | 5m            | Trend sampling interval                |
-| [trend retention](#trend-history-retention)                  | 7d            | Trend history retention                |
+| Key                                                             | Default Value | Description                           |
+|-----------------------------------------------------------------|---------------|---------------------------------------|
+| [collection interval](#collection-interval)                     | 10s           | Collection interval                   |
+| [disable](#disable-automatic-checks)                            |               | Disable automatic checks              |
+| [max collection errors](#maximum-consecutive-collection-errors) | 10            | Maximum consecutive collection errors |
+| [trend interval](#trend-sampling-interval)                      | 5m            | Trend sampling interval               |
+| [trend retention](#trend-history-retention)                     | 7d            | Trend history retention               |
 
 
 ```ini

@@ -71,5 +71,7 @@ _build
 
 \\.ssh\\*
 *.pwd
+# Local inventory written by build/powershell/provision-fleet-machines.ps1
+.fleet-machines.json
 
 rotate-signing-secret.ps1
