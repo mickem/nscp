@@ -93,6 +93,20 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace
 
 std::string categorize_wait(const std::string &w) {
+  // PREEMPTIVE_* covers SQLOS switching a worker to preemptive mode to call out
+  // of the engine. Most of those calls idle-accumulate and are excluded with the
+  // prefix below, but a handful are external stalls that the check exists to
+  // surface, so they are carved back out here (the same treatment HADR_ gets).
+  // Autogrow on slow storage, a backup hanging on a URL or a stalled domain
+  // lookup would otherwise leave every category reading zero in the middle of
+  // the incident.
+  const bool preemptive_stall = w == "PREEMPTIVE_OS_WRITEFILEGATHER" ||   // file growth and zeroing
+                                w == "PREEMPTIVE_OS_FLUSHFILEBUFFERS" ||  // checkpoint and backup flushes
+                                w == "PREEMPTIVE_HTTP_REQUEST" ||         // backup to URL, external endpoints
+                                w == "PREEMPTIVE_OS_AUTHENTICATIONOPS" || // domain and Kerberos lookups
+                                w == "PREEMPTIVE_OS_CRYPTOPS" ||          // EKM and TDE key operations
+                                w == "PREEMPTIVE_ODBCOPS" || w == "PREEMPTIVE_OLEDBOPS";  // linked servers
+
   // Idle/housekeeping waits that accumulate by design and would drown every
   // real signal (the usual suspects from the community benign-wait lists).
   // HADR_ deliberately gets an explicit allowlist rather than the prefix:
@@ -102,7 +116,7 @@ std::string categorize_wait(const std::string &w) {
   if (starts_with(w, "SLEEP_") || starts_with(w, "BROKER_") || starts_with(w, "SQLTRACE_") || starts_with(w, "XE_") || starts_with(w, "FT_") ||
       starts_with(w, "QDS_") || starts_with(w, "HADR_FILESTREAM_") || w == "HADR_CLUSAPI_CALL" || w == "HADR_CLUSTER_INTEGRATION" ||
       w == "HADR_FAILOVER_PARTNER" || w == "HADR_LOGCAPTURE_WAIT" || w == "HADR_NOTIFICATION_DEQUEUE" || w == "HADR_TIMER_TASK" ||
-      w == "HADR_WORK_QUEUE" || starts_with(w, "DBMIRROR") || starts_with(w, "PREEMPTIVE_") ||
+      w == "HADR_WORK_QUEUE" || starts_with(w, "DBMIRROR") || (starts_with(w, "PREEMPTIVE_") && !preemptive_stall) ||
       starts_with(w, "PARALLEL_REDO_") || starts_with(w, "PWAIT_") || starts_with(w, "SP_SERVER_DIAGNOSTICS") || starts_with(w, "VDI_CLIENT_") ||
       starts_with(w, "WAIT_XTP_") || w == "LAZYWRITER_SLEEP" || w == "LOGMGR_QUEUE" || w == "CHECKPOINT_QUEUE" || w == "REQUEST_FOR_DEADLOCK_SEARCH" ||
       w == "WAITFOR" || w == "WAITFOR_TASKSHUTDOWN" || w == "ONDEMAND_TASK_QUEUE" || w == "DIRTY_PAGE_POLL" || w == "SOS_WORK_DISPATCHER" ||
@@ -110,7 +124,11 @@ std::string categorize_wait(const std::string &w) {
       w == "TRACEWRITE" || w == "WINFAB_API_CALL")
     return "benign";
   if (w == "SOS_SCHEDULER_YIELD" || w == "THREADPOOL" || starts_with(w, "CX")) return "cpu";
-  if (starts_with(w, "PAGEIOLATCH_") || w == "IO_COMPLETION" || w == "ASYNC_IO_COMPLETION" || w == "BACKUPIO" || w == "WRITE_COMPLETION") return "io";
+  // The two file-level preemptive stalls are storage waits: report them where a
+  // DBA looks for storage trouble rather than in the other_waits bucket.
+  if (starts_with(w, "PAGEIOLATCH_") || w == "IO_COMPLETION" || w == "ASYNC_IO_COMPLETION" || w == "BACKUPIO" || w == "WRITE_COMPLETION" ||
+      w == "PREEMPTIVE_OS_WRITEFILEGATHER" || w == "PREEMPTIVE_OS_FLUSHFILEBUFFERS")
+    return "io";
   if (w == "WRITELOG" || w == "LOGBUFFER") return "log";
   if (starts_with(w, "LCK_M_")) return "lock";
   if (starts_with(w, "PAGELATCH_") || starts_with(w, "LATCH_")) return "latch";

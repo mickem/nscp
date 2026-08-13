@@ -666,6 +666,20 @@ TEST(CategorizeWait, IdleHousekeepingWaitsAreBenign) {
   EXPECT_EQ(categorize_wait("XE_TIMER_EVENT"), "benign");
   EXPECT_EQ(categorize_wait("WAITFOR"), "benign");  // includes this check's own sampling delay
   EXPECT_EQ(categorize_wait("CHECKPOINT_QUEUE"), "benign");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_XE_GETTARGETSTATE"), "benign");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_OS_LIBRARYOPS"), "benign");
+}
+
+TEST(CategorizeWait, PreemptiveStallsAreNotBenign) {
+  // These are the external calls the check exists to surface: autogrow on slow
+  // storage, a backup hanging on a URL, a stalled domain lookup. Suppressing
+  // the whole PREEMPTIVE_ prefix reported every category as zero during them.
+  using check_mssql_waits_command::categorize_wait;
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_OS_WRITEFILEGATHER"), "io");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_OS_FLUSHFILEBUFFERS"), "io");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_HTTP_REQUEST"), "other");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_OS_AUTHENTICATIONOPS"), "other");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_ODBCOPS"), "other");
 }
 
 TEST(CategorizeWait, HadrSyncCommitIsNotBenign) {
