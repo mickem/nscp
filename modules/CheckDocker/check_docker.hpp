@@ -3,13 +3,33 @@
 
 #pragma once
 
+#include <functional>
 #include <nscapi/protobuf/command.hpp>
-
-// default_docker_endpoint / is_local_docker_endpoint live in
-// docker_endpoint.hpp so they can be unit-tested without this module's
-// protobuf and filter dependencies.
+#include <string>
 
 namespace docker_checks {
 
-void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+// Module-level defaults (from /settings/docker), overridable per check.
+struct settings {
+  std::string endpoint;  // docker daemon socket / named pipe
+  int timeout = 10;      // per-request timeout in seconds
+};
+
+// GET `path` from the docker daemon and return the response body; throws on
+// connection or HTTP failure.
+typedef std::function<std::string(const std::string &path)> fetcher;
+
+// Creates a fetcher bound to a validated endpoint. Injectable so the checks
+// (and their unit tests) never touch the HTTP client directly; the module
+// wires in the real pipe/unix-socket transport from CheckDocker.cpp.
+typedef std::function<fetcher(const std::string &endpoint, int timeout_seconds)> fetcher_factory;
+
+// Check container state via GET /containers/json.
+void check_containers(const settings &defaults, const PB::Commands::QueryRequestMessage::Request &request,
+                      PB::Commands::QueryResponseMessage::Response *response, const fetcher_factory &make_fetcher);
+
+// Check daemon health via GET /info.
+void check_info(const settings &defaults, const PB::Commands::QueryRequestMessage::Request &request,
+                PB::Commands::QueryResponseMessage::Response *response, const fetcher_factory &make_fetcher);
+
 }  // namespace docker_checks

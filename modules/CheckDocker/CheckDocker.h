@@ -3,17 +3,14 @@
 
 #pragma once
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/thread.hpp>
 #include <nscapi/plugin.hpp>
 #include <nscapi/protobuf/command.hpp>
-#include <nscapi/protobuf/log.hpp>
-#include <nscapi/protobuf/metrics.hpp>
-#include <string>
+
+#include "check_docker.hpp"
 
 class CheckDocker : public nscapi::impl::simple_plugin {
+  docker_checks::settings defaults_;
+
  public:
   CheckDocker() {}
 
@@ -21,9 +18,10 @@ class CheckDocker : public nscapi::impl::simple_plugin {
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
   bool unloadModule();
 
+  // Check commands
   void check_docker(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
-  void handleLogMessage(const PB::Log::LogEntry::Entry &message);
-  void fetchMetrics(PB::Metrics::MetricsMessage::Response *response);
-
-  std::size_t get_errors(std::string &last_error);
+  void check_docker_info(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_docker_stats(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_docker_restarts(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+  void check_docker_df(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 };
