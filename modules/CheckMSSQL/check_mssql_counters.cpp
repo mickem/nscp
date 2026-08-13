@@ -7,6 +7,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <string>
 
 #include "mssql_options.hpp"
 
@@ -14,35 +15,42 @@ namespace check_mssql_counters_command {
 
 namespace {
 
-// Most of these counters are cumulative since instance start, so a single read
-// is meaningless as a rate. Two snapshots bracket a WAITFOR DELAY sampling
-// window (kept server-side so client latency does not stretch it), and the
-// window is measured rather than assumed. object_name carries the instance
-// prefix (SQLServer: or MSSQL$<instance>:) and the columns are nchar-padded,
-// hence the RTRIM + LIKE '%:...' matching. Locks counters exist per lock type;
-// only the _Total instance is wanted.
-const char *COUNTERS_SQL =
-    "SET NOCOUNT ON;"
-    " DECLARE @t0 datetime2 = SYSDATETIME();"
-    " DECLARE @c1 TABLE(counter_name nvarchar(128) PRIMARY KEY, cntr_value bigint);"
-    " INSERT INTO @c1 SELECT RTRIM(counter_name), cntr_value FROM sys.dm_os_performance_counters"
-    " WHERE (RTRIM(object_name) LIKE '%:Buffer Manager' AND RTRIM(counter_name) IN"
-    " ('Buffer cache hit ratio', 'Buffer cache hit ratio base', 'Page life expectancy', 'Lazy writes/sec'))"
-    " OR (RTRIM(object_name) LIKE '%:SQL Statistics' AND RTRIM(counter_name) IN"
-    " ('Batch Requests/sec', 'SQL Compilations/sec', 'SQL Re-Compilations/sec'))"
-    " OR (RTRIM(object_name) LIKE '%:Locks' AND RTRIM(instance_name) = '_Total' AND RTRIM(counter_name) IN"
-    " ('Number of Deadlocks/sec', 'Lock Waits/sec'));"
-    " WAITFOR DELAY '00:00:01';"
-    " SELECT RTRIM(pc.counter_name) AS counter_name, pc.cntr_value AS value, c1.cntr_value AS prev_value,"
-    " DATEDIFF(millisecond, @t0, SYSDATETIME()) AS elapsed_ms"
-    " FROM sys.dm_os_performance_counters pc"
-    " LEFT JOIN @c1 c1 ON c1.counter_name = RTRIM(pc.counter_name)"
-    " WHERE (RTRIM(pc.object_name) LIKE '%:Buffer Manager' AND RTRIM(pc.counter_name) IN"
+// Which counters to read, written once and interpolated into both snapshots
+// below. They have to select exactly the same set: if the two predicates ever
+// drifted apart, the second read would find no matching first-read row,
+// prev_value would stay NULL and that counter would report the -1 "unavailable"
+// sentinel forever - no error, just a plausible wrong value.
+//
+// object_name carries the instance prefix (SQLServer: or MSSQL$<instance>:) and
+// the columns are nchar-padded, hence the RTRIM + LIKE '%:...' matching. Locks
+// counters exist per lock type; only the _Total instance is wanted.
+const std::string COUNTER_PREDICATE =
+    "(RTRIM(pc.object_name) LIKE '%:Buffer Manager' AND RTRIM(pc.counter_name) IN"
     " ('Buffer cache hit ratio', 'Buffer cache hit ratio base', 'Page life expectancy', 'Lazy writes/sec'))"
     " OR (RTRIM(pc.object_name) LIKE '%:SQL Statistics' AND RTRIM(pc.counter_name) IN"
     " ('Batch Requests/sec', 'SQL Compilations/sec', 'SQL Re-Compilations/sec'))"
     " OR (RTRIM(pc.object_name) LIKE '%:Locks' AND RTRIM(pc.instance_name) = '_Total' AND RTRIM(pc.counter_name) IN"
     " ('Number of Deadlocks/sec', 'Lock Waits/sec'))";
+
+// Most of these counters are cumulative since instance start, so a single read
+// is meaningless as a rate. Two snapshots bracket a WAITFOR DELAY sampling
+// window (kept server-side so client latency does not stretch it), and the
+// window is measured rather than assumed.
+const std::string COUNTERS_SQL =
+    "SET NOCOUNT ON;"
+    " DECLARE @t0 datetime2 = SYSDATETIME();"
+    " DECLARE @c1 TABLE(counter_name nvarchar(128) PRIMARY KEY, cntr_value bigint);"
+    " INSERT INTO @c1 SELECT RTRIM(pc.counter_name), pc.cntr_value FROM sys.dm_os_performance_counters pc"
+    " WHERE " +
+    COUNTER_PREDICATE +
+    ";"
+    " WAITFOR DELAY '00:00:01';"
+    " SELECT RTRIM(pc.counter_name) AS counter_name, pc.cntr_value AS value, c1.cntr_value AS prev_value,"
+    " DATEDIFF(millisecond, @t0, SYSDATETIME()) AS elapsed_ms"
+    " FROM sys.dm_os_performance_counters pc"
+    " LEFT JOIN @c1 c1 ON c1.counter_name = RTRIM(pc.counter_name)"
+    " WHERE " +
+    COUNTER_PREDICATE;
 
 typedef counters_info filter_obj;
 

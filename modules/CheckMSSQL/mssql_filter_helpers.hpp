@@ -37,15 +37,10 @@ inline bool is_plain_integer(const std::string &expr) {
 // become "full_age = 0" and never fire, defeating the -1 = never sentinel that
 // every age keyword documents. Pass plain integers straight through instead.
 // Multiplier semantics of the built-in size literals (parsers/operators.cpp
-// parse_size): single letter, case-insensitive, 1024-based, b = bytes.
-inline long long apply_size_unit(const long long value, const std::string &unit) {
-  if (unit.empty() || unit == "b" || unit == "B") return value;
-  if (unit == "k" || unit == "K") return value * 1024;
-  if (unit == "m" || unit == "M") return value * 1024 * 1024;
-  if (unit == "g" || unit == "G") return value * 1024 * 1024 * 1024;
-  if (unit == "t" || unit == "T") return value * 1024LL * 1024 * 1024 * 1024;
-  return value;
-}
+// parse_size): single letter, case-insensitive, 1024-based, b = bytes. The
+// string-splitting overload of decode_byte_units cannot be used instead of this
+// whole converter: it does not handle the leading sign the -1 sentinel needs.
+inline long long apply_size_unit(const long long value, const std::string &unit) { return str::format::decode_byte_units<long long>(value, unit); }
 
 // Size-literal converter for byte keywords that carry a negative sentinel
 // (-1 = unknown), registered like parse_time on a type_custom_int_* keyword.
