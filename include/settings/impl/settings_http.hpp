@@ -114,6 +114,41 @@ class settings_http : public settings::settings_interface_impl {
     return local_file;
   }
 
+  // The name resolve_cache_file gave this url before the query digest was
+  // added (issue #460), i.e. the url's file name alone. Empty when the url has
+  // no usable file name, since no such cache file was ever written. Only used
+  // to move an existing cache file forward, never to read from.
+  boost::filesystem::path resolve_legacy_cache_file(const net::url &url) const {
+    const std::string name = boost::filesystem::path(url.path).filename().string();
+    if (name.empty() || name == "." || name == ".." || name == "/" || name == "\\") return boost::filesystem::path();
+    return boost::filesystem::path(get_core()->expand_path(CACHE_FOLDER)) / name;
+  }
+
+  // Adding the query digest renames the cache file of every url this fix is
+  // aimed at. That rename must not lose the cached copy: cache_remote_file
+  // falls back to it when the settings server cannot be reached, so an agent
+  // that upgrades while its server is down would otherwise find nothing under
+  // the new name and boot with an empty configuration - having booted fine off
+  // the cache the day before. Move the old file into place once, so the
+  // fallback keeps working across the upgrade.
+  void migrate_legacy_cache_file(const net::url &url, const boost::filesystem::path &local_file) const {
+    if (url.query.empty()) return;  // Name is unchanged for query-less urls.
+    boost::system::error_code ec;
+    if (boost::filesystem::exists(local_file, ec)) return;
+    const boost::filesystem::path legacy = resolve_legacy_cache_file(url);
+    if (legacy.empty() || legacy == local_file) return;
+    if (!boost::filesystem::is_regular_file(legacy, ec)) return;
+    boost::filesystem::rename(legacy, local_file, ec);
+    if (ec) {
+      // Not fatal: without the cached copy we simply download afresh, which is
+      // what happens on any first boot.
+      get_logger()->warning("settings", __FILE__, __LINE__,
+                            "Failed to move cached settings from '" + legacy.string() + "' to '" + local_file.string() + "': " + ec.message());
+      return;
+    }
+    get_logger()->debug("settings", __FILE__, __LINE__, "Migrated cached settings from '" + legacy.string() + "' to '" + local_file.string() + "'");
+  }
+
   virtual void log_debug(std::string file, int line, std::string msg) const { core_->get_logger()->debug("settings", file.c_str(), line, msg); }
 
   virtual void log_error(std::string file, int line, std::string msg) const { core_->get_logger()->error("settings", file.c_str(), line, msg); }
@@ -178,12 +213,12 @@ class settings_http : public settings::settings_interface_impl {
           const std::string how = verify_mode.empty() ? "[tls] verify mode is set but empty in boot.ini, which disables verification just as 'none' does"
                                                       : "[tls] verify mode = none in boot.ini";
           get_logger()->warning("settings", __FILE__, __LINE__,
-                                "INSECURE: fetching settings from " + url.to_string() + " without verifying the server certificate (" + how +
+                                "INSECURE: fetching settings from " + url.to_log_safe_string() + " without verifying the server certificate (" + how +
                                     "). Anyone who can answer for this host controls this agent's entire configuration, including external script "
                                     "definitions. Set 'verify mode = peer' and point 'ca' at the issuing CA.");
         } else if (!ca.empty() && ca != "none" && !boost::filesystem::is_regular_file(ca)) {
           get_logger()->warning("settings", __FILE__, __LINE__,
-                                "CA bundle '" + ca + "' not found; the settings download from " + url.to_string() +
+                                "CA bundle '" + ca + "' not found; the settings download from " + url.to_log_safe_string() +
                                     " will fail certificate verification. Point [tls] ca in boot.ini at the CA that issued the settings server's "
                                     "certificate. (On Windows the default bundle is exported at startup, so it is absent during the very first boot.)");
         }
@@ -319,13 +354,14 @@ class settings_http : public settings::settings_interface_impl {
       op_string str = child->get_string("/attachments", k);
       if (!str) continue;
       net::url source = net::parse(*str);
-      get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_string() + " as " + target);
+      get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_log_safe_string() + " as " + target);
       cache_remote_file(source, target);
     }
   }
 
   void initial_load() {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
+    migrate_legacy_cache_file(remote_url, local_file);
     cache_remote_file(remote_url, local_file.string());
     child_instance = add_child("remote_http_file", "ini://" + local_file.string());
     fetch_attachments(child_instance);
@@ -333,6 +369,7 @@ class settings_http : public settings::settings_interface_impl {
 
   void reload_data() {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
+    migrate_legacy_cache_file(remote_url, local_file);
     if (cache_remote_file(remote_url, local_file.string())) {
       clear_cache();
       fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));

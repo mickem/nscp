@@ -68,7 +68,7 @@ std::string NSCSettingsImpl::expand_context(const std::string &key) {
 settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::string alias, std::string key) {
   key = expand_context(key);
   net::url url = net::parse(key);
-  get_logger()->debug("settings", __FILE__, __LINE__, "Creating instance for: " + url.to_string());
+  get_logger()->debug("settings", __FILE__, __LINE__, "Creating instance for: " + url.to_log_safe_string());
 #ifdef WIN32
   if (url.protocol == "old") return settings::instance_raw_ptr(new settings::OLDSettings(this, alias, key));
   if (url.protocol == "registry") return settings::instance_raw_ptr(new settings::REGSettings(this, alias, key));

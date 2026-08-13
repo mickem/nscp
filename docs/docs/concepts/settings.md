@@ -156,7 +156,17 @@ This lets a script generate the configuration per host instead of serving a stat
 ```
 
 Each distinct query gets its own file in the cache folder, so several urls pointing at the same
-script with different parameters do not overwrite each other's cached configuration.
+script with different parameters do not overwrite each other's cached configuration. An existing
+cache file written by an older version is moved to the new name on first start, so a host that
+cannot reach its settings server during the upgrade still boots off its cached configuration.
+
+Characters that are not legal in a url query - a space, most notably - are percent-encoded before
+the request is sent. Anything already written as `%XX` is left as it is, so a query you encoded
+yourself is not encoded twice.
+
+If the query carries a credential (`?token=...`), note that it is still sent in clear text unless
+the url is `https://`. NSClient++ keeps query parameters out of its own log: it logs settings urls
+as scheme, host and path only.
 
 > **Changed in 0.14:** query parameters used to be silently dropped from the request, so the
 > server only ever saw the bare path.

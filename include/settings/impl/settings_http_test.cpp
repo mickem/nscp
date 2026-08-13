@@ -242,6 +242,59 @@ TEST(settings_http, resolve_cache_file_separates_urls_differing_only_in_query) {
   EXPECT_EQ(rp.filename().string(), "nsclient.php");
 }
 
+TEST(settings_http, migrates_the_pre_460_cache_file_to_the_new_name) {
+  // Upgrade scenario: the agent already has a cache file under the old
+  // query-less name, and the settings server is unreachable on this boot.  The
+  // cached copy has to survive the rename, otherwise the agent that booted fine
+  // yesterday comes up with no configuration at all.
+  temp_dir cache;
+  const std::string cached_ini = "[/settings/default]\nallowed hosts=10.0.0.1\n";
+  settings_test::write_file(cache.path() / "nsclient.php", cached_ini);
+
+  http_test_core core(cache.path());
+  // Port 1 has no listener, so the download fails and only the migrated file
+  // can satisfy cache_remote_file's fallback.
+  settings::settings_http s(&core, "test", "http://127.0.0.1:1/nsclient.php?RootFolder=myhost");
+
+  net::url u;
+  u.path = "/nsclient.php";
+  u.query = "RootFolder=myhost";
+  const auto migrated = s.resolve_cache_file(u);
+  ASSERT_TRUE(boost::filesystem::is_regular_file(migrated)) << migrated.string();
+  EXPECT_EQ(file_helpers::read_file_as_string(migrated), cached_ini);
+  // Moved, not copied - no orphan left behind under the old name.
+  EXPECT_FALSE(boost::filesystem::exists(cache.path() / "nsclient.php"));
+}
+
+TEST(settings_http, migration_does_not_clobber_an_existing_cache_file) {
+  temp_dir cache;
+  http_test_core core(cache.path());
+  settings::settings_http s(&core, "test", "http://127.0.0.1:1/nsclient.php?RootFolder=myhost");
+
+  net::url u;
+  u.path = "/nsclient.php";
+  u.query = "RootFolder=myhost";
+  const auto current = s.resolve_cache_file(u);
+  settings_test::write_file(current, "current\n");
+  settings_test::write_file(cache.path() / "nsclient.php", "legacy\n");
+
+  s.migrate_legacy_cache_file(u, current);
+  // Already migrated once: the new name wins and the old file is left alone.
+  EXPECT_EQ(file_helpers::read_file_as_string(current), "current\n");
+  EXPECT_TRUE(boost::filesystem::exists(cache.path() / "nsclient.php"));
+}
+
+TEST(settings_http, no_migration_for_a_url_without_a_query) {
+  temp_dir cache;
+  http_test_core core(cache.path());
+  settings::settings_http s(&core, "test", "http://127.0.0.1:1/nsclient.php");
+
+  net::url u;
+  u.path = "/nsclient.php";
+  // Same name before and after the fix, so there is nothing to move.
+  EXPECT_EQ(s.resolve_cache_file(u), s.resolve_legacy_cache_file(u));
+}
+
 TEST(settings_http, resolve_cache_file_handles_url_without_a_file_name) {
   loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
   temp_dir cache;
