@@ -469,184 +469,369 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 <a id="check_dns_options"></a>
 #### Command-line Arguments
 
-<a id="check_dns_warn"></a>
-<a id="check_dns_crit"></a>
-<a id="check_dns_help"></a>
-<a id="check_dns_help-pb"></a>
-<a id="check_dns_show-default"></a>
-<a id="check_dns_help-short"></a>
-<a id="check_dns_host"></a>
-<a id="check_dns_lookup"></a>
-<a id="check_dns_server"></a>
-<a id="check_dns_expected-address"></a>
-<a id="check_dns_expected"></a>
+=== "Windows"
 
-| Option                                      | Default Value                                               | Description                                                                                                               |
-|---------------------------------------------|-------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_dns_filter)                 |                                                             | Filter which marks interesting items.                                                                                     |
-| [warning](#check_dns_warning)               | time > 1000                                                 | Filter which marks items which generates a warning state.                                                                 |
-| warn                                        |                                                             | Short alias for warning                                                                                                   |
-| [critical](#check_dns_critical)             | result != 'ok'                                              | Filter which marks items which generates a critical state.                                                                |
-| crit                                        |                                                             | Short alias for critical.                                                                                                 |
-| [ok](#check_dns_ok)                         |                                                             | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_dns_debug)                   | 1)] (=0                                                     | Show debugging information in the log                                                                                     |
-| [show-all](#check_dns_show-all)             | 1)] (=0                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_dns_empty-state)       | ignored                                                     | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_dns_perf-config)       |                                                             | Performance data generation configuration                                                                                 |
-| [escape-html](#check_dns_escape-html)       | 1)] (=0                                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_dns_list-separator) | ,                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                        | N/A                                                         | Show help screen (this screen)                                                                                            |
-| help-pb                                     | N/A                                                         | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                | N/A                                                         | Show default values for a given command                                                                                   |
-| help-short                                  | N/A                                                         | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_dns_top-syntax)         | ${status}: ${problem_list}                                  | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_dns_ok-syntax)           | %(status): %(list)                                          | ok syntax.                                                                                                                |
-| [empty-syntax](#check_dns_empty-syntax)     | No DNS lookup performed                                     | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_dns_detail-syntax)   | ${host} -> ${addresses} (${count}) in ${time}ms [${result}] | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_dns_perf-syntax)       | ${host}                                                     | Performance alias syntax.                                                                                                 |
-| host                                        |                                                             | Hostname to look up.                                                                                                      |
-| lookup                                      |                                                             | Alias for --host.                                                                                                         |
-| [type](#check_dns_type)                     | A                                                           | DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.                                                          |
-| server                                      |                                                             | DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf otherwise).                                |
-| [port](#check_dns_port)                     | 53                                                          | UDP port of the DNS server.                                                                                               |
-| [norecursion](#check_dns_norecursion)       | 1)] (=0                                                     | Do not request recursion (RD=0).                                                                                          |
-| [timeout](#check_dns_timeout)               | 5000                                                        | Timeout in milliseconds.                                                                                                  |
-| expected-address                            |                                                             | Record that must be present in the answer (may be given multiple times).                                                  |
-| expected                                    |                                                             | Comma separated list of records that must all be present in the answer.                                                   |
+    <a id="check_dns_warn"></a>
+    <a id="check_dns_crit"></a>
+    <a id="check_dns_help"></a>
+    <a id="check_dns_help-pb"></a>
+    <a id="check_dns_show-default"></a>
+    <a id="check_dns_help-short"></a>
+    <a id="check_dns_host"></a>
+    <a id="check_dns_lookup"></a>
+    <a id="check_dns_server"></a>
+    <a id="check_dns_expected-address"></a>
+    <a id="check_dns_expected"></a>
 
-
-
-<h5 id="check_dns_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+    | Option                                      | Default Value                                               | Description                                                                                                               |
+    |---------------------------------------------|-------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_dns_filter)                 |                                                             | Filter which marks interesting items.                                                                                     |
+    | [warning](#check_dns_warning)               | time > 1000                                                 | Filter which marks items which generates a warning state.                                                                 |
+    | warn                                        |                                                             | Short alias for warning                                                                                                   |
+    | [critical](#check_dns_critical)             | result != 'ok'                                              | Filter which marks items which generates a critical state.                                                                |
+    | crit                                        |                                                             | Short alias for critical.                                                                                                 |
+    | [ok](#check_dns_ok)                         |                                                             | Filter which marks items which generates an ok state.                                                                     |
+    | [debug](#check_dns_debug)                   | 1)] (=0                                                     | Show debugging information in the log                                                                                     |
+    | [show-all](#check_dns_show-all)             | 1)] (=0                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [empty-state](#check_dns_empty-state)       | ignored                                                     | Return status to use when nothing matched filter.                                                                         |
+    | [perf-config](#check_dns_perf-config)       |                                                             | Performance data generation configuration                                                                                 |
+    | [escape-html](#check_dns_escape-html)       | 1)] (=0                                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [list-separator](#check_dns_list-separator) | ,                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+    | help                                        | N/A                                                         | Show help screen (this screen)                                                                                            |
+    | help-pb                                     | N/A                                                         | Show help screen as a protocol buffer payload                                                                             |
+    | show-default                                | N/A                                                         | Show default values for a given command                                                                                   |
+    | help-short                                  | N/A                                                         | Show help screen (short format).                                                                                          |
+    | [top-syntax](#check_dns_top-syntax)         | ${status}: ${problem_list}                                  | Top level syntax.                                                                                                         |
+    | [ok-syntax](#check_dns_ok-syntax)           | %(status): %(list)                                          | ok syntax.                                                                                                                |
+    | [empty-syntax](#check_dns_empty-syntax)     | No DNS lookup performed                                     | Empty syntax.                                                                                                             |
+    | [detail-syntax](#check_dns_detail-syntax)   | ${host} -> ${addresses} (${count}) in ${time}ms [${result}] | Detail level syntax.                                                                                                      |
+    | [perf-syntax](#check_dns_perf-syntax)       | ${host}                                                     | Performance alias syntax.                                                                                                 |
+    | host                                        |                                                             | Hostname to look up.                                                                                                      |
+    | lookup                                      |                                                             | Alias for --host.                                                                                                         |
+    | [type](#check_dns_type)                     | A                                                           | DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.                                                          |
+    | server                                      |                                                             | DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf otherwise).                                |
+    | [port](#check_dns_port)                     | 53                                                          | UDP port of the DNS server.                                                                                               |
+    | [norecursion](#check_dns_norecursion)       | 1)] (=0                                                     | Do not request recursion (RD=0).                                                                                          |
+    | [timeout](#check_dns_timeout)               | 5000                                                        | Timeout in milliseconds.                                                                                                  |
+    | expected-address                            |                                                             | Record that must be present in the answer (may be given multiple times).                                                  |
+    | expected                                    |                                                             | Comma separated list of records that must all be present in the answer.                                                   |
 
 
-<h5 id="check_dns_warning">warning:</h5>
 
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    <h5 id="check_dns_filter">filter:</h5>
 
-
-*Default Value:* `time > 1000`
-
-<h5 id="check_dns_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Default Value:* `result != 'ok'`
+    <h5 id="check_dns_warning">warning:</h5>
 
-<h5 id="check_dns_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_dns_debug">debug:</h5>
+    *Default Value:* `time > 1000`
 
-Show debugging information in the log
+    <h5 id="check_dns_critical">critical:</h5>
 
-*Default Value:* `1)] (=0`
-
-<h5 id="check_dns_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `1)] (=0`
-
-<h5 id="check_dns_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ignored`
-
-<h5 id="check_dns_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
 
-<h5 id="check_dns_escape-html">escape-html:</h5>
+    *Default Value:* `result != 'ok'`
 
-Escape any < and > characters to prevent HTML encoding
+    <h5 id="check_dns_ok">ok:</h5>
 
-*Default Value:* `1)] (=0`
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-<h5 id="check_dns_list-separator">list-separator:</h5>
 
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+    <h5 id="check_dns_debug">debug:</h5>
 
-*Default Value:* `, `
+    Show debugging information in the log
 
-<h5 id="check_dns_top-syntax">top-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_dns_show-all">show-all:</h5>
 
-*Default Value:* `${status}: ${problem_list}`
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-<h5 id="check_dns_ok-syntax">ok-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    <h5 id="check_dns_empty-state">empty-state:</h5>
 
-*Default Value:* `%(status): %(list)`
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-<h5 id="check_dns_empty-syntax">empty-syntax:</h5>
+    *Default Value:* `ignored`
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
+    <h5 id="check_dns_perf-config">perf-config:</h5>
 
-*Default Value:* `No DNS lookup performed`
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-<h5 id="check_dns_detail-syntax">detail-syntax:</h5>
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_dns_escape-html">escape-html:</h5>
 
-*Default Value:* `${host} -> ${addresses} (${count}) in ${time}ms [${result}]`
+    Escape any < and > characters to prevent HTML encoding
 
-<h5 id="check_dns_perf-syntax">perf-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
+    <h5 id="check_dns_list-separator">list-separator:</h5>
 
-*Default Value:* `${host}`
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-<h5 id="check_dns_type">type:</h5>
+    *Default Value:* `, `
 
-DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.
+    <h5 id="check_dns_top-syntax">top-syntax:</h5>
 
-*Default Value:* `A`
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-<h5 id="check_dns_port">port:</h5>
+    *Default Value:* `${status}: ${problem_list}`
 
-UDP port of the DNS server.
+    <h5 id="check_dns_ok-syntax">ok-syntax:</h5>
 
-*Default Value:* `53`
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
 
-<h5 id="check_dns_norecursion">norecursion:</h5>
+    *Default Value:* `%(status): %(list)`
 
-Do not request recursion (RD=0).
+    <h5 id="check_dns_empty-syntax">empty-syntax:</h5>
 
-*Default Value:* `1)] (=0`
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
 
-<h5 id="check_dns_timeout">timeout:</h5>
+    *Default Value:* `No DNS lookup performed`
 
-Timeout in milliseconds.
+    <h5 id="check_dns_detail-syntax">detail-syntax:</h5>
 
-*Default Value:* `5000`
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${host} -> ${addresses} (${count}) in ${time}ms [${result}]`
+
+    <h5 id="check_dns_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${host}`
+
+    <h5 id="check_dns_type">type:</h5>
+
+    DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.
+
+    *Default Value:* `A`
+
+    <h5 id="check_dns_port">port:</h5>
+
+    UDP port of the DNS server.
+
+    *Default Value:* `53`
+
+    <h5 id="check_dns_norecursion">norecursion:</h5>
+
+    Do not request recursion (RD=0).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_dns_timeout">timeout:</h5>
+
+    Timeout in milliseconds.
+
+    *Default Value:* `5000`
+
+=== "Linux"
+
+    <a id="check_dns_warn"></a>
+    <a id="check_dns_crit"></a>
+    <a id="check_dns_help"></a>
+    <a id="check_dns_help-pb"></a>
+    <a id="check_dns_show-default"></a>
+    <a id="check_dns_help-short"></a>
+    <a id="check_dns_host"></a>
+    <a id="check_dns_lookup"></a>
+    <a id="check_dns_server"></a>
+    <a id="check_dns_expected-address"></a>
+    <a id="check_dns_expected"></a>
+    <a id="check_dns_address-family"></a>
+
+    | Option                                      | Default Value                                               | Description                                                                                                                                                                                                                                  |
+    |---------------------------------------------|-------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_dns_filter)                 |                                                             | Filter which marks interesting items.                                                                                                                                                                                                        |
+    | [warning](#check_dns_warning)               | time > 1000                                                 | Filter which marks items which generates a warning state.                                                                                                                                                                                    |
+    | warn                                        |                                                             | Short alias for warning                                                                                                                                                                                                                      |
+    | [critical](#check_dns_critical)             | result != 'ok'                                              | Filter which marks items which generates a critical state.                                                                                                                                                                                   |
+    | crit                                        |                                                             | Short alias for critical.                                                                                                                                                                                                                    |
+    | [ok](#check_dns_ok)                         |                                                             | Filter which marks items which generates an ok state.                                                                                                                                                                                        |
+    | [debug](#check_dns_debug)                   | 1)] (=0                                                     | Show debugging information in the log                                                                                                                                                                                                        |
+    | [show-all](#check_dns_show-all)             | 1)] (=0                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                             |
+    | [empty-state](#check_dns_empty-state)       | ignored                                                     | Return status to use when nothing matched filter.                                                                                                                                                                                            |
+    | [perf-config](#check_dns_perf-config)       |                                                             | Performance data generation configuration                                                                                                                                                                                                    |
+    | [escape-html](#check_dns_escape-html)       | 1)] (=0                                                     | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                       |
+    | [list-separator](#check_dns_list-separator) | ,                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                    |
+    | help                                        | N/A                                                         | Show help screen (this screen)                                                                                                                                                                                                               |
+    | help-pb                                     | N/A                                                         | Show help screen as a protocol buffer payload                                                                                                                                                                                                |
+    | show-default                                | N/A                                                         | Show default values for a given command                                                                                                                                                                                                      |
+    | help-short                                  | N/A                                                         | Show help screen (short format).                                                                                                                                                                                                             |
+    | [top-syntax](#check_dns_top-syntax)         | ${status}: ${problem_list}                                  | Top level syntax.                                                                                                                                                                                                                            |
+    | [ok-syntax](#check_dns_ok-syntax)           | %(status): %(list)                                          | ok syntax.                                                                                                                                                                                                                                   |
+    | [empty-syntax](#check_dns_empty-syntax)     | No DNS lookup performed                                     | Empty syntax.                                                                                                                                                                                                                                |
+    | [detail-syntax](#check_dns_detail-syntax)   | ${host} -> ${addresses} (${count}) in ${time}ms [${result}] | Detail level syntax.                                                                                                                                                                                                                         |
+    | [perf-syntax](#check_dns_perf-syntax)       | ${host}                                                     | Performance alias syntax.                                                                                                                                                                                                                    |
+    | host                                        |                                                             | Hostname to look up.                                                                                                                                                                                                                         |
+    | lookup                                      |                                                             | Alias for --host.                                                                                                                                                                                                                            |
+    | [type](#check_dns_type)                     | A                                                           | DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.                                                                                                                                                                             |
+    | server                                      |                                                             | DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf otherwise).                                                                                                                                                   |
+    | [port](#check_dns_port)                     | 53                                                          | UDP port of the DNS server.                                                                                                                                                                                                                  |
+    | [norecursion](#check_dns_norecursion)       | 1)] (=0                                                     | Do not request recursion (RD=0).                                                                                                                                                                                                             |
+    | [timeout](#check_dns_timeout)               | 5000                                                        | Timeout in milliseconds.                                                                                                                                                                                                                     |
+    | expected-address                            |                                                             | Record that must be present in the answer (may be given multiple times).                                                                                                                                                                     |
+    | expected                                    |                                                             | Comma separated list of records that must all be present in the answer.                                                                                                                                                                      |
+    | address-family                              |                                                             | IP version to use: any (default), ipv4 or ipv6. Selects which address of the DNS server to query; with the system resolver (A/AAAA and no server=) it also restricts the answer to that family. Accepts 4/v4/inet and 6/v6/inet6 as aliases. |
+
+
+
+    <h5 id="check_dns_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_dns_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+    *Default Value:* `time > 1000`
+
+    <h5 id="check_dns_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `result != 'ok'`
+
+    <h5 id="check_dns_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_dns_debug">debug:</h5>
+
+    Show debugging information in the log
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_dns_show-all">show-all:</h5>
+
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_dns_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `ignored`
+
+    <h5 id="check_dns_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_dns_escape-html">escape-html:</h5>
+
+    Escape any < and > characters to prevent HTML encoding
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_dns_list-separator">list-separator:</h5>
+
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+    *Default Value:* `, `
+
+    <h5 id="check_dns_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${problem_list}`
+
+    <h5 id="check_dns_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): %(list)`
+
+    <h5 id="check_dns_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No DNS lookup performed`
+
+    <h5 id="check_dns_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${host} -> ${addresses} (${count}) in ${time}ms [${result}]`
+
+    <h5 id="check_dns_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${host}`
+
+    <h5 id="check_dns_type">type:</h5>
+
+    DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.
+
+    *Default Value:* `A`
+
+    <h5 id="check_dns_port">port:</h5>
+
+    UDP port of the DNS server.
+
+    *Default Value:* `53`
+
+    <h5 id="check_dns_norecursion">norecursion:</h5>
+
+    Do not request recursion (RD=0).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_dns_timeout">timeout:</h5>
+
+    Timeout in milliseconds.
+
+    *Default Value:* `5000`
 
 
 <a id="check_dns_filter_keys"></a>
@@ -820,250 +1005,501 @@ OK: cert expires in 58 days
 <a id="check_http_options"></a>
 #### Command-line Arguments
 
-<a id="check_http_warn"></a>
-<a id="check_http_crit"></a>
-<a id="check_http_help"></a>
-<a id="check_http_help-pb"></a>
-<a id="check_http_show-default"></a>
-<a id="check_http_help-short"></a>
-<a id="check_http_url"></a>
-<a id="check_http_host"></a>
-<a id="check_http_port"></a>
-<a id="check_http_post-data"></a>
-<a id="check_http_username"></a>
-<a id="check_http_password"></a>
-<a id="check_http_expected-body"></a>
-<a id="check_http_header"></a>
-<a id="check_http_sni"></a>
-<a id="check_http_json-path"></a>
-
-| Option                                       | Default Value                                       | Description                                                                                                                                                                                                                               |
-|----------------------------------------------|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_http_filter)                 |                                                     | Filter which marks interesting items.                                                                                                                                                                                                     |
-| [warning](#check_http_warning)               | time > 5000                                         | Filter which marks items which generates a warning state.                                                                                                                                                                                 |
-| warn                                         |                                                     | Short alias for warning                                                                                                                                                                                                                   |
-| [critical](#check_http_critical)             | code < 200 or code >= 400 or result != 'ok'         | Filter which marks items which generates a critical state.                                                                                                                                                                                |
-| crit                                         |                                                     | Short alias for critical.                                                                                                                                                                                                                 |
-| [ok](#check_http_ok)                         |                                                     | Filter which marks items which generates an ok state.                                                                                                                                                                                     |
-| [debug](#check_http_debug)                   | 1)] (=0                                             | Show debugging information in the log                                                                                                                                                                                                     |
-| [show-all](#check_http_show-all)             | 1)] (=0                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                          |
-| [empty-state](#check_http_empty-state)       | ignored                                             | Return status to use when nothing matched filter.                                                                                                                                                                                         |
-| [perf-config](#check_http_perf-config)       |                                                     | Performance data generation configuration                                                                                                                                                                                                 |
-| [escape-html](#check_http_escape-html)       | 1)] (=0                                             | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                    |
-| [list-separator](#check_http_list-separator) | ,                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                 |
-| help                                         | N/A                                                 | Show help screen (this screen)                                                                                                                                                                                                            |
-| help-pb                                      | N/A                                                 | Show help screen as a protocol buffer payload                                                                                                                                                                                             |
-| show-default                                 | N/A                                                 | Show default values for a given command                                                                                                                                                                                                   |
-| help-short                                   | N/A                                                 | Show help screen (short format).                                                                                                                                                                                                          |
-| [top-syntax](#check_http_top-syntax)         | ${status}: ${problem_list}                          | Top level syntax.                                                                                                                                                                                                                         |
-| [ok-syntax](#check_http_ok-syntax)           | %(status): %(list)                                  | ok syntax.                                                                                                                                                                                                                                |
-| [empty-syntax](#check_http_empty-syntax)     | No URL checked                                      | Empty syntax.                                                                                                                                                                                                                             |
-| [detail-syntax](#check_http_detail-syntax)   | ${url} -> ${code} ${result} (${size}B in ${time}ms) | Detail level syntax.                                                                                                                                                                                                                      |
-| [perf-syntax](#check_http_perf-syntax)       | ${url}                                              | Performance alias syntax.                                                                                                                                                                                                                 |
-| url                                          |                                                     | Full URL to check (http://host[:port]/path or https://...). May be given multiple times.                                                                                                                                                  |
-| host                                         |                                                     | Hostname (used when --url is not given).                                                                                                                                                                                                  |
-| port                                         |                                                     | TCP port (defaults to 80 or 443).                                                                                                                                                                                                         |
-| [path](#check_http_path)                     | /                                                   | Path component of the URL.                                                                                                                                                                                                                |
-| [protocol](#check_http_protocol)             | http                                                | Protocol to use: http or https.                                                                                                                                                                                                           |
-| [ssl](#check_http_ssl)                       | 1)] (=0                                             | Force https, alias for --protocol https (ssl=true).                                                                                                                                                                                       |
-| [timeout](#check_http_timeout)               | 30000                                               | Timeout in milliseconds.                                                                                                                                                                                                                  |
-| [method](#check_http_method)                 | GET                                                 | HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).                                                                                                                                                                                   |
-| post-data                                    |                                                     | Request body to send; implies POST unless --method is given.                                                                                                                                                                              |
-| [content-type](#check_http_content-type)     | application/x-www-form-urlencoded                   | Content-Type header for the request body.                                                                                                                                                                                                 |
-| username                                     |                                                     | Username for HTTP Basic authentication.                                                                                                                                                                                                   |
-| password                                     |                                                     | Password for HTTP Basic authentication.                                                                                                                                                                                                   |
-| expected-body                                |                                                     | Substring that must appear in the body for the check to be ok.                                                                                                                                                                            |
-| [user-agent](#check_http_user-agent)         | NSClient++                                          | User-Agent header value.                                                                                                                                                                                                                  |
-| header                                       |                                                     | Additional request header in 'Name: value' form (may be given multiple times).                                                                                                                                                            |
-| [onredirect](#check_http_onredirect)         | ok                                                  | How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.                                                                                                                                |
-| [max-redirs](#check_http_max-redirs)         | 15                                                  | Maximum number of redirects to follow (with --onredirect follow).                                                                                                                                                                         |
-| sni                                          |                                                     | TLS Server Name Indication / verification hostname override (defaults to the URL host).                                                                                                                                                   |
-| [tls-version](#check_http_tls-version)       | tlsv1.2+                                            | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                                                                                              |
-| [verify](#check_http_verify)                 | peer                                                | Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.                                                                                                                                |
-| [ca](#check_http_ca)                         | ${ca-path}                                          | Path to a CA bundle to use when verifying the server certificate.                                                                                                                                                                         |
-| json-path                                    |                                                     | Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). Numeric segments index arrays; single-quote a segment containing a dot. Example: --json-path qlen:data.queue.length "crit=qlen > 100". |
+=== "Windows"
+
+    <a id="check_http_warn"></a>
+    <a id="check_http_crit"></a>
+    <a id="check_http_help"></a>
+    <a id="check_http_help-pb"></a>
+    <a id="check_http_show-default"></a>
+    <a id="check_http_help-short"></a>
+    <a id="check_http_url"></a>
+    <a id="check_http_host"></a>
+    <a id="check_http_port"></a>
+    <a id="check_http_post-data"></a>
+    <a id="check_http_username"></a>
+    <a id="check_http_password"></a>
+    <a id="check_http_expected-body"></a>
+    <a id="check_http_header"></a>
+    <a id="check_http_sni"></a>
+    <a id="check_http_json-path"></a>
+
+    | Option                                       | Default Value                                       | Description                                                                                                                                                                                                                               |
+    |----------------------------------------------|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_http_filter)                 |                                                     | Filter which marks interesting items.                                                                                                                                                                                                     |
+    | [warning](#check_http_warning)               | time > 5000                                         | Filter which marks items which generates a warning state.                                                                                                                                                                                 |
+    | warn                                         |                                                     | Short alias for warning                                                                                                                                                                                                                   |
+    | [critical](#check_http_critical)             | code < 200 or code >= 400 or result != 'ok'         | Filter which marks items which generates a critical state.                                                                                                                                                                                |
+    | crit                                         |                                                     | Short alias for critical.                                                                                                                                                                                                                 |
+    | [ok](#check_http_ok)                         |                                                     | Filter which marks items which generates an ok state.                                                                                                                                                                                     |
+    | [debug](#check_http_debug)                   | 1)] (=0                                             | Show debugging information in the log                                                                                                                                                                                                     |
+    | [show-all](#check_http_show-all)             | 1)] (=0                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                          |
+    | [empty-state](#check_http_empty-state)       | ignored                                             | Return status to use when nothing matched filter.                                                                                                                                                                                         |
+    | [perf-config](#check_http_perf-config)       |                                                     | Performance data generation configuration                                                                                                                                                                                                 |
+    | [escape-html](#check_http_escape-html)       | 1)] (=0                                             | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                    |
+    | [list-separator](#check_http_list-separator) | ,                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                 |
+    | help                                         | N/A                                                 | Show help screen (this screen)                                                                                                                                                                                                            |
+    | help-pb                                      | N/A                                                 | Show help screen as a protocol buffer payload                                                                                                                                                                                             |
+    | show-default                                 | N/A                                                 | Show default values for a given command                                                                                                                                                                                                   |
+    | help-short                                   | N/A                                                 | Show help screen (short format).                                                                                                                                                                                                          |
+    | [top-syntax](#check_http_top-syntax)         | ${status}: ${problem_list}                          | Top level syntax.                                                                                                                                                                                                                         |
+    | [ok-syntax](#check_http_ok-syntax)           | %(status): %(list)                                  | ok syntax.                                                                                                                                                                                                                                |
+    | [empty-syntax](#check_http_empty-syntax)     | No URL checked                                      | Empty syntax.                                                                                                                                                                                                                             |
+    | [detail-syntax](#check_http_detail-syntax)   | ${url} -> ${code} ${result} (${size}B in ${time}ms) | Detail level syntax.                                                                                                                                                                                                                      |
+    | [perf-syntax](#check_http_perf-syntax)       | ${url}                                              | Performance alias syntax.                                                                                                                                                                                                                 |
+    | url                                          |                                                     | Full URL to check (http://host[:port]/path or https://...). May be given multiple times.                                                                                                                                                  |
+    | host                                         |                                                     | Hostname (used when --url is not given).                                                                                                                                                                                                  |
+    | port                                         |                                                     | TCP port (defaults to 80 or 443).                                                                                                                                                                                                         |
+    | [path](#check_http_path)                     | /                                                   | Path component of the URL.                                                                                                                                                                                                                |
+    | [protocol](#check_http_protocol)             | http                                                | Protocol to use: http or https.                                                                                                                                                                                                           |
+    | [ssl](#check_http_ssl)                       | 1)] (=0                                             | Force https, alias for --protocol https (ssl=true).                                                                                                                                                                                       |
+    | [timeout](#check_http_timeout)               | 30000                                               | Timeout in milliseconds.                                                                                                                                                                                                                  |
+    | [method](#check_http_method)                 | GET                                                 | HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).                                                                                                                                                                                   |
+    | post-data                                    |                                                     | Request body to send; implies POST unless --method is given.                                                                                                                                                                              |
+    | [content-type](#check_http_content-type)     | application/x-www-form-urlencoded                   | Content-Type header for the request body.                                                                                                                                                                                                 |
+    | username                                     |                                                     | Username for HTTP Basic authentication.                                                                                                                                                                                                   |
+    | password                                     |                                                     | Password for HTTP Basic authentication.                                                                                                                                                                                                   |
+    | expected-body                                |                                                     | Substring that must appear in the body for the check to be ok.                                                                                                                                                                            |
+    | [user-agent](#check_http_user-agent)         | NSClient++                                          | User-Agent header value.                                                                                                                                                                                                                  |
+    | header                                       |                                                     | Additional request header in 'Name: value' form (may be given multiple times).                                                                                                                                                            |
+    | [onredirect](#check_http_onredirect)         | ok                                                  | How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.                                                                                                                                |
+    | [max-redirs](#check_http_max-redirs)         | 15                                                  | Maximum number of redirects to follow (with --onredirect follow).                                                                                                                                                                         |
+    | sni                                          |                                                     | TLS Server Name Indication / verification hostname override (defaults to the URL host).                                                                                                                                                   |
+    | [tls-version](#check_http_tls-version)       | tlsv1.2+                                            | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                                                                                              |
+    | [verify](#check_http_verify)                 | peer                                                | Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.                                                                                                                                |
+    | [ca](#check_http_ca)                         | ${ca-path}                                          | Path to a CA bundle to use when verifying the server certificate.                                                                                                                                                                         |
+    | json-path                                    |                                                     | Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). Numeric segments index arrays; single-quote a segment containing a dot. Example: --json-path qlen:data.queue.length "crit=qlen > 100". |
 
 
 
-<h5 id="check_http_filter">filter:</h5>
+    <h5 id="check_http_filter">filter:</h5>
 
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-<h5 id="check_http_warning">warning:</h5>
+    <h5 id="check_http_warning">warning:</h5>
 
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-*Default Value:* `time > 5000`
+    *Default Value:* `time > 5000`
 
-<h5 id="check_http_critical">critical:</h5>
+    <h5 id="check_http_critical">critical:</h5>
 
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
 
-*Default Value:* `code < 200 or code >= 400 or result != 'ok'`
+    *Default Value:* `code < 200 or code >= 400 or result != 'ok'`
 
-<h5 id="check_http_ok">ok:</h5>
+    <h5 id="check_http_ok">ok:</h5>
 
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
 
-<h5 id="check_http_debug">debug:</h5>
+    <h5 id="check_http_debug">debug:</h5>
 
-Show debugging information in the log
+    Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+    *Default Value:* `1)] (=0`
 
-<h5 id="check_http_show-all">show-all:</h5>
+    <h5 id="check_http_show-all">show-all:</h5>
 
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+    *Default Value:* `1)] (=0`
 
-<h5 id="check_http_empty-state">empty-state:</h5>
+    <h5 id="check_http_empty-state">empty-state:</h5>
 
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-*Default Value:* `ignored`
+    *Default Value:* `ignored`
 
-<h5 id="check_http_perf-config">perf-config:</h5>
+    <h5 id="check_http_perf-config">perf-config:</h5>
 
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 
-<h5 id="check_http_escape-html">escape-html:</h5>
+    <h5 id="check_http_escape-html">escape-html:</h5>
 
-Escape any < and > characters to prevent HTML encoding
+    Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+    *Default Value:* `1)] (=0`
 
-<h5 id="check_http_list-separator">list-separator:</h5>
+    <h5 id="check_http_list-separator">list-separator:</h5>
 
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-*Default Value:* `, `
+    *Default Value:* `, `
 
-<h5 id="check_http_top-syntax">top-syntax:</h5>
+    <h5 id="check_http_top-syntax">top-syntax:</h5>
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-*Default Value:* `${status}: ${problem_list}`
+    *Default Value:* `${status}: ${problem_list}`
 
-<h5 id="check_http_ok-syntax">ok-syntax:</h5>
+    <h5 id="check_http_ok-syntax">ok-syntax:</h5>
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
 
-*Default Value:* `%(status): %(list)`
+    *Default Value:* `%(status): %(list)`
 
-<h5 id="check_http_empty-syntax">empty-syntax:</h5>
+    <h5 id="check_http_empty-syntax">empty-syntax:</h5>
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
 
-*Default Value:* `No URL checked`
+    *Default Value:* `No URL checked`
 
-<h5 id="check_http_detail-syntax">detail-syntax:</h5>
+    <h5 id="check_http_detail-syntax">detail-syntax:</h5>
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-*Default Value:* `${url} -> ${code} ${result} (${size}B in ${time}ms)`
+    *Default Value:* `${url} -> ${code} ${result} (${size}B in ${time}ms)`
 
-<h5 id="check_http_perf-syntax">perf-syntax:</h5>
+    <h5 id="check_http_perf-syntax">perf-syntax:</h5>
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
 
-*Default Value:* `${url}`
+    *Default Value:* `${url}`
 
-<h5 id="check_http_path">path:</h5>
+    <h5 id="check_http_path">path:</h5>
 
-Path component of the URL.
+    Path component of the URL.
 
-*Default Value:* `/`
+    *Default Value:* `/`
 
-<h5 id="check_http_protocol">protocol:</h5>
+    <h5 id="check_http_protocol">protocol:</h5>
 
-Protocol to use: http or https.
+    Protocol to use: http or https.
 
-*Default Value:* `http`
+    *Default Value:* `http`
 
-<h5 id="check_http_ssl">ssl:</h5>
+    <h5 id="check_http_ssl">ssl:</h5>
 
-Force https, alias for --protocol https (ssl=true).
+    Force https, alias for --protocol https (ssl=true).
 
-*Default Value:* `1)] (=0`
+    *Default Value:* `1)] (=0`
 
-<h5 id="check_http_timeout">timeout:</h5>
+    <h5 id="check_http_timeout">timeout:</h5>
 
-Timeout in milliseconds.
+    Timeout in milliseconds.
 
-*Default Value:* `30000`
+    *Default Value:* `30000`
 
-<h5 id="check_http_method">method:</h5>
+    <h5 id="check_http_method">method:</h5>
 
-HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).
+    HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).
 
-*Default Value:* `GET`
+    *Default Value:* `GET`
 
-<h5 id="check_http_content-type">content-type:</h5>
+    <h5 id="check_http_content-type">content-type:</h5>
 
-Content-Type header for the request body.
+    Content-Type header for the request body.
 
-*Default Value:* `application/x-www-form-urlencoded`
+    *Default Value:* `application/x-www-form-urlencoded`
 
-<h5 id="check_http_user-agent">user-agent:</h5>
+    <h5 id="check_http_user-agent">user-agent:</h5>
 
-User-Agent header value.
+    User-Agent header value.
 
-*Default Value:* `NSClient++`
+    *Default Value:* `NSClient++`
 
-<h5 id="check_http_onredirect">onredirect:</h5>
+    <h5 id="check_http_onredirect">onredirect:</h5>
 
-How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.
+    How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.
 
-*Default Value:* `ok`
+    *Default Value:* `ok`
 
-<h5 id="check_http_max-redirs">max-redirs:</h5>
+    <h5 id="check_http_max-redirs">max-redirs:</h5>
 
-Maximum number of redirects to follow (with --onredirect follow).
+    Maximum number of redirects to follow (with --onredirect follow).
 
-*Default Value:* `15`
+    *Default Value:* `15`
 
-<h5 id="check_http_tls-version">tls-version:</h5>
+    <h5 id="check_http_tls-version">tls-version:</h5>
 
-TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+    TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
 
-*Default Value:* `tlsv1.2+`
+    *Default Value:* `tlsv1.2+`
 
-<h5 id="check_http_verify">verify:</h5>
+    <h5 id="check_http_verify">verify:</h5>
 
-Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.
+    Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.
 
-*Default Value:* `peer`
+    *Default Value:* `peer`
 
-<h5 id="check_http_ca">ca:</h5>
+    <h5 id="check_http_ca">ca:</h5>
 
-Path to a CA bundle to use when verifying the server certificate.
+    Path to a CA bundle to use when verifying the server certificate.
 
-*Default Value:* `${ca-path}`
+    *Default Value:* `${ca-path}`
+
+=== "Linux"
+
+    <a id="check_http_warn"></a>
+    <a id="check_http_crit"></a>
+    <a id="check_http_help"></a>
+    <a id="check_http_help-pb"></a>
+    <a id="check_http_show-default"></a>
+    <a id="check_http_help-short"></a>
+    <a id="check_http_url"></a>
+    <a id="check_http_host"></a>
+    <a id="check_http_port"></a>
+    <a id="check_http_post-data"></a>
+    <a id="check_http_username"></a>
+    <a id="check_http_password"></a>
+    <a id="check_http_expected-body"></a>
+    <a id="check_http_header"></a>
+    <a id="check_http_sni"></a>
+    <a id="check_http_json-path"></a>
+    <a id="check_http_address-family"></a>
+
+    | Option                                       | Default Value                                       | Description                                                                                                                                                                                                                               |
+    |----------------------------------------------|-----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_http_filter)                 |                                                     | Filter which marks interesting items.                                                                                                                                                                                                     |
+    | [warning](#check_http_warning)               | time > 5000                                         | Filter which marks items which generates a warning state.                                                                                                                                                                                 |
+    | warn                                         |                                                     | Short alias for warning                                                                                                                                                                                                                   |
+    | [critical](#check_http_critical)             | code < 200 or code >= 400 or result != 'ok'         | Filter which marks items which generates a critical state.                                                                                                                                                                                |
+    | crit                                         |                                                     | Short alias for critical.                                                                                                                                                                                                                 |
+    | [ok](#check_http_ok)                         |                                                     | Filter which marks items which generates an ok state.                                                                                                                                                                                     |
+    | [debug](#check_http_debug)                   | 1)] (=0                                             | Show debugging information in the log                                                                                                                                                                                                     |
+    | [show-all](#check_http_show-all)             | 1)] (=0                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                          |
+    | [empty-state](#check_http_empty-state)       | ignored                                             | Return status to use when nothing matched filter.                                                                                                                                                                                         |
+    | [perf-config](#check_http_perf-config)       |                                                     | Performance data generation configuration                                                                                                                                                                                                 |
+    | [escape-html](#check_http_escape-html)       | 1)] (=0                                             | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                    |
+    | [list-separator](#check_http_list-separator) | ,                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                 |
+    | help                                         | N/A                                                 | Show help screen (this screen)                                                                                                                                                                                                            |
+    | help-pb                                      | N/A                                                 | Show help screen as a protocol buffer payload                                                                                                                                                                                             |
+    | show-default                                 | N/A                                                 | Show default values for a given command                                                                                                                                                                                                   |
+    | help-short                                   | N/A                                                 | Show help screen (short format).                                                                                                                                                                                                          |
+    | [top-syntax](#check_http_top-syntax)         | ${status}: ${problem_list}                          | Top level syntax.                                                                                                                                                                                                                         |
+    | [ok-syntax](#check_http_ok-syntax)           | %(status): %(list)                                  | ok syntax.                                                                                                                                                                                                                                |
+    | [empty-syntax](#check_http_empty-syntax)     | No URL checked                                      | Empty syntax.                                                                                                                                                                                                                             |
+    | [detail-syntax](#check_http_detail-syntax)   | ${url} -> ${code} ${result} (${size}B in ${time}ms) | Detail level syntax.                                                                                                                                                                                                                      |
+    | [perf-syntax](#check_http_perf-syntax)       | ${url}                                              | Performance alias syntax.                                                                                                                                                                                                                 |
+    | url                                          |                                                     | Full URL to check (http://host[:port]/path or https://...). May be given multiple times.                                                                                                                                                  |
+    | host                                         |                                                     | Hostname (used when --url is not given).                                                                                                                                                                                                  |
+    | port                                         |                                                     | TCP port (defaults to 80 or 443).                                                                                                                                                                                                         |
+    | [path](#check_http_path)                     | /                                                   | Path component of the URL.                                                                                                                                                                                                                |
+    | [protocol](#check_http_protocol)             | http                                                | Protocol to use: http or https.                                                                                                                                                                                                           |
+    | [ssl](#check_http_ssl)                       | 1)] (=0                                             | Force https, alias for --protocol https (ssl=true).                                                                                                                                                                                       |
+    | [timeout](#check_http_timeout)               | 30000                                               | Timeout in milliseconds.                                                                                                                                                                                                                  |
+    | [method](#check_http_method)                 | GET                                                 | HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).                                                                                                                                                                                   |
+    | post-data                                    |                                                     | Request body to send; implies POST unless --method is given.                                                                                                                                                                              |
+    | [content-type](#check_http_content-type)     | application/x-www-form-urlencoded                   | Content-Type header for the request body.                                                                                                                                                                                                 |
+    | username                                     |                                                     | Username for HTTP Basic authentication.                                                                                                                                                                                                   |
+    | password                                     |                                                     | Password for HTTP Basic authentication.                                                                                                                                                                                                   |
+    | expected-body                                |                                                     | Substring that must appear in the body for the check to be ok.                                                                                                                                                                            |
+    | [user-agent](#check_http_user-agent)         | NSClient++                                          | User-Agent header value.                                                                                                                                                                                                                  |
+    | header                                       |                                                     | Additional request header in 'Name: value' form (may be given multiple times).                                                                                                                                                            |
+    | [onredirect](#check_http_onredirect)         | ok                                                  | How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.                                                                                                                                |
+    | [max-redirs](#check_http_max-redirs)         | 15                                                  | Maximum number of redirects to follow (with --onredirect follow).                                                                                                                                                                         |
+    | sni                                          |                                                     | TLS Server Name Indication / verification hostname override (defaults to the URL host).                                                                                                                                                   |
+    | [tls-version](#check_http_tls-version)       | tlsv1.2+                                            | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                                                                                              |
+    | [verify](#check_http_verify)                 | peer                                                | Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.                                                                                                                                |
+    | [ca](#check_http_ca)                         | ${ca-path}                                          | Path to a CA bundle to use when verifying the server certificate.                                                                                                                                                                         |
+    | json-path                                    |                                                     | Extract a value from the JSON response body as a filter keyword: 'alias:dotted.path' (repeatable). Numeric segments index arrays; single-quote a segment containing a dot. Example: --json-path qlen:data.queue.length "crit=qlen > 100". |
+    | address-family                               |                                                     | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                     |
+
+
+
+    <h5 id="check_http_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_http_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+    *Default Value:* `time > 5000`
+
+    <h5 id="check_http_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `code < 200 or code >= 400 or result != 'ok'`
+
+    <h5 id="check_http_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_http_debug">debug:</h5>
+
+    Show debugging information in the log
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_http_show-all">show-all:</h5>
+
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_http_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `ignored`
+
+    <h5 id="check_http_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_http_escape-html">escape-html:</h5>
+
+    Escape any < and > characters to prevent HTML encoding
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_http_list-separator">list-separator:</h5>
+
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+    *Default Value:* `, `
+
+    <h5 id="check_http_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${problem_list}`
+
+    <h5 id="check_http_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): %(list)`
+
+    <h5 id="check_http_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No URL checked`
+
+    <h5 id="check_http_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${url} -> ${code} ${result} (${size}B in ${time}ms)`
+
+    <h5 id="check_http_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${url}`
+
+    <h5 id="check_http_path">path:</h5>
+
+    Path component of the URL.
+
+    *Default Value:* `/`
+
+    <h5 id="check_http_protocol">protocol:</h5>
+
+    Protocol to use: http or https.
+
+    *Default Value:* `http`
+
+    <h5 id="check_http_ssl">ssl:</h5>
+
+    Force https, alias for --protocol https (ssl=true).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_http_timeout">timeout:</h5>
+
+    Timeout in milliseconds.
+
+    *Default Value:* `30000`
+
+    <h5 id="check_http_method">method:</h5>
+
+    HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).
+
+    *Default Value:* `GET`
+
+    <h5 id="check_http_content-type">content-type:</h5>
+
+    Content-Type header for the request body.
+
+    *Default Value:* `application/x-www-form-urlencoded`
+
+    <h5 id="check_http_user-agent">user-agent:</h5>
+
+    User-Agent header value.
+
+    *Default Value:* `NSClient++`
+
+    <h5 id="check_http_onredirect">onredirect:</h5>
+
+    How to handle 3xx redirects: 'follow' to follow the Location, 'ok' (default) to report the redirect as-is.
+
+    *Default Value:* `ok`
+
+    <h5 id="check_http_max-redirs">max-redirs:</h5>
+
+    Maximum number of redirects to follow (with --onredirect follow).
+
+    *Default Value:* `15`
+
+    <h5 id="check_http_tls-version">tls-version:</h5>
+
+    TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+
+    *Default Value:* `tlsv1.2+`
+
+    <h5 id="check_http_verify">verify:</h5>
+
+    Certificate verify mode: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.
+
+    *Default Value:* `peer`
+
+    <h5 id="check_http_ca">ca:</h5>
+
+    Path to a CA bundle to use when verifying the server certificate.
+
+    *Default Value:* `${ca-path}`
 
 
 <a id="check_http_filter_keys"></a>
@@ -1363,197 +1799,406 @@ OK: ntp.example.com root_delay=11ms root_dispersion=33ms stratum=2
 <a id="check_ntp_offset_options"></a>
 #### Command-line Arguments
 
-<a id="check_ntp_offset_warn"></a>
-<a id="check_ntp_offset_crit"></a>
-<a id="check_ntp_offset_help"></a>
-<a id="check_ntp_offset_help-pb"></a>
-<a id="check_ntp_offset_show-default"></a>
-<a id="check_ntp_offset_help-short"></a>
-<a id="check_ntp_offset_server"></a>
-<a id="check_ntp_offset_servers"></a>
+=== "Windows"
 
-| Option                                             | Default Value                                          | Description                                                                                                               |
-|----------------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_ntp_offset_filter)                 |                                                        | Filter which marks interesting items.                                                                                     |
-| [warning](#check_ntp_offset_warning)               | offset > 50 or stratum >= 16                           | Filter which marks items which generates a warning state.                                                                 |
-| warn                                               |                                                        | Short alias for warning                                                                                                   |
-| [critical](#check_ntp_offset_critical)             | offset > 100 or stratum >= 16 or result != 'ok'        | Filter which marks items which generates a critical state.                                                                |
-| crit                                               |                                                        | Short alias for critical.                                                                                                 |
-| [ok](#check_ntp_offset_ok)                         |                                                        | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_ntp_offset_debug)                   | 1)] (=0                                                | Show debugging information in the log                                                                                     |
-| [show-all](#check_ntp_offset_show-all)             | 1)] (=0                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_ntp_offset_empty-state)       | ignored                                                | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_ntp_offset_perf-config)       |                                                        | Performance data generation configuration                                                                                 |
-| [escape-html](#check_ntp_offset_escape-html)       | 1)] (=0                                                | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_ntp_offset_list-separator) | ,                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                               | N/A                                                    | Show help screen (this screen)                                                                                            |
-| help-pb                                            | N/A                                                    | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                       | N/A                                                    | Show default values for a given command                                                                                   |
-| help-short                                         | N/A                                                    | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_ntp_offset_top-syntax)         | ${status}: ${problem_list}                             | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_ntp_offset_ok-syntax)           | %(status): %(list)                                     | ok syntax.                                                                                                                |
-| [empty-syntax](#check_ntp_offset_empty-syntax)     | No NTP server checked                                  | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_ntp_offset_detail-syntax)   | ${server} offset=${offset_signed}ms stratum=${stratum} | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_ntp_offset_perf-syntax)       | ${server}                                              | Performance alias syntax.                                                                                                 |
-| server                                             |                                                        | NTP server to query (may be given multiple times).                                                                        |
-| servers                                            |                                                        | Comma separated list of NTP servers to query.                                                                             |
-| [port](#check_ntp_offset_port)                     | 123                                                    | UDP port to use (default: 123).                                                                                           |
-| [timeout](#check_ntp_offset_timeout)               | 5000                                                   | Timeout in milliseconds.                                                                                                  |
+    <a id="check_ntp_offset_warn"></a>
+    <a id="check_ntp_offset_crit"></a>
+    <a id="check_ntp_offset_help"></a>
+    <a id="check_ntp_offset_help-pb"></a>
+    <a id="check_ntp_offset_show-default"></a>
+    <a id="check_ntp_offset_help-short"></a>
+    <a id="check_ntp_offset_server"></a>
+    <a id="check_ntp_offset_servers"></a>
 
-
-
-<h5 id="check_ntp_offset_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+    | Option                                             | Default Value                                          | Description                                                                                                               |
+    |----------------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_ntp_offset_filter)                 |                                                        | Filter which marks interesting items.                                                                                     |
+    | [warning](#check_ntp_offset_warning)               | offset > 50 or stratum >= 16                           | Filter which marks items which generates a warning state.                                                                 |
+    | warn                                               |                                                        | Short alias for warning                                                                                                   |
+    | [critical](#check_ntp_offset_critical)             | offset > 100 or stratum >= 16 or result != 'ok'        | Filter which marks items which generates a critical state.                                                                |
+    | crit                                               |                                                        | Short alias for critical.                                                                                                 |
+    | [ok](#check_ntp_offset_ok)                         |                                                        | Filter which marks items which generates an ok state.                                                                     |
+    | [debug](#check_ntp_offset_debug)                   | 1)] (=0                                                | Show debugging information in the log                                                                                     |
+    | [show-all](#check_ntp_offset_show-all)             | 1)] (=0                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [empty-state](#check_ntp_offset_empty-state)       | ignored                                                | Return status to use when nothing matched filter.                                                                         |
+    | [perf-config](#check_ntp_offset_perf-config)       |                                                        | Performance data generation configuration                                                                                 |
+    | [escape-html](#check_ntp_offset_escape-html)       | 1)] (=0                                                | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [list-separator](#check_ntp_offset_list-separator) | ,                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+    | help                                               | N/A                                                    | Show help screen (this screen)                                                                                            |
+    | help-pb                                            | N/A                                                    | Show help screen as a protocol buffer payload                                                                             |
+    | show-default                                       | N/A                                                    | Show default values for a given command                                                                                   |
+    | help-short                                         | N/A                                                    | Show help screen (short format).                                                                                          |
+    | [top-syntax](#check_ntp_offset_top-syntax)         | ${status}: ${problem_list}                             | Top level syntax.                                                                                                         |
+    | [ok-syntax](#check_ntp_offset_ok-syntax)           | %(status): %(list)                                     | ok syntax.                                                                                                                |
+    | [empty-syntax](#check_ntp_offset_empty-syntax)     | No NTP server checked                                  | Empty syntax.                                                                                                             |
+    | [detail-syntax](#check_ntp_offset_detail-syntax)   | ${server} offset=${offset_signed}ms stratum=${stratum} | Detail level syntax.                                                                                                      |
+    | [perf-syntax](#check_ntp_offset_perf-syntax)       | ${server}                                              | Performance alias syntax.                                                                                                 |
+    | server                                             |                                                        | NTP server to query (may be given multiple times).                                                                        |
+    | servers                                            |                                                        | Comma separated list of NTP servers to query.                                                                             |
+    | [port](#check_ntp_offset_port)                     | 123                                                    | UDP port to use (default: 123).                                                                                           |
+    | [timeout](#check_ntp_offset_timeout)               | 5000                                                   | Timeout in milliseconds.                                                                                                  |
 
 
-<h5 id="check_ntp_offset_warning">warning:</h5>
 
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    <h5 id="check_ntp_offset_filter">filter:</h5>
 
-
-*Default Value:* `offset > 50 or stratum >= 16`
-
-<h5 id="check_ntp_offset_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Default Value:* `offset > 100 or stratum >= 16 or result != 'ok'`
+    <h5 id="check_ntp_offset_warning">warning:</h5>
 
-<h5 id="check_ntp_offset_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_ntp_offset_debug">debug:</h5>
+    *Default Value:* `offset > 50 or stratum >= 16`
 
-Show debugging information in the log
+    <h5 id="check_ntp_offset_critical">critical:</h5>
 
-*Default Value:* `1)] (=0`
-
-<h5 id="check_ntp_offset_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `1)] (=0`
-
-<h5 id="check_ntp_offset_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ignored`
-
-<h5 id="check_ntp_offset_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
 
-<h5 id="check_ntp_offset_escape-html">escape-html:</h5>
+    *Default Value:* `offset > 100 or stratum >= 16 or result != 'ok'`
 
-Escape any < and > characters to prevent HTML encoding
+    <h5 id="check_ntp_offset_ok">ok:</h5>
 
-*Default Value:* `1)] (=0`
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-<h5 id="check_ntp_offset_list-separator">list-separator:</h5>
 
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+    <h5 id="check_ntp_offset_debug">debug:</h5>
 
-*Default Value:* `, `
+    Show debugging information in the log
 
-<h5 id="check_ntp_offset_top-syntax">top-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_ntp_offset_show-all">show-all:</h5>
 
-*Default Value:* `${status}: ${problem_list}`
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-<h5 id="check_ntp_offset_ok-syntax">ok-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    <h5 id="check_ntp_offset_empty-state">empty-state:</h5>
 
-*Default Value:* `%(status): %(list)`
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-<h5 id="check_ntp_offset_empty-syntax">empty-syntax:</h5>
+    *Default Value:* `ignored`
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
+    <h5 id="check_ntp_offset_perf-config">perf-config:</h5>
 
-*Default Value:* `No NTP server checked`
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-<h5 id="check_ntp_offset_detail-syntax">detail-syntax:</h5>
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_ntp_offset_escape-html">escape-html:</h5>
 
-*Default Value:* `${server} offset=${offset_signed}ms stratum=${stratum}`
+    Escape any < and > characters to prevent HTML encoding
 
-<h5 id="check_ntp_offset_perf-syntax">perf-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
+    <h5 id="check_ntp_offset_list-separator">list-separator:</h5>
 
-*Default Value:* `${server}`
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-<h5 id="check_ntp_offset_port">port:</h5>
+    *Default Value:* `, `
 
-UDP port to use (default: 123).
+    <h5 id="check_ntp_offset_top-syntax">top-syntax:</h5>
 
-*Default Value:* `123`
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-<h5 id="check_ntp_offset_timeout">timeout:</h5>
+    *Default Value:* `${status}: ${problem_list}`
 
-Timeout in milliseconds.
+    <h5 id="check_ntp_offset_ok-syntax">ok-syntax:</h5>
 
-*Default Value:* `5000`
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): %(list)`
+
+    <h5 id="check_ntp_offset_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No NTP server checked`
+
+    <h5 id="check_ntp_offset_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${server} offset=${offset_signed}ms stratum=${stratum}`
+
+    <h5 id="check_ntp_offset_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${server}`
+
+    <h5 id="check_ntp_offset_port">port:</h5>
+
+    UDP port to use (default: 123).
+
+    *Default Value:* `123`
+
+    <h5 id="check_ntp_offset_timeout">timeout:</h5>
+
+    Timeout in milliseconds.
+
+    *Default Value:* `5000`
+
+=== "Linux"
+
+    <a id="check_ntp_offset_warn"></a>
+    <a id="check_ntp_offset_crit"></a>
+    <a id="check_ntp_offset_help"></a>
+    <a id="check_ntp_offset_help-pb"></a>
+    <a id="check_ntp_offset_show-default"></a>
+    <a id="check_ntp_offset_help-short"></a>
+    <a id="check_ntp_offset_server"></a>
+    <a id="check_ntp_offset_servers"></a>
+    <a id="check_ntp_offset_address-family"></a>
+
+    | Option                                             | Default Value                                          | Description                                                                                                                                                                                                                             |
+    |----------------------------------------------------|--------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_ntp_offset_filter)                 |                                                        | Filter which marks interesting items.                                                                                                                                                                                                   |
+    | [warning](#check_ntp_offset_warning)               | offset > 50 or stratum >= 16                           | Filter which marks items which generates a warning state.                                                                                                                                                                               |
+    | warn                                               |                                                        | Short alias for warning                                                                                                                                                                                                                 |
+    | [critical](#check_ntp_offset_critical)             | offset > 100 or stratum >= 16 or result != 'ok'        | Filter which marks items which generates a critical state.                                                                                                                                                                              |
+    | crit                                               |                                                        | Short alias for critical.                                                                                                                                                                                                               |
+    | [ok](#check_ntp_offset_ok)                         |                                                        | Filter which marks items which generates an ok state.                                                                                                                                                                                   |
+    | [debug](#check_ntp_offset_debug)                   | 1)] (=0                                                | Show debugging information in the log                                                                                                                                                                                                   |
+    | [show-all](#check_ntp_offset_show-all)             | 1)] (=0                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                        |
+    | [empty-state](#check_ntp_offset_empty-state)       | ignored                                                | Return status to use when nothing matched filter.                                                                                                                                                                                       |
+    | [perf-config](#check_ntp_offset_perf-config)       |                                                        | Performance data generation configuration                                                                                                                                                                                               |
+    | [escape-html](#check_ntp_offset_escape-html)       | 1)] (=0                                                | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                  |
+    | [list-separator](#check_ntp_offset_list-separator) | ,                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                               |
+    | help                                               | N/A                                                    | Show help screen (this screen)                                                                                                                                                                                                          |
+    | help-pb                                            | N/A                                                    | Show help screen as a protocol buffer payload                                                                                                                                                                                           |
+    | show-default                                       | N/A                                                    | Show default values for a given command                                                                                                                                                                                                 |
+    | help-short                                         | N/A                                                    | Show help screen (short format).                                                                                                                                                                                                        |
+    | [top-syntax](#check_ntp_offset_top-syntax)         | ${status}: ${problem_list}                             | Top level syntax.                                                                                                                                                                                                                       |
+    | [ok-syntax](#check_ntp_offset_ok-syntax)           | %(status): %(list)                                     | ok syntax.                                                                                                                                                                                                                              |
+    | [empty-syntax](#check_ntp_offset_empty-syntax)     | No NTP server checked                                  | Empty syntax.                                                                                                                                                                                                                           |
+    | [detail-syntax](#check_ntp_offset_detail-syntax)   | ${server} offset=${offset_signed}ms stratum=${stratum} | Detail level syntax.                                                                                                                                                                                                                    |
+    | [perf-syntax](#check_ntp_offset_perf-syntax)       | ${server}                                              | Performance alias syntax.                                                                                                                                                                                                               |
+    | server                                             |                                                        | NTP server to query (may be given multiple times).                                                                                                                                                                                      |
+    | servers                                            |                                                        | Comma separated list of NTP servers to query.                                                                                                                                                                                           |
+    | [port](#check_ntp_offset_port)                     | 123                                                    | UDP port to use (default: 123).                                                                                                                                                                                                         |
+    | [timeout](#check_ntp_offset_timeout)               | 5000                                                   | Timeout in milliseconds.                                                                                                                                                                                                                |
+    | address-family                                     |                                                        | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                   |
+    | [samples](#check_ntp_offset_samples)               | 1                                                      | Number of queries to send to each server (default: 1). At least 2 are needed for the jitter keyword, which is the variation between samples; sampling stops at the first failure so an unreachable server still costs only one timeout. |
+
+
+
+    <h5 id="check_ntp_offset_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_ntp_offset_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+    *Default Value:* `offset > 50 or stratum >= 16`
+
+    <h5 id="check_ntp_offset_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `offset > 100 or stratum >= 16 or result != 'ok'`
+
+    <h5 id="check_ntp_offset_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_ntp_offset_debug">debug:</h5>
+
+    Show debugging information in the log
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ntp_offset_show-all">show-all:</h5>
+
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ntp_offset_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `ignored`
+
+    <h5 id="check_ntp_offset_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_ntp_offset_escape-html">escape-html:</h5>
+
+    Escape any < and > characters to prevent HTML encoding
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ntp_offset_list-separator">list-separator:</h5>
+
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+    *Default Value:* `, `
+
+    <h5 id="check_ntp_offset_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${problem_list}`
+
+    <h5 id="check_ntp_offset_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): %(list)`
+
+    <h5 id="check_ntp_offset_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No NTP server checked`
+
+    <h5 id="check_ntp_offset_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${server} offset=${offset_signed}ms stratum=${stratum}`
+
+    <h5 id="check_ntp_offset_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${server}`
+
+    <h5 id="check_ntp_offset_port">port:</h5>
+
+    UDP port to use (default: 123).
+
+    *Default Value:* `123`
+
+    <h5 id="check_ntp_offset_timeout">timeout:</h5>
+
+    Timeout in milliseconds.
+
+    *Default Value:* `5000`
+
+    <h5 id="check_ntp_offset_samples">samples:</h5>
+
+    Number of queries to send to each server (default: 1). At least 2 are needed for the jitter keyword, which is the variation between samples; sampling stops at the first failure so an unreachable server still costs only one timeout.
+
+    *Default Value:* `1`
 
 
 <a id="check_ntp_offset_filter_keys"></a>
 #### Filter keywords
 
-| Option        | Description                                                                      |
-|---------------|----------------------------------------------------------------------------------|
-| offset        | Absolute clock offset between local host and server, in milliseconds             |
-| offset_signed | Signed clock offset (positive = local clock is ahead of server), in milliseconds |
-| port          | UDP port the query was sent to                                                   |
-| result        | Textual result of the query (ok, timeout, error, ...)                            |
-| server        | NTP server that was queried                                                      |
-| stratum       | Stratum reported by the server (0..16)                                           |
-| time          | Round trip time of the NTP query in milliseconds                                 |
+=== "Windows"
 
-**Common options for all checks:**
+    | Option        | Description                                                                      |
+    |---------------|----------------------------------------------------------------------------------|
+    | offset        | Absolute clock offset between local host and server, in milliseconds             |
+    | offset_signed | Signed clock offset (positive = local clock is ahead of server), in milliseconds |
+    | port          | UDP port the query was sent to                                                   |
+    | result        | Textual result of the query (ok, timeout, error, ...)                            |
+    | server        | NTP server that was queried                                                      |
+    | stratum       | Stratum reported by the server (0..16)                                           |
+    | time          | Round trip time of the NTP query in milliseconds                                 |
 
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+    **Common options for all checks:**
+
+    | Option        | Description                                                                                                                                                                                                                                                           |
+    |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+    | crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+    | crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+    | detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+    | list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+    | ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+    | ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+    | problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+    | sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+    | total         | Total number of items.                                                                                                                                                                                                                                                |
+    | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+    | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
+=== "Linux"
+
+    | Option          | Description                                                                                                                                                                                                                                                                               |
+    |-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | jitter          | RMS variation between the sampled offsets, in milliseconds; 'unknown' when fewer than 2 samples were taken (raise samples= to measure it). Renders as 'unknown', compares false against every number until measured, and emits no perfdata until real; `jitter = 'unknown'` tests for it. |
+    | offset          | Absolute clock offset between local host and server, in milliseconds                                                                                                                                                                                                                      |
+    | offset_signed   | Signed clock offset (positive = local clock is ahead of server), in milliseconds                                                                                                                                                                                                          |
+    | port            | UDP port the query was sent to                                                                                                                                                                                                                                                            |
+    | result          | Textual result of the query (ok, timeout, error, ...)                                                                                                                                                                                                                                     |
+    | root_delay      | Round trip delay the server reports to its own reference clock, in milliseconds                                                                                                                                                                                                           |
+    | root_dispersion | Maximum error the server claims for the time it is serving, in milliseconds                                                                                                                                                                                                               |
+    | samples         | Number of samples that answered                                                                                                                                                                                                                                                           |
+    | server          | NTP server that was queried                                                                                                                                                                                                                                                               |
+    | stratum         | Stratum reported by the server (0..16)                                                                                                                                                                                                                                                    |
+    | time            | Round trip time of the NTP query in milliseconds                                                                                                                                                                                                                                          |
+
+    **Common options for all checks:**
+
+    | Option        | Description                                                                                                                                                                                                                                                           |
+    |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+    | crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+    | crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+    | detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+    | list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+    | ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+    | ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+    | problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+    | sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+    | total         | Total number of items.                                                                                                                                                                                                                                                |
+    | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+    | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_ping
 
@@ -1761,211 +2406,439 @@ Invalid size: 99999 (expected 0-65507)
 <a id="check_ping_options"></a>
 #### Command-line Arguments
 
-<a id="check_ping_warn"></a>
-<a id="check_ping_crit"></a>
-<a id="check_ping_help"></a>
-<a id="check_ping_help-pb"></a>
-<a id="check_ping_show-default"></a>
-<a id="check_ping_help-short"></a>
-<a id="check_ping_host"></a>
-<a id="check_ping_hosts"></a>
+=== "Windows"
 
-| Option                                       | Default Value                                     | Description                                                                                                               |
-|----------------------------------------------|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_ping_filter)                 |                                                   | Filter which marks interesting items.                                                                                     |
-| [warning](#check_ping_warning)               | time > 60 or loss > 5%                            | Filter which marks items which generates a warning state.                                                                 |
-| warn                                         |                                                   | Short alias for warning                                                                                                   |
-| [critical](#check_ping_critical)             | time > 100 or loss > 10%                          | Filter which marks items which generates a critical state.                                                                |
-| crit                                         |                                                   | Short alias for critical.                                                                                                 |
-| [ok](#check_ping_ok)                         |                                                   | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_ping_debug)                   | 1)] (=0                                           | Show debugging information in the log                                                                                     |
-| [show-all](#check_ping_show-all)             | 1)] (=0                                           | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_ping_empty-state)       | unknown                                           | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_ping_perf-config)       |                                                   | Performance data generation configuration                                                                                 |
-| [escape-html](#check_ping_escape-html)       | 1)] (=0                                           | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_ping_list-separator) | ,                                                 | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                         | N/A                                               | Show help screen (this screen)                                                                                            |
-| help-pb                                      | N/A                                               | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                 | N/A                                               | Show default values for a given command                                                                                   |
-| help-short                                   | N/A                                               | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_ping_top-syntax)         | ${status}: ${ok_count}/${count} (${problem_list}) | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_ping_ok-syntax)           | %(status): All %(count) hosts are ok              | ok syntax.                                                                                                                |
-| [empty-syntax](#check_ping_empty-syntax)     | No hosts found                                    | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_ping_detail-syntax)   | ${ip} Packet loss = ${loss}%, RTA = ${time}ms     | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_ping_perf-syntax)       | ${host}                                           | Performance alias syntax.                                                                                                 |
-| host                                         |                                                   | The host to check (or multiple hosts).                                                                                    |
-| [total](#check_ping_total)                   | 1)] (=0                                           | Include the total of all matching hosts                                                                                   |
-| hosts                                        |                                                   | The host to check (or multiple hosts).                                                                                    |
-| [count](#check_ping_count)                   | 1                                                 | Number of packets to send.                                                                                                |
-| [timeout](#check_ping_timeout)               | 500                                               | Timeout in milliseconds.                                                                                                  |
-| [payload](#check_ping_payload)               | Hello from NSClient++.                            | The payload to send in the ping request (default: 'Hello from NSClient++')                                                |
+    <a id="check_ping_warn"></a>
+    <a id="check_ping_crit"></a>
+    <a id="check_ping_help"></a>
+    <a id="check_ping_help-pb"></a>
+    <a id="check_ping_show-default"></a>
+    <a id="check_ping_help-short"></a>
+    <a id="check_ping_host"></a>
+    <a id="check_ping_hosts"></a>
 
-
-
-<h5 id="check_ping_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+    | Option                                       | Default Value                                     | Description                                                                                                               |
+    |----------------------------------------------|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_ping_filter)                 |                                                   | Filter which marks interesting items.                                                                                     |
+    | [warning](#check_ping_warning)               | time > 60 or loss > 5%                            | Filter which marks items which generates a warning state.                                                                 |
+    | warn                                         |                                                   | Short alias for warning                                                                                                   |
+    | [critical](#check_ping_critical)             | time > 100 or loss > 10%                          | Filter which marks items which generates a critical state.                                                                |
+    | crit                                         |                                                   | Short alias for critical.                                                                                                 |
+    | [ok](#check_ping_ok)                         |                                                   | Filter which marks items which generates an ok state.                                                                     |
+    | [debug](#check_ping_debug)                   | 1)] (=0                                           | Show debugging information in the log                                                                                     |
+    | [show-all](#check_ping_show-all)             | 1)] (=0                                           | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [empty-state](#check_ping_empty-state)       | unknown                                           | Return status to use when nothing matched filter.                                                                         |
+    | [perf-config](#check_ping_perf-config)       |                                                   | Performance data generation configuration                                                                                 |
+    | [escape-html](#check_ping_escape-html)       | 1)] (=0                                           | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [list-separator](#check_ping_list-separator) | ,                                                 | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+    | help                                         | N/A                                               | Show help screen (this screen)                                                                                            |
+    | help-pb                                      | N/A                                               | Show help screen as a protocol buffer payload                                                                             |
+    | show-default                                 | N/A                                               | Show default values for a given command                                                                                   |
+    | help-short                                   | N/A                                               | Show help screen (short format).                                                                                          |
+    | [top-syntax](#check_ping_top-syntax)         | ${status}: ${ok_count}/${count} (${problem_list}) | Top level syntax.                                                                                                         |
+    | [ok-syntax](#check_ping_ok-syntax)           | %(status): All %(count) hosts are ok              | ok syntax.                                                                                                                |
+    | [empty-syntax](#check_ping_empty-syntax)     | No hosts found                                    | Empty syntax.                                                                                                             |
+    | [detail-syntax](#check_ping_detail-syntax)   | ${ip} Packet loss = ${loss}%, RTA = ${time}ms     | Detail level syntax.                                                                                                      |
+    | [perf-syntax](#check_ping_perf-syntax)       | ${host}                                           | Performance alias syntax.                                                                                                 |
+    | host                                         |                                                   | The host to check (or multiple hosts).                                                                                    |
+    | [total](#check_ping_total)                   | 1)] (=0                                           | Include the total of all matching hosts                                                                                   |
+    | hosts                                        |                                                   | The host to check (or multiple hosts).                                                                                    |
+    | [count](#check_ping_count)                   | 1                                                 | Number of packets to send.                                                                                                |
+    | [timeout](#check_ping_timeout)               | 500                                               | Timeout in milliseconds.                                                                                                  |
+    | [payload](#check_ping_payload)               | Hello from NSClient++.                            | The payload to send in the ping request (default: 'Hello from NSClient++')                                                |
 
 
-<h5 id="check_ping_warning">warning:</h5>
 
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    <h5 id="check_ping_filter">filter:</h5>
 
-
-*Default Value:* `time > 60 or loss > 5%`
-
-<h5 id="check_ping_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Default Value:* `time > 100 or loss > 10%`
+    <h5 id="check_ping_warning">warning:</h5>
 
-<h5 id="check_ping_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_ping_debug">debug:</h5>
+    *Default Value:* `time > 60 or loss > 5%`
 
-Show debugging information in the log
+    <h5 id="check_ping_critical">critical:</h5>
 
-*Default Value:* `1)] (=0`
-
-<h5 id="check_ping_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `1)] (=0`
-
-<h5 id="check_ping_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="check_ping_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
 
-<h5 id="check_ping_escape-html">escape-html:</h5>
+    *Default Value:* `time > 100 or loss > 10%`
 
-Escape any < and > characters to prevent HTML encoding
+    <h5 id="check_ping_ok">ok:</h5>
 
-*Default Value:* `1)] (=0`
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-<h5 id="check_ping_list-separator">list-separator:</h5>
 
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+    <h5 id="check_ping_debug">debug:</h5>
 
-*Default Value:* `, `
+    Show debugging information in the log
 
-<h5 id="check_ping_top-syntax">top-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_ping_show-all">show-all:</h5>
 
-*Default Value:* `${status}: ${ok_count}/${count} (${problem_list})`
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-<h5 id="check_ping_ok-syntax">ok-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    <h5 id="check_ping_empty-state">empty-state:</h5>
 
-*Default Value:* `%(status): All %(count) hosts are ok`
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-<h5 id="check_ping_empty-syntax">empty-syntax:</h5>
+    *Default Value:* `unknown`
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
+    <h5 id="check_ping_perf-config">perf-config:</h5>
 
-*Default Value:* `No hosts found`
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-<h5 id="check_ping_detail-syntax">detail-syntax:</h5>
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_ping_escape-html">escape-html:</h5>
 
-*Default Value:* `${ip} Packet loss = ${loss}%, RTA = ${time}ms`
+    Escape any < and > characters to prevent HTML encoding
 
-<h5 id="check_ping_perf-syntax">perf-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
+    <h5 id="check_ping_list-separator">list-separator:</h5>
 
-*Default Value:* `${host}`
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-<h5 id="check_ping_total">total:</h5>
+    *Default Value:* `, `
 
-Include the total of all matching hosts
+    <h5 id="check_ping_top-syntax">top-syntax:</h5>
 
-*Default Value:* `1)] (=0`
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-<h5 id="check_ping_count">count:</h5>
+    *Default Value:* `${status}: ${ok_count}/${count} (${problem_list})`
 
-Number of packets to send.
+    <h5 id="check_ping_ok-syntax">ok-syntax:</h5>
 
-*Default Value:* `1`
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
 
-<h5 id="check_ping_timeout">timeout:</h5>
+    *Default Value:* `%(status): All %(count) hosts are ok`
 
-Timeout in milliseconds.
+    <h5 id="check_ping_empty-syntax">empty-syntax:</h5>
 
-*Default Value:* `500`
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
 
-<h5 id="check_ping_payload">payload:</h5>
+    *Default Value:* `No hosts found`
 
-The payload to send in the ping request (default: 'Hello from NSClient++')
+    <h5 id="check_ping_detail-syntax">detail-syntax:</h5>
 
-*Default Value:* `Hello from NSClient++.`
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${ip} Packet loss = ${loss}%, RTA = ${time}ms`
+
+    <h5 id="check_ping_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${host}`
+
+    <h5 id="check_ping_total">total:</h5>
+
+    Include the total of all matching hosts
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ping_count">count:</h5>
+
+    Number of packets to send.
+
+    *Default Value:* `1`
+
+    <h5 id="check_ping_timeout">timeout:</h5>
+
+    Timeout in milliseconds.
+
+    *Default Value:* `500`
+
+    <h5 id="check_ping_payload">payload:</h5>
+
+    The payload to send in the ping request (default: 'Hello from NSClient++')
+
+    *Default Value:* `Hello from NSClient++.`
+
+=== "Linux"
+
+    <a id="check_ping_warn"></a>
+    <a id="check_ping_crit"></a>
+    <a id="check_ping_help"></a>
+    <a id="check_ping_help-pb"></a>
+    <a id="check_ping_show-default"></a>
+    <a id="check_ping_help-short"></a>
+    <a id="check_ping_host"></a>
+    <a id="check_ping_hosts"></a>
+    <a id="check_ping_address-family"></a>
+
+    | Option                                       | Default Value                                     | Description                                                                                                                                                                                                                                                           |
+    |----------------------------------------------|---------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_ping_filter)                 |                                                   | Filter which marks interesting items.                                                                                                                                                                                                                                 |
+    | [warning](#check_ping_warning)               | time > 60 or loss > 5%                            | Filter which marks items which generates a warning state.                                                                                                                                                                                                             |
+    | warn                                         |                                                   | Short alias for warning                                                                                                                                                                                                                                               |
+    | [critical](#check_ping_critical)             | time > 100 or loss > 10%                          | Filter which marks items which generates a critical state.                                                                                                                                                                                                            |
+    | crit                                         |                                                   | Short alias for critical.                                                                                                                                                                                                                                             |
+    | [ok](#check_ping_ok)                         |                                                   | Filter which marks items which generates an ok state.                                                                                                                                                                                                                 |
+    | [debug](#check_ping_debug)                   | 1)] (=0                                           | Show debugging information in the log                                                                                                                                                                                                                                 |
+    | [show-all](#check_ping_show-all)             | 1)] (=0                                           | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                      |
+    | [empty-state](#check_ping_empty-state)       | unknown                                           | Return status to use when nothing matched filter.                                                                                                                                                                                                                     |
+    | [perf-config](#check_ping_perf-config)       |                                                   | Performance data generation configuration                                                                                                                                                                                                                             |
+    | [escape-html](#check_ping_escape-html)       | 1)] (=0                                           | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                |
+    | [list-separator](#check_ping_list-separator) | ,                                                 | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                             |
+    | help                                         | N/A                                               | Show help screen (this screen)                                                                                                                                                                                                                                        |
+    | help-pb                                      | N/A                                               | Show help screen as a protocol buffer payload                                                                                                                                                                                                                         |
+    | show-default                                 | N/A                                               | Show default values for a given command                                                                                                                                                                                                                               |
+    | help-short                                   | N/A                                               | Show help screen (short format).                                                                                                                                                                                                                                      |
+    | [top-syntax](#check_ping_top-syntax)         | ${status}: ${ok_count}/${count} (${problem_list}) | Top level syntax.                                                                                                                                                                                                                                                     |
+    | [ok-syntax](#check_ping_ok-syntax)           | %(status): All %(count) hosts are ok              | ok syntax.                                                                                                                                                                                                                                                            |
+    | [empty-syntax](#check_ping_empty-syntax)     | No hosts found                                    | Empty syntax.                                                                                                                                                                                                                                                         |
+    | [detail-syntax](#check_ping_detail-syntax)   | ${ip} Packet loss = ${loss}%, RTA = ${time}ms     | Detail level syntax.                                                                                                                                                                                                                                                  |
+    | [perf-syntax](#check_ping_perf-syntax)       | ${host}                                           | Performance alias syntax.                                                                                                                                                                                                                                             |
+    | host                                         |                                                   | The host to check (or multiple hosts).                                                                                                                                                                                                                                |
+    | [total](#check_ping_total)                   | 1)] (=0                                           | Include the total of all matching hosts                                                                                                                                                                                                                               |
+    | hosts                                        |                                                   | The host to check (or multiple hosts).                                                                                                                                                                                                                                |
+    | [count](#check_ping_count)                   | 1                                                 | Number of packets to send.                                                                                                                                                                                                                                            |
+    | [timeout](#check_ping_timeout)               | 500                                               | Timeout in milliseconds.                                                                                                                                                                                                                                              |
+    | [payload](#check_ping_payload)               | Hello from NSClient++.                            | The payload to send in the ping request (default: 'Hello from NSClient++')                                                                                                                                                                                            |
+    | address-family                               |                                                   | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                                                                                                                 |
+    | [size](#check_ping_size)                     | 0                                                 | Size of the ICMP payload in bytes (0 keeps the --payload string as-is). The payload is repeated or truncated to reach exactly this many bytes; the 8 byte ICMP header is on top, so a 1472 byte payload is the largest that fits an untagged 1500 byte MTU over IPv4. |
+    | [ttl](#check_ping_ttl)                       | 0                                                 | TTL / hop limit to set on outgoing packets (0 keeps the system default). Note the ttl keyword reports the TTL of the reply, which is a different number: it is what is left of the remote host's own outgoing TTL after the return path.                              |
+
+
+
+    <h5 id="check_ping_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_ping_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+    *Default Value:* `time > 60 or loss > 5%`
+
+    <h5 id="check_ping_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `time > 100 or loss > 10%`
+
+    <h5 id="check_ping_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_ping_debug">debug:</h5>
+
+    Show debugging information in the log
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ping_show-all">show-all:</h5>
+
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ping_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `unknown`
+
+    <h5 id="check_ping_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_ping_escape-html">escape-html:</h5>
+
+    Escape any < and > characters to prevent HTML encoding
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ping_list-separator">list-separator:</h5>
+
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+    *Default Value:* `, `
+
+    <h5 id="check_ping_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${ok_count}/${count} (${problem_list})`
+
+    <h5 id="check_ping_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): All %(count) hosts are ok`
+
+    <h5 id="check_ping_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No hosts found`
+
+    <h5 id="check_ping_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${ip} Packet loss = ${loss}%, RTA = ${time}ms`
+
+    <h5 id="check_ping_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${host}`
+
+    <h5 id="check_ping_total">total:</h5>
+
+    Include the total of all matching hosts
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ping_count">count:</h5>
+
+    Number of packets to send.
+
+    *Default Value:* `1`
+
+    <h5 id="check_ping_timeout">timeout:</h5>
+
+    Timeout in milliseconds.
+
+    *Default Value:* `500`
+
+    <h5 id="check_ping_payload">payload:</h5>
+
+    The payload to send in the ping request (default: 'Hello from NSClient++')
+
+    *Default Value:* `Hello from NSClient++.`
+
+    <h5 id="check_ping_size">size:</h5>
+
+    Size of the ICMP payload in bytes (0 keeps the --payload string as-is). The payload is repeated or truncated to reach exactly this many bytes; the 8 byte ICMP header is on top, so a 1472 byte payload is the largest that fits an untagged 1500 byte MTU over IPv4.
+
+    *Default Value:* `0`
+
+    <h5 id="check_ping_ttl">ttl:</h5>
+
+    TTL / hop limit to set on outgoing packets (0 keeps the system default). Note the ttl keyword reports the TTL of the reply, which is a different number: it is what is left of the remote host's own outgoing TTL after the return path.
+
+    *Default Value:* `0`
 
 
 <a id="check_ping_filter_keys"></a>
 #### Filter keywords
 
-| Option  | Description                                            |
-|---------|--------------------------------------------------------|
-| host    | The host name or ip address (as given on command line) |
-| ip      | The ip address name                                    |
-| loss    | Packet loss                                            |
-| recv    | Number of packets received from the host               |
-| sent    | Number of packets sent to the host                     |
-| time    | Round trip time in ms                                  |
-| timeout | Number of packets which timed out from the host        |
+=== "Windows"
 
-**Common options for all checks:**
+    | Option  | Description                                            |
+    |---------|--------------------------------------------------------|
+    | host    | The host name or ip address (as given on command line) |
+    | ip      | The ip address name                                    |
+    | loss    | Packet loss                                            |
+    | recv    | Number of packets received from the host               |
+    | sent    | Number of packets sent to the host                     |
+    | time    | Round trip time in ms                                  |
+    | timeout | Number of packets which timed out from the host        |
 
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+    **Common options for all checks:**
+
+    | Option        | Description                                                                                                                                                                                                                                                           |
+    |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+    | crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+    | crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+    | detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+    | list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+    | ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+    | ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+    | problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+    | sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+    | total         | Total number of items.                                                                                                                                                                                                                                                |
+    | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+    | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
+=== "Linux"
+
+    | Option  | Description                                                                                                                    |
+    |---------|--------------------------------------------------------------------------------------------------------------------------------|
+    | host    | The host name or ip address (as given on command line)                                                                         |
+    | ip      | The ip address name                                                                                                            |
+    | jitter  | Mean variation between the round trip times, in ms; 'unknown' when fewer than 2 packets came back (raise count= to measure it) |
+    | loss    | Packet loss                                                                                                                    |
+    | recv    | Number of packets received from the host                                                                                       |
+    | sent    | Number of packets sent to the host                                                                                             |
+    | time    | Round trip time in ms                                                                                                          |
+    | timeout | Number of packets which timed out from the host                                                                                |
+    | ttl     | TTL of the last reply; 'unknown' when no reply carried one (nothing came back, or IPv6, where the hop limit is not available)  |
+
+    **Common options for all checks:**
+
+    | Option        | Description                                                                                                                                                                                                                                                           |
+    |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+    | crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+    | crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+    | detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+    | list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+    | ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+    | ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+    | problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+    | sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+    | total         | Total number of items.                                                                                                                                                                                                                                                |
+    | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+    | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_ssh
 
@@ -2123,218 +2996,445 @@ OK: 192.168.56.10:22 ok in 2ms
 <a id="check_ssh_options"></a>
 #### Command-line Arguments
 
-<a id="check_ssh_warn"></a>
-<a id="check_ssh_crit"></a>
-<a id="check_ssh_help"></a>
-<a id="check_ssh_help-pb"></a>
-<a id="check_ssh_show-default"></a>
-<a id="check_ssh_help-short"></a>
-<a id="check_ssh_host"></a>
-<a id="check_ssh_hosts"></a>
-<a id="check_ssh_port"></a>
-<a id="check_ssh_send"></a>
-<a id="check_ssh_expect"></a>
-<a id="check_ssh_ca"></a>
+=== "Windows"
 
-| Option                                      | Default Value                          | Description                                                                                                               |
-|---------------------------------------------|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_ssh_filter)                 |                                        | Filter which marks interesting items.                                                                                     |
-| [warning](#check_ssh_warning)               | time > 1000                            | Filter which marks items which generates a warning state.                                                                 |
-| warn                                        |                                        | Short alias for warning                                                                                                   |
-| [critical](#check_ssh_critical)             | time > 5000 or result != 'ok'          | Filter which marks items which generates a critical state.                                                                |
-| crit                                        |                                        | Short alias for critical.                                                                                                 |
-| [ok](#check_ssh_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_ssh_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                     |
-| [show-all](#check_ssh_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_ssh_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_ssh_perf-config)       |                                        | Performance data generation configuration                                                                                 |
-| [escape-html](#check_ssh_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_ssh_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                        | N/A                                    | Show help screen (this screen)                                                                                            |
-| help-pb                                     | N/A                                    | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                | N/A                                    | Show default values for a given command                                                                                   |
-| help-short                                  | N/A                                    | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_ssh_top-syntax)         | ${status}: ${problem_list}             | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_ssh_ok-syntax)           | %(status): %(list)                     | ok syntax.                                                                                                                |
-| [empty-syntax](#check_ssh_empty-syntax)     | No hosts checked                       | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_ssh_detail-syntax)   | ${host}:${port} ${result} in ${time}ms | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_ssh_perf-syntax)       | ${host}_${port}                        | Performance alias syntax.                                                                                                 |
-| host                                        |                                        | Host(s) to connect to (may be given multiple times).                                                                      |
-| hosts                                       |                                        | Comma separated list of hosts to connect to.                                                                              |
-| port                                        |                                        | TCP port to connect to.                                                                                                   |
-| [timeout](#check_ssh_timeout)               | 5000                                   | Connection / read timeout in milliseconds.                                                                                |
-| send                                        |                                        | Optional payload to send after the connection is established.                                                             |
-| expect                                      |                                        | Optional substring expected in the response.                                                                              |
-| [ssl](#check_ssh_ssl)                       | 1)] (=0                                | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                               |
-| [tls-version](#check_ssh_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                     |
-| [verify](#check_ssh_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                               |
-| ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                         |
+    <a id="check_ssh_warn"></a>
+    <a id="check_ssh_crit"></a>
+    <a id="check_ssh_help"></a>
+    <a id="check_ssh_help-pb"></a>
+    <a id="check_ssh_show-default"></a>
+    <a id="check_ssh_help-short"></a>
+    <a id="check_ssh_host"></a>
+    <a id="check_ssh_hosts"></a>
+    <a id="check_ssh_port"></a>
+    <a id="check_ssh_send"></a>
+    <a id="check_ssh_expect"></a>
+    <a id="check_ssh_ca"></a>
 
-
-
-<h5 id="check_ssh_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+    | Option                                      | Default Value                          | Description                                                                                                               |
+    |---------------------------------------------|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_ssh_filter)                 |                                        | Filter which marks interesting items.                                                                                     |
+    | [warning](#check_ssh_warning)               | time > 1000                            | Filter which marks items which generates a warning state.                                                                 |
+    | warn                                        |                                        | Short alias for warning                                                                                                   |
+    | [critical](#check_ssh_critical)             | time > 5000 or result != 'ok'          | Filter which marks items which generates a critical state.                                                                |
+    | crit                                        |                                        | Short alias for critical.                                                                                                 |
+    | [ok](#check_ssh_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                     |
+    | [debug](#check_ssh_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                     |
+    | [show-all](#check_ssh_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [empty-state](#check_ssh_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                         |
+    | [perf-config](#check_ssh_perf-config)       |                                        | Performance data generation configuration                                                                                 |
+    | [escape-html](#check_ssh_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [list-separator](#check_ssh_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+    | help                                        | N/A                                    | Show help screen (this screen)                                                                                            |
+    | help-pb                                     | N/A                                    | Show help screen as a protocol buffer payload                                                                             |
+    | show-default                                | N/A                                    | Show default values for a given command                                                                                   |
+    | help-short                                  | N/A                                    | Show help screen (short format).                                                                                          |
+    | [top-syntax](#check_ssh_top-syntax)         | ${status}: ${problem_list}             | Top level syntax.                                                                                                         |
+    | [ok-syntax](#check_ssh_ok-syntax)           | %(status): %(list)                     | ok syntax.                                                                                                                |
+    | [empty-syntax](#check_ssh_empty-syntax)     | No hosts checked                       | Empty syntax.                                                                                                             |
+    | [detail-syntax](#check_ssh_detail-syntax)   | ${host}:${port} ${result} in ${time}ms | Detail level syntax.                                                                                                      |
+    | [perf-syntax](#check_ssh_perf-syntax)       | ${host}_${port}                        | Performance alias syntax.                                                                                                 |
+    | host                                        |                                        | Host(s) to connect to (may be given multiple times).                                                                      |
+    | hosts                                       |                                        | Comma separated list of hosts to connect to.                                                                              |
+    | port                                        |                                        | TCP port to connect to.                                                                                                   |
+    | [timeout](#check_ssh_timeout)               | 5000                                   | Connection / read timeout in milliseconds.                                                                                |
+    | send                                        |                                        | Optional payload to send after the connection is established.                                                             |
+    | expect                                      |                                        | Optional substring expected in the response.                                                                              |
+    | [ssl](#check_ssh_ssl)                       | 1)] (=0                                | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                               |
+    | [tls-version](#check_ssh_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                     |
+    | [verify](#check_ssh_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                               |
+    | ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                         |
 
 
-<h5 id="check_ssh_warning">warning:</h5>
 
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    <h5 id="check_ssh_filter">filter:</h5>
 
-
-*Default Value:* `time > 1000`
-
-<h5 id="check_ssh_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Default Value:* `time > 5000 or result != 'ok'`
+    <h5 id="check_ssh_warning">warning:</h5>
 
-<h5 id="check_ssh_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_ssh_debug">debug:</h5>
+    *Default Value:* `time > 1000`
 
-Show debugging information in the log
+    <h5 id="check_ssh_critical">critical:</h5>
 
-*Default Value:* `1)] (=0`
-
-<h5 id="check_ssh_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `1)] (=0`
-
-<h5 id="check_ssh_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ignored`
-
-<h5 id="check_ssh_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
 
-<h5 id="check_ssh_escape-html">escape-html:</h5>
+    *Default Value:* `time > 5000 or result != 'ok'`
 
-Escape any < and > characters to prevent HTML encoding
+    <h5 id="check_ssh_ok">ok:</h5>
 
-*Default Value:* `1)] (=0`
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-<h5 id="check_ssh_list-separator">list-separator:</h5>
 
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+    <h5 id="check_ssh_debug">debug:</h5>
 
-*Default Value:* `, `
+    Show debugging information in the log
 
-<h5 id="check_ssh_top-syntax">top-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_ssh_show-all">show-all:</h5>
 
-*Default Value:* `${status}: ${problem_list}`
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-<h5 id="check_ssh_ok-syntax">ok-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    <h5 id="check_ssh_empty-state">empty-state:</h5>
 
-*Default Value:* `%(status): %(list)`
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-<h5 id="check_ssh_empty-syntax">empty-syntax:</h5>
+    *Default Value:* `ignored`
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
+    <h5 id="check_ssh_perf-config">perf-config:</h5>
 
-*Default Value:* `No hosts checked`
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-<h5 id="check_ssh_detail-syntax">detail-syntax:</h5>
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_ssh_escape-html">escape-html:</h5>
 
-*Default Value:* `${host}:${port} ${result} in ${time}ms`
+    Escape any < and > characters to prevent HTML encoding
 
-<h5 id="check_ssh_perf-syntax">perf-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
+    <h5 id="check_ssh_list-separator">list-separator:</h5>
 
-*Default Value:* `${host}_${port}`
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-<h5 id="check_ssh_timeout">timeout:</h5>
+    *Default Value:* `, `
 
-Connection / read timeout in milliseconds.
+    <h5 id="check_ssh_top-syntax">top-syntax:</h5>
 
-*Default Value:* `5000`
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-<h5 id="check_ssh_ssl">ssl:</h5>
+    *Default Value:* `${status}: ${problem_list}`
 
-Wrap the connection in TLS/SSL after connecting (ssl=true).
+    <h5 id="check_ssh_ok-syntax">ok-syntax:</h5>
 
-*Default Value:* `1)] (=0`
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
 
-<h5 id="check_ssh_tls-version">tls-version:</h5>
+    *Default Value:* `%(status): %(list)`
 
-TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+    <h5 id="check_ssh_empty-syntax">empty-syntax:</h5>
 
-*Default Value:* `tlsv1.2+`
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
 
-<h5 id="check_ssh_verify">verify:</h5>
+    *Default Value:* `No hosts checked`
 
-Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).
+    <h5 id="check_ssh_detail-syntax">detail-syntax:</h5>
 
-*Default Value:* `none`
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${host}:${port} ${result} in ${time}ms`
+
+    <h5 id="check_ssh_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${host}_${port}`
+
+    <h5 id="check_ssh_timeout">timeout:</h5>
+
+    Connection / read timeout in milliseconds.
+
+    *Default Value:* `5000`
+
+    <h5 id="check_ssh_ssl">ssl:</h5>
+
+    Wrap the connection in TLS/SSL after connecting (ssl=true).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ssh_tls-version">tls-version:</h5>
+
+    TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+
+    *Default Value:* `tlsv1.2+`
+
+    <h5 id="check_ssh_verify">verify:</h5>
+
+    Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).
+
+    *Default Value:* `none`
+
+=== "Linux"
+
+    <a id="check_ssh_warn"></a>
+    <a id="check_ssh_crit"></a>
+    <a id="check_ssh_help"></a>
+    <a id="check_ssh_help-pb"></a>
+    <a id="check_ssh_show-default"></a>
+    <a id="check_ssh_help-short"></a>
+    <a id="check_ssh_host"></a>
+    <a id="check_ssh_hosts"></a>
+    <a id="check_ssh_port"></a>
+    <a id="check_ssh_send"></a>
+    <a id="check_ssh_expect"></a>
+    <a id="check_ssh_ca"></a>
+    <a id="check_ssh_address-family"></a>
+
+    | Option                                      | Default Value                          | Description                                                                                                               |
+    |---------------------------------------------|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_ssh_filter)                 |                                        | Filter which marks interesting items.                                                                                     |
+    | [warning](#check_ssh_warning)               | time > 1000                            | Filter which marks items which generates a warning state.                                                                 |
+    | warn                                        |                                        | Short alias for warning                                                                                                   |
+    | [critical](#check_ssh_critical)             | time > 5000 or result != 'ok'          | Filter which marks items which generates a critical state.                                                                |
+    | crit                                        |                                        | Short alias for critical.                                                                                                 |
+    | [ok](#check_ssh_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                     |
+    | [debug](#check_ssh_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                     |
+    | [show-all](#check_ssh_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [empty-state](#check_ssh_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                         |
+    | [perf-config](#check_ssh_perf-config)       |                                        | Performance data generation configuration                                                                                 |
+    | [escape-html](#check_ssh_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [list-separator](#check_ssh_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+    | help                                        | N/A                                    | Show help screen (this screen)                                                                                            |
+    | help-pb                                     | N/A                                    | Show help screen as a protocol buffer payload                                                                             |
+    | show-default                                | N/A                                    | Show default values for a given command                                                                                   |
+    | help-short                                  | N/A                                    | Show help screen (short format).                                                                                          |
+    | [top-syntax](#check_ssh_top-syntax)         | ${status}: ${problem_list}             | Top level syntax.                                                                                                         |
+    | [ok-syntax](#check_ssh_ok-syntax)           | %(status): %(list)                     | ok syntax.                                                                                                                |
+    | [empty-syntax](#check_ssh_empty-syntax)     | No hosts checked                       | Empty syntax.                                                                                                             |
+    | [detail-syntax](#check_ssh_detail-syntax)   | ${host}:${port} ${result} in ${time}ms | Detail level syntax.                                                                                                      |
+    | [perf-syntax](#check_ssh_perf-syntax)       | ${host}_${port}                        | Performance alias syntax.                                                                                                 |
+    | host                                        |                                        | Host(s) to connect to (may be given multiple times).                                                                      |
+    | hosts                                       |                                        | Comma separated list of hosts to connect to.                                                                              |
+    | port                                        |                                        | TCP port to connect to.                                                                                                   |
+    | [timeout](#check_ssh_timeout)               | 5000                                   | Connection / read timeout in milliseconds.                                                                                |
+    | send                                        |                                        | Optional payload to send after the connection is established.                                                             |
+    | expect                                      |                                        | Optional substring expected in the response.                                                                              |
+    | [ssl](#check_ssh_ssl)                       | 1)] (=0                                | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                               |
+    | [tls-version](#check_ssh_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                     |
+    | [verify](#check_ssh_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                               |
+    | ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                         |
+    | address-family                              |                                        | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.     |
+
+
+
+    <h5 id="check_ssh_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_ssh_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+    *Default Value:* `time > 1000`
+
+    <h5 id="check_ssh_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `time > 5000 or result != 'ok'`
+
+    <h5 id="check_ssh_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_ssh_debug">debug:</h5>
+
+    Show debugging information in the log
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ssh_show-all">show-all:</h5>
+
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ssh_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `ignored`
+
+    <h5 id="check_ssh_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_ssh_escape-html">escape-html:</h5>
+
+    Escape any < and > characters to prevent HTML encoding
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ssh_list-separator">list-separator:</h5>
+
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+    *Default Value:* `, `
+
+    <h5 id="check_ssh_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${problem_list}`
+
+    <h5 id="check_ssh_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): %(list)`
+
+    <h5 id="check_ssh_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No hosts checked`
+
+    <h5 id="check_ssh_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${host}:${port} ${result} in ${time}ms`
+
+    <h5 id="check_ssh_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${host}_${port}`
+
+    <h5 id="check_ssh_timeout">timeout:</h5>
+
+    Connection / read timeout in milliseconds.
+
+    *Default Value:* `5000`
+
+    <h5 id="check_ssh_ssl">ssl:</h5>
+
+    Wrap the connection in TLS/SSL after connecting (ssl=true).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_ssh_tls-version">tls-version:</h5>
+
+    TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+
+    *Default Value:* `tlsv1.2+`
+
+    <h5 id="check_ssh_verify">verify:</h5>
+
+    Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).
+
+    *Default Value:* `none`
 
 
 <a id="check_ssh_filter_keys"></a>
 #### Filter keywords
 
-| Option    | Description                                                                    |
-|-----------|--------------------------------------------------------------------------------|
-| connected | 1 when the connection succeeded, 0 otherwise                                   |
-| host      | Host the check connected to                                                    |
-| port      | TCP port the check connected to                                                |
-| response  | The data received from the peer (use with 'like'/'regexp' for custom matching) |
-| result    | Textual result of the check (ok, refused, timeout, no_match, ...)              |
-| time      | Connection time in milliseconds                                                |
+=== "Windows"
 
-**Common options for all checks:**
+    | Option    | Description                                                                    |
+    |-----------|--------------------------------------------------------------------------------|
+    | connected | 1 when the connection succeeded, 0 otherwise                                   |
+    | host      | Host the check connected to                                                    |
+    | port      | TCP port the check connected to                                                |
+    | response  | The data received from the peer (use with 'like'/'regexp' for custom matching) |
+    | result    | Textual result of the check (ok, refused, timeout, no_match, ...)              |
+    | time      | Connection time in milliseconds                                                |
 
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+    **Common options for all checks:**
+
+    | Option        | Description                                                                                                                                                                                                                                                           |
+    |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+    | crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+    | crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+    | detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+    | list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+    | ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+    | ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+    | problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+    | sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+    | total         | Total number of items.                                                                                                                                                                                                                                                |
+    | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+    | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
+=== "Linux"
+
+    | Option           | Description                                                                                              |
+    |------------------|----------------------------------------------------------------------------------------------------------|
+    | banner           | The raw SSH identification string, e.g. SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5                         |
+    | comments         | Trailing comments of the identification string, e.g. the distribution patch level                        |
+    | connected        | 1 when the connection succeeded, 0 otherwise                                                             |
+    | host             | Host the check connected to                                                                              |
+    | port             | TCP port the check connected to                                                                          |
+    | protocol         | SSH protocol version the server announced, e.g. 2.0 or 1.99                                              |
+    | protocol_major   | Major SSH protocol version as a number (2 for 2.0); use protocol_major < 2 to catch an SSHv1-only server |
+    | protocol_minor   | Minor SSH protocol version as a number (0 for 2.0)                                                       |
+    | response         | The data received from the peer (use with 'like'/'regexp' for custom matching)                           |
+    | result           | Textual result of the check (ok, refused, timeout, no_match, ...)                                        |
+    | software         | Software name from the version string, e.g. OpenSSH or dropbear                                          |
+    | software_version | Software version number from the version string, e.g. 9.6p1                                              |
+    | time             | Connection time in milliseconds                                                                          |
+    | version          | Software version the server announced, e.g. OpenSSH_9.6p1                                                |
+
+    **Common options for all checks:**
+
+    | Option        | Description                                                                                                                                                                                                                                                           |
+    |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+    | crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+    | crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+    | detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+    | list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+    | ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+    | ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+    | problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+    | sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+    | total         | Total number of items.                                                                                                                                                                                                                                                |
+    | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+    | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_tcp
 
@@ -2530,218 +3630,441 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 <a id="check_tcp_options"></a>
 #### Command-line Arguments
 
-<a id="check_tcp_warn"></a>
-<a id="check_tcp_crit"></a>
-<a id="check_tcp_help"></a>
-<a id="check_tcp_help-pb"></a>
-<a id="check_tcp_show-default"></a>
-<a id="check_tcp_help-short"></a>
-<a id="check_tcp_host"></a>
-<a id="check_tcp_hosts"></a>
-<a id="check_tcp_port"></a>
-<a id="check_tcp_send"></a>
-<a id="check_tcp_expect"></a>
-<a id="check_tcp_ca"></a>
-<a id="check_tcp_service"></a>
+=== "Windows"
 
-| Option                                      | Default Value                          | Description                                                                                                                                                          |
-|---------------------------------------------|----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_tcp_filter)                 |                                        | Filter which marks interesting items.                                                                                                                                |
-| [warning](#check_tcp_warning)               | time > 1000                            | Filter which marks items which generates a warning state.                                                                                                            |
-| warn                                        |                                        | Short alias for warning                                                                                                                                              |
-| [critical](#check_tcp_critical)             | time > 5000 or result != 'ok'          | Filter which marks items which generates a critical state.                                                                                                           |
-| crit                                        |                                        | Short alias for critical.                                                                                                                                            |
-| [ok](#check_tcp_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                                                                |
-| [debug](#check_tcp_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                                                                |
-| [show-all](#check_tcp_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                     |
-| [empty-state](#check_tcp_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                                                                    |
-| [perf-config](#check_tcp_perf-config)       |                                        | Performance data generation configuration                                                                                                                            |
-| [escape-html](#check_tcp_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                                                               |
-| [list-separator](#check_tcp_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                            |
-| help                                        | N/A                                    | Show help screen (this screen)                                                                                                                                       |
-| help-pb                                     | N/A                                    | Show help screen as a protocol buffer payload                                                                                                                        |
-| show-default                                | N/A                                    | Show default values for a given command                                                                                                                              |
-| help-short                                  | N/A                                    | Show help screen (short format).                                                                                                                                     |
-| [top-syntax](#check_tcp_top-syntax)         | ${status}: ${problem_list}             | Top level syntax.                                                                                                                                                    |
-| [ok-syntax](#check_tcp_ok-syntax)           | %(status): %(list)                     | ok syntax.                                                                                                                                                           |
-| [empty-syntax](#check_tcp_empty-syntax)     | No hosts checked                       | Empty syntax.                                                                                                                                                        |
-| [detail-syntax](#check_tcp_detail-syntax)   | ${host}:${port} ${result} in ${time}ms | Detail level syntax.                                                                                                                                                 |
-| [perf-syntax](#check_tcp_perf-syntax)       | ${host}_${port}                        | Performance alias syntax.                                                                                                                                            |
-| host                                        |                                        | Host(s) to connect to (may be given multiple times).                                                                                                                 |
-| hosts                                       |                                        | Comma separated list of hosts to connect to.                                                                                                                         |
-| port                                        |                                        | TCP port to connect to.                                                                                                                                              |
-| [timeout](#check_tcp_timeout)               | 5000                                   | Connection / read timeout in milliseconds.                                                                                                                           |
-| send                                        |                                        | Optional payload to send after the connection is established.                                                                                                        |
-| expect                                      |                                        | Optional substring expected in the response.                                                                                                                         |
-| [ssl](#check_tcp_ssl)                       | 1)] (=0                                | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                                                                          |
-| [tls-version](#check_tcp_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                |
-| [verify](#check_tcp_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                                                                          |
-| ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                                                                    |
-| service                                     |                                        | Service preset (ftp, pop, imap, smtp, ssh, spop, simap, ssmtp): sets a default port, greeting and expected-response regex. The s-prefixed variants use implicit TLS. |
+    <a id="check_tcp_warn"></a>
+    <a id="check_tcp_crit"></a>
+    <a id="check_tcp_help"></a>
+    <a id="check_tcp_help-pb"></a>
+    <a id="check_tcp_show-default"></a>
+    <a id="check_tcp_help-short"></a>
+    <a id="check_tcp_host"></a>
+    <a id="check_tcp_hosts"></a>
+    <a id="check_tcp_port"></a>
+    <a id="check_tcp_send"></a>
+    <a id="check_tcp_expect"></a>
+    <a id="check_tcp_ca"></a>
+    <a id="check_tcp_service"></a>
 
-
-
-<h5 id="check_tcp_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+    | Option                                      | Default Value                          | Description                                                                                                                                                          |
+    |---------------------------------------------|----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_tcp_filter)                 |                                        | Filter which marks interesting items.                                                                                                                                |
+    | [warning](#check_tcp_warning)               | time > 1000                            | Filter which marks items which generates a warning state.                                                                                                            |
+    | warn                                        |                                        | Short alias for warning                                                                                                                                              |
+    | [critical](#check_tcp_critical)             | time > 5000 or result != 'ok'          | Filter which marks items which generates a critical state.                                                                                                           |
+    | crit                                        |                                        | Short alias for critical.                                                                                                                                            |
+    | [ok](#check_tcp_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                                                                |
+    | [debug](#check_tcp_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                                                                |
+    | [show-all](#check_tcp_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                     |
+    | [empty-state](#check_tcp_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                                                                    |
+    | [perf-config](#check_tcp_perf-config)       |                                        | Performance data generation configuration                                                                                                                            |
+    | [escape-html](#check_tcp_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                                                               |
+    | [list-separator](#check_tcp_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                            |
+    | help                                        | N/A                                    | Show help screen (this screen)                                                                                                                                       |
+    | help-pb                                     | N/A                                    | Show help screen as a protocol buffer payload                                                                                                                        |
+    | show-default                                | N/A                                    | Show default values for a given command                                                                                                                              |
+    | help-short                                  | N/A                                    | Show help screen (short format).                                                                                                                                     |
+    | [top-syntax](#check_tcp_top-syntax)         | ${status}: ${problem_list}             | Top level syntax.                                                                                                                                                    |
+    | [ok-syntax](#check_tcp_ok-syntax)           | %(status): %(list)                     | ok syntax.                                                                                                                                                           |
+    | [empty-syntax](#check_tcp_empty-syntax)     | No hosts checked                       | Empty syntax.                                                                                                                                                        |
+    | [detail-syntax](#check_tcp_detail-syntax)   | ${host}:${port} ${result} in ${time}ms | Detail level syntax.                                                                                                                                                 |
+    | [perf-syntax](#check_tcp_perf-syntax)       | ${host}_${port}                        | Performance alias syntax.                                                                                                                                            |
+    | host                                        |                                        | Host(s) to connect to (may be given multiple times).                                                                                                                 |
+    | hosts                                       |                                        | Comma separated list of hosts to connect to.                                                                                                                         |
+    | port                                        |                                        | TCP port to connect to.                                                                                                                                              |
+    | [timeout](#check_tcp_timeout)               | 5000                                   | Connection / read timeout in milliseconds.                                                                                                                           |
+    | send                                        |                                        | Optional payload to send after the connection is established.                                                                                                        |
+    | expect                                      |                                        | Optional substring expected in the response.                                                                                                                         |
+    | [ssl](#check_tcp_ssl)                       | 1)] (=0                                | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                                                                          |
+    | [tls-version](#check_tcp_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                |
+    | [verify](#check_tcp_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                                                                          |
+    | ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                                                                    |
+    | service                                     |                                        | Service preset (ftp, pop, imap, smtp, ssh, spop, simap, ssmtp): sets a default port, greeting and expected-response regex. The s-prefixed variants use implicit TLS. |
 
 
-<h5 id="check_tcp_warning">warning:</h5>
 
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
+    <h5 id="check_tcp_filter">filter:</h5>
 
-
-*Default Value:* `time > 1000`
-
-<h5 id="check_tcp_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Default Value:* `time > 5000 or result != 'ok'`
+    <h5 id="check_tcp_warning">warning:</h5>
 
-<h5 id="check_tcp_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
 
 
-<h5 id="check_tcp_debug">debug:</h5>
+    *Default Value:* `time > 1000`
 
-Show debugging information in the log
+    <h5 id="check_tcp_critical">critical:</h5>
 
-*Default Value:* `1)] (=0`
-
-<h5 id="check_tcp_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `1)] (=0`
-
-<h5 id="check_tcp_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ignored`
-
-<h5 id="check_tcp_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
 
 
-<h5 id="check_tcp_escape-html">escape-html:</h5>
+    *Default Value:* `time > 5000 or result != 'ok'`
 
-Escape any < and > characters to prevent HTML encoding
+    <h5 id="check_tcp_ok">ok:</h5>
 
-*Default Value:* `1)] (=0`
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
 
-<h5 id="check_tcp_list-separator">list-separator:</h5>
 
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+    <h5 id="check_tcp_debug">debug:</h5>
 
-*Default Value:* `, `
+    Show debugging information in the log
 
-<h5 id="check_tcp_top-syntax">top-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_tcp_show-all">show-all:</h5>
 
-*Default Value:* `${status}: ${problem_list}`
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-<h5 id="check_tcp_ok-syntax">ok-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
+    <h5 id="check_tcp_empty-state">empty-state:</h5>
 
-*Default Value:* `%(status): %(list)`
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
 
-<h5 id="check_tcp_empty-syntax">empty-syntax:</h5>
+    *Default Value:* `ignored`
 
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
+    <h5 id="check_tcp_perf-config">perf-config:</h5>
 
-*Default Value:* `No hosts checked`
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-<h5 id="check_tcp_detail-syntax">detail-syntax:</h5>
 
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+    <h5 id="check_tcp_escape-html">escape-html:</h5>
 
-*Default Value:* `${host}:${port} ${result} in ${time}ms`
+    Escape any < and > characters to prevent HTML encoding
 
-<h5 id="check_tcp_perf-syntax">perf-syntax:</h5>
+    *Default Value:* `1)] (=0`
 
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
+    <h5 id="check_tcp_list-separator">list-separator:</h5>
 
-*Default Value:* `${host}_${port}`
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-<h5 id="check_tcp_timeout">timeout:</h5>
+    *Default Value:* `, `
 
-Connection / read timeout in milliseconds.
+    <h5 id="check_tcp_top-syntax">top-syntax:</h5>
 
-*Default Value:* `5000`
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-<h5 id="check_tcp_ssl">ssl:</h5>
+    *Default Value:* `${status}: ${problem_list}`
 
-Wrap the connection in TLS/SSL after connecting (ssl=true).
+    <h5 id="check_tcp_ok-syntax">ok-syntax:</h5>
 
-*Default Value:* `1)] (=0`
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
 
-<h5 id="check_tcp_tls-version">tls-version:</h5>
+    *Default Value:* `%(status): %(list)`
 
-TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+    <h5 id="check_tcp_empty-syntax">empty-syntax:</h5>
 
-*Default Value:* `tlsv1.2+`
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
 
-<h5 id="check_tcp_verify">verify:</h5>
+    *Default Value:* `No hosts checked`
 
-Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).
+    <h5 id="check_tcp_detail-syntax">detail-syntax:</h5>
 
-*Default Value:* `none`
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${host}:${port} ${result} in ${time}ms`
+
+    <h5 id="check_tcp_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${host}_${port}`
+
+    <h5 id="check_tcp_timeout">timeout:</h5>
+
+    Connection / read timeout in milliseconds.
+
+    *Default Value:* `5000`
+
+    <h5 id="check_tcp_ssl">ssl:</h5>
+
+    Wrap the connection in TLS/SSL after connecting (ssl=true).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_tcp_tls-version">tls-version:</h5>
+
+    TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+
+    *Default Value:* `tlsv1.2+`
+
+    <h5 id="check_tcp_verify">verify:</h5>
+
+    Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).
+
+    *Default Value:* `none`
+
+=== "Linux"
+
+    <a id="check_tcp_warn"></a>
+    <a id="check_tcp_crit"></a>
+    <a id="check_tcp_help"></a>
+    <a id="check_tcp_help-pb"></a>
+    <a id="check_tcp_show-default"></a>
+    <a id="check_tcp_help-short"></a>
+    <a id="check_tcp_host"></a>
+    <a id="check_tcp_hosts"></a>
+    <a id="check_tcp_port"></a>
+    <a id="check_tcp_send"></a>
+    <a id="check_tcp_expect"></a>
+    <a id="check_tcp_ca"></a>
+    <a id="check_tcp_address-family"></a>
+    <a id="check_tcp_service"></a>
+
+    | Option                                      | Default Value                          | Description                                                                                                                                                          |
+    |---------------------------------------------|----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | [filter](#check_tcp_filter)                 |                                        | Filter which marks interesting items.                                                                                                                                |
+    | [warning](#check_tcp_warning)               | time > 1000                            | Filter which marks items which generates a warning state.                                                                                                            |
+    | warn                                        |                                        | Short alias for warning                                                                                                                                              |
+    | [critical](#check_tcp_critical)             | time > 5000 or result != 'ok'          | Filter which marks items which generates a critical state.                                                                                                           |
+    | crit                                        |                                        | Short alias for critical.                                                                                                                                            |
+    | [ok](#check_tcp_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                                                                |
+    | [debug](#check_tcp_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                                                                |
+    | [show-all](#check_tcp_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                     |
+    | [empty-state](#check_tcp_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                                                                    |
+    | [perf-config](#check_tcp_perf-config)       |                                        | Performance data generation configuration                                                                                                                            |
+    | [escape-html](#check_tcp_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                                                               |
+    | [list-separator](#check_tcp_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                            |
+    | help                                        | N/A                                    | Show help screen (this screen)                                                                                                                                       |
+    | help-pb                                     | N/A                                    | Show help screen as a protocol buffer payload                                                                                                                        |
+    | show-default                                | N/A                                    | Show default values for a given command                                                                                                                              |
+    | help-short                                  | N/A                                    | Show help screen (short format).                                                                                                                                     |
+    | [top-syntax](#check_tcp_top-syntax)         | ${status}: ${problem_list}             | Top level syntax.                                                                                                                                                    |
+    | [ok-syntax](#check_tcp_ok-syntax)           | %(status): %(list)                     | ok syntax.                                                                                                                                                           |
+    | [empty-syntax](#check_tcp_empty-syntax)     | No hosts checked                       | Empty syntax.                                                                                                                                                        |
+    | [detail-syntax](#check_tcp_detail-syntax)   | ${host}:${port} ${result} in ${time}ms | Detail level syntax.                                                                                                                                                 |
+    | [perf-syntax](#check_tcp_perf-syntax)       | ${host}_${port}                        | Performance alias syntax.                                                                                                                                            |
+    | host                                        |                                        | Host(s) to connect to (may be given multiple times).                                                                                                                 |
+    | hosts                                       |                                        | Comma separated list of hosts to connect to.                                                                                                                         |
+    | port                                        |                                        | TCP port to connect to.                                                                                                                                              |
+    | [timeout](#check_tcp_timeout)               | 5000                                   | Connection / read timeout in milliseconds.                                                                                                                           |
+    | send                                        |                                        | Optional payload to send after the connection is established.                                                                                                        |
+    | expect                                      |                                        | Optional substring expected in the response.                                                                                                                         |
+    | [ssl](#check_tcp_ssl)                       | 1)] (=0                                | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                                                                          |
+    | [tls-version](#check_tcp_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                |
+    | [verify](#check_tcp_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                                                                          |
+    | ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                                                                    |
+    | address-family                              |                                        | IP version to use: any (default, let the resolver choose), ipv4 or ipv6. Accepts 4/v4/inet and 6/v6/inet6 as aliases.                                                |
+    | service                                     |                                        | Service preset (ftp, pop, imap, smtp, ssh, spop, simap, ssmtp): sets a default port, greeting and expected-response regex. The s-prefixed variants use implicit TLS. |
+
+
+
+    <h5 id="check_tcp_filter">filter:</h5>
+
+    Filter which marks interesting items.
+    Interesting items are items which will be included in the check.
+    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+    <h5 id="check_tcp_warning">warning:</h5>
+
+    Filter which marks items which generates a warning state.
+    If anything matches this filter the return status will be escalated to warning.
+
+
+    *Default Value:* `time > 1000`
+
+    <h5 id="check_tcp_critical">critical:</h5>
+
+    Filter which marks items which generates a critical state.
+    If anything matches this filter the return status will be escalated to critical.
+
+
+    *Default Value:* `time > 5000 or result != 'ok'`
+
+    <h5 id="check_tcp_ok">ok:</h5>
+
+    Filter which marks items which generates an ok state.
+    If anything matches this any previous state for this item will be reset to ok.
+
+
+    <h5 id="check_tcp_debug">debug:</h5>
+
+    Show debugging information in the log
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_tcp_show-all">show-all:</h5>
+
+    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_tcp_empty-state">empty-state:</h5>
+
+    Return status to use when nothing matched filter.
+    If no filter is specified this will never happen unless the file is empty.
+
+    *Default Value:* `ignored`
+
+    <h5 id="check_tcp_perf-config">perf-config:</h5>
+
+    Performance data generation configuration
+    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+    <h5 id="check_tcp_escape-html">escape-html:</h5>
+
+    Escape any < and > characters to prevent HTML encoding
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_tcp_list-separator">list-separator:</h5>
+
+    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+    *Default Value:* `, `
+
+    <h5 id="check_tcp_top-syntax">top-syntax:</h5>
+
+    Top level syntax.
+    Used to format the message to return can include text as well as special keywords which will include information from the checks.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${status}: ${problem_list}`
+
+    <h5 id="check_tcp_ok-syntax">ok-syntax:</h5>
+
+    ok syntax.
+    DEPRECATED! This is the syntax for when an ok result is returned.
+    This value will not be used if your syntax contains %(list) or %(count).
+
+    *Default Value:* `%(status): %(list)`
+
+    <h5 id="check_tcp_empty-syntax">empty-syntax:</h5>
+
+    Empty syntax.
+    DEPRECATED! This is the syntax for when nothing matches the filter.
+
+    *Default Value:* `No hosts checked`
+
+    <h5 id="check_tcp_detail-syntax">detail-syntax:</h5>
+
+    Detail level syntax.
+    Used to format each resulting item in the message.
+    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+    *Default Value:* `${host}:${port} ${result} in ${time}ms`
+
+    <h5 id="check_tcp_perf-syntax">perf-syntax:</h5>
+
+    Performance alias syntax.
+    This is the syntax for the base names of the performance data.
+
+    *Default Value:* `${host}_${port}`
+
+    <h5 id="check_tcp_timeout">timeout:</h5>
+
+    Connection / read timeout in milliseconds.
+
+    *Default Value:* `5000`
+
+    <h5 id="check_tcp_ssl">ssl:</h5>
+
+    Wrap the connection in TLS/SSL after connecting (ssl=true).
+
+    *Default Value:* `1)] (=0`
+
+    <h5 id="check_tcp_tls-version">tls-version:</h5>
+
+    TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+
+    *Default Value:* `tlsv1.2+`
+
+    <h5 id="check_tcp_verify">verify:</h5>
+
+    Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).
+
+    *Default Value:* `none`
 
 
 <a id="check_tcp_filter_keys"></a>
 #### Filter keywords
 
-| Option    | Description                                                                    |
-|-----------|--------------------------------------------------------------------------------|
-| connected | 1 when the connection succeeded, 0 otherwise                                   |
-| host      | Host the check connected to                                                    |
-| port      | TCP port the check connected to                                                |
-| response  | The data received from the peer (use with 'like'/'regexp' for custom matching) |
-| result    | Textual result of the check (ok, refused, timeout, no_match, ...)              |
-| time      | Connection time in milliseconds                                                |
+=== "Windows"
 
-**Common options for all checks:**
+    | Option    | Description                                                                    |
+    |-----------|--------------------------------------------------------------------------------|
+    | connected | 1 when the connection succeeded, 0 otherwise                                   |
+    | host      | Host the check connected to                                                    |
+    | port      | TCP port the check connected to                                                |
+    | response  | The data received from the peer (use with 'like'/'regexp' for custom matching) |
+    | result    | Textual result of the check (ok, refused, timeout, no_match, ...)              |
+    | time      | Connection time in milliseconds                                                |
 
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+    **Common options for all checks:**
+
+    | Option        | Description                                                                                                                                                                                                                                                           |
+    |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+    | crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+    | crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+    | detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+    | list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+    | ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+    | ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+    | problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+    | sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+    | total         | Total number of items.                                                                                                                                                                                                                                                |
+    | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+    | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
+=== "Linux"
+
+    | Option          | Description                                                                                                                                                                                                                                                                                                                           |
+    |-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | connected       | 1 when the connection succeeded, 0 otherwise                                                                                                                                                                                                                                                                                          |
+    | has_certificate | 1 when the peer presented a TLS certificate, 0 otherwise                                                                                                                                                                                                                                                                              |
+    | host            | Host the check connected to                                                                                                                                                                                                                                                                                                           |
+    | port            | TCP port the check connected to                                                                                                                                                                                                                                                                                                       |
+    | response        | The data received from the peer (use with 'like'/'regexp' for custom matching)                                                                                                                                                                                                                                                        |
+    | result          | Textual result of the check (ok, refused, timeout, no_match, ...)                                                                                                                                                                                                                                                                     |
+    | ssl_expiry_days | Days until the peer's TLS certificate expires; negative once it has expired. Renders as 'no certificate' (and compares false against every number) when the connection is not TLS or the peer presented none, so `ssl_expiry_days < 30` cannot fire on a plain connection; `ssl_expiry_days = 'no certificate'` tests for that state. |
+    | time            | Connection time in milliseconds                                                                                                                                                                                                                                                                                                       |
+
+    **Common options for all checks:**
+
+    | Option        | Description                                                                                                                                                                                                                                                           |
+    |---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+    | crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+    | crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+    | detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+    | list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+    | ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+    | ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+    | problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+    | problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+    | sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+    | status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+    | total         | Total number of items.                                                                                                                                                                                                                                                |
+    | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+    | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
