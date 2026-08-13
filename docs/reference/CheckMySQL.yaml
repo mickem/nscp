@@ -1,8 +1,4 @@
-module: CheckMySQL
-namespace: misc
-platforms:
-- unix
-unix:
+common:
   info:
     description: 'Check MySQL, MariaDB, Percona and other MySQL-compatible servers: connectivity, health
       and custom queries.'
@@ -887,3 +883,8 @@ unix:
         repeatable: false
         required: false
         short_description: Query (read/write) timeout in seconds.
+module: CheckMySQL
+namespace: misc
+platforms:
+- unix
+- windows

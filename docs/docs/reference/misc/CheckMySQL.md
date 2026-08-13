@@ -1,7 +1,5 @@
 # CheckMySQL
 
-*Available on Linux only.*
-
 Check MySQL, MariaDB, Percona and other MySQL-compatible servers: connectivity, health and custom queries.
 
 CheckMySQL checks MySQL, MariaDB, Percona and other MySQL-compatible database
