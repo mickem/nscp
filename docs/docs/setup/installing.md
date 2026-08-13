@@ -341,6 +341,10 @@ A few things worth knowing:
 - **Enrollment is required to succeed.** If the fleet server cannot be reached, or rejects the token, the install fails
   with an error explaining what went wrong rather than leaving you with an agent that never joined the fleet. Bootstrap
   tokens are one-time and are burned on first use, so a rejected token means generating a new install command.
+- **The installer has to be allowed to write the configuration.** Enrollment is what adds the include that makes the
+  host read what the fleet server sends it, so combining `FLEET_SERVER` with `ALLOW_CONFIGURATION=0` - or installing
+  onto a configuration the installer cannot update - fails the install rather than enrolling a host that then ignores
+  everything the fleet server tells it. The install log names the reason the configuration was held to be unchangeable.
 - **An already enrolled host keeps its identity.** If `agent-state.json` already exists (an upgrade, a repair, or a
   re-install over an existing installation) the enrollment is skipped and the existing identity is kept. Delete the file
   to enroll again.

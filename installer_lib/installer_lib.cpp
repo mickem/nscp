@@ -1158,13 +1158,23 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
     }
 
     // The include of the fleet-managed configuration is written by
-    // ScheduleWriteConfig, which only writes anything when the installer is
-    // allowed to change the configuration. Say so rather than leaving the
-    // operator with an enrolled host whose fleet configuration is never read.
+    // ScheduleWriteConfig, and only when it is allowed to change the
+    // configuration - the exact test repeated here, so we fail precisely when
+    // the include would not be written. Without it the host enrolls, reports
+    // in and syncs, but nothing ever reads what the fleet server sends back:
+    // managed on paper, unmanaged in practice. The enrollment that follows
+    // burns the bootstrap token, so this has to fail before the token is
+    // spent, not leave a note in a log nobody reads on an unattended install.
     if (h.getMsiPropery(INT_CONF_CAN_CHANGE) != L"1") {
-      h.logMessage(
-          L"NOTE: configuration changes are not allowed, so the fleet configuration include cannot be added. Add it manually: [/includes] "
-          L"fleet=${shared-path}/fleet/fleet.ini");
+      std::wstring reason = boost::algorithm::trim_copy(h.getMsiPropery(INT_CONF_CAN_CHANGE_REASON));
+      if (reason.empty()) reason = L"the installer is not allowed to change the configuration";
+      h.errorMessage(
+          L"Refusing to enroll with a fleet server: the configuration cannot be changed (" + reason +
+          L"), so the include of the fleet-managed configuration ([/includes] fleet=${shared-path}/fleet/fleet.ini) cannot be added and this host "
+          L"would never read the configuration the fleet server sends it. Let the installer write the configuration (do not pass "
+          L"ALLOW_CONFIGURATION=0, or pass CONF_CAN_CHANGE=1), or install without FLEET_SERVER/FLEET_TOKEN and enroll afterwards with `nscp enroll` "
+          L"once the include is in place.");
+      return ERROR_INSTALL_FAILURE;
     }
 
     msi_helper::custom_action_data_w data;
