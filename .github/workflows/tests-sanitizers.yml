@@ -44,7 +44,7 @@ jobs:
           protobuf-compiler libprotobuf-dev \
           openssl libssl-dev libcrypto++-dev \
           liblua5.4-dev libdbus-1-dev \
-          libzip-dev libtinyxml2-dev
+          libzip-dev libtinyxml2-dev libmariadb-dev
 
     - uses: actions/checkout@v6
 

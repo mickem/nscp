@@ -163,6 +163,21 @@
               <File Id="ModLUAScript.dll" Name="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
             </Component>
             <!--
+            CheckMySQL is its own feature (MySQLPlugin) rather than part of
+            "Check Plugins": it is the only check module with a third-party
+            runtime dependency (libmariadb.dll, see MariaDBLibs), so an operator
+            with no MySQL to monitor can leave both out. Installed by default.
+
+            Only built for the dynamic-runtime builds - the legacy static XP
+            build has no connector, so both this and MariaDBLibs are guarded the
+            same way lua.dll is.
+            -->
+            <?if "$(var.Runtime)" = "dynamic"?>
+              <Component Id="CheckMySQL" Guid="1D6F4A83-95E2-4C0B-B3D7-8E2A5C9F41B6" Win64="$(var.Win64)">
+                <File Id="ModCheckMySQL.dll" Name="CheckMySQL.dll" DiskId="1" Source="$(var.Source)/modules/CheckMySQL.dll" Vital="no" />
+              </Component>
+            <?endif?>
+            <!--
             <Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
               <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
             </Component>
@@ -184,6 +199,18 @@
           <?if "$(var.Runtime)" = "dynamic"?>
             <Component Id="LuaLibs" Guid="513b45d4-c0f4-4531-9baf-0db466e4e51c" Win64="$(var.Win64)">
               <File Id="LuaDLL" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
+            </Component>
+            <!--
+            MariaDB Connector/C, the client library CheckMySQL links against.
+            Ships and is removed with the module (both are in the MySQLPlugin
+            feature), but it belongs in this directory rather than in modules\:
+            the plugin loader uses plain LoadLibrary() with a full path, and
+            Windows resolves that module's own imports against the application
+            directory (this one), never against the folder the module was loaded
+            from. The build stages it here, see modules/CheckMySQL/CMakeLists.txt.
+            -->
+            <Component Id="MariaDBLibs" Guid="7C1B0E0A-2F3A-4E51-9D7C-6A1F0E3B2C48" Win64="$(var.Win64)">
+              <File Id="LibMariaDB" Name="libmariadb.dll" DiskId="1" Source="$(var.Source)/libmariadb.dll" Vital="no" />
             </Component>
           <?endif?>
           <!--
@@ -253,6 +280,18 @@
         <Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
           <ComponentRef Id="Plugins" />
         </Feature>
+        <!--
+        Level="1" so it is installed by default (and by ADDLOCAL=ALL), Absent="allow"
+        so it can be deselected - in the feature tree, or with REMOVE=MySQLPlugin
+        on a silent install. The module and its client library go together: the
+        module cannot load without libmariadb.dll, and nothing else uses it.
+        -->
+        <?if "$(var.Runtime)" = "dynamic"?>
+          <Feature Id="MySQLPlugin" Title="MySQL Support" Description="Plugin to check MySQL, MariaDB and Percona servers (includes the MariaDB Connector/C client library)" Level="1" Absent="allow">
+            <ComponentRef Id="CheckMySQL" />
+            <ComponentRef Id="MariaDBLibs" />
+          </Feature>
+        <?endif?>
         <Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Server Plugin (check_nrpe)" Level="1" Absent="allow">
           <ComponentRef Id="NRPEServer" />
           <ComponentRef Id="NRPEServerCert" />
