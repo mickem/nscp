@@ -47,9 +47,12 @@ docker_checks::fetcher_factory refusing_daemon(const std::string &error) {
   };
 }
 
-docker_checks::settings unix_defaults() {
+// The checks refuse a non-local endpoint before they ever call the fetcher, so
+// the configured default has to be the one this platform accepts: the unix
+// socket path elsewhere, the docker_engine named pipe on Windows.
+docker_checks::settings local_defaults() {
   docker_checks::settings s;
-  s.endpoint = "/var/run/docker.sock";
+  s.endpoint = docker_checks::default_docker_endpoint();
   return s;
 }
 
@@ -58,7 +61,7 @@ PB::Common::ResultCode run_containers(const docker_checks::fetcher_factory &fact
   PB::Commands::QueryRequestMessage::Request request;
   request.set_command("check_docker");
   for (const std::string &a : args) request.add_arguments(a);
-  docker_checks::check_containers(unix_defaults(), request, &response, factory);
+  docker_checks::check_containers(local_defaults(), request, &response, factory);
   return response.result();
 }
 
@@ -67,7 +70,7 @@ PB::Common::ResultCode run_info(const docker_checks::fetcher_factory &factory, c
   PB::Commands::QueryRequestMessage::Request request;
   request.set_command("check_docker_info");
   for (const std::string &a : args) request.add_arguments(a);
-  docker_checks::check_info(unix_defaults(), request, &response, factory);
+  docker_checks::check_info(local_defaults(), request, &response, factory);
   return response.result();
 }
 
@@ -168,7 +171,7 @@ TEST(CheckDocker, DaemonFailureIsUnknownWithMessage) {
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run_containers(refusing_daemon("connection refused"), {}, response), PB::Common::ResultCode::UNKNOWN);
   const std::string msg = join_lines(response);
-  EXPECT_NE(msg.find("Failed to connect to docker daemon at '/var/run/docker.sock'"), std::string::npos) << msg;
+  EXPECT_NE(msg.find("Failed to connect to docker daemon at '" + docker_checks::default_docker_endpoint() + "'"), std::string::npos) << msg;
   EXPECT_NE(msg.find("connection refused"), std::string::npos) << msg;
 }
 
@@ -259,7 +262,7 @@ PB::Common::ResultCode run_stats(const docker_checks::fetcher_factory &factory, 
   PB::Commands::QueryRequestMessage::Request request;
   request.set_command("check_docker_stats");
   for (const std::string &a : args) request.add_arguments(a);
-  docker_checks::check_stats(unix_defaults(), request, &response, factory);
+  docker_checks::check_stats(local_defaults(), request, &response, factory);
   return response.result();
 }
 
@@ -268,7 +271,7 @@ PB::Common::ResultCode run_restarts(const docker_checks::fetcher_factory &factor
   PB::Commands::QueryRequestMessage::Request request;
   request.set_command("check_docker_restarts");
   for (const std::string &a : args) request.add_arguments(a);
-  docker_checks::check_restarts(unix_defaults(), request, &response, factory);
+  docker_checks::check_restarts(local_defaults(), request, &response, factory);
   return response.result();
 }
 
@@ -277,7 +280,7 @@ PB::Common::ResultCode run_df(const docker_checks::fetcher_factory &factory, con
   PB::Commands::QueryRequestMessage::Request request;
   request.set_command("check_docker_df");
   for (const std::string &a : args) request.add_arguments(a);
-  docker_checks::check_df(unix_defaults(), request, &response, factory);
+  docker_checks::check_df(local_defaults(), request, &response, factory);
   return response.result();
 }
 
