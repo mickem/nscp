@@ -23,7 +23,7 @@ struct kernel_memory_obj {
   long long cache;           // Cache Bytes (system file cache working set)
   double page_faults;        // Page Faults/sec (soft + hard; huge on healthy hosts)
   double transition_faults;  // Transition Faults/sec (the dominant soft-fault kind)
-  double hard_faults;        // Pages Input/sec (faults that had to hit disk)
+  double hard_faults;        // Page Reads/sec (hard-fault events that had to hit disk)
 
   kernel_memory_obj() : pool_paged(0), pool_nonpaged(0), cache(0), page_faults(0.0), transition_faults(0.0), hard_faults(0.0) {}
 
