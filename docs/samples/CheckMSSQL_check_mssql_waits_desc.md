@@ -13,8 +13,20 @@ of wait accumulated per second of wall clock** over that window. Idle
 housekeeping waits (`LAZYWRITER_SLEEP`, `CHECKPOINT_QUEUE`, `XE_*`, the
 `HADR_` housekeeping timers, and the other community benign-wait suspects —
 including this check's own `WAITFOR`) are excluded, so `0` really means
-nothing waited. `HADR_SYNC_COMMIT` is **not** excluded: synchronous
-availability-group commit latency counts towards `other_waits`/`total_waits`.
+nothing waited.
+
+Two families are deliberately **not** excluded wholesale, because the waits that
+matter most hide inside them. `HADR_SYNC_COMMIT` counts towards
+`other_waits`/`total_waits`, so synchronous availability-group commit latency
+stays visible while the `HADR_` housekeeping timers are filtered. And of the
+`PREEMPTIVE_*` family — SQLOS calling out of the engine, mostly idle — these
+external stalls keep counting: `PREEMPTIVE_OS_WRITEFILEGATHER` and
+`PREEMPTIVE_OS_FLUSHFILEBUFFERS` (file growth and flushes, reported under
+`io_waits`), plus `PREEMPTIVE_HTTP_REQUEST`, `PREEMPTIVE_OS_AUTHENTICATIONOPS`,
+`PREEMPTIVE_OS_CRYPTOPS`, `PREEMPTIVE_ODBCOPS` and `PREEMPTIVE_OLEDBOPS` (backup
+to URL, domain lookups, key operations and linked servers, under `other_waits`).
+Autogrow on slow storage or a hanging backup would otherwise leave every
+category reading zero in the middle of the incident.
 
 Keywords (one row per instance):
 
