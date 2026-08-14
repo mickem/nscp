@@ -12,6 +12,7 @@
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
+#include <str/format.hpp>
 #include <str/utf8.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -20,6 +21,11 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::reloadStart) {
     scheduler_.prepare_shutdown();
     scheduler_.stop();
+    // The worker threads are joined at this point, so the task list and the
+    // pending queue can be dropped safely. Without this the tasks (and their
+    // queued instances) from before the reload survive alongside the ones
+    // added below, so every schedule ends up running twice.
+    scheduler_.clear();
     schedules_.clear();
   }
 
@@ -36,6 +42,10 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   settings.alias().add_key_to_settings()
     .add_int("threads", sh::int_fun_key([this] (auto value) { scheduler_.set_threads(value); }, 5),
 	    "Threads", "Number of threads to use.")
+    .add_string("startup window", sh::string_fun_key([this] (const auto& value) { this->set_startup_window(value); }, "0s"),
+        "Startup window",
+        "Time over which schedules with 'run on startup' are spread out when the agent starts. The default (0s) runs them all immediately; raise it if you "
+        "have many startup schedules and do not want to hit the monitoring server with all of them at once.")
     .add_string("timezone", sh::string_fun_key([this] (const auto& value) { scheduler_.set_timezone(value); }, "local"),
         "Timezone",
         "Reference clock for cron expressions. Accepts 'local' (default — standard cron semantics), 'utc'/'gmt' (restores the pre-0.13 "
@@ -96,7 +106,30 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
     scheduler_.set_handler(this);
     scheduler_.start();
   }
+  // On a normal boot the startup runs wait for startModule, which the core
+  // calls once every plugin is loaded - firing them here would query commands
+  // that later modules have not registered yet. A reload (or a module loaded
+  // into an already running agent) has no such problem and gets no second
+  // startModule, so fire them right away instead.
+  if (started_ && (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart)) {
+    scheduler_.run_startup_tasks(startup_window_);
+  }
   return true;
+}
+
+bool Scheduler::startModule() {
+  started_ = true;
+  scheduler_.run_startup_tasks(startup_window_);
+  return true;
+}
+
+void Scheduler::set_startup_window(const std::string &value) {
+  try {
+    startup_window_ = boost::posix_time::seconds(str::format::stox_as_time_sec<long>(value, "s"));
+  } catch (const std::exception &e) {
+    NSC_LOG_ERROR_EXR("Invalid 'startup window' value '" + value + "', falling back to 0s: ", e);
+    startup_window_ = boost::posix_time::seconds(0);
+  }
 }
 
 void Scheduler::add_schedule(const std::string &key, const std::string &arg) {

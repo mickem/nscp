@@ -82,25 +82,33 @@ void scheduler::stop() {
   log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.count()));
 }
 
-int scheduler::add_task(const std::string &tag, const boost::posix_time::time_duration duration, const double jitter_factor) {
+int scheduler::add_task(const std::string &tag, const boost::posix_time::time_duration duration, const double jitter_factor, const bool schedule_first_run) {
   task item(tag, duration, jitter_factor);
   {
     boost::mutex::scoped_lock l(mutex_);
     item.id = ++schedule_id_;
     tasks_[item.id] = item;
   }
-  reschedule(item, now());
+  if (schedule_first_run) reschedule(item, now());
   return item.id;
 }
-int scheduler::add_task(const std::string &tag, const cron_parser::schedule &schedule) {
+int scheduler::add_task(const std::string &tag, const cron_parser::schedule &schedule, const bool schedule_first_run) {
   task item(tag, schedule);
   {
     boost::mutex::scoped_lock l(mutex_);
     item.id = ++schedule_id_;
     tasks_[item.id] = item;
   }
-  reschedule(item, now());
+  if (schedule_first_run) reschedule(item, now());
   return item.id;
+}
+void scheduler::run_now(const int id, const boost::posix_time::time_duration delay) {
+  const op_task_object item = get_task(id);
+  if (!item) {
+    log_error(__FILE__, __LINE__, "Cannot run unknown task: " + str::xtos(id));
+    return;
+  }
+  reschedule_at(item->tag, id, now() + delay, true);
 }
 void scheduler::remove_task(const int id) {
   boost::mutex::scoped_lock l(mutex_);
@@ -120,8 +128,14 @@ scheduler::op_task_object scheduler::get_task(const int id) {
 }
 
 void scheduler::clear_tasks() {
-  boost::mutex::scoped_lock l(mutex_);
-  tasks_.clear();
+  {
+    boost::mutex::scoped_lock l(mutex_);
+    tasks_.clear();
+  }
+  // Drop the pending instances as well: without a task behind them they would
+  // only produce "Task not found" errors as they come due, and on a reload
+  // they would race the freshly added tasks.
+  if (!queue_.clear()) log_error(__FILE__, __LINE__, "Failed to clear the schedule queue");
 }
 
 void scheduler::watch_dog(const int id) {
@@ -182,7 +196,7 @@ void scheduler::thread_proc(const int id) {
 
       try {
         boost::posix_time::time_duration off = now() - instance->time;
-        if (off.total_seconds() > error_threshold_) {
+        if (!instance->suppress_late_warning && off.total_seconds() > error_threshold_) {
           log_error(__FILE__, __LINE__,
                     "Ran scheduled item " + instance->tag + "(" + str::xtos(instance->schedule_id) + ") " + str::xtos(off.total_seconds()) +
                         " seconds to late from thread " + str::xtos(id));
@@ -256,11 +270,12 @@ void scheduler::reschedule(const task &item, boost::posix_time::ptime now_time) 
     reschedule_at(item.tag, item.id, item.get_next(now_time));
   }
 }
-void scheduler::reschedule_at(const std::string &tag, const int id, boost::posix_time::ptime new_time) {
+void scheduler::reschedule_at(const std::string &tag, const int id, boost::posix_time::ptime new_time, const bool suppress_late_warning) {
   schedule_instance instance;
   instance.tag = tag;
   instance.schedule_id = id;
   instance.time = new_time;
+  instance.suppress_late_warning = suppress_late_warning;
   if (!queue_.push(instance)) {
     log_error(__FILE__, __LINE__, "Failed to reschedule item");
   }

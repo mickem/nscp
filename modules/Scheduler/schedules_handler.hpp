@@ -20,7 +20,7 @@ namespace schedules {
 struct schedule_object : public nscapi::settings_objects::object_instance_interface {
   typedef nscapi::settings_objects::object_instance_interface parent;
 
-  schedule_object(std::string alias, std::string path) : parent(alias, path), randomness(0.0), report(0), id(0) {}
+  schedule_object(std::string alias, std::string path) : parent(alias, path), randomness(0.0), run_on_startup(false), report(0), id(0) {}
   schedule_object(const schedule_object& other)
       : parent(other),
         source_id(other.source_id),
@@ -28,10 +28,14 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
         duration(other.duration),
         randomness(other.randomness),
         schedule(other.schedule),
+        run_on_startup(other.run_on_startup),
         channel(other.channel),
         report(other.report),
         command(other.command),
-        arguments(other.arguments) {}
+        arguments(other.arguments),
+        // Not copying this left it indeterminate, which to_string then printed
+        // as a random schedule id in the "Adding scheduled item" log line.
+        id(other.id) {}
 
   // Schedule keys
   std::string source_id;
@@ -39,6 +43,7 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
   boost::optional<boost::posix_time::time_duration> duration;
   double randomness;
   boost::optional<std::string> schedule;
+  bool run_on_startup;
   std::string channel;
   unsigned int report;
   std::string command;
@@ -67,6 +72,7 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
       ss << ", duration: " << (*duration).total_seconds() << "s, " << (randomness * 100) << "% randomness";
     }
     if (schedule) ss << ", schedule: " << *schedule;
+    if (run_on_startup) ss << ", run on startup";
     ss << "}";
     return ss.str();
   }
@@ -112,6 +118,11 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
           .add_string("schedule", sh::string_fun_key([this](auto value) { this->set_schedule(value); }), "SCHEDULE",
                       "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
 
+          .add_bool("run on startup", sh::bool_key(&run_on_startup, false), "RUN ON STARTUP",
+                    "Run the command once as soon as NSClient++ has started (and after each reload) instead of waiting for the first interval or schedule to "
+                    "elapse. Use this to avoid stale results after a reboot when the interval is long. The regular schedule is unaffected and continues from "
+                    "the startup run.")
+
           .add_string("report", sh::string_fun_key([this](auto value) { this->set_report(value); }, "all"), "REPORT MODE",
                       "What to report to the server (any of the following: all, critical, warning, unknown, ok)")
 
@@ -128,6 +139,11 @@ struct schedule_object : public nscapi::settings_objects::object_instance_interf
 
           .add_string("schedule", sh::string_fun_key([this](auto value) { this->set_schedule(value); }), "SCHEDULE",
                       "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
+
+          .add_bool("run on startup", sh::bool_key(&run_on_startup), "RUN ON STARTUP",
+                    "Run the command once as soon as NSClient++ has started (and after each reload) instead of waiting for the first interval or schedule to "
+                    "elapse. Inherited from the default schedule unless set here.",
+                    true)
 
           .add_string("report", sh::string_fun_key([this](auto value) { this->set_report(value); }), "REPORT MODE",
                       "What to report to the server (any of the following: all, critical, warning, unknown, ok)", true)
@@ -176,6 +192,12 @@ struct scheduler : public simple_scheduler::handler {
   void set_timezone(const std::string& tz) { tasks.set_timezone(tz); }
 
   void add_task(const target_object target);
+  // Queue the first run of every "run on startup" schedule. add_task leaves
+  // those dormant, so this is what actually brings them to life - it must be
+  // called once the agent is up (see Scheduler::startModule). The runs are
+  // spread evenly over `window` to avoid hitting the monitoring server with
+  // every passive check at once; a zero window runs them all immediately.
+  void run_startup_tasks(boost::posix_time::time_duration window);
 
   bool handle_schedule(simple_scheduler::task item) {
     task_handler* tmp = handler_.load();

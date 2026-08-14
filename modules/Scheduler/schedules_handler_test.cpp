@@ -961,3 +961,94 @@ TEST_F(SchedulerTest, QueueLengthIncreasesWithTasks) {
   std::size_t after_ql = sched.get_scheduler().get_metric_ql();
   EXPECT_EQ(initial_ql + 2, after_ql);
 }
+
+// ============================================================================
+// run on startup
+// ============================================================================
+
+TEST(ScheduleObject, RunOnStartupDefaultsToFalse) {
+  const auto obj = make_target("test");
+  EXPECT_FALSE(obj->run_on_startup);
+}
+
+TEST(ScheduleObject, CopyPreservesRunOnStartup) {
+  // Named schedules are copied from the `default` schedule, which is how a
+  // "run on startup" set on the default becomes the setting for every
+  // schedule that does not override it.
+  const auto obj = make_target("template");
+  obj->run_on_startup = true;
+  const schedules::schedule_object copy(*obj);
+  EXPECT_TRUE(copy.run_on_startup);
+}
+
+TEST(ScheduleObject, ToStringMentionsRunOnStartup) {
+  const auto obj = make_target("startup_check");
+  obj->set_duration("1h");
+  EXPECT_EQ(std::string::npos, obj->to_string().find("run on startup"));
+  obj->run_on_startup = true;
+  EXPECT_NE(std::string::npos, obj->to_string().find("run on startup"));
+}
+
+TEST_F(SchedulerTest, RunOnStartupTaskIsNotQueuedByAddTask) {
+  // The whole point of deferring: the task exists but has no queued instance,
+  // so run_startup_tasks can queue the one and only chain of instances for it.
+  auto target = make_target("startup_check");
+  target->set_duration("1h");
+  target->run_on_startup = true;
+  sched.add_task(target);
+
+  EXPECT_TRUE(sched.get(1));
+  EXPECT_EQ(0u, sched.get_scheduler().get_metric_ql());
+}
+
+TEST_F(SchedulerTest, RunStartupTasksQueuesEachStartupTaskOnce) {
+  auto t1 = make_target("startup1");
+  t1->set_duration("1h");
+  t1->run_on_startup = true;
+  auto t2 = make_target("startup2");
+  t2->set_schedule("0 * * * *");
+  t2->run_on_startup = true;
+  sched.add_task(t1);
+  sched.add_task(t2);
+  ASSERT_EQ(0u, sched.get_scheduler().get_metric_ql());
+
+  sched.run_startup_tasks(boost::posix_time::seconds(0));
+  EXPECT_EQ(2u, sched.get_scheduler().get_metric_ql());
+}
+
+TEST_F(SchedulerTest, RunStartupTasksLeavesNormalTasksAlone) {
+  // A regular task is already queued by add_task; run_startup_tasks must not
+  // queue a second instance for it or it would run twice per interval.
+  auto normal = make_target("normal");
+  normal->set_duration("1h");
+  auto startup = make_target("startup");
+  startup->set_duration("1h");
+  startup->run_on_startup = true;
+  sched.add_task(normal);
+  sched.add_task(startup);
+  ASSERT_EQ(1u, sched.get_scheduler().get_metric_ql());
+
+  sched.run_startup_tasks(boost::posix_time::seconds(0));
+  EXPECT_EQ(2u, sched.get_scheduler().get_metric_ql());
+}
+
+TEST_F(SchedulerTest, RunStartupTasksWithoutStartupTasksIsANoop) {
+  auto normal = make_target("normal");
+  normal->set_duration("1h");
+  sched.add_task(normal);
+
+  sched.run_startup_tasks(boost::posix_time::seconds(30));
+  EXPECT_EQ(1u, sched.get_scheduler().get_metric_ql());
+}
+
+TEST_F(SchedulerTest, RunStartupTasksSpreadOverAWindowStillQueuesEverything) {
+  for (int i = 0; i < 4; i++) {
+    auto target = make_target("startup" + str::xtos(i));
+    target->set_duration("1h");
+    target->run_on_startup = true;
+    sched.add_task(target);
+  }
+
+  sched.run_startup_tasks(boost::posix_time::seconds(30));
+  EXPECT_EQ(4u, sched.get_scheduler().get_metric_ql());
+}

@@ -91,6 +91,12 @@ struct schedule_instance {
   boost::posix_time::ptime time;
   std::string tag;
   int schedule_id{};
+  // Startup runs (run_now) are all queued for the same instant, so with more
+  // tasks than worker threads the tail is inevitably "late" through no fault
+  // of the configuration. Such instances are exempt from the lateness error
+  // to keep boot from filling the log with false alarms; the watchdog still
+  // sees the lag and scales the pool.
+  bool suppress_late_warning{false};
   friend bool operator<(const schedule_instance& p1, const schedule_instance& p2) { return p1.time > p2.time; }
 };
 
@@ -129,6 +135,13 @@ class safe_schedule_queue {
     boost::optional<T> ret = queue_.top();
     queue_.pop();
     return ret;
+  }
+
+  bool clear(const unsigned int timeout = 5) {
+    boost::unique_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
+    if (!lock) return false;
+    queue_ = schedule_queue_type();
+    return true;
   }
 
   bool push(T instance, const unsigned int timeout = 5) {
@@ -192,8 +205,18 @@ class scheduler : public boost::noncopyable {
   std::size_t get_metric_ql();
   bool has_metrics() const;
 
-  int add_task(const std::string& tag, boost::posix_time::time_duration duration, double jitter_factor);
-  int add_task(const std::string& tag, const cron_parser::schedule& schedule);
+  // `schedule_first_run == false` registers the task without queueing
+  // anything, leaving it dormant until run_now() queues its first instance.
+  // Used by run-on-startup schedules, which must not be queued twice: every
+  // execution queues the following one, so an extra instance would make the
+  // task run twice per interval forever.
+  int add_task(const std::string& tag, boost::posix_time::time_duration duration, double jitter_factor, bool schedule_first_run = true);
+  int add_task(const std::string& tag, const cron_parser::schedule& schedule, bool schedule_first_run = true);
+  // Queue a run of an already added task `delay` from now. Only ever call this
+  // for a task added with schedule_first_run = false (or one that has since
+  // been abandoned) - calling it for a live task adds a second, parallel chain
+  // of instances for that task.
+  void run_now(int id, boost::posix_time::time_duration delay = boost::posix_time::seconds(0));
   void remove_task(int id);
   op_task_object get_task(int id);
   void clear_tasks();
@@ -220,7 +243,7 @@ class scheduler : public boost::noncopyable {
   void thread_proc(int id);
 
   void reschedule(const task& item, boost::posix_time::ptime now_time);
-  void reschedule_at(const std::string& tag, int id, boost::posix_time::ptime new_time);
+  void reschedule_at(const std::string& tag, int id, boost::posix_time::ptime new_time, bool suppress_late_warning = false);
   void start_threads();
 
   void log_error(const char* file, const int line, const std::string& err) const {

@@ -68,3 +68,41 @@ The syntax of the schedule is similar to a cron expression in that you have:
 | Day of month | 1-31           | , *                        |
 | Month        | 0-11           | , *                        |
 | Day of week  | 1-7            | , *                        |
+
+#### Running a check at startup
+
+Both interval and schedule only report for the first time once the interval (or
+the next matching time) has elapsed. With a long interval that leaves the
+monitoring server with the old result for a long time after a reboot - exactly
+when the status is most likely to have changed. Set `run on startup` to run the
+command once as soon as the agent has started:
+
+```
+[/settings/scheduler/schedules/uptime]
+interval = 1h
+channel = NSCA
+command = check_uptime
+run on startup = true
+```
+
+The schedule is otherwise unaffected: the next run follows an hour after the
+startup run. The startup run also happens after a configuration reload, so a
+schedule you just changed reports its new status right away.
+
+Setting it on the default section turns it on for every schedule which does not
+override it:
+
+```
+[/settings/scheduler/schedules/default]
+interval = 1h
+channel = NSCA
+run on startup = true
+```
+
+If you have a lot of schedules and do not want all of them to report at the very
+same instant, spread the startup runs out over a window:
+
+```
+[/settings/scheduler]
+startup window = 30s
+```
