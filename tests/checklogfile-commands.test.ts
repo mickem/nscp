@@ -1,7 +1,9 @@
 /**
  * Exercises CheckLogFile's check_logfile end-to-end, with the emphasis on the
  * `bookmark` option (#561): a bookmarked check must report each line ONCE
- * instead of re-reporting the whole file on every run.
+ * instead of re-reporting the whole file on every run - and on `max-lines` /
+ * `newest` (#583), which pick the newest N lines out of whichever end of the
+ * file they are written to.
  *
  * Queries run over the REST API against a long-lived `nscp test` process
  * because that is what the feature needs: the read position lives in the
@@ -217,6 +219,89 @@ describe("CheckLogFile check_logfile", () => {
     expect(await run()).toMatch(/1\/1 \(ERROR three\)/);
 
     fs.rmSync(workDir, { recursive: true, force: true });
+  });
+
+  // --- max-lines / newest (#583) -------------------------------------------
+
+  it("reports only the newest lines when max-lines is set", async () => {
+    const file = newLog("ERROR one\nERROR two\nERROR three\nERROR four\n");
+
+    const res = await check(file, { "max-lines": "2" });
+    expect(res.result).toBe(WARNING);
+    // Both the count and the total shrink: only two lines were examined.
+    expect(messageOf(res)).toMatch(/2\/2/);
+    expect(messageOf(res)).toContain("ERROR three");
+    expect(messageOf(res)).toContain("ERROR four");
+    expect(messageOf(res)).not.toContain("ERROR one");
+  });
+
+  it("keeps the file order of the lines it reports", async () => {
+    const file = newLog("ERROR one\nERROR two\nERROR three\n");
+    expect(messageOf(await check(file, { "max-lines": "2" }))).toContain("ERROR two, ERROR three");
+  });
+
+  it("counts a final line which has no terminator", async () => {
+    const file = newLog("ERROR one\nERROR two\nERROR three");
+    const res = await check(file, { "max-lines": "2" });
+    expect(messageOf(res)).toMatch(/2\/2/);
+    expect(messageOf(res)).toContain("ERROR three");
+    expect(messageOf(res)).not.toContain("ERROR one");
+  });
+
+  it("reads every line when max-lines exceeds the file", async () => {
+    const file = newLog("ERROR one\nERROR two\n");
+    expect(messageOf(await check(file, { "max-lines": "10" }))).toMatch(/2\/2/);
+  });
+
+  it("takes the newest lines from the top with newest=first", async () => {
+    const file = newLog("ERROR one\nERROR two\nERROR three\nERROR four\n");
+
+    const res = await check(file, { "max-lines": "2", newest: "first" });
+    expect(messageOf(res)).toMatch(/2\/2/);
+    expect(messageOf(res)).toContain("ERROR one");
+    expect(messageOf(res)).toContain("ERROR two");
+    expect(messageOf(res)).not.toContain("ERROR four");
+  });
+
+  it("finds the newest lines of a large file", async () => {
+    // Big enough that the backwards scan has to cross several chunks.
+    const lines: string[] = [];
+    for (let i = 0; i < 100_000; i++) lines.push(`ERROR line ${i}`);
+    const file = newLog(lines.join("\n") + "\n");
+
+    const res = await check(file, { "max-lines": "3" });
+    expect(messageOf(res)).toMatch(/3\/3/);
+    expect(messageOf(res)).toContain("ERROR line 99999");
+    expect(messageOf(res)).toContain("ERROR line 99997");
+    expect(messageOf(res)).not.toContain("ERROR line 99996");
+  });
+
+  it("still consumes the lines it drops when bookmarked", async () => {
+    const file = newLog("ERROR one\nERROR two\nERROR three\n");
+
+    // A burst of lines arrived at once but only the newest two are wanted.
+    const first = await check(file, { bookmark: "it-max-lines", "max-lines": "2" });
+    expect(messageOf(first)).toMatch(/2\/2/);
+    expect(messageOf(first)).not.toContain("ERROR one");
+
+    // The dropped line must not come back as "new" on the next check.
+    const second = await check(file, { bookmark: "it-max-lines", "max-lines": "2" });
+    expect(second.result).toBe(OK);
+    expect(messageOf(second)).toMatch(/Nothing found/i);
+
+    append(file, "ERROR four\n");
+    expect(messageOf(await check(file, { bookmark: "it-max-lines", "max-lines": "2" }))).toMatch(/1\/1/);
+  });
+
+  it("refuses newest=first together with a bookmark", async () => {
+    const file = newLog("ERROR one\n");
+    const res = await check(file, { newest: "first", bookmark: "it-newest-first" });
+    expect(messageOf(res)).toMatch(/cannot be combined with bookmark/i);
+  });
+
+  it("rejects an unknown newest value", async () => {
+    const file = newLog("ERROR one\n");
+    expect(messageOf(await check(file, { newest: "middle" }))).toMatch(/Invalid newest/i);
   });
 
   it("fails cleanly for a missing file", async () => {

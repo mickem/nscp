@@ -69,6 +69,62 @@ check_logfile file=/var/log/app.log file=/var/log/worker.log "filter=column1 lik
 1/1 (ERROR queue stalled again)|'count'=1;0;0
 ```
 
+**Only look at the newest lines (`max-lines`)**
+
+Given `/var/log/app.log`:
+
+```
+app started
+ERROR failed to connect to db
+INFO retrying
+ERROR failed to connect to db
+INFO recovered
+ERROR disk full
+```
+
+Without a limit every line is read:
+
+```
+check_logfile file=/var/log/app.log "filter=column1 like 'ERROR'" "warning=count > 0"
+3/6 (ERROR failed to connect to db, ERROR failed to connect to db, ERROR disk full)|'count'=3;0;0
+```
+
+With `max-lines=3` only the last three lines are examined — `${total}` drops to
+3 and the older error is out of scope:
+
+```
+check_logfile file=/var/log/app.log "filter=column1 like 'ERROR'" "warning=count > 0" max-lines=3
+2/3 (ERROR failed to connect to db, ERROR disk full)|'count'=2;0;0
+```
+
+**Files whose newest line is at the top (`newest=first`)**
+
+Given a hand-maintained `/var/log/deploy-changelog.txt` where each new entry is
+added at the top:
+
+```
+2018-07-20 deploy 42 FAILED rollback started
+2018-07-19 deploy 41 ok
+2018-07-18 deploy 40 ok
+2018-07-17 deploy 39 FAILED disk full
+```
+
+`newest=first` makes `max-lines` count from the top of the file, so only the two
+most recent deploys are checked:
+
+```
+check_logfile file=/var/log/deploy-changelog.txt "filter=column1 like 'FAILED'" "warning=count > 0" max-lines=2 newest=first
+1/2 (2018-07-20 deploy 42 FAILED rollback started)|'count'=1;0;0
+```
+
+Without the limit `newest=first` changes nothing — the whole file is read either
+way:
+
+```
+check_logfile file=/var/log/deploy-changelog.txt "filter=column1 like 'FAILED'" "warning=count > 0" newest=first
+2/4 (2018-07-20 deploy 42 FAILED rollback started, 2018-07-17 deploy 39 FAILED disk full)|'count'=2;0;0
+```
+
 **Report a quiet check as something other than OK**
 
 ```

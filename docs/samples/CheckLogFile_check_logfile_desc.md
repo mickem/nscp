@@ -57,3 +57,47 @@ Real-time monitoring (`/settings/logfile/real-time/checks`) is the other way to
 get each line reported once; it pushes results as lines are written instead of
 being polled. `bookmark` is the polled equivalent and needs no configuration on
 the agent.
+
+#### Only checking the newest lines (`max-lines`, `newest`)
+
+`max-lines=N` limits the check to the newest `N` lines of each file. Everything
+else follows from that: `${total}` counts what was examined, not what the file
+holds, and only the selected lines can match the filter.
+
+```
+check_logfile file=/var/log/app.log "filter=column1 like 'ERROR'" "warning=count > 0" max-lines=100
+```
+
+The limit is per file, so a check with several `file=` arguments takes the
+newest `N` lines of each of them.
+
+`newest` says which end of the file the newest line is at:
+
+| Value  | Meaning                                                                       |
+|--------|-------------------------------------------------------------------------------|
+| `last` | Lines are appended (the default, and what almost every machine-written log does). `max-lines` takes them from the end of the file. |
+| `first`| The file is rewritten with the newest line at the top, as hand-maintained changelogs often are. `max-lines` takes them from the start of the file. |
+
+Whichever end they come from, the selected lines are reported in the order they
+appear in the file, so `%(list)` reads the way the file does.
+
+Behaviour worth knowing:
+
+* **Only the wanted part of the file is read.** The check seeks to the newest
+  `N` lines instead of loading the whole file, so `max-lines` is a cheap way to
+  look at the tail of a very large log. (A `line-split` value which can overlap
+  itself, such as `aaa` or `--`, cannot be located from the end; those files are
+  read in full and the surplus lines are dropped afterwards. The result is the
+  same either way.)
+* **`max-lines` combines with `bookmark`.** The bookmark still decides which
+  lines are new, and the limit then caps how many of them are reported — useful
+  when an application can dump thousands of lines at once. The lines dropped by
+  the limit are *consumed*: they are not reported by a later check either, since
+  the stored position moves past everything that was read.
+* **`newest=first` cannot be combined with `bookmark`.** A file which is
+  rewritten from the top has no stable position to resume from — its first bytes
+  change on every write, so the bookmark would detect a "new" file and re-read
+  it in full every single time. The check reports this as an error rather than
+  doing it quietly.
+* **An unterminated last line still counts as a line.** Without a bookmark the
+  trailing fragment is one of the `N`; with a bookmark it is held back as usual.
