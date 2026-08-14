@@ -226,3 +226,110 @@ jobs:
       distro: ${{ matrix.distro }}
       distro_version: ${{ matrix.distro_version }}
       runner: ${{ matrix.runner }}
+
+  # Exercises the packaged systemd service on a real (systemd) host, which the
+  # container-based jobs above cannot: postinst runs `systemctl start`, so the
+  # unit, the sysusers-provisioned account and the directories systemd creates
+  # from StateDirectory=/LogsDirectory=/RuntimeDirectory= are only ever
+  # end-to-end tested here. Also covers the DynamicUser drop-in (issue #628) and
+  # what purge leaves behind.
+  service-lifecycle:
+    needs: build-deb
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: NSCP-${{ inputs.version }}-ubuntu-24.04-x64
+          path: .
+
+      - name: Install the package
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ./NSCP-${{ inputs.version }}-ubuntu-24.04-amd64.deb
+
+      - name: Static account, systemd-managed directories
+        run: |
+          set -euo pipefail
+          # postinst starts the service, so a failure here means the daemon did
+          # not come up, not that the assertion is wrong.
+          systemctl is-active nsclient
+          systemctl is-enabled nsclient
+
+          # The account comes from sysusers.d, not from adduser in postinst.
+          test -f /usr/lib/sysusers.d/nsclient.conf
+          getent passwd nsclient
+          [ "$(systemctl show -P User nsclient)" = nsclient ]
+
+          # ... and every writable directory is systemd's, with the state
+          # directory locked down because the generated TLS key lives there.
+          [ "$(stat -c '%U %a' /var/lib/nsclient)" = "nsclient 750" ]
+          [ "$(stat -c '%U' /var/log/nsclient)" = nsclient ]
+          test -f /run/nsclient/nscp.pid
+          [ "$(cat /run/nsclient/nscp.pid)" = "$(systemctl show -P MainPID nsclient)" ]
+
+          # The daemon logs into LogsDirectory=, not into the read-only install
+          # tree (the packaged file is an 11-byte placeholder).
+          sudo test "$(stat -c %s /var/log/nsclient/nsclient.log)" -gt 11
+          sudo test ! -e /usr/lib/nsclient/log
+
+      - name: Stale pid file does not block a restart
+        run: |
+          set -euo pipefail
+          # pid_file opens O_EXCL, so before the move to RuntimeDirectory= a pid
+          # file left by a crash was a hard startup failure.
+          sudo systemctl kill -s SIGKILL nsclient || true
+          sudo systemctl restart nsclient
+          systemctl is-active nsclient
+
+      - name: Switch to the DynamicUser drop-in
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /etc/systemd/system/nsclient.service.d
+          sudo cp /usr/share/nsclient/systemd/dynamic-user.conf \
+                  /etc/systemd/system/nsclient.service.d/
+          sudo systemctl daemon-reload
+          # The static account wins over a dynamic one of the same name, so the
+          # documented switch removes it.
+          sudo userdel nsclient
+          sudo groupdel nsclient 2>/dev/null || true
+          sudo systemctl restart nsclient
+          systemctl is-active nsclient
+
+          ! getent passwd nsclient
+          [ "$(systemctl show -P DynamicUser nsclient)" = yes ]
+
+          # State and logs were migrated below /var/{lib,log}/private and the
+          # public paths are now symlinks, so nothing the daemon is configured
+          # with had to change.
+          test -L /var/lib/nsclient
+          test -L /var/log/nsclient
+          test -d /var/lib/private/nsclient
+
+          # The service runs as a transient uid from systemd's 61184-65519 range.
+          uid=$(sudo stat -c %u /proc/"$(systemctl show -P MainPID nsclient)")
+          [ "$uid" -ge 61184 ]
+          [ "$uid" -le 65519 ]
+
+      - name: Purge leaves nothing behind
+        run: |
+          set -euo pipefail
+          sudo apt-get purge -y nscp
+          # -L as well as -e: at this point the public paths are symlinks, and a
+          # dangling symlink is invisible to `test -e`.
+          for p in /var/lib/nsclient /var/log/nsclient \
+                   /var/lib/private/nsclient /var/log/private/nsclient \
+                   /lib/systemd/system/nsclient.service \
+                   /usr/lib/sysusers.d/nsclient.conf; do
+            if [ -e "$p" ] || [ -L "$p" ]; then echo "::error::$p survived purge"; exit 1; fi
+          done
+          ! getent passwd nsclient
+
+      - name: Diagnostics
+        if: failure()
+        run: |
+          systemctl status nsclient --no-pager --full || true
+          sudo journalctl -u nsclient --no-pager -n 200 || true
+          sudo cat /var/log/nsclient/nsclient.log || true
+          sudo systemd-analyze verify /lib/systemd/system/nsclient.service || true
