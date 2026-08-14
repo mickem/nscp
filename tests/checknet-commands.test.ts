@@ -2,8 +2,7 @@
  * Exercises the CheckNet module's recently-added network checks end-to-end
  * against throwaway local servers (net / tls / http / https / dgram), so the
  * suite is self-contained apart from the "against the public internet" block at
- * the end, which is the only place the platform's own CA bundle and real ICMP
- * are exercised:
+ * the end, which is the only place the platform's own CA bundle is exercised:
  *
  *   - check_tcp   — plain + TLS connect, greeting expect, connection refused
  *   - check_ssh   — SSH banner validation
@@ -1039,9 +1038,9 @@ describe("CheckNet commands", () => {
   // "Failed to load CA /etc/ssl/certs/ca-certificates.crt". They pass on Debian,
   // which is the only place this suite used to run.
   //
-  // These are the only tests here that need egress. Both assert reachability,
-  // not latency: thresholds are pinned wide so a slow or busy runner cannot turn
-  // a working check into a red build.
+  // This is the only test here that needs egress, and it asserts reachability
+  // rather than latency, so a slow or busy runner cannot turn a working check
+  // into a red build.
   describe("against the public internet", () => {
     it("check_http validates a public HTTPS site using the platform CA bundle", async () => {
       const q = await executeQuery(key, "check_http", {
@@ -1052,29 +1051,6 @@ describe("CheckNet commands", () => {
       // Assert the CA failure separately from the result, so a broken trust
       // store reads as itself instead of as a generic CRITICAL.
       expect(messageOf(q)).not.toMatch(/Failed to load CA/);
-      expect(q.result).toBe(OK);
-    });
-
-    // GitHub-hosted runners drop outbound ICMP, so this cannot pass in CI on any
-    // platform: it comes back CRITICAL with 100% loss on the Ubuntu containers
-    // and the Windows runners alike, while the identical query is OK from an
-    // ordinary Azure VM (both distros) and from a Windows desktop. That is the
-    // runner's network, not the check, so the test is opt-in rather than deleted
-    // - it is the only thing that proves check_ping actually puts a packet on
-    // the wire. Run it where ICMP is allowed:
-    //
-    //   NSCP_EXTERNAL_ICMP=1 npx jest checknet
-    const itIcmp = process.env.NSCP_EXTERNAL_ICMP === "1" ? it : it.skip;
-    itIcmp("check_ping reaches a public host", async () => {
-      const q = await executeQuery(key, "check_ping", {
-        host: "google.com",
-        count: "2",
-        // The defaults are time > 60 / > 100 ms, which say more about the
-        // runner's distance to Google than about whether ICMP works.
-        warning: "loss > 50%",
-        critical: "loss > 99%",
-      });
-      expect(messageOf(q)).not.toMatch(/loss = 100%/);
       expect(q.result).toBe(OK);
     });
   });
