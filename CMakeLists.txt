@@ -172,6 +172,65 @@ if(NOT WIN32)
         set(NSCP_SYSTEMD_UNITDIR "/lib/systemd/system")
     endif()
 
+    # systemd-sysusers(8) drop-in directory. The service account is declared
+    # there instead of being created with adduser/useradd from the maintainer
+    # scripts (see files/nsclient.sysusers.conf).
+    if(NOT NSCP_SYSUSERSDIR)
+        set(NSCP_SYSUSERSDIR "/usr/lib/sysusers.d")
+    endif()
+
+    # StateDirectory=, LogsDirectory= and RuntimeDirectory= always resolve below
+    # /var/lib, /var/log and /run for system units - systemd cannot be told to
+    # manage a directory anywhere else. They therefore only cover the daemon's
+    # directories when the prefix puts them in those locations, which is the
+    # case for the official /usr packages and not for, say, --prefix=/opt/nsclient.
+    #
+    # NSCP_SYSTEMD_MANAGED_DIRS drives the difference in one place: when it is
+    # on, systemd creates, owns and (for the DynamicUser drop-in) sandboxes the
+    # state and log directories and the maintainer scripts touch neither; when
+    # it is off, the maintainer scripts keep creating and chowning them and the
+    # unit only allow-lists them.
+    if(NSCP_PKGSTATEDIR STREQUAL "/var/lib/nsclient" AND NSCP_LOGDIR STREQUAL "/var/log/nsclient")
+        set(NSCP_SYSTEMD_MANAGED_DIRS ON)
+    else()
+        set(NSCP_SYSTEMD_MANAGED_DIRS OFF)
+    endif()
+
+    # The pid file lives in RuntimeDirectory= (/run) rather than in the state
+    # directory: pid_file opens it O_EXCL, so a pid file left behind by a crash
+    # is a hard startup failure. /run is tmpfs and systemd removes the runtime
+    # directory when the service stops, so a stale file cannot survive.
+    set(NSCP_PIDFILE "/run/nsclient/nscp.pid")
+
+    if(NSCP_SYSTEMD_MANAGED_DIRS)
+        # 0750 on the state directory because it holds the generated TLS
+        # private key (${certificate-path}, see CONFIG_CERT_FOLDER below). The
+        # log directory keeps systemd's 0755 default so operators can read the
+        # log without root.
+        set(NSCP_UNIT_DIRECTORIES
+            "StateDirectory=nsclient\nStateDirectoryMode=0750\nLogsDirectory=nsclient\nRuntimeDirectory=nsclient"
+        )
+        set(NSCP_MAINTAINER_DIR_SETUP "")
+        # With the DynamicUser drop-in enabled systemd relocates the state and
+        # log directories below /var/{lib,log}/private and leaves a symlink at
+        # the public path, so purge has to remove both spellings.
+        set(NSCP_PURGE_DIRS
+            "${NSCP_LOGDIR} ${NSCP_PKGSTATEDIR} /var/log/private/nsclient /var/lib/private/nsclient"
+        )
+    else()
+        set(NSCP_UNIT_DIRECTORIES
+            "# This build's prefix puts the state and log directories outside /var,\n# where StateDirectory=/LogsDirectory= cannot reach. The maintainer scripts\n# create them; the unit only allow-lists them so a hardened drop-in\n# (ProtectSystem=strict) can still write there.\nReadWritePaths=${NSCP_LOGDIR} ${NSCP_PKGSTATEDIR}\nRuntimeDirectory=nsclient"
+        )
+        set(NSCP_MAINTAINER_DIR_SETUP
+            "    # This build is installed outside the FHS locations systemd can manage\n    # with StateDirectory=/LogsDirectory=, so the directories are created here.\n    mkdir -p ${NSCP_LOGDIR} ${NSCP_PKGSTATEDIR}\n    chown nsclient:nsclient ${NSCP_LOGDIR} ${NSCP_PKGSTATEDIR}\n    chmod 0750 ${NSCP_PKGSTATEDIR}\n"
+        )
+        set(NSCP_PURGE_DIRS "${NSCP_LOGDIR} ${NSCP_PKGSTATEDIR}")
+        message(
+            STATUS
+            "systemd cannot manage ${NSCP_PKGSTATEDIR} / ${NSCP_LOGDIR} (outside /var/lib and /var/log); the maintainer scripts will create them and the DynamicUser drop-in is not supported for this prefix"
+        )
+    endif()
+
     # Map the historical *_TARGET_FOLDER install-destination variables (defined
     # above as Windows/fallback defaults) onto the prefix-derived NSCP_* values.
     # These are absolute now, so they ignore CMAKE_INSTALL_PREFIX at install
@@ -924,8 +983,15 @@ else()
         CACHE STRING
         "script folder"
     )
+    # ${certificate-path} is a directory the daemon *writes*: the TLS server
+    # modules generate a self-signed certificate/CA into it on first start when
+    # none is configured (socket_helpers::validate_certificate), and fleet sync
+    # rewrites its agent-state.json there on certificate renewal. The install
+    # tree is root-owned and read-only to the service, so it points at the state
+    # directory instead. The DH parameters that ship with the package stay in
+    # the read-only ${shared-path}/security and are referenced from there.
     set(CONFIG_CERT_FOLDER
-        "\${shared-path}/security"
+        "\${data-path}/security"
         CACHE STRING
         "security (certificates) folder"
     )
@@ -979,11 +1045,12 @@ else()
         CACHE STRING
         "Path for caching stuff"
     )
-    set(CONFIG_LOG_FOLDER
-        "\${shared-path}/log"
-        CACHE STRING
-        "Path for log files"
-    )
+    # ${log-path} is the directory the package creates (and systemd owns via
+    # LogsDirectory=), not a subdirectory of the read-only install tree: the
+    # daemon runs unprivileged and cannot create ${shared-path}/log. Absolute
+    # and prefix-derived, so - like the other NSCP_*-backed values above - it is
+    # deliberately not a CACHE entry that could pin a stale prefix.
+    set(CONFIG_LOG_FOLDER "${NSCP_LOGDIR}")
     set(CONFIG_DEFAULT_LOG_LOCATION
         "\${log-path}/nsclient.log"
         CACHE STRING
@@ -1395,6 +1462,8 @@ else()
         "/usr/lib"
         "/usr/lib/nsclient"
         "/usr/lib/nsclient/modules"
+        # Owned by systemd, we only drop a file in it.
+        "${NSCP_SYSUSERSDIR}"
         "/usr/share"
         "/usr/share/nsclient"
         "/etc"

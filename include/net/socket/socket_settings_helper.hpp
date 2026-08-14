@@ -123,7 +123,9 @@ struct settings_helper {
 
         .add_string(
             "dh",
-            nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("dh", value); }, "${certificate-path}/nrpe_dh_512.pem"),
+            // Shipped with the package and read-only, hence ${shared-path} and
+            // not the writable ${certificate-path} (see NRPEServer.cpp).
+            nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("dh", value); }, "${shared-path}/security/nrpe_dh_512.pem"),
             "DH KEY", "", true)
 
         .add_string("certificate", nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("certificate", value); }),

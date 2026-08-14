@@ -42,7 +42,7 @@ Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 | [certificate key](#ssl-certificate)                       |                                      | SSL CERTIFICATE                        |
 | [client identity source](#client-identity-source)         | none                                 | CLIENT IDENTITY SOURCE                 |
 | [debug verify](#debug-peer-certificate-verification)      | false                                | Debug peer certificate verification    |
-| [dh](#dh-key)                                             | ${certificate-path}/nrpe_dh_2048.pem | DH KEY                                 |
+| [dh](#dh-key)                                             | ${shared-path}/security/nrpe_dh_2048.pem | DH KEY                                 |
 | [encoding](#nrpe-payload-encoding)                        |                                      | NRPE PAYLOAD ENCODING                  |
 | [extended response](#extended-response)                   | true                                 | EXTENDED RESPONSE                      |
 | [insecure](#allow-insecure-chiphers-and-encryption)       | false                                | ALLOW INSECURE CHIPHERS and ENCRYPTION |
@@ -71,7 +71,7 @@ certificate=${certificate-path}/certificate.pem
 certificate format=PEM
 client identity source=none
 debug verify=false
-dh=${certificate-path}/nrpe_dh_2048.pem
+dh=${shared-path}/security/nrpe_dh_2048.pem
 extended response=true
 insecure=false
 payload length=1024
@@ -342,7 +342,7 @@ debug verify=false
 | Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
 | Key:           | dh                                              |
 | Advanced:      | Yes (means it is not commonly used)             |
-| Default value: | `${certificate-path}/nrpe_dh_2048.pem`          |
+| Default value: | `${shared-path}/security/nrpe_dh_2048.pem`          |
 
 
 **Sample:**
@@ -350,7 +350,7 @@ debug verify=false
 ```
 [/settings/NRPE/server]
 # DH KEY
-dh=${certificate-path}/nrpe_dh_2048.pem
+dh=${shared-path}/security/nrpe_dh_2048.pem
 ```
 
 #### NRPE PAYLOAD ENCODING <a id="/settings/NRPE/server/encoding"></a>

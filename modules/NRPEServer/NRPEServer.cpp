@@ -71,7 +71,11 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   // compatibility reason to permit ADH.
   std::string certificate = insecure ? "" : "${certificate-path}/certificate.pem";
   std::string opts = insecure ? "ALL:!ADH:!MD5:@STRENGTH:@SECLEVEL=0" : "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
-  socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "${certificate-path}/nrpe_dh_2048.pem", certificate, "", opts);
+  // The DH parameters ship with the package and are only ever read, so they
+  // live in the read-only install tree (${shared-path}/security) rather than in
+  // ${certificate-path}, which is the writable directory the generated
+  // certificate and CA are placed in.
+  socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "${shared-path}/security/nrpe_dh_2048.pem", certificate, "", opts);
 
   settings.alias().add_key_to_settings().add_bool(
       "extended response", sh::bool_key(&multiple_packets_, !insecure), "EXTENDED RESPONSE",
