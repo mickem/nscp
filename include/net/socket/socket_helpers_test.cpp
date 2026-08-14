@@ -291,6 +291,30 @@ TEST(ExpandHostname, HostPlaceholderIsExpanded) {
   EXPECT_NE(out.find("-suffix"), std::string::npos);
 }
 
+TEST(ExpandHostname, HostnamePlaceholderIsTheFullSystemName) {
+  // ${host} stops at the first '.', ${hostname} does not - that is the whole
+  // point of having both.
+  const std::string host = boost::asio::ip::host_name();
+  EXPECT_EQ(socket_helpers::expand_hostname("${hostname}"), host);
+  EXPECT_EQ(socket_helpers::expand_hostname("a=${hostname}&b=1"), "a=" + host + "&b=1");
+}
+
+TEST(ExpandHostname, HostnameCasePlaceholders) {
+  const std::string host = boost::asio::ip::host_name();
+  EXPECT_EQ(socket_helpers::expand_hostname("${hostname_lc}"), boost::algorithm::to_lower_copy(host));
+  EXPECT_EQ(socket_helpers::expand_hostname("${hostname_uc}"), boost::algorithm::to_upper_copy(host));
+}
+
+TEST(ExpandHostname, HostnameAndHostPlaceholdersDoNotCollide) {
+  // "${host}" is a character-wise prefix of "${hostname}" up to the brace, so a
+  // careless replace order would rewrite "${hostname}" into "<host>name}".
+  const std::string host = boost::asio::ip::host_name();
+  const std::string out = socket_helpers::expand_hostname("${hostname}|${host}|${hostname_lc}|${host_lc}");
+  EXPECT_EQ(out.find("${"), std::string::npos) << out;
+  EXPECT_EQ(out.find("name}"), std::string::npos) << out;
+  EXPECT_EQ(out.substr(0, host.size()), host) << out;
+}
+
 TEST(ExpandHostname, CasePlaceholdersAreExpanded) {
   // No assertion on the exact host name (varies per machine), only that all
   // placeholders are substituted away.

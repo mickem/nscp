@@ -35,6 +35,13 @@ std::string socket_helpers::expand_hostname(std::string spec) {
   if (spec == "auto-lc") return boost::algorithm::to_lower_copy(host_name);
   if (spec == "auto-uc") return boost::algorithm::to_upper_copy(host_name);
 
+  // The full name exactly as the system reports it. ${host} stops at the first
+  // '.', so without this there is no way to get the fqdn from inside a template
+  // - only by setting the whole spec to "auto", which a template cannot do.
+  str::utils::replace(spec, "${hostname_uc}", boost::algorithm::to_upper_copy(host_name));
+  str::utils::replace(spec, "${hostname_lc}", boost::algorithm::to_lower_copy(host_name));
+  str::utils::replace(spec, "${hostname}", host_name);
+
   const str::utils::token dn = str::utils::getToken(host_name, '.');
   str::utils::replace(spec, "${host}", dn.first);
   str::utils::replace(spec, "${domain}", dn.second);

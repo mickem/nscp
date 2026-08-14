@@ -144,6 +144,64 @@ Adding a script:
 scripts/myscript.bat = http://www.myserver.com/myscript.bat
 ```
 
+#### Query parameters
+
+The url may carry a query string, which is passed on to the server unchanged.
+This lets a script generate the configuration per host instead of serving a static file:
+
+```ini
+[settings]
+1 = http://nsclient.mydom.local/nsclient/nsclient.php?RootFolder=myhost/&Filename=nsclient.ini
+2 = ini://${shared-path}/nsclient.ini
+```
+
+Each distinct query gets its own file in the cache folder, so several urls pointing at the same
+script with different parameters do not overwrite each other's cached configuration. An existing
+cache file written by an older version is moved to the new name on first start, so a host that
+cannot reach its settings server during the upgrade still boots off its cached configuration.
+
+Characters that are not legal in a url query - a space, most notably - are percent-encoded before
+the request is sent. Anything already written as `%XX` is left as it is, so a query you encoded
+yourself is not encoded twice.
+
+#### Host name placeholders
+
+The url may contain the same host name placeholders the submit clients (NRDP, Graphite, Syslog and
+friends) accept, so a single `boot.ini` can be rolled out to an entire fleet and each agent asks for
+its own configuration:
+
+```ini
+[settings]
+1 = http://cfgsrv/nsclient.php?host=${hostname}
+```
+
+| Placeholder | Expands to |
+|---|---|
+| `${hostname}` | the system host name as reported, e.g. `srv01.example.com` |
+| `${host}` | the part before the first `.`, e.g. `srv01` |
+| `${domain}` | the part after the first `.`, e.g. `example.com` |
+
+Each of the three also has a `_lc` and a `_uc` variant (`${hostname_lc}`, `${host_uc}`, ...) that
+lower- or upper-cases the result.
+
+Placeholders are expanded before the url is parsed, so they may appear anywhere in it - in the
+query, in the path (`http://cfgsrv/hosts/${host}/nsclient.ini`) or even in the host name. They are
+expanded before percent-encoding, so a host name containing a character that needs escaping is
+escaped rather than corrupting the request. The cache file name is derived from the expanded url,
+so each host caches its own configuration.
+
+> **New in 0.17:** `${hostname}`, `${hostname_lc}` and `${hostname_uc}`. The other placeholders
+> already existed for the submit clients; this makes them available in settings urls too.
+
+If the query carries a credential (`?token=...`), note that it is still sent in clear text unless
+the url is `https://`. NSClient++ keeps query parameters out of its own log and out of the settings
+url it prints (`nscp settings --show`): both render a settings url as scheme, host and path only.
+Anything else that handles the url - a proxy, the settings server's own access log - is of course
+outside the agent's control.
+
+> **Changed in 0.17:** query parameters used to be silently dropped from the request, so the
+> server only ever saw the bare path.
+
 #### Using TLS
 
 You likely want to use TLS when using http settings.

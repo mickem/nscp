@@ -30,6 +30,7 @@
 #include <net/http/proxy_config.hpp>
 #include <net/net.hpp>
 #include <net/socket/client.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
 
@@ -42,8 +43,21 @@ class settings_http : public settings::settings_interface_impl {
   instance_raw_ptr child_instance;
 
  public:
+  // Settings urls take the same host name placeholders as the submit clients
+  // (NRDP, Graphite, Syslog, ...): ${hostname}, ${host}, ${domain} and their
+  // _lc/_uc variants. That is what makes one boot.ini deployable to a whole
+  // fleet - every agent asks the same script for its own configuration:
+  //
+  //   [settings]
+  //   1 = http://cfgsrv/nsclient.php?host=${hostname}
+  //
+  // Expanded before parsing, so a placeholder may sit anywhere in the url
+  // (host, path or query), and before the query is percent-encoded, so a host
+  // name that needs escaping gets escaped rather than corrupting the request.
+  static net::url parse_settings_url(const std::string &url) { return net::parse(socket_helpers::expand_hostname(url)); }
+
   settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {
-    remote_url = net::parse(utf8::cvt<std::string>(context));
+    remote_url = parse_settings_url(utf8::cvt<std::string>(context));
     boost::filesystem::path path = core->expand_path(CACHE_FOLDER);
     if (!boost::filesystem::is_directory(path)) {
       if (boost::filesystem::is_regular_file(path)) throw new settings_exception(__FILE__, __LINE__, "Cache path not found: " + path.string());
@@ -96,8 +110,57 @@ class settings_http : public settings::settings_interface_impl {
   boost::filesystem::path resolve_cache_file(const net::url &url) const {
     boost::filesystem::path local_file = get_core()->expand_path(CACHE_FOLDER);
     boost::filesystem::path remote_file_name = url.path;
-    local_file /= remote_file_name.filename();
+    std::string name = remote_file_name.filename().string();
+    // A url can perfectly well carry no file name at all ("http://host/" or
+    // "http://host/?file=x"), in which case filename() yields "", "/", "." or
+    // ".." and the cache path would collapse onto the cache folder itself.
+    if (name.empty() || name == "." || name == ".." || name == "/" || name == "\\") name = "cached.ini";
+    if (!url.query.empty()) {
+      // Two boot.ini entries may point at the same script and differ only in
+      // their parameters (issue #460) - the query is then the only thing that
+      // tells the two configurations apart, so it has to take part in the
+      // cache file name or they overwrite each other. It cannot be appended
+      // verbatim ('?' and '&' are not legal in a Windows file name), so use a
+      // short digest of it instead.
+      name += "-" + hash_string(url.query).substr(0, 16);
+    }
+    local_file /= name;
     return local_file;
+  }
+
+  // The name resolve_cache_file gave this url before the query digest was
+  // added (issue #460), i.e. the url's file name alone. Empty when the url has
+  // no usable file name, since no such cache file was ever written. Only used
+  // to move an existing cache file forward, never to read from.
+  boost::filesystem::path resolve_legacy_cache_file(const net::url &url) const {
+    const std::string name = boost::filesystem::path(url.path).filename().string();
+    if (name.empty() || name == "." || name == ".." || name == "/" || name == "\\") return boost::filesystem::path();
+    return boost::filesystem::path(get_core()->expand_path(CACHE_FOLDER)) / name;
+  }
+
+  // Adding the query digest renames the cache file of every url this fix is
+  // aimed at. That rename must not lose the cached copy: cache_remote_file
+  // falls back to it when the settings server cannot be reached, so an agent
+  // that upgrades while its server is down would otherwise find nothing under
+  // the new name and boot with an empty configuration - having booted fine off
+  // the cache the day before. Move the old file into place once, so the
+  // fallback keeps working across the upgrade.
+  void migrate_legacy_cache_file(const net::url &url, const boost::filesystem::path &local_file) const {
+    if (url.query.empty()) return;  // Name is unchanged for query-less urls.
+    boost::system::error_code ec;
+    if (boost::filesystem::exists(local_file, ec)) return;
+    const boost::filesystem::path legacy = resolve_legacy_cache_file(url);
+    if (legacy.empty() || legacy == local_file) return;
+    if (!boost::filesystem::is_regular_file(legacy, ec)) return;
+    boost::filesystem::rename(legacy, local_file, ec);
+    if (ec) {
+      // Not fatal: without the cached copy we simply download afresh, which is
+      // what happens on any first boot.
+      get_logger()->warning("settings", __FILE__, __LINE__,
+                            "Failed to move cached settings from '" + legacy.string() + "' to '" + local_file.string() + "': " + ec.message());
+      return;
+    }
+    get_logger()->debug("settings", __FILE__, __LINE__, "Migrated cached settings from '" + legacy.string() + "' to '" + local_file.string() + "'");
   }
 
   virtual void log_debug(std::string file, int line, std::string msg) const { core_->get_logger()->debug("settings", file.c_str(), line, msg); }
@@ -130,8 +193,6 @@ class settings_http : public settings::settings_interface_impl {
 
     try {
       std::string error;
-      http::request packet("GET", url.get_host(), url.path);
-
       std::string def_port = url.protocol == "https" ? "443" : "80";
 
       auto tls_version = get_core()->get_tls_version();
@@ -166,12 +227,12 @@ class settings_http : public settings::settings_interface_impl {
           const std::string how = verify_mode.empty() ? "[tls] verify mode is set but empty in boot.ini, which disables verification just as 'none' does"
                                                       : "[tls] verify mode = none in boot.ini";
           get_logger()->warning("settings", __FILE__, __LINE__,
-                                "INSECURE: fetching settings from " + url.to_string() + " without verifying the server certificate (" + how +
+                                "INSECURE: fetching settings from " + url.to_log_safe_string() + " without verifying the server certificate (" + how +
                                     "). Anyone who can answer for this host controls this agent's entire configuration, including external script "
                                     "definitions. Set 'verify mode = peer' and point 'ca' at the issuing CA.");
         } else if (!ca.empty() && ca != "none" && !boost::filesystem::is_regular_file(ca)) {
           get_logger()->warning("settings", __FILE__, __LINE__,
-                                "CA bundle '" + ca + "' not found; the settings download from " + url.to_string() +
+                                "CA bundle '" + ca + "' not found; the settings download from " + url.to_log_safe_string() +
                                     " will fail certificate verification. Point [tls] ca in boot.ini at the CA that issued the settings server's "
                                     "certificate. (On Windows the default bundle is exported at startup, so it is absent during the very first boot.)");
         }
@@ -191,7 +252,11 @@ class settings_http : public settings::settings_interface_impl {
       if (proxy.is_set()) {
         get_logger()->debug("settings", __FILE__, __LINE__, "Using proxy: " + get_core()->get_proxy_url());
       }
-      if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.path, tls_version, verify_mode, ca, os, error, proxy)) {
+      // get_request_path(), not path: the query string is part of the resource
+      // being asked for, and a settings url that selects its configuration with
+      // parameters is useless without it (issue #460).
+      if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.get_request_path(), tls_version, verify_mode, ca, os,
+                                         error, proxy)) {
         os.close();
         get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);
         if (boost::filesystem::is_regular_file(local_file)) {
@@ -302,14 +367,15 @@ class settings_http : public settings::settings_interface_impl {
       std::string target = get_core()->expand_path(k);
       op_string str = child->get_string("/attachments", k);
       if (!str) continue;
-      net::url source = net::parse(*str);
-      get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_string() + " as " + target);
+      net::url source = parse_settings_url(*str);
+      get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_log_safe_string() + " as " + target);
       cache_remote_file(source, target);
     }
   }
 
   void initial_load() {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
+    migrate_legacy_cache_file(remote_url, local_file);
     cache_remote_file(remote_url, local_file.string());
     child_instance = add_child("remote_http_file", "ini://" + local_file.string());
     fetch_attachments(child_instance);
@@ -317,6 +383,7 @@ class settings_http : public settings::settings_interface_impl {
 
   void reload_data() {
     boost::filesystem::path local_file = resolve_cache_file(remote_url);
+    migrate_legacy_cache_file(remote_url, local_file);
     if (cache_remote_file(remote_url, local_file.string())) {
       clear_cache();
       fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));
@@ -425,7 +492,10 @@ class settings_http : public settings::settings_interface_impl {
     return url_;
   }
   bool file_exists() { return boost::filesystem::is_regular_file(get_file_name()); }
-  virtual std::string get_info() { return "HTTP settings: (" + context_ + ", " + get_file_name() + ")"; }
+  // get_info() is printed by `nscp settings --show` and friends, so it goes the
+  // same way as the log: the context identifies the store, the query does not
+  // need to be part of that and may carry a credential.
+  virtual std::string get_info() { return "HTTP settings: (" + net::parse(context_).to_log_safe_string() + ", " + get_file_name() + ")"; }
   void enable_credentials() override { get_logger()->warning("settings", __FILE__, __LINE__, "Http settings is read only and does not support credentials"); }
 };
 }  // namespace settings
