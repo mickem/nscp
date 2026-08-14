@@ -145,11 +145,22 @@ The official `.deb`/`.rpm` packages install under the standard FHS prefix
 | Daemon              | `/usr/sbin/nscp`               |
 | Check modules       | `/usr/lib/nsclient/modules`    |
 | Private libraries   | `/usr/lib/nsclient`            |
-| Scripts / web / certs | `/usr/lib/nsclient/{scripts,web,security}` |
+| Scripts / web / DH params | `/usr/lib/nsclient/{scripts,web,security}` |
 | Configuration       | `/etc/nsclient`                |
 | State / cache       | `/var/lib/nsclient`            |
+| Generated certificates | `/var/lib/nsclient/security` |
 | Logs                | `/var/log/nsclient`            |
+| PID file            | `/run/nsclient/nscp.pid`       |
 | systemd unit        | `/lib/systemd/system/nsclient.service` |
+| Service account     | `/usr/lib/sysusers.d/nsclient.conf` |
+| DynamicUser drop-in | `/usr/share/nsclient/systemd/dynamic-user.conf` |
+
+The install tree under `/usr` is read-only to the running service. Everything
+the daemon writes — its log, its state database, the pid file and the
+self-signed certificate the TLS listeners generate on first start — lives in
+the three directories systemd creates for it. The DH parameters that ship with
+the package stay in `/usr/lib/nsclient/security` because they are only ever
+read.
 
 These are derived from the build's install prefix; a package built for a
 different prefix (e.g. `/opt/nsclient`) places everything under that prefix and
@@ -158,6 +169,85 @@ a `boot.ini` in a non-standard location, start it with
 `--path-override boot-conf=/path/to/boot.ini`. See
 [Choosing an install prefix](https://github.com/mickem/nscp/blob/main/build.md#choosing-an-install-prefix-linux)
 in the build guide for building against a custom prefix.
+
+### The service account
+
+The daemon runs as the unprivileged `nsclient` user. The account is declared in
+`/usr/lib/sysusers.d/nsclient.conf` and created by
+[`systemd-sysusers`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.html)
+when the package is installed, rather than with `adduser`/`useradd` from the
+package's maintainer scripts, so the distribution decides how a system account
+is allocated. Purging the package removes the account again.
+
+The directories the daemon writes to are owned by systemd, through
+`StateDirectory=`, `LogsDirectory=` and `RuntimeDirectory=` in the unit:
+
+```
+/var/lib/nsclient    state database, generated certificates   (mode 0750)
+/var/log/nsclient    nsclient.log
+/run/nsclient        nscp.pid, removed when the service stops
+```
+
+They are created and `chown`ed on every start, so nothing in the package has to
+know which identity the service runs under — which is what makes the drop-in
+below a drop-in. It also means a pid file left behind by a crash can no longer
+block a restart: `/run` is a tmpfs and systemd removes the runtime directory
+with the service.
+
+The unit's working directory is the log directory, because both of the daemon's
+working-directory-relative writers are log files: the file logger writes to a
+bare `nsclient.log` until the settings store has been read and it learns the
+configured path, and `nsclient.fatal` is where it reports that it could not
+write the log at all.
+
+### Running under a transient user
+
+If you would rather no account existed at all, install the `DynamicUser`
+drop-in that ships with the package. systemd then allocates a UID/GID when the
+service starts and releases it when it stops:
+
+```bash
+sudo mkdir -p /etc/systemd/system/nsclient.service.d
+sudo cp /usr/share/nsclient/systemd/dynamic-user.conf \
+        /etc/systemd/system/nsclient.service.d/
+sudo systemctl daemon-reload
+sudo systemctl restart nsclient
+sudo userdel nsclient
+sudo groupdel nsclient    # if userdel left the group behind
+```
+
+The `userdel` matters: systemd reuses a statically allocated user or group whose
+name matches the unit instead of allocating a transient one, so until the
+packaged account is gone the sandbox applies but the UID stays static. Removing
+it is safe — systemd re-`chown`s the state and log directories to the new
+identity on the next start.
+
+State and logs move below `/var/lib/private` and `/var/log/private`, with
+symlinks left at `/var/lib/nsclient` and `/var/log/nsclient`; existing content
+is migrated on the first start, so no configured path changes.
+
+<!-- @formatter:off -->
+!!! warning
+    `DynamicUser=yes` implies a sandbox that cannot be relaxed
+    ([`systemd.exec(5)`](https://www.freedesktop.org/software/systemd/man/systemd.exec.html#DynamicUser=)),
+    and a monitoring agent notices some of it. Reading is unaffected everywhere,
+    so checks that only inspect the host keep working, but:
+
+    - `NoNewPrivileges=yes` — a `CheckExternalScripts` command that calls `sudo`
+      fails.
+    - `PrivateTmp=yes` — checks against `/tmp` and `/var/tmp` (`check_drivesize`,
+      `check_files`) see the service's private tmpfs, not the host's.
+    - `ProtectSystem=strict` — the file system is read-only apart from the
+      directories above.
+    - `ProtectHome=read-only` and `RestrictSUIDSGID=yes`.
+
+    `/var/log/private` is mode 0700 and owned by root, so reading
+    `/var/log/nsclient/nsclient.log` needs root from then on.
+
+    The drop-in is only supported for packages installed under the FHS prefix;
+    systemd cannot manage state and log directories outside `/var/lib` and
+    `/var/log`.
+<!-- @formatter:on -->
 
 ### Installing the web UI bundle
 

@@ -711,7 +711,7 @@ cmake $SOURCE_ROOT -DCMAKE_INSTALL_PREFIX=/usr ...
 #   libs      -> /usr/lib/nsclient          (package-private, $ORIGIN RPATH)
 #   data      -> /usr/lib/nsclient/{web,scripts,security}
 #   config    -> /etc/nsclient              (FHS: prefix=/usr redirects to /etc)
-#   state     -> /var/lib/nsclient
+#   state     -> /var/lib/nsclient          (incl. generated certificates)
 #   logs      -> /var/log/nsclient
 
 # A self-contained tree under /opt:
@@ -725,7 +725,16 @@ Standard GNUInstallDirs knobs work and need no NSCP-specific names:
 `-DCMAKE_INSTALL_SBINDIR=...`, `-DCMAKE_INSTALL_SYSCONFDIR=...`,
 `-DCMAKE_INSTALL_LOCALSTATEDIR=...`, etc. The systemd unit directory is
 `-DNSCP_SYSTEMD_UNITDIR=...` (defaults to `/lib/systemd/system`; pass
-`$(pkg-config systemd --variable=systemdsystemunitdir)` to follow the distro).
+`$(pkg-config systemd --variable=systemdsystemunitdir)` to follow the distro),
+and the sysusers.d directory the service account is declared in is
+`-DNSCP_SYSUSERSDIR=...` (defaults to `/usr/lib/sysusers.d`).
+
+The shipped unit lets systemd create and own the directories the daemon writes
+to (`StateDirectory=`, `LogsDirectory=`, `RuntimeDirectory=`), which systemd can
+only do below `/var/lib`, `/var/log` and `/run`. A prefix that puts state and
+logs elsewhere (`/opt/nsclient`, …) therefore falls back to the maintainer
+scripts creating and `chown`ing them, and the optional `DynamicUser` drop-in is
+not supported for such a build; `cmake` says so at configure time.
 
 `DESTDIR=/tmp/stage cmake --install build/` stages a relocatable tree at any
 prefix, exactly as the package builds rely on.

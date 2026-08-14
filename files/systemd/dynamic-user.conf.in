@@ -1,0 +1,61 @@
+# Optional drop-in: run NSClient++ under a transient user (issue #628).
+#
+# With this drop-in installed systemd allocates a UID/GID when the service
+# starts and releases it when the service stops, so no account is created at
+# install time and none is left behind at uninstall time. The state and log
+# directories are moved below /var/lib/private and /var/log/private (systemd
+# migrates any existing content on the first start) with symlinks left at
+# /var/lib/nsclient and /var/log/nsclient, so every path the daemon is
+# configured with keeps working.
+#
+#   sudo mkdir -p /etc/systemd/system/nsclient.service.d
+#   sudo cp @NSCP_PKGDATADIR@/systemd/dynamic-user.conf \
+#           /etc/systemd/system/nsclient.service.d/
+#   sudo systemctl daemon-reload
+#   sudo systemctl restart nsclient
+#   sudo userdel nsclient           # see "static account" below
+#   sudo groupdel nsclient          # if userdel left the group behind
+#
+# ---------------------------------------------------------------------------
+# Before enabling this, know what it costs
+# ---------------------------------------------------------------------------
+#
+# DynamicUser=yes implies five settings that cannot be turned back off
+# (systemd.exec(5)). Reading is unaffected everywhere, so checks that only
+# inspect the host keep working, but:
+#
+#   NoNewPrivileges=yes    External scripts can no longer gain privileges, so a
+#                          CheckExternalScripts command that calls sudo fails.
+#   PrivateTmp=yes         /tmp and /var/tmp are a private tmpfs, so checks
+#                          against those paths (check_drivesize, check_files)
+#                          report the service's own tmpfs, not the host's.
+#   ProtectSystem=strict   The file system is read-only apart from the
+#                          directories systemd manages for this unit, so
+#                          settings cannot be persisted from the web UI
+#                          (they are already read-only for the static account).
+#   ProtectHome=read-only  /home, /root and /run/user stay readable, not
+#                          writable.
+#   RestrictSUIDSGID=yes   The service cannot create SUID/SGID files.
+#
+# The log directory moves under /var/log/private, which is mode 0700 and owned
+# by root, so reading /var/log/nsclient/nsclient.log needs root from then on.
+#
+# ---------------------------------------------------------------------------
+# The static account
+# ---------------------------------------------------------------------------
+#
+# systemd reuses a statically allocated user or group whose name matches instead
+# of allocating a transient one. The package ships such an account (nsclient), so
+# until it is removed with `sudo userdel nsclient` (plus `groupdel nsclient` if
+# the group survives) the sandbox above applies but the UID stays static.
+# Removing it is safe: systemd re-chowns the state and log directories to the
+# transient identity on the next start.
+#
+# This drop-in is only supported for packages installed under the FHS prefix
+# (state in /var/lib/nsclient, logs in /var/log/nsclient); systemd cannot manage
+# directories elsewhere.
+
+[Service]
+User=
+Group=
+DynamicUser=yes

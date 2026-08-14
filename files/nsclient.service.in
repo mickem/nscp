@@ -2,11 +2,33 @@
 Description=NSClient++ Monitoring Agent
 
 [Service]
-WorkingDirectory=@NSCP_PKGLIBDIR@
+# The service account is declared in @NSCP_SYSUSERSDIR@/nsclient.conf and
+# materialised by systemd-sysusers(8) rather than created with adduser/useradd
+# from the package's maintainer scripts.
+#
+# To run the agent under a transient UID/GID instead - allocated when the
+# service starts and released when it stops, so nothing is left behind on
+# uninstall - install the DynamicUser drop-in shipped in
+# @NSCP_PKGDATADIR@/systemd/dynamic-user.conf. Read the caveats in that file
+# first: DynamicUser= forces a sandbox that a monitoring agent notices.
 User=nsclient
-PIDFile=@NSCP_PKGSTATEDIR@/nscp.pid
+Group=nsclient
 
-ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run --pid @NSCP_PKGSTATEDIR@/nscp.pid
+# The directories the daemon writes to, declared so that nothing outside this
+# unit has to know which identity the service runs as - which is what makes the
+# drop-in above a drop-in.
+@NSCP_UNIT_DIRECTORIES@
+
+# Run from the log directory rather than from the read-only install tree: both
+# of the daemon's working-directory-relative writers are log files, and both
+# then land where they belong. The file logger writes to a bare "nsclient.log"
+# until the settings store has been read and it learns the configured path, and
+# nsclient.fatal is where it reports that it could not write the log at all.
+WorkingDirectory=@NSCP_LOGDIR@
+
+PIDFile=@NSCP_PIDFILE@
+
+ExecStart=@NSCP_SBINDIR@/nscp service --log-backend threaded-file --run --pid @NSCP_PIDFILE@
 
 [Install]
 WantedBy=multi-user.target

@@ -4,18 +4,17 @@ set -e
 
 if [ "$1" = "configure" ]; then
 
-  if ! grep -q nsclient /etc/passwd; then
-  	adduser --system --no-create-home nsclient
-  	addgroup --system nsclient
-  	adduser nsclient nsclient
-  fi
+    # The service account is declared in @NSCP_SYSUSERSDIR@/nsclient.conf; the
+    # state, log and runtime directories are created and chowned by systemd from
+    # the StateDirectory=/LogsDirectory=/RuntimeDirectory= settings in
+    # nsclient.service. Neither is done by hand here, which is what lets the
+    # DynamicUser drop-in change the identity the service runs under without
+    # anything in the package having to agree.
+    if command -v systemd-sysusers >/dev/null 2>&1; then
+        systemd-sysusers @NSCP_SYSUSERSDIR@/nsclient.conf
+    fi
 
-    # Create log + state folders if they don't exist (redundancy check)
-    mkdir -p @NSCP_LOGDIR@
-    chown nsclient:nsclient @NSCP_LOGDIR@
-    mkdir -p @NSCP_PKGSTATEDIR@
-    chown nsclient:nsclient @NSCP_PKGSTATEDIR@
-
+@NSCP_MAINTAINER_DIR_SETUP@
     # Reload systemd to recognize the new service
     if command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload

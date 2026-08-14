@@ -50,7 +50,9 @@ if(NOT WIN32)
         COMPONENT logs
     )
     # Template the unit so WorkingDirectory/PIDFile/ExecStart track the chosen
-    # install prefix (NSCP_* values) instead of being baked to /usr.
+    # install prefix (NSCP_* values) instead of being baked to /usr, and so the
+    # directory declarations match what systemd can actually manage for that
+    # prefix (NSCP_UNIT_DIRECTORIES, set in the top-level CMakeLists.txt).
     configure_file(
         nsclient.service.in
         ${PROJECT_BINARY_DIR}/nsclient.service
@@ -60,6 +62,29 @@ if(NOT WIN32)
         FILES
             ${PROJECT_BINARY_DIR}/nsclient.service
         DESTINATION ${SYSTEMD_TARGET_FOLDER}
+        COMPONENT runtime
+    )
+    # The service account, declared for systemd-sysusers(8) instead of being
+    # created imperatively from the maintainer scripts.
+    install(
+        FILES
+            nsclient.sysusers.conf
+        DESTINATION ${NSCP_SYSUSERSDIR}
+        COMPONENT runtime
+        RENAME nsclient.conf
+    )
+    # Optional hardening drop-in. Shipped as documentation-with-a-side-effect
+    # under ${NSCP_PKGDATADIR}: it is deliberately NOT installed into
+    # /etc/systemd/system/nsclient.service.d, an operator copies it there.
+    configure_file(
+        systemd/dynamic-user.conf.in
+        ${PROJECT_BINARY_DIR}/systemd/dynamic-user.conf
+        @ONLY
+    )
+    install(
+        FILES
+            ${PROJECT_BINARY_DIR}/systemd/dynamic-user.conf
+        DESTINATION ${NSCP_PKGDATADIR}/systemd
         COMPONENT runtime
     )
 endif()

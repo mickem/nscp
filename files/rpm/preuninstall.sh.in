@@ -7,15 +7,22 @@ if [ "$1" -eq 0 ]; then
         systemctl disable nsclient
     fi
 
-    # Remove the user and group created during installation
-    if grep -q nsclient /etc/passwd; then
-        userdel nsclient || true
-    fi
+    # The state and log directories are systemd's (StateDirectory=,
+    # LogsDirectory=); with the DynamicUser drop-in enabled they live below
+    # /var/{lib,log}/private with a symlink at the public path, so both
+    # spellings are removed here. The runtime directory is on tmpfs and went
+    # away with the service.
+    rm -rf @NSCP_PURGE_DIRS@
 
-    if grep -q nsclient /etc/group; then
-        groupdel nsclient || true
+    # The account is declared for systemd-sysusers(8) in
+    # @NSCP_SYSUSERSDIR@/nsclient.conf, which has no removal counterpart, so it
+    # is removed here to leave nothing behind. It owned nothing outside the
+    # directories removed above. Not reached at all when the DynamicUser drop-in
+    # is in use - there is no account to remove in that case.
+    if getent passwd nsclient >/dev/null; then
+        userdel nsclient >/dev/null 2>&1 || true
     fi
-
-    # Remove log directory
-    rm -rf @NSCP_LOGDIR@
+    if getent group nsclient >/dev/null; then
+        groupdel nsclient >/dev/null 2>&1 || true
+    fi
 fi
