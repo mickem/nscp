@@ -11,7 +11,7 @@ set(CMAKE_FIND_LIBRARY_PREFIXES
 set(CMAKE_FIND_LIBRARY_SUFFIXES .lib)
 #############################################################################
 #
-# Setup cmake enviornment and include custom config overrides
+# Setup cmake environment and include custom config overrides
 #
 #############################################################################
 if(EXISTS ${TARGET}/build.cmake)

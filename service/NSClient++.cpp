@@ -266,7 +266,7 @@ bool NSClientT::load_configuration_2(const bool override_log) {
     LOG_ERROR_CORE_STD("COM exception: " + e.reason());
     return false;
   } catch (...) {
-    LOG_ERROR_CORE("Unknown exception iniating COM...");
+    LOG_ERROR_CORE("Unknown exception initiating COM...");
     return false;
   }
 
@@ -486,7 +486,7 @@ bool NSClientT::stop_nsclient() {
   } catch (com_helper::com_exception &e) {
     LOG_ERROR_CORE_STD("COM exception: " + e.reason());
   } catch (...) {
-    LOG_ERROR_CORE("Unknown exception uniniating COM...");
+    LOG_ERROR_CORE("Unknown exception uninitiating COM...");
   }
 #endif
   LOG_DEBUG_CORE("Stopping: Settings instance");

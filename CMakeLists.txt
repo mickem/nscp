@@ -22,7 +22,7 @@ endif()
 
 # ##############################################################################
 #
-# Setup cmake enviornment and include custom config overrides
+# Setup cmake environment and include custom config overrides
 #
 # ##############################################################################
 if(NSCP_CMAKE_CONFIG)
@@ -328,7 +328,7 @@ if(NOT HAVE_REQUIRED_DEPENDENCIES)
 else(NOT HAVE_REQUIRED_DEPENDENCIES)
     message(
         STATUS
-        " - All required dependecies found! (some modules and features migh stil be missing though)"
+        " - All required dependencies found! (some modules and features might still be missing though)"
     )
 endif(NOT HAVE_REQUIRED_DEPENDENCIES)
 
@@ -729,7 +729,7 @@ else(WIN32)
     set(MAIN_CONFIGURATION
         /etc/nscp/nscp.xml
         CACHE PATH
-        "Path for the client configurtion file"
+        "Path for the client configuration file"
     )
     set(DEPLOYROOT /usr/bin CACHE PATH "Path to deploy examples into)")
 endif(WIN32)
@@ -927,7 +927,7 @@ else()
     set(CONFIG_CERT_FOLDER
         "\${shared-path}/security"
         CACHE STRING
-        "securoty (certificates) folder"
+        "security (certificates) folder"
     )
 
     # The trusted CA bundle belongs to the distribution, so this is an absolute
@@ -1240,7 +1240,7 @@ set(NSCP_CLIENT_HPP
 
 # ##############################################################################
 #
-# Build everything (not already built lik libraries)!
+# Build everything (not already built like libraries)!
 #
 # ##############################################################################
 
