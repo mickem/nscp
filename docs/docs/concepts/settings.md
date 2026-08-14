@@ -190,14 +190,16 @@ expanded before percent-encoding, so a host name containing a character that nee
 escaped rather than corrupting the request. The cache file name is derived from the expanded url,
 so each host caches its own configuration.
 
-> **New in 0.14:** `${hostname}`, `${hostname_lc}` and `${hostname_uc}`. The other placeholders
+> **New in 0.17:** `${hostname}`, `${hostname_lc}` and `${hostname_uc}`. The other placeholders
 > already existed for the submit clients; this makes them available in settings urls too.
 
 If the query carries a credential (`?token=...`), note that it is still sent in clear text unless
-the url is `https://`. NSClient++ keeps query parameters out of its own log: it logs settings urls
-as scheme, host and path only.
+the url is `https://`. NSClient++ keeps query parameters out of its own log and out of the settings
+url it prints (`nscp settings --show`): both render a settings url as scheme, host and path only.
+Anything else that handles the url - a proxy, the settings server's own access log - is of course
+outside the agent's control.
 
-> **Changed in 0.14:** query parameters used to be silently dropped from the request, so the
+> **Changed in 0.17:** query parameters used to be silently dropped from the request, so the
 > server only ever saw the bare path.
 
 #### Using TLS

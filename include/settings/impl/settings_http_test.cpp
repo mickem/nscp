@@ -113,6 +113,21 @@ TEST(settings_http, info_contains_context) {
   EXPECT_NE(s.get_info().find(url), std::string::npos);
 }
 
+TEST(settings_http, info_omits_query) {
+  // get_info() is what `nscp settings --show` prints, and a settings url is
+  // free to select its configuration with a parameter that is a credential.
+  // Scheme, host and path identify the store; the query must not come along.
+  loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
+  temp_dir cache;
+  http_test_core core(cache.path());
+  const std::string base = http_url(server.port());
+  settings::settings_http s(&core, "test", base + "?token=s3cret");
+  const std::string info = s.get_info();
+  EXPECT_NE(info.find(base), std::string::npos);
+  EXPECT_EQ(info.find("s3cret"), std::string::npos);
+  EXPECT_EQ(info.find("token"), std::string::npos);
+}
+
 TEST(settings_http, save_throws) {
   loopback_http server("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n");
   temp_dir cache;

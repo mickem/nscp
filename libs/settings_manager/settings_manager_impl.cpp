@@ -22,6 +22,20 @@
 
 static settings_manager::NSCSettingsImpl *settings_impl = nullptr;
 
+namespace {
+// boot.ini entries are echoed to the log on every boot, and a settings url is
+// free to carry a credential in its parameters (".../cfg.php?token=..."). The
+// string-level counterpart of net::url::to_log_safe_string(): identifying the
+// source does not need the query, so drop it rather than write it to disk in
+// clear text. Only urls that actually have a query are touched, so a plain
+// context key ("master", an ini path, a registry root) is logged verbatim.
+std::string to_log_safe_context(const std::string &key) {
+  const std::string::size_type pos = key.find('?');
+  if (pos == std::string::npos) return key;
+  return key.substr(0, pos);
+}
+}  // namespace
+
 namespace settings_manager {
 // Alias to make handling "compatible" with old syntax
 
@@ -80,7 +94,8 @@ settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::string alias, s
   if (settings::INISettings::context_exists(this, key)) return settings::instance_raw_ptr(new settings::INISettings(this, alias, key));
   if (settings::INISettings::context_exists(this, DEFAULT_CONF_INI_BASE + key))
     return settings::instance_raw_ptr(new settings::INISettings(this, alias, DEFAULT_CONF_INI_BASE + key));
-  throw settings::settings_exception(__FILE__, __LINE__, "Undefined settings protocol: " + url.protocol + ", key=" + key);
+  // boot() logs what this throws, so keep the query out of it as well.
+  throw settings::settings_exception(__FILE__, __LINE__, "Undefined settings protocol: " + url.protocol + ", key=" + to_log_safe_context(key));
 }
 
 bool NSCSettingsImpl::supports_edit(const std::string key) {
@@ -182,11 +197,11 @@ void NSCSettingsImpl::boot(std::string key) {
   }
   std::string boot_order;
   for (const std::string &k : order) {
-    str::format::append_list(boot_order, k, ", ");
+    str::format::append_list(boot_order, to_log_safe_context(k), ", ");
   }
   for (std::string k : order) {
     if (context_exists(k)) {
-      get_logger()->debug("settings", __FILE__, __LINE__, "Activating: " + k);
+      get_logger()->debug("settings", __FILE__, __LINE__, "Activating: " + to_log_safe_context(k));
       try {
         set_instance("master", k);
         return;
@@ -195,12 +210,12 @@ void NSCSettingsImpl::boot(std::string key) {
       } catch (const std::exception &e) {
         get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
       } catch (...) {
-        get_logger()->error("settings", __FILE__, __LINE__, "Failed to activate: " + key);
+        get_logger()->error("settings", __FILE__, __LINE__, "Failed to activate: " + to_log_safe_context(key));
       }
     }
   }
   if (!key.empty()) {
-    get_logger()->info("settings", __FILE__, __LINE__, "No valid settings found but one was given (using that): " + key);
+    get_logger()->info("settings", __FILE__, __LINE__, "No valid settings found but one was given (using that): " + to_log_safe_context(key));
     set_instance("master", key);
     return;
   }

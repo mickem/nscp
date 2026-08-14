@@ -492,7 +492,10 @@ class settings_http : public settings::settings_interface_impl {
     return url_;
   }
   bool file_exists() { return boost::filesystem::is_regular_file(get_file_name()); }
-  virtual std::string get_info() { return "HTTP settings: (" + context_ + ", " + get_file_name() + ")"; }
+  // get_info() is printed by `nscp settings --show` and friends, so it goes the
+  // same way as the log: the context identifies the store, the query does not
+  // need to be part of that and may carry a credential.
+  virtual std::string get_info() { return "HTTP settings: (" + net::parse(context_).to_log_safe_string() + ", " + get_file_name() + ")"; }
   void enable_credentials() override { get_logger()->warning("settings", __FILE__, __LINE__, "Http settings is read only and does not support credentials"); }
 };
 }  // namespace settings
