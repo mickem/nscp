@@ -31,8 +31,9 @@ boost::atomic<unsigned short> identifier(0);
 bool CheckNet::loadModuleEx(const std::string &, NSCAPI::moduleLoadMode) {
   // Resolve the trusted CA bundle path once, at module load. ${ca-path}
   // expands to ${certificate-path}/windows-ca.pem on Windows (the auto-
-  // generated system ROOT bundle) and to /etc/ssl/certs/ca-certificates.crt
-  // on Linux. check_http hands this through as the default `ca` so HTTPS
+  // generated system ROOT bundle) and on unix to the distribution's own bundle,
+  // detected at configure time because its location differs per family
+  // (CONFIG_CA_PATH). check_http hands this through as the default `ca` so HTTPS
   // checks against public-CA-signed servers validate out of the box.
   default_ca_ = get_core()->expand_path("${ca-path}");
   return true;
