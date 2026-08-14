@@ -6,10 +6,13 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
 
+#include "bookmarks.hpp"
+
 struct real_time_thread;
 class CheckLogFile : public nscapi::impl::simple_plugin {
  private:
   std::shared_ptr<real_time_thread> thread_;
+  check_logfile::bookmarks bookmarks_;
 
  public:
   CheckLogFile() {}

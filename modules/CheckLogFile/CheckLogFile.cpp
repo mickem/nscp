@@ -3,19 +3,26 @@
 
 #include "CheckLogFile.h"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
+#include <cstdint>
 #include <nscapi/macros.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 
+#include "bookmark_state.hpp"
 #include "file_reader.hpp"
 #include "realtime_thread.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
+
+// Context used to persist bookmark positions in the core storage.
+const std::string bookmark_context = "logfile.bookmarks";
 
 bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   thread_.reset(new real_time_thread(get_core(), get_id()));
@@ -47,6 +54,14 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   thread_->ensure_default(nscapi::settings_proxy::create(get_id(), get_core()));
 
   thread_->filters_.add_samples(settings.get_settings());
+
+  // Restore the bookmark positions from the previous run so a restart does not
+  // re-report every line of every bookmarked log file.
+  nscapi::core_helper core(get_core(), get_id());
+  for (const nscapi::core_helper::storage_map::value_type &e : core.get_storage_strings(bookmark_context)) {
+    bookmarks_.add(e.first, e.second);
+  }
+
   if (mode == NSCAPI::normalStart) {
     if (!thread_->start()) NSC_LOG_ERROR_STD("Failed to start collection thread");
   }
@@ -54,8 +69,58 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 }
 bool CheckLogFile::unloadModule() {
   if (thread_ && !thread_->stop()) NSC_LOG_ERROR_STD("Failed to stop thread");
+
+  nscapi::core_helper core(get_core(), get_id());
+  for (const check_logfile::bookmarks::map_type::value_type &v : bookmarks_.get_copy()) {
+    core.put_storage(bookmark_context, v.first, v.second, false, false);
+  }
   return true;
 }
+
+namespace {
+// Feed every record found in `contents` to the filter.
+//
+// Returns the number of bytes consumed by COMPLETE records, i.e. the offset
+// just past the last line delimiter. When `include_tail` is set a trailing
+// chunk which is not terminated by the delimiter is matched as well (but never
+// counted as consumed, since it is not complete).
+std::string::size_type match_records(const std::string &filename, const std::string &contents, const std::string &line_split, const std::string &column_split,
+                                     bool strip_cr, bool include_tail, logfile_filter::filter &filter) {
+  const auto trim_cr = [strip_cr](std::string &s) {
+    if (strip_cr && !s.empty() && s.back() == '\r') s.pop_back();
+  };
+  const auto match_one = [&](std::string line) {
+    trim_cr(line);
+    std::list<std::string> chunks = str::utils::split_lst(line, column_split);
+    std::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
+    filter.match(record);
+  };
+
+  std::string::size_type pos = 0, lpos = 0;
+  while ((pos = contents.find(line_split, pos)) != std::string::npos) {
+    match_one(contents.substr(lpos, pos - lpos));
+    pos += line_split.size();
+    lpos = pos;
+  }
+  if (include_tail && lpos < contents.size()) {
+    match_one(contents.substr(lpos));
+  }
+  return lpos;
+}
+
+// Read (at most) the leading bytes used to fingerprint a file. The stream is
+// left positioned wherever the read ended; every caller seeks afterwards.
+std::string read_head(std::istream &is, std::size_t len) {
+  std::string head;
+  if (len == 0) return head;
+  head.resize(len);
+  is.seekg(0, std::ios::beg);
+  is.read(&head[0], static_cast<std::streamsize>(len));
+  head.resize(static_cast<std::size_t>(is.gcount()));
+  is.clear();
+  return head;
+}
+}  // namespace
 
 void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   typedef logfile_filter::filter filter_type;
@@ -65,6 +130,7 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
   std::vector<std::string> file_list;
   std::string files_string;
   std::string mode;
+  std::string bookmark;
 
   filter_type filter;
   filter_helper.add_options("", "", "", filter.get_filter_syntax());
@@ -90,6 +156,17 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 			"Notice that specifying multiple files will create an aggregate set it will not check each file individually.\n"
 			"In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.")
 		("files", po::value<std::string>(&files_string), "A comma separated list of files to scan (same as file except a list)")
+		("bookmark", po::value<std::string>(&bookmark)->implicit_value("auto"),
+			"Only scan lines added since the last check with the same bookmark name.\n"
+			"NSClient++ remembers, per file and per bookmark, how far it read last time and resumes from there, "
+			"so a line is reported once instead of on every check. The first check of a file reads it in full; "
+			"a file which is truncated, rotated or replaced is detected (via its size and a fingerprint of its "
+			"first bytes) and read from the beginning again. A trailing line which is not yet terminated by "
+			"line-split is held back until it is complete, so half-written lines are never reported twice.\n"
+			"If you set this to auto (or leave the value empty) the bookmark name is derived from the file name "
+			"together with your filter, warning and critical expressions, which keeps unrelated checks of the "
+			"same file from consuming each other's lines. Use an explicit name to share (or separate) positions "
+			"deliberately. Positions are persisted across restarts.")
 		//		("mode", po::value<std::string>(&mode),						"Mode of operation: count (count all critical/warning lines), find (find first critical/warning line)")
 		;
   // clang-format on
@@ -115,35 +192,64 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
   // file read in binary mode would otherwise leave '\r' at the end of every
   // line and break exact-match column comparisons (e.g. column3 = 'Test 1').
   const bool strip_cr = !line_split.empty() && line_split.back() == '\n';
-  auto trim_cr = [strip_cr](std::string &s) {
-    if (strip_cr && !s.empty() && s.back() == '\r') s.pop_back();
-  };
+
+  // An "auto" bookmark is derived from the file plus the expressions which
+  // decide what is interesting, so two different checks over the same file do
+  // not steal each other's lines (the same rule CheckEventLog uses).
+  std::string auto_suffix;
+  if (bookmark == "auto") {
+    auto_suffix = "],filter[" + str::utils::joinEx(filter_helper.data.filter_string, ",") + "],warn[" +
+                  str::utils::joinEx(filter_helper.data.warn_string, ",") + "],crit[" + str::utils::joinEx(filter_helper.data.crit_string, ",") + "]";
+  }
 
   for (const std::string &filename : file_list) {
     std::ifstream file(filename.c_str(), std::ios::in | std::ios::binary);
-    if (file.is_open()) {
-      std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-      file.close();
-      std::string::size_type pos = 0, lpos = 0;
-      while ((pos = contents.find(line_split, pos)) != std::string::npos) {
-        std::string line = contents.substr(lpos, pos - lpos);
-        trim_cr(line);
-        std::list<std::string> chunks = str::utils::split_lst(line, column_split);
-        std::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
-        filter.match(record);
-        pos += line_split.size();
-        lpos = pos;
-      }
-      if (lpos < contents.size()) {
-        std::string line = contents.substr(lpos);
-        trim_cr(line);
-        std::list<std::string> chunks = str::utils::split_lst(line, column_split);
-        std::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
-        filter.match(record);
-      }
-    } else {
+    if (!file.is_open()) {
       return nscapi::protobuf::functions::set_response_bad(*response, "Failed to open file: " + filename);
     }
+    if (bookmark.empty()) {
+      const std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+      match_records(filename, contents, line_split, column_split, strip_cr, true, filter);
+      continue;
+    }
+
+    const std::string name = auto_suffix.empty() ? bookmark : ("auto,file[" + filename + auto_suffix);
+    const std::string key = check_logfile::bookmarks::make_key(name, filename);
+    const check_logfile::bookmark::position prev = bookmarks_.get(key);
+
+    file.seekg(0, std::ios::end);
+    const std::streamoff end_pos = file.tellg();
+    if (end_pos < 0) {
+      return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read size of file: " + filename);
+    }
+    const std::uint64_t size = static_cast<std::uint64_t>(end_pos);
+
+    // Hash exactly as many leading bytes as the stored fingerprint covers so
+    // the two are comparable, and (up to the cap) as many as we have now so the
+    // fingerprint keeps growing with a file which is still shorter than the cap.
+    const std::size_t head_len =
+        static_cast<std::size_t>(std::min<std::uint64_t>(std::max<std::uint64_t>(size, prev.fingerprint_len), check_logfile::bookmark::max_fingerprint_len));
+    const std::string head = read_head(file, head_len);
+    const bool head_valid = head.size() >= prev.fingerprint_len;
+    const std::uint64_t head_fingerprint = head_valid ? check_logfile::bookmark::fnv1a(head.data(), static_cast<std::size_t>(prev.fingerprint_len)) : 0;
+
+    const check_logfile::bookmark::resume_decision decision = check_logfile::bookmark::compute_resume(prev, size, head_fingerprint, head_valid);
+    if (decision.restarted) {
+      NSC_DEBUG_MSG_STD("Log file was truncated, rotated or replaced, reading it from the start: " + filename);
+    }
+
+    std::string::size_type consumed = 0;
+    if (!decision.skip) {
+      file.seekg(static_cast<std::streamoff>(decision.offset), std::ios::beg);
+      const std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+      // A trailing record with no delimiter is not complete yet: skipping it
+      // (and not counting it as consumed) is what makes the line show up once,
+      // in full, on the check which sees its terminator.
+      consumed = match_records(filename, contents, line_split, column_split, strip_cr, false, filter);
+    }
+
+    const check_logfile::bookmark::position next(decision.offset + consumed, head.size(), check_logfile::bookmark::fnv1a(head.data(), head.size()));
+    bookmarks_.add(key, check_logfile::bookmark::format(next));
   }
   filter_helper.post_process(filter);
 }

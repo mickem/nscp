@@ -13,6 +13,7 @@ set(SRCS
     realtime_thread.cpp
     filter_config_object.cpp
     filter.cpp
+    bookmarks.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
     ${NSCP_ERROR_CPP}
