@@ -10,6 +10,8 @@
 
 	"metrics" : "produce",
 
+	"on_start" : true,
+
 	"prepare_shutdown" : true
 
 }

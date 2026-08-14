@@ -359,3 +359,82 @@ TEST(simple_scheduler_running, no_handler_does_not_crash) {
   s.stop();
   SUCCEED();
 }
+
+// --- deferred first run (run on startup) ----------------------------------
+
+TEST(simple_scheduler_basic, add_task_without_first_run_queues_nothing) {
+  simple_scheduler::scheduler s;
+  const int id = s.add_task("deferred", boost::posix_time::seconds(3600), 0.0, false);
+  EXPECT_TRUE(s.get_task(id));
+  EXPECT_EQ(s.get_metric_ql(), 0u);
+}
+
+TEST(simple_scheduler_basic, add_cron_task_without_first_run_queues_nothing) {
+  simple_scheduler::scheduler s;
+  const int id = s.add_task("deferred", cron_parser::parse("0 * * * *"), false);
+  EXPECT_TRUE(s.get_task(id));
+  EXPECT_EQ(s.get_metric_ql(), 0u);
+}
+
+TEST(simple_scheduler_basic, run_now_queues_a_deferred_task) {
+  simple_scheduler::scheduler s;
+  const int id = s.add_task("deferred", boost::posix_time::seconds(3600), 0.0, false);
+  s.run_now(id);
+  EXPECT_EQ(s.get_metric_ql(), 1u);
+}
+
+TEST(simple_scheduler_basic, run_now_unknown_task_is_ignored) {
+  simple_scheduler::scheduler s;
+  s.run_now(4711);
+  EXPECT_EQ(s.get_metric_ql(), 0u);
+}
+
+TEST(simple_scheduler_basic, clear_tasks_also_drops_pending_instances) {
+  // Pending instances outlive their task otherwise, which on a reload means
+  // the schedules from before the reload keep firing alongside the new ones.
+  simple_scheduler::scheduler s;
+  s.add_task("one", boost::posix_time::seconds(3600), 0.0);
+  s.add_task("two", boost::posix_time::seconds(3600), 0.0);
+  ASSERT_EQ(s.get_metric_ql(), 2u);
+
+  s.clear_tasks();
+  EXPECT_EQ(s.get_metric_ql(), 0u);
+}
+
+TEST(simple_scheduler_running, run_now_fires_a_deferred_task) {
+  simple_scheduler::scheduler s;
+  counting_handler h;
+  h.reschedule_after = false;
+  s.set_handler(&h);
+  s.set_threads(2);
+  // An hour-long interval: without run_now the handler cannot possibly be
+  // called during the test, which is exactly the stale-until-the-first-tick
+  // behaviour run-on-startup schedules avoid.
+  const int id = s.add_task("startup", boost::posix_time::seconds(3600), 0.0, false);
+  s.start();
+  EXPECT_FALSE(wait_for([&] { return h.calls.load() >= 1; }, std::chrono::milliseconds(200)));
+
+  s.run_now(id);
+  EXPECT_TRUE(wait_for([&] { return h.calls.load() >= 1; }, std::chrono::seconds(5)));
+
+  s.stop();
+  s.unset_handler();
+}
+
+TEST(simple_scheduler_running, run_now_honours_the_delay) {
+  simple_scheduler::scheduler s;
+  counting_handler h;
+  h.reschedule_after = false;
+  s.set_handler(&h);
+  s.set_threads(2);
+  const int id = s.add_task("startup", boost::posix_time::seconds(3600), 0.0, false);
+  s.start();
+  s.run_now(id, boost::posix_time::seconds(2));
+
+  // The instance is queued, but it must not run before its delay has passed.
+  EXPECT_FALSE(wait_for([&] { return h.calls.load() >= 1; }, std::chrono::milliseconds(500)));
+  EXPECT_TRUE(wait_for([&] { return h.calls.load() >= 1; }, std::chrono::seconds(5)));
+
+  s.stop();
+  s.unset_handler();
+}

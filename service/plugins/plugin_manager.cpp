@@ -349,6 +349,13 @@ bool nsclient::core::plugin_manager::load_single_plugin(const std::string &plugi
     }
     if (start) {
       instance->load_plugin(NSCAPI::normalStart);
+      // A plugin loaded into an already running agent never sees
+      // post_start_plugins, so start it here: modules which defer work until
+      // every peer is available (Scheduler's run-on-startup schedules,
+      // LUAScript's on-start hook) would otherwise never get going.
+      if (instance->has_start()) {
+        instance->start_plugin();
+      }
     }
     return true;
   } catch (const plugin_exception &e) {
