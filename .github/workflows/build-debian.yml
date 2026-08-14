@@ -60,7 +60,7 @@ jobs:
         # it is not.
         retry env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl unzip libboost-all-dev libgtest-dev protobuf-compiler libprotobuf-dev openssl libssl-dev libgmock-dev libcrypto++-dev ${{ matrix.lua_package }} cmake build-essential python3-pip libdbus-1-dev libzip-dev libtinyxml2-dev libmariadb-dev pkg-config ccache zstd
 
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Configure ccache
       shell: bash
@@ -85,7 +85,7 @@ jobs:
         fi
 
     - name: Restore ccache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: .ccache
         # The sha in the key makes every run write a fresh entry; restore-keys
@@ -187,7 +187,7 @@ jobs:
         apt-get install -y ./NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.deb_arch }}.deb
         nscp settings --load-all --list --add-defaults
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: NSCP-${{ inputs.version }}-${{ matrix.distro }}-${{ matrix.distro_version }}-${{ matrix.arch }}
         path: |
