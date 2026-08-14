@@ -5,6 +5,7 @@
 
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/protobuf/command.hpp>
+#include <set>
 
 #include "bookmarks.hpp"
 
@@ -13,6 +14,11 @@ class CheckLogFile : public nscapi::impl::simple_plugin {
  private:
   std::shared_ptr<real_time_thread> thread_;
   check_logfile::bookmarks bookmarks_;
+  // Bookmark keys which were read from the core storage on load. A key which
+  // is no longer live when we shut down is blanked out there, so a position
+  // that has aged out (or whose filter was edited) does not keep its row in
+  // nsclient.db forever.
+  std::set<std::string> persisted_keys_;
 
  public:
   CheckLogFile() {}

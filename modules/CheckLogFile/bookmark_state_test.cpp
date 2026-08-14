@@ -13,6 +13,8 @@ using check_logfile::bookmark::format;
 using check_logfile::bookmark::parse;
 using check_logfile::bookmark::position;
 using check_logfile::bookmark::resume_decision;
+using check_logfile::bookmark::store;
+using check_logfile::bookmark::to_hex;
 
 namespace {
 std::uint64_t hash_of(const std::string &s) { return fnv1a(s.data(), s.size()); }
@@ -144,4 +146,85 @@ TEST(bookmark_resume, emptied_file_drops_the_stored_offset) {
   EXPECT_TRUE(d.skip);
   EXPECT_EQ(0u, d.offset);
   EXPECT_TRUE(d.restarted);
+}
+
+// ---------------------------------------------------------------------------
+// to_hex
+// ---------------------------------------------------------------------------
+
+TEST(bookmark_to_hex, is_fixed_width_and_lowercase) {
+  EXPECT_EQ("0000000000000000", to_hex(0));
+  EXPECT_EQ("00000000000000ff", to_hex(255));
+  EXPECT_EQ("ffffffffffffffff", to_hex(0xffffffffffffffffULL));
+  EXPECT_EQ("123456789abcdef0", to_hex(0x123456789abcdef0ULL));
+}
+
+// ---------------------------------------------------------------------------
+// store (the bounded position map)
+// ---------------------------------------------------------------------------
+
+TEST(bookmark_store, stores_and_returns_values) {
+  store s;
+  EXPECT_EQ("", s.get("nothing"));
+  s.put("a", "1|1|0|0");
+  EXPECT_EQ("1|1|0|0", s.get("a"));
+  s.put("a", "1|2|0|0");
+  EXPECT_EQ("1|2|0|0", s.get("a"));
+  EXPECT_EQ(1u, s.size());
+}
+
+TEST(bookmark_store, snapshot_returns_every_entry) {
+  store s;
+  s.put("a", "1");
+  s.put("b", "2");
+  const store::map_type all = s.snapshot();
+  ASSERT_EQ(2u, all.size());
+  EXPECT_EQ("1", all.find("a")->second);
+  EXPECT_EQ("2", all.find("b")->second);
+}
+
+// A caller which invents a new bookmark name on every check must not be able
+// to grow the state (and thus nsclient.db) without bound.
+TEST(bookmark_store, evicts_the_least_recently_used_entry) {
+  store s(3);
+  s.put("a", "1");
+  s.put("b", "2");
+  s.put("c", "3");
+  s.put("d", "4");
+  EXPECT_EQ(3u, s.size());
+  // "a" was the oldest, so it is the one which had to go.
+  EXPECT_EQ("", s.get("a"));
+  EXPECT_EQ("2", s.get("b"));
+  EXPECT_EQ("4", s.get("d"));
+}
+
+TEST(bookmark_store, reading_a_position_keeps_it_alive) {
+  store s(2);
+  s.put("a", "1");
+  s.put("b", "2");
+  // A quiet check still reads its position - that has to count as a use, or a
+  // bookmark with nothing new to report would age out before a noisy one.
+  EXPECT_EQ("1", s.get("a"));
+  s.put("c", "3");
+  EXPECT_EQ("1", s.get("a"));
+  EXPECT_EQ("", s.get("b"));
+}
+
+TEST(bookmark_store, updating_a_position_keeps_it_alive) {
+  store s(2);
+  s.put("a", "1");
+  s.put("b", "2");
+  s.put("a", "1b");
+  s.put("c", "3");
+  EXPECT_EQ("1b", s.get("a"));
+  EXPECT_EQ("", s.get("b"));
+}
+
+TEST(bookmark_store, a_zero_limit_still_holds_one_entry) {
+  store s(0);
+  s.put("a", "1");
+  EXPECT_EQ("1", s.get("a"));
+  s.put("b", "2");
+  EXPECT_EQ(1u, s.size());
+  EXPECT_EQ("2", s.get("b"));
 }

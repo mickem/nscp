@@ -10,7 +10,7 @@ void bookmarks::add(const std::string &key, const std::string &value) {
   if (!lock.owns_lock()) {
     return;
   }
-  bookmarks_[key] = value;
+  store_.put(key, value);
 }
 
 bookmark::position bookmarks::get(const std::string &key) {
@@ -18,11 +18,7 @@ bookmark::position bookmarks::get(const std::string &key) {
   if (!lock.owns_lock()) {
     return bookmark::position();
   }
-  const map_type::const_iterator cit = bookmarks_.find(key);
-  if (cit == bookmarks_.end()) {
-    return bookmark::position();
-  }
-  return bookmark::parse(cit->second);
+  return bookmark::parse(store_.get(key));
 }
 
 bookmarks::map_type bookmarks::get_copy() {
@@ -31,8 +27,7 @@ bookmarks::map_type bookmarks::get_copy() {
   if (!lock.owns_lock()) {
     return ret;
   }
-  ret.insert(bookmarks_.begin(), bookmarks_.end());
-  return ret;
+  return store_.snapshot();
 }
 
 std::string bookmarks::make_key(const std::string &bookmark, const std::string &file) { return bookmark + "\x1f" + file; }

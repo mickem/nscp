@@ -52,6 +52,9 @@ check_logfile file=/var/log/app.log "filter=column1 like 'ERROR'" "warning=count
 3/5 (ERROR failed to connect to db, ERROR failed to connect to db, ERROR disk full)|'count'=3;0;0
 ```
 
+`bookmark=` (an empty value) and `bookmark=auto` are spelled differently by
+different transports but mean exactly this.
+
 **Watch several files with one check**
 
 Each file keeps its own position; the counts are aggregated. A fresh bookmark

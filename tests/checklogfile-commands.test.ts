@@ -170,6 +170,24 @@ describe("CheckLogFile check_logfile", () => {
     expect(messageOf(other)).toMatch(/1\/1/);
   });
 
+  it("does not move any position when the check fails", async () => {
+    const file = newLog("ERROR one\n");
+    const missing = path.join(scratch, "gone.log");
+
+    // The second file cannot be opened, so the check reports an error - and
+    // must not have consumed the first file's lines on the way there.
+    const failed = await executeQuery(key, "check_logfile", {
+      file: [file, missing],
+      filter: "column1 like 'ERROR'",
+      warning: "count > 0",
+      "empty-state": "ok",
+      bookmark: "it-failed",
+    });
+    expect(messageOf(failed)).toMatch(/Failed to open file/i);
+
+    expect(messageOf(await check(file, { bookmark: "it-failed" }))).toMatch(/1\/1/);
+  });
+
   it("does not consume lines when the file is checked without a bookmark", async () => {
     const file = newLog("ERROR one\n");
 
@@ -217,6 +235,47 @@ describe("CheckLogFile check_logfile", () => {
     // ... and a line written while nothing was running is still picked up.
     fs.appendFileSync(file, "ERROR three\n");
     expect(await run()).toMatch(/1\/1 \(ERROR three\)/);
+
+    fs.rmSync(workDir, { recursive: true, force: true });
+  });
+
+  // The REST API turns a valueless query parameter into a bare token, so it
+  // cannot produce `bookmark=` at all. The client-query path passes `k=v`
+  // verbatim, which is where an explicitly empty value has to be recognised as
+  // "no name given" rather than as "no bookmark" - the mirror image of the
+  // bare-token case above.
+  it("treats an explicitly empty bookmark value as an automatic name", async () => {
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "checklogfile-empty-"));
+    const dataDir = path.join(workDir, "data");
+    fs.mkdirSync(dataDir, { recursive: true });
+    const file = path.join(workDir, "empty-value.log");
+    fs.writeFileSync(file, "ERROR one\nINFO two\n");
+
+    const instance = new NscpInstance({ workDir, pathOverrides: { "data-path": dataDir } });
+    const run = async () =>
+      (
+        await instance.run(
+          [
+            "client",
+            "--module",
+            "CheckLogFile",
+            "--boot",
+            "--query",
+            "check_logfile",
+            `file=${file}`,
+            "filter=column1 like 'ERROR'",
+            "warning=count > 0",
+            "empty-state=ok",
+            "bookmark=",
+          ],
+          { allowFailure: true },
+        )
+      ).all ?? "";
+
+    expect(await run()).toMatch(/1\/2 \(ERROR one\)/);
+    // Incremental, not a full re-scan: the empty value picked the automatic
+    // name instead of silently disabling the bookmark.
+    expect(await run()).toMatch(/Nothing found/i);
 
     fs.rmSync(workDir, { recursive: true, force: true });
   });

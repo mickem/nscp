@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,18 @@ inline std::uint64_t fnv1a(const char *data, std::size_t len) {
     hash *= 1099511628211ULL;
   }
   return hash;
+}
+
+// 16 lowercase hex digits, used to name a bookmark after the expressions it
+// belongs to without spelling them out in the key.
+inline std::string to_hex(std::uint64_t value) {
+  static const char digits[] = "0123456789abcdef";
+  std::string ret(16, '0');
+  for (std::size_t i = 0; i < 16; i++) {
+    ret[15 - i] = digits[value & 0xf];
+    value >>= 4;
+  }
+  return ret;
 }
 
 // Where a previous check stopped reading a given file.
@@ -141,6 +154,80 @@ inline resume_decision compute_resume(const position &prev, std::uint64_t cur_si
   resume_decision d = {false, prev.offset, false};
   return d;
 }
+
+// Upper bound on the number of positions which are remembered (and hence
+// persisted to nsclient.db).
+//
+// A bookmark name comes from whoever runs the query, and an automatic name
+// changes whenever the filter does, so nothing stops a caller from creating a
+// new name on every check. Without a cap that grows the stored state - and the
+// file it is saved to - without bound. 1000 positions is far more than a real
+// configuration uses (it is per bookmark AND file) while staying small enough
+// to be irrelevant on disk.
+const std::size_t max_positions = 1000;
+
+// A bounded, least-recently-used map of serialized positions.
+//
+// Not thread safe on its own - `check_logfile::bookmarks` wraps it in a lock.
+// Kept separate from that wrapper so the eviction rules can be unit tested
+// without a running module.
+class store {
+ public:
+  typedef std::map<std::string, std::string> map_type;
+
+  explicit store(std::size_t max_entries = max_positions) : max_entries_(max_entries == 0 ? 1 : max_entries), clock_(0) {}
+
+  void put(const std::string &key, const std::string &value) {
+    entry &e = entries_[key];
+    e.value = value;
+    e.used = ++clock_;
+    trim();
+  }
+
+  // The stored value, or an empty string when the key is unknown. Counts as a
+  // use: a bookmark which is checked but has nothing new to report must not
+  // age out before one which is merely written to.
+  std::string get(const std::string &key) {
+    const impl_type::iterator it = entries_.find(key);
+    if (it == entries_.end()) return "";
+    it->second.used = ++clock_;
+    return it->second.value;
+  }
+
+  map_type snapshot() const {
+    map_type ret;
+    for (const impl_type::value_type &v : entries_) {
+      ret[v.first] = v.second.value;
+    }
+    return ret;
+  }
+
+  std::size_t size() const { return entries_.size(); }
+
+ private:
+  struct entry {
+    std::string value;
+    // Monotonic use counter; the lowest one is the next to go.
+    std::uint64_t used;
+    entry() : used(0) {}
+  };
+  typedef std::map<std::string, entry> impl_type;
+
+  // Linear, but it only runs when the cap is exceeded and the cap is small.
+  void trim() {
+    while (entries_.size() > max_entries_) {
+      impl_type::iterator oldest = entries_.begin();
+      for (impl_type::iterator it = entries_.begin(); it != entries_.end(); ++it) {
+        if (it->second.used < oldest->second.used) oldest = it;
+      }
+      entries_.erase(oldest);
+    }
+  }
+
+  std::size_t max_entries_;
+  std::uint64_t clock_;
+  impl_type entries_;
+};
 
 }  // namespace bookmark
 }  // namespace check_logfile

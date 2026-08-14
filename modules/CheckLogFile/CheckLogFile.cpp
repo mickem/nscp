@@ -15,6 +15,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <utility>
+#include <vector>
 
 #include "bookmark_state.hpp"
 #include "file_reader.hpp"
@@ -58,9 +59,13 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
   thread_->filters_.add_samples(settings.get_settings());
 
   // Restore the bookmark positions from the previous run so a restart does not
-  // re-report every line of every bookmarked log file.
+  // re-report every line of every bookmarked log file. An empty value is a
+  // position which was retired on an earlier shutdown; it is remembered as a
+  // key so it is not written again, but it is not a position.
   nscapi::core_helper core(get_core(), get_id());
   for (const nscapi::core_helper::storage_map::value_type &e : core.get_storage_strings(bookmark_context)) {
+    if (e.second.empty()) continue;
+    persisted_keys_.insert(e.first);
     bookmarks_.add(e.first, e.second);
   }
 
@@ -73,8 +78,16 @@ bool CheckLogFile::unloadModule() {
   if (thread_ && !thread_->stop()) NSC_LOG_ERROR_STD("Failed to stop thread");
 
   nscapi::core_helper core(get_core(), get_id());
-  for (const check_logfile::bookmarks::map_type::value_type &v : bookmarks_.get_copy()) {
+  const check_logfile::bookmarks::map_type live = bookmarks_.get_copy();
+  for (const check_logfile::bookmarks::map_type::value_type &v : live) {
     core.put_storage(bookmark_context, v.first, v.second, false, false);
+  }
+  // A position which aged out of the (bounded) live set would otherwise keep
+  // its row - and the file name and expression hash in its key - in
+  // nsclient.db for good. The storage API has no delete, so blank the value:
+  // load skips empty entries, which is the same as not having one.
+  for (const std::string &key : persisted_keys_) {
+    if (live.find(key) == live.end()) core.put_storage(bookmark_context, key, "", false, false);
   }
   return true;
 }
@@ -189,7 +202,12 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 			"Notice that specifying multiple files will create an aggregate set it will not check each file individually.\n"
 			"In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.")
 		("files", po::value<std::string>(&files_string), "A comma separated list of files to scan (same as file except a list)")
-		("bookmark", po::value<std::string>(&bookmark)->implicit_value("auto"),
+		// Present-but-empty (`bookmark=`, which is how several transports render a
+		// valueless argument) has to mean the same as the bare flag, or a check
+		// written that way would silently stop being incremental. A notifier is
+		// what makes the two tellable apart from "not given at all": with no
+		// default_value it only runs when the option is actually supplied.
+		("bookmark", po::value<std::string>()->implicit_value("auto")->notifier([&bookmark](const std::string &value) { bookmark = value.empty() ? "auto" : value; }),
 			"Only scan lines added since the last check with the same bookmark name.\n"
 			"NSClient++ remembers, per file and per bookmark, how far it read last time and resumes from there, "
 			"so a line is reported once instead of on every check. The first check of a file reads it in full; "
@@ -197,9 +215,10 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 			"first bytes) and read from the beginning again. A trailing line which is not yet terminated by "
 			"line-split is held back until it is complete, so half-written lines are never reported twice.\n"
 			"If you set this to auto (or leave the value empty) the bookmark name is derived from the file name "
-			"together with your filter, warning and critical expressions, which keeps unrelated checks of the "
-			"same file from consuming each other's lines. Use an explicit name to share (or separate) positions "
-			"deliberately. Positions are persisted across restarts.")
+			"together with a hash of your filter, warning and critical expressions, which keeps unrelated checks "
+			"of the same file from consuming each other's lines. Use an explicit name to share (or separate) "
+			"positions deliberately. Positions are persisted when NSClient++ shuts down and restored on start; "
+			"the newest ones are kept if more than a thousand accumulate.")
 		("max-lines", po::value<std::size_t>(&max_lines)->default_value(0),
 			"Only examine the newest <N> lines of each file (0, the default, means every line).\n"
 			"The limit is applied per file, after any bookmark: with a bookmark the check still only sees lines "
@@ -255,12 +274,22 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
 
   // An "auto" bookmark is derived from the file plus the expressions which
   // decide what is interesting, so two different checks over the same file do
-  // not steal each other's lines (the same rule CheckEventLog uses).
+  // not steal each other's lines (the same rule CheckEventLog uses). The
+  // expressions go in as a hash rather than verbatim: the name ends up in the
+  // persisted key, where a filter of arbitrary length (and content) has no
+  // business being.
   std::string auto_suffix;
   if (bookmark == "auto") {
-    auto_suffix = "],filter[" + str::utils::joinEx(filter_helper.data.filter_string, ",") + "],warn[" +
-                  str::utils::joinEx(filter_helper.data.warn_string, ",") + "],crit[" + str::utils::joinEx(filter_helper.data.crit_string, ",") + "]";
+    const std::string expressions = "filter[" + str::utils::joinEx(filter_helper.data.filter_string, ",") + "],warn[" +
+                                    str::utils::joinEx(filter_helper.data.warn_string, ",") + "],crit[" +
+                                    str::utils::joinEx(filter_helper.data.crit_string, ",") + "]";
+    auto_suffix = "],expr[" + check_logfile::bookmark::to_hex(check_logfile::bookmark::fnv1a(expressions.data(), expressions.size())) + "]";
   }
+
+  // Positions are moved only once every file has been read: a check which ends
+  // in an error reports nothing, and lines it consumed on the way would be
+  // lost with no way to get them back.
+  std::vector<std::pair<std::string, std::string> > pending;
 
   for (const std::string &filename : file_list) {
     std::ifstream file(filename.c_str(), std::ios::in | std::ios::binary);
@@ -324,7 +353,10 @@ void CheckLogFile::check_logfile(const PB::Commands::QueryRequestMessage::Reques
     }
 
     const check_logfile::bookmark::position next(decision.offset + consumed, head.size(), check_logfile::bookmark::fnv1a(head.data(), head.size()));
-    bookmarks_.add(key, check_logfile::bookmark::format(next));
+    pending.push_back(std::make_pair(key, check_logfile::bookmark::format(next)));
+  }
+  for (const std::pair<std::string, std::string> &p : pending) {
+    bookmarks_.add(p.first, p.second);
   }
   filter_helper.post_process(filter);
 }
