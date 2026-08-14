@@ -1049,7 +1049,17 @@ describe("CheckNet commands", () => {
       expect(q.result).toBe(OK);
     });
 
-    it("check_ping reaches a public host", async () => {
+    // GitHub-hosted runners drop outbound ICMP, so this cannot pass in CI on any
+    // platform: it comes back CRITICAL with 100% loss on the Ubuntu containers
+    // and the Windows runners alike, while the identical query is OK from an
+    // ordinary Azure VM (both distros) and from a Windows desktop. That is the
+    // runner's network, not the check, so the test is opt-in rather than deleted
+    // - it is the only thing that proves check_ping actually puts a packet on
+    // the wire. Run it where ICMP is allowed:
+    //
+    //   NSCP_EXTERNAL_ICMP=1 npx jest checknet
+    const itIcmp = process.env.NSCP_EXTERNAL_ICMP === "1" ? it : it.skip;
+    itIcmp("check_ping reaches a public host", async () => {
       const q = await executeQuery(key, "check_ping", {
         host: "google.com",
         count: "2",
@@ -1058,6 +1068,7 @@ describe("CheckNet commands", () => {
         warning: "loss > 50%",
         critical: "loss > 99%",
       });
+      expect(messageOf(q)).not.toMatch(/loss = 100%/);
       expect(q.result).toBe(OK);
     });
   });
