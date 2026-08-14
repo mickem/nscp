@@ -35,7 +35,7 @@ class settings_client {
 
   int generate(std::string target);
 
-  void switch_context(std::string contect);
+  void switch_context(std::string context);
   std::string expand_context(const std::string& key) const;
 
   int set(std::string path, std::string key, std::string val);

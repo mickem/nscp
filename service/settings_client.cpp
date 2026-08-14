@@ -116,7 +116,7 @@ int nsclient_core::settings_client::generate(std::string target) {
   }
 }
 
-void nsclient_core::settings_client::switch_context(std::string contect) { get_core()->set_primary(expand_context(contect)); }
+void nsclient_core::settings_client::switch_context(std::string context) { get_core()->set_primary(expand_context(context)); }
 
 int nsclient_core::settings_client::set(std::string path, std::string key, std::string val) {
   get_core()->get()->set_string(path, key, val);

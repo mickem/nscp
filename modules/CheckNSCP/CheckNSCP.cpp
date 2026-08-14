@@ -38,9 +38,10 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
 
   // Default the CA bundle to the trusted system store (${ca-path} expands to
-  // certificate-path/windows-ca.pem on Windows, /etc/ssl/certs/ca-certificates.crt
-  // on Linux). The same setting is used by CheckNet's check_http and lets the
-  // update check validate api.github.com out of the box.
+  // certificate-path/windows-ca.pem on Windows, and on unix to the
+  // distribution's own bundle, detected at configure time - see CONFIG_CA_PATH).
+  // The same setting is used by CheckNet's check_http and lets the update check
+  // validate api.github.com out of the box.
   const std::string default_ca = get_core()->expand_path("${ca-path}");
 
   // clang-format off

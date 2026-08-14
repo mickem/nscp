@@ -6,6 +6,8 @@
 #include <config.h>
 #include <gtest/gtest.h>
 
+#include <boost/filesystem.hpp>
+
 #include <memory>
 #include <nsclient/logger/logger.hpp>
 
@@ -79,6 +81,16 @@ TEST_F(PathManagerTest, CaPathExpandsToBundleFile) {
   EXPECT_NE(expanded.find("windows-ca.pem"), std::string::npos);
 #else
   EXPECT_EQ(expanded.rfind("/etc/", 0), 0u);
+
+  // ...and it must name a bundle that is actually there. This used to be one
+  // hardcoded path for every non-Windows platform - the Debian one - so on
+  // RHEL-family it named a file that does not exist, and every TLS check that
+  // did not carry its own ca= failed with "Failed to load CA <path>: No such
+  // file or directory". CONFIG_CA_PATH now detects the platform bundle at
+  // configure time, and this asserts the detection actually found it: the build
+  // host is the distribution the package targets, so a regression to a
+  // hardcoded value shows up here rather than in the field.
+  EXPECT_TRUE(boost::filesystem::exists(expanded)) << "ca-path does not exist: " << expanded;
 #endif
 }
 

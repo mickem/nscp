@@ -22,7 +22,7 @@ endif()
 
 # ##############################################################################
 #
-# Setup cmake enviornment and include custom config overrides
+# Setup cmake environment and include custom config overrides
 #
 # ##############################################################################
 if(NSCP_CMAKE_CONFIG)
@@ -328,7 +328,7 @@ if(NOT HAVE_REQUIRED_DEPENDENCIES)
 else(NOT HAVE_REQUIRED_DEPENDENCIES)
     message(
         STATUS
-        " - All required dependecies found! (some modules and features migh stil be missing though)"
+        " - All required dependencies found! (some modules and features might still be missing though)"
     )
 endif(NOT HAVE_REQUIRED_DEPENDENCIES)
 
@@ -729,7 +729,7 @@ else(WIN32)
     set(MAIN_CONFIGURATION
         /etc/nscp/nscp.xml
         CACHE PATH
-        "Path for the client configurtion file"
+        "Path for the client configuration file"
     )
     set(DEPLOYROOT /usr/bin CACHE PATH "Path to deploy examples into)")
 endif(WIN32)
@@ -863,6 +863,13 @@ if(WIN32)
         CACHE STRING
         "security (certificates) folder"
     )
+    # The service exports the Windows ROOT store here at boot (windows_ca_store),
+    # so unlike unix this is a path we own rather than one the platform ships.
+    set(CONFIG_CA_PATH
+        "\${certificate-path}/windows-ca.pem"
+        CACHE STRING
+        "Trusted CA bundle used when a check does not name its own"
+    )
     set(CONFIG_DEFAULT_CACHE_PATH
         "\${shared-path}/cache"
         CACHE STRING
@@ -920,8 +927,53 @@ else()
     set(CONFIG_CERT_FOLDER
         "\${shared-path}/security"
         CACHE STRING
-        "securoty (certificates) folder"
+        "security (certificates) folder"
     )
+
+    # The trusted CA bundle belongs to the distribution, so this is an absolute
+    # path that must NOT track CMAKE_INSTALL_PREFIX: a --prefix=/usr/local build
+    # still reads the system bundle, not /usr/local/etc/ssl/...
+    #
+    # Where that bundle lives differs per family, and picking wrong is silent -
+    # every TLS check that does not name its own CA then fails with "Failed to
+    # load CA <path>: No such file or directory", including checks against a
+    # local self-signed server with verification disabled, since the file is
+    # loaded before the verify mode is considered. Detecting it here works
+    # because a package is built in a container of the distribution it targets;
+    # a packager who knows better can override with -DCONFIG_CA_PATH=...
+    if(NOT CONFIG_CA_PATH)
+        foreach(
+            _ca_candidate
+            "/etc/ssl/certs/ca-certificates.crt" # Debian, Ubuntu, Gentoo
+            "/etc/pki/tls/certs/ca-bundle.crt" # RHEL, Rocky, Alma, Fedora
+            "/etc/ssl/ca-bundle.pem" # SUSE
+            "/etc/ssl/cert.pem" # Alpine, FreeBSD, macOS
+        )
+            if(EXISTS "${_ca_candidate}")
+                set(_ca_detected "${_ca_candidate}")
+                break()
+            endif()
+        endforeach()
+        if(NOT _ca_detected)
+            # Nothing found: keep the historical value so the define is never
+            # empty, and say so - a build host without a CA bundle is unusual
+            # enough to be worth a line in the configure output.
+            set(_ca_detected "/etc/ssl/certs/ca-certificates.crt")
+            message(
+                WARNING
+                "No system CA bundle found; defaulting ca-path to ${_ca_detected}. "
+                "TLS checks that do not name their own CA will fail unless that file exists at runtime "
+                "(override with -DCONFIG_CA_PATH=/path/to/bundle)."
+            )
+        endif()
+        set(CONFIG_CA_PATH
+            "${_ca_detected}"
+            CACHE STRING
+            "Trusted CA bundle used when a check does not name its own"
+        )
+    endif()
+    message(STATUS "System CA bundle (ca-path): ${CONFIG_CA_PATH}")
+
     set(CONFIG_DEFAULT_CACHE_PATH
         "\${shared-path}/cache"
         CACHE STRING
@@ -1188,7 +1240,7 @@ set(NSCP_CLIENT_HPP
 
 # ##############################################################################
 #
-# Build everything (not already built lik libraries)!
+# Build everything (not already built like libraries)!
 #
 # ##############################################################################
 

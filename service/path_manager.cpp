@@ -85,25 +85,20 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
   // Static defaults baked in by CMake via config.h. Most are templated on
   // ${shared-path} or ${certificate-path}; expand_path resolves the chain.
   // Note on ca-path: on Windows the service exports the system ROOT store to
-  // this file at boot (see windows_ca_store); on Linux this is the de-facto
-  // Debian/Ubuntu location, overridable via boot.ini's [paths] section
-  // (or the --path-override CLI flag) for other distros.
+  // this file at boot (see windows_ca_store); on unix it is the distribution's
+  // own bundle, whose location differs per family and is therefore detected at
+  // configure time (CONFIG_CA_PATH). Either way it stays overridable via
+  // boot.ini's [paths] section or --path-override ca-path=...
   static const std::map<std::string, std::string> defaults = {
       {"certificate-path", CERT_FOLDER},
       {"module-path", MODULE_FOLDER},
       {"web-path", WEB_FOLDER},
       {"scripts", SCRIPTS_FOLDER},
       {"log-path", LOG_FOLDER},
+      {"ca-path", CA_PATH},
       {CACHE_FOLDER_KEY, DEFAULT_CACHE_PATH},
       {CRASH_ARCHIVE_FOLDER_KEY, "${shared-path}/crash-dumps"},
-#ifdef WIN32
-      {"ca-path", "${certificate-path}/windows-ca.pem"},
-#else
-      // ca-path stays a literal absolute path: the system CA bundle belongs to
-      // the distro, lives at /etc/ssl/... regardless of our install prefix, and
-      // must NOT track ${etc}/NSCP_SYSCONFDIR (a --prefix=/usr/local build still
-      // reads /etc/ssl/certs/..., not /usr/local/etc/ssl/...).
-      {"ca-path", "/etc/ssl/certs/ca-certificates.crt"},
+#ifndef WIN32
       {"shared-path", UNIX_SHARED_PATH_FOLDER},
       {"data-path", UNIX_DATA_PATH_FOLDER},
       // ${etc} tracks this build's config root (NSCP_SYSCONFDIR) so user

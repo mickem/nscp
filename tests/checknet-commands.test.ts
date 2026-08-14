@@ -1,7 +1,8 @@
 /**
  * Exercises the CheckNet module's recently-added network checks end-to-end
  * against throwaway local servers (net / tls / http / https / dgram), so the
- * suite is fully self-contained and needs no external network:
+ * suite is self-contained apart from the "against the public internet" block at
+ * the end, which is the only place the platform's own CA bundle is exercised:
  *
  *   - check_tcp   — plain + TLS connect, greeting expect, connection refused
  *   - check_ssh   — SSH banner validation
@@ -1016,6 +1017,42 @@ describe("CheckNet commands", () => {
     });
     expect(messageOf(q)).not.toMatch(/Refusing to send/);
     expect(messageOf(q)).toMatch(/No host specified/);
+  });
+
+  // --- real network, real trust store ---------------------------------------
+  // Everything else in this file talks to a listener on loopback, and every TLS
+  // case passes `verify: none` or an explicit `ca=`. That is deliberate - the
+  // suite stays hermetic - but it means one thing is never exercised: the
+  // *default* CA bundle, `${ca-path}`, which CheckNet::loadModuleEx resolves
+  // once at load and hands to check_http whenever the caller does not override
+  // it. ${ca-path} is a single hardcoded path (service/path_manager.cpp) and it
+  // is the Debian/Ubuntu one on every non-Windows platform, so on RHEL-family -
+  // where the bundle is /etc/pki/tls/certs/ca-bundle.crt - it names a file that
+  // does not exist.
+  //
+  // That is not only a public-internet problem: make_context loads the CA
+  // whenever `ca` is non-empty, before verify mode is considered, so
+  // `verify=none` against a local self-signed server fails too. On Rocky 10 it
+  // takes down four of this file's existing tests (ssl_expiry_days, the
+  // redirect-to-plain-http case and both check_nsclient_web_online cases) with
+  // "Failed to load CA /etc/ssl/certs/ca-certificates.crt". They pass on Debian,
+  // which is the only place this suite used to run.
+  //
+  // This is the only test here that needs egress, and it asserts reachability
+  // rather than latency, so a slow or busy runner cannot turn a working check
+  // into a red build.
+  describe("against the public internet", () => {
+    it("check_http validates a public HTTPS site using the platform CA bundle", async () => {
+      const q = await executeQuery(key, "check_http", {
+        url: "https://www.google.com",
+        // No ca= and no verify=none on purpose: the point is the default.
+        critical: "code != 200",
+      });
+      // Assert the CA failure separately from the result, so a broken trust
+      // store reads as itself instead of as a generic CRITICAL.
+      expect(messageOf(q)).not.toMatch(/Failed to load CA/);
+      expect(q.result).toBe(OK);
+    });
   });
 
   it("check_ssh honours address-family", async () => {

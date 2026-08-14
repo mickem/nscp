@@ -180,14 +180,19 @@ jobs:
       # dependent scenario (icinga, nrpe, nsca, …) skip itself so this stage
       # runs without a docker daemon. Each rest-* test spins its own nscp
       # via NscpInstance, so no manual start/kill/log-tail is needed here.
+      #
+      # This used to be deb-only, from when the harness still needed a docker
+      # daemon. NSCP_SKIP_DOCKER removed that, but the condition stayed - which
+      # left the rpm packages with only acceptance-tests.sh for coverage, so
+      # anything that behaves differently on RHEL went untested. The RPM base
+      # dependencies already install Node 20 from nodesource, so both package
+      # types run the same suite.
       - name: Install integration harness deps
-        if: inputs.package-type == 'deb'
         working-directory: tests
         shell: bash
         run: npm install
 
       - name: Run REST scenarios (no-docker)
-        if: inputs.package-type == 'deb'
         working-directory: tests
         shell: bash
         env:
