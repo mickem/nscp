@@ -1026,12 +1026,18 @@ describe("CheckNet commands", () => {
   // suite stays hermetic - but it means one thing is never exercised: the
   // *default* CA bundle, `${ca-path}`, which CheckNet::loadModuleEx resolves
   // once at load and hands to check_http whenever the caller does not override
-  // it. ${ca-path} is a single hardcoded path (service/path_manager.cpp), and it
+  // it. ${ca-path} is a single hardcoded path (service/path_manager.cpp) and it
   // is the Debian/Ubuntu one on every non-Windows platform, so on RHEL-family -
-  // where the bundle is /etc/pki/tls/certs/ca-bundle.crt - every HTTPS check
-  // fails with "Failed to load CA /etc/ssl/certs/ca-certificates.crt". The
-  // integration suite runs in rockylinux containers (build-redhat.yml), so
-  // these two tests catch it there while passing on Debian.
+  // where the bundle is /etc/pki/tls/certs/ca-bundle.crt - it names a file that
+  // does not exist.
+  //
+  // That is not only a public-internet problem: make_context loads the CA
+  // whenever `ca` is non-empty, before verify mode is considered, so
+  // `verify=none` against a local self-signed server fails too. On Rocky 10 it
+  // takes down four of this file's existing tests (ssl_expiry_days, the
+  // redirect-to-plain-http case and both check_nsclient_web_online cases) with
+  // "Failed to load CA /etc/ssl/certs/ca-certificates.crt". They pass on Debian,
+  // which is the only place this suite used to run.
   //
   // These are the only tests here that need egress. Both assert reachability,
   // not latency: thresholds are pinned wide so a slow or busy runner cannot turn
