@@ -129,9 +129,40 @@ if(MKDOCS_FOUND)
                 "docs"
     )
 
+    # Step 3: render the HTML site with mkdocs.
+    #
+    # Only the Windows installer ships it (the install() below, and the
+    # installer target which lists build_docs_html among its dependencies but
+    # is built with /p:BuildProjectReferences=false in CI - so on Windows this
+    # has to be part of `ALL`). Everywhere else the site was built on every
+    # single build and then thrown away, and because it sat in `ALL` a mkdocs
+    # hiccup failed the entire build rather than just the docs.
+    #
+    # The target itself still exists on every platform: run
+    # `cmake --build . --target build_docs_html` when you want the site.
+    if(WIN32)
+        set(NSCP_BUILD_DOCS_HTML_DEFAULT ON)
+    else()
+        set(NSCP_BUILD_DOCS_HTML_DEFAULT OFF)
+    endif()
+    option(
+        NSCP_BUILD_DOCS_HTML
+        "Build the mkdocs HTML site as part of the default build target"
+        ${NSCP_BUILD_DOCS_HTML_DEFAULT}
+    )
+    set(DOCS_HTML_ALL)
+    if(NSCP_BUILD_DOCS_HTML)
+        set(DOCS_HTML_ALL ALL)
+        message(STATUS "HTML documentation will be built as part of ALL")
+    else()
+        message(
+            STATUS
+            "HTML documentation is available via the build_docs_html target (not part of ALL)"
+        )
+    endif()
     add_custom_target(
         build_docs_html
-        ALL
+        ${DOCS_HTML_ALL}
         ${MKDOCS_EXECUTABLE} build --site-dir "${CMAKE_CURRENT_BINARY_DIR}/html"
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         COMMENT "Building HTML documentation"
@@ -144,7 +175,10 @@ if(MKDOCS_FOUND)
             FOLDER
                 "docs"
     )
-    if(WIN32)
+    # Guarded by the option as well: with the site not built there is no
+    # directory to install, and install(DIRECTORY) on a missing source is a
+    # hard error at package time.
+    if(WIN32 AND NSCP_BUILD_DOCS_HTML)
         install(
             DIRECTORY
                 "${CMAKE_CURRENT_BINARY_DIR}/html/"
