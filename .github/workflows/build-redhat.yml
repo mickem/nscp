@@ -135,7 +135,9 @@ jobs:
     - name: Build nsclient
       working-directory: tmp/nscp
       run: |
-        make
+        # See build-debian.yml: this step is ~97% of the job and the module
+        # graph is wide, so a serial `make` wasted three of the four cores.
+        make -j"$(nproc)"
 
     - name: CPack
       working-directory: tmp/nscp
