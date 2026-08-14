@@ -449,6 +449,8 @@ NSCP_CREATE_TEST(
     SOURCES
         ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/file_reader_test.cpp
         ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/file_reader.hpp
+        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/bookmark_state_test.cpp
+        ${CMAKE_SOURCE_DIR}/modules/CheckLogFile/bookmark_state.hpp
     LIBRARIES
         GTest::gtest_main
     INCLUDES
