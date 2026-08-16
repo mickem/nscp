@@ -56,6 +56,7 @@ A list of all available queries (check commands)
 | [check_swap_io](#check_swap_io)                         | Check system paging (swap) I/O rates: pages/bytes paged in and out per second.                                                                                                      |
 | [check_temperature](#check_temperature)                 | Check ACPI thermal zone temperatures.                                                                                                                                               |
 | [check_uptime](#check_uptime)                           | Check time since last server re-boot.                                                                                                                                               |
+| [check_w32time](#check_w32time)                         | Check the Windows Time service: whether the machine is following a time source at all, which one, the computed clock offset and the configured peers.                               |
 
 **List of command aliases:**
 
@@ -10716,6 +10717,377 @@ Largest time unit used to render ${uptime}: s|m|h|d|w (default: w). For a 6-week
 |--------|----------------------|
 | boot   | System boot time     |
 | uptime | Time since last boot |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
+### check_w32time
+
+*Available on Windows only.*
+
+Check the Windows Time service: whether the machine is following a time source at all, which one, the computed clock offset and the configured peers.
+
+#### About `check_w32time`
+
+`check_w32time` reports what the Windows Time service (W32Time) itself thinks:
+whether the machine is following a time source at all, which source that is, how
+far the clock was last computed to be off and which peers are configured. This
+is the inside-out counterpart to CheckNet's `check_ntp_offset`, which probes an
+NTP server from the outside: a domain member whose time hierarchy has broken
+keeps answering with a plausible clock for hours while Kerberos ticket
+validation is already on its way to failing, and only the service's own view
+shows it.
+
+The data is assembled from four places:
+
+| Source | What it gives |
+|---|---|
+| Service control manager | Whether W32Time exists, is running, and how it starts. |
+| `HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters` | `Type` (the synchronization mode) and `NtpServer` (the configured peers). |
+| `HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Config\LastKnownGoodTime` | When the service last recorded the clock as good. |
+| `W32TimeQuerySource` (w32time.dll) | The source the running service is actually following. Like `w32tm /query /source`, this needs privilege: the agent has it running as a service, an unprivileged caller gets access denied and the check falls back to the configured peers. |
+| "Windows Time Service" PDH counters | Computed time offset, NTP round trip delay, clock frequency adjustment and the number of time sources in use. |
+
+Keywords:
+
+| Keyword | Type | Meaning |
+|---|---|---|
+| `service_state` | string | `running`, `stopped`, `starting`, … or `not installed`. |
+| `start_type` | string | `auto`, `delayed`, `demand`, `disabled`, … |
+| `sync_type` | string | Configured mode: `NT5DS` (domain hierarchy), `NTP`, `AllSync`, `NoSync`. |
+| `source` | string | The time source in use, or the configured peers — see `source_from`. |
+| `source_from` | string | `service` (asked the running service), `configuration` or `unknown`. |
+| `peers` | string | Configured NTP peers, comma separated. Empty on a domain member, which discovers its source instead of being given one. |
+| `last_sync` | string | Time of the last synchronization W32Time recorded as good, or `unknown`. |
+| `state` | string | One-line verdict; what the default output shows. |
+| `installed` | bool | W32Time exists on this host. |
+| `running` | bool | The service is running. |
+| `synchronized` | bool | The machine is following a time source — see the evidence order below. |
+| `local_clock` | bool | The source is the machine's own clock (`Local CMOS Clock`, `Free-running System Clock`). |
+| `peer_count` | int | Number of configured peers. |
+| `offset` | int | Absolute clock offset against the source, milliseconds (perfdata). |
+| `delay` | int | NTP round trip delay to the source, milliseconds (perfdata). |
+| `frequency_adjustment` | int | Correction applied to the clock frequency, parts per billion; negative slows the clock down (perfdata). |
+| `time_sources` | int | Number of NTP time sources in use. |
+| `last_sync_age` | int | Seconds since the last known good synchronization (perfdata). |
+
+The last five come from counters the service only maintains while it runs. When
+there is no measurement they render as `unknown`, compare false against every
+number (so a threshold like `offset > 1000` cannot fire on a missing value) and
+emit no perfdata. Test for the absence explicitly with `offset = 'unknown'`.
+
+`synchronized` ranks its evidence rather than guessing. The service not running
+or `Type=NoSync` settles it on its own. Otherwise, when the service could be
+asked what it follows, that answer decides — the local clock means
+unsynchronized, anything else means synchronized. When it could not be asked,
+`time_sources = 0` (no time source in use) decides instead. With neither piece
+of evidence the check reports the configured intent and does not raise an alarm,
+so a host where the counters are unavailable does not alert forever.
+
+Default thresholds: **critical** when `synchronized = 0 or offset > 30000` and
+**warning** when `offset > 1000`. The critical is the important one — it fires
+when the machine follows no time source at all, whether because the service is
+not running, because `Type` is `NoSync`, or because it has fallen back to its
+own clock. Kerberos rejects tickets once the clock is five minutes out, so the
+30-second critical leaves room to act.
+
+On a **workgroup** machine Windows trigger-starts W32Time and stops it again
+between synchronizations, so `running` is 0 most of the time and the default
+critical fires by design. Check the configuration and the age of the last good
+synchronization there instead, e.g.
+`check_w32time "critical=sync_type = 'NoSync'" "warning=last_sync_age > 604800"`.
+On a server or domain member the service is expected to run continuously and the
+defaults apply as they are. **Windows only.**
+
+**Jump to section:**
+
+* [Sample Commands](#check_w32time_samples)
+* [Command-line Arguments](#check_w32time_options)
+* [Filter keywords](#check_w32time_filter_keys)
+
+
+<a id="check_w32time_samples"></a>
+#### Sample Commands
+
+**Check that the machine is following a time source (Windows)**
+
+The default is critical when the machine is not synchronizing at all and warning
+once the computed offset passes one second.
+
+```
+check_w32time
+L        cli OK: synchronizing with dc01.corp.example.com (offset 3ms)|'w32time_offset'=3ms;1000;30000
+```
+
+```
+check_w32time
+L        cli CRITICAL: the Windows Time service is stopped (start type demand)
+```
+
+```
+check_w32time
+L        cli CRITICAL: not synchronizing: falling back to Local CMOS Clock
+```
+
+```
+check_w32time
+L        cli CRITICAL: not synchronizing: no time source in use (configured: time.windows.com)|'w32time_offset'=0ms;1000;30000
+```
+
+**Show the service state, configuration and source**
+
+```
+check_w32time warning=none critical=none "top-syntax=${status}: ${list}" "detail-syntax=svc=${service_state}/${start_type} type=${sync_type} src=${source} (${source_from}) peers=${peers}"
+L        cli OK: svc=stopped/demand type=NTP src=time.windows.com (configuration) peers=time.windows.com
+```
+
+`source_from` says where the source came from: `service` when the running
+service was asked what it is actually following, `configuration` when it could
+not be asked and the configured peers are shown instead. The verdict is worded
+to match — "synchronizing with X" only when the service confirmed it, and
+"configured to synchronize with X" when that is all we know.
+
+```
+check_w32time warning=none critical=none "top-syntax=${list}" "detail-syntax=src=[${source}] from=${source_from} local=${local_clock} sync=${synchronized} srcs=${time_sources} off=${offset} delay=${delay}"
+L        cli src=[time.windows.com] from=configuration local=0 sync=0 srcs=0 off=0 delay=31
+```
+
+**Watch a domain member's time hierarchy**
+
+`local_clock` is the signal that a domain member has lost its hierarchy and is
+free-running: it keeps answering, but its clock is no longer anchored to
+anything, which breaks Kerberos once it drifts past five minutes.
+
+```
+check_w32time "critical=local_clock = 1 or sync_type = 'NoSync' or running = 0"
+L        cli OK: synchronizing with dc01.corp.example.com (offset 12ms)
+```
+
+**Alert on drift only**
+
+```
+check_w32time "warning=offset > 500" "critical=offset > 5000"
+L        cli WARNING: synchronizing with time.windows.com (offset 812ms)|'w32time_offset'=812ms;500;5000
+```
+
+**Report how long ago the clock was last validated**
+
+```
+check_w32time "warning=last_sync_age > 86400" "critical=none" "top-syntax=${status}: ${list}" "detail-syntax=last sync ${last_sync} (${last_sync_age}s ago)"
+L        cli OK: last sync 2026-08-15 21:28:41 (49654s ago)|'w32time_last_sync'=49654s;86400;0
+```
+
+**Values the service has not measured read as `unknown`**
+
+The "Windows Time Service" counters only carry data while the service is
+running; until then `offset`, `delay`, `frequency_adjustment` and `time_sources`
+render as `unknown`, compare false against every number and emit no perfdata.
+
+```
+check_w32time "warning=none" "critical=none" "top-syntax=${list}" "detail-syntax=off=${offset} delay=${delay} freq=${frequency_adjustment} srcs=${time_sources}"
+L        cli off=unknown delay=unknown freq=unknown srcs=unknown
+```
+
+```
+check_w32time "critical=offset = 'unknown'"
+L        cli CRITICAL: the Windows Time service is stopped (start type demand)
+```
+
+**A workgroup client, where W32Time is trigger-started**
+
+Windows starts the time service on demand on a machine that is not domain
+joined, so it is stopped most of the time. Check the configuration and the age
+of the last good synchronization there instead of the service state.
+
+```
+check_w32time "critical=sync_type = 'NoSync'" "warning=last_sync_age > 604800"
+L        cli OK: the Windows Time service is stopped (start type demand)|'w32time_last_sync'=50036s;604800;0
+```
+
+
+
+<a id="check_w32time_options"></a>
+#### Command-line Arguments
+
+<a id="check_w32time_warn"></a>
+<a id="check_w32time_crit"></a>
+<a id="check_w32time_help"></a>
+<a id="check_w32time_help-pb"></a>
+<a id="check_w32time_show-default"></a>
+<a id="check_w32time_help-short"></a>
+
+| Option                                          | Default Value                      | Description                                                                                                               |
+|-------------------------------------------------|------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_w32time_filter)                 |                                    | Filter which marks interesting items.                                                                                     |
+| [warning](#check_w32time_warning)               | offset > 1000                      | Filter which marks items which generates a warning state.                                                                 |
+| warn                                            |                                    | Short alias for warning                                                                                                   |
+| [critical](#check_w32time_critical)             | synchronized = 0 or offset > 30000 | Filter which marks items which generates a critical state.                                                                |
+| crit                                            |                                    | Short alias for critical.                                                                                                 |
+| [ok](#check_w32time_ok)                         |                                    | Filter which marks items which generates an ok state.                                                                     |
+| [debug](#check_w32time_debug)                   | 1)] (=0                            | Show debugging information in the log                                                                                     |
+| [show-all](#check_w32time_show-all)             | 1)] (=0                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [empty-state](#check_w32time_empty-state)       | ignored                            | Return status to use when nothing matched filter.                                                                         |
+| [perf-config](#check_w32time_perf-config)       |                                    | Performance data generation configuration                                                                                 |
+| [escape-html](#check_w32time_escape-html)       | 1)] (=0                            | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [list-separator](#check_w32time_list-separator) | ,                                  | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+| help                                            | N/A                                | Show help screen (this screen)                                                                                            |
+| help-pb                                         | N/A                                | Show help screen as a protocol buffer payload                                                                             |
+| show-default                                    | N/A                                | Show default values for a given command                                                                                   |
+| help-short                                      | N/A                                | Show help screen (short format).                                                                                          |
+| [top-syntax](#check_w32time_top-syntax)         | ${status}: ${list}                 | Top level syntax.                                                                                                         |
+| [ok-syntax](#check_w32time_ok-syntax)           |                                    | ok syntax.                                                                                                                |
+| [empty-syntax](#check_w32time_empty-syntax)     |                                    | Empty syntax.                                                                                                             |
+| [detail-syntax](#check_w32time_detail-syntax)   | ${state}                           | Detail level syntax.                                                                                                      |
+| [perf-syntax](#check_w32time_perf-syntax)       | w32time                            | Performance alias syntax.                                                                                                 |
+
+
+
+<h5 id="check_w32time_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_w32time_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `offset > 1000`
+
+<h5 id="check_w32time_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `synchronized = 0 or offset > 30000`
+
+<h5 id="check_w32time_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_w32time_debug">debug:</h5>
+
+Show debugging information in the log
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_w32time_show-all">show-all:</h5>
+
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_w32time_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ignored`
+
+<h5 id="check_w32time_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_w32time_escape-html">escape-html:</h5>
+
+Escape any < and > characters to prevent HTML encoding
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_w32time_list-separator">list-separator:</h5>
+
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+*Default Value:* `, `
+
+<h5 id="check_w32time_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_w32time_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+
+<h5 id="check_w32time_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+<h5 id="check_w32time_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${state}`
+
+<h5 id="check_w32time_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `w32time`
+
+
+<a id="check_w32time_filter_keys"></a>
+#### Filter keywords
+
+| Option               | Description                                                                                                                                                                                                           |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| delay                | NTP round trip delay to the time source in milliseconds                                                                                                                                                               |
+| frequency_adjustment | Correction the service applies to the clock frequency, in parts per billion (negative slows the clock down)                                                                                                           |
+| installed            | True when the W32Time service exists on this host                                                                                                                                                                     |
+| last_sync            | Time of the last known good synchronization, or 'unknown'                                                                                                                                                             |
+| last_sync_age        | Seconds since the last synchronization W32Time recorded as good                                                                                                                                                       |
+| local_clock          | True when the source is the machine's own clock (Local CMOS Clock / free-running)                                                                                                                                     |
+| offset               | Absolute clock offset against the time source in milliseconds, as last computed by the service; 'unknown' until it has measured one (`offset = 'unknown'` tests for it)                                               |
+| peer_count           | Number of configured NTP peers                                                                                                                                                                                        |
+| peers                | Configured NTP peers, comma separated (empty on a domain member, which discovers its source)                                                                                                                          |
+| running              | True when the W32Time service is running                                                                                                                                                                              |
+| service_state        | State of the W32Time service: running, stopped, starting, ... or 'not installed'                                                                                                                                      |
+| source               | The time source in use; the configured peers when the service could not be asked (see source_from)                                                                                                                    |
+| source_from          | Where source came from: 'service' (live), 'configuration' or 'unknown'                                                                                                                                                |
+| start_type           | Start type of the W32Time service: auto, delayed, demand, disabled, ...                                                                                                                                               |
+| state                | One line verdict: not installed, not running, NoSync, falling back to the local clock or synchronizing with a source                                                                                                  |
+| sync_type            | Configured synchronization type: NT5DS (domain hierarchy), NTP, AllSync or NoSync                                                                                                                                     |
+| synchronized         | True when the machine is following a time source: the service runs, synchronization is not turned off, the source is not the local clock and - when the source could not be read - at least one time source is in use |
+| time_sources         | Number of NTP time sources the client is currently using                                                                                                                                                              |
 
 **Common options for all checks:**
 
