@@ -142,6 +142,7 @@ onLinux("CheckSecurity", () => {
     ["check_defender"],
     ["check_local_accounts"],
     ["check_group_members"],
+    ["check_activation"],
   ])("%s reports not-supported on this platform", async (cmd) => {
     const out = await query(cmd, []);
     expect(out).toMatch(/not supported on this platform/i);
@@ -304,4 +305,46 @@ onWindows("CheckSecurity (Windows posture)", () => {
     const out = await query("check_group_members", ["group=NSCP_NoSuchGroup_zzz"]);
     expect(out).toMatch(/not found/i);
   });
+
+  // --- check_activation ------------------------------------------------------
+
+  it("check_activation reports the Windows licensing state", async () => {
+    // Every Windows install has a Windows row in SoftwareLicensingProduct; with
+    // the thresholds pinned off the result is OK regardless of activation state.
+    const out = await query("check_activation", ["warning=none", "critical=none"]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/Windows/i);
+    // The default detail syntax renders "<name>: <status> (<genuine>, grace <n>d)".
+    expect(out).toMatch(/(licensed|unlicensed|grace|notification)/);
+  });
+
+  it("check_activation exposes the licensing keywords", async () => {
+    const out = await query("check_activation", [
+      "warning=none",
+      "critical=none",
+      "detail-syntax=status=${status} licensed=${licensed} windows=${is_windows} key=${key} grace=${grace_days}",
+      "top-syntax=${list}",
+    ]);
+    expect(out).toMatch(/status=\w+ licensed=[01] windows=1 key=\S+ grace=\d+/);
+  });
+
+  it("check_activation accepts its boolean options as valued flags", async () => {
+    // Over REST a flag arrives as the single token "x=true", which bool_switch
+    // would reject; both options must take a value.
+    const out = await query("check_activation", ["skip-genuine=true", "all-products=true", "warning=none", "critical=none"]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression|error parsing/i);
+    expect(out).toMatch(/^OK/m);
+    // Genuine evaluation skipped -> the state is reported as unknown, not faked.
+    expect(out).toMatch(/unknown/);
+  });
+
+  it("check_activation goes CRITICAL when the product is not licensed", async () => {
+    // The default critical is licensed = 0; invert it to prove the threshold is
+    // wired to the real value on this (activated or not) host.
+    const licensed = await query("check_activation", ["warning=none", "critical=none", "detail-syntax=LICENSED=${licensed}"]);
+    const isLicensed = /LICENSED=1/.test(licensed);
+    const out = await query("check_activation", [`critical=licensed = ${isLicensed ? 1 : 0}`, "warning=none"]);
+    expect(out).toMatch(/^CRITICAL/m);
+  });
+
 });

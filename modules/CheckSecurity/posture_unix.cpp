@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 // Unix stubs for the Windows-only posture checks. Each models a Windows-specific
-// facility (network profiles, Security Center, BitLocker, UEFI Secure Boot) with
-// no Linux equivalent, so they report "not supported" rather than pretend.
+// facility (network profiles, Security Center, BitLocker, UEFI Secure Boot,
+// Software Licensing) with no Linux equivalent, so they report "not supported"
+// rather than pretend.
 
+#include "check_activation.hpp"
 #include "check_antivirus.hpp"
 #include "check_bitlocker.hpp"
 #include "check_defender.hpp"
@@ -54,3 +56,9 @@ void gather(const std::string & /*group*/, std::vector<group_members_filter::fil
   error = "check_group_members is not supported on this platform (Windows local groups only)";
 }
 }  // namespace group_members_source
+
+namespace activation_source {
+void gather(bool /*all_products*/, bool /*with_genuine*/, std::vector<activation_filter::filter_obj_ptr> & /*out*/, std::string &error) {
+  error = "check_activation is not supported on this platform (Windows Software Licensing only)";
+}
+}  // namespace activation_source

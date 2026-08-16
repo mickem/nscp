@@ -3,6 +3,7 @@
 
 #include "CheckSecurity.h"
 
+#include "check_activation.hpp"
 #include "check_antivirus.hpp"
 #include "check_bitlocker.hpp"
 #include "check_certificate.hpp"
@@ -58,4 +59,8 @@ void CheckSecurity::check_local_accounts(const PB::Commands::QueryRequestMessage
 
 void CheckSecurity::check_group_members(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_group_members_command::check(request, response);
+}
+
+void CheckSecurity::check_activation(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_activation_command::check(request, response);
 }
