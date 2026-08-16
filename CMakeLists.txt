@@ -892,8 +892,12 @@ if(WIN32)
         CACHE STRING
         "Path for log files"
     )
+    # ${log-path}, not ${exe-path}: the log belongs in the log folder, which on
+    # the modern layout moves out of the install directory with everything else
+    # writable. Pointing it at the executable's own folder meant the folder
+    # moved and the file the agent actually writes stayed behind.
     set(CONFIG_DEFAULT_LOG_LOCATION
-        "\${exe-path}/nsclient.log"
+        "\${log-path}/nsclient.log"
         CACHE STRING
         "PAth for log file"
     )

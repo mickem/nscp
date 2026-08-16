@@ -365,6 +365,16 @@ int cli_parser::parse_service(int argc, char *argv[]) {
     po::store(do_parse(argc, argv, all), vm);
     po::notify(vm);
 
+    // The service is the one invocation that logs to a file: it runs
+    // unattended, so console output goes nowhere. Everything else defaults to
+    // the console and needs no write access anywhere. Decided here rather than
+    // in the registered command line, because an already-installed service
+    // keeps its old ImagePath until it is re-registered and would silently
+    // stop logging on upgrade. An explicit --log-backend still wins.
+    if (vm.count("run") && log_backend.empty()) {
+      log_backend = "threaded-file";
+    }
+
     if (process_common_options("service", all)) return 1;
 
     std::string name;
