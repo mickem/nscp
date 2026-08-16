@@ -17285,7 +17285,8 @@ windows:
         name: last_sync
         short_description: ''
       - generic: false
-        long_description: Seconds since the last synchronization W32Time recorded as good
+        long_description: Seconds since the last synchronization W32Time recorded as good; threshold with
+          durations, e.g. last_sync_age > 24h
         name: last_sync_age
         short_description: ''
       - generic: true
