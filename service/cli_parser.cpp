@@ -60,6 +60,11 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
 
       settings.add_options()
         ("migrate-to", po::value<std::string>(), "Migrate (copy) settings from current store to given target store")
+        ("migrate-layout", po::value<std::string>()->implicit_value("modern"),
+         "Move this installation's writable state (configuration, certificates, logs, cache) to the folder the given layout uses "
+         "and record the choice in boot.ini. 'modern' keeps it under %ProgramData% with access restricted to SYSTEM and "
+         "administrators; 'legacy' keeps it beside the executable. Needs an elevated prompt, and a service restart to take effect.")
+        ("dry-run", "Show what --migrate-layout would do, without changing anything.")
         ("migrate-from", po::value<std::string>(), "Migrate (copy) settings from old given store to current store")
         ("generate", po::value<std::string>()->implicit_value("settings"), "Deprecated use update in stead.")
         ("update", po::value<std::string>()->implicit_value("settings"), "Save config file (adding comments in place and moving sensitive keys to/from credential manager).")
@@ -318,6 +323,8 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
         ret = settings_cli.generate(option);
       } else if (vm.count("migrate-to")) {
         ret = settings_cli.migrate_to(vm["migrate-to"].as<std::string>());
+      } else if (vm.count("migrate-layout")) {
+        ret = settings_cli.migrate_layout(vm["migrate-layout"].as<std::string>(), vm.count("dry-run") == 1);
       } else if (vm.count("migrate-from")) {
         ret = settings_cli.migrate_from(vm["migrate-from"].as<std::string>());
       } else if (vm.count("set")) {
