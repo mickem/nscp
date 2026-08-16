@@ -16,6 +16,11 @@
 #include <utility>
 #include <vector>
 
+#ifndef WIN32
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 namespace fs = boost::filesystem;
 namespace json = boost::json;
 
@@ -701,6 +706,100 @@ TEST_F(OnboardingStateTest, IncompleteFileThrows) {
   out.close();
   EXPECT_THROW(onboarding::load_state(path_), onboarding::onboarding_error);
 }
+
+// --- adopt_owner ------------------------------------------------------------
+// The handoff that makes a sudo enrollment readable by an unprivileged service.
+// The chown itself only happens as root, so the portable cases below pin the
+// contract everyone else relies on: it must never fail the enrollment, and it
+// must never touch anything when there is nothing to hand over.
+
+TEST_F(OnboardingStateTest, AdoptOwnerSucceedsWhenTheReferenceDoesNotExist) {
+  onboarding::save_state(test_state(), path_);
+  std::string error;
+  // A from-source install that never created a state directory: leaving
+  // ownership alone is the right answer, and it is not an enrollment failure.
+  EXPECT_TRUE(onboarding::adopt_owner(path_, (dir_ / "no-such-directory").string(), error));
+  EXPECT_TRUE(error.empty());
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerLeavesTheStateFileReadable) {
+  onboarding::save_state(test_state(), path_);
+  std::string error;
+  EXPECT_TRUE(onboarding::adopt_owner(path_, dir_.string(), error)) << error;
+  // Whatever it did with ownership, the identity must still load - and on POSIX
+  // it must still be 0600, since the file holds the private key.
+  EXPECT_TRUE(static_cast<bool>(onboarding::load_state(path_)));
+#ifndef WIN32
+  EXPECT_EQ(fs::status(path_).permissions() & fs::perms_mask, fs::owner_read | fs::owner_write);
+#endif
+}
+
+#ifndef WIN32
+TEST_F(OnboardingStateTest, AdoptOwnerIsANoOpForAnUnprivilegedProcess) {
+  if (::geteuid() == 0) {
+    GTEST_SKIP() << "running as root: this covers the non-root contract";
+  }
+  onboarding::save_state(test_state(), path_);
+  struct stat file_stat = {};
+  ASSERT_EQ(::stat(path_.c_str(), &file_stat), 0);
+  std::string error;
+  // Cannot chown as a normal user, so this must report success rather than
+  // failing an enrollment that otherwise worked.
+  EXPECT_TRUE(onboarding::adopt_owner(path_, "/", error)) << error;
+  struct stat after = {};
+  ASSERT_EQ(::stat(path_.c_str(), &after), 0);
+  EXPECT_EQ(after.st_uid, file_stat.st_uid);
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerGivesTheFileToTheReferenceOwner) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a file to another account";
+  }
+  // Model the packaged layout: a state directory owned by the service account,
+  // and an identity written by root that the service has to be able to read.
+  const fs::path reference = dir_ / "state-dir";
+  fs::create_directories(reference);
+  const uid_t service_uid = 12345;
+  const gid_t service_gid = 12345;
+  ASSERT_EQ(::chown(reference.string().c_str(), service_uid, service_gid), 0);
+  onboarding::save_state(test_state(), path_);
+
+  std::string error;
+  ASSERT_TRUE(onboarding::adopt_owner(path_, reference.string(), error)) << error;
+
+  struct stat after = {};
+  ASSERT_EQ(::stat(path_.c_str(), &after), 0);
+  EXPECT_EQ(after.st_uid, service_uid);
+  EXPECT_EQ(after.st_gid, service_gid);
+  // Still secret, still loadable.
+  EXPECT_EQ(fs::status(path_).permissions() & fs::perms_mask, fs::owner_read | fs::owner_write);
+  EXPECT_TRUE(static_cast<bool>(onboarding::load_state(path_)));
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerRecursesIntoADirectory) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a directory to another account";
+  }
+  // The fleet managed directory: the sync rewrites everything under it.
+  const fs::path reference = dir_ / "state-dir";
+  const fs::path managed = dir_ / "fleet";
+  fs::create_directories(reference);
+  fs::create_directories(managed / "cache");
+  std::ofstream(( managed / "fleet.ini").string().c_str()) << "; managed";
+  std::ofstream((managed / "cache" / "bundle.zip").string().c_str()) << "zip";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+
+  std::string error;
+  ASSERT_TRUE(onboarding::adopt_owner(managed.string(), reference.string(), error)) << error;
+
+  for (const char *relative : {"", "fleet.ini", "cache", "cache/bundle.zip"}) {
+    struct stat entry = {};
+    const std::string target = relative[0] == '\0' ? managed.string() : (managed / relative).string();
+    ASSERT_EQ(::stat(target.c_str(), &entry), 0) << target;
+    EXPECT_EQ(entry.st_uid, 12345u) << target;
+  }
+}
+#endif
 
 TEST_F(OnboardingStateTest, UnsupportedVersionThrows) {
   std::ofstream out(path_.c_str(), std::ios::binary);

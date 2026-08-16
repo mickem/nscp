@@ -3,15 +3,19 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
+#include <cerrno>
+#include <cstring>
 #include <fstream>
 #include <onboarding/onboarding.hpp>
 #include <sstream>
+#include <vector>
 
 #include "json_util.hpp"
 
 #ifdef WIN32
-#include <cstdio>
 #include <io.h>
+
+#include <cstdio>
 #else
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -101,6 +105,53 @@ void onboarding::save_state(const enrolled_identity &state, const std::string &p
     fs::remove(tmp, ignored);
     throw onboarding_error("Failed to move " + tmp + " to " + path + ": " + ec.message(), false);
   }
+}
+
+bool onboarding::adopt_owner(const std::string &target, const std::string &reference, std::string &error) {
+#ifdef WIN32
+  // Windows has no equivalent handoff: the service runs as LocalSystem and the
+  // installer writes as SYSTEM, so the material is readable as written.
+  static_cast<void>(target);
+  static_cast<void>(reference);
+  static_cast<void>(error);
+  return true;
+#else
+  if (::geteuid() != 0) {
+    // Only root can give a file away, and a non-root enrollment already writes
+    // as whoever will read it.
+    return true;
+  }
+  struct stat reference_stat = {};
+  if (::stat(reference.c_str(), &reference_stat) != 0) {
+    // No reference to copy from (a from-source install that never created the
+    // state directory). Leaving ownership alone is the safe answer.
+    return true;
+  }
+  if (reference_stat.st_uid == 0 && reference_stat.st_gid == 0) {
+    // Root owns the reference too, so there is nothing to hand over - this is
+    // an install that genuinely runs everything as root.
+    return true;
+  }
+
+  std::vector<fs::path> targets;
+  boost::system::error_code ec;
+  if (fs::is_directory(target, ec)) {
+    targets.push_back(target);
+    for (fs::recursive_directory_iterator it(target, ec), end; it != end && !ec; it.increment(ec)) {
+      targets.push_back(it->path());
+    }
+  } else {
+    targets.push_back(target);
+  }
+
+  for (const fs::path &path : targets) {
+    if (::chown(path.string().c_str(), reference_stat.st_uid, reference_stat.st_gid) != 0) {
+      error = "Failed to change the owner of " + path.string() + ": " + std::strerror(errno);
+      return false;
+    }
+  }
+  return true;
+#endif
 }
 
 boost::optional<onboarding::enrolled_identity> onboarding::load_state(const std::string &path) {
