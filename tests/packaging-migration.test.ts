@@ -148,8 +148,17 @@ onPosix("package upgrade migrates writable state out of the package directory", 
       const tree = oldLayout(scratch, template);
       upgrade(tree, args);
       const ini = fs.readFileSync(path.join(tree.etc, "nsclient.ini"), "utf8");
-      expect(ini).toContain("${data-path}/fleet/fleet.ini");
+      expect(ini).toContain("${fleet-folder}/fleet.ini");
       expect(ini).not.toContain("${shared-path}/fleet/fleet.ini");
+    });
+
+    it("also normalises an include left by an interim ${data-path} build", () => {
+      const tree = oldLayout(scratch, template);
+      fs.writeFileSync(path.join(tree.etc, "nsclient.ini"), "[/includes]\nfleet = ${data-path}/fleet/fleet.ini\n");
+      upgrade(tree, args);
+      const ini = fs.readFileSync(path.join(tree.etc, "nsclient.ini"), "utf8");
+      expect(ini).toContain("${fleet-folder}/fleet.ini");
+      expect(ini).not.toContain("${data-path}/fleet/fleet.ini");
     });
 
     it("is idempotent", () => {
@@ -160,7 +169,7 @@ onPosix("package upgrade migrates writable state out of the package directory", 
         '{"version":1,"private_key_pem":"SECRET"}',
       );
       const ini = fs.readFileSync(path.join(tree.etc, "nsclient.ini"), "utf8");
-      expect(ini.match(/\$\{data-path\}\/fleet\/fleet\.ini/g)).toHaveLength(1);
+      expect(ini.match(/\$\{fleet-folder\}\/fleet\.ini/g)).toHaveLength(1);
     });
 
     it("never overwrites an identity already in the state directory", () => {
