@@ -20,6 +20,7 @@
 #include "fleet_sync.hpp"
 #endif
 #ifdef WIN32
+#include "windows_acl.hpp"
 #include "windows_ca_store.hpp"
 #endif
 
@@ -92,6 +93,59 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
   nsclient::logging::logger_instance get_logger() const { return log_instance_; }
   void apply_path_overrides(std::map<std::string, std::string> overrides) override { path_->set_overrides(std::move(overrides)); }
 
+  void apply_layout(const std::string &mode) override {
+    const nscp::paths::layout selected = nscp::paths::parse_layout(mode);
+    path_->set_layout(selected);
+    if (selected != nscp::paths::layout::legacy) {
+      LOG_DEBUG_CORE(std::string("Using the ") + nscp::paths::layout_name(selected) + " layout: shared-path is " + path_->expand_path("${shared-path}"));
+    }
+  }
+
+  // Create the shared folder and lock it down before anything writes into it.
+  //
+  // Only for the modern layout: the legacy one lives in the install directory,
+  // whose permissions are the installer's business. On the modern layout the
+  // folder sits under %ProgramData%, which grants Users: Read & Execute by
+  // inheritance - so creating it and walking away would publish the
+  // configuration (passwords), the fleet private key and the log to every
+  // account on the machine.
+  void prepare_shared_folder() override {
+#ifdef WIN32
+    if (path_->get_layout() != nscp::paths::layout::modern) return;
+    try {
+      const std::string shared = path_->expand_path("${shared-path}");
+      if (shared.empty()) return;
+      boost::system::error_code ec;
+      boost::filesystem::create_directories(shared, ec);
+      if (ec) {
+        LOG_ERROR_CORE("Failed to create " + shared + ": " + ec.message());
+        return;
+      }
+      std::list<std::string> errors;
+      if (!nsclient::windows_acl::protect_directory(shared, errors)) {
+        for (const std::string &e : errors) LOG_ERROR_CORE("acl: " + e);
+        // Loud, and deliberately not fatal: refusing to start would take a
+        // working agent offline over a permissions problem an operator can fix.
+        // Say plainly what is exposed instead.
+        LOG_ERROR_CORE("Could not restrict access to " + shared +
+                       " - it may be readable by every user on this machine, including the configuration and the fleet identity.");
+        return;
+      }
+      errors.clear();
+      if (!nsclient::windows_acl::is_protected(shared, errors)) {
+        // Setting the DACL and the DACL actually excluding everyone else are
+        // different claims; check the second one rather than assume it.
+        for (const std::string &e : errors) LOG_ERROR_CORE("acl: " + e);
+        LOG_ERROR_CORE("Access to " + shared + " is wider than SYSTEM and Administrators after locking it down.");
+        return;
+      }
+      LOG_DEBUG_CORE("Restricted " + shared + " to SYSTEM and Administrators");
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE(std::string("Failed to prepare the shared folder: ") + e.what());
+    }
+#endif
+  }
+
   // Export the Windows ROOT certificate store to the file ${ca-path} points at,
   // so every SSL setup site has a sensible default for `ca`.
   //
@@ -111,15 +165,29 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
 #ifdef WIN32
     if (trust_store_ready_) return;
     trust_store_ready_ = true;
+    const std::string bundle_path = path_->expand_path("${ca-path}");
+    // Refreshing this is the service's job. On the modern layout the folder is
+    // writable only by SYSTEM and Administrators, so an ordinary user running
+    // a one-shot command cannot rewrite it - and does not need to, because the
+    // service already wrote a usable bundle. Complaining on every such command
+    // would be noise about something that is working as designed; complaining
+    // when there is no bundle at all is not, because the next TLS call fails.
+    const auto report = [this, &bundle_path](const std::string &message) {
+      boost::system::error_code ignored;
+      if (boost::filesystem::exists(bundle_path, ignored)) {
+        LOG_DEBUG_CORE(message + " (keeping the existing bundle)");
+      } else {
+        LOG_WARN_CORE(message);
+      }
+    };
     try {
-      const std::string bundle_path = path_->expand_path("${ca-path}");
       boost::filesystem::create_directories(boost::filesystem::path(bundle_path).parent_path());
       std::list<std::string> ca_errors;
       const unsigned int n = nsclient::windows_ca::export_root_store(bundle_path, ca_errors);
-      for (const std::string &e : ca_errors) LOG_WARN_CORE("windows-ca: " + e);
+      for (const std::string &e : ca_errors) report("windows-ca: " + e);
       if (n > 0) LOG_DEBUG_CORE("Exported " + std::to_string(n) + " Windows ROOT certificates to " + bundle_path);
     } catch (const std::exception &e) {
-      LOG_WARN_CORE(std::string("Failed to export Windows ROOT store: ") + e.what());
+      report(std::string("Failed to export Windows ROOT store: ") + e.what());
     }
 #endif
   }
@@ -400,9 +468,9 @@ void NSClientT::boot_fleet_sync() {
                                                    "The enrollment manifest written by `nscp enroll` (certificates, keys and server urls). "
                                                    "Fleet sync only runs when this file exists.",
                                                    DEFAULT_FLEET_STATE_LOCATION));
-    config.managed_path = path_->expand_path(
-        reg_key("managed path", "Managed path", "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept.",
-                "${" FLEET_FOLDER_KEY "}"));
+    config.managed_path =
+        path_->expand_path(reg_key("managed path", "Managed path",
+                                   "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept.", "${" FLEET_FOLDER_KEY "}"));
     config.hostname = socket_helpers::expand_hostname(
         reg_key("hostname", "Hostname", "Hostname reported as a tag to the fleet server. Set to auto (default) to use this machine's hostname.", "auto"));
     config.tls_version = reg_key("tls version", "TLS version", "The TLS version used when connecting to the fleet server.", "tlsv1.2+");

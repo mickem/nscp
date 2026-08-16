@@ -14,6 +14,7 @@
 #include <config.h>
 
 #include <file_helpers.hpp>
+#include <nscp/path_defaults.hpp>
 #include <settings/client/settings_proxy.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
@@ -163,6 +164,19 @@ void NSCSettingsImpl::boot(std::string key) {
     proxy_url_ = utf8::cvt<std::string>(boot_conf.GetValue(L"proxy", L"url", L""));
     no_proxy_ = utf8::cvt<std::string>(boot_conf.GetValue(L"proxy", L"no_proxy", L""));
 
+    // [layout] selects the on-disk layout, and has to be applied before the
+    // [paths] overrides below: it changes what ${shared-path} defaults to, and
+    // an explicit override of one folder should win over that default rather
+    // than race it.
+    const std::string layout_mode = utf8::cvt<std::string>(boot_conf.GetValue(L"layout", L"mode", L""));
+    if (!nscp::paths::is_known_layout(layout_mode)) {
+      // Do not guess. Falling back to the layout the host already has is the
+      // only safe reading of a mode we do not understand.
+      get_logger()->warning("settings", __FILE__, __LINE__,
+                            "Unknown [layout] mode '" + layout_mode + "' in " + boot_.string() + "; keeping the legacy layout.");
+    }
+    provider_->apply_layout(layout_mode);
+
     // [paths] overrides. Applied before opening the main settings store so
     // they take effect for the main INI's own location lookup. Boot.ini's
     // own location was resolved above with defaults only - that
@@ -177,11 +191,15 @@ void NSCSettingsImpl::boot(std::string key) {
       }
     }
     if (!path_overrides.empty()) {
-      get_logger()->debug("settings", __FILE__, __LINE__,
-                          "Applying " + str::xtos(path_overrides.size()) + " path override(s) from boot.ini");
+      get_logger()->debug("settings", __FILE__, __LINE__, "Applying " + str::xtos(path_overrides.size()) + " path override(s) from boot.ini");
       provider_->apply_path_overrides(std::move(path_overrides));
     }
   }
+  // The folder everything below writes into has to exist, and be locked down,
+  // before the first write - which is the trust store export immediately after
+  // this. Runs after the [paths] overrides so it acts on the final answer.
+  provider_->prepare_shared_folder();
+
   // Everything below opens the master settings store, and for an http(s)://
   // source that means an immediate network fetch. Give the provider its chance
   // to lay down the trust material that fetch verifies against first - after

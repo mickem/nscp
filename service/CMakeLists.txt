@@ -64,10 +64,13 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/bytes/base64.c
         windows_ca_store.cpp
         windows_ca_store.hpp
+        windows_acl.cpp
+        windows_acl.hpp
     )
     set(EXTRA_LIBS
         ${EXTRA_LIBS}
         CRYPT32
+        ADVAPI32
     )
     set(service_SRCS
         ${service_SRCS}
