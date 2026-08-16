@@ -203,9 +203,16 @@ export class NscpInstance {
     // finds no modules at all, not even CommandClient, so `nscp test` boots
     // and exits again. Point it at this build's real modules folder instead of
     // leaving it to chance.
+    // `${data-path}` is where writable per-machine state lives, and on Unix it
+    // defaults to the install's /var/lib/nsclient. The fleet enrollment manifest
+    // and the fleet managed directory resolve through it, so without this a test
+    // would enroll into the real system state directory (and need root to do
+    // it). Pointing it at the work dir keeps `<workDir>/security/agent-state.json`
+    // and `<workDir>/fleet` inside the sandbox on every platform.
     const modulesDir = findSharedOptional("modules");
     this.pathOverrides = {
       "certificate-path": defaultSecurityDir,
+      "data-path": this.workDir,
       scripts: path.join(path.dirname(nscpBin()), "scripts"),
       ...(modulesDir ? { "module-path": modulesDir } : {}),
       ...(opts.pathOverrides ?? {}),

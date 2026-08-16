@@ -324,8 +324,13 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     const ini = fs.readFileSync(own.settingsFile, "utf8");
     expect(ini).toMatch(/\[\/includes\]/);
     expect(ini).toMatch(/fleet\s*=/);
-    // Unexpanded on purpose, so the configuration stays relocatable.
-    expect(ini).toContain("${shared-path}/fleet/fleet.ini");
+    // Unexpanded on purpose, so the configuration stays relocatable. Which
+    // token it is depends on the platform: writable state lives under
+    // ${data-path} on unix (the package directory ${shared-path} points at is
+    // root-owned and the service does not run as root) and under
+    // ${shared-path} on Windows.
+    const expectedToken = process.platform === "win32" ? "${shared-path}/fleet/fleet.ini" : "${data-path}/fleet/fleet.ini";
+    expect(ini).toContain(expectedToken);
     expect(ini).not.toMatch(/\[\/modules\]/);
 
     const placeholder = path.join(dir, "fleet", "fleet.ini");
