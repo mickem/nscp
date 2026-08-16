@@ -19,6 +19,7 @@ See [Supported platforms](supported-platforms.md) for the Windows and Linux vers
 - [Automated installation (Windows MSI)](#automated-installation-windows-msi)
   - [Basic command line](#basic-command-line)
   - [MSI Options](#msi-options)
+  - [On-disk layout (LAYOUT)](#on-disk-layout-layout)
   - [Features](#features)
   - [Silent install](#silent-install)
   - [Debugging](#debugging)
@@ -140,16 +141,25 @@ separate `sudo nscp web install-ui` step.
 The official `.deb`/`.rpm` packages install under the standard FHS prefix
 `/usr`:
 
-| What                | Location                       |
-|---------------------|--------------------------------|
-| Daemon              | `/usr/sbin/nscp`               |
-| Check modules       | `/usr/lib/nsclient/modules`    |
-| Private libraries   | `/usr/lib/nsclient`            |
-| Scripts / web / certs | `/usr/lib/nsclient/{scripts,web,security}` |
-| Configuration       | `/etc/nsclient`                |
-| State / cache       | `/var/lib/nsclient`            |
-| Logs                | `/var/log/nsclient`            |
-| systemd unit        | `/lib/systemd/system/nsclient.service` |
+| What                  | Location                       |
+|-----------------------|--------------------------------|
+| Daemon                | `/usr/sbin/nscp`               |
+| Check modules         | `/usr/lib/nsclient/modules`    |
+| Private libraries     | `/usr/lib/nsclient`            |
+| Scripts / web         | `/usr/lib/nsclient/{scripts,web}` |
+| Shipped certificates  | `/usr/lib/nsclient/security` (NRPE DH parameters, server TLS certificate) |
+| Configuration         | `/etc/nsclient`                |
+| Fleet identity        | `/var/lib/nsclient/security/agent-state.json` |
+| Fleet-managed config  | `/var/lib/nsclient/fleet`      |
+| State / cache         | `/var/lib/nsclient`            |
+| Logs                  | `/var/log/nsclient`            |
+| systemd unit          | `/lib/systemd/system/nsclient.service` |
+
+The split matters: `/usr/lib/nsclient` belongs to the package and is not written
+at runtime, while everything the service rewrites lives under `/var`. The
+service runs as the unprivileged `nsclient` user, so it cannot write into the
+package directory - and `/usr` has to stay mountable read-only. See
+[File layout](../concepts/file-layout.md) for the whole picture.
 
 These are derived from the build's install prefix; a package built for a
 different prefix (e.g. `/opt/nsclient`) places everything under that prefix and
@@ -250,6 +260,43 @@ A list of all the MSI options can be found below.
 | FLEET_CA            | CA bundle used to verify the fleet server certificate (defaults to the Windows ROOT store)                              |
 | FLEET_VERIFY_MODE   | TLS verify mode for the enrollment call (*certificate*, none). `none` requires FLEET_INSECURE=1                         |
 | FLEET_INSECURE      | Set to 1 to allow an unauthenticated enrollment: a plain `http://` FLEET_SERVER, or FLEET_VERIFY_MODE=none              |
+| LAYOUT              | On-disk layout: `modern` keeps the writable state in `%ProgramData%\NSClient++` restricted to SYSTEM and administrators, `legacy` (default) keeps it in the install folder. Omit it to keep whatever the host already uses. **Experimental** - see below |
+
+### On-disk layout (LAYOUT)
+
+By default everything lives in the install folder, `C:\Program Files\NSClient++\`,
+which any logged-in user can read - including `nsclient.ini` with the web and
+NRPE passwords, the server's TLS private key and the fleet identity.
+`LAYOUT=modern` moves that writable half to `C:\ProgramData\NSClient++\` and
+restricts it to `SYSTEM` and `Administrators`; the program itself stays where it
+was installed.
+
+```batch
+msiexec /qn /i NSCP-<version>-x64.msi LAYOUT=modern
+```
+
+The same command on an upgrade moves the existing installation's configuration,
+certificates and fleet identity for you.
+
+Leaving the property out keeps the layout the host already has. An upgrade
+therefore never moves an installation that did not ask to move, and never moves
+a modern one back to legacy just because the property was not repeated.
+
+<!-- @formatter:off -->
+!!! warning "Experimental"
+    The modern layout is opt-in and marked experimental: upgrades in particular
+    have not been tested at scale. Prefer it for **new installs**; for
+    **existing installs test the upgrade in your own environment first** -
+    configuration management, backups and scripts that reference the old paths
+    are what will notice.
+
+    An already-installed host can also be switched later, without reinstalling:
+    `nscp settings --migrate-layout modern --dry-run` shows exactly what would
+    move.
+
+    See [Securing NSClient++](securing.md#file-layout-windows) for what it fixes
+    and [File layout](../concepts/file-layout.md) for what lives where.
+<!-- @formatter:on -->
 
 ### Features
 
@@ -332,10 +379,14 @@ msiexec /qn /i NSCP-<version>-x64.msi FLEET_SERVER=https://fleet.example.com FLE
 ```
 
 During the install NSClient++ generates a key pair, sends a certificate request together with the token to
-`FLEET_SERVER`, and stores the certificate material it gets back as `agent-state.json` in the `security` folder of the
-installation. It also adds an include for the fleet-managed configuration
-(`[/includes] fleet = ${shared-path}/fleet/fleet.ini`). The service picks all of this up on the next start and begins
-syncing its configuration from the fleet server; there is no module to enable.
+`FLEET_SERVER`, and stores the certificate material it gets back as `agent-state.json` in the `security` folder. It also
+adds an include for the fleet-managed configuration (`[/includes] fleet = ${fleet-folder}/fleet.ini`). The service picks
+all of this up on the next start and begins syncing its configuration from the fleet server; there is no module to
+enable.
+
+Both land wherever the host's [layout](#on-disk-layout-layout) puts them - beside the installation by default, or under
+`C:\ProgramData\NSClient++\` with `LAYOUT=modern`. The include is written as the `${fleet-folder}` token rather than a
+resolved path, so it follows the layout rather than pinning it.
 
 A few things worth knowing:
 
