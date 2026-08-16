@@ -151,16 +151,12 @@ std::string modern_shared_folder() {
   return folder + "\\" + nscp::paths::shared_folder_name();
 }
 
-// Which layout this install should use.
-//
-// The LAYOUT property wins when it names a layout we understand. Otherwise we
-// keep whatever the host already has, read from its boot.ini: an upgrade must
-// not move an installation that did not ask to move, and must not move a modern
-// one back to legacy just because the property was not repeated.
+// Which layout this install should use: what the host is on now, as recorded in
+// its boot.ini, reconciled with the LAYOUT property. The rules live in
+// nscp::paths::resolve_requested_layout so they can be tested.
 nscp::paths::layout resolve_layout(const std::string &install_folder, const std::wstring &property_value) {
-  const std::string requested = boost::algorithm::trim_copy(utf8::cvt<std::string>(property_value));
-  if (!requested.empty() && nscp::paths::is_known_layout(requested)) return nscp::paths::parse_layout(requested);
-  return nscp::paths::layout_from_boot_ini_file((boost::filesystem::path(install_folder) / "boot.ini").string());
+  const nscp::paths::layout current = nscp::paths::layout_from_boot_ini_file((boost::filesystem::path(install_folder) / "boot.ini").string());
+  return nscp::paths::resolve_requested_layout(current, boost::algorithm::trim_copy(utf8::cvt<std::string>(property_value)));
 }
 
 // Where ${shared-path} points for `layout`. Legacy is the install folder, which
@@ -1213,6 +1209,12 @@ extern "C" UINT __stdcall SchedulePrepareLayout(MSIHANDLE hInstall) {
 
     h.logMessage("Layout: " + std::string(nscp::paths::layout_name(layout)));
     h.logMessage("Shared folder: " + shared_folder);
+    const std::string trimmed = boost::algorithm::trim_copy(utf8::cvt<std::string>(requested));
+    if (!trimmed.empty() && nscp::paths::is_known_layout(trimmed) && nscp::paths::parse_layout(trimmed) != layout) {
+      h.logMessage(L"WARNING: LAYOUT=" + requested + L" was not applied; this installation stays on '" +
+                   utf8::cvt<std::wstring>(std::string(nscp::paths::layout_name(layout))) +
+                   L"'. Moving back to the legacy layout is not supported; uninstall and reinstall instead.");
+    }
     if (layout == nscp::paths::layout::modern && shared_folder == install_folder) {
       // Only when %ProgramData% could not be resolved at all.
       h.logMessage(L"WARNING: could not determine %ProgramData%; keeping the writable state in the install folder.");
@@ -1249,11 +1251,20 @@ extern "C" UINT __stdcall ExecPrepareLayout(MSIHANDLE hInstall) {
     const std::string layout_name = utf8::cvt<std::string>(data.get_next_string());
     const nscp::paths::layout layout = nscp::paths::parse_layout(layout_name);
 
-    // Written even for the legacy layout, and written first: it is what the
-    // agent reads, and an installation whose files did not move must not end up
-    // with a boot.ini claiming they did. For legacy this is a no-op in effect.
     const boost::filesystem::path boot_ini = boost::filesystem::path(install_folder) / "boot.ini";
-    if (layout == nscp::paths::layout::modern) {
+
+    // Legacy is what the agent assumes when the key is absent, so there is
+    // nothing to create, nothing to move and nothing to record - and recording
+    // it anyway would edit the boot.ini of every installation that never asked
+    // for any of this.
+    if (layout != nscp::paths::layout::modern) {
+      h.logMessage("Layout: legacy, leaving " + boot_ini.string() + " untouched");
+      return ERROR_SUCCESS;
+    }
+
+    // Everything below is modern-only: create the folder, lock it down, then
+    // move the old installation's files into it.
+    {
       boost::system::error_code ec;
       boost::filesystem::create_directories(shared_folder, ec);
       if (ec) {

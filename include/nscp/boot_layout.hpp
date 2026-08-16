@@ -38,5 +38,26 @@ inline layout layout_from_boot_ini_file(const std::string &path, std::string *ra
   return layout_from_boot_ini(boot_conf, raw_value);
 }
 
+// Decide the layout an installation should end up on, given the one it is on
+// and what was asked for (an MSI property, a command line). Kept apart from the
+// installer so the rules can be tested; the installer supplies `current` from
+// boot.ini.
+//
+// Nothing asked for, or something we do not recognise, keeps the current
+// layout: an upgrade must not move an installation that did not ask to move,
+// nor move a modern one back because the property was not repeated.
+inline layout resolve_requested_layout(const layout current, const std::string &requested) {
+  if (requested.empty() || !is_known_layout(requested)) return current;
+  const layout wanted = parse_layout(requested);
+  // Going back to legacy is not something that can be honoured. It would mean
+  // moving the configuration, the fleet identity and the certificates back out
+  // of the protected folder, and there is no migration in that direction:
+  // recording the property alone would leave the agent looking in the install
+  // folder for files that are still in %ProgramData%. That is a broken
+  // installation, not a reverted one, so keep what the host has.
+  if (wanted == layout::legacy && current == layout::modern) return current;
+  return wanted;
+}
+
 }  // namespace paths
 }  // namespace nscp

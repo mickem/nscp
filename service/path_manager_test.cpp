@@ -649,3 +649,44 @@ TEST_F(LayoutMigrationTest, AnEmptySourceOrDestinationIsRejected) {
   EXPECT_FALSE(nscp::paths::apply_migration("", to_.string()).ok());
   EXPECT_FALSE(nscp::paths::apply_migration(from_.string(), "").ok());
 }
+
+// --- which layout an install ends up on -------------------------------------
+// The installer decides this once, unattended, against an installation that
+// already exists and may already hold the fleet identity.
+
+namespace {
+using nscp::paths::layout;
+layout resolve(layout current, const std::string &requested) { return nscp::paths::resolve_requested_layout(current, requested); }
+}  // namespace
+
+TEST(ResolveRequestedLayout, AskingForModernOptsIn) {
+  EXPECT_EQ(resolve(layout::legacy, "modern"), layout::modern);
+  EXPECT_EQ(resolve(layout::legacy, "v2"), layout::modern);
+  EXPECT_EQ(resolve(layout::modern, "modern"), layout::modern) << "asking again is a no-op, not a re-migration decision";
+}
+
+TEST(ResolveRequestedLayout, AskingForNothingKeepsWhatTheHostHas) {
+  // An upgrade that does not repeat the property must not move anything, in
+  // either direction. This is the ordinary case: almost nobody passes LAYOUT.
+  EXPECT_EQ(resolve(layout::legacy, ""), layout::legacy);
+  EXPECT_EQ(resolve(layout::modern, ""), layout::modern);
+}
+
+TEST(ResolveRequestedLayout, AnUnrecognisedValueIsNotAGuess) {
+  // Typos included. Guessing "modren" meant "modern" would move an
+  // installation's files on the strength of a spelling correction.
+  for (const char *junk : {"moderne", "MODERN ", "3", "true", "yes", "v3", "legacy-ish"}) {
+    EXPECT_EQ(resolve(layout::legacy, junk), layout::legacy) << junk;
+    EXPECT_EQ(resolve(layout::modern, junk), layout::modern) << junk;
+  }
+}
+
+TEST(ResolveRequestedLayout, AModernInstallIsNeverSentBackToLegacy) {
+  // There is no migration in that direction, so honouring this would leave the
+  // agent reading an install folder whose files are in %ProgramData%.
+  EXPECT_EQ(resolve(layout::modern, "legacy"), layout::modern);
+}
+
+TEST(ResolveRequestedLayout, ALegacyInstallAskedForLegacyStaysLegacy) {
+  EXPECT_EQ(resolve(layout::legacy, "legacy"), layout::legacy);
+}

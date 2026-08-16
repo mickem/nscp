@@ -282,6 +282,16 @@ Leaving the property out keeps the layout the host already has. An upgrade
 therefore never moves an installation that did not ask to move, and never moves
 a modern one back to legacy just because the property was not repeated.
 
+`LAYOUT=legacy` against a host that is already on the modern layout is logged
+and ignored. The installer only ever moves files *into* the protected folder, so
+honouring it would record a layout whose files had not moved. To go back, use
+the agent itself, which migrates in both directions and can show you the plan
+first:
+
+```batch
+nscp settings --migrate-layout legacy --dry-run
+```
+
 <!-- @formatter:off -->
 !!! warning "Experimental"
     The modern layout is opt-in and marked experimental: upgrades in particular

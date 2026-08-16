@@ -133,6 +133,11 @@ the command above does. Leaving the property out keeps whatever the host
 already uses — so an upgrade never moves an installation that did not ask to
 move, and never moves a modern one back to legacy.
 
+The property is one-way: the installer only moves files *into* the protected
+folder, so `LAYOUT=legacy` against a host that is already modern is logged and
+ignored rather than recording a layout whose files had not moved. Use
+`nscp settings --migrate-layout legacy` for that direction.
+
 <!-- @formatter:off -->
 !!! note "Experimental, and opt-in"
     The modern layout has no UI yet: the MSI property and
