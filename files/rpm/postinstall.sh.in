@@ -29,14 +29,18 @@ new_fleet="@NSCP_PKGSTATEDIR@/fleet"
 
 mkdir -p "$new_security" "$new_fleet"
 
-# Move, never copy-then-delete: this file is the only copy of the agent's
+# Only the enrollment manifest moves. Everything else in the old security folder
+# is resolved through ${certificate-path}, which still points into the package
+# directory: certificate.pem is the server TLS certificate the WEB/NRPE/NSCA
+# listeners load from there, and moving it would take HTTPS down on upgrade. The
+# fleet's own certificate is inside the manifest.
+#
+# Move, never copy-then-delete: the manifest is the only copy of the agent's
 # private key. An existing file at the destination always wins, so a partial
 # previous run cannot clobber a working identity.
-for name in agent-state.json certificate.pem; do
-    if [ -f "$old_security/$name" ] && [ ! -e "$new_security/$name" ]; then
-        mv "$old_security/$name" "$new_security/$name"
-    fi
-done
+if [ -f "$old_security/agent-state.json" ] && [ ! -e "$new_security/agent-state.json" ]; then
+    mv "$old_security/agent-state.json" "$new_security/agent-state.json"
+fi
 
 if [ -d "$old_fleet" ]; then
     for entry in "$old_fleet"/* "$old_fleet"/.[!.]*; do

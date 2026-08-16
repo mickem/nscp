@@ -123,19 +123,25 @@ onPosix("package upgrade migrates writable state out of the package directory", 
         '{"version":1,"private_key_pem":"SECRET"}',
       );
       expect(fs.existsSync(path.join(tree.pkglib, "security", "agent-state.json"))).toBe(false);
-      expect(fs.readFileSync(path.join(tree.state, "security", "certificate.pem"), "utf8")).toBe("CERT");
       expect(fs.readFileSync(path.join(tree.state, "fleet", "fleet.ini"), "utf8")).toBe("; managed");
       expect(fs.readFileSync(path.join(tree.state, "fleet", "applied-state.json"), "utf8")).toBe('{"state_hash":"abc"}');
       expect(fs.readFileSync(path.join(tree.state, "fleet", "cache", "bundle.zip"), "utf8")).toBe("BUNDLE");
       expect(fs.existsSync(path.join(tree.pkglib, "fleet"))).toBe(false);
     });
 
-    it("leaves shipped read-only material in the package directory", () => {
+    it("leaves everything else in the package security directory alone", () => {
       const tree = oldLayout(scratch, template);
       upgrade(tree, args);
-      // The DH parameters are version-tied package content, not per-machine
-      // state: moving them would take them out of the package's hands.
+      // Only the manifest moves. The rest of that directory is still resolved
+      // through ${certificate-path}, which keeps pointing into the package
+      // directory:
+      //   - the DH parameters are version-tied package content;
+      //   - certificate.pem is the server TLS certificate the WEB, NRPE, NSCA
+      //     and NSClient listeners load. Moving it would take HTTPS down on
+      //     upgrade. The fleet's own certificate lives inside the manifest.
       expect(fs.readFileSync(path.join(tree.pkglib, "security", "nrpe_dh_2048.pem"), "utf8")).toBe("DHPARAMS");
+      expect(fs.readFileSync(path.join(tree.pkglib, "security", "certificate.pem"), "utf8")).toBe("CERT");
+      expect(fs.existsSync(path.join(tree.state, "security", "certificate.pem"))).toBe(false);
     });
 
     it("rewrites the fleet.ini include that enrollment wrote", () => {
