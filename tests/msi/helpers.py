@@ -1,6 +1,6 @@
 from difflib import unified_diff
 from subprocess import run, CalledProcessError, CREATE_NEW_PROCESS_GROUP
-from os import path, makedirs
+from os import path, makedirs, environ
 from shutil import rmtree
 from configparser import ConfigParser
 import yaml
@@ -98,6 +98,20 @@ def ensure_uninstalled(msi_file, target_folder):
     if path.exists(target_folder):
         print(f"- Removing folder: {target_folder}", flush=True)
         rmtree(target_folder, ignore_errors=True)
+
+    # The modern layout keeps the writable state outside the install folder, so
+    # the MSI does not own it and uninstalling leaves it behind. Left in place it
+    # becomes the *destination* of the next test's migration, which then finds it
+    # occupied and - correctly - refuses to merge into it, so that test fails for
+    # a reason that has nothing to do with what it is testing.
+    shared_folder = path.join(environ.get("ProgramData", r"c:\ProgramData"), "NSClient++")
+    if path.exists(shared_folder):
+        print(f"- Removing folder: {shared_folder}", flush=True)
+        rmtree(shared_folder, ignore_errors=True)
+        if path.exists(shared_folder):
+            # It is restricted to SYSTEM and administrators; say so plainly
+            # rather than letting the next test fail somewhere confusing.
+            print(f"! Could not remove {shared_folder}; the next test may fail against its leftovers.", flush=True)
 
 
 def read_config(config_file):
