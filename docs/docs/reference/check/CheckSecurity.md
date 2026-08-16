@@ -37,8 +37,6 @@ A list of all available queries (check commands)
 
 ### check_activation
 
-*Available on Windows only.*
-
 Check the Windows activation/licensing state: license status, remaining grace or KMS renewal period and genuineness. Windows only.
 
 #### About `check_activation`
@@ -1534,8 +1532,6 @@ This is the syntax for the base names of the performance data.
 
 ### check_file_security
 
-*Available on Windows only.*
-
 Check the owner and DACL of files, folders or service binaries; alerts on world-writable paths and unexpected owners. Windows only.
 
 #### About `check_file_security`
@@ -2217,8 +2213,6 @@ This is the syntax for the base names of the performance data.
 | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_firewall_rules
-
-*Available on Windows only.*
 
 Check individual Windows firewall rules: assert that specific rules exist and are enabled, and find inbound allow rules that restrict neither address nor port. Windows only.
 

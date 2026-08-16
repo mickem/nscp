@@ -325,366 +325,197 @@ UNKNOWN: Nothing found|'count'=0;0;0
 <a id="check_logfile_options"></a>
 #### Command-line Arguments
 
-=== "Windows"
+<a id="check_logfile_warn"></a>
+<a id="check_logfile_crit"></a>
+<a id="check_logfile_help"></a>
+<a id="check_logfile_help-pb"></a>
+<a id="check_logfile_show-default"></a>
+<a id="check_logfile_help-short"></a>
+<a id="check_logfile_split"></a>
+<a id="check_logfile_files"></a>
 
-    <a id="check_logfile_warn"></a>
-    <a id="check_logfile_crit"></a>
-    <a id="check_logfile_help"></a>
-    <a id="check_logfile_help-pb"></a>
-    <a id="check_logfile_show-default"></a>
-    <a id="check_logfile_help-short"></a>
-    <a id="check_logfile_split"></a>
-    <a id="check_logfile_files"></a>
+| Option                                          | Default Value                       | Description                                                                                                                                                                                                                                               |
+|-------------------------------------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_logfile_filter)                 |                                     | Filter which marks interesting items.                                                                                                                                                                                                                     |
+| [warning](#check_logfile_warning)               |                                     | Filter which marks items which generates a warning state.                                                                                                                                                                                                 |
+| warn                                            |                                     | Short alias for warning                                                                                                                                                                                                                                   |
+| [critical](#check_logfile_critical)             |                                     | Filter which marks items which generates a critical state.                                                                                                                                                                                                |
+| crit                                            |                                     | Short alias for critical.                                                                                                                                                                                                                                 |
+| [ok](#check_logfile_ok)                         |                                     | Filter which marks items which generates an ok state.                                                                                                                                                                                                     |
+| [debug](#check_logfile_debug)                   | 1)] (=0                             | Show debugging information in the log                                                                                                                                                                                                                     |
+| [show-all](#check_logfile_show-all)             | 1)] (=0                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                          |
+| [empty-state](#check_logfile_empty-state)       | ignored                             | Return status to use when nothing matched filter.                                                                                                                                                                                                         |
+| [perf-config](#check_logfile_perf-config)       |                                     | Performance data generation configuration                                                                                                                                                                                                                 |
+| [escape-html](#check_logfile_escape-html)       | 1)] (=0                             | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                    |
+| [list-separator](#check_logfile_list-separator) | ,                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                 |
+| help                                            | N/A                                 | Show help screen (this screen)                                                                                                                                                                                                                            |
+| help-pb                                         | N/A                                 | Show help screen as a protocol buffer payload                                                                                                                                                                                                             |
+| show-default                                    | N/A                                 | Show default values for a given command                                                                                                                                                                                                                   |
+| help-short                                      | N/A                                 | Show help screen (short format).                                                                                                                                                                                                                          |
+| [top-syntax](#check_logfile_top-syntax)         | ${count}/${total} (${problem_list}) | Top level syntax.                                                                                                                                                                                                                                         |
+| [ok-syntax](#check_logfile_ok-syntax)           |                                     | ok syntax.                                                                                                                                                                                                                                                |
+| [empty-syntax](#check_logfile_empty-syntax)     | %(status): Nothing found            | Empty syntax.                                                                                                                                                                                                                                             |
+| [detail-syntax](#check_logfile_detail-syntax)   | ${column1}                          | Detail level syntax.                                                                                                                                                                                                                                      |
+| [perf-syntax](#check_logfile_perf-syntax)       | ${column1}                          | Performance alias syntax.                                                                                                                                                                                                                                 |
+| [line-split](#check_logfile_line-split)         | \n                                  | Character string used to split a file into several lines (default `\n`).                                                                                                                                                                                  |
+| [column-split](#check_logfile_column-split)     | \t                                  | Character string to split a line into several columns (default \t)                                                                                                                                                                                        |
+| split                                           |                                     | Alias for split-column                                                                                                                                                                                                                                    |
+| [file](#check_logfile_file)                     |                                     | File to read (can be specified multiple times to check multiple files.                                                                                                                                                                                    |
+| files                                           |                                     | A comma separated list of files to scan (same as file except a list)                                                                                                                                                                                      |
+| [bookmark](#check_logfile_bookmark)             | auto                                | Only scan lines added since the last check with the same bookmark name.                                                                                                                                                                                   |
+| [max-lines](#check_logfile_max-lines)           | 0                                   | Only examine the newest <N> lines of each file (0, the default, means every line).                                                                                                                                                                        |
+| [newest](#check_logfile_newest)                 | last                                | Which end of the file holds the newest line: `last` (the default: lines are appended, as with most machine-written logs) or `first` (the file is rewritten with the newest line at the top, which is common in hand-maintained files such as changelogs). |
 
-    | Option                                          | Default Value                       | Description                                                                                                                                                                                                                                               |
-    |-------------------------------------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_logfile_filter)                 |                                     | Filter which marks interesting items.                                                                                                                                                                                                                     |
-    | [warning](#check_logfile_warning)               |                                     | Filter which marks items which generates a warning state.                                                                                                                                                                                                 |
-    | warn                                            |                                     | Short alias for warning                                                                                                                                                                                                                                   |
-    | [critical](#check_logfile_critical)             |                                     | Filter which marks items which generates a critical state.                                                                                                                                                                                                |
-    | crit                                            |                                     | Short alias for critical.                                                                                                                                                                                                                                 |
-    | [ok](#check_logfile_ok)                         |                                     | Filter which marks items which generates an ok state.                                                                                                                                                                                                     |
-    | [debug](#check_logfile_debug)                   | 1)] (=0                             | Show debugging information in the log                                                                                                                                                                                                                     |
-    | [show-all](#check_logfile_show-all)             | 1)] (=0                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                          |
-    | [empty-state](#check_logfile_empty-state)       | ignored                             | Return status to use when nothing matched filter.                                                                                                                                                                                                         |
-    | [perf-config](#check_logfile_perf-config)       |                                     | Performance data generation configuration                                                                                                                                                                                                                 |
-    | [escape-html](#check_logfile_escape-html)       | 1)] (=0                             | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                    |
-    | [list-separator](#check_logfile_list-separator) | ,                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                 |
-    | help                                            | N/A                                 | Show help screen (this screen)                                                                                                                                                                                                                            |
-    | help-pb                                         | N/A                                 | Show help screen as a protocol buffer payload                                                                                                                                                                                                             |
-    | show-default                                    | N/A                                 | Show default values for a given command                                                                                                                                                                                                                   |
-    | help-short                                      | N/A                                 | Show help screen (short format).                                                                                                                                                                                                                          |
-    | [top-syntax](#check_logfile_top-syntax)         | ${count}/${total} (${problem_list}) | Top level syntax.                                                                                                                                                                                                                                         |
-    | [ok-syntax](#check_logfile_ok-syntax)           |                                     | ok syntax.                                                                                                                                                                                                                                                |
-    | [empty-syntax](#check_logfile_empty-syntax)     | %(status): Nothing found            | Empty syntax.                                                                                                                                                                                                                                             |
-    | [detail-syntax](#check_logfile_detail-syntax)   | ${column1}                          | Detail level syntax.                                                                                                                                                                                                                                      |
-    | [perf-syntax](#check_logfile_perf-syntax)       | ${column1}                          | Performance alias syntax.                                                                                                                                                                                                                                 |
-    | [line-split](#check_logfile_line-split)         | \n                                  | Character string used to split a file into several lines (default `\n`).                                                                                                                                                                                  |
-    | [column-split](#check_logfile_column-split)     | \t                                  | Character string to split a line into several columns (default \t)                                                                                                                                                                                        |
-    | split                                           |                                     | Alias for split-column                                                                                                                                                                                                                                    |
-    | [file](#check_logfile_file)                     |                                     | File to read (can be specified multiple times to check multiple files.                                                                                                                                                                                    |
-    | files                                           |                                     | A comma separated list of files to scan (same as file except a list)                                                                                                                                                                                      |
-    | [bookmark](#check_logfile_bookmark)             | auto                                | Only scan lines added since the last check with the same bookmark name.                                                                                                                                                                                   |
-    | [max-lines](#check_logfile_max-lines)           | 0                                   | Only examine the newest <N> lines of each file (0, the default, means every line).                                                                                                                                                                        |
-    | [newest](#check_logfile_newest)                 | last                                | Which end of the file holds the newest line: `last` (the default: lines are appended, as with most machine-written logs) or `first` (the file is rewritten with the newest line at the top, which is common in hand-maintained files such as changelogs). |
 
 
+<h5 id="check_logfile_filter">filter:</h5>
 
-    <h5 id="check_logfile_filter">filter:</h5>
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
+<h5 id="check_logfile_warning">warning:</h5>
 
-    <h5 id="check_logfile_warning">warning:</h5>
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
 
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
 
 
+<h5 id="check_logfile_critical">critical:</h5>
 
-    <h5 id="check_logfile_critical">critical:</h5>
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
 
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
 
 
+<h5 id="check_logfile_ok">ok:</h5>
 
-    <h5 id="check_logfile_ok">ok:</h5>
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
 
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
 
+<h5 id="check_logfile_debug">debug:</h5>
 
-    <h5 id="check_logfile_debug">debug:</h5>
+Show debugging information in the log
 
-    Show debugging information in the log
+*Default Value:* `1)] (=0`
 
-    *Default Value:* `1)] (=0`
+<h5 id="check_logfile_show-all">show-all:</h5>
 
-    <h5 id="check_logfile_show-all">show-all:</h5>
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+*Default Value:* `1)] (=0`
 
-    *Default Value:* `1)] (=0`
+<h5 id="check_logfile_empty-state">empty-state:</h5>
 
-    <h5 id="check_logfile_empty-state">empty-state:</h5>
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
 
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
+*Default Value:* `ignored`
 
-    *Default Value:* `ignored`
+<h5 id="check_logfile_perf-config">perf-config:</h5>
 
-    <h5 id="check_logfile_perf-config">perf-config:</h5>
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
+<h5 id="check_logfile_escape-html">escape-html:</h5>
 
-    <h5 id="check_logfile_escape-html">escape-html:</h5>
+Escape any < and > characters to prevent HTML encoding
 
-    Escape any < and > characters to prevent HTML encoding
+*Default Value:* `1)] (=0`
 
-    *Default Value:* `1)] (=0`
+<h5 id="check_logfile_list-separator">list-separator:</h5>
 
-    <h5 id="check_logfile_list-separator">list-separator:</h5>
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
 
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+*Default Value:* `, `
 
-    *Default Value:* `, `
+<h5 id="check_logfile_top-syntax">top-syntax:</h5>
 
-    <h5 id="check_logfile_top-syntax">top-syntax:</h5>
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+*Default Value:* `${count}/${total} (${problem_list})`
 
-    *Default Value:* `${count}/${total} (${problem_list})`
+<h5 id="check_logfile_ok-syntax">ok-syntax:</h5>
 
-    <h5 id="check_logfile_ok-syntax">ok-syntax:</h5>
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
 
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
 
+<h5 id="check_logfile_empty-syntax">empty-syntax:</h5>
 
-    <h5 id="check_logfile_empty-syntax">empty-syntax:</h5>
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
 
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
+*Default Value:* `%(status): Nothing found`
 
-    *Default Value:* `%(status): Nothing found`
+<h5 id="check_logfile_detail-syntax">detail-syntax:</h5>
 
-    <h5 id="check_logfile_detail-syntax">detail-syntax:</h5>
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
 
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+*Default Value:* `${column1}`
 
-    *Default Value:* `${column1}`
+<h5 id="check_logfile_perf-syntax">perf-syntax:</h5>
 
-    <h5 id="check_logfile_perf-syntax">perf-syntax:</h5>
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
 
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
+*Default Value:* `${column1}`
 
-    *Default Value:* `${column1}`
+<h5 id="check_logfile_line-split">line-split:</h5>
 
-    <h5 id="check_logfile_line-split">line-split:</h5>
+Character string used to split a file into several lines (default `\n`).
+The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`) makes the entire file content available as a single record, which is useful together with a multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
+`, a trailing carriage return is stripped from each record so that files with CRLF line endings produce clean lines.
 
-    Character string used to split a file into several lines (default `\n`).
-    The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`) makes the entire file content available as a single record, which is useful together with a multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
-    `, a trailing carriage return is stripped from each record so that files with CRLF line endings produce clean lines.
+*Default Value:* `\n`
 
-    *Default Value:* `\n`
+<h5 id="check_logfile_column-split">column-split:</h5>
 
-    <h5 id="check_logfile_column-split">column-split:</h5>
+Character string to split a line into several columns (default \t)
 
-    Character string to split a line into several columns (default \t)
+*Default Value:* `\t`
 
-    *Default Value:* `\t`
+<h5 id="check_logfile_file">file:</h5>
 
-    <h5 id="check_logfile_file">file:</h5>
+File to read (can be specified multiple times to check multiple files.
+Notice that specifying multiple files will create an aggregate set it will not check each file individually.
+In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.
 
-    File to read (can be specified multiple times to check multiple files.
-    Notice that specifying multiple files will create an aggregate set it will not check each file individually.
-    In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.
 
+<h5 id="check_logfile_bookmark">bookmark:</h5>
 
-    <h5 id="check_logfile_bookmark">bookmark:</h5>
+Only scan lines added since the last check with the same bookmark name.
+NSClient++ remembers, per file and per bookmark, how far it read last time and resumes from there, so a line is reported once instead of on every check. The first check of a file reads it in full; a file which is truncated, rotated or replaced is detected (via its size and a fingerprint of its first bytes) and read from the beginning again. A trailing line which is not yet terminated by line-split is held back until it is complete, so half-written lines are never reported twice.
+If you set this to auto (or leave the value empty) the bookmark name is derived from the file name together with a hash of your filter, warning and critical expressions, which keeps unrelated checks of the same file from consuming each other's lines. Use an explicit name to share (or separate) positions deliberately. Positions are persisted when NSClient++ shuts down and restored on start; the newest ones are kept if more than a thousand accumulate.
 
-    Only scan lines added since the last check with the same bookmark name.
-    NSClient++ remembers, per file and per bookmark, how far it read last time and resumes from there, so a line is reported once instead of on every check. The first check of a file reads it in full; a file which is truncated, rotated or replaced is detected (via its size and a fingerprint of its first bytes) and read from the beginning again. A trailing line which is not yet terminated by line-split is held back until it is complete, so half-written lines are never reported twice.
-    If you set this to auto (or leave the value empty) the bookmark name is derived from the file name together with a hash of your filter, warning and critical expressions, which keeps unrelated checks of the same file from consuming each other's lines. Use an explicit name to share (or separate) positions deliberately. Positions are persisted when NSClient++ shuts down and restored on start; the newest ones are kept if more than a thousand accumulate.
+*Default Value:* `auto`
 
-    *Default Value:* `auto`
+<h5 id="check_logfile_max-lines">max-lines:</h5>
 
-    <h5 id="check_logfile_max-lines">max-lines:</h5>
+Only examine the newest <N> lines of each file (0, the default, means every line).
+The limit is applied per file, after any bookmark: with a bookmark the check still only sees lines added since the last check, and this caps how many of them are reported when a burst of lines was written at once. The lines dropped by the limit are never reported later either - the bookmark moves past everything which was read.
+Which end of the file holds the newest lines is controlled by `newest`.
 
-    Only examine the newest <N> lines of each file (0, the default, means every line).
-    The limit is applied per file, after any bookmark: with a bookmark the check still only sees lines added since the last check, and this caps how many of them are reported when a burst of lines was written at once. The lines dropped by the limit are never reported later either - the bookmark moves past everything which was read.
-    Which end of the file holds the newest lines is controlled by `newest`.
+*Default Value:* `0`
 
-    *Default Value:* `0`
+<h5 id="check_logfile_newest">newest:</h5>
 
-    <h5 id="check_logfile_newest">newest:</h5>
+Which end of the file holds the newest line: `last` (the default: lines are appended, as with most machine-written logs) or `first` (the file is rewritten with the newest line at the top, which is common in hand-maintained files such as changelogs).
+This only decides which end `max-lines` counts from; lines are always reported in the order they appear in the file. `newest=first` cannot be combined with `bookmark`, since a file which is rewritten from the top has no stable position to resume from.
 
-    Which end of the file holds the newest line: `last` (the default: lines are appended, as with most machine-written logs) or `first` (the file is rewritten with the newest line at the top, which is common in hand-maintained files such as changelogs).
-    This only decides which end `max-lines` counts from; lines are always reported in the order they appear in the file. `newest=first` cannot be combined with `bookmark`, since a file which is rewritten from the top has no stable position to resume from.
-
-    *Default Value:* `last`
-
-=== "Linux"
-
-    <a id="check_logfile_warn"></a>
-    <a id="check_logfile_crit"></a>
-    <a id="check_logfile_help"></a>
-    <a id="check_logfile_help-pb"></a>
-    <a id="check_logfile_show-default"></a>
-    <a id="check_logfile_help-short"></a>
-    <a id="check_logfile_split"></a>
-    <a id="check_logfile_files"></a>
-
-    | Option                                          | Default Value                       | Description                                                                                                               |
-    |-------------------------------------------------|-------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_logfile_filter)                 |                                     | Filter which marks interesting items.                                                                                     |
-    | [warning](#check_logfile_warning)               |                                     | Filter which marks items which generates a warning state.                                                                 |
-    | warn                                            |                                     | Short alias for warning                                                                                                   |
-    | [critical](#check_logfile_critical)             |                                     | Filter which marks items which generates a critical state.                                                                |
-    | crit                                            |                                     | Short alias for critical.                                                                                                 |
-    | [ok](#check_logfile_ok)                         |                                     | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_logfile_debug)                   | 1)] (=0                             | Show debugging information in the log                                                                                     |
-    | [show-all](#check_logfile_show-all)             | 1)] (=0                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-    | [empty-state](#check_logfile_empty-state)       | ignored                             | Return status to use when nothing matched filter.                                                                         |
-    | [perf-config](#check_logfile_perf-config)       |                                     | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_logfile_escape-html)       | 1)] (=0                             | Escape any < and > characters to prevent HTML encoding                                                                    |
-    | [list-separator](#check_logfile_list-separator) | ,                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-    | help                                            | N/A                                 | Show help screen (this screen)                                                                                            |
-    | help-pb                                         | N/A                                 | Show help screen as a protocol buffer payload                                                                             |
-    | show-default                                    | N/A                                 | Show default values for a given command                                                                                   |
-    | help-short                                      | N/A                                 | Show help screen (short format).                                                                                          |
-    | [top-syntax](#check_logfile_top-syntax)         | ${count}/${total} (${problem_list}) | Top level syntax.                                                                                                         |
-    | [ok-syntax](#check_logfile_ok-syntax)           |                                     | ok syntax.                                                                                                                |
-    | [empty-syntax](#check_logfile_empty-syntax)     | %(status): Nothing found            | Empty syntax.                                                                                                             |
-    | [detail-syntax](#check_logfile_detail-syntax)   | ${column1}                          | Detail level syntax.                                                                                                      |
-    | [perf-syntax](#check_logfile_perf-syntax)       | ${column1}                          | Performance alias syntax.                                                                                                 |
-    | [line-split](#check_logfile_line-split)         | \n                                  | Character string used to split a file into several lines (default `\n`).                                                  |
-    | [column-split](#check_logfile_column-split)     | \t                                  | Character string to split a line into several columns (default \t)                                                        |
-    | split                                           |                                     | Alias for split-column                                                                                                    |
-    | [file](#check_logfile_file)                     |                                     | File to read (can be specified multiple times to check multiple files.                                                    |
-    | files                                           |                                     | A comma separated list of files to scan (same as file except a list)                                                      |
-
-
-
-    <h5 id="check_logfile_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_logfile_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_logfile_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-
-    <h5 id="check_logfile_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_logfile_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_logfile_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_logfile_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `ignored`
-
-    <h5 id="check_logfile_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_logfile_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_logfile_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_logfile_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${count}/${total} (${problem_list})`
-
-    <h5 id="check_logfile_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_logfile_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `%(status): Nothing found`
-
-    <h5 id="check_logfile_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${column1}`
-
-    <h5 id="check_logfile_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${column1}`
-
-    <h5 id="check_logfile_line-split">line-split:</h5>
-
-    Character string used to split a file into several lines (default `\n`).
-    The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`) makes the entire file content available as a single record, which is useful together with a multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
-    `, a trailing carriage return is stripped from each record so that files with CRLF line endings produce clean lines.
-
-    *Default Value:* `\n`
-
-    <h5 id="check_logfile_column-split">column-split:</h5>
-
-    Character string to split a line into several columns (default \t)
-
-    *Default Value:* `\t`
-
-    <h5 id="check_logfile_file">file:</h5>
-
-    File to read (can be specified multiple times to check multiple files.
-    Notice that specifying multiple files will create an aggregate set it will not check each file individually.
-    In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.
+*Default Value:* `last`
 
 
 <a id="check_logfile_filter_keys"></a>
