@@ -122,8 +122,15 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(requests[0].body.os).toBe("linux");
   });
 
-  it("defaults the state file to ${certificate-path}/agent-state.json", async () => {
-    const expected = path.join(nscp.pathOverrides["certificate-path"], "agent-state.json");
+  it("defaults the state file to the platform's security directory", async () => {
+    // ${certificate-path}/agent-state.json on Windows, but on unix that is the
+    // read-only package directory, so the identity defaults to
+    // ${data-path}/security/agent-state.json instead. The fixture points both
+    // at the work dir, so spell out which one is actually being relied on.
+    const expected =
+      process.platform === "win32"
+        ? path.join(nscp.pathOverrides["certificate-path"], "agent-state.json")
+        : path.join(nscp.pathOverrides["data-path"], "security", "agent-state.json");
     // A previous suite run (or test) may have left a state file behind.
     fs.rmSync(expected, { force: true });
     const r = await enroll();
