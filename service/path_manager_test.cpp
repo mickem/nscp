@@ -10,6 +10,7 @@
 #include <fstream>
 #include <memory>
 #include <nsclient/logger/logger.hpp>
+#include <nscp/boot_layout.hpp>
 #include <nscp/layout_migration.hpp>
 
 class MockLogger : public nsclient::logging::log_interface {
@@ -283,6 +284,48 @@ TEST(PathDefaults, LayoutOnlyMovesSharedPathAndOnlyOnWindows) {
   for (const char *key : {"certificate-path", "module-path", "web-path", "scripts", "log-path", FLEET_FOLDER_KEY}) {
     EXPECT_EQ(nscp::paths::default_for(key, nscp::paths::layout::legacy), nscp::paths::default_for(key, nscp::paths::layout::modern)) << key;
   }
+}
+
+// How an upgrade keeps the layout it already has: with no LAYOUT property to
+// go on, the installer (and each standalone client) reads the answer back out
+// of the host's own boot.ini. Getting this wrong would move an installation
+// that never asked to move, or move a modern one back to legacy.
+TEST(BootLayout, ReadsTheModeFromBootIni) {
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-boot-%%%%");
+  boost::filesystem::create_directories(dir);
+  const boost::filesystem::path boot_ini = dir / "boot.ini";
+
+  const auto write = [&boot_ini](const std::string &content) {
+    std::ofstream out(boot_ini.string().c_str());
+    out << content;
+  };
+
+  write("[layout]\nmode = modern\n");
+  EXPECT_EQ(nscp::paths::layout_from_boot_ini_file(boot_ini.string()), nscp::paths::layout::modern);
+
+  write("[layout]\nmode = legacy\n");
+  EXPECT_EQ(nscp::paths::layout_from_boot_ini_file(boot_ini.string()), nscp::paths::layout::legacy);
+
+  // A boot.ini that predates the setting, which is every existing install.
+  write("[settings]\n0 = ini://${shared-path}/nsclient.ini\n");
+  EXPECT_EQ(nscp::paths::layout_from_boot_ini_file(boot_ini.string()), nscp::paths::layout::legacy);
+
+  // The raw value comes back too, so a caller can tell "asked for legacy" from
+  // "asked for something we do not understand" and say so.
+  std::string raw;
+  write("[layout]\nmode = moderne\n");
+  EXPECT_EQ(nscp::paths::layout_from_boot_ini_file(boot_ini.string(), &raw), nscp::paths::layout::legacy);
+  EXPECT_EQ(raw, "moderne");
+  EXPECT_FALSE(nscp::paths::is_known_layout(raw));
+
+  boost::system::error_code ignored;
+  boost::filesystem::remove_all(dir, ignored);
+}
+
+TEST(BootLayout, NoBootIniMeansLegacy) {
+  // A fresh install, or one whose boot.ini has not been written yet.
+  const boost::filesystem::path missing = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-none-%%%%") / "boot.ini";
+  EXPECT_EQ(nscp::paths::layout_from_boot_ini_file(missing.string()), nscp::paths::layout::legacy);
 }
 
 TEST(PathDefaults, ParsesTheBootIniModes) {

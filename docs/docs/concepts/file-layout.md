@@ -100,6 +100,25 @@ quietly.
 
 `--migrate-layout legacy` moves everything back the same way.
 
+### Choosing the layout at install time
+
+The MSI takes a `LAYOUT` property, on a fresh install and on an upgrade alike:
+
+```shell
+msiexec /i NSCP-x64.msi LAYOUT=modern /qn
+```
+
+On an upgrade it moves the existing installation's files for you, the same way
+the command above does. Leaving the property out keeps whatever the host
+already uses — so an upgrade never moves an installation that did not ask to
+move, and never moves a modern one back to legacy.
+
+<!-- @formatter:off -->
+!!! note "Experimental"
+    The modern layout is opt-in and has no UI yet: the MSI property and
+    `nscp settings --migrate-layout` are the two ways to select it.
+<!-- @formatter:on -->
+
 ### Legacy (default)
 
 The service runs as LocalSystem, which can read and write the whole install
