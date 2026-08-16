@@ -77,51 +77,28 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
   if (key == "base-path" || key == "exe-path") return getBasePath().string();
   if (key == "temp") return getTempPath().string();
 #ifdef WIN32
-  if (key == "shared-path") return getBasePath().string();
   if (key == "data-path" || key == "appdata") return shellapi::get_special_folder_path(CSIDL_APPDATA, getBasePath()).string();
   if (key == "common-appdata") return shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, getBasePath()).string();
 #endif
 
-  // Static defaults baked in by CMake via config.h. Most are templated on
-  // ${shared-path} or ${certificate-path}; expand_path resolves the chain.
-  // Note on ca-path: on Windows the service exports the system ROOT store to
-  // this file at boot (see windows_ca_store); on unix it is the distribution's
-  // own bundle, whose location differs per family and is therefore detected at
-  // configure time (CONFIG_CA_PATH). Either way it stays overridable via
-  // boot.ini's [paths] section or --path-override ca-path=...
-  static const std::map<std::string, std::string> defaults = {
-      {"certificate-path", CERT_FOLDER},
-      {"module-path", MODULE_FOLDER},
-      {"web-path", WEB_FOLDER},
-      {"scripts", SCRIPTS_FOLDER},
-      {"log-path", LOG_FOLDER},
-      {"ca-path", CA_PATH},
-      {CACHE_FOLDER_KEY, DEFAULT_CACHE_PATH},
-      {CRASH_ARCHIVE_FOLDER_KEY, "${shared-path}/crash-dumps"},
-      // Everything the fleet sync owns lives here: the rendered fleet.ini that
-      // nsclient.ini includes, the staged scripts and the bundle cache. The
-      // default is per-platform (CONFIG_FLEET_FOLDER) because it has to be
-      // writable by the account the service runs as, which on unix rules out
-      // the package directory ${shared-path} points at.
-      {FLEET_FOLDER_KEY, FLEET_FOLDER},
-#ifndef WIN32
-      {"shared-path", UNIX_SHARED_PATH_FOLDER},
-      {"data-path", UNIX_DATA_PATH_FOLDER},
-      // ${etc} tracks this build's config root (NSCP_SYSCONFDIR) so user
-      // ${etc}/... includes follow the prefix.
-      {"etc", ETC_FOLDER},
-      // boot.ini's default location, expressed as a token off ${etc} so it
-      // both tracks the prefix and stays CLI-overridable
-      // (--path-override boot-conf=/path/to/boot.ini). Expands cleanly with no
-      // self-reference; the kMaxExpandDepth guard catches a misconfigured cycle.
-      {"boot-conf", "${etc}/nsclient/boot.ini"},
+  // Static defaults, shared with the standalone clients so the two cannot
+  // disagree about where anything is - see include/nscp/path_defaults.hpp.
+  // On Windows this is also what moves ${shared-path} when the operator has
+  // opted into the modern layout; an empty answer means "no static default",
+  // which for shared-path is the legacy answer of "next to the executable".
+  const std::string shared_default = nscp::paths::default_for(key, layout_);
+  if (!shared_default.empty()) return shared_default;
+#ifdef WIN32
+  if (key == "shared-path") return getBasePath().string();
 #endif
-  };
 
-  const auto it = defaults.find(key);
-  if (it != defaults.end()) return it->second;
+  // Anything we have no answer for resolves to the executable's directory,
+  // which is the historical behaviour and keeps a typo in a settings file from
+  // expanding to an empty (and therefore root-relative) path.
   return getBasePath().string();
 }
+
+void nsclient::core::path_manager::set_layout(const nscp::paths::layout value) { layout_ = value; }
 
 void nsclient::core::path_manager::set_overrides(paths_type overrides) { overrides_ = std::move(overrides); }
 

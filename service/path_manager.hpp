@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <nsclient/logger/logger.hpp>
+#include <nscp/path_defaults.hpp>
 #include <string>
 
 namespace nsclient {
@@ -33,6 +34,11 @@ class path_manager {
   // init_settings() so they can even relocate ${boot-conf} itself.
   paths_type cli_overrides_;
 
+  // Which on-disk layout this installation uses. Set once from boot.ini during
+  // the settings bootstrap, before anything resolves a path; legacy until then,
+  // and legacy forever on unix, where the layout comes from the package prefix.
+  nscp::paths::layout layout_ = nscp::paths::layout::legacy;
+
  public:
   explicit path_manager(const logging::log_client_accessor& log_instance_);
   std::string getFolder(const std::string& key);
@@ -52,6 +58,14 @@ class path_manager {
   // these win no matter when boot.ini's [paths] are applied. Intended to be
   // called once, before init_settings(), from the CLI parser plumbing.
   void set_cli_overrides(paths_type overrides);
+
+  // Select the on-disk layout (Windows only in practice; a no-op elsewhere
+  // because the unix defaults are absolute). Called from the settings
+  // bootstrap once boot.ini has been read, before the main settings store is
+  // opened and before anything resolves a path - the whole point is that
+  // ${shared-path} answers consistently from the first lookup onwards.
+  void set_layout(nscp::paths::layout value);
+  nscp::paths::layout get_layout() const { return layout_; }
 
   // Maximum recursion depth for ${var} substitution. Caps the cycle defence
   // ("${a}" -> "${b}" -> "${a}") so a misconfiguration cannot stack-overflow

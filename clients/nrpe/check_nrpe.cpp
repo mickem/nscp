@@ -12,6 +12,8 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_status.hpp>
+#include <nscp/boot_layout.hpp>
+#include <nscp/path_defaults.hpp>
 
 #include "../../modules/NRPEClient/nrpe_client.hpp"
 #include "../../modules/NRPEClient/nrpe_handler.hpp"
@@ -80,56 +82,30 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
     if (gLog == "debug" || gLog == "error") std::cout << msg << std::endl;
   }
 
+  // The on-disk layout, read from boot.ini next to the executable. A client
+  // that disagrees with the service about ${shared-path} looks for
+  // certificates in a folder the service never wrote to.
+  // Read once, when the handler is constructed. A missing or silent boot.ini
+  // means the legacy layout, which is what every installation that predates
+  // the setting has.
+  nscp::paths::layout layout_ = nscp::paths::layout_from_boot_ini_file((getBasePath() / "boot.ini").string());
+
   std::string getFolder(std::string key) {
-    std::string default_value = getBasePath().string();
-    if (key == "certificate-path") {
-      default_value = CERT_FOLDER;
-    } else if (key == "module-path") {
-      default_value = MODULE_FOLDER;
-    } else if (key == "web-path") {
-      default_value = WEB_FOLDER;
-    } else if (key == "scripts") {
-      default_value = SCRIPTS_FOLDER;
-    } else if (key == CACHE_FOLDER_KEY) {
-      default_value = DEFAULT_CACHE_PATH;
-    } else if (key == CRASH_ARCHIVE_FOLDER_KEY) {
-      default_value = CRASH_ARCHIVE_FOLDER;
-    } else if (key == "base-path") {
-      default_value = getBasePath().string();
-    } else if (key == "temp") {
-      default_value = getTempPath().string();
-    } else if (key == "shared-path" || key == "base-path" || key == "exe-path") {
-      default_value = getBasePath().string();
-    }
+    // Lookups only this binary can answer, about its own location.
+    if (key == "base-path" || key == "exe-path") return getBasePath().string();
+    if (key == "temp") return getTempPath().string();
 #ifdef WIN32
-    else if (key == "common-appdata") {
-      default_value = shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, getBasePath()).string();
-    }
-#else
-    else if (key == "etc") {
-      // Track the daemon's ${etc} (NSCP_SYSCONFDIR) so a build for a non-/usr
-      // prefix resolves ${etc}/... the same way nscp does. See path_manager.cpp.
-      default_value = ETC_FOLDER;
-    }
+    if (key == "common-appdata") return shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, getBasePath()).string();
 #endif
-    return default_value;
+    // Everything else comes from the table the service uses, so the two cannot
+    // drift apart - including ${shared-path}, which the layout moves.
+    const std::string shared = nscp::paths::default_for(key, layout_);
+    if (!shared.empty()) return shared;
+    return getBasePath().string();
   }
 
   std::string expand_path(std::string file) {
-    std::string::size_type pos = file.find('$');
-    while (pos != std::string::npos) {
-      std::string::size_type pstart = file.find('{', pos);
-      std::string::size_type pend = file.find('}', pstart);
-      std::string key = file.substr(pstart + 1, pend - 2);
-
-      std::string tmp = file;
-      str::utils::replace(file, "${" + key + "}", getFolder(key));
-      if (file == tmp)
-        pos = file.find_first_of('$', pos + 1);
-      else
-        pos = file.find_first_of('$');
-    }
-    return file;
+    return nscp::paths::expand_tokens(std::move(file), [this](const std::string &key) { return getFolder(key); });
   }
 };
 
