@@ -36,7 +36,7 @@ struct fleet_config {
 // config rendered to <managed_path>/fleet.ini, scripts staged under
 // <managed_path>/scripts), reports state, and renews the client
 // certificate before expiry. The core starts it at boot only when the
-// enrollment manifest exists (see fleet_sync::has_manifest) and stops it at
+// enrollment manifest is readable (see fleet_sync::check_manifest) and stops it at
 // shutdown; it survives configuration reloads, which it itself requests
 // (via `request_reload`) after applying new configuration.
 class fleet_sync {
