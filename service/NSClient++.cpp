@@ -399,10 +399,9 @@ void NSClientT::boot_fleet_sync() {
     config.state_file = path_->expand_path(reg_key("state file", "State file",
                                                    "The enrollment manifest written by `nscp enroll` (certificates, keys and server urls). "
                                                    "Fleet sync only runs when this file exists.",
-                                                   "${certificate-path}/agent-state.json"));
+                                                   DEFAULT_FLEET_STATE_LOCATION));
     config.managed_path = path_->expand_path(
-        reg_key("managed path", "Managed path", "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept.",
-                "${shared-path}/fleet"));
+        reg_key("managed path", "Managed path", "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept.", FLEET_FOLDER));
     config.hostname = socket_helpers::expand_hostname(
         reg_key("hostname", "Hostname", "Hostname reported as a tag to the fleet server. Set to auto (default) to use this machine's hostname.", "auto"));
     config.tls_version = reg_key("tls version", "TLS version", "The TLS version used when connecting to the fleet server.", "tlsv1.2+");
@@ -417,8 +416,18 @@ void NSClientT::boot_fleet_sync() {
     }
     config.nscp_version = CURRENT_SERVICE_VERSION;
 
-    if (!fleet_sync::has_manifest(config.state_file)) {
+    std::string manifest_detail;
+    const fleet_sync::manifest_status manifest = fleet_sync::check_manifest(config.state_file, manifest_detail);
+    if (manifest == fleet_sync::manifest_status::missing) {
       LOG_DEBUG_CORE_STD("No fleet enrollment manifest (" + config.state_file + "): fleet sync not started");
+      return;
+    }
+    if (manifest == fleet_sync::manifest_status::unreadable) {
+      // This host IS enrolled, so staying quiet would leave an agent that looks
+      // healthy and never reports to the fleet. Name the fix in the same line.
+      LOG_ERROR_CORE_STD("Fleet enrollment manifest cannot be read (" + config.state_file + "): " + manifest_detail +
+                         ". Fleet sync not started - grant the service account read access to it (chown it to the owner of " +
+                         path_->expand_path("${data-path}") + ") and restart.");
       return;
     }
     const std::shared_ptr<fleet_sync> sync = std::make_shared<fleet_sync>(log_instance_, config, tags_, [this] { this->reload("delayed,service"); });

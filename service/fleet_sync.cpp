@@ -8,6 +8,7 @@
 #include <boost/json.hpp>
 #include <bytes/unzip.hpp>
 #include <fstream>
+#include <iomanip>
 #include <net/http/client.hpp>
 #include <random>
 #include <sstream>
@@ -15,12 +16,41 @@
 #include <str/xtos.hpp>
 #include <utility>
 
+#ifndef WIN32
+#include <pwd.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 namespace fs = boost::filesystem;
 namespace json = boost::json;
 
 namespace {
 
 const char *log_module = "fleet";
+
+// Name the two accounts involved when the manifest cannot be opened. Nearly
+// always root-owned material written by `sudo nscp enroll` against a service
+// that runs unprivileged, and the fix follows directly from seeing both names.
+std::string describe_unreadable(const std::string &state_file) {
+#ifdef WIN32
+  static_cast<void>(state_file);
+  return "the account the service runs as cannot open it";
+#else
+  const auto account_name = [](const uid_t uid) {
+    const struct passwd *entry = ::getpwuid(uid);
+    return entry != nullptr && entry->pw_name != nullptr ? std::string(entry->pw_name) : str::xtos(static_cast<unsigned long>(uid));
+  };
+  struct stat file_stat = {};
+  const std::string running_as = account_name(::geteuid());
+  if (::stat(state_file.c_str(), &file_stat) != 0) {
+    return "running as " + running_as + " and cannot stat it";
+  }
+  std::ostringstream mode;
+  mode << std::oct << std::setfill('0') << std::setw(4) << (file_stat.st_mode & 07777);
+  return "owned by " + account_name(file_stat.st_uid) + " mode " + mode.str() + ", service running as " + running_as;
+#endif
+}
 
 const char *desired_state_path = "/agent/v1/desired-state";
 const char *state_report_path = "/agent/v1/state-report";
@@ -37,6 +67,11 @@ const unsigned long max_sleep_seconds = 86400;
 // unbounded archive into memory is a denial of service waiting to happen.
 const std::size_t max_script_bytes = 16u * 1024u * 1024u;
 const std::size_t max_bundle_script_bytes = 64u * 1024u * 1024u;
+// Restart backoff after the sync loop throws. Starts short so a transient
+// startup failure costs little, and caps low enough that a permanent
+// misconfiguration keeps reappearing in the log where an operator will see it.
+const unsigned long restart_delay_min_seconds = 30;
+const unsigned long restart_delay_max_seconds = 600;
 
 // Clamp a sleep hint into something we are willing to act on.
 unsigned long clamp_sleep_seconds(const unsigned long seconds) { return std::max(1ul, std::min(seconds, max_sleep_seconds)); }
@@ -137,17 +172,25 @@ std::string compute_content_hash(const std::string &fleet_ini, const fs::path &s
 
 }  // namespace
 
-bool fleet_sync::has_manifest(const std::string &state_file) {
+fleet_sync::manifest_status fleet_sync::check_manifest(const std::string &state_file, std::string &detail) {
   boost::system::error_code ignored;
-  return fs::exists(state_file, ignored);
+  if (!fs::exists(state_file, ignored)) {
+    return manifest_status::missing;
+  }
+  // Opening it is the only check that matches what the sync thread will
+  // actually do; a stat-based permission calculation would have to reimplement
+  // supplementary groups, ACLs and everything else the kernel considers.
+  std::ifstream probe(state_file.c_str(), std::ios::binary);
+  if (probe.is_open()) {
+    return manifest_status::present;
+  }
+  detail = describe_unreadable(state_file);
+  return manifest_status::unreadable;
 }
 
 fleet_sync::fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags,
                        reload_function request_reload)
-    : logger_(std::move(logger)),
-      config_(std::move(config)),
-      tags_(std::move(tags)),
-      request_reload_(std::move(request_reload)) {
+    : logger_(std::move(logger)), config_(std::move(config)), tags_(std::move(tags)), request_reload_(std::move(request_reload)) {
   thread_ = std::make_shared<boost::thread>([this] { this->thread_proc(); });
 }
 
@@ -219,7 +262,9 @@ void fleet_sync::log_transport_failure(const std::string &operation, const std::
     // (re-enroll) - but say WHY when we can tell the cert simply expired.
     try {
       if (onboarding::days_until_expiry(identity_.cert_pem) < 0) {
-        advice = "This host's client certificate has expired (host offline past its renewal window): re-enroll with a new install command (nscp enroll ... --force).";
+        advice =
+            "This host's client certificate has expired (host offline past its renewal window): re-enroll with a new install command (nscp enroll ... "
+            "--force).";
       }
     } catch (...) {
     }
@@ -601,55 +646,74 @@ unsigned long fleet_sync::poll_once() {
 }
 
 void fleet_sync::thread_proc() {
-  try {
-    const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(config_.state_file);
-    if (!loaded) {
-      log_error("No fleet enrollment found (" + config_.state_file + "): run `nscp enroll` first; fleet sync disabled");
+  // A failure here used to end the thread for good: the agent stayed up,
+  // answered checks, and never synced again until someone restarted it. Retry
+  // instead, with a widening delay so a persistent misconfiguration (an
+  // unreadable manifest, a managed path we cannot create) keeps saying so in
+  // the log without filling it.
+  unsigned long restart_delay = restart_delay_min_seconds;
+  while (true) {
+    try {
+      run();
+      return;  // a deliberate stop (not enrolled, certificate revoked)
+    } catch (const boost::thread_interrupted &) {
+      return;  // normal shutdown
+    } catch (const std::exception &e) {
+      log_error("Fleet sync stopped: " + utf8::utf8_from_native(e.what()) + ". Retrying in " + str::xtos(restart_delay) + "s.");
+    } catch (...) {
+      log_error("Fleet sync stopped: UNKNOWN. Retrying in " + str::xtos(restart_delay) + "s.");
+    }
+    try {
+      boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(restart_delay)));
+    } catch (const boost::thread_interrupted &) {
       return;
     }
-    identity_ = *loaded;
-    while (!identity_.mtls_url.empty() && identity_.mtls_url.back() == '/') identity_.mtls_url.pop_back();
-    fs::create_directories(fs::path(config_.managed_path));
-    load_applied_state();
-    recover_interrupted_apply();
+    restart_delay = std::min(restart_delay * 2, restart_delay_max_seconds);
+  }
+}
 
-    // Startup: cheap identity check, then report tags early so a fresh host
-    // lands in its groups before the first desired-state poll.
-    try {
-      const http::response heartbeat = do_call("GET", heartbeat_path);
-      note_transport_success();
-      if (heartbeat.status_code_ == 403) {
-        log_error("Fleet server rejected our certificate (revoked): re-enroll with a new install command; fleet sync disabled");
-        return;
-      }
-    } catch (const std::exception &e) {
-      log_transport_failure("Fleet heartbeat", utf8::utf8_from_native(e.what()));
-    }
-    report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
+void fleet_sync::run() {
+  const boost::optional<onboarding::enrolled_identity> loaded = onboarding::load_state(config_.state_file);
+  if (!loaded) {
+    log_error("No fleet enrollment found (" + config_.state_file + "): run `nscp enroll` first; fleet sync disabled");
+    return;
+  }
+  identity_ = *loaded;
+  while (!identity_.mtls_url.empty() && identity_.mtls_url.back() == '/') identity_.mtls_url.pop_back();
+  fs::create_directories(fs::path(config_.managed_path));
+  load_applied_state();
+  recover_interrupted_apply();
 
-    while (true) {
-      const unsigned long sleep_seconds = poll_once();
-      // When the server is unreachable the poll already logged it; don't pile
-      // further failures (and further log entries) on top with a renewal
-      // call that cannot succeed either.
-      if (transport_ok_) {
-        maybe_renew();
-        // Module tags changed since the last successful report (e.g. a module
-        // was (re)loaded and re-detected its facts): re-report so the server
-        // updates group membership promptly. Identical tag maps are a server-
-        // side no-op, and the revision only moves on real changes, so this
-        // stays quiet in steady state.
-        if (tags_ && (!tags_reported_ || tags_->get_revision() != reported_tag_revision_)) {
-          report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
-        }
-      }
-      boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep_seconds)));
+  // Startup: cheap identity check, then report tags early so a fresh host
+  // lands in its groups before the first desired-state poll.
+  try {
+    const http::response heartbeat = do_call("GET", heartbeat_path);
+    note_transport_success();
+    if (heartbeat.status_code_ == 403) {
+      log_error("Fleet server rejected our certificate (revoked): re-enroll with a new install command; fleet sync disabled");
+      return;
     }
-  } catch (const boost::thread_interrupted &) {
-    // normal shutdown
   } catch (const std::exception &e) {
-    log_error("Fleet sync thread died: " + utf8::utf8_from_native(e.what()));
-  } catch (...) {
-    log_error("Fleet sync thread died: UNKNOWN");
+    log_transport_failure("Fleet heartbeat", utf8::utf8_from_native(e.what()));
+  }
+  report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
+
+  while (true) {
+    const unsigned long sleep_seconds = poll_once();
+    // When the server is unreachable the poll already logged it; don't pile
+    // further failures (and further log entries) on top with a renewal
+    // call that cannot succeed either.
+    if (transport_ok_) {
+      maybe_renew();
+      // Module tags changed since the last successful report (e.g. a module
+      // was (re)loaded and re-detected its facts): re-report so the server
+      // updates group membership promptly. Identical tag maps are a server-
+      // side no-op, and the revision only moves on real changes, so this
+      // stays quiet in steady state.
+      if (tags_ && (!tags_reported_ || tags_->get_revision() != reported_tag_revision_)) {
+        report_state(current_hash_.empty() ? boost::optional<std::string>() : boost::optional<std::string>(current_hash_), std::vector<std::string>());
+      }
+    }
+    boost::this_thread::sleep_for(boost::chrono::milliseconds(with_jitter_ms(sleep_seconds)));
   }
 }

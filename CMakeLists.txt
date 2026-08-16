@@ -863,6 +863,18 @@ if(WIN32)
         CACHE STRING
         "security (certificates) folder"
     )
+    # Windows keeps both next to the rest of the writable state: the service
+    # runs as LocalSystem, so there is no unprivileged account to hand them to.
+    set(CONFIG_FLEET_STATE_LOCATION
+        "\${certificate-path}/agent-state.json"
+        CACHE STRING
+        "fleet enrollment manifest"
+    )
+    set(CONFIG_FLEET_FOLDER
+        "\${shared-path}/fleet"
+        CACHE STRING
+        "fleet managed configuration folder"
+    )
     # The service exports the Windows ROOT store here at boot (windows_ca_store),
     # so unlike unix this is a path we own rather than one the platform ships.
     set(CONFIG_CA_PATH
@@ -930,6 +942,25 @@ else()
         "security (certificates) folder"
     )
 
+    # The fleet identity and the synced configuration are written after install
+    # and rewritten at runtime by a service that does not run as root, so they
+    # belong under the state directory (${data-path}, i.e. NSCP_PKGSTATEDIR) -
+    # which packaging already creates and chowns - and not under the read-only
+    # package directory that ${shared-path} and ${certificate-path} point at.
+    # ${certificate-path} keeps holding shipped read-only material (the NRPE DH
+    # parameters, an admin supplied CA), which is why only the generated
+    # identity moves. See docs/design/linux-writable-state.md.
+    set(CONFIG_FLEET_STATE_LOCATION
+        "\${data-path}/security/agent-state.json"
+        CACHE STRING
+        "fleet enrollment manifest"
+    )
+    set(CONFIG_FLEET_FOLDER
+        "\${data-path}/fleet"
+        CACHE STRING
+        "fleet managed configuration folder"
+    )
+
     # The trusted CA bundle belongs to the distribution, so this is an absolute
     # path that must NOT track CMAKE_INSTALL_PREFIX: a --prefix=/usr/local build
     # still reads the system bundle, not /usr/local/etc/ssl/...
@@ -979,8 +1010,13 @@ else()
         CACHE STRING
         "Path for caching stuff"
     )
+    # NSCP_LOGDIR (/var/log/nsclient), not ${shared-path}/log: the service runs
+    # unprivileged and cannot create a directory inside the package directory,
+    # so the default log location was unwritable and every log line was dropped.
+    # This is what docs/design/linux-prefix-builds.md already documents
+    # NSCP_LOGDIR as backing.
     set(CONFIG_LOG_FOLDER
-        "\${shared-path}/log"
+        "${NSCP_LOGDIR}"
         CACHE STRING
         "Path for log files"
     )

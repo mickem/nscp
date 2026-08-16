@@ -52,6 +52,14 @@
 // distribution (see CONFIG_CA_PATH in CMakeLists.txt).
 #define CA_PATH "@CONFIG_CA_PATH@"
 #define LOG_FOLDER "@CONFIG_LOG_FOLDER@"
+// Fleet enrollment manifest and the directory the fleet sync writes its
+// rendered configuration, scripts and bundle cache into. Both are written after
+// install and mutated at runtime, so on unix they live under the state
+// directory rather than the read-only package directory. FLEET_FOLDER is the
+// single source for the path: the core defaults its managed path to it and
+// `nscp enroll` builds the [/includes] fleet entry from it.
+#define DEFAULT_FLEET_STATE_LOCATION "@CONFIG_FLEET_STATE_LOCATION@"
+#define FLEET_FOLDER "@CONFIG_FLEET_FOLDER@"
 #ifndef WIN32
 #define UNIX_SHARED_PATH_FOLDER "@UNIX_SHARED_PATH_FOLDER@"
 #define UNIX_DATA_PATH_FOLDER "@UNIX_DATA_PATH_FOLDER@"

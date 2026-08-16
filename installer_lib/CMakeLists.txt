@@ -179,6 +179,19 @@ set(CONFIG_DEFAULT_CACHE_PATH
     "Path for caching stuff"
 )
 set(CONFIG_LOG_FOLDER "\${shared-path}/log" CACHE STRING "Path for log files")
+# This target configures the same config.h.in, so every define it grows has to
+# be set here too or it substitutes to an empty string. Windows-only target, so
+# these mirror the Windows values from the top-level CMakeLists.
+set(CONFIG_FLEET_STATE_LOCATION
+    "\${certificate-path}/agent-state.json"
+    CACHE STRING
+    "fleet enrollment manifest"
+)
+set(CONFIG_FLEET_FOLDER
+    "\${shared-path}/fleet"
+    CACHE STRING
+    "fleet managed configuration folder"
+)
 set(CONFIG_DEFAULT_LOG_LOCATION
     "\${exe-path}/nsclient.log"
     CACHE STRING
