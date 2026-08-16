@@ -10,6 +10,22 @@ later).
 > `./install-azure.ps1`, then connect with `./connect-to-azure.ps1`
 > (or the setup scripts will call `Connect-AzAccount` themselves).
 
+> **"was disallowed by Azure … without authenticating through MFA".** Every
+> resource creation fails while reads keep working: you are signed in, but the
+> token did not do MFA and the tenant enforces it for resource management.
+> `connect-to-azure.ps1` warns about this up front; to fix it, sign in again
+> answering the MFA challenge, then re-run:
+>
+> ```powershell
+> Connect-AzAccount -Tenant (Get-AzContext).Tenant.Id `
+>     -ClaimsChallenge "eyJhY2Nlc3NfdG9rZW4iOnsiYWNycyI6eyJlc3NlbnRpYWwiOnRydWUsInZhbHVlcyI6WyJwMSJdfX19"
+> ```
+>
+> Az caches the context on disk, so a *stale* login is the other half of this
+> trap — `Get-AzContext` keeps returning an account whose token expired long ago.
+> `connect-to-azure.ps1` verifies the cached context and re-authenticates instead
+> of failing on the first `New-Az…` call.
+
 ## The flow
 
 ```
@@ -76,6 +92,20 @@ Enrollment differs per platform, and both paths end at the same
 Either way the setup script verifies that `agent-state.json` exists before it
 reports success — a machine that silently never joined the fleet is exactly the
 failure this tooling exists to catch.
+
+> **Linux enrollment material has to be readable by the service user.** `nscp
+> enroll` runs under `sudo`, so `agent-state.json` lands root-owned and `0600`,
+> while the DEB/RPM run the service as `nsclient`. The core's boot gate is a
+> plain existence check, so it starts the sync, fails to read the manifest, and
+> the sync thread dies — the machine installs, enrolls, reports success, and
+> never appears in the fleet. The Linux setup scripts now hand the manifest and
+> the managed directory (`<shared-path>/fleet`) to the service user and assert
+> both are usable *as that user* before reporting success. Windows is unaffected
+> (the service runs as LocalSystem).
+>
+> Note this failure is invisible on the box: the packaged log file is root-owned
+> too, so the service cannot write it (`Failed to create log directory`). Use
+> `journalctl -u nsclient | grep -i fleet` when debugging enrollment.
 
 Every run appends to `.fleet-machines.json` (name, OS, resource group, public IP,
 fleet host id). Tear the whole estate down again with:

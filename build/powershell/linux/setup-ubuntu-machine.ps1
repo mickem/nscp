@@ -78,20 +78,10 @@ if ($FleetCaFile -and -not (Test-Path $FleetCaFile)) {
     exit 1
 }
 
-Write-Host "Connecting to Azure account..."
-if (-not (Get-AzContext)) {
-    # WSL / headless hosts have no local browser for the interactive account
-    # picker (it hangs on "Please select the account..."), so fall back to
-    # device-code auth on Linux/macOS — open the printed URL in any browser
-    # and enter the code.
-    if ($IsLinux -or $IsMacOS) {
-        Connect-AzAccount -UseDeviceAuthentication
-    } else {
-        Connect-AzAccount
-    }
-    Set-AzContext -Subscription (Get-AzSubscription)[0]
-}
-Write-Host "✅ Successfully connected to Azure."
+# Shared with the other setup scripts: it also validates an autosaved-but-expired
+# context instead of trusting Get-AzContext, which would otherwise let us run on
+# to New-AzResourceGroup and fail there.
+& (Join-Path (Split-Path -Parent $PSScriptRoot) "connect-to-azure.ps1")
 
 # Run a script on the VM via RunCommand, retrying transient Azure API errors
 # (Invoke-AzVMRunCommand can fail with "An error occurred while sending the
@@ -269,9 +259,41 @@ if [ -z "`$state" ]; then
     echo "FLEET: enrollment reported success but no agent-state.json was written"
     exit 1
 fi
-echo "FLEET: enrolled (`$state)"
+# Enrollment runs under sudo, so the manifest lands root-owned and 0600 - but the
+# Linux packages run the service as an unprivileged user. The core sees the file
+# (the boot gate is a plain existence check), starts the sync, then cannot read
+# it and the thread dies with "Failed to read state file". The machine looks
+# installed and enrolled and simply never appears in the fleet. Hand the
+# enrollment material, and the directory the sync writes to, to the service user.
+svc_user=`$(systemctl show nsclient -p User --value 2>/dev/null)
+[ -n "`$svc_user" ] || svc_user=nsclient
+# fleet.ini, applied-state.json and the bundle cache are written here (the core's
+# shared-path/fleet), and the package leaves that root-owned as well.
+managed="`$(dirname "`$(dirname "`$state")")/fleet"
+if id "`$svc_user" >/dev/null 2>&1; then
+    sudo chown "`$svc_user" "`$state"
+    sudo mkdir -p "`$managed"
+    sudo chown -R "`$svc_user" "`$managed"
+fi
 # Restart so the fleet sync starts now instead of at the next reboot.
 sudo systemctl restart nsclient
+# Assert what actually broke, as the service user itself: an unreadable manifest
+# or an unwritable managed path is a machine that enrolls and never syncs. The
+# service's own log is no help here - it is written to a directory the service
+# user cannot create either, so the failure is invisible on the box.
+sudo -u "`$svc_user" test -r "`$state" || { echo "FLEET: `$svc_user cannot read `$state"; exit 1; }
+sudo -u "`$svc_user" test -w "`$managed" || { echo "FLEET: `$svc_user cannot write `$managed"; exit 1; }
+# Best-effort: the sync thread dying is reported only to the journal, and only
+# for the process now running (an earlier boot's buffered errors flush at
+# restart, so match the current PID or they read as a fresh failure).
+sleep 10
+pid=`$(systemctl show nsclient -p MainPID --value 2>/dev/null)
+if [ -n "`$pid" ] && sudo journalctl -u nsclient --no-pager -n 200 2>/dev/null | grep "nscp\[`$pid\]" | grep -q "Fleet sync thread died"; then
+    sudo journalctl -u nsclient --no-pager -n 200 | grep "nscp\[`$pid\]" | grep -i fleet | tail -5
+    echo "FLEET: the fleet sync thread died after enrollment"
+    exit 1
+fi
+echo "FLEET: enrolled (`$state, service user `$svc_user)"
 "@
     $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
     if ($result.Status -ne "Succeeded") {
