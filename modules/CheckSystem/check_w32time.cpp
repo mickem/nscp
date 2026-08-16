@@ -145,7 +145,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("source", &w32time_obj::get_source, "The time source in use; the configured peers when the service could not be asked (see source_from)")
       .add_string_var("source_from", &w32time_obj::get_source_from, "Where source came from: 'service' (live), 'configuration' or 'unknown'")
       .add_string_var("peers", &w32time_obj::get_peers, "Configured NTP peers, comma separated (empty on a domain member, which discovers its source)")
-      .add_string_var("last_sync", &w32time_obj::get_last_sync, "Time of the last known good synchronization, or 'unknown'")
+      .add_string_var("last_sync", &w32time_obj::get_last_sync, "Time of the last known good synchronization, in UTC, or 'unknown'")
       .add_string_var("state", &w32time_obj::get_state, "One line verdict: not installed, not running, NoSync, falling back to the local clock or synchronizing with a source");
   registry_.add_int_var("installed", type_bool, &w32time_obj::get_installed, "True when the W32Time service exists on this host")
       .no_perf()

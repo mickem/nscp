@@ -46,7 +46,8 @@ A list of all available queries (check commands)
 | [check_patch_age](#check_patch_age)                     | Check installed-hotfix hygiene: how long since the newest hotfix was installed and whether specific required hotfixes are present.                                                  |
 | [check_pdh](#check_pdh)                                 | Check the value of a performance (PDH) counter on the local or remote system.                                                                                                       |
 | [check_pending_reboot](#check_pending_reboot)           | Check whether the system is waiting for a reboot, aggregating the servicing, Windows Update, file-rename, computer-rename and domain-join signals.                                  |
-| [check_printqueue](#check_printqueue)                   | Check Windows print queues: queue depth, oldest-job age, offline and error states per printer.                                                                                      |
+| [check_printjobs](#check_printjobs)                     | Check individual Windows print jobs: document, owner, size, pages, age and spooler status of every queued job.                                                                      |
+| [check_printqueue](#check_printqueue)                   | Check Windows print queues: queue depth, oldest-job age, offline and error states plus the driver, port and sharing of each printer.                                                |
 | [check_process](#check_process)                         | Check state/metrics of one or more of the processes running on the computer.                                                                                                        |
 | [check_process_history](#check_process_history)         | Check the history of processes that have been running since NSClient++ started. Useful for verifying if certain applications have been executed.                                    |
 | [check_process_history_new](#check_process_history_new) | Check for new processes that appeared within a specified time window. Useful for detecting unexpected or unauthorized applications.                                                 |
@@ -7246,18 +7247,348 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
 | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
+### check_printjobs
+
+*Available on Windows only.*
+
+Check individual Windows print jobs: document, owner, size, pages, age and spooler status of every queued job.
+
+#### About `check_printjobs`
+
+`check_printjobs` reports the **individual jobs** sitting in the Windows
+spooler — one row per job — from `Win32_PrintJob`. Where
+[`check_printqueue`](#check_printqueue) tells you *that* a queue is backed up,
+this tells you *what* is stuck in it: which document, whose it is, how big it
+is, how long it has been waiting and what the spooler says about it.
+
+Keywords (one row per job):
+
+| Keyword             | Description                                                                                  |
+|---------------------|----------------------------------------------------------------------------------------------|
+| `printer`           | Printer / queue the job is waiting on                                                         |
+| `document`          | Document name as the application submitted it                                                 |
+| `owner`             | User who submitted the job                                                                    |
+| `status`            | Spooler status words: `queued`, `printing`, `spooling`, `error`, `paused`, `blocked`, …       |
+| `submitted`         | When the job was submitted, in **UTC**, or `unknown`                                          |
+| `id`                | Spooler job id                                                                                |
+| `age`               | **Seconds** since submission (`-1` when the spooler reported no submit time)                  |
+| `size`              | Job size in **bytes**                                                                          |
+| `pages`             | Total pages in the job (`0` when the driver does not report it)                                |
+| `pages_printed`     | Pages printed so far                                                                           |
+| `priority`          | Job priority                                                                                   |
+| `status_mask`       | Raw `StatusMask` bit field, for statuses without their own keyword                             |
+| `error`             | `1` when the job is in an error state                                                          |
+| `paused`            | `1` when the job is paused                                                                     |
+| `printing`          | `1` when the job is printing                                                                   |
+| `spooling`          | `1` when the job is still spooling                                                             |
+| `blocked`           | `1` when the job is blocked on the device queue                                                |
+| `user_intervention` | `1` when the job needs someone at the printer                                                  |
+| `offline`           | `1` when the job's printer is offline                                                          |
+| `paper_out`         | `1` when the job is waiting for paper                                                          |
+
+Units in thresholds:
+
+- `age` takes durations — `age > 30m`, `age > 2h` — and a bare number still
+  means seconds.
+- `size` takes byte units — `size > 500M`, `size > 2G`. A **bare number is
+  rejected** for size keywords, so write `size > 1K` rather than `size > 1024`.
+
+Defaults: **CRITICAL** when `error = 1 or blocked = 1 or user_intervention = 1`
+— the three states the spooler cannot get out of by itself — and **WARNING**
+when `age > 600` (ten minutes). A paused job is deliberately *not* critical:
+someone paused it on purpose. empty-state is **OK**, because an empty spooler is
+the normal state; the check then reports "No print jobs queued" and still emits
+`count` perfdata so queue depth can be graphed.
+
+Perfdata is keyed `<printer>_<job id>`, so labels change as jobs come and go.
+That is fine for alerting; for graphing prefer the always-present `count`, or
+`check_printqueue`'s per-printer `jobs` series. **Windows only.**
+
+**Jump to section:**
+
+* [Sample Commands](#check_printjobs_samples)
+* [Command-line Arguments](#check_printjobs_options)
+* [Filter keywords](#check_printjobs_filter_keys)
+
+
+<a id="check_printjobs_samples"></a>
+#### Sample Commands
+
+**Default check (stuck and failing jobs):**
+
+The default is critical on a job the spooler cannot clear on its own and warning
+on one that has been waiting more than ten minutes.
+
+```
+check_printjobs
+OK: No print jobs queued|'count'=0;0;0
+```
+
+```
+check_printjobs
+OK: OneNote (Desktop): 'document' by micha (queued, 13s)|'OneNote (Desktop)_2_age'=13s;600;0 'count'=1;0;0
+```
+
+```
+check_printjobs
+CRITICAL: HP LaserJet: 'quarterly.pdf' by CORP\ann (error, 240s)|'HP LaserJet_42_age'=240s;600;0 'count'=1;0;0
+```
+
+**Alert earlier on a queue that is not moving:**
+
+```
+check_printjobs "warning=age > 1"
+WARNING: OneNote (Desktop): 'document' by micha (queued, 23s)|'OneNote (Desktop)_2_age'=23s;1;0 'count'=1;0;0
+```
+
+**Full per-job detail:**
+
+```
+check_printjobs warning=none critical=none "top-syntax=${list}" "detail-syntax=printer=${printer} id=${id} doc='${document}' owner=${owner} status=${status} size=${size} pages=${pages}/${pages_printed} prio=${priority} age=${age} sub=${submitted}"
+printer=OneNote (Desktop) id=2 doc='document' owner=micha status=queued size=53620 pages=1/0 prio=1 age=18 sub=2026-08-16 12:10:02|'count'=1;0;0
+```
+
+`submitted` is rendered in UTC; threshold on `age` (seconds) rather than on the
+timestamp.
+
+**Find who is filling the queue:**
+
+```
+check_printjobs "filter=owner = 'CORP\\ann'" "warning=count > 20" "critical=none" "top-syntax=${count} job(s) from ann" "ok-syntax=${count} job(s) from ann"
+3 job(s) from ann
+```
+
+**Alert on a single very large job:**
+
+Size thresholds take byte units; a bare number is rejected, so write `500M`
+rather than `524288000`.
+
+```
+check_printjobs "warning=none" "critical=size > 500M"
+CRITICAL: HP LaserJet: 'plot.ps' by CORP\bob (spooling, 45s)|'HP LaserJet_51_size'=734003200B;0;524288000 'count'=1;0;0
+```
+
+**Only the jobs needing a person at the printer:**
+
+```
+check_printjobs "filter=user_intervention = 1 or paper_out = 1" "critical=count > 0"
+CRITICAL: HP LaserJet: 'invoice.pdf' by CORP\eve (user_intervention, paper_out, 512s)
+```
+
+**Watch one queue on a print server, over NRPE:**
+
+```
+check_nscp_client --host 192.168.56.103 --command check_printjobs --argument "filter=printer = 'HP LaserJet'" --argument "warning=age > 30m"
+OK: All 2 job(s) ok.
+```
+
+
+
+<a id="check_printjobs_options"></a>
+#### Command-line Arguments
+
+<a id="check_printjobs_warn"></a>
+<a id="check_printjobs_crit"></a>
+<a id="check_printjobs_help"></a>
+<a id="check_printjobs_help-pb"></a>
+<a id="check_printjobs_show-default"></a>
+<a id="check_printjobs_help-short"></a>
+
+| Option                                            | Default Value                                              | Description                                                                                                               |
+|---------------------------------------------------|------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_printjobs_filter)                 |                                                            | Filter which marks interesting items.                                                                                     |
+| [warning](#check_printjobs_warning)               | age > 600                                                  | Filter which marks items which generates a warning state.                                                                 |
+| warn                                              |                                                            | Short alias for warning                                                                                                   |
+| [critical](#check_printjobs_critical)             | error = 1 or blocked = 1 or user_intervention = 1          | Filter which marks items which generates a critical state.                                                                |
+| crit                                              |                                                            | Short alias for critical.                                                                                                 |
+| [ok](#check_printjobs_ok)                         |                                                            | Filter which marks items which generates an ok state.                                                                     |
+| [debug](#check_printjobs_debug)                   | 1)] (=0                                                    | Show debugging information in the log                                                                                     |
+| [show-all](#check_printjobs_show-all)             | 1)] (=0                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [empty-state](#check_printjobs_empty-state)       | ok                                                         | Return status to use when nothing matched filter.                                                                         |
+| [perf-config](#check_printjobs_perf-config)       |                                                            | Performance data generation configuration                                                                                 |
+| [escape-html](#check_printjobs_escape-html)       | 1)] (=0                                                    | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [list-separator](#check_printjobs_list-separator) | ,                                                          | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+| help                                              | N/A                                                        | Show help screen (this screen)                                                                                            |
+| help-pb                                           | N/A                                                        | Show help screen as a protocol buffer payload                                                                             |
+| show-default                                      | N/A                                                        | Show default values for a given command                                                                                   |
+| help-short                                        | N/A                                                        | Show help screen (short format).                                                                                          |
+| [top-syntax](#check_printjobs_top-syntax)         | ${status}: ${list}                                         | Top level syntax.                                                                                                         |
+| [ok-syntax](#check_printjobs_ok-syntax)           | %(status): All %(count) job(s) ok.                         | ok syntax.                                                                                                                |
+| [empty-syntax](#check_printjobs_empty-syntax)     | %(status): No print jobs queued                            | Empty syntax.                                                                                                             |
+| [detail-syntax](#check_printjobs_detail-syntax)   | ${printer}: '${document}' by ${owner} (${status}, ${age}s) | Detail level syntax.                                                                                                      |
+| [perf-syntax](#check_printjobs_perf-syntax)       | ${printer}_${id}                                           | Performance alias syntax.                                                                                                 |
+
+
+
+<h5 id="check_printjobs_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_printjobs_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `age > 600`
+
+<h5 id="check_printjobs_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `error = 1 or blocked = 1 or user_intervention = 1`
+
+<h5 id="check_printjobs_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_printjobs_debug">debug:</h5>
+
+Show debugging information in the log
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_printjobs_show-all">show-all:</h5>
+
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_printjobs_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ok`
+
+<h5 id="check_printjobs_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_printjobs_escape-html">escape-html:</h5>
+
+Escape any < and > characters to prevent HTML encoding
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_printjobs_list-separator">list-separator:</h5>
+
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+*Default Value:* `, `
+
+<h5 id="check_printjobs_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_printjobs_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): All %(count) job(s) ok.`
+
+<h5 id="check_printjobs_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `%(status): No print jobs queued`
+
+<h5 id="check_printjobs_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${printer}: '${document}' by ${owner} (${status}, ${age}s)`
+
+<h5 id="check_printjobs_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${printer}_${id}`
+
+
+<a id="check_printjobs_filter_keys"></a>
+#### Filter keywords
+
+| Option            | Description                                                                                                                      |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| age               | Seconds since the job was submitted (-1 when the spooler did not report a submit time); threshold with durations, e.g. age > 30m |
+| blocked           | 1 when the job is blocked on the device queue                                                                                    |
+| document          | Document name as the application submitted it                                                                                    |
+| error             | 1 when the job is in an error state                                                                                              |
+| id                | Spooler job id                                                                                                                   |
+| offline           | 1 when the job's printer is offline                                                                                              |
+| owner             | User who submitted the job                                                                                                       |
+| pages             | Total pages in the job (0 when the driver does not report it)                                                                    |
+| pages_printed     | Pages printed so far                                                                                                             |
+| paper_out         | 1 when the job is waiting for paper                                                                                              |
+| paused            | 1 when the job is paused                                                                                                         |
+| printer           | Printer / queue the job is waiting on                                                                                            |
+| printing          | 1 when the job is printing                                                                                                       |
+| priority          | Job priority                                                                                                                     |
+| size              | Job size in bytes; threshold with byte units, e.g. size > 500M                                                                   |
+| spooling          | 1 when the job is still spooling                                                                                                 |
+| status_mask       | Raw StatusMask bit field, for statuses without their own keyword                                                                 |
+| submitted         | When the job was submitted, in UTC, or 'unknown'; threshold on age instead                                                       |
+| user_intervention | 1 when the job needs someone at the printer                                                                                      |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
 ### check_printqueue
 
 *Available on Windows only.*
 
-Check Windows print queues: queue depth, oldest-job age, offline and error states per printer.
+Check Windows print queues: queue depth, oldest-job age, offline and error states plus the driver, port and sharing of each printer.
 
 #### About `check_printqueue`
 
 `check_printqueue` monitors Windows **print queues** — the classic "the print
-server is stuck" incident. It reads `Win32_Printer` (status and error state) and
-`Win32_PrintJob` (queued jobs), producing one row per printer with its queue
-depth and the age of the oldest waiting job.
+server is stuck" incident. It reads `Win32_Printer` (status, error state and the
+device inventory) and `Win32_PrintJob` (queued jobs), producing one row per
+printer with its queue depth and the age of the oldest waiting job.
+
+For the individual jobs behind those counts — who submitted what, how big it is
+and how long it has been waiting — use [`check_printjobs`](#check_printjobs),
+which reports one row per job.
 
 Keywords (one row per printer):
 
@@ -7271,8 +7602,24 @@ Keywords (one row per printer):
 | `oldest_job_age` | **Seconds** since the oldest queued job (`-1` if the queue is empty)             |
 | `offline`        | `1` if the printer is offline                                                    |
 | `error`          | `1` if the printer is in a real error state (paper/toner/door/jam/service)       |
+| `driver`         | Print driver the queue uses                                                      |
+| `port`           | Port it prints through (`IP_10.0.0.20`, `USB001`, `PORTPROMPT:`, …)              |
+| `location`       | Location configured on the queue (empty when unset)                              |
+| `share`          | Share name (empty when the queue is not shared)                                  |
+| `server`         | Print server hosting the queue (empty for a local queue)                         |
+| `default`        | `1` if this is the default printer                                               |
+| `shared`         | `1` if the queue is shared                                                       |
+| `network`        | `1` if the queue is a network rather than local printer                          |
 
-`oldest_job_age` is seconds, so threshold it with durations: `oldest_job_age > 30m`.
+The device columns are the inventory half of the check: they answer "is this
+queue still pointing at the driver and port it is supposed to", which is the
+other common cause of "printing is broken" once the queue itself looks healthy.
+They are also useful as a filter — `filter=shared = 1` to watch only what a
+print server actually publishes.
+
+`oldest_job_age` is seconds and takes durations: `oldest_job_age > 30m`,
+`oldest_job_age > 2h`. A bare number still means seconds. An empty queue reports
+`-1`, which is below every threshold, so it cannot raise a stuck-queue alert.
 
 Defaults: **WARNING** when `jobs > 10`, **CRITICAL** when `error = 1`.
 Offline printers are **not** alerted by default — virtual printers (Print to
@@ -7336,6 +7683,27 @@ OK: HP LaserJet: idle/no_error jobs=0 oldest=-1s offline=0, Microsoft Print to P
 
 ```
 check_nscp_client --host 192.168.56.103 --command check_printqueue --argument "crit=error = 1 or offline = 1"
+OK: All 4 printer(s) ok.
+```
+
+**Show the device behind each queue (driver, port, sharing):**
+
+```
+check_printqueue warning=none critical=none "top-syntax=${list}" "detail-syntax=${printer} [drv=${driver}] [port=${port}] def=${default} shared=${shared} net=${network}"
+Microsoft Print to PDF [drv=Microsoft Print To PDF] [port=PORTPROMPT:] def=0 shared=0 net=0, HP Color LaserJet Pro MFP 4302 [drv=Microsoft IPP Class Driver] [port=WSD-7f7ab05a-2fe9-4ca8-84cb-2f4b45e3bc9a] def=1 shared=0 net=0
+```
+
+**Alert when a queue moves to an unexpected driver or port:**
+
+```
+check_printqueue "filter=printer = 'HP LaserJet'" "crit=driver != 'HP Universal Printing PCL 6'"
+CRITICAL: HP LaserJet: idle, 0 job(s)
+```
+
+**Only look at the shared queues on a print server:**
+
+```
+check_printqueue "filter=shared = 1" "crit=error = 1 or offline = 1"
 OK: All 4 printer(s) ok.
 ```
 
@@ -7491,13 +7859,21 @@ This is the syntax for the base names of the performance data.
 
 | Option         | Description                                                                                                         |
 |----------------|---------------------------------------------------------------------------------------------------------------------|
+| default        | 1 if this is the default printer                                                                                    |
+| driver         | Print driver the queue uses                                                                                         |
 | error          | 1 if the printer is in a real error state (paper/toner/door/jam/service)                                            |
 | error_jobs     | Number of queued jobs in an error state                                                                             |
 | error_state    | Detected error state: no_error, no_paper, jammed, door_open, ...                                                    |
 | jobs           | Number of queued print jobs                                                                                         |
+| location       | Location as configured on the queue (empty when unset)                                                              |
+| network        | 1 if the queue is a network (rather than local) printer                                                             |
 | offline        | 1 if the printer is offline                                                                                         |
 | oldest_job_age | Seconds since the oldest queued job (-1 if the queue is empty); threshold with durations, e.g. oldest_job_age > 30m |
+| port           | Port the queue prints through (IP_x.x.x.x, USB001, PORTPROMPT:, ...)                                                |
 | printer        | Printer / queue name                                                                                                |
+| server         | Print server hosting the queue (empty for a local queue)                                                            |
+| share          | Share name (empty when the queue is not shared)                                                                     |
+| shared         | 1 if the queue is shared                                                                                            |
 
 **Common options for all checks:**
 
@@ -11073,7 +11449,7 @@ This is the syntax for the base names of the performance data.
 | delay                | NTP round trip delay to the time source in milliseconds                                                                                                                                                               |
 | frequency_adjustment | Correction the service applies to the clock frequency, in parts per billion (negative slows the clock down)                                                                                                           |
 | installed            | True when the W32Time service exists on this host                                                                                                                                                                     |
-| last_sync            | Time of the last known good synchronization, or 'unknown'                                                                                                                                                             |
+| last_sync            | Time of the last known good synchronization, in UTC, or 'unknown'                                                                                                                                                     |
 | last_sync_age        | Seconds since the last synchronization W32Time recorded as good                                                                                                                                                       |
 | local_clock          | True when the source is the machine's own clock (Local CMOS Clock / free-running)                                                                                                                                     |
 | offset               | Absolute clock offset against the time source in milliseconds, as last computed by the service; 'unknown' until it has measured one (`offset = 'unknown'` tests for it)                                               |
