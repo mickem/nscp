@@ -13,6 +13,7 @@
 
 #include <config.h>
 
+#include <atomic>
 #include <file_helpers.hpp>
 #include <nscp/path_defaults.hpp>
 #include <settings/client/settings_proxy.hpp>
@@ -339,23 +340,41 @@ bool context_exists(const std::string &key) { return internal_get()->context_exi
 bool create_context(std::string key) { return internal_get()->create_context(key); }
 
 bool has_local_configuration() {
+  // Last answer we were actually able to work out.
+  //
+  // Both lookups below can fail for reasons that say nothing about the
+  // configuration: get_no_wait() try-locks and throws when the settings
+  // instance is busy, and get_local_sections takes a five-second timed lock
+  // that throws on timeout. This is called from the fleet sync thread, which
+  // also asks for the reloads that hold those locks - so "could not tell right
+  // now" is a normal outcome, and answering `false` for it would tell the fleet
+  // server this host has no local overrides when it may well have.
+  //
+  // Whether a host has local configuration changes only when somebody edits it,
+  // so the previous answer is a far better guess than a default.
+  static std::atomic<bool> last_known(false);
   try {
     const settings::instance_ptr settings = get_settings_no_wait();
-    if (!settings) return false;
+    if (!settings) return last_known.load();
     // Root sections of THIS store only - get_sections would fold in the
     // fleet-managed include and answer "yes" for every enrolled host.
+    bool local = false;
     for (const std::string &section : settings->get_local_sections("")) {
       // The include itself is how the fleet configuration arrives, not local
       // configuration that competes with it.
-      if (section != "/includes") return true;
+      if (section != "/includes") {
+        local = true;
+        break;
+      }
     }
-    return false;
+    last_known.store(local);
+    return local;
   } catch (const std::exception &) {
-    // Never let a probe of the configuration break the caller: enrollment and
-    // the state report both treat "unknown" as "nothing local".
-    return false;
+    // Never let a probe of the configuration break the caller - enrollment and
+    // the state report both carry on - but do not invent an answer either.
+    return last_known.load();
   } catch (...) {
-    return false;
+    return last_known.load();
   }
 }
 
