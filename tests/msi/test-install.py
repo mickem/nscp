@@ -2,7 +2,7 @@ from os import path, listdir
 from glob import glob
 from argparse import ArgumentParser
 
-from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config, validate_files, validate_files_absent
+from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config, validate_files, validate_files_absent, resolve_folder, validate_secured
 
 # Argument parsing for test selection
 parser = ArgumentParser(description="Run NSCP MSI installer tests.")
@@ -52,12 +52,25 @@ for test_case_file in test_cases:
 
     install(msi_file, target_folder, test_case["command_line"])
 
+    # boot.ini always stays beside the executable - it is what tells the agent
+    # where everything else lives. The configuration follows the layout, so a
+    # test case can point at another folder with `config_folder`.
     if not compare_file(target_folder, "boot.ini", test_case):
         print("! Test failed.", flush=True)
         failure = True
-    if not compare_file(target_folder, "nsclient.ini", test_case):
+    config_folder = resolve_folder(target_folder, test_case.get('config_folder'))
+    if not compare_file(config_folder, "nsclient.ini", test_case):
         print("! Test failed.", flush=True)
         failure = True
+    if 'secured_folder' in test_case:
+        if not validate_secured(resolve_folder(target_folder, test_case['secured_folder'])):
+            print("! Test failed.", flush=True)
+            failure = True
+    if 'absent_files' in test_case:
+        # Files an upgrade should have *moved*, checked where they used to be.
+        if not validate_files_absent(target_folder, test_case['absent_files']):
+            print("! Test failed.", flush=True)
+            failure = True
     if 'required_files' in test_case:
         if not validate_files(target_folder, test_case['required_files']):
             print("! Test failed.", flush=True)

@@ -275,3 +275,55 @@ def validate_files_absent(target_folder, forbidden_files):
             present_files_str = ", ".join(present_files)
             print(f"! File in {file_group} should not have been installed: {present_files_str}", flush=True)
     return none_exist
+
+def resolve_folder(target_folder, folder):
+    """Resolve a folder reference from a test case.
+
+    `None` means the install folder. Anything else is taken literally, with
+    %ProgramData% expanded, so a test case can point at the modern layout's
+    shared folder without hardcoding a drive letter.
+    """
+    if not folder:
+        return target_folder
+    return path.expandvars(folder)
+
+
+def validate_secured(folder):
+    """Assert that `folder` is readable only by SYSTEM and administrators.
+
+    The modern layout moves the configuration (which holds passwords) and the
+    fleet identity's private key into %ProgramData%, which grants
+    `Users: Read & Execute` by inheritance. Breaking that inheritance is the
+    whole point of the move, and it is invisible when it fails: the files are
+    all in the right place and every check passes, they are just readable by
+    every account on the machine.
+
+    So this asserts the outcome (no ACE for anyone else) rather than that the
+    installer tried - see docs/design/shared-folder-migration.md.
+    """
+    if not path.exists(folder):
+        print(f"! Cannot check permissions, folder does not exist: {folder}", flush=True)
+        return False
+    result = run(['icacls', folder], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"! icacls failed for {folder}: {result.stderr.strip()}", flush=True)
+        return False
+
+    allowed = (r'NT AUTHORITY\SYSTEM', r'BUILTIN\Administrators')
+    offenders = []
+    for line in result.stdout.splitlines():
+        # "<path> PRINCIPAL:(perms)" on the first line, then "  PRINCIPAL:(perms)".
+        entry = line.replace(folder, '', 1).strip()
+        if not entry or ':' not in entry or entry.startswith('Successfully processed'):
+            continue
+        principal = entry.rsplit(':', 1)[0].strip()
+        if principal not in allowed:
+            offenders.append(principal)
+
+    if offenders:
+        print(f"! {folder} grants access to: {', '.join(sorted(set(offenders)))}", flush=True)
+        print(f"! Only {' and '.join(allowed)} may have access.", flush=True)
+        print(result.stdout, flush=True)
+        return False
+    print(f"- {folder} is restricted to SYSTEM and administrators.", flush=True)
+    return True

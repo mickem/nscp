@@ -225,6 +225,8 @@ NSCP_CREATE_TEST(
         cron_test.cpp
         path_manager.cpp
         path_manager_test.cpp
+        acl_test.cpp
+        ${NSCP_INCLUDEDIR}/win/acl.cpp
         ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
         permissions_test.cpp
         permissions.hpp

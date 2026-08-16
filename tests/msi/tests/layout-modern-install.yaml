@@ -1,0 +1,54 @@
+# Fresh install onto the modern layout (LAYOUT=modern).
+#
+# The program stays in Program Files; everything writable goes to
+# %ProgramData%\NSClient++ and is restricted to SYSTEM and administrators.
+# boot.ini stays beside the executable - it is what tells the agent where the
+# rest lives, so it cannot live inside the folder it points at.
+#
+# See docs/design/shared-folder-migration.md and docs/docs/concepts/file-layout.md.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "LAYOUT=modern"]
+replace_password: true
+
+# The configuration follows the layout; boot.ini does not.
+config_folder: "%ProgramData%\\NSClient++"
+
+# The point of the move. %ProgramData% grants Users: Read & Execute by
+# inheritance, so a folder created there is world-readable unless the installer
+# explicitly breaks inheritance - and nothing else in this test would notice.
+secured_folder: "%ProgramData%\\NSClient++"
+
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+  [layout]
+  mode = modern
+
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  insecure = false
+  tls version = tlsv1.2+
+  verify mode = peer-cert
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$
+
+# The program half is unaffected by the layout: still installed, still here.
+required_files:
+  exe-files:
+    - nscp.exe
+    - check_nrpe.exe
+  modules:
+    - modules/CheckDisk.dll
+    - modules/CommandClient.dll
