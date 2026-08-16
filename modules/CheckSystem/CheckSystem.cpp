@@ -37,6 +37,7 @@
 #include "check_patch_age.hpp"
 #include "check_pending_reboot.hpp"
 #include "check_printqueue.hpp"
+#include "check_w32time.hpp"
 #include "check_process.hpp"
 #include "check_process_history.hpp"
 #include "check_registry.hpp"
@@ -1179,6 +1180,10 @@ void CheckSystem::check_printqueue(const PB::Commands::QueryRequestMessage::Requ
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to check print queues: " + std::string(e.what()));
   }
+}
+
+void CheckSystem::check_w32time(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  w32time_check::check_w32time(request, response);
 }
 
 void CheckSystem::add_counter(std::string key, std::string query) { pdh_checker.add_counter(nscapi::settings_proxy::create(get_id(), get_core()), key, query); }

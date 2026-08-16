@@ -45,6 +45,7 @@
 		"check_kernel_memory"	: "Check kernel memory-manager health: paged/nonpaged pool bytes, file-cache bytes and page-fault rates — the pool-exhaustion and hard-fault-storm signals free-RAM thresholds miss.",
 		"check_kernel_stats"	: "Check system-wide kernel activity: context-switch and system-call rates plus live process and thread counts.",
 		"check_printqueue"		: "Check Windows print queues: queue depth, oldest-job age, offline and error states per printer.",
+		"check_w32time"			: "Check the Windows Time service: whether the machine is following a time source at all, which one, the computed clock offset and the configured peers.",
 
 		"checkServiceState"	: "Legacy version of check_service",
 		"checkCpu"			: "Legacy version of check_cpu",

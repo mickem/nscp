@@ -785,6 +785,80 @@ describe("CheckSystem commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  // --- check_w32time (Windows) -------------------------------------------------
+
+  it("check_w32time reports the Windows Time state (Windows)", async () => {
+    if (!onWindows) return; // check_w32time is Windows-only (CheckSystem).
+    // The service is trigger-started on a workgroup client and always running on
+    // a domain member, so pin the thresholds off and assert on the verdict text
+    // rather than on a status that depends on the host's role.
+    const q = await executeQuery(key, "check_w32time", { warning: "none", critical: "none" });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/Windows Time service|synchroniz/i);
+  });
+
+  it("check_w32time exposes the service, configuration and source keywords (Windows)", async () => {
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_w32time", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "svc=${service_state}/${start_type} type=${sync_type} from=${source_from} peers=${peer_count} run=${running} sync=${synchronized}",
+      "top-syntax": "${list}",
+    });
+    // service_state and start_type come from the SCM, sync_type from the W32Time
+    // registry, source_from says whether the source is live or the configured one.
+    expect(messageOf(q)).toMatch(/svc=(running|stopped|starting|stopping|paused|not installed)\/\w+/);
+    expect(messageOf(q)).toMatch(/type=(NT5DS|NTP|AllSync|NoSync|unknown)/);
+    expect(messageOf(q)).toMatch(/from=(service|configuration|unknown)/);
+    expect(messageOf(q)).toMatch(/peers=\d+ run=[01] sync=[01]/);
+  });
+
+  it("check_w32time renders unmeasured counters as unknown rather than a number (Windows)", async () => {
+    if (!onWindows) return;
+    // The "Windows Time Service" counters only carry data while the service is
+    // running; when it is not, offset must read 'unknown' (and emit no perfdata)
+    // instead of a fake zero or -1. Either outcome is valid on a given host.
+    const q = await executeQuery(key, "check_w32time", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "offset=${offset}",
+      "top-syntax": "${list}",
+    });
+    expect(messageOf(q)).toMatch(/^offset=(unknown|\d+)$/);
+    if (/offset=unknown/.test(messageOf(q))) {
+      expect(perfOf(q)["w32time_offset"]).toBeUndefined();
+    }
+  });
+
+  it("check_w32time accepts its threshold keywords over REST (Windows)", async () => {
+    if (!onWindows) return;
+    // Regression: the keywords must parse in warn/crit expressions, including
+    // the optional numbers, which compare false while they are unknown.
+    const q = await executeQuery(key, "check_w32time", {
+      warning: "offset > 999999",
+      critical: "synchronized = 0 and running = 1 and local_clock = 1",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_w32time is CRITICAL when the machine follows no time source (Windows)", async () => {
+    if (!onWindows) return;
+    // The default critical is synchronized = 0; assert the two agree, whichever
+    // way this host is configured, so the default is pinned to the real state.
+    const state = await executeQuery(key, "check_w32time", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "sync=${synchronized}",
+      "top-syntax": "${list}",
+    });
+    const synchronized = /sync=1/.test(messageOf(state));
+    // Leave the default critical in place but silence the drift warning, so the
+    // outcome depends only on whether the host follows a source.
+    const q = await executeQuery(key, "check_w32time", { warning: "none" });
+    expect(q.result).toBe(synchronized ? OK : CRITICAL);
+  });
+
   // --- check_load (both platforms) ---------------------------------------------
 
   it("check_load reports the three load averages", async () => {
