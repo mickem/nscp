@@ -7,7 +7,8 @@ module.
 
 `check_certificate` and `check_users` work on **Windows and Linux**; the
 remaining checks (`check_firewall`, `check_antivirus`, `check_bitlocker`,
-`check_secureboot`, `check_nla`) are **Windows-only** and report a clear
+`check_secureboot`, `check_nla`, `check_activation`, `check_file_security`) are
+**Windows-only** and report a clear
 "not supported" on other platforms rather than a false OK.
 
 ---
@@ -132,6 +133,34 @@ check_nla "crit=connected = 1 and category = 'public'"
 OK: all networks ok
 ```
 
+### Windows activation
+
+`check_activation` reports whether Windows is licensed and how much of a grace
+or KMS renewal period is left. An unactivated machine starts nagging users and
+eventually restricts functionality, and a KMS client whose renewal quietly stops
+working takes months to become visible any other way:
+
+```
+check_activation
+OK: Windows(R), Professional edition: licensed (genuine, grace 0d)
+```
+
+### File and service-binary permissions
+
+`check_file_security` reports the owner and the writers of a path — a folder,
+or the binary behind a service. Alerts by default on a world-writable path or an
+owner outside the expected list:
+
+```
+check_file_security "path=C:\ProgramData\app-data"
+CRITICAL: C:\ProgramData\app-data: world writable by Everyone
+```
+
+```
+check_file_security service=MyAgent "expected-owner=BUILTIN\Administrators" "expected-owner=NT SERVICE\TrustedInstaller"
+OK: C:\Program Files\MyAgent\agent.exe: owner BUILTIN\Administrators, no unexpected write access
+```
+
 ---
 
 ## Putting It All Together
@@ -158,6 +187,8 @@ alias_firewall    = check_firewall
 alias_antivirus   = check_antivirus
 alias_bitlocker   = check_bitlocker "filter=drive = 'C:'" "crit=protected = 0"
 alias_secureboot  = check_secureboot "warn=supported = 0" "crit=supported = 1 and enabled = 0"
+alias_activation  = check_activation
+alias_datadir_acl = check_file_security "path=C:\ProgramData\app-data" "expected-owner=BUILTIN\Administrators"
 ```
 
 On a **Linux** host the cross-platform subset applies:
