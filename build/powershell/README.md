@@ -93,19 +93,24 @@ Either way the setup script verifies that `agent-state.json` exists before it
 reports success — a machine that silently never joined the fleet is exactly the
 failure this tooling exists to catch.
 
-> **Linux enrollment material has to be readable by the service user.** `nscp
-> enroll` runs under `sudo`, so `agent-state.json` lands root-owned and `0600`,
-> while the DEB/RPM run the service as `nsclient`. The core's boot gate is a
-> plain existence check, so it starts the sync, fails to read the manifest, and
-> the sync thread dies — the machine installs, enrolls, reports success, and
-> never appears in the fleet. The Linux setup scripts now hand the manifest and
-> the managed directory (`<shared-path>/fleet`) to the service user and assert
-> both are usable *as that user* before reporting success. Windows is unaffected
-> (the service runs as LocalSystem).
+> **The setup scripts verify enrollment, they do not repair it.** `nscp enroll`
+> runs under `sudo` while the DEB/RPM run the service as `nsclient`, so the
+> material it writes has to be handed to that account or the agent enrolls,
+> starts its sync, fails to read its own identity and never appears in the
+> fleet. The agent does that itself now.
 >
-> Note this failure is invisible on the box: the packaged log file is root-owned
-> too, so the service cannot write it (`Failed to create log directory`). Use
-> `journalctl -u nsclient | grep -i fleet` when debugging enrollment.
+> These scripts used to `chown` it here, which fixed the machine and hid the bug
+> at the same time — the check that follows would have passed no matter what the
+> package did. They now only assert, as the service user, that the manifest is
+> readable and the fleet folder writable, and fail the run when it is not.
+>
+> **So provisioning against a package that predates the fix will now fail**, by
+> design, telling you so. Point `-*PackageUrl` at a build that includes it.
+> Windows is unaffected (the service runs as LocalSystem).
+>
+> This failure used to be invisible on the box, because the packaged log file
+> was root-owned too. Both are fixed, but `journalctl -u nsclient | grep -i
+> fleet` is still the fastest way to see what the sync is doing.
 
 Every run appends to `.fleet-machines.json` (name, OS, resource group, public IP,
 fleet host id). Tear the whole estate down again with:

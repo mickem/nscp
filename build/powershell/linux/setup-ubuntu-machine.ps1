@@ -259,30 +259,39 @@ if [ -z "`$state" ]; then
     echo "FLEET: enrollment reported success but no agent-state.json was written"
     exit 1
 fi
-# Enrollment runs under sudo, so the manifest lands root-owned and 0600 - but the
-# Linux packages run the service as an unprivileged user. The core sees the file
-# (the boot gate is a plain existence check), starts the sync, then cannot read
-# it and the thread dies with "Failed to read state file". The machine looks
-# installed and enrolled and simply never appears in the fleet. Hand the
-# enrollment material, and the directory the sync writes to, to the service user.
+# Verify, do not repair.
+#
+# Enrollment runs under sudo while the packaged service runs unprivileged, so
+# the material it writes has to be handed to the service account or the agent
+# enrolls, starts its sync, fails to read its own identity and never appears in
+# the fleet. The *agent* does that now (onboarding::adopt_owner, plus the
+# package post-install for an upgrade). These scripts used to chown it here,
+# which fixed the machine and hid the bug at the same time - so the check below
+# would have passed no matter what the package did.
 svc_user=`$(systemctl show nsclient -p User --value 2>/dev/null)
 [ -n "`$svc_user" ] || svc_user=nsclient
-# fleet.ini, applied-state.json and the bundle cache are written here (the core's
-# shared-path/fleet), and the package leaves that root-owned as well.
+# fleet.ini, applied-state.json and the bundle cache live here, next to the
+# manifest's parent (the core's fleet folder).
 managed="`$(dirname "`$(dirname "`$state")")/fleet"
-if id "`$svc_user" >/dev/null 2>&1; then
-    sudo chown "`$svc_user" "`$state"
-    sudo mkdir -p "`$managed"
-    sudo chown -R "`$svc_user" "`$managed"
-fi
 # Restart so the fleet sync starts now instead of at the next reboot.
 sudo systemctl restart nsclient
 # Assert what actually broke, as the service user itself: an unreadable manifest
 # or an unwritable managed path is a machine that enrolls and never syncs. The
-# service's own log is no help here - it is written to a directory the service
-# user cannot create either, so the failure is invisible on the box.
-sudo -u "`$svc_user" test -r "`$state" || { echo "FLEET: `$svc_user cannot read `$state"; exit 1; }
-sudo -u "`$svc_user" test -w "`$managed" || { echo "FLEET: `$svc_user cannot write `$managed"; exit 1; }
+# agent's own log is no help on an older package - it is written to a directory
+# the service user cannot create either, so the failure is invisible on the box.
+if ! sudo -u "`$svc_user" test -r "`$state"; then
+    echo "FLEET: `$svc_user cannot read `$state"
+    ls -l "`$state" 2>/dev/null
+    echo "FLEET: the installed package does not hand the enrollment material to the service account."
+    echo "FLEET: install a build that includes that fix (-PackageUrl), or chown it by hand to keep this machine."
+    exit 1
+fi
+if ! sudo -u "`$svc_user" test -w "`$managed"; then
+    echo "FLEET: `$svc_user cannot write `$managed"
+    ls -ld "`$managed" 2>/dev/null
+    echo "FLEET: the installed package does not create the fleet folder writable by the service account."
+    exit 1
+fi
 # Best-effort: the sync thread dying is reported only to the journal, and only
 # for the process now running (an earlier boot's buffered errors flush at
 # restart, so match the current PID or they read as a fresh failure).
