@@ -193,7 +193,7 @@ set(CONFIG_FLEET_FOLDER
     "fleet managed configuration folder"
 )
 set(CONFIG_DEFAULT_LOG_LOCATION
-    "\${exe-path}/nsclient.log"
+    "\${log-path}/nsclient.log"
     CACHE STRING
     "PAth for log file"
 )
@@ -240,6 +240,13 @@ set(SRCS
     # source, since it runs before any file is installed.
     ../service/windows_ca_store.cpp
     ../service/windows_ca_store.hpp
+    # The layout mover and the ACL helper, shared with the service and with
+    # `nscp settings --migrate-layout`: both are free of the core so a custom
+    # action can call them. See include/nscp/layout_migration.hpp.
+    ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
+    ${NSCP_INCLUDEDIR}/nscp/layout_migration.hpp
+    ${NSCP_INCLUDEDIR}/win/acl.cpp
+    ${NSCP_INCLUDEDIR}/win/acl.hpp
     # Fleet onboarding (enrollment) shared with the core client, see
     # libs/onboarding and include/onboarding/onboarding.hpp.
     ../libs/onboarding/identity.cpp
@@ -274,6 +281,7 @@ target_link_libraries(
     ${Boost_FILESYSTEM_LIBRARY}
     ${OPENSSL_LIBRARIES}
     CRYPT32
+    ADVAPI32
     Msi.lib
 )
 # SET_LIBRARY_OUT_FOLDER_MODULE(${TARGET})
