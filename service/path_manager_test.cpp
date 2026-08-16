@@ -7,8 +7,10 @@
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
+#include <fstream>
 #include <memory>
 #include <nsclient/logger/logger.hpp>
+#include <nscp/layout_migration.hpp>
 
 class MockLogger : public nsclient::logging::log_interface {
  public:
@@ -67,6 +69,173 @@ TEST_F(PathManagerTest, GetFolderKeys) {
   for (const auto &key : keys) {
     EXPECT_FALSE(pm->getFolder(key).empty()) << "Failed for key: " << key;
   }
+}
+
+// --- layout migration --------------------------------------------------------
+// The mover the CLI and (later) the MSI both call. It classifies what travels,
+// what belongs to the package, and what is regenerated - getting that wrong
+// either strands the agent's identity or takes shipped files out of the
+// installer's hands, so the rules are pinned here rather than exercised only
+// through a real migration.
+
+class LayoutMigrationTest : public ::testing::Test {
+ protected:
+  boost::filesystem::path root_, from_, to_;
+
+  void SetUp() override {
+    root_ = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-migrate-%%%%-%%%%");
+    from_ = root_ / "install";
+    to_ = root_ / "shared";
+    boost::filesystem::create_directories(from_ / "security");
+    boost::filesystem::create_directories(to_);
+  }
+  void TearDown() override {
+    boost::system::error_code ignored;
+    boost::filesystem::remove_all(root_, ignored);
+  }
+
+  void write(const boost::filesystem::path &path, const std::string &content) {
+    boost::filesystem::create_directories(path.parent_path());
+    std::ofstream out(path.string().c_str());
+    out << content;
+  }
+  std::string read(const boost::filesystem::path &path) {
+    std::ifstream in(path.string().c_str());
+    std::string content;
+    std::getline(in, content);
+    return content;
+  }
+  bool exists(const boost::filesystem::path &path) {
+    boost::system::error_code ignored;
+    return boost::filesystem::exists(path, ignored);
+  }
+  // The action recorded for `name`, or `absent` when the step is missing.
+  nscp::paths::migration_action action_for(const nscp::paths::migration_report &report, const std::string &name) {
+    for (const nscp::paths::migration_step &step : report.steps) {
+      if (step.name == name) return step.action;
+    }
+    return nscp::paths::migration_action::absent;
+  }
+};
+
+TEST_F(LayoutMigrationTest, MovesPerMachineStateAndLeavesTheProgramAlone) {
+  write(from_ / "nsclient.ini", "[/settings/default]");
+  write(from_ / "security" / "certificate.pem", "CERT");
+  write(from_ / "security" / "certificate_key.pem", "KEY");
+  write(from_ / "security" / "agent-state.json", "IDENTITY");
+  write(from_ / "security" / "nrpe_dh_2048.pem", "DH");
+  write(from_ / "security" / "windows-ca.pem", "STALE-TRUST");
+  write(from_ / "security" / "an-admins-own-ca.pem", "CUSTOM");
+  write(from_ / "fleet" / "fleet.ini", "MANAGED");
+  write(from_ / "cache" / "bundle.zip", "CACHED");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  ASSERT_TRUE(report.ok());
+
+  EXPECT_EQ(read(to_ / "nsclient.ini"), "[/settings/default]");
+  EXPECT_EQ(read(to_ / "security" / "certificate.pem"), "CERT");
+  EXPECT_EQ(read(to_ / "security" / "certificate_key.pem"), "KEY");
+  EXPECT_EQ(read(to_ / "security" / "agent-state.json"), "IDENTITY");
+  EXPECT_EQ(read(to_ / "fleet" / "fleet.ini"), "MANAGED");
+  EXPECT_EQ(read(to_ / "cache" / "bundle.zip"), "CACHED");
+  EXPECT_FALSE(exists(from_ / "nsclient.ini"));
+
+  // Shipped with the package: moving it takes it out of the installer's hands.
+  EXPECT_EQ(read(from_ / "security" / "nrpe_dh_2048.pem"), "DH");
+  EXPECT_FALSE(exists(to_ / "security" / "nrpe_dh_2048.pem"));
+  EXPECT_EQ(action_for(report, "security/nrpe_dh_2048.pem"), nscp::paths::migration_action::kept);
+
+  // Re-exported at every start, and a stale trust bundle decides which CAs the
+  // agent trusts - so it is dropped rather than carried across.
+  EXPECT_FALSE(exists(from_ / "security" / "windows-ca.pem"));
+  EXPECT_FALSE(exists(to_ / "security" / "windows-ca.pem"));
+  EXPECT_EQ(action_for(report, "security/windows-ca.pem"), nscp::paths::migration_action::dropped);
+
+  // Anything an admin put there themselves travels: stranding a trust anchor
+  // breaks TLS quietly, so the rule is move-unless-known-otherwise.
+  EXPECT_EQ(read(to_ / "security" / "an-admins-own-ca.pem"), "CUSTOM");
+}
+
+TEST_F(LayoutMigrationTest, NeverOverwritesWhatIsAlreadyAtTheDestination) {
+  write(from_ / "security" / "agent-state.json", "OLD-IDENTITY");
+  write(to_ / "security" / "agent-state.json", "LIVE-IDENTITY");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  EXPECT_TRUE(report.ok()) << "an occupied destination is a normal outcome, not a failure";
+  EXPECT_EQ(read(to_ / "security" / "agent-state.json"), "LIVE-IDENTITY");
+  EXPECT_EQ(action_for(report, "security/agent-state.json"), nscp::paths::migration_action::blocked);
+}
+
+TEST_F(LayoutMigrationTest, IsIdempotent) {
+  write(from_ / "nsclient.ini", "CONFIG");
+  write(from_ / "security" / "agent-state.json", "IDENTITY");
+  ASSERT_TRUE(nscp::paths::apply_migration(from_.string(), to_.string()).ok());
+  // A second run - a repeated command, or a resumed half-finished migration.
+  EXPECT_TRUE(nscp::paths::apply_migration(from_.string(), to_.string()).ok());
+  EXPECT_EQ(read(to_ / "nsclient.ini"), "CONFIG");
+  EXPECT_EQ(read(to_ / "security" / "agent-state.json"), "IDENTITY");
+}
+
+TEST_F(LayoutMigrationTest, DryRunChangesNothing) {
+  write(from_ / "nsclient.ini", "CONFIG");
+  write(from_ / "security" / "windows-ca.pem", "STALE");
+
+  const nscp::paths::migration_report plan = nscp::paths::plan_migration(from_.string(), to_.string());
+  EXPECT_TRUE(plan.ok());
+  EXPECT_EQ(action_for(plan, "nsclient.ini"), nscp::paths::migration_action::moved);
+  EXPECT_EQ(action_for(plan, "security/windows-ca.pem"), nscp::paths::migration_action::dropped);
+  // ...but nothing actually happened, including the drop.
+  EXPECT_EQ(read(from_ / "nsclient.ini"), "CONFIG");
+  EXPECT_EQ(read(from_ / "security" / "windows-ca.pem"), "STALE");
+  EXPECT_FALSE(exists(to_ / "nsclient.ini"));
+}
+
+TEST_F(LayoutMigrationTest, DryRunWorksBeforeTheDestinationExists) {
+  // The preview has to work before the caller has created and secured the
+  // destination, or it cannot be used to decide whether to go ahead.
+  write(from_ / "nsclient.ini", "CONFIG");
+  const boost::filesystem::path missing = root_ / "not-created-yet";
+  const nscp::paths::migration_report plan = nscp::paths::plan_migration(from_.string(), missing.string());
+  EXPECT_TRUE(plan.ok());
+  EXPECT_EQ(action_for(plan, "nsclient.ini"), nscp::paths::migration_action::moved);
+}
+
+TEST_F(LayoutMigrationTest, RefusesToMoveIntoADestinationNobodyPrepared) {
+  // Creating it here would put the configuration and the private key somewhere
+  // that has not been locked down yet.
+  write(from_ / "nsclient.ini", "CONFIG");
+  const boost::filesystem::path missing = root_ / "not-created-yet";
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), missing.string());
+  EXPECT_FALSE(report.ok());
+  EXPECT_EQ(read(from_ / "nsclient.ini"), "CONFIG");
+}
+
+TEST_F(LayoutMigrationTest, KeepsBootIniWithTheExecutable) {
+  write(from_ / "boot.ini", "[layout]");
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  ASSERT_TRUE(report.ok());
+  // boot.ini is what tells the agent where the shared folder is, so it cannot
+  // live inside it.
+  EXPECT_EQ(read(from_ / "boot.ini"), "[layout]");
+  EXPECT_FALSE(exists(to_ / "boot.ini"));
+  EXPECT_EQ(action_for(report, "boot.ini"), nscp::paths::migration_action::kept);
+}
+
+TEST_F(LayoutMigrationTest, FailsRatherThanReportingAnEmptyMigrationItCouldNotRead) {
+  // Every individual check treats an unreadable entry as "nothing there", so an
+  // inaccessible source folder would otherwise produce a clean report listing
+  // no work - and the caller would switch the layout having moved nothing.
+  const boost::filesystem::path missing = root_ / "no-such-install";
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(missing.string(), to_.string());
+  EXPECT_FALSE(report.ok());
+  EXPECT_TRUE(report.has(nscp::paths::migration_action::failed));
+}
+
+TEST_F(LayoutMigrationTest, SameFolderIsANoOp) {
+  write(from_ / "nsclient.ini", "CONFIG");
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), from_.string());
+  EXPECT_TRUE(report.ok());
+  EXPECT_EQ(read(from_ / "nsclient.ini"), "CONFIG");
 }
 
 // --- the table and expander shared with the standalone clients ---------------

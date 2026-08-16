@@ -69,6 +69,37 @@ mode = modern
 an upgrade changes nothing until you ask it to. An unrecognised mode is treated
 as `legacy` and logged as a warning — a typo never half-moves an installation.
 
+### Switching an existing installation
+
+Editing `boot.ini` by hand changes where the agent *looks*, not where the files
+*are*. Use the migration command instead — it moves the files, then records the
+choice:
+
+```shell
+nscp settings --migrate-layout modern --dry-run    # show the plan, change nothing
+nscp settings --migrate-layout modern              # do it, then restart the service
+```
+
+Run it from an elevated prompt: it writes to the install directory and to a
+folder that ends up restricted to SYSTEM and administrators. It is safe to
+re-run — a file already at the destination is left alone, so an interrupted
+migration can simply be repeated.
+
+What moves, and what does not:
+
+| | |
+|---|---|
+| `nsclient.ini`, `security\*`, `fleet\`, `cache\`, `log\`, `crash-dumps\` | moved — per-machine state |
+| `nrpe_dh_*.pem` | stays — shipped with the package |
+| `windows-ca.pem` | dropped — re-exported from the Windows ROOT store at every start, and a stale trust bundle is worse than none |
+| `boot.ini`, `modules\`, `web\`, `scripts\`, the executables | stay — `boot.ini` is what points at the shared folder, so it cannot live inside it |
+
+Anything else you put under `security\` — your own CA bundle, an extra
+certificate — moves with the rest, because stranding a trust anchor breaks TLS
+quietly.
+
+`--migrate-layout legacy` moves everything back the same way.
+
 ### Legacy (default)
 
 The service runs as LocalSystem, which can read and write the whole install
