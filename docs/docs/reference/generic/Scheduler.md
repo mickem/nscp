@@ -86,6 +86,44 @@ The syntax of the schedule is similar to a cron expression in that you have:
 | Month        | 0-11           | , *                        |
 | Day of week  | 1-7            | , *                        |
 
+#### Running a check at startup
+
+Both interval and schedule only report for the first time once the interval (or
+the next matching time) has elapsed. With a long interval that leaves the
+monitoring server with the old result for a long time after a reboot - exactly
+when the status is most likely to have changed. Set `run on startup` to run the
+command once as soon as the agent has started:
+
+```
+[/settings/scheduler/schedules/uptime]
+interval = 1h
+channel = NSCA
+command = check_uptime
+run on startup = true
+```
+
+The schedule is otherwise unaffected: the next run follows an hour after the
+startup run. The startup run also happens after a configuration reload, so a
+schedule you just changed reports its new status right away.
+
+Setting it on the default section turns it on for every schedule which does not
+override it:
+
+```
+[/settings/scheduler/schedules/default]
+interval = 1h
+channel = NSCA
+run on startup = true
+```
+
+If you have a lot of schedules and do not want all of them to report at the very
+same instant, spread the startup runs out over a window:
+
+```
+[/settings/scheduler]
+startup window = 30s
+```
+
 
 
 ## Configuration
@@ -100,17 +138,40 @@ The syntax of the schedule is similar to a cron expression in that you have:
 
 Section for the Scheduler module.
 
-| Key                   | Default Value | Description |
-|-----------------------|---------------|-------------|
-| [threads](#threads)   | 5             | Threads     |
-| [timezone](#timezone) | local         | Timezone    |
+| Key                               | Default Value | Description                     |
+|-----------------------------------|---------------|---------------------------------|
+| [startup window](#startup-window) | 0s            | Startup window _(Windows only)_ |
+| [threads](#threads)               | 5             | Threads                         |
+| [timezone](#timezone)             | local         | Timezone                        |
 
 
 ```ini
 # Section for the Scheduler module.
 [/settings/scheduler]
+startup window=0s  # Windows only
 threads=5
 timezone=local
+```
+
+#### Startup window <a id="/settings/scheduler/startup window"></a>
+
+Time over which schedules with 'run on startup' are spread out when the agent starts. The default (0s) runs them all immediately; raise it if you have many startup schedules and do not want to hit the monitoring server with all of them at once.
+
+
+| Key            | Description                                 |
+|----------------|---------------------------------------------|
+| Path:          | [/settings/scheduler](#/settings/scheduler) |
+| Key:           | startup window                              |
+| Platform:      | Windows only                                |
+| Default value: | `0s`                                        |
+
+
+**Sample:**
+
+```
+[/settings/scheduler]
+# Startup window
+startup window=0s
 ```
 
 #### Threads <a id="/settings/scheduler/threads"></a>
@@ -153,52 +214,98 @@ Reference clock for cron expressions. Accepts 'local' (default — standard cron
 timezone=local
 ```
 
-### Schedules <a id="/settings/scheduler/schedules"></a>
+=== "Windows"
 
-Section for the Scheduler module.
+    ### Schedules <a id="/settings/scheduler/schedules"></a>
 
-
-This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
-
-
-**Keys:**
+    Section for the Scheduler module.
 
 
-| Key         | Default Value | Description       |
-|-------------|---------------|-------------------|
-| alias       |               | ALIAS             |
-| channel     |               | SCHEDULE CHANNEL  |
-| command     |               | SCHEDULE COMMAND  |
-| interval    |               | SCHEDULE INTERVAL |
-| is template | false         | IS TEMPLATE       |
-| parent      | default       | PARENT            |
-| randomness  |               | RANDOMNESS        |
-| report      |               | REPORT MODE       |
-| schedule    |               | SCHEDULE          |
-| source      |               | SOURCE            |
-| target      |               | TARGET            |
+    This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
 
 
-**Sample:**
-
-```ini
-# An example of a Schedules section
-[/settings/scheduler/schedules/sample]
-#alias=...
-#channel=...
-#command=...
-#interval=...
-is template=false
-parent=default
-#randomness=...
-#report=...
-#schedule=...
-#source=...
-#target=...
-
-```
+    **Keys:**
 
 
+    | Key            | Default Value | Description       |
+    |----------------|---------------|-------------------|
+    | alias          |               | ALIAS             |
+    | channel        |               | SCHEDULE CHANNEL  |
+    | command        |               | SCHEDULE COMMAND  |
+    | interval       |               | SCHEDULE INTERVAL |
+    | is template    | false         | IS TEMPLATE       |
+    | parent         | default       | PARENT            |
+    | randomness     |               | RANDOMNESS        |
+    | report         |               | REPORT MODE       |
+    | run on startup |               | RUN ON STARTUP    |
+    | schedule       |               | SCHEDULE          |
+    | source         |               | SOURCE            |
+    | target         |               | TARGET            |
 
 
+    **Sample:**
 
+    ```ini
+    # An example of a Schedules section
+    [/settings/scheduler/schedules/sample]
+    #alias=...
+    #channel=...
+    #command=...
+    #interval=...
+    is template=false
+    parent=default
+    #randomness=...
+    #report=...
+    #run on startup=...
+    #schedule=...
+    #source=...
+    #target=...
+
+    ```
+
+=== "Linux"
+
+    ### Schedules <a id="/settings/scheduler/schedules"></a>
+
+    Section for the Scheduler module.
+
+
+    This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
+
+
+    **Keys:**
+
+
+    | Key         | Default Value | Description       |
+    |-------------|---------------|-------------------|
+    | alias       |               | ALIAS             |
+    | channel     |               | SCHEDULE CHANNEL  |
+    | command     |               | SCHEDULE COMMAND  |
+    | interval    |               | SCHEDULE INTERVAL |
+    | is template | false         | IS TEMPLATE       |
+    | parent      | default       | PARENT            |
+    | randomness  |               | RANDOMNESS        |
+    | report      |               | REPORT MODE       |
+    | schedule    |               | SCHEDULE          |
+    | source      |               | SOURCE            |
+    | target      |               | TARGET            |
+
+
+    **Sample:**
+
+    ```ini
+    # An example of a Schedules section
+    [/settings/scheduler/schedules/sample]
+    #alias=...
+    #channel=...
+    #command=...
+    #interval=...
+    is template=false
+    parent=default
+    #randomness=...
+    #report=...
+    #schedule=...
+    #source=...
+    #target=...
+
+    ```
