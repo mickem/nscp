@@ -519,3 +519,133 @@ TEST_F(PathManagerTest, AddOverridesEmptyIsNoOp) {
   pm->add_overrides({});
   EXPECT_EQ(pm->getFolder("certificate-path"), "/existing");
 }
+
+// --- migration: the awkward cases -------------------------------------------
+// This runs on other people's machines, once, against files they cannot get
+// back. The positive path above is the easy half; these are the ones that
+// decide whether a bad day is recoverable.
+
+TEST_F(LayoutMigrationTest, AnAlreadyOccupiedLogDirectoryDoesNotStopTheRest) {
+  write(from_ / "nsclient.ini", "CONFIG");
+  write(from_ / "log" / "nsclient.log", "OLD");
+  // Occupy the destination so the log tree cannot move.
+  write(to_ / "log" / "nsclient.log", "NEWER");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  EXPECT_TRUE(report.ok());
+  EXPECT_EQ(read(to_ / "log" / "nsclient.log"), "NEWER") << "the destination copy wins";
+  // The thing that actually matters still moved.
+  EXPECT_EQ(read(to_ / "nsclient.ini"), "CONFIG");
+}
+
+// Whether a failed entry sinks the whole migration depends on which entry it
+// is: the agent's identity, yes; an old log the running service is holding
+// open, no. A real filesystem failure is not something a test can force
+// portably, so the rule is checked where it lives.
+TEST(LayoutMigrationReport, OnlyAnEssentialFailureSinksTheMigration) {
+  nscp::paths::migration_report report;
+
+  nscp::paths::migration_step log;
+  log.name = "log/";
+  log.action = nscp::paths::migration_action::failed;
+  log.essential = false;
+  report.steps.push_back(log);
+  EXPECT_TRUE(report.ok()) << "old logs are not worth stranding an agent for";
+
+  nscp::paths::migration_step identity;
+  identity.name = "security/agent-state.json";
+  identity.action = nscp::paths::migration_action::failed;
+  identity.essential = true;
+  report.steps.push_back(identity);
+  EXPECT_FALSE(report.ok()) << "an identity that did not move must fail the migration";
+}
+
+TEST(LayoutMigrationReport, BlockedAndDroppedAreSuccessfulOutcomes) {
+  // `blocked` means the destination already had it, which is how a repeated run
+  // stays safe; `dropped` is a deliberate decision. Neither is a failure.
+  nscp::paths::migration_report report;
+  for (const nscp::paths::migration_action action :
+       {nscp::paths::migration_action::blocked, nscp::paths::migration_action::dropped, nscp::paths::migration_action::kept,
+        nscp::paths::migration_action::absent, nscp::paths::migration_action::moved}) {
+    nscp::paths::migration_step step;
+    step.name = "x";
+    step.action = action;
+    report.steps.push_back(step);
+  }
+  EXPECT_TRUE(report.ok());
+}
+
+TEST_F(LayoutMigrationTest, AnOccupiedDirectoryIsLeftAloneRatherThanMerged) {
+  // Half-finished previous run: the fleet folder is already partly there. The
+  // copy at the destination is the live one, so it wins wholesale - merging two
+  // trees would risk pairing a new fleet.ini with a stale bundle cache.
+  write(from_ / "fleet" / "fleet.ini", "OLD-MANAGED");
+  write(from_ / "fleet" / "cache" / "b.zip", "OLD-BUNDLE");
+  write(to_ / "fleet" / "fleet.ini", "LIVE-MANAGED");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  EXPECT_TRUE(report.ok());
+  EXPECT_EQ(read(to_ / "fleet" / "fleet.ini"), "LIVE-MANAGED");
+  EXPECT_FALSE(exists(to_ / "fleet" / "cache" / "b.zip")) << "the destination tree is kept as-is, not merged into";
+  EXPECT_EQ(action_for(report, "fleet/"), nscp::paths::migration_action::blocked);
+}
+
+TEST_F(LayoutMigrationTest, NothingToMoveIsASuccessNotAnError) {
+  // A fresh install that has never been configured or enrolled. The command
+  // should say "nothing to do", not fail.
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  EXPECT_TRUE(report.ok());
+  EXPECT_FALSE(report.has(nscp::paths::migration_action::moved));
+  EXPECT_FALSE(report.has(nscp::paths::migration_action::failed));
+}
+
+TEST_F(LayoutMigrationTest, AnInstallWithOnlyShippedFilesMovesNothing) {
+  // Installed but never configured: security/ holds only what the package put
+  // there. Moving any of it would take files out of the installer's hands.
+  write(from_ / "security" / "nrpe_dh_512.pem", "DH512");
+  write(from_ / "security" / "nrpe_dh_2048.pem", "DH2048");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  EXPECT_TRUE(report.ok());
+  EXPECT_FALSE(report.has(nscp::paths::migration_action::moved));
+  EXPECT_EQ(read(from_ / "security" / "nrpe_dh_512.pem"), "DH512");
+  EXPECT_EQ(read(from_ / "security" / "nrpe_dh_2048.pem"), "DH2048");
+}
+
+TEST_F(LayoutMigrationTest, ADroppedFileIsNotResurrectedAtTheDestination) {
+  // windows-ca.pem is dropped rather than moved. It must not turn up on the
+  // other side either - a stale trust bundle is the thing being avoided.
+  write(from_ / "security" / "windows-ca.pem", "STALE-TRUST");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  ASSERT_TRUE(report.ok());
+  EXPECT_FALSE(exists(from_ / "security" / "windows-ca.pem"));
+  EXPECT_FALSE(exists(to_ / "security" / "windows-ca.pem"));
+}
+
+TEST_F(LayoutMigrationTest, ReportsEveryDecisionItMade) {
+  // The CLI prints this and the installer logs it: an operator has to be able to
+  // see what happened to each file, not just whether it worked.
+  write(from_ / "nsclient.ini", "CONFIG");
+  write(from_ / "security" / "nrpe_dh_512.pem", "DH");
+  write(from_ / "security" / "windows-ca.pem", "STALE");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  ASSERT_TRUE(report.ok());
+  const std::vector<std::string> lines = report.describe();
+  std::string all;
+  for (const std::string &line : lines) all += line + "\n";
+
+  EXPECT_NE(all.find("nsclient.ini"), std::string::npos) << all;
+  EXPECT_NE(all.find("nrpe_dh_512.pem"), std::string::npos) << all;
+  EXPECT_NE(all.find("windows-ca.pem"), std::string::npos) << all;
+  // Every kept/dropped line carries a reason, so the operator is not left
+  // guessing why a file stayed behind.
+  EXPECT_NE(all.find("shipped with the package"), std::string::npos) << all;
+  EXPECT_NE(all.find("re-exported"), std::string::npos) << all;
+}
+
+TEST_F(LayoutMigrationTest, AnEmptySourceOrDestinationIsRejected) {
+  EXPECT_FALSE(nscp::paths::apply_migration("", to_.string()).ok());
+  EXPECT_FALSE(nscp::paths::apply_migration(from_.string(), "").ok());
+}

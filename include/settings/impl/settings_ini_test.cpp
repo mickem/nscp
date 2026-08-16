@@ -22,6 +22,16 @@ std::string ini_context(const boost::filesystem::path &p) {
   return "ini:///" + s;
 }
 
+// A core that can actually create child instances, so the include-vs-local
+// distinction below can be exercised. mock_settings_core returns null by
+// design and leaves that for tests that need children to supply.
+class ini_child_core : public mock_settings_core {
+ public:
+  settings::instance_raw_ptr create_instance(std::string alias, std::string context) override {
+    return settings::instance_raw_ptr(new settings::INISettings(this, alias, context));
+  }
+};
+
 }  // namespace
 
 TEST(settings_ini, type_is_ini) {
@@ -556,4 +566,79 @@ TEST(settings_ini, empty_value_roundtrips) {
   auto v = reloaded.get_real_string({"/section", "key"});
   ASSERT_TRUE(v.has_value());
   EXPECT_EQ(*v, "");
+}
+
+// --- get_local_sections ------------------------------------------------------
+// "What has *this* store been configured with?", as opposed to get_sections,
+// which folds in every included file.
+//
+// The distinction is the whole basis of the local-override reporting: a
+// fleet-managed host includes a fleet.ini full of sections it did not choose,
+// so an implementation that counted those would tell the operator (and the
+// fleet server) that every enrolled host is locally configured. The negative
+// case below is therefore the one that matters.
+
+TEST(settings_ini, get_local_sections_lists_this_stores_own_sections) {
+  temp_dir dir;
+  auto file = dir.file("local.ini");
+  write_file(file, "[/alpha]\nx=1\n[/beta]\ny=2\n");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+
+  const auto sections = s.get_local_sections("");
+  EXPECT_NE(std::find(sections.begin(), sections.end(), "/alpha"), sections.end());
+  EXPECT_NE(std::find(sections.begin(), sections.end(), "/beta"), sections.end());
+}
+
+TEST(settings_ini, get_local_sections_excludes_sections_that_came_from_an_include) {
+  temp_dir dir;
+  auto included = dir.file("included.ini");
+  write_file(included, "[/from-the-include]\nz=3\n");
+  auto file = dir.file("local.ini");
+  write_file(file, "[/mine]\nx=1\n");
+
+  // The default mock returns null from create_instance, which is what
+  // add_child_unsafe is documented to expect a test to override.
+  ini_child_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  s.add_child_unsafe("child", ini_context(included));
+
+  // get_sections merges the include in - that is what a reader wants...
+  const auto merged = s.get_sections("");
+  EXPECT_NE(std::find(merged.begin(), merged.end(), "/from-the-include"), merged.end())
+      << "sanity: the child really is attached, or the negative below proves nothing";
+
+  // ...and get_local_sections must not.
+  const auto local = s.get_local_sections("");
+  EXPECT_NE(std::find(local.begin(), local.end(), "/mine"), local.end());
+  EXPECT_EQ(std::find(local.begin(), local.end(), "/from-the-include"), local.end())
+      << "an included section is not local configuration";
+}
+
+TEST(settings_ini, get_local_sections_on_an_empty_store_lists_nothing_of_its_own) {
+  // A fresh install: the file exists but carries no configuration. Only the
+  // auto-registered /includes may show up, which is what the caller filters on.
+  temp_dir dir;
+  auto file = dir.file("empty.ini");
+  write_file(file, "; nothing here\n");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+
+  for (const std::string &section : s.get_local_sections("")) {
+    EXPECT_EQ(section, "/includes") << "unexpected section in an empty store: " << section;
+  }
+}
+
+TEST(settings_ini, get_local_sections_includes_values_set_but_not_yet_saved) {
+  // Configuration written this session counts as local straight away - it would
+  // be odd for `nscp settings --set` to be invisible until the next save.
+  temp_dir dir;
+  auto file = dir.file("pending.ini");
+  write_file(file, "; nothing here\n");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  s.set_string("/pending", "key", "value");
+
+  const auto sections = s.get_local_sections("");
+  EXPECT_NE(std::find(sections.begin(), sections.end(), "/pending"), sections.end());
 }
