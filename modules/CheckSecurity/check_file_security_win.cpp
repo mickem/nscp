@@ -52,8 +52,9 @@ std::string normalize_image_path(std::string path) {
   if (boost::istarts_with(path, "\\SystemRoot\\")) {
     WCHAR windows[MAX_PATH] = {0};
     if (GetWindowsDirectoryW(windows, MAX_PATH) > 0) path = utf8::cvt<std::string>(windows) + "\\" + path.substr(12);
-  } else if (!path.empty() && path[0] == '\\' && path.find(':') == std::string::npos) {
-    // A rooted path such as "\Windows\System32\drivers\x.sys".
+  } else if (path.size() > 1 && path[0] == '\\' && path[1] != '\\' && path.find(':') == std::string::npos) {
+    // A rooted path such as "\Windows\System32\drivers\x.sys" - but not a UNC
+    // path ("\\server\share\svc.exe"), which is already complete as it is.
     WCHAR windows[MAX_PATH] = {0};
     if (GetWindowsDirectoryW(windows, MAX_PATH) > 0) {
       const std::string win_dir = utf8::cvt<std::string>(windows);
@@ -174,6 +175,10 @@ void inspect(filter_obj &obj, std::vector<ace> &aces) {
   // hardening check is looking for is usually inherited from a parent folder.
   ACL_SIZE_INFORMATION size_info = {0};
   if (!GetAclInformation(dacl, &size_info, sizeof(size_info), AclSizeInformation)) {
+    // An unreadable ACL is the documented unreadable-descriptor failure, not a
+    // clean empty DACL: leaving readable set would render this as "no
+    // unexpected write access".
+    obj.readable = 0;
     obj.error = "Failed to read the access control list: " + error::lookup::last_error();
     LocalFree(descriptor);
     return;

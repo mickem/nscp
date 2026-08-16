@@ -212,3 +212,42 @@ TEST(check_file_security, state_reports_an_unexpected_owner) {
   EXPECT_EQ(0, obj.get_owner_expected());
   EXPECT_EQ("unexpected owner WS01\\bob", obj.get_state());
 }
+
+TEST(check_file_security, a_specific_deny_cancels_a_generic_grant) {
+  // icacls /grant writes GENERIC_WRITE where /deny writes the specific bits;
+  // the two forms must cancel. Without generic mapping this reported the path
+  // as world writable although Windows denies every write.
+  const filter_obj obj = classify({
+      allow("Everyone", "S-1-1-0", file_security_filter::mask_generic_write),
+      deny("Everyone", "S-1-1-0",
+           file_security_filter::mask_write_data | file_security_filter::mask_append | file_security_filter::mask_delete |
+               file_security_filter::mask_write_dac | file_security_filter::mask_write_owner | file_security_filter::mask_write_ea |
+               file_security_filter::mask_write_attrs),
+  });
+
+  EXPECT_EQ(0, obj.get_world_writable());
+  EXPECT_EQ(0, obj.get_unexpected_write());
+}
+
+TEST(check_file_security, a_generic_deny_cancels_the_matching_specific_grant) {
+  // The mirrored case: specific allow, GENERIC_WRITE deny. The content bits are
+  // denied; DELETE is not part of FILE_GENERIC_WRITE, so a modify grant still
+  // leaves the trustee able to delete - which is write access and stays flagged.
+  const filter_obj content_only = classify({
+      allow("Everyone", "S-1-1-0", file_security_filter::mask_write_data | file_security_filter::mask_append),
+      deny("Everyone", "S-1-1-0", file_security_filter::mask_generic_write),
+  });
+  EXPECT_EQ(0, content_only.get_world_writable());
+
+  const filter_obj with_delete = classify({
+      allow("Everyone", "S-1-1-0", modify),
+      deny("Everyone", "S-1-1-0", file_security_filter::mask_generic_write),
+  });
+  EXPECT_EQ(1, with_delete.get_world_writable());
+}
+
+TEST(check_file_security, generic_all_grants_render_as_full_and_count_as_write) {
+  const filter_obj obj = classify({allow("Everyone", "S-1-1-0", file_security_filter::mask_generic_all)});
+  EXPECT_EQ(1, obj.get_world_writable());
+  EXPECT_NE(std::string::npos, obj.get_dacl().find("Everyone(F)"));
+}

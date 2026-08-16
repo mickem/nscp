@@ -51,6 +51,20 @@ bool matches(const ace &entry, const std::string &candidate) {
 
 std::string join(const std::vector<std::string> &items) { return boost::algorithm::join(items, ", "); }
 
+// Expand the GENERIC_* bits into the file-specific rights they map to
+// (FILE_GENERIC_READ/WRITE/EXECUTE, FILE_ALL_ACCESS) and drop the generic
+// bits. Allow and deny entries routinely mix the two forms - icacls /grant
+// writes GENERIC_WRITE where /deny writes the specific bits - and a raw
+// bitwise comparison between the forms would let a deny fail to cancel the
+// grant it plainly covers (or vice versa).
+unsigned long map_generic(unsigned long mask) {
+  if ((mask & mask_generic_all) != 0) mask |= mask_all_access;
+  if ((mask & mask_generic_read) != 0) mask |= mask_read_data | mask_read_ea | mask_read_attrs | mask_read_control;
+  if ((mask & mask_generic_write) != 0) mask |= mask_write_data | mask_append | mask_write_ea | mask_write_attrs | mask_read_control;
+  if ((mask & mask_generic_exec) != 0) mask |= mask_execute | mask_read_attrs | mask_read_control;
+  return mask & ~(mask_generic_all | mask_generic_read | mask_generic_write | mask_generic_exec);
+}
+
 }  // namespace
 
 bool is_world_trustee(const ace &entry) {
@@ -90,7 +104,11 @@ std::string rights_summary(const unsigned long mask) {
   return rights.empty() ? "-" : rights;
 }
 
-void apply_aces(filter_obj &obj, const std::vector<ace> &aces, const std::vector<std::string> &allow_write) {
+void apply_aces(filter_obj &obj, const std::vector<ace> &raw_aces, const std::vector<std::string> &allow_write) {
+  // Normalise every mask to specific rights before comparing anything.
+  std::vector<ace> aces = raw_aces;
+  for (ace &entry : aces) entry.mask = map_generic(entry.mask);
+
   std::vector<std::string> writers, unexpected, rendered;
   obj.ace_count = static_cast<long long>(aces.size());
   obj.world_writable = 0;
