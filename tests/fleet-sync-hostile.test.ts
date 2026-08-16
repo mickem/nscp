@@ -389,12 +389,26 @@ describe("fleet sync against a hostile server", () => {
       const pollsBefore = requests.filter((r) => r.url.startsWith("/agent/v1/desired-state")).length;
       await waitFor("another poll after the failed download", () => requests.filter((r) => r.url.startsWith("/agent/v1/desired-state")).length > pollsBefore);
     }
+    // Put the phase back BEFORE letting downloads succeed again. The other way
+    // round leaves a window of one poll interval in which the agent legitimately
+    // fetches and applies the (perfectly valid, correctly signed) `cached`
+    // bundle - and the next test, which needs the agent to still be on h-good so
+    // it will go looking in the cache, then waits forever for a rejection that
+    // cannot come: the agent already has h-cached, so the server answers 304.
+    // While bundleStatus is still failing the agent is on h-good and the server
+    // answers 304 for it, so restoring the phase first costs nothing.
+    phase = "good";
     bundleStatus = 200;
   });
 
   it("re-verifies a bundle that came from the on-disk cache", async () => {
     // Verifying only on download would make the cache a way in for anything
     // that can write a file: poison the cache entry the next state points at.
+    // The agent has to still be on h-good, or it will not fetch b-cached at all
+    // and this test would wait for a rejection that cannot happen. Assert it
+    // here, where the message is obvious, rather than time out 45s later.
+    expect(appliedState().state_hash).toBe("h-good");
+
     const cacheDir = path.join(workDir, "fleet", "cache");
     fs.mkdirSync(cacheDir, { recursive: true });
     const poisoned = path.join(cacheDir, cacheFileName("b-cached", cachedZip));
