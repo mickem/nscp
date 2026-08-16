@@ -247,6 +247,76 @@ This user account should be a local user account with only relevant admin right 
 > TODO: Add example of creating a user account and setting up NSClient++ to use it.
 > TODO: Add example of permissions needed for various checks.
 
+## File layout (Windows)
+
+Where NSClient++ keeps its files decides who can read them. On Windows there are
+two layouts, and the newer one exists for this reason.
+
+**Legacy (the default)** keeps everything beside the executable, under
+`C:\Program Files\NSClient++\`. That directory is not writable by ordinary
+users, but it *is* readable by them — and it holds:
+
+- `nsclient.ini`, with the web/NRPE passwords and any credentials your checks
+  use to reach a database or an API;
+- `security\`, with the server's TLS private key and, on a fleet-managed host,
+  `agent-state.json` — the private key that identifies this machine to the
+  fleet server;
+- the log, which quotes check arguments and configuration in its error text.
+
+Any logged-in account can read all of it.
+
+**Modern (opt-in)** moves that writable half to `C:\ProgramData\NSClient++\`
+and restricts it to `SYSTEM` and `Administrators`, with inheritance broken so
+`%ProgramData%`'s default `Users: Read & Execute` does not apply. The program
+itself stays in Program Files. The practical effect:
+
+| | Legacy | Modern |
+|---|---|---|
+| `nsclient.ini` (passwords) | readable by any user | SYSTEM + Administrators |
+| TLS private key, fleet identity | readable by any user | SYSTEM + Administrators |
+| Log file | readable by any user | SYSTEM + Administrators |
+| Who can *modify* configuration and scripts | administrators | administrators |
+
+It also stops the agent needing write access to its own install directory: a
+non-administrator running `nscp client ...` no longer tries to open a log file
+under Program Files.
+
+### Should you use it?
+
+**Yes for new installs.** There is no migration to go wrong, and it closes the
+readable-secrets gap above:
+
+```shell
+msiexec /i NSCP-x64.msi LAYOUT=modern /qn
+```
+
+**For existing installs, test before you roll it out.** The layout itself is
+sound, but the *upgrade path* has not been exercised at scale yet: an upgrade
+with `LAYOUT=modern` moves your configuration, certificates and fleet identity
+to the new location, and every environment has its own variations —
+configuration management that writes `nsclient.ini` by path, backup jobs,
+monitoring of the log file, custom scripts with hardcoded paths. Run it on a
+representative host first, confirm the agent still answers checks and that
+whatever else touches those files still finds them, and then roll it out.
+
+<!-- @formatter:off -->
+!!! warning "Experimental"
+    The modern layout is opt-in and marked experimental: upgrades in particular
+    have not been tested at scale. Nothing changes unless you ask for it — an
+    upgrade without the property keeps the layout the host already has.
+<!-- @formatter:on -->
+
+An existing installation can also be switched after the fact, without
+reinstalling:
+
+```shell
+nscp settings --migrate-layout modern --dry-run    # show exactly what will move
+nscp settings --migrate-layout modern              # move it, then restart the service
+```
+
+See [File layout](../concepts/file-layout.md) for what lives where in each
+layout, and what moves.
+
 ## Passwords
 
 NSClient++ has among other secrets an admin password which out-of-the box is stored in a config file.

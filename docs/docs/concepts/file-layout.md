@@ -65,6 +65,26 @@ it down. Pick one per installation in `boot.ini`:
 mode = modern
 ```
 
+<!-- @formatter:off -->
+!!! warning "Modern is experimental — but more secure"
+    **What it fixes.** On the legacy layout everything lives in
+    `C:\Program Files\NSClient++\`, which any logged-in user can read — including
+    `nsclient.ini` (web and NRPE passwords, and any credentials your checks use),
+    the server's TLS private key, the fleet identity's private key, and the log.
+    The modern layout moves those to `%ProgramData%\NSClient++\` restricted to
+    `SYSTEM` and `Administrators`, and stops the agent needing write access to
+    its own install directory.
+
+    **Why experimental.** The layout is sound and the migration is tested, but
+    upgrades have not been exercised at scale. Prefer it for **new installs**;
+    for **existing installs, test the upgrade in your own environment first** —
+    configuration management, backups and scripts that reference the old paths
+    are what will notice. Nothing moves unless you ask: an upgrade without the
+    property keeps the layout the host already has.
+
+    See [Securing NSClient++](../setup/securing.md#file-layout-windows).
+<!-- @formatter:on -->
+
 `legacy` (or leaving the section out entirely) keeps the existing behaviour, so
 an upgrade changes nothing until you ask it to. An unrecognised mode is treated
 as `legacy` and logged as a warning — a typo never half-moves an installation.
@@ -114,9 +134,11 @@ already uses — so an upgrade never moves an installation that did not ask to
 move, and never moves a modern one back to legacy.
 
 <!-- @formatter:off -->
-!!! note "Experimental"
-    The modern layout is opt-in and has no UI yet: the MSI property and
-    `nscp settings --migrate-layout` are the two ways to select it.
+!!! note "Experimental, and opt-in"
+    The modern layout has no UI yet: the MSI property and
+    `nscp settings --migrate-layout` are the two ways to select it. Recommended
+    for new installs; for upgrades, try it on a representative host before
+    rolling it out - see [Securing NSClient++](../setup/securing.md#should-you-use-it).
 <!-- @formatter:on -->
 
 ### Legacy (default)
