@@ -11,6 +11,10 @@
  * the Windows certificate store are Windows-only, so here we assert the
  * "not supported on this platform" behaviour.
  */
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+
 import { NscpInstance, generateCertChain } from "@fixtures/index";
 
 jest.setTimeout(120_000);
@@ -143,6 +147,7 @@ onLinux("CheckSecurity", () => {
     ["check_local_accounts"],
     ["check_group_members"],
     ["check_activation"],
+    ["check_file_security"],
   ])("%s reports not-supported on this platform", async (cmd) => {
     const out = await query(cmd, []);
     expect(out).toMatch(/not supported on this platform/i);
@@ -347,4 +352,63 @@ onWindows("CheckSecurity (Windows posture)", () => {
     expect(out).toMatch(/^CRITICAL/m);
   });
 
+  // --- check_file_security ---------------------------------------------------
+
+  it("check_file_security reports the owner and DACL of a system folder", async () => {
+    // System32 is owned by TrustedInstaller and writable only by SYSTEM and the
+    // administrators, so the defaults must find nothing to complain about.
+    const out = await query("check_file_security", ["path=C:\\Windows\\System32"]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/no unexpected write access/);
+  });
+
+  it("check_file_security requires something to inspect", async () => {
+    const out = await query("check_file_security", []);
+    expect(out).toMatch(/No path specified/i);
+  });
+
+  it("check_file_security goes CRITICAL for a path that is gone", async () => {
+    const out = await query("check_file_security", ["path=C:\\NSCP_no_such_dir_zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/does not exist/);
+  });
+
+  it("check_file_security flags a world-writable directory (inherited included)", async () => {
+    // Grant Everyone (by SID, so it also works on a localized Windows) modify
+    // rights on a scratch tree; both the folder and the child that inherits the
+    // entry must come back CRITICAL.
+    const dir = nscp.scratch("world_writable");
+    const child = path.join(dir, "child");
+    fs.mkdirSync(child, { recursive: true });
+    execFileSync("icacls", [dir, "/grant", "*S-1-1-0:(OI)(CI)M"], { stdio: "ignore" });
+
+    const out = await query("check_file_security", [`path=${dir}`, `path=${child}`]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out.match(/world writable by/g) ?? []).toHaveLength(2);
+
+    // Allow-listing Everyone by SID silences it again.
+    const allowed = await query("check_file_security", [`path=${dir}`, "allow-write=S-1-1-0", `allow-write=${process.env.USERNAME}`]);
+    expect(allowed).toMatch(/^OK/m);
+  });
+
+  it("check_file_security inspects the binary behind a service", async () => {
+    // The Windows Event Log service exists on every SKU; its image path is a
+    // system binary, so the defaults pass and the resolved path is shown.
+    const out = await query("check_file_security", ["service=EventLog", "detail-syntax=${service} -> ${path}: ${state}", "top-syntax=${status}: ${list}"]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/EventLog -> .*\.exe/i);
+  });
+
+  it("check_file_security reports a service that does not exist", async () => {
+    const out = await query("check_file_security", ["service=NSCP_NoSuchService_zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/Service not found/i);
+  });
+
+  it("check_file_security alerts on an unexpected owner", async () => {
+    // System32 is owned by TrustedInstaller, so demanding SYSTEM must trip.
+    const out = await query("check_file_security", ["path=C:\\Windows\\System32", "expected-owner=NT AUTHORITY\\SYSTEM"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/unexpected owner/);
+  });
 });

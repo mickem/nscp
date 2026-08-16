@@ -13,6 +13,7 @@ set(SRCS
     "${TARGET}.cpp"
     check_activation.cpp
     check_certificate.cpp
+    check_file_security.cpp
     check_firewall.cpp
     check_users.cpp
     check_nla.cpp
@@ -34,6 +35,7 @@ if(WIN32)
         ${SRCS}
         cert_source_win.cpp
         check_activation_win.cpp
+        check_file_security_win.cpp
         check_firewall_win.cpp
         check_users_win.cpp
         posture_win.cpp
@@ -44,6 +46,7 @@ if(WIN32)
         cert_source.hpp
         check_activation.hpp
         check_certificate.hpp
+        check_file_security.hpp
         check_firewall.hpp
         check_users.hpp
         check_nla.hpp
@@ -131,13 +134,15 @@ NSCP_CREATE_TEST(
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# The licensing decode is platform neutral (only the data acquisition is
-# Windows), so this unit test builds everywhere.
+# The licensing decode and the owner/DACL classification are platform neutral
+# (only the data acquisition is Windows), so these unit tests build everywhere.
 NSCP_CREATE_TEST(
     check_posture_test
     SOURCES
         check_activation_test.cpp
+        check_file_security_test.cpp
         check_activation.cpp
+        check_file_security.cpp
         ${NSCP_FILTER_CPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
