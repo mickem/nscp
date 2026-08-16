@@ -340,6 +340,7 @@ of path variables that can be used.
 | cache-folder     | ${shared-path}/cache            | ${shared-path}/cache   |                                                                        |
 | crash-folder     | ${shared-path}/crash-dumps      | ${shared-path}/crash-dumps |                                                                    |
 | log-path         | ${shared-path}/log              | /var/log/nsclient      | Created and owned by the service account by the package.               |
+| common-appdata   | %ProgramData%                   | N/A                    | Backs `${shared-path}` on the modern Windows layout.                   |
 | fleet-folder     | ${shared-path}/fleet            | ${data-path}/fleet     | Everything the fleet sync owns: `fleet.ini`, staged scripts, bundle cache. Must be writable by the service account. |
 | data-path        | The user's profile folder.      | /var/lib/nsclient      | Writable per-machine state on Linux; also `${appdata}` on Windows.     |
 | base-path        | Path of NSClient++ exe file     |                        | This will in the future change to an actual shared path.               |
@@ -354,6 +355,10 @@ The Linux values above are for a default `--prefix=/usr` package build; a build
 with another prefix moves them together (see the packaging variables in
 `CMakeLists.txt`). For the full picture of what lives where, and which account
 owns it, see [File layout](file-layout.md).
+
+On Windows, `${shared-path}` — and therefore everything defined relative to it —
+depends on which layout the installation uses. `boot.ini`'s `[layout] mode`
+selects it; see [File layout](file-layout.md#windows).
 
 All paths can also be overridden using the `[paths]` section in `boot.ini`.
 

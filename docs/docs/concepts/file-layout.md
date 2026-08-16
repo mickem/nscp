@@ -56,6 +56,21 @@ own identity.
 
 ## Windows
 
+Windows has two layouts. **Legacy** is the default and keeps everything beside
+the executable; **modern** moves the writable state to `%ProgramData%` and locks
+it down. Pick one per installation in `boot.ini`:
+
+```ini
+[layout]
+mode = modern
+```
+
+`legacy` (or leaving the section out entirely) keeps the existing behaviour, so
+an upgrade changes nothing until you ask it to. An unrecognised mode is treated
+as `legacy` and logged as a warning — a typo never half-moves an installation.
+
+### Legacy (default)
+
 The service runs as LocalSystem, which can read and write the whole install
 directory, so the layout stays together under the installation folder.
 
@@ -81,6 +96,68 @@ C:\Program Files\NSClient++\        ${shared-path} = ${exe-path}
     ├── cache\
     └── scripts\
 ```
+
+### Modern (opt-in)
+
+Only `${shared-path}` moves; everything is defined relative to it, so the whole
+writable half follows and the read-only half stays with the program.
+
+```
+C:\Program Files\NSClient++\        ${exe-path} - the program, plus boot.ini
+├── nscp.exe
+├── boot.ini                        [layout] and [paths] live here
+├── modules\                        ${module-path}
+├── scripts\                        ${scripts}
+└── web\                            ${web-path}
+
+C:\ProgramData\NSClient++\          ${shared-path} - SYSTEM + Administrators only
+├── nsclient.ini                    your configuration
+├── security\                       ${certificate-path}
+│   ├── agent-state.json            fleet identity
+│   ├── certificate.pem             server TLS certificate
+│   └── windows-ca.pem              ${ca-path}, re-exported at every start
+├── fleet\                          ${fleet-folder}
+├── log\                            ${log-path}
+├── cache\                          ${cache-folder}
+└── crash-dumps\                    ${crash-folder}
+```
+
+The agent creates that folder with an explicit DACL granting **SYSTEM** and
+**Administrators** full control, and breaks inheritance so `%ProgramData%`'s
+default `Users: Read & Execute` does not apply. Without that, moving the
+configuration (which holds passwords) and the fleet private key out of Program
+Files would make them readable by every account on the machine — a downgrade,
+not a fix.
+
+That has a consequence worth knowing: **an ordinary user cannot read the
+configuration on the modern layout**, so administrative commands need an
+elevated prompt. Running checks does not — the CLI logs to the console and
+needs no access to the machine's files.
+
+`check_nrpe` and `check_nscp` read the same `[layout]` setting from the
+`boot.ini` next to them, so they resolve `${certificate-path}` to the same place
+the service does.
+
+## Logging
+
+The **service** writes `${log-path}/nsclient.log`. Every other invocation —
+`nscp client`, `nscp test`, `check_nrpe` — logs to the console and writes no
+file, so running a command never needs write access to the install directory or
+to any machine-wide folder.
+
+Ask for a file explicitly if you want one:
+
+```shell
+nscp client --query check_ok --log-backend threaded-file
+```
+
+<!-- @formatter:off -->
+!!! note "Changed in 0.17"
+    On Windows every invocation used to write to a log file beside the
+    executable, which an ordinary user could not open — the command worked but
+    logging silently degraded. The file backend is now the service's, and the
+    default log file moved from `${exe-path}/nsclient.log` into `${log-path}`.
+<!-- @formatter:on -->
 
 ## Fleet-managed configuration
 

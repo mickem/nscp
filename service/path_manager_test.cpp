@@ -7,7 +7,6 @@
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
-
 #include <memory>
 #include <nsclient/logger/logger.hpp>
 
@@ -68,6 +67,85 @@ TEST_F(PathManagerTest, GetFolderKeys) {
   for (const auto &key : keys) {
     EXPECT_FALSE(pm->getFolder(key).empty()) << "Failed for key: " << key;
   }
+}
+
+// --- the table and expander shared with the standalone clients ---------------
+// check_nrpe / check_nscp cannot link path_manager, so they resolve tokens from
+// the same header. These pin the contract both sides rely on.
+
+TEST(PathDefaults, ExpandsATokenThatIsNotAtTheStartOfTheString) {
+  // The clients' previous hand-rolled expander extracted the key with
+  // `substr(pstart + 1, pend - 2)`, which is only correct for a leading token.
+  // A path like this yielded the key "etc}/x.pem", which resolved to the
+  // executable's directory - a plausible-looking wrong answer, never an error.
+  const auto resolve = [](const std::string &key) { return key == "etc" ? std::string("/etc/nsclient") : std::string("<unknown:" + key + ">"); };
+  EXPECT_EQ(nscp::paths::expand_tokens("${etc}/x.pem", resolve), "/etc/nsclient/x.pem");
+  EXPECT_EQ(nscp::paths::expand_tokens("/opt/nscp/${etc}/x.pem", resolve), "/opt/nscp//etc/nsclient/x.pem");
+  EXPECT_EQ(nscp::paths::expand_tokens("cfg-${etc}-suffix", resolve), "cfg-/etc/nsclient-suffix");
+}
+
+TEST(PathDefaults, ExpandsChainedTokensAndSurvivesCycles) {
+  const auto resolve = [](const std::string &key) {
+    if (key == "a") return std::string("${b}/one");
+    if (key == "b") return std::string("/root");
+    if (key == "loop") return std::string("${loop}");
+    return std::string();
+  };
+  EXPECT_EQ(nscp::paths::expand_tokens("${a}/two", resolve), "/root/one/two");
+  // A self-referential token must terminate rather than spin to the limit.
+  EXPECT_EQ(nscp::paths::expand_tokens("${loop}", resolve), "${loop}");
+  // Unterminated tokens are left alone rather than swallowing the rest.
+  EXPECT_EQ(nscp::paths::expand_tokens("${unclosed/x", resolve), "${unclosed/x");
+}
+
+TEST(PathDefaults, LayoutOnlyMovesSharedPathAndOnlyOnWindows) {
+  const std::string legacy = nscp::paths::default_for("shared-path", nscp::paths::layout::legacy);
+  const std::string modern = nscp::paths::default_for("shared-path", nscp::paths::layout::modern);
+#ifdef WIN32
+  // Legacy has no static default: the caller answers with its own directory.
+  EXPECT_TRUE(legacy.empty());
+  EXPECT_EQ(modern, "${common-appdata}/NSClient++");
+#else
+  // Unix decides its layout from the package prefix; the switch does nothing.
+  EXPECT_EQ(legacy, modern);
+  EXPECT_FALSE(legacy.empty());
+#endif
+  // Everything else is expressed relative to shared-path, so it must not vary.
+  for (const char *key : {"certificate-path", "module-path", "web-path", "scripts", "log-path", FLEET_FOLDER_KEY}) {
+    EXPECT_EQ(nscp::paths::default_for(key, nscp::paths::layout::legacy), nscp::paths::default_for(key, nscp::paths::layout::modern)) << key;
+  }
+}
+
+TEST(PathDefaults, ParsesTheBootIniModes) {
+  EXPECT_EQ(nscp::paths::parse_layout("modern"), nscp::paths::layout::modern);
+  EXPECT_EQ(nscp::paths::parse_layout("v2"), nscp::paths::layout::modern);
+  EXPECT_EQ(nscp::paths::parse_layout("legacy"), nscp::paths::layout::legacy);
+  EXPECT_EQ(nscp::paths::parse_layout(""), nscp::paths::layout::legacy);
+  // An unrecognised mode must not silently become the new layout.
+  EXPECT_EQ(nscp::paths::parse_layout("moderne"), nscp::paths::layout::legacy);
+  EXPECT_FALSE(nscp::paths::is_known_layout("moderne"));
+  EXPECT_TRUE(nscp::paths::is_known_layout("modern"));
+  EXPECT_TRUE(nscp::paths::is_known_layout(""));
+}
+
+TEST_F(PathManagerTest, ModernLayoutMovesEverythingWritableOutOfTheInstallDirectory) {
+#ifdef WIN32
+  const std::string install = pm->expand_path("${exe-path}");
+  pm->set_layout(nscp::paths::layout::modern);
+  const std::string shared = pm->expand_path("${shared-path}");
+  EXPECT_NE(shared, install);
+  EXPECT_EQ(shared.find("${"), std::string::npos) << shared;
+  // The folders that carry secrets or are rewritten at runtime have to follow.
+  for (const char *token : {"${certificate-path}", "${" FLEET_FOLDER_KEY "}", "${log-path}", "${cache-folder}"}) {
+    const std::string resolved = pm->expand_path(token);
+    EXPECT_EQ(resolved.find(shared), 0u) << token << " -> " << resolved;
+  }
+  // Switching back is not a one-way door; the tests below share this fixture.
+  pm->set_layout(nscp::paths::layout::legacy);
+  EXPECT_EQ(pm->expand_path("${shared-path}"), install);
+#else
+  GTEST_SKIP() << "the layout switch is Windows-only";
+#endif
 }
 
 TEST_F(PathManagerTest, FleetFolderExpandsAndIsWritableByTheService) {
