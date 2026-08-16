@@ -11,6 +11,7 @@
 #include "check_bitlocker.hpp"
 #include "check_defender.hpp"
 #include "check_file_security.hpp"
+#include "check_firewall_rules.hpp"
 #include "check_group_members.hpp"
 #include "check_local_accounts.hpp"
 #include "check_nla.hpp"
@@ -57,6 +58,12 @@ void gather(const std::string & /*group*/, std::vector<group_members_filter::fil
   error = "check_group_members is not supported on this platform (Windows local groups only)";
 }
 }  // namespace group_members_source
+
+namespace firewall_rules_source {
+void gather(std::vector<firewall_rules_filter::filter_obj_ptr> & /*out*/, std::string &error) {
+  error = "check_firewall_rules is not supported on this platform (Windows firewall rules only)";
+}
+}  // namespace firewall_rules_source
 
 namespace activation_source {
 void gather(bool /*all_products*/, bool /*with_genuine*/, std::vector<activation_filter::filter_obj_ptr> & /*out*/, std::string &error) {

@@ -148,6 +148,7 @@ onLinux("CheckSecurity", () => {
     ["check_group_members"],
     ["check_activation"],
     ["check_file_security"],
+    ["check_firewall_rules"],
   ])("%s reports not-supported on this platform", async (cmd) => {
     const out = await query(cmd, []);
     expect(out).toMatch(/not supported on this platform/i);
@@ -217,6 +218,66 @@ onWindows("CheckSecurity (Windows posture)", () => {
     ]);
     expect(out).toMatch(/Domain: [01] \((local|group policy)\)/);
     expect(out).toMatch(/Public: [01] \((local|group policy)\)/);
+  });
+
+  // --- check_firewall_rules --------------------------------------------------
+
+  it("check_firewall_rules enumerates the rule set", async () => {
+    // Every Windows host ships hundreds of rules. The default output is a
+    // summary rather than the list, and `count` carries the rule count.
+    const out = await query("check_firewall_rules", []);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/rule\(s\) checked/);
+    expect(out).toMatch(/'count'=[1-9]\d*/);
+  });
+
+  it("check_firewall_rules exposes the per-rule keywords", async () => {
+    // Scope to one enabled inbound rule and render every field the check reads.
+    const out = await query("check_firewall_rules", [
+      "filter=enabled = 1 and direction = 'in'",
+      "top-syntax=${list}",
+      "ok-syntax=${list}",
+      "detail-syntax=[${direction}/${action}/${protocol}/${profiles}/${local_ports}/${remote_addresses}]",
+    ]);
+    // Ports and addresses are never empty: an unrestricted field reads "*".
+    expect(out).toMatch(/\[in\/(allow|block)\/\S+\/\S+\/[^/\]]+\/[^/\]]+\]/);
+  });
+
+  it("check_firewall_rules is CRITICAL when an expected rule is absent", async () => {
+    const out = await query("check_firewall_rules", ["expect=NSCP no such rule zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/not in effect: no rule with this name/);
+  });
+
+  it("check_firewall_rules is satisfied by a rule that really exists", async () => {
+    // Rule names are localized, so take one from this machine rather than
+    // hard-coding an English name that only exists on an English Windows.
+    const listed = await query("check_firewall_rules", [
+      "filter=enabled = 1",
+      "top-syntax=${list}",
+      "ok-syntax=${list}",
+      "detail-syntax=${name}",
+      "list-separator=\n",
+    ]);
+    const name = listed.split("\n").map((l) => l.trim()).filter((l) => l.length > 0 && !/^L\s/.test(l))[0];
+    expect(name).toBeTruthy();
+
+    const out = await query("check_firewall_rules", [`expect=${name}`]);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_firewall_rules accepts the scope keywords in filters", async () => {
+    // any_any is offered as a keyword rather than a default threshold; it must
+    // parse, and on a normal client it does match (app rules are wide open).
+    const out = await query("check_firewall_rules", [
+      "filter=any_any = 1",
+      "warning=none",
+      "critical=none",
+      "top-syntax=${count} wide open",
+      "ok-syntax=${count} wide open",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression|error parsing/i);
+    expect(out).toMatch(/^\d+ wide open/m);
   });
 
   // --- check_nla -------------------------------------------------------------

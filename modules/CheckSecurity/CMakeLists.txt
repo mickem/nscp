@@ -14,6 +14,7 @@ set(SRCS
     check_activation.cpp
     check_certificate.cpp
     check_file_security.cpp
+    check_firewall_rules.cpp
     check_firewall.cpp
     check_users.cpp
     check_nla.cpp
@@ -36,6 +37,7 @@ if(WIN32)
         cert_source_win.cpp
         check_activation_win.cpp
         check_file_security_win.cpp
+        check_firewall_rules_win.cpp
         check_firewall_win.cpp
         check_users_win.cpp
         posture_win.cpp
@@ -47,6 +49,7 @@ if(WIN32)
         check_activation.hpp
         check_certificate.hpp
         check_file_security.hpp
+        check_firewall_rules.hpp
         check_firewall.hpp
         check_users.hpp
         check_nla.hpp
@@ -141,8 +144,10 @@ NSCP_CREATE_TEST(
     SOURCES
         check_activation_test.cpp
         check_file_security_test.cpp
+        check_firewall_rules_test.cpp
         check_activation.cpp
         check_file_security.cpp
+        check_firewall_rules.cpp
         ${NSCP_FILTER_CPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

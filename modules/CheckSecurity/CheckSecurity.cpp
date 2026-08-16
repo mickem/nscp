@@ -10,6 +10,7 @@
 #include "check_defender.hpp"
 #include "check_file_security.hpp"
 #include "check_firewall.hpp"
+#include "check_firewall_rules.hpp"
 #include "check_group_members.hpp"
 #include "check_local_accounts.hpp"
 #include "check_nla.hpp"
@@ -28,6 +29,10 @@ void CheckSecurity::check_certificate(const PB::Commands::QueryRequestMessage::R
 
 void CheckSecurity::check_firewall(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_firewall_command::check(request, response);
+}
+
+void CheckSecurity::check_firewall_rules(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  check_firewall_rules_command::check(request, response);
 }
 
 void CheckSecurity::check_users(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
