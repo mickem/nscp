@@ -595,6 +595,59 @@ common:
         repeatable: false
         required: false
         short_description: A comma separated list of files to scan (same as file except a list)
+      - content_type: 2
+        default_value: auto
+        is_simple: false
+        long_description: 'Only scan lines added since the last check with the same bookmark name.
+
+          NSClient++ remembers, per file and per bookmark, how far it read last time and resumes from
+          there, so a line is reported once instead of on every check. The first check of a file reads
+          it in full; a file which is truncated, rotated or replaced is detected (via its size and a fingerprint
+          of its first bytes) and read from the beginning again. A trailing line which is not yet terminated
+          by line-split is held back until it is complete, so half-written lines are never reported twice.
+
+          If you set this to auto (or leave the value empty) the bookmark name is derived from the file
+          name together with a hash of your filter, warning and critical expressions, which keeps unrelated
+          checks of the same file from consuming each other''s lines. Use an explicit name to share (or
+          separate) positions deliberately. Positions are persisted when NSClient++ shuts down and restored
+          on start; the newest ones are kept if more than a thousand accumulate.'
+        name: bookmark
+        repeatable: false
+        required: false
+        short_description: Only scan lines added since the last check with the same bookmark name.
+      - content_type: 2
+        default_value: '0'
+        is_simple: false
+        long_description: 'Only examine the newest <N> lines of each file (0, the default, means every
+          line).
+
+          The limit is applied per file, after any bookmark: with a bookmark the check still only sees
+          lines added since the last check, and this caps how many of them are reported when a burst of
+          lines was written at once. The lines dropped by the limit are never reported later either -
+          the bookmark moves past everything which was read.
+
+          Which end of the file holds the newest lines is controlled by `newest`.'
+        name: max-lines
+        repeatable: false
+        required: false
+        short_description: Only examine the newest <N> lines of each file (0, the default, means every
+          line).
+      - content_type: 2
+        default_value: last
+        is_simple: false
+        long_description: 'Which end of the file holds the newest line: `last` (the default: lines are
+          appended, as with most machine-written logs) or `first` (the file is rewritten with the newest
+          line at the top, which is common in hand-maintained files such as changelogs).
+
+          This only decides which end `max-lines` counts from; lines are always reported in the order
+          they appear in the file. `newest=first` cannot be combined with `bookmark`, since a file which
+          is rewritten from the top has no stable position to resume from.'
+        name: newest
+        repeatable: false
+        required: false
+        short_description: 'Which end of the file holds the newest line: `last` (the default: lines are
+          appended, as with most machine-written logs) or `first` (the file is rewritten with the newest
+          line at the top, which is common in hand-maintained files such as changelogs).'
 module: CheckLogFile
 namespace: check
 platforms:

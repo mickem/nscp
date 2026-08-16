@@ -785,6 +785,157 @@ describe("CheckSystem commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  it("check_printqueue reports the driver and port of each queue (Windows)", async () => {
+    if (!onWindows) return;
+    // The device inventory is what tells "the queue is fine" from "the queue now
+    // points at a different driver". Every Windows host has at least one queue
+    // (Microsoft Print to PDF) with a driver and a port.
+    const q = await executeQuery(key, "check_printqueue", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "${printer}|${driver}|${port}|${default}${shared}${network}",
+      "top-syntax": "${list}",
+    });
+    expect(q.result).toBe(OK);
+    // "<name>|<driver>|<port>|<3 flags>" — driver and port are never empty.
+    expect(messageOf(q)).toMatch(/[^|]+\|[^|]+\|[^|]+\|[01][01][01]/);
+  });
+
+  it("check_printqueue filters on the new device keywords (Windows)", async () => {
+    if (!onWindows) return;
+    // Regression: the inventory keywords must be usable in filter/threshold
+    // expressions, not just in the syntax strings.
+    // Both syntaxes are set: a top syntax without ${list} lets the ok syntax win
+    // while everything is fine, so the count would otherwise not be rendered.
+    const q = await executeQuery(key, "check_printqueue", {
+      filter: "driver like 'PDF' or port like 'PORTPROMPT'",
+      warning: "none",
+      critical: "none",
+      "top-syntax": "matched ${count}",
+      "ok-syntax": "matched ${count}",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
+    // Microsoft Print to PDF matches on both halves of the expression, so the
+    // filter has to have selected at least one queue.
+    expect(messageOf(q)).toMatch(/^matched [1-9]\d*$/);
+  });
+
+  // --- check_printjobs (Windows) -----------------------------------------------
+
+  it("check_printjobs reports the queued jobs or the empty contract (Windows)", async () => {
+    if (!onWindows) return; // check_printjobs is Windows-only (CheckSystem).
+    // A runner usually has an empty spooler, which is OK with the documented
+    // message; when something is queued the row names it. Accept either, and
+    // always expect the count perf so the queue depth can be graphed.
+    const q = await executeQuery(key, "check_printjobs", { warning: "none", critical: "none" });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/No print jobs queued|by /);
+    expect(perfOf(q)["count"]).toBeDefined();
+  });
+
+  it("check_printjobs exposes the per-job detail keywords (Windows)", async () => {
+    if (!onWindows) return;
+    // With an empty queue the detail syntax renders nothing, so this asserts the
+    // keywords parse and, when a job is present, that each field is populated.
+    const q = await executeQuery(key, "check_printjobs", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "id=${id} doc=[${document}] owner=[${owner}] status=${status} size=${size} pages=${pages}/${pages_printed} age=${age}",
+      "top-syntax": "${list}",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
+    if (/id=/.test(messageOf(q))) {
+      expect(messageOf(q)).toMatch(/id=\d+ doc=\[.*\] owner=\[.*\] status=\S+ size=\d+ pages=\d+\/\d+ age=-?\d+/);
+    }
+  });
+
+  it("check_printjobs accepts its status and size thresholds over REST (Windows)", async () => {
+    if (!onWindows) return;
+    // The status bits are valued booleans in expressions (the bool_switch trap)
+    // and none of these can trip on a healthy/empty spooler. `size` is a
+    // size-typed keyword, so the literal carries a unit.
+    const q = await executeQuery(key, "check_printjobs", {
+      warning: "size > 100G or pages > 999999 or age > 24h",
+      critical: "error = 1 and blocked = 1 and user_intervention = 1",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
+    expect(q.result).toBe(OK);
+  });
+
+  // --- check_w32time (Windows) -------------------------------------------------
+
+  it("check_w32time reports the Windows Time state (Windows)", async () => {
+    if (!onWindows) return; // check_w32time is Windows-only (CheckSystem).
+    // The service is trigger-started on a workgroup client and always running on
+    // a domain member, so pin the thresholds off and assert on the verdict text
+    // rather than on a status that depends on the host's role.
+    const q = await executeQuery(key, "check_w32time", { warning: "none", critical: "none" });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/Windows Time service|synchroniz/i);
+  });
+
+  it("check_w32time exposes the service, configuration and source keywords (Windows)", async () => {
+    if (!onWindows) return;
+    const q = await executeQuery(key, "check_w32time", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "svc=${service_state}/${start_type} type=${sync_type} from=${source_from} peers=${peer_count} run=${running} sync=${synchronized}",
+      "top-syntax": "${list}",
+    });
+    // service_state and start_type come from the SCM, sync_type from the W32Time
+    // registry, source_from says whether the source is live or the configured one.
+    expect(messageOf(q)).toMatch(/svc=(running|stopped|starting|stopping|paused|not installed)\/\w+/);
+    expect(messageOf(q)).toMatch(/type=(NT5DS|NTP|AllSync|NoSync|unknown)/);
+    expect(messageOf(q)).toMatch(/from=(service|configuration|unknown)/);
+    expect(messageOf(q)).toMatch(/peers=\d+ run=[01] sync=[01]/);
+  });
+
+  it("check_w32time renders unmeasured counters as unknown rather than a number (Windows)", async () => {
+    if (!onWindows) return;
+    // The "Windows Time Service" counters only carry data while the service is
+    // running; when it is not, offset must read 'unknown' (and emit no perfdata)
+    // instead of a fake zero or -1. Either outcome is valid on a given host.
+    const q = await executeQuery(key, "check_w32time", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "offset=${offset}",
+      "top-syntax": "${list}",
+    });
+    expect(messageOf(q)).toMatch(/^offset=(unknown|\d+)$/);
+    if (/offset=unknown/.test(messageOf(q))) {
+      expect(perfOf(q)["w32time_offset"]).toBeUndefined();
+    }
+  });
+
+  it("check_w32time accepts its threshold keywords over REST (Windows)", async () => {
+    if (!onWindows) return;
+    // Regression: the keywords must parse in warn/crit expressions, including
+    // the optional numbers, which compare false while they are unknown.
+    const q = await executeQuery(key, "check_w32time", {
+      warning: "offset > 999999",
+      critical: "synchronized = 0 and running = 1 and local_clock = 1",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
+    expect(q.result).toBe(OK);
+  });
+
+  it("check_w32time is CRITICAL when the machine follows no time source (Windows)", async () => {
+    if (!onWindows) return;
+    // The default critical is synchronized = 0; assert the two agree, whichever
+    // way this host is configured, so the default is pinned to the real state.
+    const state = await executeQuery(key, "check_w32time", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "sync=${synchronized}",
+      "top-syntax": "${list}",
+    });
+    const synchronized = /sync=1/.test(messageOf(state));
+    // Leave the default critical in place but silence the drift warning, so the
+    // outcome depends only on whether the host follows a source.
+    const q = await executeQuery(key, "check_w32time", { warning: "none" });
+    expect(q.result).toBe(synchronized ? OK : CRITICAL);
+  });
+
   // --- check_load (both platforms) ---------------------------------------------
 
   it("check_load reports the three load averages", async () => {

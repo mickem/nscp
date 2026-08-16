@@ -30,7 +30,28 @@ struct printer_info {
   long long oldest_epoch;    // oldest job's submit time (epoch s); 0 if none/unknown
   long long now_epoch;       // reference "now" for age computation
 
-  printer_info() : printer_status(0), error_state(0), work_offline(false), jobs(0), error_jobs(0), oldest_epoch(0), now_epoch(0) {}
+  // Device inventory: what the queue actually prints through. A driver or port
+  // that changed under you is the other half of "why is printing broken".
+  std::string driver;    // Win32_Printer.DriverName
+  std::string port;      // Win32_Printer.PortName
+  std::string location;  // Win32_Printer.Location
+  std::string share;     // Win32_Printer.ShareName
+  std::string server;    // Win32_Printer.ServerName (empty for a local queue)
+  bool is_default;       // Win32_Printer.Default
+  bool is_shared;        // Win32_Printer.Shared
+  bool is_network;       // Win32_Printer.Network
+
+  printer_info()
+      : printer_status(0),
+        error_state(0),
+        work_offline(false),
+        jobs(0),
+        error_jobs(0),
+        oldest_epoch(0),
+        now_epoch(0),
+        is_default(false),
+        is_shared(false),
+        is_network(false) {}
 
   // PrinterStatus -> short string.
   static std::string status_to_string(long long s) {
@@ -105,6 +126,14 @@ struct printer_info {
   std::string get_printer() const { return name; }
   std::string get_status() const { return status_to_string(printer_status); }
   std::string get_error_state() const { return error_state_to_string(error_state); }
+  std::string get_driver() const { return driver; }
+  std::string get_port() const { return port; }
+  std::string get_location() const { return location; }
+  std::string get_share() const { return share; }
+  std::string get_server() const { return server; }
+  long long get_default() const { return is_default ? 1 : 0; }
+  long long get_shared() const { return is_shared ? 1 : 0; }
+  long long get_network() const { return is_network ? 1 : 0; }
   // Offline: the printer says so, or the status/error state reports it.
   long long get_offline() const { return (work_offline || printer_status == 7 || error_state == 9) ? 1 : 0; }
   long long get_error() const { return is_error_state(error_state) ? 1 : 0; }
@@ -136,6 +165,12 @@ printers_type build_printers(const std::vector<printer_info> &printers, const st
 void gather(std::vector<printer_info> &printers, std::vector<raw_job> &jobs);
 
 namespace check {
+// Testable core: joins the supplied printers and jobs against now_epoch, then
+// renders and thresholds them. Takes the raw inputs so the whole check - not
+// just build_printers - can be exercised without WMI.
+void check_printqueue_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                           const std::vector<printer_info> &printers, const std::vector<raw_job> &jobs, long long now_epoch);
+// Live check.
 void check_printqueue(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
 }  // namespace check
 

@@ -11,6 +11,14 @@ common:
         subkey: false
         title: Scheduler
       keys:
+        startup window:
+          advanced: false
+          default_value: 0s
+          description: Time over which schedules with 'run on startup' are spread out when the agent starts.
+            The default (0s) runs them all immediately; raise it if you have many startup schedules and
+            do not want to hit the monitoring server with all of them at once.
+          sample: false
+          title: Startup window
         threads:
           advanced: false
           default_value: '5'
@@ -84,6 +92,14 @@ common:
               unknown, ok)'
             sample: true
             title: REPORT MODE
+          run on startup:
+            advanced: true
+            default_value: ''
+            description: Run the command once as soon as NSClient++ has started (and after each reload)
+              instead of waiting for the first interval or schedule to elapse. Inherited from the default
+              schedule unless set here.
+            sample: true
+            title: RUN ON STARTUP
           schedule:
             advanced: false
             default_value: ''

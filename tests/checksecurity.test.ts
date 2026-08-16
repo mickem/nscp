@@ -11,6 +11,10 @@
  * the Windows certificate store are Windows-only, so here we assert the
  * "not supported on this platform" behaviour.
  */
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+
 import { NscpInstance, generateCertChain } from "@fixtures/index";
 
 jest.setTimeout(120_000);
@@ -142,6 +146,9 @@ onLinux("CheckSecurity", () => {
     ["check_defender"],
     ["check_local_accounts"],
     ["check_group_members"],
+    ["check_activation"],
+    ["check_file_security"],
+    ["check_firewall_rules"],
   ])("%s reports not-supported on this platform", async (cmd) => {
     const out = await query(cmd, []);
     expect(out).toMatch(/not supported on this platform/i);
@@ -211,6 +218,75 @@ onWindows("CheckSecurity (Windows posture)", () => {
     ]);
     expect(out).toMatch(/Domain: [01] \((local|group policy)\)/);
     expect(out).toMatch(/Public: [01] \((local|group policy)\)/);
+  });
+
+  // --- check_firewall_rules --------------------------------------------------
+
+  it("check_firewall_rules enumerates the rule set", async () => {
+    // Every Windows host ships hundreds of rules. The default output is a
+    // summary rather than the list, and `count` carries the rule count.
+    const out = await query("check_firewall_rules", []);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/rule\(s\) checked/);
+    expect(out).toMatch(/'count'=[1-9]\d*/);
+  });
+
+  it("check_firewall_rules exposes the per-rule keywords", async () => {
+    // Scope to one enabled inbound rule and render every field the check reads.
+    const out = await query("check_firewall_rules", [
+      "filter=enabled = 1 and direction = 'in'",
+      "top-syntax=${list}",
+      "ok-syntax=${list}",
+      "detail-syntax=[${direction}/${action}/${protocol}/${profiles}/${local_ports}/${remote_addresses}]",
+    ]);
+    // Ports and addresses are never empty: an unrestricted field reads "*".
+    expect(out).toMatch(/\[in\/(allow|block)\/\S+\/\S+\/[^/\]]+\/[^/\]]+\]/);
+  });
+
+  it("check_firewall_rules is CRITICAL when an expected rule is absent", async () => {
+    const out = await query("check_firewall_rules", ["expect=NSCP no such rule zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/not in effect: no rule with this name/);
+  });
+
+  it("check_firewall_rules is satisfied by a rule that really exists", async () => {
+    // Rule names are localized, so take one from this machine rather than
+    // hard-coding an English name that only exists on an English Windows.
+    const listed = await query("check_firewall_rules", [
+      "filter=enabled = 1",
+      "top-syntax=${list}",
+      "ok-syntax=${list}",
+      "detail-syntax=${name}",
+      "list-separator=\n",
+    ]);
+    const name = listed.split("\n").map((l) => l.trim()).filter((l) => l.length > 0 && !/^L\s/.test(l))[0];
+    expect(name).toBeTruthy();
+
+    const out = await query("check_firewall_rules", [`expect=${name}`]);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_firewall_rules keeps an expect= assertion visible through a filter", async () => {
+    // A filter must not swallow the hole row that stands in for a missing rule:
+    // filter="enabled = 1" would otherwise drop it (holes are enabled=0) and
+    // report OK for a rule the check was told to guarantee.
+    const out = await query("check_firewall_rules", ["filter=enabled = 1", "expect=NSCP no such rule zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/not in effect: no rule with this name/);
+  });
+
+  it("check_firewall_rules accepts the scope keywords in filters", async () => {
+    // any_any is offered as a keyword rather than a default threshold; it must
+    // parse, and on a normal client it does match (app rules are wide open).
+    const out = await query("check_firewall_rules", [
+      "filter=any_any = 1",
+      "warning=none",
+      "critical=none",
+      "top-syntax=${count} wide open",
+      "ok-syntax=${count} wide open",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression|error parsing/i);
+    expect(out).toMatch(/^\d+ wide open/m);
   });
 
   // --- check_nla -------------------------------------------------------------
@@ -303,5 +379,106 @@ onWindows("CheckSecurity (Windows posture)", () => {
   it("check_group_members reports a missing group", async () => {
     const out = await query("check_group_members", ["group=NSCP_NoSuchGroup_zzz"]);
     expect(out).toMatch(/not found/i);
+  });
+
+  // --- check_activation ------------------------------------------------------
+
+  it("check_activation reports the Windows licensing state", async () => {
+    // Every Windows install has a Windows row in SoftwareLicensingProduct; with
+    // the thresholds pinned off the result is OK regardless of activation state.
+    const out = await query("check_activation", ["warning=none", "critical=none"]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/Windows/i);
+    // The default detail syntax renders "<name>: <status> (<genuine>, grace <n>d)".
+    expect(out).toMatch(/(licensed|unlicensed|grace|notification)/);
+  });
+
+  it("check_activation exposes the licensing keywords", async () => {
+    const out = await query("check_activation", [
+      "warning=none",
+      "critical=none",
+      "detail-syntax=status=${status} licensed=${licensed} windows=${is_windows} key=${key} grace=${grace_days}",
+      "top-syntax=${list}",
+    ]);
+    expect(out).toMatch(/status=\w+ licensed=[01] windows=1 key=\S+ grace=\d+/);
+  });
+
+  it("check_activation accepts its boolean options as valued flags", async () => {
+    // Over REST a flag arrives as the single token "x=true", which bool_switch
+    // would reject; both options must take a value.
+    const out = await query("check_activation", ["skip-genuine=true", "all-products=true", "warning=none", "critical=none"]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression|error parsing/i);
+    expect(out).toMatch(/^OK/m);
+    // Genuine evaluation skipped -> the state is reported as unknown, not faked.
+    expect(out).toMatch(/unknown/);
+  });
+
+  it("check_activation goes CRITICAL when the product is not licensed", async () => {
+    // The default critical is licensed = 0; invert it to prove the threshold is
+    // wired to the real value on this (activated or not) host.
+    const licensed = await query("check_activation", ["warning=none", "critical=none", "detail-syntax=LICENSED=${licensed}"]);
+    const isLicensed = /LICENSED=1/.test(licensed);
+    const out = await query("check_activation", [`critical=licensed = ${isLicensed ? 1 : 0}`, "warning=none"]);
+    expect(out).toMatch(/^CRITICAL/m);
+  });
+
+  // --- check_file_security ---------------------------------------------------
+
+  it("check_file_security reports the owner and DACL of a system folder", async () => {
+    // System32 is owned by TrustedInstaller and writable only by SYSTEM and the
+    // administrators, so the defaults must find nothing to complain about.
+    const out = await query("check_file_security", ["path=C:\\Windows\\System32"]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/no unexpected write access/);
+  });
+
+  it("check_file_security requires something to inspect", async () => {
+    const out = await query("check_file_security", []);
+    expect(out).toMatch(/No path specified/i);
+  });
+
+  it("check_file_security goes CRITICAL for a path that is gone", async () => {
+    const out = await query("check_file_security", ["path=C:\\NSCP_no_such_dir_zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/does not exist/);
+  });
+
+  it("check_file_security flags a world-writable directory (inherited included)", async () => {
+    // Grant Everyone (by SID, so it also works on a localized Windows) modify
+    // rights on a scratch tree; both the folder and the child that inherits the
+    // entry must come back CRITICAL.
+    const dir = nscp.scratch("world_writable");
+    const child = path.join(dir, "child");
+    fs.mkdirSync(child, { recursive: true });
+    execFileSync("icacls", [dir, "/grant", "*S-1-1-0:(OI)(CI)M"], { stdio: "ignore" });
+
+    const out = await query("check_file_security", [`path=${dir}`, `path=${child}`]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out.match(/world writable by/g) ?? []).toHaveLength(2);
+
+    // Allow-listing Everyone by SID silences it again.
+    const allowed = await query("check_file_security", [`path=${dir}`, "allow-write=S-1-1-0", `allow-write=${process.env.USERNAME}`]);
+    expect(allowed).toMatch(/^OK/m);
+  });
+
+  it("check_file_security inspects the binary behind a service", async () => {
+    // The Windows Event Log service exists on every SKU; its image path is a
+    // system binary, so the defaults pass and the resolved path is shown.
+    const out = await query("check_file_security", ["service=EventLog", "detail-syntax=${service} -> ${path}: ${state}", "top-syntax=${status}: ${list}"]);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/EventLog -> .*\.exe/i);
+  });
+
+  it("check_file_security reports a service that does not exist", async () => {
+    const out = await query("check_file_security", ["service=NSCP_NoSuchService_zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/Service not found/i);
+  });
+
+  it("check_file_security alerts on an unexpected owner", async () => {
+    // System32 is owned by TrustedInstaller, so demanding SYSTEM must trip.
+    const out = await query("check_file_security", ["path=C:\\Windows\\System32", "expected-owner=NT AUTHORITY\\SYSTEM"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/unexpected owner/);
   });
 });

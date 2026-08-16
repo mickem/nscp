@@ -19,18 +19,354 @@ A quick reference for all available queries (check commands) in the CheckSecurit
 
 A list of all available queries (check commands)
 
-| Command                                       | Description                                                                                                                    |
-|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| [check_antivirus](#check_antivirus)           | Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.                         |
-| [check_bitlocker](#check_bitlocker)           | Check BitLocker drive-encryption protection status per volume. Windows only.                                                   |
-| [check_certificate](#check_certificate)       | Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the Windows certificate store.                   |
-| [check_defender](#check_defender)             | Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only. |
-| [check_firewall](#check_firewall)             | Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.                                        |
-| [check_group_members](#check_group_members)   | Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.        |
-| [check_local_accounts](#check_local_accounts) | Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.     |
-| [check_nla](#check_nla)                       | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.                                |
-| [check_secureboot](#check_secureboot)         | Check whether UEFI Secure Boot is enabled. Windows only.                                                                       |
-| [check_users](#check_users)                   | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                                    |
+| Command                                       | Description                                                                                                                                                                   |
+|-----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [check_activation](#check_activation)         | Check the Windows activation/licensing state: license status, remaining grace or KMS renewal period and genuineness. Windows only.                                            |
+| [check_antivirus](#check_antivirus)           | Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.                                                                        |
+| [check_bitlocker](#check_bitlocker)           | Check BitLocker drive-encryption protection status per volume. Windows only.                                                                                                  |
+| [check_certificate](#check_certificate)       | Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the Windows certificate store.                                                                  |
+| [check_defender](#check_defender)             | Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only.                                                |
+| [check_file_security](#check_file_security)   | Check the owner and DACL of files, folders or service binaries; alerts on world-writable paths and unexpected owners. Windows only.                                           |
+| [check_firewall](#check_firewall)             | Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.                                                                                       |
+| [check_firewall_rules](#check_firewall_rules) | Check individual Windows firewall rules: assert that specific rules exist and are enabled, and find inbound allow rules that restrict neither address nor port. Windows only. |
+| [check_group_members](#check_group_members)   | Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.                                                       |
+| [check_local_accounts](#check_local_accounts) | Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.                                                    |
+| [check_nla](#check_nla)                       | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.                                                                               |
+| [check_secureboot](#check_secureboot)         | Check whether UEFI Secure Boot is enabled. Windows only.                                                                                                                      |
+| [check_users](#check_users)                   | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                                                                                   |
+
+### check_activation
+
+Check the Windows activation/licensing state: license status, remaining grace or KMS renewal period and genuineness. Windows only.
+
+#### About `check_activation`
+
+`check_activation` reports the Windows activation and licensing state: whether
+the installed product is licensed, how much of a grace or KMS renewal period is
+left and whether Windows considers itself genuine. An expiring grace period is
+worth knowing about before it ends — Windows starts nagging users, then blocks
+personalisation and eventually restricts functionality.
+
+The data comes from `SoftwareLicensingProduct` (WMI, `root\CIMV2`), limited to
+products that have a product key installed. The genuine state is taken from the
+same class where it is exposed and otherwise from `SLIsGenuineLocal` in
+`slc.dll`; both are local calls that do not contact Microsoft.
+
+By default only Windows itself is reported. `all-products=true` adds every other
+licensed product with an installed key (Office, for instance).
+
+Keywords:
+
+| Keyword | Type | Meaning |
+|---|---|---|
+| `name` | string | Product name, e.g. `Windows(R), Professional edition`. |
+| `description` | string | Product description, including the licensing channel. |
+| `id` | string | Product SKU id (GUID). |
+| `key` | string | Partial product key: the last five characters of the installed key. |
+| `channel` | string | Product key channel: `Retail`, `Volume:MAK`, `Volume:GVLK`, `OEM`, … |
+| `status` | string | Licensing status as a word: `licensed`, `unlicensed`, `initial_grace`, `additional_grace`, `non_genuine_grace`, `notification`, `extended_grace`. |
+| `genuine_state` | string | `genuine`, `invalid_license`, `tampered`, `offline` or `unknown`. |
+| `licensed` | bool | True when the product is fully licensed (activated). |
+| `genuine` | bool | True only when `genuine_state` is `genuine`; an undetermined state is **not** genuine. |
+| `is_windows` | bool | True for Windows itself, false for other licensed products. |
+| `license_status` | int | Raw `LicenseStatus`: 0 unlicensed, 1 licensed, 2 initial grace, 3 additional grace, 4 non-genuine grace, 5 notification, 6 extended grace. |
+| `license_status_reason` | int | Raw `LicenseStatusReason` code explaining the status. |
+| `grace_days` | int | Remaining grace/renewal period in whole days (perfdata, unit `d`). |
+| `grace_minutes` | int | The same period in minutes, as Windows reports it. |
+
+Options:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `all-products` | `false` | Report every licensed product with an installed key, not only Windows. |
+| `skip-genuine` | `false` | Do not evaluate the genuine state; `genuine_state` then reads `unknown`. |
+
+Default thresholds: **critical** when `licensed = 0` — that covers an unlicensed
+machine as well as one running on a grace period or already in the notification
+("activate Windows") state — and **warning** when
+`grace_days > 0 and grace_days < 30`. A permanently activated machine reports
+`grace_days = 0`, so the warning only fires where a countdown is actually
+running: the out-of-box grace period, or a KMS client that has not managed to
+renew. Note that a KMS client normally shows a large `grace_days` value (up to
+180) even though it is perfectly healthy.
+
+Only one row is expected, so the default perfdata label is the fixed word
+`license`; pass `perf-syntax=${name}` (or `${key}`) to tell several products
+apart when using `all-products=true`. **Windows only.**
+
+**Jump to section:**
+
+* [Sample Commands](#check_activation_samples)
+* [Command-line Arguments](#check_activation_options)
+* [Filter keywords](#check_activation_filter_keys)
+
+
+<a id="check_activation_samples"></a>
+#### Sample Commands
+
+**Check that Windows is activated (Windows)**
+
+The default is critical when Windows is not licensed and warning when a grace or
+KMS renewal period has less than 30 days left.
+
+```
+check_activation
+L        cli OK: Windows(R), Professional edition: licensed (genuine, grace 0d)|'license_grace'=0d;0;0
+```
+
+```
+check_activation
+L        cli CRITICAL: Windows(R), Professional edition: initial_grace (genuine, grace 12d)|'license_grace'=12d;0;0
+```
+
+**Show the channel, genuine state and remaining grace period**
+
+```
+check_activation "top-syntax=${status}: ${list}" "detail-syntax=${name} [${channel}] status=${status} genuine=${genuine_state} grace=${grace_days}d"
+L        cli OK: Windows(R), Professional edition [Volume:GVLK] status=licensed genuine=genuine grace=178d|'license_grace'=178d;0;0
+```
+
+**Warn earlier on a KMS client whose renewal is falling behind**
+
+A KMS activation is good for 180 days and is renewed every 7 days, so a
+countdown that gets far down means renewal has been failing for months.
+
+```
+check_activation "warning=grace_days > 0 and grace_days < 90"
+L        cli WARNING: Windows(R), Professional edition: licensed (genuine, grace 61d)|'license_grace'=61d;0;0
+```
+
+**Include every licensed product, not just Windows**
+
+Give each product its own perfdata label when you do.
+
+```
+check_activation all-products=true "detail-syntax=${name}: ${status}" "perf-syntax=${key}"
+L        cli OK: Windows(R), Professional edition: licensed, Office 16, Office16ProPlus edition: licensed|'W269N_grace'=0d;0;0 '6MWKP_grace'=0d;0;0
+```
+
+**Alert only when Windows reports itself as non-genuine**
+
+`genuine_state` is `unknown` when the state could not be determined, so exclude
+it to avoid alerting on a missing answer.
+
+```
+check_activation "critical=genuine = 0 and genuine_state != 'unknown'"
+L        cli CRITICAL: Windows(R), Professional edition: notification (invalid_license, grace 0d)|'license_grace'=0d;0;0
+```
+
+**Skip the genuine evaluation**
+
+```
+check_activation skip-genuine=true
+L        cli OK: Windows(R), Professional edition: licensed (unknown, grace 0d)|'license_grace'=0d;0;0
+```
+
+**On non-Windows platforms**
+
+```
+check_activation
+L        cli UNKNOWN: check_activation is not supported on this platform (Windows Software Licensing only)
+```
+
+
+
+<a id="check_activation_options"></a>
+#### Command-line Arguments
+
+<a id="check_activation_warn"></a>
+<a id="check_activation_crit"></a>
+<a id="check_activation_help"></a>
+<a id="check_activation_help-pb"></a>
+<a id="check_activation_show-default"></a>
+<a id="check_activation_help-short"></a>
+
+| Option                                             | Default Value                                                                       | Description                                                                                                               |
+|----------------------------------------------------|-------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_activation_filter)                 |                                                                                     | Filter which marks interesting items.                                                                                     |
+| [warning](#check_activation_warning)               | grace_days > 0 and grace_days < 30                                                  | Filter which marks items which generates a warning state.                                                                 |
+| warn                                               |                                                                                     | Short alias for warning                                                                                                   |
+| [critical](#check_activation_critical)             | licensed = 0                                                                        | Filter which marks items which generates a critical state.                                                                |
+| crit                                               |                                                                                     | Short alias for critical.                                                                                                 |
+| [ok](#check_activation_ok)                         |                                                                                     | Filter which marks items which generates an ok state.                                                                     |
+| [debug](#check_activation_debug)                   | 1)] (=0                                                                             | Show debugging information in the log                                                                                     |
+| [show-all](#check_activation_show-all)             | 1)] (=0                                                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [empty-state](#check_activation_empty-state)       | unknown                                                                             | Return status to use when nothing matched filter.                                                                         |
+| [perf-config](#check_activation_perf-config)       |                                                                                     | Performance data generation configuration                                                                                 |
+| [escape-html](#check_activation_escape-html)       | 1)] (=0                                                                             | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [list-separator](#check_activation_list-separator) | ,                                                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+| help                                               | N/A                                                                                 | Show help screen (this screen)                                                                                            |
+| help-pb                                            | N/A                                                                                 | Show help screen as a protocol buffer payload                                                                             |
+| show-default                                       | N/A                                                                                 | Show default values for a given command                                                                                   |
+| help-short                                         | N/A                                                                                 | Show help screen (short format).                                                                                          |
+| [top-syntax](#check_activation_top-syntax)         | ${status}: ${list}                                                                  | Top level syntax.                                                                                                         |
+| [ok-syntax](#check_activation_ok-syntax)           | %(status): ${list}                                                                  | ok syntax.                                                                                                                |
+| [empty-syntax](#check_activation_empty-syntax)     | %(status): No licensing information found (Software Licensing service unavailable?) | Empty syntax.                                                                                                             |
+| [detail-syntax](#check_activation_detail-syntax)   | ${name}: ${status} (${genuine_state}, grace ${grace_days}d)                         | Detail level syntax.                                                                                                      |
+| [perf-syntax](#check_activation_perf-syntax)       | license                                                                             | Performance alias syntax.                                                                                                 |
+| [all-products](#check_activation_all-products)     | 1)] (=0                                                                             | Report every licensed product with an installed key (Office, ...) instead of only Windows itself.                         |
+| [skip-genuine](#check_activation_skip-genuine)     | 1)] (=0                                                                             | Do not evaluate the genuine state (skips the SLIsGenuineLocal call); genuine_state then reads 'unknown'.                  |
+
+
+
+<h5 id="check_activation_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_activation_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `grace_days > 0 and grace_days < 30`
+
+<h5 id="check_activation_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `licensed = 0`
+
+<h5 id="check_activation_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_activation_debug">debug:</h5>
+
+Show debugging information in the log
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_activation_show-all">show-all:</h5>
+
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_activation_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `unknown`
+
+<h5 id="check_activation_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_activation_escape-html">escape-html:</h5>
+
+Escape any < and > characters to prevent HTML encoding
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_activation_list-separator">list-separator:</h5>
+
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+*Default Value:* `, `
+
+<h5 id="check_activation_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_activation_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): ${list}`
+
+<h5 id="check_activation_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `%(status): No licensing information found (Software Licensing service unavailable?)`
+
+<h5 id="check_activation_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${name}: ${status} (${genuine_state}, grace ${grace_days}d)`
+
+<h5 id="check_activation_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `license`
+
+<h5 id="check_activation_all-products">all-products:</h5>
+
+Report every licensed product with an installed key (Office, ...) instead of only Windows itself.
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_activation_skip-genuine">skip-genuine:</h5>
+
+Do not evaluate the genuine state (skips the SLIsGenuineLocal call); genuine_state then reads 'unknown'.
+
+*Default Value:* `1)] (=0`
+
+
+<a id="check_activation_filter_keys"></a>
+#### Filter keywords
+
+| Option                | Description                                                                                                                             |
+|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| channel               | Product key channel: Retail, Volume:MAK, Volume:GVLK, OEM, ...                                                                          |
+| description           | Product description including the licensing channel                                                                                     |
+| genuine               | True when Windows reports itself as genuine (false also when it could not be determined)                                                |
+| genuine_state         | Genuine status as a word: genuine, invalid_license, tampered, offline, unknown                                                          |
+| grace_days            | Remaining grace/renewal period in whole days (0 when no grace period applies)                                                           |
+| grace_minutes         | Remaining grace/renewal period in minutes (0 when no grace period applies)                                                              |
+| id                    | Product SKU id (GUID)                                                                                                                   |
+| is_windows            | True when the product is Windows itself (as opposed to another licensed product)                                                        |
+| key                   | Partial product key (the last five characters of the installed key)                                                                     |
+| license_status        | Raw LicenseStatus: 0 unlicensed, 1 licensed, 2 initial grace, 3 additional grace, 4 non-genuine grace, 5 notification, 6 extended grace |
+| license_status_reason | Raw LicenseStatusReason code explaining the status                                                                                      |
+| licensed              | True when the product is fully licensed (activated)                                                                                     |
+| name                  | Product name, e.g. 'Windows(R), Professional edition'                                                                                   |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_antivirus
 
@@ -1194,6 +1530,382 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
 | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
+### check_file_security
+
+Check the owner and DACL of files, folders or service binaries; alerts on world-writable paths and unexpected owners. Windows only.
+
+#### About `check_file_security`
+
+`check_file_security` inspects the owner and the access control list of files,
+folders and service binaries, and alerts when something can be written by
+someone who should not be able to: a world-writable data directory, a service
+binary whose owner has changed, a folder that inherits `Everyone: Modify` from
+its parent.
+
+Owner and DACL are read with `GetNamedSecurityInfo`; the ACL is then walked entry
+by entry (`GetAce`) so that **inherited** entries are judged exactly like the
+ones set on the object itself — inheritance is how most of these problems arrive.
+Trustees are resolved with `LookupAccountSid`. With `service=` the image path is
+first read from the service control manager, so the check follows the binary the
+service actually runs.
+
+A trustee counts as having write access when its allow entry carries any of
+`FILE_WRITE_DATA`, `FILE_APPEND_DATA`, `DELETE`, `FILE_DELETE_CHILD`,
+`WRITE_DAC`, `WRITE_OWNER`, `GENERIC_WRITE` or `GENERIC_ALL`. The harmless
+`FILE_WRITE_EA`/`FILE_WRITE_ATTRIBUTES` bits, which Windows hands out widely, do
+not count on their own. A deny entry covering the same bits cancels the grant.
+
+These trustees are always allowed to write: `NT AUTHORITY\SYSTEM`,
+`BUILTIN\Administrators`, `NT SERVICE\TrustedInstaller` and `CREATOR OWNER`.
+Write access held by `Everyone`, `Authenticated Users`, `BUILTIN\Users`,
+`BUILTIN\Guests`, `BUILTIN\Power Users` or `ANONYMOUS LOGON` makes the path
+**world writable**; any other trustee outside the allow-list is simply
+unexpected. All matching is done on the SID first, so it works on a localized
+Windows where these groups have translated names.
+
+Keywords:
+
+| Keyword | Type | Meaning |
+|---|---|---|
+| `path` | string | The inspected file or directory. |
+| `service` | string | Service the path was resolved from (empty for a `path=` entry). |
+| `owner` | string | Owner as `DOMAIN\name`, or the SID when it cannot be resolved. |
+| `owner_sid` | string | Owner SID. |
+| `writable` | string | Comma separated trustees holding write access. |
+| `unexpected` | string | The subset of `writable` that is not allow-listed. |
+| `dacl` | string | The whole DACL as `trustee(rights)`; `!` prefixes a deny entry, `~` an inherited one. Rights are `F` or a subset of `R`ead, `W`rite, e`X`ecute, `D`elete, `P`ermissions. |
+| `error` | string | Why the security descriptor could not be read (empty when it could). |
+| `state` | string | One-line verdict used by the default detail syntax. |
+| `exists` | bool | True when the path exists. |
+| `readable` | bool | True when the security descriptor could be read. |
+| `is_dir` | bool | True when the path is a directory. |
+| `owner_expected` | bool | True when the owner is on the `expected-owner` list (or no list was given). |
+| `unexpected_write` | bool | True when a trustee outside the allow-list holds write access. |
+| `world_writable` | bool | True when an untrusted group (see above) holds write access. |
+| `ace_count` | int | Number of entries in the DACL (perfdata). |
+
+Options:
+
+| Option | Repeatable | Meaning |
+|---|---|---|
+| `path` (or `file`) | yes | File or directory to inspect. |
+| `service` | yes | Service whose binary is inspected. |
+| `expected-owner` | yes | An acceptable owner, matched by SID, `DOMAIN\name` or bare name. When omitted the owner is only reported. |
+| `allow-write` | yes | A trustee allowed to hold write access, in addition to the four always-allowed ones. |
+
+At least one `path` or `service` is required; without either the check reports
+UNKNOWN rather than a silent OK.
+
+Default thresholds: **critical** when
+`exists = 0 or readable = 0 or owner_expected = 0 or world_writable = 1` and
+**warning** when `unexpected_write = 1`. Reading a security descriptor requires
+the agent to have permission to do so, which is why an unreadable descriptor is
+treated as a finding instead of a pass. **Windows only.**
+
+**Jump to section:**
+
+* [Sample Commands](#check_file_security_samples)
+* [Command-line Arguments](#check_file_security_options)
+* [Filter keywords](#check_file_security_filter_keys)
+
+
+<a id="check_file_security_samples"></a>
+#### Sample Commands
+
+**Check that a data directory is not world-writable (Windows)**
+
+The default is critical when the path is missing or unreadable, when its owner is
+not on the expected list or when an untrusted group can write it.
+
+```
+check_file_security "path=C:\Program Files\NSClient++"
+L        cli OK: C:\Program Files\NSClient++: owner NT AUTHORITY\SYSTEM, no unexpected write access
+```
+
+```
+check_file_security "path=C:\ProgramData\app-data"
+L        cli CRITICAL: C:\ProgramData\app-data: world writable by Everyone
+```
+
+**Check several paths at once**
+
+```
+check_file_security "path=C:\Windows\System32" "path=C:\Windows"
+L        cli OK: C:\Windows\System32: owner NT SERVICE\TrustedInstaller, no unexpected write access, C:\Windows: owner NT SERVICE\TrustedInstaller, no unexpected write access
+```
+
+The default top syntax lists every path. A top syntax without `${list}` gives a
+summary instead — and while everything is fine the built-in OK summary is used:
+
+```
+check_file_security "path=C:\Windows\System32" "path=C:\Windows" "top-syntax=${status}: ${problem_count} of ${count} path(s) have a problem"
+L        cli OK: all 2 path(s) have the expected owner and no unexpected write access
+```
+
+```
+check_file_security "path=C:\Windows" "path=C:\ProgramData\app-data" "top-syntax=${status}: ${problem_count} of ${count} path(s) have a problem"
+L        cli CRITICAL: 1 of 2 path(s) have a problem
+```
+
+**Check the binary a service runs**
+
+The image path is read from the service configuration, so a service whose binary
+was replaced or moved is caught as well.
+
+```
+check_file_security service=EventLog "top-syntax=${status}: ${list}" "detail-syntax=${service} (${path}): ${state}"
+L        cli OK: EventLog (C:\Windows\System32\svchost.exe): owner NT SERVICE\TrustedInstaller, no unexpected write access
+```
+
+```
+check_file_security service=NoSuchService
+L        cli CRITICAL: NoSuchService: Service not found: NoSuchService
+```
+
+**Require a specific owner**
+
+```
+check_file_security "path=C:\Windows\System32\spoolsv.exe" "expected-owner=NT SERVICE\TrustedInstaller"
+L        cli OK: C:\Windows\System32\spoolsv.exe: owner NT SERVICE\TrustedInstaller, no unexpected write access
+```
+
+```
+check_file_security "path=C:\Windows\System32\spoolsv.exe" "expected-owner=NT AUTHORITY\SYSTEM"
+L        cli CRITICAL: C:\Windows\System32\spoolsv.exe: unexpected owner NT SERVICE\TrustedInstaller
+```
+
+**Allow a trustee that is supposed to have write access**
+
+Allow-list entries are matched by SID, by `DOMAIN\name` or by the bare name.
+SIDs are the safe choice on a localized Windows, where `Everyone` and
+`BUILTIN\Users` carry translated names.
+
+```
+check_file_security "path=C:\ProgramData\app-data" "allow-write=DOMAIN\backup-svc" allow-write=S-1-1-0
+L        cli OK: C:\ProgramData\app-data: owner BUILTIN\Administrators, no unexpected write access
+```
+
+**Show the whole access control list**
+
+Deny entries are prefixed with `!` and inherited entries with `~`.
+
+```
+check_file_security "path=C:\ProgramData\app-data" "top-syntax=${status}: ${list}" "detail-syntax=${path}: ${state} [${dacl}]"
+L        cli CRITICAL: C:\ProgramData\app-data: world writable by Everyone, WS01\bob [Everyone(RWXD), ~NT AUTHORITY\SYSTEM(F), ~BUILTIN\Administrators(F), ~WS01\bob(F)]
+```
+
+**Report who can write without alerting**
+
+```
+check_file_security "path=C:\Windows\System32" warning=none critical=none "top-syntax=${status}: ${list}" "detail-syntax=owner=${owner} writable=${writable} aces=${ace_count}"
+L        cli OK: owner=NT SERVICE\TrustedInstaller writable=NT SERVICE\TrustedInstaller, NT AUTHORITY\SYSTEM, BUILTIN\Administrators, CREATOR OWNER aces=13
+```
+
+**On non-Windows platforms**
+
+```
+check_file_security "path=/etc/nsclient"
+L        cli UNKNOWN: check_file_security is not supported on this platform (Windows security descriptors only)
+```
+
+
+
+<a id="check_file_security_options"></a>
+#### Command-line Arguments
+
+<a id="check_file_security_warn"></a>
+<a id="check_file_security_crit"></a>
+<a id="check_file_security_help"></a>
+<a id="check_file_security_help-pb"></a>
+<a id="check_file_security_show-default"></a>
+<a id="check_file_security_help-short"></a>
+<a id="check_file_security_path"></a>
+<a id="check_file_security_file"></a>
+<a id="check_file_security_service"></a>
+<a id="check_file_security_expected-owner"></a>
+<a id="check_file_security_allow-write"></a>
+
+| Option                                                | Default Value                                                                          | Description                                                                                                                                                      |
+|-------------------------------------------------------|----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_file_security_filter)                 |                                                                                        | Filter which marks interesting items.                                                                                                                            |
+| [warning](#check_file_security_warning)               | unexpected_write = 1                                                                   | Filter which marks items which generates a warning state.                                                                                                        |
+| warn                                                  |                                                                                        | Short alias for warning                                                                                                                                          |
+| [critical](#check_file_security_critical)             | exists = 0 or readable = 0 or owner_expected = 0 or world_writable = 1                 | Filter which marks items which generates a critical state.                                                                                                       |
+| crit                                                  |                                                                                        | Short alias for critical.                                                                                                                                        |
+| [ok](#check_file_security_ok)                         |                                                                                        | Filter which marks items which generates an ok state.                                                                                                            |
+| [debug](#check_file_security_debug)                   | 1)] (=0                                                                                | Show debugging information in the log                                                                                                                            |
+| [show-all](#check_file_security_show-all)             | 1)] (=0                                                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                 |
+| [empty-state](#check_file_security_empty-state)       | unknown                                                                                | Return status to use when nothing matched filter.                                                                                                                |
+| [perf-config](#check_file_security_perf-config)       |                                                                                        | Performance data generation configuration                                                                                                                        |
+| [escape-html](#check_file_security_escape-html)       | 1)] (=0                                                                                | Escape any < and > characters to prevent HTML encoding                                                                                                           |
+| [list-separator](#check_file_security_list-separator) | ,                                                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                        |
+| help                                                  | N/A                                                                                    | Show help screen (this screen)                                                                                                                                   |
+| help-pb                                               | N/A                                                                                    | Show help screen as a protocol buffer payload                                                                                                                    |
+| show-default                                          | N/A                                                                                    | Show default values for a given command                                                                                                                          |
+| help-short                                            | N/A                                                                                    | Show help screen (short format).                                                                                                                                 |
+| [top-syntax](#check_file_security_top-syntax)         | ${status}: ${list}                                                                     | Top level syntax.                                                                                                                                                |
+| [ok-syntax](#check_file_security_ok-syntax)           | %(status): all %(count) path(s) have the expected owner and no unexpected write access | ok syntax.                                                                                                                                                       |
+| [empty-syntax](#check_file_security_empty-syntax)     | %(status): No paths checked                                                            | Empty syntax.                                                                                                                                                    |
+| [detail-syntax](#check_file_security_detail-syntax)   | ${path}: ${state}                                                                      | Detail level syntax.                                                                                                                                             |
+| [perf-syntax](#check_file_security_perf-syntax)       | ${path}                                                                                | Performance alias syntax.                                                                                                                                        |
+| path                                                  |                                                                                        | File or directory to inspect (repeatable).                                                                                                                       |
+| file                                                  |                                                                                        | Alias for path (repeatable).                                                                                                                                     |
+| service                                               |                                                                                        | Windows service whose binary is inspected (repeatable); the image path is read from the service configuration.                                                   |
+| expected-owner                                        |                                                                                        | An acceptable owner (repeatable), matched against the SID, 'DOMAIN\name' or the bare name. Any other owner is CRITICAL. When omitted the owner is only reported. |
+| allow-write                                           |                                                                                        | A trustee allowed to hold write access (repeatable), in addition to SYSTEM, Administrators, TrustedInstaller and CREATOR OWNER.                                  |
+
+
+
+<h5 id="check_file_security_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_file_security_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `unexpected_write = 1`
+
+<h5 id="check_file_security_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `exists = 0 or readable = 0 or owner_expected = 0 or world_writable = 1`
+
+<h5 id="check_file_security_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_file_security_debug">debug:</h5>
+
+Show debugging information in the log
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_file_security_show-all">show-all:</h5>
+
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_file_security_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `unknown`
+
+<h5 id="check_file_security_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_file_security_escape-html">escape-html:</h5>
+
+Escape any < and > characters to prevent HTML encoding
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_file_security_list-separator">list-separator:</h5>
+
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+*Default Value:* `, `
+
+<h5 id="check_file_security_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_file_security_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): all %(count) path(s) have the expected owner and no unexpected write access`
+
+<h5 id="check_file_security_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `%(status): No paths checked`
+
+<h5 id="check_file_security_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${path}: ${state}`
+
+<h5 id="check_file_security_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${path}`
+
+
+<a id="check_file_security_filter_keys"></a>
+#### Filter keywords
+
+| Option           | Description                                                                                               |
+|------------------|-----------------------------------------------------------------------------------------------------------|
+| ace_count        | Number of explicit entries in the DACL                                                                    |
+| dacl             | The DACL rendered as 'trustee(rights)'; deny entries are prefixed with '!' and inherited ones with '~'    |
+| error            | Why the security descriptor could not be read (empty when it could)                                       |
+| exists           | True when the path exists                                                                                 |
+| is_dir           | True when the path is a directory                                                                         |
+| owner            | Owner as 'DOMAIN\name' (the SID when it cannot be resolved)                                               |
+| owner_expected   | True when the owner is on the expected-owner list (or no list was given)                                  |
+| owner_sid        | Owner SID                                                                                                 |
+| path             | The inspected file or directory                                                                           |
+| readable         | True when the security descriptor could be read                                                           |
+| service          | Service the path was resolved from (empty for a path= entry)                                              |
+| state            | One-line verdict: missing, unreadable, unexpected owner, world writable or ok                             |
+| unexpected       | The trustees with write access that are not allow-listed                                                  |
+| unexpected_write | True when a trustee outside the allow-list holds write access                                             |
+| world_writable   | True when Everyone, Users, Authenticated Users, Guests, Power Users or Anonymous Logon holds write access |
+| writable         | Comma separated trustees holding write access                                                             |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
 ### check_firewall
 
 Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.
@@ -1480,6 +2192,360 @@ This is the syntax for the base names of the performance data.
 | outbound | Default outbound action (allow/block)                                                                                                          |
 | policy   | Where the profile's settings come from; 'group policy' if any of the reported settings is enforced through group policy, otherwise 'local'     |
 | profile  | Firewall profile name (Domain, Private or Public)                                                                                              |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
+### check_firewall_rules
+
+Check individual Windows firewall rules: assert that specific rules exist and are enabled, and find inbound allow rules that restrict neither address nor port. Windows only.
+
+#### About `check_firewall_rules`
+
+`check_firewall_rules` reports the Windows firewall **rules** — one row per rule
+— where [`check_firewall`](#check_firewall) reports only whether each profile is
+switched on. It answers the two questions the profile check cannot: is the rule
+I depend on still there and enabled, and is there an inbound allow rule that
+restricts nothing.
+
+Rules are read through `INetFwPolicy2::Rules`, the same store
+`Get-NetFirewallRule` uses, in a single pass across all profiles. No WMI needed.
+
+Keywords (one row per rule):
+
+| Keyword | Type | Meaning |
+|---|---|---|
+| `name` | string | Rule name as it appears in the firewall. |
+| `description` | string | Rule description. |
+| `group` | string | Rule group, e.g. `Remote Desktop` — often a resource reference like `@FirewallAPI.dll,-28752` for built-in rules. |
+| `direction` | string | `in` or `out`. |
+| `action` | string | `allow` or `block`. |
+| `protocol` | string | `tcp`, `udp`, `icmpv4`, `icmpv6`, `any`, or the raw protocol number (e.g. `41` for IPv6). |
+| `profiles` | string | `all`, or a comma separated subset of `domain`, `private`, `public`. |
+| `local_ports` / `remote_ports` | string | Ports the rule covers; `*` for any. |
+| `local_addresses` / `remote_addresses` | string | Addresses the rule covers; `*` for any. |
+| `application` | string | Program the rule is bound to (empty when it is not program specific). |
+| `service` | string | Service the rule is bound to. |
+| `state` | string | One-line summary of what the rule does; what the default output shows. |
+| `enabled` | bool | The rule is switched on. |
+| `present` | bool | False only for an `expect=` name that no enabled rule satisfies — this is the default critical. |
+| `expected` | bool | The rule matched one of the `expect=` names. |
+| `any_remote` | bool | Accepts traffic from any remote address. |
+| `any_port` | bool | Covers any local port. |
+| `any_any` | bool | An **enabled inbound allow** rule that restricts neither. |
+| `edge_traversal` | bool | Accepts traffic that traversed a NAT device. |
+
+Options:
+
+| Option | Repeatable | Meaning |
+|---|---|---|
+| `expect` | yes | A rule that must exist and be enabled, matched on the exact name, case insensitively. |
+
+Windows leaves a scope field empty where the firewall UI shows "Any"; the check
+normalises those to `*`, so `local_ports = '*'` matches every unrestricted rule
+rather than only some of them.
+
+**Asserting a rule exists.** `expect=` fails whether the rule was deleted or
+merely switched off, and says which: *"no rule with this name"* versus *"the rule
+exists but is disabled"*. Windows allows several rules to share a name (commonly
+one per profile); one **enabled** copy satisfies the expectation, which is how
+the firewall itself behaves. Rule names are localized — on a Swedish machine the
+RDP rule is `Fjärrskrivbord - användarläge (TCP-In)` — so take the names from the
+machine you are checking rather than from an English reference.
+
+**The any-any rule.** `any_any` is deliberately restricted to *inbound allow*
+rules: outbound traffic is unrestricted by default on Windows, and a wide
+*block* is the opposite of a finding. It is offered as a keyword, not imposed as
+a threshold, because a normal Windows client legitimately has a hundred of them
+(every packaged app gets one) — alerting by default would be noise. On a curated
+server rule set, `filter=any_any = 1` with a `count` threshold is a good bound.
+
+Default thresholds: **critical** when `present = 0`, which only fires when
+`expect=` is used; nothing else alerts on its own. The default top syntax lists
+only the *problem* rules, because a normal host has several hundred rules and
+listing them all would be unreadable; `count` perfdata carries how many rules
+matched the filter. empty-state is **OK**. **Windows only.**
+
+**Jump to section:**
+
+* [Sample Commands](#check_firewall_rules_samples)
+* [Command-line Arguments](#check_firewall_rules_options)
+* [Filter keywords](#check_firewall_rules_filter_keys)
+
+
+<a id="check_firewall_rules_samples"></a>
+#### Sample Commands
+
+**Check that the rules you depend on are in effect (Windows)**
+
+Without `expect=` the check just inventories the rule set; the default critical
+only fires for an expected rule that is not in effect.
+
+```
+check_firewall_rules
+L        cli OK: 631 rule(s) checked, all as expected|'count'=631;0;0
+```
+
+```
+check_firewall_rules "expect=Remote Desktop - User Mode (TCP-In)"
+L        cli OK: 631 rule(s) checked, all as expected|'count'=631;0;0
+```
+
+A rule that was deleted and one that was merely switched off both fail, with
+different wording so you know which fix is needed:
+
+```
+check_firewall_rules "expect=NSCP no such rule zzz" "expect=Distributed Transaction Coordinator (TCP-in)"
+L        cli CRITICAL: NSCP no such rule zzz: not in effect: no rule with this name, Distributed Transaction Coordinator (TCP-in): not in effect: the rule exists but is disabled|'count'=633;0;0
+```
+
+Rule names are **localized**: on a Swedish machine the RDP rule above is
+`Fjärrskrivbord - användarläge (TCP-In)`. Take the names from the machine you
+are checking (`Get-NetFirewallRule | Select DisplayName`), or match on `group`
+instead.
+
+**Find inbound allow rules that restrict neither address nor port**
+
+`any_any` is offered as a keyword rather than a default threshold — a normal
+Windows client has a hundred of them (every packaged app rule), so alerting on
+them out of the box would be pure noise. On a server, where the rule set is
+curated, it is a useful thing to bound.
+
+```
+check_firewall_rules "filter=any_any = 1" "top-syntax=${count} unrestricted inbound allow rule(s)" "ok-syntax=${count} unrestricted inbound allow rule(s)"
+L        cli 120 unrestricted inbound allow rule(s)|'count'=120;0;0
+```
+
+To bound how many there may be, threshold on `count` — and give the check a
+summary top syntax while you are at it, or the alert will list every rule that
+matched the filter:
+
+```
+check_firewall_rules "filter=any_any = 1" "warning=count > 5" "top-syntax=${status}: ${count} unrestricted inbound allow rule(s)"
+L        cli WARNING: 120 unrestricted inbound allow rule(s)|'count'=120;5;0
+```
+
+**Alert on any inbound allow rule that reaches a sensitive port**
+
+```
+check_firewall_rules "critical=enabled = 1 and direction = 'in' and action = 'allow' and local_ports like '3389'"
+L        cli CRITICAL: Open RDP to the world: in allow tcp port 3389 (unrestricted), all
+```
+
+**Inventory what a rule actually does**
+
+An unrestricted address or port field reads `*`, matching what the firewall UI
+shows as "Any".
+
+```
+check_firewall_rules "filter=name = 'File and Printer Sharing (SMB-In)'" "top-syntax=${list}" "ok-syntax=${list}" "detail-syntax=${name}: ${direction}/${action} proto=${protocol} lports=${local_ports} remote=${remote_addresses} profiles=${profiles}"
+L        cli File and Printer Sharing (SMB-In): in/allow proto=tcp lports=445 remote=* profiles=domain,private
+```
+
+**Count only what is switched on**
+
+```
+check_firewall_rules "filter=enabled = 1" "top-syntax=${count} enabled rules" "ok-syntax=${count} enabled rules"
+L        cli 416 enabled rules|'count'=416;0;0
+```
+
+**On non-Windows platforms**
+
+```
+check_firewall_rules
+L        cli UNKNOWN: check_firewall_rules is not supported on this platform (Windows firewall rules only)
+```
+
+
+
+<a id="check_firewall_rules_options"></a>
+#### Command-line Arguments
+
+<a id="check_firewall_rules_warn"></a>
+<a id="check_firewall_rules_crit"></a>
+<a id="check_firewall_rules_help"></a>
+<a id="check_firewall_rules_help-pb"></a>
+<a id="check_firewall_rules_show-default"></a>
+<a id="check_firewall_rules_help-short"></a>
+<a id="check_firewall_rules_expect"></a>
+
+| Option                                                 | Default Value                                        | Description                                                                                                                                                                                                                                                                                        |
+|--------------------------------------------------------|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_firewall_rules_filter)                 |                                                      | Filter which marks interesting items.                                                                                                                                                                                                                                                              |
+| [warning](#check_firewall_rules_warning)               |                                                      | Filter which marks items which generates a warning state.                                                                                                                                                                                                                                          |
+| warn                                                   |                                                      | Short alias for warning                                                                                                                                                                                                                                                                            |
+| [critical](#check_firewall_rules_critical)             | present = 0                                          | Filter which marks items which generates a critical state.                                                                                                                                                                                                                                         |
+| crit                                                   |                                                      | Short alias for critical.                                                                                                                                                                                                                                                                          |
+| [ok](#check_firewall_rules_ok)                         |                                                      | Filter which marks items which generates an ok state.                                                                                                                                                                                                                                              |
+| [debug](#check_firewall_rules_debug)                   | 1)] (=0                                              | Show debugging information in the log                                                                                                                                                                                                                                                              |
+| [show-all](#check_firewall_rules_show-all)             | 1)] (=0                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                                                   |
+| [empty-state](#check_firewall_rules_empty-state)       | ok                                                   | Return status to use when nothing matched filter.                                                                                                                                                                                                                                                  |
+| [perf-config](#check_firewall_rules_perf-config)       |                                                      | Performance data generation configuration                                                                                                                                                                                                                                                          |
+| [escape-html](#check_firewall_rules_escape-html)       | 1)] (=0                                              | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                                             |
+| [list-separator](#check_firewall_rules_list-separator) | ,                                                    | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                                                          |
+| help                                                   | N/A                                                  | Show help screen (this screen)                                                                                                                                                                                                                                                                     |
+| help-pb                                                | N/A                                                  | Show help screen as a protocol buffer payload                                                                                                                                                                                                                                                      |
+| show-default                                           | N/A                                                  | Show default values for a given command                                                                                                                                                                                                                                                            |
+| help-short                                             | N/A                                                  | Show help screen (short format).                                                                                                                                                                                                                                                                   |
+| [top-syntax](#check_firewall_rules_top-syntax)         | ${status}: ${problem_list}                           | Top level syntax.                                                                                                                                                                                                                                                                                  |
+| [ok-syntax](#check_firewall_rules_ok-syntax)           | %(status): %(count) rule(s) checked, all as expected | ok syntax.                                                                                                                                                                                                                                                                                         |
+| [empty-syntax](#check_firewall_rules_empty-syntax)     | %(status): No firewall rules matched                 | Empty syntax.                                                                                                                                                                                                                                                                                      |
+| [detail-syntax](#check_firewall_rules_detail-syntax)   | ${name}: ${state}                                    | Detail level syntax.                                                                                                                                                                                                                                                                               |
+| [perf-syntax](#check_firewall_rules_perf-syntax)       | ${name}                                              | Performance alias syntax.                                                                                                                                                                                                                                                                          |
+| expect                                                 |                                                      | A rule that must exist and be enabled (repeatable), matched on the exact rule name, case insensitively. The check is CRITICAL when no enabled rule answers for the name - whether it was deleted or merely switched off. Rule names are localized, so take them from the machine you are checking. |
+
+
+
+<h5 id="check_firewall_rules_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_firewall_rules_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+
+<h5 id="check_firewall_rules_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `present = 0`
+
+<h5 id="check_firewall_rules_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_firewall_rules_debug">debug:</h5>
+
+Show debugging information in the log
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_firewall_rules_show-all">show-all:</h5>
+
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_firewall_rules_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ok`
+
+<h5 id="check_firewall_rules_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_firewall_rules_escape-html">escape-html:</h5>
+
+Escape any < and > characters to prevent HTML encoding
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_firewall_rules_list-separator">list-separator:</h5>
+
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+*Default Value:* `, `
+
+<h5 id="check_firewall_rules_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${problem_list}`
+
+<h5 id="check_firewall_rules_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): %(count) rule(s) checked, all as expected`
+
+<h5 id="check_firewall_rules_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `%(status): No firewall rules matched`
+
+<h5 id="check_firewall_rules_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${name}: ${state}`
+
+<h5 id="check_firewall_rules_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${name}`
+
+
+<a id="check_firewall_rules_filter_keys"></a>
+#### Filter keywords
+
+| Option           | Description                                                                                                   |
+|------------------|---------------------------------------------------------------------------------------------------------------|
+| action           | What the rule does with matching traffic: allow or block                                                      |
+| any_any          | True for an enabled inbound allow rule that restricts neither the remote address nor the local port           |
+| any_port         | True when the rule covers any local port                                                                      |
+| any_remote       | True when the rule accepts traffic from any remote address                                                    |
+| application      | Program the rule is bound to (empty when it is not program specific)                                          |
+| description      | Rule description                                                                                              |
+| direction        | Direction the rule applies to: in or out                                                                      |
+| edge_traversal   | True when the rule accepts traffic that has traversed a NAT device                                            |
+| enabled          | True when the rule is switched on                                                                             |
+| expected         | True when the rule matched one of the expect= names                                                           |
+| group            | Rule group, e.g. 'Remote Desktop' or '@FirewallAPI.dll,-28752'                                                |
+| local_addresses  | Local addresses the rule covers ('*' for any)                                                                 |
+| local_ports      | Local ports the rule covers ('*' for any)                                                                     |
+| name             | Rule name as it appears in the firewall (localized on a localized Windows)                                    |
+| present          | True for a real rule; false for an expect= name that no enabled rule satisfies (that is the default critical) |
+| profiles         | Profiles the rule applies to: all, or a comma separated subset of domain, private and public                  |
+| protocol         | Protocol: tcp, udp, icmpv4, icmpv6, any, or the raw protocol number                                           |
+| remote_addresses | Remote addresses the rule accepts traffic from ('*' for any)                                                  |
+| remote_ports     | Remote ports the rule covers ('*' for any)                                                                    |
+| service          | Service the rule is bound to (empty when it is not service specific)                                          |
+| state            | One line summary of what the rule does, or why an expected rule is not in effect                              |
 
 **Common options for all checks:**
 

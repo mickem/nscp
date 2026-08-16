@@ -46,7 +46,8 @@ A list of all available queries (check commands)
 | [check_patch_age](#check_patch_age)                     | Check installed-hotfix hygiene: how long since the newest hotfix was installed and whether specific required hotfixes are present.                                                  |
 | [check_pdh](#check_pdh)                                 | Check the value of a performance (PDH) counter on the local or remote system.                                                                                                       |
 | [check_pending_reboot](#check_pending_reboot)           | Check whether the system is waiting for a reboot, aggregating the servicing, Windows Update, file-rename, computer-rename and domain-join signals.                                  |
-| [check_printqueue](#check_printqueue)                   | Check Windows print queues: queue depth, oldest-job age, offline and error states per printer.                                                                                      |
+| [check_printjobs](#check_printjobs)                     | Check individual Windows print jobs: document, owner, size, pages, age and spooler status of every queued job.                                                                      |
+| [check_printqueue](#check_printqueue)                   | Check Windows print queues: queue depth, oldest-job age, offline and error states plus the driver, port and sharing of each printer.                                                |
 | [check_process](#check_process)                         | Check state/metrics of one or more of the processes running on the computer.                                                                                                        |
 | [check_process_history](#check_process_history)         | Check the history of processes that have been running since NSClient++ started. Useful for verifying if certain applications have been executed.                                    |
 | [check_process_history_new](#check_process_history_new) | Check for new processes that appeared within a specified time window. Useful for detecting unexpected or unauthorized applications.                                                 |
@@ -56,6 +57,7 @@ A list of all available queries (check commands)
 | [check_swap_io](#check_swap_io)                         | Check system paging (swap) I/O rates: pages/bytes paged in and out per second.                                                                                                      |
 | [check_temperature](#check_temperature)                 | Check ACPI thermal zone temperatures.                                                                                                                                               |
 | [check_uptime](#check_uptime)                           | Check time since last server re-boot.                                                                                                                                               |
+| [check_w32time](#check_w32time)                         | Check the Windows Time service: whether the machine is following a time source at all, which one, the computed clock offset and the configured peers.                               |
 
 **List of command aliases:**
 
@@ -7245,18 +7247,348 @@ This is the syntax for the base names of the performance data.
 | warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
 | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
+### check_printjobs
+
+*Available on Windows only.*
+
+Check individual Windows print jobs: document, owner, size, pages, age and spooler status of every queued job.
+
+#### About `check_printjobs`
+
+`check_printjobs` reports the **individual jobs** sitting in the Windows
+spooler — one row per job — from `Win32_PrintJob`. Where
+[`check_printqueue`](#check_printqueue) tells you *that* a queue is backed up,
+this tells you *what* is stuck in it: which document, whose it is, how big it
+is, how long it has been waiting and what the spooler says about it.
+
+Keywords (one row per job):
+
+| Keyword             | Description                                                                                  |
+|---------------------|----------------------------------------------------------------------------------------------|
+| `printer`           | Printer / queue the job is waiting on                                                         |
+| `document`          | Document name as the application submitted it                                                 |
+| `owner`             | User who submitted the job                                                                    |
+| `status`            | Spooler status words: `queued`, `printing`, `spooling`, `error`, `paused`, `blocked`, …       |
+| `submitted`         | When the job was submitted, in **UTC**, or `unknown`                                          |
+| `id`                | Spooler job id                                                                                |
+| `age`               | **Seconds** since submission (`-1` when the spooler reported no submit time)                  |
+| `size`              | Job size in **bytes**                                                                          |
+| `pages`             | Total pages in the job (`0` when the driver does not report it)                                |
+| `pages_printed`     | Pages printed so far                                                                           |
+| `priority`          | Job priority                                                                                   |
+| `status_mask`       | Raw `StatusMask` bit field, for statuses without their own keyword                             |
+| `error`             | `1` when the job is in an error state                                                          |
+| `paused`            | `1` when the job is paused                                                                     |
+| `printing`          | `1` when the job is printing                                                                   |
+| `spooling`          | `1` when the job is still spooling                                                             |
+| `blocked`           | `1` when the job is blocked on the device queue                                                |
+| `user_intervention` | `1` when the job needs someone at the printer                                                  |
+| `offline`           | `1` when the job's printer is offline                                                          |
+| `paper_out`         | `1` when the job is waiting for paper                                                          |
+
+Units in thresholds:
+
+- `age` takes durations — `age > 30m`, `age > 2h` — and a bare number still
+  means seconds.
+- `size` takes byte units — `size > 500M`, `size > 2G`. A **bare number is
+  rejected** for size keywords, so write `size > 1K` rather than `size > 1024`.
+
+Defaults: **CRITICAL** when `error = 1 or blocked = 1 or user_intervention = 1`
+— the three states the spooler cannot get out of by itself — and **WARNING**
+when `age > 600` (ten minutes). A paused job is deliberately *not* critical:
+someone paused it on purpose. empty-state is **OK**, because an empty spooler is
+the normal state; the check then reports "No print jobs queued" and still emits
+`count` perfdata so queue depth can be graphed.
+
+Perfdata is keyed `<printer>_<job id>`, so labels change as jobs come and go.
+That is fine for alerting; for graphing prefer the always-present `count`, or
+`check_printqueue`'s per-printer `jobs` series. **Windows only.**
+
+**Jump to section:**
+
+* [Sample Commands](#check_printjobs_samples)
+* [Command-line Arguments](#check_printjobs_options)
+* [Filter keywords](#check_printjobs_filter_keys)
+
+
+<a id="check_printjobs_samples"></a>
+#### Sample Commands
+
+**Default check (stuck and failing jobs):**
+
+The default is critical on a job the spooler cannot clear on its own and warning
+on one that has been waiting more than ten minutes.
+
+```
+check_printjobs
+OK: No print jobs queued|'count'=0;0;0
+```
+
+```
+check_printjobs
+OK: OneNote (Desktop): 'document' by micha (queued, 13s)|'OneNote (Desktop)_2_age'=13s;600;0 'count'=1;0;0
+```
+
+```
+check_printjobs
+CRITICAL: HP LaserJet: 'quarterly.pdf' by CORP\ann (error, 240s)|'HP LaserJet_42_age'=240s;600;0 'count'=1;0;0
+```
+
+**Alert earlier on a queue that is not moving:**
+
+```
+check_printjobs "warning=age > 1"
+WARNING: OneNote (Desktop): 'document' by micha (queued, 23s)|'OneNote (Desktop)_2_age'=23s;1;0 'count'=1;0;0
+```
+
+**Full per-job detail:**
+
+```
+check_printjobs warning=none critical=none "top-syntax=${list}" "detail-syntax=printer=${printer} id=${id} doc='${document}' owner=${owner} status=${status} size=${size} pages=${pages}/${pages_printed} prio=${priority} age=${age} sub=${submitted}"
+printer=OneNote (Desktop) id=2 doc='document' owner=micha status=queued size=53620 pages=1/0 prio=1 age=18 sub=2026-08-16 12:10:02|'count'=1;0;0
+```
+
+`submitted` is rendered in UTC; threshold on `age` (seconds) rather than on the
+timestamp.
+
+**Find who is filling the queue:**
+
+```
+check_printjobs "filter=owner = 'CORP\\ann'" "warning=count > 20" "critical=none" "top-syntax=${count} job(s) from ann" "ok-syntax=${count} job(s) from ann"
+3 job(s) from ann
+```
+
+**Alert on a single very large job:**
+
+Size thresholds take byte units; a bare number is rejected, so write `500M`
+rather than `524288000`.
+
+```
+check_printjobs "warning=none" "critical=size > 500M"
+CRITICAL: HP LaserJet: 'plot.ps' by CORP\bob (spooling, 45s)|'HP LaserJet_51_size'=734003200B;0;524288000 'count'=1;0;0
+```
+
+**Only the jobs needing a person at the printer:**
+
+```
+check_printjobs "filter=user_intervention = 1 or paper_out = 1" "critical=count > 0"
+CRITICAL: HP LaserJet: 'invoice.pdf' by CORP\eve (user_intervention, paper_out, 512s)
+```
+
+**Watch one queue on a print server, over NRPE:**
+
+```
+check_nscp_client --host 192.168.56.103 --command check_printjobs --argument "filter=printer = 'HP LaserJet'" --argument "warning=age > 30m"
+OK: All 2 job(s) ok.
+```
+
+
+
+<a id="check_printjobs_options"></a>
+#### Command-line Arguments
+
+<a id="check_printjobs_warn"></a>
+<a id="check_printjobs_crit"></a>
+<a id="check_printjobs_help"></a>
+<a id="check_printjobs_help-pb"></a>
+<a id="check_printjobs_show-default"></a>
+<a id="check_printjobs_help-short"></a>
+
+| Option                                            | Default Value                                              | Description                                                                                                               |
+|---------------------------------------------------|------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_printjobs_filter)                 |                                                            | Filter which marks interesting items.                                                                                     |
+| [warning](#check_printjobs_warning)               | age > 600                                                  | Filter which marks items which generates a warning state.                                                                 |
+| warn                                              |                                                            | Short alias for warning                                                                                                   |
+| [critical](#check_printjobs_critical)             | error = 1 or blocked = 1 or user_intervention = 1          | Filter which marks items which generates a critical state.                                                                |
+| crit                                              |                                                            | Short alias for critical.                                                                                                 |
+| [ok](#check_printjobs_ok)                         |                                                            | Filter which marks items which generates an ok state.                                                                     |
+| [debug](#check_printjobs_debug)                   | 1)] (=0                                                    | Show debugging information in the log                                                                                     |
+| [show-all](#check_printjobs_show-all)             | 1)] (=0                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [empty-state](#check_printjobs_empty-state)       | ok                                                         | Return status to use when nothing matched filter.                                                                         |
+| [perf-config](#check_printjobs_perf-config)       |                                                            | Performance data generation configuration                                                                                 |
+| [escape-html](#check_printjobs_escape-html)       | 1)] (=0                                                    | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [list-separator](#check_printjobs_list-separator) | ,                                                          | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+| help                                              | N/A                                                        | Show help screen (this screen)                                                                                            |
+| help-pb                                           | N/A                                                        | Show help screen as a protocol buffer payload                                                                             |
+| show-default                                      | N/A                                                        | Show default values for a given command                                                                                   |
+| help-short                                        | N/A                                                        | Show help screen (short format).                                                                                          |
+| [top-syntax](#check_printjobs_top-syntax)         | ${status}: ${list}                                         | Top level syntax.                                                                                                         |
+| [ok-syntax](#check_printjobs_ok-syntax)           | %(status): All %(count) job(s) ok.                         | ok syntax.                                                                                                                |
+| [empty-syntax](#check_printjobs_empty-syntax)     | %(status): No print jobs queued                            | Empty syntax.                                                                                                             |
+| [detail-syntax](#check_printjobs_detail-syntax)   | ${printer}: '${document}' by ${owner} (${status}, ${age}s) | Detail level syntax.                                                                                                      |
+| [perf-syntax](#check_printjobs_perf-syntax)       | ${printer}_${id}                                           | Performance alias syntax.                                                                                                 |
+
+
+
+<h5 id="check_printjobs_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_printjobs_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `age > 600`
+
+<h5 id="check_printjobs_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `error = 1 or blocked = 1 or user_intervention = 1`
+
+<h5 id="check_printjobs_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_printjobs_debug">debug:</h5>
+
+Show debugging information in the log
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_printjobs_show-all">show-all:</h5>
+
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_printjobs_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ok`
+
+<h5 id="check_printjobs_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_printjobs_escape-html">escape-html:</h5>
+
+Escape any < and > characters to prevent HTML encoding
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_printjobs_list-separator">list-separator:</h5>
+
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+*Default Value:* `, `
+
+<h5 id="check_printjobs_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_printjobs_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): All %(count) job(s) ok.`
+
+<h5 id="check_printjobs_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `%(status): No print jobs queued`
+
+<h5 id="check_printjobs_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${printer}: '${document}' by ${owner} (${status}, ${age}s)`
+
+<h5 id="check_printjobs_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${printer}_${id}`
+
+
+<a id="check_printjobs_filter_keys"></a>
+#### Filter keywords
+
+| Option            | Description                                                                                                                      |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| age               | Seconds since the job was submitted (-1 when the spooler did not report a submit time); threshold with durations, e.g. age > 30m |
+| blocked           | 1 when the job is blocked on the device queue                                                                                    |
+| document          | Document name as the application submitted it                                                                                    |
+| error             | 1 when the job is in an error state                                                                                              |
+| id                | Spooler job id                                                                                                                   |
+| offline           | 1 when the job's printer is offline                                                                                              |
+| owner             | User who submitted the job                                                                                                       |
+| pages             | Total pages in the job (0 when the driver does not report it)                                                                    |
+| pages_printed     | Pages printed so far                                                                                                             |
+| paper_out         | 1 when the job is waiting for paper                                                                                              |
+| paused            | 1 when the job is paused                                                                                                         |
+| printer           | Printer / queue the job is waiting on                                                                                            |
+| printing          | 1 when the job is printing                                                                                                       |
+| priority          | Job priority                                                                                                                     |
+| size              | Job size in bytes; threshold with byte units, e.g. size > 500M                                                                   |
+| spooling          | 1 when the job is still spooling                                                                                                 |
+| status_mask       | Raw StatusMask bit field, for statuses without their own keyword                                                                 |
+| submitted         | When the job was submitted, in UTC, or 'unknown'; threshold on age instead                                                       |
+| user_intervention | 1 when the job needs someone at the printer                                                                                      |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
 ### check_printqueue
 
 *Available on Windows only.*
 
-Check Windows print queues: queue depth, oldest-job age, offline and error states per printer.
+Check Windows print queues: queue depth, oldest-job age, offline and error states plus the driver, port and sharing of each printer.
 
 #### About `check_printqueue`
 
 `check_printqueue` monitors Windows **print queues** — the classic "the print
-server is stuck" incident. It reads `Win32_Printer` (status and error state) and
-`Win32_PrintJob` (queued jobs), producing one row per printer with its queue
-depth and the age of the oldest waiting job.
+server is stuck" incident. It reads `Win32_Printer` (status, error state and the
+device inventory) and `Win32_PrintJob` (queued jobs), producing one row per
+printer with its queue depth and the age of the oldest waiting job.
+
+For the individual jobs behind those counts — who submitted what, how big it is
+and how long it has been waiting — use [`check_printjobs`](#check_printjobs),
+which reports one row per job.
 
 Keywords (one row per printer):
 
@@ -7270,8 +7602,24 @@ Keywords (one row per printer):
 | `oldest_job_age` | **Seconds** since the oldest queued job (`-1` if the queue is empty)             |
 | `offline`        | `1` if the printer is offline                                                    |
 | `error`          | `1` if the printer is in a real error state (paper/toner/door/jam/service)       |
+| `driver`         | Print driver the queue uses                                                      |
+| `port`           | Port it prints through (`IP_10.0.0.20`, `USB001`, `PORTPROMPT:`, …)              |
+| `location`       | Location configured on the queue (empty when unset)                              |
+| `share`          | Share name (empty when the queue is not shared)                                  |
+| `server`         | Print server hosting the queue (empty for a local queue)                         |
+| `default`        | `1` if this is the default printer                                               |
+| `shared`         | `1` if the queue is shared                                                       |
+| `network`        | `1` if the queue is a network rather than local printer                          |
 
-`oldest_job_age` is seconds, so threshold it with durations: `oldest_job_age > 30m`.
+The device columns are the inventory half of the check: they answer "is this
+queue still pointing at the driver and port it is supposed to", which is the
+other common cause of "printing is broken" once the queue itself looks healthy.
+They are also useful as a filter — `filter=shared = 1` to watch only what a
+print server actually publishes.
+
+`oldest_job_age` is seconds and takes durations: `oldest_job_age > 30m`,
+`oldest_job_age > 2h`. A bare number still means seconds. An empty queue reports
+`-1`, which is below every threshold, so it cannot raise a stuck-queue alert.
 
 Defaults: **WARNING** when `jobs > 10`, **CRITICAL** when `error = 1`.
 Offline printers are **not** alerted by default — virtual printers (Print to
@@ -7335,6 +7683,27 @@ OK: HP LaserJet: idle/no_error jobs=0 oldest=-1s offline=0, Microsoft Print to P
 
 ```
 check_nscp_client --host 192.168.56.103 --command check_printqueue --argument "crit=error = 1 or offline = 1"
+OK: All 4 printer(s) ok.
+```
+
+**Show the device behind each queue (driver, port, sharing):**
+
+```
+check_printqueue warning=none critical=none "top-syntax=${list}" "detail-syntax=${printer} [drv=${driver}] [port=${port}] def=${default} shared=${shared} net=${network}"
+Microsoft Print to PDF [drv=Microsoft Print To PDF] [port=PORTPROMPT:] def=0 shared=0 net=0, HP Color LaserJet Pro MFP 4302 [drv=Microsoft IPP Class Driver] [port=WSD-7f7ab05a-2fe9-4ca8-84cb-2f4b45e3bc9a] def=1 shared=0 net=0
+```
+
+**Alert when a queue moves to an unexpected driver or port:**
+
+```
+check_printqueue "filter=printer = 'HP LaserJet'" "crit=driver != 'HP Universal Printing PCL 6'"
+CRITICAL: HP LaserJet: idle, 0 job(s)
+```
+
+**Only look at the shared queues on a print server:**
+
+```
+check_printqueue "filter=shared = 1" "crit=error = 1 or offline = 1"
 OK: All 4 printer(s) ok.
 ```
 
@@ -7490,13 +7859,21 @@ This is the syntax for the base names of the performance data.
 
 | Option         | Description                                                                                                         |
 |----------------|---------------------------------------------------------------------------------------------------------------------|
+| default        | 1 if this is the default printer                                                                                    |
+| driver         | Print driver the queue uses                                                                                         |
 | error          | 1 if the printer is in a real error state (paper/toner/door/jam/service)                                            |
 | error_jobs     | Number of queued jobs in an error state                                                                             |
 | error_state    | Detected error state: no_error, no_paper, jammed, door_open, ...                                                    |
 | jobs           | Number of queued print jobs                                                                                         |
+| location       | Location as configured on the queue (empty when unset)                                                              |
+| network        | 1 if the queue is a network (rather than local) printer                                                             |
 | offline        | 1 if the printer is offline                                                                                         |
 | oldest_job_age | Seconds since the oldest queued job (-1 if the queue is empty); threshold with durations, e.g. oldest_job_age > 30m |
+| port           | Port the queue prints through (IP_x.x.x.x, USB001, PORTPROMPT:, ...)                                                |
 | printer        | Printer / queue name                                                                                                |
+| server         | Print server hosting the queue (empty for a local queue)                                                            |
+| share          | Share name (empty when the queue is not shared)                                                                     |
+| shared         | 1 if the queue is shared                                                                                            |
 
 **Common options for all checks:**
 
@@ -10716,6 +11093,377 @@ Largest time unit used to render ${uptime}: s|m|h|d|w (default: w). For a 6-week
 |--------|----------------------|
 | boot   | System boot time     |
 | uptime | Time since last boot |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
+### check_w32time
+
+*Available on Windows only.*
+
+Check the Windows Time service: whether the machine is following a time source at all, which one, the computed clock offset and the configured peers.
+
+#### About `check_w32time`
+
+`check_w32time` reports what the Windows Time service (W32Time) itself thinks:
+whether the machine is following a time source at all, which source that is, how
+far the clock was last computed to be off and which peers are configured. This
+is the inside-out counterpart to CheckNet's `check_ntp_offset`, which probes an
+NTP server from the outside: a domain member whose time hierarchy has broken
+keeps answering with a plausible clock for hours while Kerberos ticket
+validation is already on its way to failing, and only the service's own view
+shows it.
+
+The data is assembled from four places:
+
+| Source | What it gives |
+|---|---|
+| Service control manager | Whether W32Time exists, is running, and how it starts. |
+| `HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters` | `Type` (the synchronization mode) and `NtpServer` (the configured peers). |
+| `HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Config\LastKnownGoodTime` | When the service last recorded the clock as good. |
+| `W32TimeQuerySource` (w32time.dll) | The source the running service is actually following. Like `w32tm /query /source`, this needs privilege: the agent has it running as a service, an unprivileged caller gets access denied and the check falls back to the configured peers. |
+| "Windows Time Service" PDH counters | Computed time offset, NTP round trip delay, clock frequency adjustment and the number of time sources in use. |
+
+Keywords:
+
+| Keyword | Type | Meaning |
+|---|---|---|
+| `service_state` | string | `running`, `stopped`, `starting`, … or `not installed`. |
+| `start_type` | string | `auto`, `delayed`, `demand`, `disabled`, … |
+| `sync_type` | string | Configured mode: `NT5DS` (domain hierarchy), `NTP`, `AllSync`, `NoSync`. |
+| `source` | string | The time source in use, or the configured peers — see `source_from`. |
+| `source_from` | string | `service` (asked the running service), `configuration` or `unknown`. |
+| `peers` | string | Configured NTP peers, comma separated. Empty on a domain member, which discovers its source instead of being given one. |
+| `last_sync` | string | Time of the last synchronization W32Time recorded as good, or `unknown`. |
+| `state` | string | One-line verdict; what the default output shows. |
+| `installed` | bool | W32Time exists on this host. |
+| `running` | bool | The service is running. |
+| `synchronized` | bool | The machine is following a time source — see the evidence order below. |
+| `local_clock` | bool | The source is the machine's own clock (`Local CMOS Clock`, `Free-running System Clock`). |
+| `peer_count` | int | Number of configured peers. |
+| `offset` | int | Absolute clock offset against the source, milliseconds (perfdata). |
+| `delay` | int | NTP round trip delay to the source, milliseconds (perfdata). |
+| `frequency_adjustment` | int | Correction applied to the clock frequency, parts per billion; negative slows the clock down (perfdata). |
+| `time_sources` | int | Number of NTP time sources in use. |
+| `last_sync_age` | int | Seconds since the last known good synchronization (perfdata). |
+
+The last five come from counters the service only maintains while it runs. When
+there is no measurement they render as `unknown`, compare false against every
+number (so a threshold like `offset > 1000` cannot fire on a missing value) and
+emit no perfdata. Test for the absence explicitly with `offset = 'unknown'`.
+
+`synchronized` ranks its evidence rather than guessing. The service not running
+or `Type=NoSync` settles it on its own. Otherwise, when the service could be
+asked what it follows, that answer decides — the local clock means
+unsynchronized, anything else means synchronized. When it could not be asked,
+`time_sources = 0` (no time source in use) decides instead. With neither piece
+of evidence the check reports the configured intent and does not raise an alarm,
+so a host where the counters are unavailable does not alert forever.
+
+Default thresholds: **critical** when `synchronized = 0 or offset > 30000` and
+**warning** when `offset > 1000`. The critical is the important one — it fires
+when the machine follows no time source at all, whether because the service is
+not running, because `Type` is `NoSync`, or because it has fallen back to its
+own clock. Kerberos rejects tickets once the clock is five minutes out, so the
+30-second critical leaves room to act.
+
+On a **workgroup** machine Windows trigger-starts W32Time and stops it again
+between synchronizations, so `running` is 0 most of the time and the default
+critical fires by design. Check the configuration and the age of the last good
+synchronization there instead, e.g.
+`check_w32time "critical=sync_type = 'NoSync'" "warning=last_sync_age > 604800"`.
+On a server or domain member the service is expected to run continuously and the
+defaults apply as they are. **Windows only.**
+
+**Jump to section:**
+
+* [Sample Commands](#check_w32time_samples)
+* [Command-line Arguments](#check_w32time_options)
+* [Filter keywords](#check_w32time_filter_keys)
+
+
+<a id="check_w32time_samples"></a>
+#### Sample Commands
+
+**Check that the machine is following a time source (Windows)**
+
+The default is critical when the machine is not synchronizing at all and warning
+once the computed offset passes one second.
+
+```
+check_w32time
+L        cli OK: synchronizing with dc01.corp.example.com (offset 3ms)|'w32time_offset'=3ms;1000;30000
+```
+
+```
+check_w32time
+L        cli CRITICAL: the Windows Time service is stopped (start type demand)
+```
+
+```
+check_w32time
+L        cli CRITICAL: not synchronizing: falling back to Local CMOS Clock
+```
+
+```
+check_w32time
+L        cli CRITICAL: not synchronizing: no time source in use (configured: time.windows.com)|'w32time_offset'=0ms;1000;30000
+```
+
+**Show the service state, configuration and source**
+
+```
+check_w32time warning=none critical=none "top-syntax=${status}: ${list}" "detail-syntax=svc=${service_state}/${start_type} type=${sync_type} src=${source} (${source_from}) peers=${peers}"
+L        cli OK: svc=stopped/demand type=NTP src=time.windows.com (configuration) peers=time.windows.com
+```
+
+`source_from` says where the source came from: `service` when the running
+service was asked what it is actually following, `configuration` when it could
+not be asked and the configured peers are shown instead. The verdict is worded
+to match — "synchronizing with X" only when the service confirmed it, and
+"configured to synchronize with X" when that is all we know.
+
+```
+check_w32time warning=none critical=none "top-syntax=${list}" "detail-syntax=src=[${source}] from=${source_from} local=${local_clock} sync=${synchronized} srcs=${time_sources} off=${offset} delay=${delay}"
+L        cli src=[time.windows.com] from=configuration local=0 sync=0 srcs=0 off=0 delay=31
+```
+
+**Watch a domain member's time hierarchy**
+
+`local_clock` is the signal that a domain member has lost its hierarchy and is
+free-running: it keeps answering, but its clock is no longer anchored to
+anything, which breaks Kerberos once it drifts past five minutes.
+
+```
+check_w32time "critical=local_clock = 1 or sync_type = 'NoSync' or running = 0"
+L        cli OK: synchronizing with dc01.corp.example.com (offset 12ms)
+```
+
+**Alert on drift only**
+
+```
+check_w32time "warning=offset > 500" "critical=offset > 5000"
+L        cli WARNING: synchronizing with time.windows.com (offset 812ms)|'w32time_offset'=812ms;500;5000
+```
+
+**Report how long ago the clock was last validated**
+
+```
+check_w32time "warning=last_sync_age > 86400" "critical=none" "top-syntax=${status}: ${list}" "detail-syntax=last sync ${last_sync} (${last_sync_age}s ago)"
+L        cli OK: last sync 2026-08-15 21:28:41 (49654s ago)|'w32time_last_sync'=49654s;86400;0
+```
+
+**Values the service has not measured read as `unknown`**
+
+The "Windows Time Service" counters only carry data while the service is
+running; until then `offset`, `delay`, `frequency_adjustment` and `time_sources`
+render as `unknown`, compare false against every number and emit no perfdata.
+
+```
+check_w32time "warning=none" "critical=none" "top-syntax=${list}" "detail-syntax=off=${offset} delay=${delay} freq=${frequency_adjustment} srcs=${time_sources}"
+L        cli off=unknown delay=unknown freq=unknown srcs=unknown
+```
+
+```
+check_w32time "critical=offset = 'unknown'"
+L        cli CRITICAL: the Windows Time service is stopped (start type demand)
+```
+
+**A workgroup client, where W32Time is trigger-started**
+
+Windows starts the time service on demand on a machine that is not domain
+joined, so it is stopped most of the time. Check the configuration and the age
+of the last good synchronization there instead of the service state.
+
+```
+check_w32time "critical=sync_type = 'NoSync'" "warning=last_sync_age > 604800"
+L        cli OK: the Windows Time service is stopped (start type demand)|'w32time_last_sync'=50036s;604800;0
+```
+
+
+
+<a id="check_w32time_options"></a>
+#### Command-line Arguments
+
+<a id="check_w32time_warn"></a>
+<a id="check_w32time_crit"></a>
+<a id="check_w32time_help"></a>
+<a id="check_w32time_help-pb"></a>
+<a id="check_w32time_show-default"></a>
+<a id="check_w32time_help-short"></a>
+
+| Option                                          | Default Value                      | Description                                                                                                               |
+|-------------------------------------------------|------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_w32time_filter)                 |                                    | Filter which marks interesting items.                                                                                     |
+| [warning](#check_w32time_warning)               | offset > 1000                      | Filter which marks items which generates a warning state.                                                                 |
+| warn                                            |                                    | Short alias for warning                                                                                                   |
+| [critical](#check_w32time_critical)             | synchronized = 0 or offset > 30000 | Filter which marks items which generates a critical state.                                                                |
+| crit                                            |                                    | Short alias for critical.                                                                                                 |
+| [ok](#check_w32time_ok)                         |                                    | Filter which marks items which generates an ok state.                                                                     |
+| [debug](#check_w32time_debug)                   | 1)] (=0                            | Show debugging information in the log                                                                                     |
+| [show-all](#check_w32time_show-all)             | 1)] (=0                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [empty-state](#check_w32time_empty-state)       | ignored                            | Return status to use when nothing matched filter.                                                                         |
+| [perf-config](#check_w32time_perf-config)       |                                    | Performance data generation configuration                                                                                 |
+| [escape-html](#check_w32time_escape-html)       | 1)] (=0                            | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [list-separator](#check_w32time_list-separator) | ,                                  | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
+| help                                            | N/A                                | Show help screen (this screen)                                                                                            |
+| help-pb                                         | N/A                                | Show help screen as a protocol buffer payload                                                                             |
+| show-default                                    | N/A                                | Show default values for a given command                                                                                   |
+| help-short                                      | N/A                                | Show help screen (short format).                                                                                          |
+| [top-syntax](#check_w32time_top-syntax)         | ${status}: ${list}                 | Top level syntax.                                                                                                         |
+| [ok-syntax](#check_w32time_ok-syntax)           |                                    | ok syntax.                                                                                                                |
+| [empty-syntax](#check_w32time_empty-syntax)     |                                    | Empty syntax.                                                                                                             |
+| [detail-syntax](#check_w32time_detail-syntax)   | ${state}                           | Detail level syntax.                                                                                                      |
+| [perf-syntax](#check_w32time_perf-syntax)       | w32time                            | Performance alias syntax.                                                                                                 |
+
+
+
+<h5 id="check_w32time_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_w32time_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+*Default Value:* `offset > 1000`
+
+<h5 id="check_w32time_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `synchronized = 0 or offset > 30000`
+
+<h5 id="check_w32time_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_w32time_debug">debug:</h5>
+
+Show debugging information in the log
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_w32time_show-all">show-all:</h5>
+
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_w32time_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ignored`
+
+<h5 id="check_w32time_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_w32time_escape-html">escape-html:</h5>
+
+Escape any < and > characters to prevent HTML encoding
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_w32time_list-separator">list-separator:</h5>
+
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+*Default Value:* `, `
+
+<h5 id="check_w32time_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${list}`
+
+<h5 id="check_w32time_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+
+<h5 id="check_w32time_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+<h5 id="check_w32time_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${state}`
+
+<h5 id="check_w32time_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `w32time`
+
+
+<a id="check_w32time_filter_keys"></a>
+#### Filter keywords
+
+| Option               | Description                                                                                                                                                                                                           |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| delay                | NTP round trip delay to the time source in milliseconds                                                                                                                                                               |
+| frequency_adjustment | Correction the service applies to the clock frequency, in parts per billion (negative slows the clock down)                                                                                                           |
+| installed            | True when the W32Time service exists on this host                                                                                                                                                                     |
+| last_sync            | Time of the last known good synchronization, in UTC, or 'unknown'                                                                                                                                                     |
+| last_sync_age        | Seconds since the last synchronization W32Time recorded as good; threshold with durations, e.g. last_sync_age > 24h                                                                                                   |
+| local_clock          | True when the source is the machine's own clock (Local CMOS Clock / free-running)                                                                                                                                     |
+| offset               | Absolute clock offset against the time source in milliseconds, as last computed by the service; 'unknown' until it has measured one (`offset = 'unknown'` tests for it)                                               |
+| peer_count           | Number of configured NTP peers                                                                                                                                                                                        |
+| peers                | Configured NTP peers, comma separated (empty on a domain member, which discovers its source)                                                                                                                          |
+| running              | True when the W32Time service is running                                                                                                                                                                              |
+| service_state        | State of the W32Time service: running, stopped, starting, ... or 'not installed'                                                                                                                                      |
+| source               | The time source in use; the configured peers when the service could not be asked (see source_from)                                                                                                                    |
+| source_from          | Where source came from: 'service' (live), 'configuration' or 'unknown'                                                                                                                                                |
+| start_type           | Start type of the W32Time service: auto, delayed, demand, disabled, ...                                                                                                                                               |
+| state                | One line verdict: not installed, not running, NoSync, falling back to the local clock or synchronizing with a source                                                                                                  |
+| sync_type            | Configured synchronization type: NT5DS (domain hierarchy), NTP, AllSync or NoSync                                                                                                                                     |
+| synchronized         | True when the machine is following a time source: the service runs, synchronization is not turned off, the source is not the local clock and - when the source could not be read - at least one time source is in use |
+| time_sources         | Number of NTP time sources the client is currently using                                                                                                                                                              |
 
 **Common options for all checks:**
 

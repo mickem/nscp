@@ -36,6 +36,8 @@ set(SRCS
     check_kernel_memory.cpp
     check_kernel_stats.cpp
     check_printqueue.cpp
+    check_printjobs.cpp
+    check_w32time.cpp
     filter_config_object.cpp
     realtime_data.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
@@ -94,6 +96,8 @@ if(WIN32)
         check_kernel_memory.hpp
         check_kernel_stats.hpp
         check_printqueue.hpp
+        check_printjobs.hpp
+        check_w32time.hpp
         ${NSCP_INCLUDEDIR}/win/registry.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
@@ -161,6 +165,8 @@ NSCP_CREATE_TEST(
         check_kernel_memory_test.cpp
         check_kernel_stats_test.cpp
         check_printqueue_test.cpp
+        check_printjobs_test.cpp
+        check_w32time_test.cpp
         check_os_version_test.cpp
         check_pdh_test.cpp
         pdh_query_test.cpp
@@ -190,6 +196,8 @@ NSCP_CREATE_TEST(
         check_kernel_memory.cpp
         check_kernel_stats.cpp
         check_printqueue.cpp
+        check_printjobs.cpp
+        check_w32time.cpp
         pdh_thread.cpp
         filter_config_object.cpp
         realtime_data.cpp

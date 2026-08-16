@@ -3,6 +3,8 @@
 
 #include "filter.hpp"
 
+#include "duration_keyword.hpp"
+
 #include <boost/assign.hpp>
 #include <cmath>
 #include <list>
@@ -98,34 +100,14 @@ filter_obj_handler::filter_obj_handler() {
 }  // namespace check_page_filter
 
 namespace check_uptime_filter {
-node_type parse_time(std::shared_ptr<filter_obj> object, evaluation_context context, node_type subject) {
-  // The where-parser may hand us either a single string literal ("30m") or a
-  // two-element list [number, unit] for tokenized inputs like "2d". For the
-  // list form, list_node::get_value joins with ", " and produces "2, d",
-  // which fails validate_time_spec under #589 and pollutes logs with
-  // "Invalid time specification". Reassemble the list manually (no
-  // separator) so both forms round-trip cleanly through stox_as_time_sec
-  // (issue #452 + #589 follow-up).
-  std::list<node_type> tokens = subject->get_list_value(context);
-  std::string expr;
-  if (tokens.size() == 2) {
-    auto cit = tokens.begin();
-    const long long n = (*cit)->get_int_value(context);
-    ++cit;
-    const std::string unit = (*cit)->get_value(context, type_string).get_string("");
-    expr = str::xtos(n) + unit;
-  } else {
-    expr = subject->get_string_value(context);
-  }
-  return factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
-}
-
 static const value_type type_custom_uptime = type_custom_int_1;
 filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("boot", type_date, &filter_obj::get_boot, "System boot time")
       .add_int_var("uptime", type_custom_uptime, &filter_obj::get_uptime, "Time since last boot")
       .add_int_perf("s", "", "");
-  registry_.add_converter(type_custom_uptime, &parse_time);
+  // The shared duration converter (issues #452 + #589): "2d"/"30m" become
+  // seconds, plain integers pass through untouched.
+  registry_.add_converter(type_custom_uptime, &duration_keyword::parse_duration<std::shared_ptr<filter_obj> >);
   registry_.add_human_string("boot", &filter_obj::get_boot_s, "The system boot time")
       .add_human_string("uptime", &filter_obj::get_uptime_s, "Time since last boot (granularity controlled by --max-unit)")
       .add_human_string("tz", &filter_obj::get_tz, "The timezone label used to render boot time");

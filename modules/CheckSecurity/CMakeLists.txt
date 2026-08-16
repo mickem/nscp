@@ -11,7 +11,10 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
+    check_activation.cpp
     check_certificate.cpp
+    check_file_security.cpp
+    check_firewall_rules.cpp
     check_firewall.cpp
     check_users.cpp
     check_nla.cpp
@@ -32,6 +35,9 @@ if(WIN32)
     set(SRCS
         ${SRCS}
         cert_source_win.cpp
+        check_activation_win.cpp
+        check_file_security_win.cpp
+        check_firewall_rules_win.cpp
         check_firewall_win.cpp
         check_users_win.cpp
         posture_win.cpp
@@ -40,7 +46,10 @@ if(WIN32)
         "${TARGET}.h"
         cert_filter.hpp
         cert_source.hpp
+        check_activation.hpp
         check_certificate.hpp
+        check_file_security.hpp
+        check_firewall_rules.hpp
         check_firewall.hpp
         check_users.hpp
         check_nla.hpp
@@ -71,8 +80,10 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 set(EXTRA_LIBS)
 if(WIN32)
     # CRYPT32 (cert store), Wtsapi32 (sessions), ole32/oleaut32/Wbemuuid (COM/WMI
-    # for NLA + Security Center + BitLocker), Advapi32 (registry + ConvertSidToStringSid),
-    # Netapi32 (NetLocalGroupGetMembers for check_group_members).
+    # for NLA + Security Center + BitLocker + Software Licensing), Advapi32
+    # (registry, ConvertSidToStringSid, security descriptors and the service
+    # control manager for check_file_security), Netapi32 (NetLocalGroupGetMembers
+    # for check_group_members).
     set(EXTRA_LIBS CRYPT32 ws2_32 ole32 oleaut32 Wbemuuid Wtsapi32 Advapi32 Netapi32)
 endif()
 
@@ -106,6 +117,37 @@ NSCP_CREATE_TEST(
     check_firewall_test
     SOURCES
         check_firewall_test.cpp
+        ${NSCP_FILTER_CPP}
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${NSCP_FILTER_LIB}
+        expression_parser
+        ${PLUGIN_API_TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# The licensing decode and the owner/DACL classification are platform neutral
+# (only the data acquisition is Windows), so these unit tests build everywhere.
+NSCP_CREATE_TEST(
+    check_posture_test
+    SOURCES
+        check_activation_test.cpp
+        check_file_security_test.cpp
+        check_firewall_rules_test.cpp
+        check_activation.cpp
+        check_file_security.cpp
+        check_firewall_rules.cpp
         ${NSCP_FILTER_CPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
