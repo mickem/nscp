@@ -785,6 +785,41 @@ describe("CheckSystem commands", () => {
     expect(q.result).toBe(OK);
   });
 
+  it("check_printqueue reports the driver and port of each queue (Windows)", async () => {
+    if (!onWindows) return;
+    // The device inventory is what tells "the queue is fine" from "the queue now
+    // points at a different driver". Every Windows host has at least one queue
+    // (Microsoft Print to PDF) with a driver and a port.
+    const q = await executeQuery(key, "check_printqueue", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "${printer}|${driver}|${port}|${default}${shared}${network}",
+      "top-syntax": "${list}",
+    });
+    expect(q.result).toBe(OK);
+    // "<name>|<driver>|<port>|<3 flags>" — driver and port are never empty.
+    expect(messageOf(q)).toMatch(/[^|]+\|[^|]+\|[^|]+\|[01][01][01]/);
+  });
+
+  it("check_printqueue filters on the new device keywords (Windows)", async () => {
+    if (!onWindows) return;
+    // Regression: the inventory keywords must be usable in filter/threshold
+    // expressions, not just in the syntax strings.
+    // Both syntaxes are set: a top syntax without ${list} lets the ok syntax win
+    // while everything is fine, so the count would otherwise not be rendered.
+    const q = await executeQuery(key, "check_printqueue", {
+      filter: "driver like 'PDF' or port like 'PORTPROMPT'",
+      warning: "none",
+      critical: "none",
+      "top-syntax": "matched ${count}",
+      "ok-syntax": "matched ${count}",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
+    // Microsoft Print to PDF matches on both halves of the expression, so the
+    // filter has to have selected at least one queue.
+    expect(messageOf(q)).toMatch(/^matched [1-9]\d*$/);
+  });
+
   // --- check_w32time (Windows) -------------------------------------------------
 
   it("check_w32time reports the Windows Time state (Windows)", async () => {
