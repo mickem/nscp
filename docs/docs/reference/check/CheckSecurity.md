@@ -19,20 +19,21 @@ A quick reference for all available queries (check commands) in the CheckSecurit
 
 A list of all available queries (check commands)
 
-| Command                                       | Description                                                                                                                         |
-|-----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| [check_activation](#check_activation)         | Check the Windows activation/licensing state: license status, remaining grace or KMS renewal period and genuineness. Windows only.  |
-| [check_antivirus](#check_antivirus)           | Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.                              |
-| [check_bitlocker](#check_bitlocker)           | Check BitLocker drive-encryption protection status per volume. Windows only.                                                        |
-| [check_certificate](#check_certificate)       | Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the Windows certificate store.                        |
-| [check_defender](#check_defender)             | Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only.      |
-| [check_file_security](#check_file_security)   | Check the owner and DACL of files, folders or service binaries; alerts on world-writable paths and unexpected owners. Windows only. |
-| [check_firewall](#check_firewall)             | Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.                                             |
-| [check_group_members](#check_group_members)   | Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.             |
-| [check_local_accounts](#check_local_accounts) | Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.          |
-| [check_nla](#check_nla)                       | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.                                     |
-| [check_secureboot](#check_secureboot)         | Check whether UEFI Secure Boot is enabled. Windows only.                                                                            |
-| [check_users](#check_users)                   | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                                         |
+| Command                                       | Description                                                                                                                                                                   |
+|-----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [check_activation](#check_activation)         | Check the Windows activation/licensing state: license status, remaining grace or KMS renewal period and genuineness. Windows only.                                            |
+| [check_antivirus](#check_antivirus)           | Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.                                                                        |
+| [check_bitlocker](#check_bitlocker)           | Check BitLocker drive-encryption protection status per volume. Windows only.                                                                                                  |
+| [check_certificate](#check_certificate)       | Check X.509 certificate expiry/validity/hygiene from files (all platforms) or the Windows certificate store.                                                                  |
+| [check_defender](#check_defender)             | Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only.                                                |
+| [check_file_security](#check_file_security)   | Check the owner and DACL of files, folders or service binaries; alerts on world-writable paths and unexpected owners. Windows only.                                           |
+| [check_firewall](#check_firewall)             | Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.                                                                                       |
+| [check_firewall_rules](#check_firewall_rules) | Check individual Windows firewall rules: assert that specific rules exist and are enabled, and find inbound allow rules that restrict neither address nor port. Windows only. |
+| [check_group_members](#check_group_members)   | Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.                                                       |
+| [check_local_accounts](#check_local_accounts) | Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.                                                    |
+| [check_nla](#check_nla)                       | Check the Network Location Awareness profile (public/private/domain) per network. Windows only.                                                                               |
+| [check_secureboot](#check_secureboot)         | Check whether UEFI Secure Boot is enabled. Windows only.                                                                                                                      |
+| [check_users](#check_users)                   | Check the count and detail of logged-on / RDP sessions (Windows and Linux).                                                                                                   |
 
 ### check_activation
 
@@ -2195,6 +2196,362 @@ This is the syntax for the base names of the performance data.
 | outbound | Default outbound action (allow/block)                                                                                                          |
 | policy   | Where the profile's settings come from; 'group policy' if any of the reported settings is enforced through group policy, otherwise 'local'     |
 | profile  | Firewall profile name (Domain, Private or Public)                                                                                              |
+
+**Common options for all checks:**
+
+| Option        | Description                                                                                                                                                                                                                                                           |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
+| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
+| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
+| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
+| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
+| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
+| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
+| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
+| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
+| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
+| total         | Total number of items.                                                                                                                                                                                                                                                |
+| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
+| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+
+### check_firewall_rules
+
+*Available on Windows only.*
+
+Check individual Windows firewall rules: assert that specific rules exist and are enabled, and find inbound allow rules that restrict neither address nor port. Windows only.
+
+#### About `check_firewall_rules`
+
+`check_firewall_rules` reports the Windows firewall **rules** — one row per rule
+— where [`check_firewall`](#check_firewall) reports only whether each profile is
+switched on. It answers the two questions the profile check cannot: is the rule
+I depend on still there and enabled, and is there an inbound allow rule that
+restricts nothing.
+
+Rules are read through `INetFwPolicy2::Rules`, the same store
+`Get-NetFirewallRule` uses, in a single pass across all profiles. No WMI needed.
+
+Keywords (one row per rule):
+
+| Keyword | Type | Meaning |
+|---|---|---|
+| `name` | string | Rule name as it appears in the firewall. |
+| `description` | string | Rule description. |
+| `group` | string | Rule group, e.g. `Remote Desktop` — often a resource reference like `@FirewallAPI.dll,-28752` for built-in rules. |
+| `direction` | string | `in` or `out`. |
+| `action` | string | `allow` or `block`. |
+| `protocol` | string | `tcp`, `udp`, `icmpv4`, `icmpv6`, `any`, or the raw protocol number (e.g. `41` for IPv6). |
+| `profiles` | string | `all`, or a comma separated subset of `domain`, `private`, `public`. |
+| `local_ports` / `remote_ports` | string | Ports the rule covers; `*` for any. |
+| `local_addresses` / `remote_addresses` | string | Addresses the rule covers; `*` for any. |
+| `application` | string | Program the rule is bound to (empty when it is not program specific). |
+| `service` | string | Service the rule is bound to. |
+| `state` | string | One-line summary of what the rule does; what the default output shows. |
+| `enabled` | bool | The rule is switched on. |
+| `present` | bool | False only for an `expect=` name that no enabled rule satisfies — this is the default critical. |
+| `expected` | bool | The rule matched one of the `expect=` names. |
+| `any_remote` | bool | Accepts traffic from any remote address. |
+| `any_port` | bool | Covers any local port. |
+| `any_any` | bool | An **enabled inbound allow** rule that restricts neither. |
+| `edge_traversal` | bool | Accepts traffic that traversed a NAT device. |
+
+Options:
+
+| Option | Repeatable | Meaning |
+|---|---|---|
+| `expect` | yes | A rule that must exist and be enabled, matched on the exact name, case insensitively. |
+
+Windows leaves a scope field empty where the firewall UI shows "Any"; the check
+normalises those to `*`, so `local_ports = '*'` matches every unrestricted rule
+rather than only some of them.
+
+**Asserting a rule exists.** `expect=` fails whether the rule was deleted or
+merely switched off, and says which: *"no rule with this name"* versus *"the rule
+exists but is disabled"*. Windows allows several rules to share a name (commonly
+one per profile); one **enabled** copy satisfies the expectation, which is how
+the firewall itself behaves. Rule names are localized — on a Swedish machine the
+RDP rule is `Fjärrskrivbord - användarläge (TCP-In)` — so take the names from the
+machine you are checking rather than from an English reference.
+
+**The any-any rule.** `any_any` is deliberately restricted to *inbound allow*
+rules: outbound traffic is unrestricted by default on Windows, and a wide
+*block* is the opposite of a finding. It is offered as a keyword, not imposed as
+a threshold, because a normal Windows client legitimately has a hundred of them
+(every packaged app gets one) — alerting by default would be noise. On a curated
+server rule set, `filter=any_any = 1` with a `count` threshold is a good bound.
+
+Default thresholds: **critical** when `present = 0`, which only fires when
+`expect=` is used; nothing else alerts on its own. The default top syntax lists
+only the *problem* rules, because a normal host has several hundred rules and
+listing them all would be unreadable; `count` perfdata carries how many rules
+matched the filter. empty-state is **OK**. **Windows only.**
+
+**Jump to section:**
+
+* [Sample Commands](#check_firewall_rules_samples)
+* [Command-line Arguments](#check_firewall_rules_options)
+* [Filter keywords](#check_firewall_rules_filter_keys)
+
+
+<a id="check_firewall_rules_samples"></a>
+#### Sample Commands
+
+**Check that the rules you depend on are in effect (Windows)**
+
+Without `expect=` the check just inventories the rule set; the default critical
+only fires for an expected rule that is not in effect.
+
+```
+check_firewall_rules
+L        cli OK: 631 rule(s) checked, all as expected|'count'=631;0;0
+```
+
+```
+check_firewall_rules "expect=Remote Desktop - User Mode (TCP-In)"
+L        cli OK: 631 rule(s) checked, all as expected|'count'=631;0;0
+```
+
+A rule that was deleted and one that was merely switched off both fail, with
+different wording so you know which fix is needed:
+
+```
+check_firewall_rules "expect=NSCP no such rule zzz" "expect=Distributed Transaction Coordinator (TCP-in)"
+L        cli CRITICAL: NSCP no such rule zzz: not in effect: no rule with this name, Distributed Transaction Coordinator (TCP-in): not in effect: the rule exists but is disabled|'count'=633;0;0
+```
+
+Rule names are **localized**: on a Swedish machine the RDP rule above is
+`Fjärrskrivbord - användarläge (TCP-In)`. Take the names from the machine you
+are checking (`Get-NetFirewallRule | Select DisplayName`), or match on `group`
+instead.
+
+**Find inbound allow rules that restrict neither address nor port**
+
+`any_any` is offered as a keyword rather than a default threshold — a normal
+Windows client has a hundred of them (every packaged app rule), so alerting on
+them out of the box would be pure noise. On a server, where the rule set is
+curated, it is a useful thing to bound.
+
+```
+check_firewall_rules "filter=any_any = 1" "top-syntax=${count} unrestricted inbound allow rule(s)" "ok-syntax=${count} unrestricted inbound allow rule(s)"
+L        cli 120 unrestricted inbound allow rule(s)|'count'=120;0;0
+```
+
+To bound how many there may be, threshold on `count` — and give the check a
+summary top syntax while you are at it, or the alert will list every rule that
+matched the filter:
+
+```
+check_firewall_rules "filter=any_any = 1" "warning=count > 5" "top-syntax=${status}: ${count} unrestricted inbound allow rule(s)"
+L        cli WARNING: 120 unrestricted inbound allow rule(s)|'count'=120;5;0
+```
+
+**Alert on any inbound allow rule that reaches a sensitive port**
+
+```
+check_firewall_rules "critical=enabled = 1 and direction = 'in' and action = 'allow' and local_ports like '3389'"
+L        cli CRITICAL: Open RDP to the world: in allow tcp port 3389 (unrestricted), all
+```
+
+**Inventory what a rule actually does**
+
+An unrestricted address or port field reads `*`, matching what the firewall UI
+shows as "Any".
+
+```
+check_firewall_rules "filter=name = 'File and Printer Sharing (SMB-In)'" "top-syntax=${list}" "ok-syntax=${list}" "detail-syntax=${name}: ${direction}/${action} proto=${protocol} lports=${local_ports} remote=${remote_addresses} profiles=${profiles}"
+L        cli File and Printer Sharing (SMB-In): in/allow proto=tcp lports=445 remote=* profiles=domain,private
+```
+
+**Count only what is switched on**
+
+```
+check_firewall_rules "filter=enabled = 1" "top-syntax=${count} enabled rules" "ok-syntax=${count} enabled rules"
+L        cli 416 enabled rules|'count'=416;0;0
+```
+
+**On non-Windows platforms**
+
+```
+check_firewall_rules
+L        cli UNKNOWN: check_firewall_rules is not supported on this platform (Windows firewall rules only)
+```
+
+
+
+<a id="check_firewall_rules_options"></a>
+#### Command-line Arguments
+
+<a id="check_firewall_rules_warn"></a>
+<a id="check_firewall_rules_crit"></a>
+<a id="check_firewall_rules_help"></a>
+<a id="check_firewall_rules_help-pb"></a>
+<a id="check_firewall_rules_show-default"></a>
+<a id="check_firewall_rules_help-short"></a>
+<a id="check_firewall_rules_expect"></a>
+
+| Option                                                 | Default Value                                        | Description                                                                                                                                                                                                                                                                                        |
+|--------------------------------------------------------|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_firewall_rules_filter)                 |                                                      | Filter which marks interesting items.                                                                                                                                                                                                                                                              |
+| [warning](#check_firewall_rules_warning)               |                                                      | Filter which marks items which generates a warning state.                                                                                                                                                                                                                                          |
+| warn                                                   |                                                      | Short alias for warning                                                                                                                                                                                                                                                                            |
+| [critical](#check_firewall_rules_critical)             | present = 0                                          | Filter which marks items which generates a critical state.                                                                                                                                                                                                                                         |
+| crit                                                   |                                                      | Short alias for critical.                                                                                                                                                                                                                                                                          |
+| [ok](#check_firewall_rules_ok)                         |                                                      | Filter which marks items which generates an ok state.                                                                                                                                                                                                                                              |
+| [debug](#check_firewall_rules_debug)                   | 1)] (=0                                              | Show debugging information in the log                                                                                                                                                                                                                                                              |
+| [show-all](#check_firewall_rules_show-all)             | 1)] (=0                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                                                   |
+| [empty-state](#check_firewall_rules_empty-state)       | ok                                                   | Return status to use when nothing matched filter.                                                                                                                                                                                                                                                  |
+| [perf-config](#check_firewall_rules_perf-config)       |                                                      | Performance data generation configuration                                                                                                                                                                                                                                                          |
+| [escape-html](#check_firewall_rules_escape-html)       | 1)] (=0                                              | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                                             |
+| [list-separator](#check_firewall_rules_list-separator) | ,                                                    | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                                                          |
+| help                                                   | N/A                                                  | Show help screen (this screen)                                                                                                                                                                                                                                                                     |
+| help-pb                                                | N/A                                                  | Show help screen as a protocol buffer payload                                                                                                                                                                                                                                                      |
+| show-default                                           | N/A                                                  | Show default values for a given command                                                                                                                                                                                                                                                            |
+| help-short                                             | N/A                                                  | Show help screen (short format).                                                                                                                                                                                                                                                                   |
+| [top-syntax](#check_firewall_rules_top-syntax)         | ${status}: ${problem_list}                           | Top level syntax.                                                                                                                                                                                                                                                                                  |
+| [ok-syntax](#check_firewall_rules_ok-syntax)           | %(status): %(count) rule(s) checked, all as expected | ok syntax.                                                                                                                                                                                                                                                                                         |
+| [empty-syntax](#check_firewall_rules_empty-syntax)     | %(status): No firewall rules matched                 | Empty syntax.                                                                                                                                                                                                                                                                                      |
+| [detail-syntax](#check_firewall_rules_detail-syntax)   | ${name}: ${state}                                    | Detail level syntax.                                                                                                                                                                                                                                                                               |
+| [perf-syntax](#check_firewall_rules_perf-syntax)       | ${name}                                              | Performance alias syntax.                                                                                                                                                                                                                                                                          |
+| expect                                                 |                                                      | A rule that must exist and be enabled (repeatable), matched on the exact rule name, case insensitively. The check is CRITICAL when no enabled rule answers for the name - whether it was deleted or merely switched off. Rule names are localized, so take them from the machine you are checking. |
+
+
+
+<h5 id="check_firewall_rules_filter">filter:</h5>
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+<h5 id="check_firewall_rules_warning">warning:</h5>
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+
+<h5 id="check_firewall_rules_critical">critical:</h5>
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+*Default Value:* `present = 0`
+
+<h5 id="check_firewall_rules_ok">ok:</h5>
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+<h5 id="check_firewall_rules_debug">debug:</h5>
+
+Show debugging information in the log
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_firewall_rules_show-all">show-all:</h5>
+
+Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_firewall_rules_empty-state">empty-state:</h5>
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+*Default Value:* `ok`
+
+<h5 id="check_firewall_rules_perf-config">perf-config:</h5>
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+<h5 id="check_firewall_rules_escape-html">escape-html:</h5>
+
+Escape any < and > characters to prevent HTML encoding
+
+*Default Value:* `1)] (=0`
+
+<h5 id="check_firewall_rules_list-separator">list-separator:</h5>
+
+String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
+Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
+Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
+The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
+
+*Default Value:* `, `
+
+<h5 id="check_firewall_rules_top-syntax">top-syntax:</h5>
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${status}: ${problem_list}`
+
+<h5 id="check_firewall_rules_ok-syntax">ok-syntax:</h5>
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+*Default Value:* `%(status): %(count) rule(s) checked, all as expected`
+
+<h5 id="check_firewall_rules_empty-syntax">empty-syntax:</h5>
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+*Default Value:* `%(status): No firewall rules matched`
+
+<h5 id="check_firewall_rules_detail-syntax">detail-syntax:</h5>
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
+
+*Default Value:* `${name}: ${state}`
+
+<h5 id="check_firewall_rules_perf-syntax">perf-syntax:</h5>
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+*Default Value:* `${name}`
+
+
+<a id="check_firewall_rules_filter_keys"></a>
+#### Filter keywords
+
+| Option           | Description                                                                                                   |
+|------------------|---------------------------------------------------------------------------------------------------------------|
+| action           | What the rule does with matching traffic: allow or block                                                      |
+| any_any          | True for an enabled inbound allow rule that restricts neither the remote address nor the local port           |
+| any_port         | True when the rule covers any local port                                                                      |
+| any_remote       | True when the rule accepts traffic from any remote address                                                    |
+| application      | Program the rule is bound to (empty when it is not program specific)                                          |
+| description      | Rule description                                                                                              |
+| direction        | Direction the rule applies to: in or out                                                                      |
+| edge_traversal   | True when the rule accepts traffic that has traversed a NAT device                                            |
+| enabled          | True when the rule is switched on                                                                             |
+| expected         | True when the rule matched one of the expect= names                                                           |
+| group            | Rule group, e.g. 'Remote Desktop' or '@FirewallAPI.dll,-28752'                                                |
+| local_addresses  | Local addresses the rule covers ('*' for any)                                                                 |
+| local_ports      | Local ports the rule covers ('*' for any)                                                                     |
+| name             | Rule name as it appears in the firewall (localized on a localized Windows)                                    |
+| present          | True for a real rule; false for an expect= name that no enabled rule satisfies (that is the default critical) |
+| profiles         | Profiles the rule applies to: all, or a comma separated subset of domain, private and public                  |
+| protocol         | Protocol: tcp, udp, icmpv4, icmpv6, any, or the raw protocol number                                           |
+| remote_addresses | Remote addresses the rule accepts traffic from ('*' for any)                                                  |
+| remote_ports     | Remote ports the rule covers ('*' for any)                                                                    |
+| service          | Service the rule is bound to (empty when it is not service specific)                                          |
+| state            | One line summary of what the rule does, or why an expected rule is not in effect                              |
 
 **Common options for all checks:**
 
