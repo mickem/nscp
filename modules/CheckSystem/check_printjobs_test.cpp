@@ -188,3 +188,15 @@ TEST(PrintJobs, AgeThresholdsAcceptDurationUnits) {
   PB::Commands::QueryResponseMessage::Response under;
   EXPECT_EQ(PB::Common::ResultCode::OK, run(jobs, {"warning=none", "critical=age > 2h"}, under));
 }
+
+TEST(PrintJobs, TheMinusOneAgeSentinelIsComparable) {
+  // The docs promise -1 for a job without a submit time; comparing against the
+  // literal must work even though age otherwise takes duration literals.
+  const std::vector<job_info> jobs = {make_job("HP LaserJet", "a.pdf", "ann", 0, -1)};
+
+  PB::Commands::QueryResponseMessage::Response fires;
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run(jobs, {"warning=none", "critical=age = -1"}, fires));
+
+  PB::Commands::QueryResponseMessage::Response quiet;
+  EXPECT_EQ(PB::Common::ResultCode::OK, run({make_job("HP LaserJet", "a.pdf", "ann", 0, 30)}, {"warning=none", "critical=age = -1"}, quiet));
+}

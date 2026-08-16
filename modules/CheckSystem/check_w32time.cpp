@@ -17,6 +17,8 @@
 #include <win/registry.hpp>
 #include <win/services.hpp>
 
+#include "duration_keyword.hpp"
+
 namespace w32time_check {
 
 namespace {
@@ -26,6 +28,11 @@ const char *parameters_key = "SYSTEM\\CurrentControlSet\\Services\\W32Time\\Para
 const char *config_key = "SYSTEM\\CurrentControlSet\\Services\\W32Time\\Config";
 
 // The names w32time reports when it is not actually following a time source.
+// These are provider-internal strings, not MUI resources: a Swedish-locale
+// Windows (where w32tm errors come out in Swedish) still reports the source as
+// "Local CMOS Clock" verbatim. Should a build surface a translated variant,
+// the time_sources counter path below still catches the free-running case
+// whenever the live source cannot be read.
 const char *local_clock_names[] = {"Local CMOS Clock", "Free-running System Clock"};
 
 }  // namespace
@@ -137,6 +144,11 @@ w32time_obj build_w32time_obj(const w32time_data &data, const long long now_epoc
 
 using parsers::where::type_bool;
 using parsers::where::type_int;
+
+// last_sync_age is seconds; the converter lets `last_sync_age > 24h` mean a day
+// rather than being silently read as the number 24.
+static const parsers::where::value_type type_custom_age = parsers::where::type_custom_int_1;
+
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_string_var("service_state", &w32time_obj::get_service_state, "State of the W32Time service: running, stopped, starting, ... or 'not installed'")
@@ -175,9 +187,10 @@ filter_obj_handler::filter_obj_handler() {
       .add_optional_int_var("time_sources", [](auto obj) { return obj->get_time_sources(); }, "unknown",
                             "Number of NTP time sources the client is currently using")
       .no_perf()
-      .add_optional_int_var("last_sync_age", [](auto obj) { return obj->get_last_sync_age(); }, "unknown",
-                            "Seconds since the last synchronization W32Time recorded as good")
+      .add_optional_int_var("last_sync_age", type_custom_age, [](auto obj) { return obj->get_last_sync_age(); }, "unknown",
+                            "Seconds since the last synchronization W32Time recorded as good; threshold with durations, e.g. last_sync_age > 24h")
       .add_int_perf("s", "", "_last_sync");
+  registry_.add_converter(type_custom_age, &duration_keyword::parse_duration<std::shared_ptr<w32time_obj> >);
   // clang-format on
 }
 

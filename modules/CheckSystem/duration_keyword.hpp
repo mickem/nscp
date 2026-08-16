@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cctype>
 #include <list>
 #include <parsers/where.hpp>
 #include <str/format.hpp>
@@ -10,6 +11,17 @@
 #include <string>
 
 namespace duration_keyword {
+
+// True for an optionally-signed run of digits ("0", "-1", "+259200").
+inline bool is_plain_integer(const std::string &expr) {
+  std::size_t i = 0;
+  if (i < expr.size() && (expr[i] == '-' || expr[i] == '+')) ++i;
+  if (i >= expr.size()) return false;
+  for (; i < expr.size(); ++i) {
+    if (!std::isdigit(static_cast<unsigned char>(expr[i]))) return false;
+  }
+  return true;
+}
 
 // Converter for keywords that hold a number of seconds, so a threshold can be
 // written the way an operator thinks about it - `age > 30m`, `uptime < 2d` -
@@ -38,7 +50,11 @@ parsers::where::node_type parse_duration(TObject /*object*/, parsers::where::eva
   } else {
     expression = subject->get_string_value(context);
   }
-  // A bare number keeps meaning seconds, so existing thresholds still work.
+  // A plain number keeps meaning seconds - and must not go through the time
+  // parser: validate_time_spec rejects a sign, filter_converter turns the
+  // exception into create_false(), and "age = -1" (the documented empty-queue
+  // sentinel) would silently never fire.
+  if (is_plain_integer(expression)) return parsers::where::factory::create_int(str::stox<long long>(expression, 0));
   return parsers::where::factory::create_int(str::format::stox_as_time_sec<long long>(expression, "s"));
 }
 

@@ -193,3 +193,11 @@ TEST(PrintQueue, DeviceKeywordsCanBeFilteredOn) {
   ASSERT_EQ(1, response.lines_size());
   EXPECT_EQ("1: HP LaserJet/HP Universal Printing PCL 6", response.lines(0).message());
 }
+
+TEST(PrintQueue, TheMinusOneOldestAgeSentinelIsComparable) {
+  // "-1 if the queue is empty" is documented; the duration converter must pass
+  // the signed literal through rather than silently evaluating it as false.
+  PB::Commands::QueryResponseMessage::Response fires;
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL,
+            run_queue({make_printer("Idle", 3, 2)}, {}, at_0900, {"warning=none", "critical=oldest_job_age = -1"}, fires));
+}

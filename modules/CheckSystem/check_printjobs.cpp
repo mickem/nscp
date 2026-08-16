@@ -170,9 +170,11 @@ std::vector<job_info> gather() {
 
   // Scoped COM init: balanced on every exit path, including a throwing query.
   const com_helper::mta_scope com;
-  // SELECT * and read defensively: which columns a job carries depends on the
-  // driver that queued it.
-  wmi_impl::query q("select * from Win32_PrintJob", "root\\CIMV2", "", "");
+  // All named columns are fixed core-schema Win32_PrintJob properties; the
+  // per-column reads still tolerate a NULL value where a driver leaves one
+  // unpopulated.
+  wmi_impl::query q("select Name, Document, Owner, JobId, StatusMask, Size, TotalPages, PagesPrinted, Priority, TimeSubmitted from Win32_PrintJob",
+                    "root\\CIMV2", "", "");
   wmi_impl::row_enumerator rows = q.execute();
   while (rows.has_next()) {
     const wmi_impl::row r = rows.get_next();

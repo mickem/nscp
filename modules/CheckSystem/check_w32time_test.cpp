@@ -306,3 +306,17 @@ TEST(CheckW32Time, EmitsOffsetPerfdataWhenThresholded) {
   }
   EXPECT_TRUE(found);
 }
+
+TEST(CheckW32Time, LastSyncAgeAcceptsDurationThresholds) {
+  // Sibling age keywords already take durations; last_sync_age must too, or
+  // "last_sync_age > 24h" silently reads as 24 seconds and always fires.
+  PB::Commands::QueryResponseMessage::Response quiet;
+  EXPECT_EQ(PB::Common::ResultCode::OK, run(healthy(), {"warning=none", "critical=last_sync_age > 24h"}, quiet));  // 600s old
+
+  PB::Commands::QueryResponseMessage::Response fires;
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run(healthy(), {"warning=none", "critical=last_sync_age > 5m"}, fires));
+
+  // Plain seconds keep working.
+  PB::Commands::QueryResponseMessage::Response seconds;
+  EXPECT_EQ(PB::Common::ResultCode::CRITICAL, run(healthy(), {"warning=none", "critical=last_sync_age > 599"}, seconds));
+}

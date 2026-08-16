@@ -93,10 +93,16 @@ void gather(std::vector<printer_info> &printers, std::vector<raw_job> &jobs) {
   const com_helper::mta_scope com;
   {
     {
-      // SELECT * and read defensively: the inventory columns (Location,
-      // ShareName, ServerName) are NULL on most local queues, and a named-column
-      // SELECT would otherwise be one absent property away from failing whole.
-      wmi_impl::query q("select * from Win32_Printer", "root\\CIMV2", "", "");
+      // All named columns are fixed core-schema Win32_Printer properties, so a
+      // projection is safe; the per-column reads below still tolerate NULL
+      // values (Location, ShareName and ServerName are NULL on most local
+      // queues). Naming the columns matters here: SELECT * would materialize
+      // ~85 properties per printer, including the array-valued capability
+      // lists, for the 12 scalars this check reads.
+      wmi_impl::query q(
+          "select Name, PrinterStatus, DetectedErrorState, WorkOffline, DriverName, PortName, Location, ShareName, ServerName, Default, Shared, Network"
+          " from Win32_Printer",
+          "root\\CIMV2", "", "");
       wmi_impl::row_enumerator rows = q.execute();
       while (rows.has_next()) {
         const wmi_impl::row r = rows.get_next();
