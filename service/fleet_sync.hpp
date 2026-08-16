@@ -28,6 +28,11 @@ struct fleet_config {
   // accepts the connection and then stops responding would otherwise block the
   // sync thread for good - the host would stay enrolled but stop being managed.
   unsigned int timeout_seconds = 60;
+  // Answers "does this host carry local configuration that outranks what we
+  // send it?" for the state report. A callback rather than a captured bool
+  // because the sync outlives configuration reloads - including the ones it
+  // triggers itself - and the answer can change under it.
+  std::function<bool()> local_config_probe;
 };
 
 // The post-enrollment fleet sync loop (see the fleet agent integration

@@ -109,6 +109,18 @@ class settings_interface {
   /// @return a list of sections
   virtual string_list get_sections(std::string path) = 0;
   //////////////////////////////////////////////////////////////////////////
+  /// Get the (sub) sections that come from THIS store only, ignoring any
+  /// included files.
+  ///
+  /// get_sections merges the includes in, which is what a reader wants but
+  /// makes it impossible to ask "has anyone configured this host locally?" -
+  /// a fleet-managed host has a fleet.ini include full of sections that are
+  /// not local configuration at all.
+  ///
+  /// @param path The path to get sections from (if empty root sections will be returned)
+  /// @return a list of sections defined in this store
+  virtual string_list get_local_sections(std::string path) = 0;
+  //////////////////////////////////////////////////////////////////////////
   /// Get all keys for a path.
   ///
   /// @param path The path to get keys under

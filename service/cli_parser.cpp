@@ -871,11 +871,13 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     // active settings store. The token is stored unexpanded so the config
     // stays relocatable; a placeholder fleet.ini avoids an include error
     // before the first sync.
+    // The same token the core defaults its managed path to, so the include we
+    // write and the directory the sync writes into cannot drift apart - and so
+    // relocating ${fleet-folder} moves both at once. Identical on Windows and
+    // unix; only the token's default differs. Declared out here so the failure
+    // path below can tell the operator what to add by hand.
+    const std::string fleet_ini_token = "${" FLEET_FOLDER_KEY "}/fleet.ini";
     try {
-      // Same token the core defaults its managed path to (FLEET_FOLDER), so the
-      // include we write and the directory the sync writes into cannot drift
-      // apart.
-      const std::string fleet_ini_token = std::string(FLEET_FOLDER) + "/fleet.ini";
       const std::string fleet_ini = core_->get_path()->expand_path(fleet_ini_token);
       const boost::filesystem::path fleet_dir = boost::filesystem::path(fleet_ini).parent_path();
       if (!fleet_dir.empty()) boost::filesystem::create_directories(fleet_dir, fs_error);
@@ -893,12 +895,29 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
                     << fleet_dir.string() << std::endl;
         }
       }
+      // Ask before adding the include, so the answer describes the host as the
+      // operator left it rather than as enrollment just changed it.
+      const bool local_config = settings_manager::has_local_configuration();
       settings_manager::get_settings()->set_string("/includes", "fleet", fleet_ini_token);
       settings_manager::get_settings()->save(false);
       std::cout << "  Fleet configuration sync starts on the next service start." << std::endl;
+      if (local_config) {
+        // A lookup reads the local store first and only falls back to the
+        // include, so every key already configured here keeps winning after
+        // enrollment. That is a legitimate way to run - pin something locally
+        // and manage the rest centrally - but it is a surprise when a fleet
+        // setting appears to have no effect, so say it once, at the point where
+        // the two sources start competing.
+        std::cout << std::endl;
+        std::cout << "NOTE: this host already has local configuration, and local settings take precedence" << std::endl;
+        std::cout << "      over the fleet-managed ones. Any key set in the configuration below will keep" << std::endl;
+        std::cout << "      its local value even if the fleet server sends a different one:" << std::endl;
+        std::cout << "        " << settings_manager::get_settings()->get_context() << std::endl;
+        std::cout << "      The fleet server is told that local overrides exist, but never what they are." << std::endl;
+      }
     } catch (const std::exception &e) {
       std::cerr << "Enrolled, but failed to add the fleet.ini include to the configuration: " << utf8::utf8_from_native(e.what()) << std::endl;
-      std::cerr << "Add it manually: [/includes] fleet = " << FLEET_FOLDER << "/fleet.ini" << std::endl;
+      std::cerr << "Add it manually: [/includes] fleet = " << fleet_ini_token << std::endl;
     }
     return 0;
   } catch (const onboarding::onboarding_error &e) {

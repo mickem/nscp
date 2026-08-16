@@ -98,6 +98,12 @@ std::string nsclient::core::path_manager::get_path_for_key(const std::string &ke
       {"ca-path", CA_PATH},
       {CACHE_FOLDER_KEY, DEFAULT_CACHE_PATH},
       {CRASH_ARCHIVE_FOLDER_KEY, "${shared-path}/crash-dumps"},
+      // Everything the fleet sync owns lives here: the rendered fleet.ini that
+      // nsclient.ini includes, the staged scripts and the bundle cache. The
+      // default is per-platform (CONFIG_FLEET_FOLDER) because it has to be
+      // writable by the account the service runs as, which on unix rules out
+      // the package directory ${shared-path} points at.
+      {FLEET_FOLDER_KEY, FLEET_FOLDER},
 #ifndef WIN32
       {"shared-path", UNIX_SHARED_PATH_FOLDER},
       {"data-path", UNIX_DATA_PATH_FOLDER},

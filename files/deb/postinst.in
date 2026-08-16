@@ -53,9 +53,12 @@ if [ "$1" = "configure" ]; then
         rmdir "$old_fleet" 2>/dev/null || true
     fi
 
-    # `nscp enroll` wrote this include naming the old location, unexpanded.
+    # The include enrollment wrote names the old location, unexpanded. Normalise
+    # both historical spellings onto the ${fleet-folder} token, which resolves to
+    # the right place on either platform and follows a relocated folder.
     if [ -f "@NSCP_PKGSYSCONFDIR@/nsclient.ini" ]; then
-        sed -i 's|${shared-path}/fleet/fleet.ini|${data-path}/fleet/fleet.ini|g' \
+        sed -i -e 's|${shared-path}/fleet/fleet.ini|${fleet-folder}/fleet.ini|g' \
+               -e 's|${data-path}/fleet/fleet.ini|${fleet-folder}/fleet.ini|g' \
             "@NSCP_PKGSYSCONFDIR@/nsclient.ini"
     fi
 

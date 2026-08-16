@@ -366,7 +366,10 @@ void fleet_sync::report_state(const boost::optional<std::string> &applied_hash, 
     // Capture the revision BEFORE reading the tags: if a module updates a tag
     // while this report is in flight, the next loop iteration re-reports.
     const unsigned long long tag_revision = tags_ ? tags_->get_revision() : 0;
-    const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags());
+    // No probe configured (a test harness, say) reads as "nothing local", which
+    // is the same answer an un-configured host gives.
+    const bool local_config = config_.local_config_probe ? config_.local_config_probe() : false;
+    const std::string body = onboarding::build_state_report(applied_hash, installed_, errors, collect_tags(), local_config);
     const http::response response = do_call("POST", state_report_path, body);
     note_transport_success();
     if (!response.is_2xx()) {

@@ -319,11 +319,17 @@ onboarding::transport_error_info onboarding::classify_transport_error(const std:
 }
 
 std::string onboarding::build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
-                                           const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags) {
+                                           const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags,
+                                           const bool local_config_present) {
   json::object root;
   if (applied_state_hash) {
     root["applied_state_hash"] = *applied_state_hash;
   }
+  // Whether this host has configuration of its own, which takes precedence over
+  // anything the fleet server sends. Deliberately only the fact: the server can
+  // flag the host as partially self-managed without the agent uploading any of
+  // the local configuration, which routinely holds passwords.
+  root["local_config_present"] = local_config_present;
   json::array bundles;
   for (const installed_bundle &bundle : bundles_installed) {
     json::object entry;

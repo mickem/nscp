@@ -319,5 +319,27 @@ bool has_boot_conf() { return internal_get()->has_boot_conf(); }
 void write_boot_ini_key(std::string section, std::string key, std::string value) { return internal_get()->write_boot_ini_key(section, key, value); }
 bool context_exists(const std::string &key) { return internal_get()->context_exists(key); }
 bool create_context(std::string key) { return internal_get()->create_context(key); }
+
+bool has_local_configuration() {
+  try {
+    const settings::instance_ptr settings = get_settings_no_wait();
+    if (!settings) return false;
+    // Root sections of THIS store only - get_sections would fold in the
+    // fleet-managed include and answer "yes" for every enrolled host.
+    for (const std::string &section : settings->get_local_sections("")) {
+      // The include itself is how the fleet configuration arrives, not local
+      // configuration that competes with it.
+      if (section != "/includes") return true;
+    }
+    return false;
+  } catch (const std::exception &) {
+    // Never let a probe of the configuration break the caller: enrollment and
+    // the state report both treat "unknown" as "nothing local".
+    return false;
+  } catch (...) {
+    return false;
+  }
+}
+
 void ensure_exists() {}
 }  // namespace settings_manager

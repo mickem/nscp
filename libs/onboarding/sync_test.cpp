@@ -1038,7 +1038,7 @@ TEST(SyncReport, BuildStateReport) {
   bundles.push_back({"b1", "1.0"});
   std::map<std::string, std::string> tags;
   tags["os"] = "windows";
-  const json::object root = json::parse(onboarding::build_state_report(std::string("h1"), bundles, {"oops"}, tags)).as_object();
+  const json::object root = json::parse(onboarding::build_state_report(std::string("h1"), bundles, {"oops"}, tags, false)).as_object();
   EXPECT_EQ(root.at("applied_state_hash").as_string(), "h1");
   EXPECT_EQ(root.at("bundles_installed").as_array().at(0).as_object().at("id").as_string(), "b1");
   EXPECT_EQ(root.at("errors").as_array().at(0).as_string(), "oops");
@@ -1046,8 +1046,37 @@ TEST(SyncReport, BuildStateReport) {
 }
 
 TEST(SyncReport, OmitsHashAfterFailedApply) {
-  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {})).as_object();
+  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
   EXPECT_EQ(root.if_contains("applied_state_hash"), nullptr);
+}
+
+TEST(SyncReport, ReportsWhetherLocalConfigurationOutranksTheFleet) {
+  // Always present, both ways round: the server distinguishes "no local
+  // overrides" from an older agent that says nothing at all.
+  const json::object without = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
+  ASSERT_NE(without.if_contains("local_config_present"), nullptr);
+  EXPECT_FALSE(without.at("local_config_present").as_bool());
+
+  const json::object with = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, true)).as_object();
+  EXPECT_TRUE(with.at("local_config_present").as_bool());
+}
+
+TEST(SyncReport, LocalConfigFlagCarriesNoConfigurationContent) {
+  // The point of the flag is that the server learns a host is partly
+  // self-managed without the agent uploading configuration that routinely
+  // holds passwords. Guard the payload, not just the boolean.
+  std::map<std::string, std::string> tags;
+  tags["os"] = "linux";
+  const std::string payload = onboarding::build_state_report(std::string("h1"), {}, {}, tags, true);
+  const json::object root = json::parse(payload).as_object();
+  // Exactly the members the report is allowed to have.
+  for (const auto &member : root) {
+    const std::string name(member.key());
+    EXPECT_TRUE(name == "applied_state_hash" || name == "bundles_installed" || name == "errors" || name == "reported_tags" ||
+                name == "local_config_present")
+        << "unexpected member in the state report: " << name;
+  }
+  EXPECT_TRUE(root.at("local_config_present").as_bool());
 }
 
 // build_state_report takes strings from outside (bundle names and versions
@@ -1065,7 +1094,7 @@ TEST(SyncReportHostile, ErrorTextAndTagsCannotBreakTheJson) {
   errors.push_back(std::string("with a nul\0inside", 17));
   errors.push_back("unicode é日本 \xC3\xA9");
 
-  const std::string payload = onboarding::build_state_report(std::string("h\"1"), bundles, errors, tags);
+  const std::string payload = onboarding::build_state_report(std::string("h\"1"), bundles, errors, tags, false);
   json::object root;
   ASSERT_NO_THROW(root = json::parse(payload).as_object()) << payload;
   EXPECT_EQ(root.at("applied_state_hash").as_string(), "h\"1");
@@ -1077,7 +1106,7 @@ TEST(SyncReportHostile, ErrorTextAndTagsCannotBreakTheJson) {
 }
 
 TEST(SyncReportHostile, EmptyReportIsStillWellFormed) {
-  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {})).as_object();
+  const json::object root = json::parse(onboarding::build_state_report(boost::none, {}, {}, {}, false)).as_object();
   EXPECT_TRUE(root.at("bundles_installed").as_array().empty());
   EXPECT_TRUE(root.at("errors").as_array().empty());
   EXPECT_TRUE(root.at("reported_tags").as_object().empty()) << "the server relies on the keys existing";

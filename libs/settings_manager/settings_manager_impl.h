@@ -110,4 +110,13 @@ bool has_boot_conf();
 void write_boot_ini_key(std::string section, std::string key, std::string value);
 bool context_exists(const std::string &key);
 bool create_context(std::string key);
+// True when this host carries configuration of its own, i.e. anything in the
+// active settings store beyond the [/includes] entry that pulls in the
+// fleet-managed file.
+//
+// It matters because a local value wins: a lookup reads this store first and
+// only falls back to an included file when the key is absent, so anything set
+// here silently shadows what the fleet server sends. Enrollment warns about it
+// and the agent reports *that* it is the case (never what is configured).
+bool has_local_configuration();
 }  // namespace settings_manager

@@ -301,6 +301,18 @@ class settings_interface_impl : public settings_interface {
   ///
   /// @param path The path to get sections from (if empty root sections will be returned)
   /// @return a list of sections
+  // Everything this store defines itself: the cache (values set but not yet
+  // saved) plus what is on disk, with the includes deliberately left out.
+  virtual string_list get_local_sections(std::string path) {
+    MUTEX_GUARD();
+    string_list ret;
+    get_cached_sections_unsafe(path, ret);
+    get_real_sections(path, ret);
+    ret.sort();
+    ret.unique();
+    return ret;
+  }
+
   virtual string_list get_sections(std::string path) {
     MUTEX_GUARD();
     string_list ret;

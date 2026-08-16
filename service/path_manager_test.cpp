@@ -63,11 +63,27 @@ TEST_F(PathManagerTest, ExpandPathWithVariables) {
 
 TEST_F(PathManagerTest, GetFolderKeys) {
   const char *keys[] = {"certificate-path", "module-path", "web-path",    "scripts",  "log-path",  "cache-folder", "crash-folder",
-                        "base-path",        "temp",        "shared-path", "exe-path", "data-path", "ca-path"};
+                        "base-path",        "temp",        "shared-path", "exe-path", "data-path", "ca-path",      "fleet-folder"};
 
   for (const auto &key : keys) {
     EXPECT_FALSE(pm->getFolder(key).empty()) << "Failed for key: " << key;
   }
+}
+
+TEST_F(PathManagerTest, FleetFolderExpandsAndIsWritableByTheService) {
+  // The fleet sync rewrites everything under this folder as the account the
+  // service runs as, so it must resolve fully...
+  const std::string expanded = pm->expand_path("${" FLEET_FOLDER_KEY "}");
+  EXPECT_FALSE(expanded.empty());
+  EXPECT_EQ(expanded.find("${"), std::string::npos);
+#ifndef WIN32
+  // ...and on unix it must not land in the package directory, which is
+  // root-owned while the packaged service runs unprivileged. Pinning this stops
+  // the default drifting back onto ${shared-path}, which is the bug this whole
+  // layout change exists to fix (docs/design/linux-writable-state.md).
+  EXPECT_NE(expanded.find(pm->expand_path("${data-path}")), std::string::npos) << "fleet folder escaped the state directory: " << expanded;
+  EXPECT_EQ(expanded.find(pm->expand_path("${shared-path}")), std::string::npos) << "fleet folder is inside the package directory: " << expanded;
+#endif
 }
 
 TEST_F(PathManagerTest, CaPathExpandsToBundleFile) {

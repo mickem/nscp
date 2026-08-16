@@ -824,8 +824,11 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     // so all the configuration needs is an include of the fleet-managed file.
     // Written unexpanded so the configuration stays relocatable, and only when
     // enrollment was actually requested.
+    // ${fleet-folder} rather than the folder it happens to expand to: the same
+    // include `nscp enroll` writes on either platform, and the service resolves
+    // the token (see FLEET_FOLDER_KEY in path_manager).
     if (!boost::algorithm::trim_copy(h.getMsiPropery(FLEET_SERVER)).empty()) {
-      write_key(h, data, 1, L"/includes", L"fleet", L"${shared-path}/fleet/fleet.ini");
+      write_key(h, data, 1, L"/includes", L"fleet", utf8::cvt<std::wstring>(std::string("${" FLEET_FOLDER_KEY "}/fleet.ini")));
     }
 
     if (write_property_if_set(h, data, OP5_SERVER, L"/settings/op5", L"server")) {
@@ -1055,13 +1058,18 @@ std::string as_install_folder(const std::wstring &target) {
   return folder;
 }
 
-// The sync worker renders the fleet-managed configuration into
-// ${shared-path}/fleet/fleet.ini on its first run. Create a placeholder so the
-// include ScheduleWriteConfig adds is not a dangling reference until then -
-// also when the host was already enrolled and this install had nothing else to
-// do, since the include is (re)written either way.
+// The sync worker renders the fleet-managed configuration into the fleet folder
+// on its first run. Create a placeholder so the include ScheduleWriteConfig adds
+// is not a dangling reference until then - also when the host was already
+// enrolled and this install had nothing else to do, since the include is
+// (re)written either way.
+//
+// This expands FLEET_FOLDER, the ${fleet-folder} default, rather than resolving
+// the token: a custom action runs without the core's path resolver. Both agree
+// unless someone has relocated the token, which an MSI install has no way to
+// know about anyway.
 void ensure_fleet_ini(const std::string &install_folder) {
-  const std::string fleet_ini = expand_install_path("${shared-path}/fleet/fleet.ini", install_folder);
+  const std::string fleet_ini = expand_install_path(std::string(FLEET_FOLDER) + "/fleet.ini", install_folder);
   boost::system::error_code ec;
   const boost::filesystem::path fleet_dir = boost::filesystem::path(fleet_ini).parent_path();
   if (!fleet_dir.empty()) boost::filesystem::create_directories(fleet_dir, ec);
@@ -1170,7 +1178,7 @@ extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
       if (reason.empty()) reason = L"the installer is not allowed to change the configuration";
       h.errorMessage(
           L"Refusing to enroll with a fleet server: the configuration cannot be changed (" + reason +
-          L"), so the include of the fleet-managed configuration ([/includes] fleet=${shared-path}/fleet/fleet.ini) cannot be added and this host "
+          L"), so the include of the fleet-managed configuration ([/includes] fleet=${fleet-folder}/fleet.ini) cannot be added and this host "
           L"would never read the configuration the fleet server sends it. Let the installer write the configuration (do not pass "
           L"ALLOW_CONFIGURATION=0, or pass CONF_CAN_CHANGE=1), or install without FLEET_SERVER/FLEET_TOKEN and enroll afterwards with `nscp enroll` "
           L"once the include is in place.");

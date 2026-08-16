@@ -401,7 +401,8 @@ void NSClientT::boot_fleet_sync() {
                                                    "Fleet sync only runs when this file exists.",
                                                    DEFAULT_FLEET_STATE_LOCATION));
     config.managed_path = path_->expand_path(
-        reg_key("managed path", "Managed path", "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept.", FLEET_FOLDER));
+        reg_key("managed path", "Managed path", "Directory where the synced configuration (fleet.ini), scripts and the bundle cache are kept.",
+                "${" FLEET_FOLDER_KEY "}"));
     config.hostname = socket_helpers::expand_hostname(
         reg_key("hostname", "Hostname", "Hostname reported as a tag to the fleet server. Set to auto (default) to use this machine's hostname.", "auto"));
     config.tls_version = reg_key("tls version", "TLS version", "The TLS version used when connecting to the fleet server.", "tlsv1.2+");
@@ -415,6 +416,7 @@ void NSClientT::boot_fleet_sync() {
       LOG_ERROR_CORE_STD("Invalid fleet 'timeout' value '" + timeout + "', falling back to 60s: " + utf8::utf8_from_native(e.what()));
     }
     config.nscp_version = CURRENT_SERVICE_VERSION;
+    config.local_config_probe = [] { return settings_manager::has_local_configuration(); };
 
     std::string manifest_detail;
     const fleet_sync::manifest_status manifest = fleet_sync::check_manifest(config.state_file, manifest_detail);
