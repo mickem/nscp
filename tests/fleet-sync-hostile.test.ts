@@ -255,6 +255,7 @@ describe("fleet sync against a hostile server", () => {
   }
 
   const stateReports = () => requests.filter((r) => r.url.startsWith("/agent/v1/state-report"));
+  const polls = () => requests.filter((r) => r.url.startsWith("/agent/v1/desired-state")).length;
   const fleetIni = () => fs.readFileSync(path.join(workDir, "fleet", "fleet.ini"), "utf8");
   const appliedState = () => JSON.parse(fs.readFileSync(path.join(workDir, "fleet", "applied-state.json"), "utf8"));
 
@@ -389,16 +390,24 @@ describe("fleet sync against a hostile server", () => {
       const pollsBefore = requests.filter((r) => r.url.startsWith("/agent/v1/desired-state")).length;
       await waitFor("another poll after the failed download", () => requests.filter((r) => r.url.startsWith("/agent/v1/desired-state")).length > pollsBefore);
     }
-    // Put the phase back BEFORE letting downloads succeed again. The other way
-    // round leaves a window of one poll interval in which the agent legitimately
-    // fetches and applies the (perfectly valid, correctly signed) `cached`
-    // bundle - and the next test, which needs the agent to still be on h-good so
-    // it will go looking in the cache, then waits forever for a rejection that
-    // cannot come: the agent already has h-cached, so the server answers 304.
-    // While bundleStatus is still failing the agent is on h-good and the server
-    // answers 304 for it, so restoring the phase first costs nothing.
+    // Put the phase back BEFORE letting downloads succeed again, and then wait
+    // until the agent has actually been told. The wait is the load-bearing
+    // part. After a poll answered h-cached the agent goes straight on to fetch
+    // b-cached, and `phase` only changes what the *next* poll is told - it does
+    // nothing about a fetch the agent is already committed to. Flipping
+    // bundleStatus while such a fetch is pending hands the agent a perfectly
+    // valid, correctly signed b-cached, which it then legitimately applies.
+    // That strands the next test: it needs the agent on h-good so it goes
+    // looking in the poisoned cache, and instead it waits out its timeout for a
+    // rejection that cannot come, because the agent is already on h-cached and
+    // the server answers 304 for it. A poll answered after the phase went back
+    // to "good" proves that cycle's fetch is over, and while downloads are
+    // still failing any such fetch fails harmlessly.
     phase = "good";
+    const pollsBeforeRestore = polls();
+    await waitFor("a poll answered after the phase went back to good", () => polls() > pollsBeforeRestore);
     bundleStatus = 200;
+    expect(appliedState().state_hash).toBe("h-good");
   });
 
   it("re-verifies a bundle that came from the on-disk cache", async () => {
@@ -414,10 +423,21 @@ describe("fleet sync against a hostile server", () => {
     const poisoned = path.join(cacheDir, cacheFileName("b-cached", cachedZip));
     fs.writeFileSync(poisoned, makeZip([{ name: "config.json", data: JSON.stringify({ modules: { EvilModule: "enabled" } }) }]));
 
-    const errors = await expectRejected("cached", /verification|checksum/i);
-    expect(errors.join(" ")).toMatch(/b-cached/);
-    expect(fleetIni()).not.toContain("EvilModule");
-    expect(appliedState().state_hash).toBe("h-good");
+    // Refuse downloads for the duration, so the bundle can only come from the
+    // poisoned cache. Otherwise this passes only for as long as the agent
+    // happens to prefer the cache, and a regression that downloaded instead
+    // would surface as a timeout rather than as a failure that says why.
+    bundleStatus = 503;
+    try {
+      const errors = await expectRejected("cached", /verification|checksum/i);
+      expect(errors.join(" ")).toMatch(/b-cached/);
+      expect(fleetIni()).not.toContain("EvilModule");
+      expect(appliedState().state_hash).toBe("h-good");
+    } finally {
+      // The poisoned entry stays: the agent keeps reading it and keeps
+      // refusing to apply h-cached, which is what the tests after this expect.
+      bundleStatus = 200;
+    }
   });
 
   it("rejects a desired state whose fields are hostile or malformed", async () => {
