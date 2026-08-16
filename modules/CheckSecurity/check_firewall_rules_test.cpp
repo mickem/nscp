@@ -182,3 +182,14 @@ TEST(check_firewall_rules, empty_scope_fields_read_as_any) {
   EXPECT_EQ(1, rule->get_any_remote());
   EXPECT_EQ(1, rule->get_any_any());
 }
+
+TEST(check_firewall_rules, a_duplicated_expect_name_yields_one_hole_that_tells_the_truth) {
+  // expect= is repeatable; the same name twice must not let the second pass
+  // find the hole the first appended and report "exists but is disabled" for a
+  // rule that does not exist at all.
+  std::vector<filter_obj_ptr> rules = {make_rule("Something else", "in", "allow", "80", "*")};
+  firewall_rules_filter::apply_expectations(rules, {"Ghost rule", "Ghost rule"});
+
+  ASSERT_EQ(2u, rules.size());  // exactly one hole
+  EXPECT_EQ("not in effect: no rule with this name", rules.back()->get_state());
+}

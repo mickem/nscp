@@ -70,10 +70,20 @@ void classify(filter_obj &obj) {
 }
 
 void apply_expectations(std::vector<filter_obj_ptr> &rules, const std::vector<std::string> &expected) {
+  // Only real rules answer for an expectation: the loop below appends hole rows
+  // to the same vector, and a duplicated expect= name must not find the hole
+  // its first copy created and conclude "the rule exists but is disabled".
+  const std::size_t real_rules = rules.size();
+  std::vector<std::string> seen_names;
   for (const std::string &name : expected) {
+    const auto already = std::find_if(seen_names.begin(), seen_names.end(), [&name](const std::string &s) { return boost::iequals(s, name); });
+    if (already != seen_names.end()) continue;
+    seen_names.push_back(name);
+
     bool satisfied = false;
     bool seen_disabled = false;
-    for (const filter_obj_ptr &rule : rules) {
+    for (std::size_t i = 0; i < real_rules; ++i) {
+      const filter_obj_ptr &rule = rules[i];
       if (!boost::iequals(rule->name, name)) continue;
       rule->expected = 1;
       if (rule->enabled == 1) {
@@ -177,6 +187,17 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   // clang-format on
 
   if (!filter_helper.parse_options()) return;
+
+  // An expectation is an assertion, not a filter candidate: a user filter such
+  // as `enabled = 1` must not silently swallow the hole row that stands in for
+  // a missing rule. Let hole rows through every filter expression.
+  if (!expected.empty()) {
+    for (std::string &expression : filter_helper.data.filter_string) {
+      if (expression.empty() || expression == "none") continue;
+      expression = "(" + expression + ") or present = 0";
+    }
+  }
+
   if (!filter_helper.build_filter(filter)) return;
 
   std::vector<firewall_rules_filter::filter_obj_ptr> rules;

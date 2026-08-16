@@ -266,6 +266,15 @@ onWindows("CheckSecurity (Windows posture)", () => {
     expect(out).toMatch(/^OK/m);
   });
 
+  it("check_firewall_rules keeps an expect= assertion visible through a filter", async () => {
+    // A filter must not swallow the hole row that stands in for a missing rule:
+    // filter="enabled = 1" would otherwise drop it (holes are enabled=0) and
+    // report OK for a rule the check was told to guarantee.
+    const out = await query("check_firewall_rules", ["filter=enabled = 1", "expect=NSCP no such rule zzz"]);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/not in effect: no rule with this name/);
+  });
+
   it("check_firewall_rules accepts the scope keywords in filters", async () => {
     // any_any is offered as a keyword rather than a default threshold; it must
     // parse, and on a normal client it does match (app rules are wide open).
