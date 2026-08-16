@@ -20,11 +20,11 @@
 #include "fleet_sync.hpp"
 #endif
 #ifdef WIN32
-#include "windows_acl.hpp"
 #include "windows_ca_store.hpp"
 #endif
 
 #ifdef WIN32
+#include <win/acl.hpp>
 #include <win/com_helpers.hpp>
 #include <win/service_control.hpp>
 com_helper::initialize_com com_helper_;

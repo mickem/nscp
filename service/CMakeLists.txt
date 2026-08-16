@@ -54,6 +54,7 @@ set(service_SRCS
     ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
     ${NSCP_INCLUDEDIR}/pid_file.cpp
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
+    ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
     ../resources/nsclient.ico
 )
 
@@ -64,8 +65,8 @@ if(WIN32)
         ${NSCP_INCLUDEDIR}/bytes/base64.c
         windows_ca_store.cpp
         windows_ca_store.hpp
-        windows_acl.cpp
-        windows_acl.hpp
+        ${NSCP_INCLUDEDIR}/win/acl.cpp
+        ${NSCP_INCLUDEDIR}/win/acl.hpp
     )
     set(EXTRA_LIBS
         ${EXTRA_LIBS}
@@ -224,6 +225,7 @@ NSCP_CREATE_TEST(
         cron_test.cpp
         path_manager.cpp
         path_manager_test.cpp
+        ${NSCP_INCLUDEDIR}/nscp/layout_migration.cpp
         permissions_test.cpp
         permissions.hpp
         tag_repository_test.cpp
