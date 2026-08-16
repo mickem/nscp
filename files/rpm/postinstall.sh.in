@@ -1,26 +1,77 @@
 # $1 refers to the number of installed instances (1=install, 2=upgrade)
 
+# Create nsclient user and group if they don't exist
+if ! grep -q nsclient /etc/passwd; then
+    useradd --system --no-create-home --shell /sbin/nologin nsclient
+fi
+
+# Create log + state folders if they don't exist
+mkdir -p @NSCP_LOGDIR@
+chown nsclient:nsclient @NSCP_LOGDIR@
+mkdir -p @NSCP_PKGSTATEDIR@
+chown nsclient:nsclient @NSCP_PKGSTATEDIR@
+
+# Writable state that used to live in the package directory.
+#
+# Until 0.16.x the fleet identity and the synced configuration were written
+# under @NSCP_PKGLIBDIR@, which is root-owned: `nscp enroll` runs with sudo, so
+# the service - running as nsclient - could not read its own identity. It
+# started the fleet sync, the sync thread died on the first read, and the host
+# enrolled successfully and then never appeared in the fleet. Both now live
+# under the state directory. See docs/design/linux-writable-state.md.
+#
+# This runs on upgrade as well as on install: an upgrade is precisely the case
+# where there is something to move.
+old_security="@NSCP_PKGLIBDIR@/security"
+old_fleet="@NSCP_PKGLIBDIR@/fleet"
+new_security="@NSCP_PKGSTATEDIR@/security"
+new_fleet="@NSCP_PKGSTATEDIR@/fleet"
+
+mkdir -p "$new_security" "$new_fleet"
+
+# Move, never copy-then-delete: this file is the only copy of the agent's
+# private key. An existing file at the destination always wins, so a partial
+# previous run cannot clobber a working identity.
+for name in agent-state.json certificate.pem; do
+    if [ -f "$old_security/$name" ] && [ ! -e "$new_security/$name" ]; then
+        mv "$old_security/$name" "$new_security/$name"
+    fi
+done
+
+if [ -d "$old_fleet" ]; then
+    for entry in "$old_fleet"/* "$old_fleet"/.[!.]*; do
+        [ -e "$entry" ] || continue
+        target="$new_fleet/`basename "$entry"`"
+        [ -e "$target" ] || mv "$entry" "$target"
+    done
+    rmdir "$old_fleet" 2>/dev/null || true
+fi
+
+# `nscp enroll` wrote this include naming the old location, unexpanded.
+if [ -f "@NSCP_PKGSYSCONFDIR@/nsclient.ini" ]; then
+    sed -i 's|${shared-path}/fleet/fleet.ini|${data-path}/fleet/fleet.ini|g' \
+        "@NSCP_PKGSYSCONFDIR@/nsclient.ini"
+fi
+
+chown -R nsclient:nsclient "$new_security" "$new_fleet"
+# Files carry the SELinux context of where they came from, so anything moved out
+# of the package directory keeps a type the service may not be allowed to read.
+# This is the case that matters most on RHEL derivatives, where SELinux is on by
+# default.
+if command -v restorecon >/dev/null 2>&1; then
+    restorecon -R "$new_security" "$new_fleet" >/dev/null 2>&1 || true
+fi
+
 if [ "$1" -eq 1 ]; then
     # Initial installation
-
-    # Create nsclient user and group if they don't exist
-    if ! grep -q nsclient /etc/passwd; then
-        useradd --system --no-create-home --shell /sbin/nologin nsclient
-    fi
-
-    # Create log + state folders if they don't exist
-    mkdir -p @NSCP_LOGDIR@
-    chown nsclient:nsclient @NSCP_LOGDIR@
-    mkdir -p @NSCP_PKGSTATEDIR@
-    chown nsclient:nsclient @NSCP_PKGSTATEDIR@
-
     if command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload
         systemctl enable nsclient
         systemctl start nsclient
     fi
 elif [ "$1" -eq 2 ]; then
-    # Upgrade
+    # Upgrade: the running process still has the previous binary and paths, so
+    # neither the new code nor the migration above takes effect until restart.
     if command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload
         systemctl try-restart nsclient

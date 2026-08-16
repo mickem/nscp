@@ -16,6 +16,53 @@ if [ "$1" = "configure" ]; then
     mkdir -p @NSCP_PKGSTATEDIR@
     chown nsclient:nsclient @NSCP_PKGSTATEDIR@
 
+    # Writable state that used to live in the package directory.
+    #
+    # Until 0.16.x the fleet identity and the synced configuration were written
+    # under @NSCP_PKGLIBDIR@, which is root-owned: `nscp enroll` runs with sudo,
+    # so the service - running as nsclient - could not read its own identity. It
+    # started the fleet sync, the sync thread died on the first read, and the
+    # host enrolled successfully and then never appeared in the fleet. Both now
+    # live under the state directory. See docs/design/linux-writable-state.md.
+    old_security="@NSCP_PKGLIBDIR@/security"
+    old_fleet="@NSCP_PKGLIBDIR@/fleet"
+    new_security="@NSCP_PKGSTATEDIR@/security"
+    new_fleet="@NSCP_PKGSTATEDIR@/fleet"
+
+    mkdir -p "$new_security" "$new_fleet"
+
+    # Move, never copy-then-delete: this file is the only copy of the agent's
+    # private key. An existing file at the destination always wins, so a partial
+    # previous run cannot clobber a working identity.
+    for name in agent-state.json certificate.pem; do
+        if [ -f "$old_security/$name" ] && [ ! -e "$new_security/$name" ]; then
+            mv "$old_security/$name" "$new_security/$name"
+        fi
+    done
+
+    if [ -d "$old_fleet" ]; then
+        for entry in "$old_fleet"/* "$old_fleet"/.[!.]*; do
+            [ -e "$entry" ] || continue
+            target="$new_fleet/`basename "$entry"`"
+            [ -e "$target" ] || mv "$entry" "$target"
+        done
+        rmdir "$old_fleet" 2>/dev/null || true
+    fi
+
+    # `nscp enroll` wrote this include naming the old location, unexpanded.
+    if [ -f "@NSCP_PKGSYSCONFDIR@/nsclient.ini" ]; then
+        sed -i 's|${shared-path}/fleet/fleet.ini|${data-path}/fleet/fleet.ini|g' \
+            "@NSCP_PKGSYSCONFDIR@/nsclient.ini"
+    fi
+
+    chown -R nsclient:nsclient "$new_security" "$new_fleet"
+    # Files carry the SELinux context of where they came from, so anything moved
+    # out of the package directory keeps a type the service may not be allowed
+    # to read. Harmless where SELinux is not in use.
+    if command -v restorecon >/dev/null 2>&1; then
+        restorecon -R "$new_security" "$new_fleet" >/dev/null 2>&1 || true
+    fi
+
     # Reload systemd to recognize the new service
     if command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload
@@ -23,6 +70,12 @@ if [ "$1" = "configure" ]; then
         # Enable and start the service (optional, policy dependent)
         systemctl enable nsclient
         systemctl start nsclient
+        # On an upgrade the service is already running the previous binary from
+        # its old paths, so `start` above is a no-op and neither the new code nor
+        # the migration above takes effect until it is restarted.
+        if [ -n "$2" ]; then
+            systemctl try-restart nsclient
+        fi
     fi
 
     # Web UI is shipped as a separate release artifact (Debian/Fedora
