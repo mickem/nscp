@@ -36,6 +36,7 @@
 #include "check_os_updates.hpp"
 #include "check_patch_age.hpp"
 #include "check_pending_reboot.hpp"
+#include "check_printjobs.hpp"
 #include "check_printqueue.hpp"
 #include "check_w32time.hpp"
 #include "check_process.hpp"
@@ -1179,6 +1180,14 @@ void CheckSystem::check_printqueue(const PB::Commands::QueryRequestMessage::Requ
     printqueue_check::check::check_printqueue(request, response);
   } catch (const std::exception &e) {
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to check print queues: " + std::string(e.what()));
+  }
+}
+
+void CheckSystem::check_printjobs(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
+  try {
+    printjobs_check::check_printjobs(request, response);
+  } catch (const std::exception &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to check print jobs: " + std::string(e.what()));
   }
 }
 

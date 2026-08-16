@@ -820,6 +820,48 @@ describe("CheckSystem commands", () => {
     expect(messageOf(q)).toMatch(/^matched [1-9]\d*$/);
   });
 
+  // --- check_printjobs (Windows) -----------------------------------------------
+
+  it("check_printjobs reports the queued jobs or the empty contract (Windows)", async () => {
+    if (!onWindows) return; // check_printjobs is Windows-only (CheckSystem).
+    // A runner usually has an empty spooler, which is OK with the documented
+    // message; when something is queued the row names it. Accept either, and
+    // always expect the count perf so the queue depth can be graphed.
+    const q = await executeQuery(key, "check_printjobs", { warning: "none", critical: "none" });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/No print jobs queued|by /);
+    expect(perfOf(q)["count"]).toBeDefined();
+  });
+
+  it("check_printjobs exposes the per-job detail keywords (Windows)", async () => {
+    if (!onWindows) return;
+    // With an empty queue the detail syntax renders nothing, so this asserts the
+    // keywords parse and, when a job is present, that each field is populated.
+    const q = await executeQuery(key, "check_printjobs", {
+      warning: "none",
+      critical: "none",
+      "detail-syntax": "id=${id} doc=[${document}] owner=[${owner}] status=${status} size=${size} pages=${pages}/${pages_printed} age=${age}",
+      "top-syntax": "${list}",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
+    if (/id=/.test(messageOf(q))) {
+      expect(messageOf(q)).toMatch(/id=\d+ doc=\[.*\] owner=\[.*\] status=\S+ size=\d+ pages=\d+\/\d+ age=-?\d+/);
+    }
+  });
+
+  it("check_printjobs accepts its status and size thresholds over REST (Windows)", async () => {
+    if (!onWindows) return;
+    // The status bits are valued booleans in expressions (the bool_switch trap)
+    // and none of these can trip on a healthy/empty spooler. `size` is a
+    // size-typed keyword, so the literal carries a unit.
+    const q = await executeQuery(key, "check_printjobs", {
+      warning: "size > 100G or pages > 999999 or age > 24h",
+      critical: "error = 1 and blocked = 1 and user_intervention = 1",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_w32time (Windows) -------------------------------------------------
 
   it("check_w32time reports the Windows Time state (Windows)", async () => {
