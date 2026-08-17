@@ -1328,10 +1328,19 @@ extern "C" UINT __stdcall ExecPrepareLayout(MSIHANDLE hInstall) {
       }
 
       // An upgrade from the legacy layout: move what the old installation left
-      // in the install folder. Idempotent, and a no-op on a fresh install
-      // because there is nothing there yet.
+      // in the install folder. A no-op on a fresh install because there is
+      // nothing there yet.
       if (shared_folder != install_folder) {
-        const nscp::paths::migration_report report = nscp::paths::apply_migration(install_folder, shared_folder);
+        // First switch vs. an upgrade of an install already on the modern
+        // layout. On the first switch the folder we just created and adopted
+        // must be empty - a file already in %ProgramData%\NSClient++ is planted
+        // or leftover, not ours, and must not be adopted (round-2 #3). On an
+        // already-modern upgrade the destination legitimately holds the state
+        // migrated last time, so keep the idempotent behaviour.
+        const nscp::paths::layout current = nscp::paths::layout_from_boot_ini_file(boot_ini.string());
+        const nscp::paths::destination_policy policy =
+            current == nscp::paths::layout::modern ? nscp::paths::destination_policy::adopt_existing : nscp::paths::destination_policy::require_pristine;
+        const nscp::paths::migration_report report = nscp::paths::apply_migration(install_folder, shared_folder, policy);
         for (const std::string &line : report.describe()) h.logMessage("layout: " + line);
         if (!report.ok()) {
           h.setError(L"ExecPrepareLayout", L"Failed to move the existing configuration to " + utf8::cvt<std::wstring>(shared_folder));

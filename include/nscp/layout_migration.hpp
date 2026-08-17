@@ -41,10 +41,29 @@ struct migration_step {
   bool essential = true;
 };
 
+// What to do about a destination that is not empty when the migration starts.
+enum class destination_policy {
+  // A file already at the target is the live copy; keep it. This is what makes
+  // a repeated or half-finished migration safe to re-run - the right choice
+  // when the target has already been adopted (an upgrade of an install that is
+  // already on the new layout).
+  adopt_existing,
+  // The target must be empty. Refuse the whole migration, before moving
+  // anything, if it already contains files. This is the *first* switch into a
+  // freshly created, locked-down folder: on Windows %ProgramData% lets any user
+  // pre-create the folder and drop files in it, so a file already there is
+  // either a previous partial migration or planted content - and adopting it as
+  // the service's configuration or identity would be a local privilege
+  // escalation. See finding round-2 #3.
+  require_pristine,
+};
+
 struct migration_report {
   std::vector<migration_step> steps;
   // True when every essential entry ended up where it belongs. `blocked` counts
-  // as success: an existing target is the live copy and must not be replaced.
+  // as success under adopt_existing: an existing target is the live copy and
+  // must not be replaced. Under require_pristine a populated destination is a
+  // `failed` step, so ok() is false.
   bool ok() const;
   // One line per step, for a CLI to print or a custom action to log.
   std::vector<std::string> describe() const;
@@ -52,19 +71,24 @@ struct migration_report {
 };
 
 // Work out what moving `from` -> `to` would do, without touching anything.
-migration_report plan_migration(const std::string &from, const std::string &to);
+migration_report plan_migration(const std::string &from, const std::string &to,
+                                destination_policy policy = destination_policy::adopt_existing);
 
-// Do it. Idempotent: an entry already at the target is left alone, so a second
-// run is a no-op and a half-finished run can be repeated safely. Files are
-// moved, never copied-then-deleted - agent-state.json is the only copy of the
-// fleet private key.
+// Do it. Under adopt_existing, idempotent: an entry already at the target is
+// left alone, so a second run is a no-op and a half-finished run can be repeated
+// safely. Files are moved, never copied-then-deleted - agent-state.json is the
+// only copy of the fleet private key.
 //
 // `to` must already exist. That is not laziness: on Windows the destination
 // has to be created *and* locked down before any secret is written into it, and
 // only the caller knows how to do that (see nsclient::windows_acl). Migrating
 // into a folder this function created would leave a window where the
 // configuration and the private key sit somewhere world-readable.
-migration_report apply_migration(const std::string &from, const std::string &to);
+//
+// Pass require_pristine on the first switch into a folder the caller just
+// created and adopted; see destination_policy.
+migration_report apply_migration(const std::string &from, const std::string &to,
+                                 destination_policy policy = destination_policy::adopt_existing);
 
 }  // namespace paths
 }  // namespace nscp

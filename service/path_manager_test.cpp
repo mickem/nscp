@@ -206,6 +206,53 @@ TEST_F(LayoutMigrationTest, NeverOverwritesWhatIsAlreadyAtTheDestination) {
   EXPECT_EQ(action_for(report, "security/agent-state.json"), nscp::paths::migration_action::blocked);
 }
 
+// require_pristine is the first switch into a folder the caller just created
+// and adopted. %ProgramData% lets any user pre-create it and drop files in, so
+// a populated destination is planted or leftover and must not be adopted.
+
+TEST_F(LayoutMigrationTest, RequirePristineRefusesAPopulatedDestination) {
+  write(from_ / "nsclient.ini", "REAL-CONFIG");
+  // An attacker pre-created the destination and dropped their own config in.
+  write(to_ / "nsclient.ini", "PLANTED-CONFIG");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string(), nscp::paths::destination_policy::require_pristine);
+
+  EXPECT_FALSE(report.ok()) << "a pre-existing destination file must abort the first switch, not be adopted";
+  EXPECT_TRUE(report.has(nscp::paths::migration_action::failed));
+  // Nothing was moved: the real config stays where it is, the planted one is
+  // left for the operator to see rather than silently booted.
+  EXPECT_EQ(read(from_ / "nsclient.ini"), "REAL-CONFIG");
+  EXPECT_EQ(read(to_ / "nsclient.ini"), "PLANTED-CONFIG");
+}
+
+TEST_F(LayoutMigrationTest, RequirePristineCatchesAPlantedFileWithNoSource) {
+  // The case the per-item logic cannot see: a generated secret (agent-state.json
+  // holds the fleet private key) is never shipped, so on a fresh install there
+  // is no source counterpart - migrate_security would iterate the source and
+  // never look at this. The whole-destination check is what catches it.
+  write(from_ / "nsclient.ini", "CONFIG");  // a normal fresh-install source
+  write(to_ / "security" / "agent-state.json", "PLANTED-IDENTITY");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string(), nscp::paths::destination_policy::require_pristine);
+
+  EXPECT_FALSE(report.ok());
+  EXPECT_EQ(read(to_ / "security" / "agent-state.json"), "PLANTED-IDENTITY") << "left in place for the operator, not adopted and not deleted";
+  EXPECT_FALSE(exists(to_ / "nsclient.ini")) << "nothing was migrated once the destination was found dirty";
+}
+
+TEST_F(LayoutMigrationTest, RequirePristineMigratesIntoAnEmptyDestination) {
+  // The normal first switch: the folder the caller just created is empty, so
+  // the stricter policy changes nothing.
+  write(from_ / "nsclient.ini", "CONFIG");
+  write(from_ / "security" / "agent-state.json", "IDENTITY");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string(), nscp::paths::destination_policy::require_pristine);
+
+  ASSERT_TRUE(report.ok());
+  EXPECT_EQ(read(to_ / "nsclient.ini"), "CONFIG");
+  EXPECT_EQ(read(to_ / "security" / "agent-state.json"), "IDENTITY");
+}
+
 TEST_F(LayoutMigrationTest, IsIdempotent) {
   write(from_ / "nsclient.ini", "CONFIG");
   write(from_ / "security" / "agent-state.json", "IDENTITY");

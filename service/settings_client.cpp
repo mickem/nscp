@@ -111,8 +111,17 @@ int nsclient_core::settings_client::migrate_layout(const std::string &mode, cons
     }
     std::cout << (dry_run ? "Would migrate" : "Migrating") << " from " << from << std::endl << "                to " << to << std::endl << std::endl;
 
+    // Switching into the modern layout means moving the configuration and the
+    // fleet private key into a folder we are about to create and lock down; it
+    // must be empty first, or a file already there is silently adopted as the
+    // agent's own (round-2 #3). from == to above has already ruled out an
+    // already-modern re-run, so reaching here with a modern target is a genuine
+    // first switch.
+    const nscp::paths::destination_policy policy =
+        target_layout == nscp::paths::layout::modern ? nscp::paths::destination_policy::require_pristine : nscp::paths::destination_policy::adopt_existing;
+
     if (dry_run) {
-      const nscp::paths::migration_report plan = nscp::paths::plan_migration(from, to);
+      const nscp::paths::migration_report plan = nscp::paths::plan_migration(from, to, policy);
       for (const std::string &line : plan.describe()) std::cout << "  " << line << std::endl;
       std::cout << std::endl << "Nothing was changed. Re-run without --dry-run to apply, then restart the service." << std::endl;
       return plan.ok() ? 1 : -1;
@@ -155,7 +164,7 @@ int nsclient_core::settings_client::migrate_layout(const std::string &mode, cons
     }
 #endif
 
-    const nscp::paths::migration_report report = nscp::paths::apply_migration(from, to);
+    const nscp::paths::migration_report report = nscp::paths::apply_migration(from, to, policy);
     for (const std::string &line : report.describe()) std::cout << "  " << line << std::endl;
     if (!report.ok()) {
       error_msg(__FILE__, __LINE__, "Migration failed; the configuration has NOT been switched to the new layout.");

@@ -250,7 +250,23 @@ void migrate_tree(const fs::path &from, const fs::path &to, const std::string &n
   report.steps.push_back(make(name + "/", migration_action::moved, "", essential));
 }
 
-migration_report run(const std::string &from_path, const std::string &to_path, const bool dry_run) {
+// The destination must be empty for a first switch. List what is in the way, so
+// the operator can see whether it is their own leftover or something else -
+// capped, because the message goes into an installer log and a CLI line.
+std::string describe_destination_contents(const fs::path &to) {
+  boost::system::error_code ec;
+  std::vector<std::string> names;
+  for (fs::directory_iterator it(to, ec), end; it != end && !ec; it.increment(ec)) {
+    names.push_back(it->path().filename().string());
+    if (names.size() >= 5) break;
+  }
+  std::string joined;
+  for (std::size_t i = 0; i < names.size(); ++i) joined += (i == 0 ? "" : ", ") + names[i];
+  if (!ec && names.size() >= 5) joined += ", ...";
+  return joined;
+}
+
+migration_report run(const std::string &from_path, const std::string &to_path, const bool dry_run, const destination_policy policy) {
   migration_report report;
   const fs::path from(from_path);
   const fs::path to(to_path);
@@ -284,6 +300,23 @@ migration_report run(const std::string &from_path, const std::string &to_path, c
     // not been created yet would make the preview useless.
     report.steps.push_back(make("", migration_action::failed, "the destination " + to_path + " does not exist; create and secure it first"));
     return report;
+  }
+
+  // First switch into a folder the caller just created and adopted: it must be
+  // empty. %ProgramData% lets any user pre-create the folder and drop files in
+  // it, and the per-item logic below would either keep a planted file as the
+  // "live" copy (adopt_existing) or never even look at one that has no source
+  // counterpart (a planted agent-state.json on a fresh install). So refuse the
+  // whole migration up front rather than move anything into a populated folder.
+  if (policy == destination_policy::require_pristine && fs::is_directory(to, ec)) {
+    const std::string contents = describe_destination_contents(to);
+    if (!contents.empty()) {
+      report.steps.push_back(make("", migration_action::failed,
+                                  "the destination " + to_path + " already contains files (" + contents +
+                                      "); refusing to migrate into it. A file here before the first switch is either a previous partial migration or content "
+                                      "placed by another user - move it aside and retry so it is not adopted as the agent's configuration or identity."));
+      return report;
+    }
   }
 
   report.steps.push_back(move_file(from / "nsclient.ini", to / "nsclient.ini", "nsclient.ini", dry_run));
@@ -337,8 +370,8 @@ std::vector<std::string> migration_report::describe() const {
   return lines;
 }
 
-migration_report plan_migration(const std::string &from, const std::string &to) { return run(from, to, true); }
-migration_report apply_migration(const std::string &from, const std::string &to) { return run(from, to, false); }
+migration_report plan_migration(const std::string &from, const std::string &to, const destination_policy policy) { return run(from, to, true, policy); }
+migration_report apply_migration(const std::string &from, const std::string &to, const destination_policy policy) { return run(from, to, false, policy); }
 
 }  // namespace paths
 }  // namespace nscp
