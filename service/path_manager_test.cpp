@@ -94,7 +94,45 @@ class LayoutMigrationTest : public ::testing::Test {
   void TearDown() override {
     boost::system::error_code ignored;
     boost::filesystem::remove_all(root_, ignored);
+    if (!extra_root_.empty()) boost::filesystem::remove_all(extra_root_, ignored);
   }
+
+  // A scratch directory on a *different* filesystem from root_, or empty when
+  // this machine has no obvious second one. /dev/shm is a tmpfs everywhere that
+  // matters on Linux and needs no privileges, which makes it the only way to
+  // provoke a cross-volume rename in a unit test; Windows has no equivalent we
+  // can assume, so it skips.
+  boost::filesystem::path make_other_volume_root() {
+#ifdef WIN32
+    return boost::filesystem::path();
+#else
+    boost::system::error_code ec;
+    const boost::filesystem::path shm("/dev/shm");
+    if (!boost::filesystem::is_directory(shm, ec)) return boost::filesystem::path();
+    const boost::filesystem::path candidate = shm / boost::filesystem::unique_path("nscp-migrate-x-%%%%-%%%%");
+    boost::filesystem::create_directories(candidate, ec);
+    if (ec) return boost::filesystem::path();
+
+    // Prove it really is a different volume rather than trusting the mount
+    // table: if rename works, the test would pass without exercising the
+    // fallback at all.
+    const boost::filesystem::path probe = root_ / "volume-probe";
+    write(probe, "probe");
+    boost::system::error_code rename_ec;
+    boost::filesystem::rename(probe, candidate / "volume-probe", rename_ec);
+    boost::system::error_code ignored;
+    boost::filesystem::remove(probe, ignored);
+    boost::filesystem::remove(candidate / "volume-probe", ignored);
+    if (!rename_ec) {
+      boost::filesystem::remove_all(candidate, ignored);
+      return boost::filesystem::path();
+    }
+    extra_root_ = candidate;
+    return candidate;
+#endif
+  }
+
+  boost::filesystem::path extra_root_;
 
   void write(const boost::filesystem::path &path, const std::string &content) {
     boost::filesystem::create_directories(path.parent_path());
@@ -777,6 +815,49 @@ TEST_F(LayoutMigrationTest, ReportsEveryDecisionItMade) {
   // guessing why a file stayed behind.
   EXPECT_NE(all.find("shipped with the package"), std::string::npos) << all;
   EXPECT_NE(all.find("re-exported"), std::string::npos) << all;
+}
+
+TEST_F(LayoutMigrationTest, MovesADirectoryAcrossAVolumeBoundary) {
+  // The product on D: with %ProgramData% on C: is an ordinary Windows setup, and
+  // rename() cannot cross that boundary. `fleet` is essential, so a failure here
+  // abandons the migration - with nsclient.ini and security\ already moved.
+  const boost::filesystem::path to = make_other_volume_root();
+  if (to.empty()) {
+    GTEST_SKIP() << "no second filesystem available to move across";
+  }
+  write(from_ / "fleet" / "fleet.ini", "MANAGED");
+  write(from_ / "fleet" / "scripts" / "check.lua", "SCRIPT");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to.string());
+  ASSERT_TRUE(report.ok()) << [&] {
+    std::string all;
+    for (const std::string &line : report.describe()) all += line + "\n";
+    return all;
+  }();
+
+  EXPECT_EQ(read(to / "fleet" / "fleet.ini"), "MANAGED");
+  EXPECT_EQ(read(to / "fleet" / "scripts" / "check.lua"), "SCRIPT");
+  EXPECT_FALSE(exists(from_ / "fleet")) << "the source tree was copied but not removed";
+  EXPECT_EQ(action_for(report, "fleet/"), nscp::paths::migration_action::moved);
+}
+
+TEST_F(LayoutMigrationTest, ACrossVolumeCopyDoesNotClobberTheDestination) {
+  // A retry after a half-finished copy: whatever is already on the far side is
+  // the live copy, exactly as it is for a single file.
+  const boost::filesystem::path to = make_other_volume_root();
+  if (to.empty()) {
+    GTEST_SKIP() << "no second filesystem available to move across";
+  }
+  write(from_ / "cache" / "bundle.zip", "OLD");
+  write(from_ / "cache" / "other.zip", "ALSO-OLD");
+  write(to / "cache" / "bundle.zip", "LIVE");
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to.string());
+  ASSERT_TRUE(report.ok());
+  // `cache` already exists at the destination, so the whole tree is left alone -
+  // the destination is the live one.
+  EXPECT_EQ(read(to / "cache" / "bundle.zip"), "LIVE");
+  EXPECT_EQ(action_for(report, "cache/"), nscp::paths::migration_action::blocked);
 }
 
 TEST_F(LayoutMigrationTest, AnEmptySourceOrDestinationIsRejected) {

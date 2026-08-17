@@ -80,6 +80,59 @@ migration_step move_file(const fs::path &source, const fs::path &target, const s
   return make(name, migration_action::moved, "", essential);
 }
 
+// Move a directory the hard way, for when rename() cannot: copy every file
+// across and unlink the originals behind us.
+//
+// Entries already at the destination are left alone rather than overwritten,
+// which is what makes a retry after a half-finished copy resume instead of
+// clobbering the newer side - the same rule move_file() follows for a single
+// file. `error` names the first entry that could not be copied.
+bool move_tree_by_copy(const fs::path &from, const fs::path &to, std::string &error) {
+  boost::system::error_code ec;
+  fs::create_directories(to, ec);
+  if (ec) {
+    error = "could not create " + to.string() + ": " + ec.message();
+    return false;
+  }
+
+  std::vector<fs::path> entries;
+  for (fs::directory_iterator it(from, ec), end; it != end && !ec; it.increment(ec)) entries.push_back(it->path());
+  if (ec) {
+    error = "could not list " + from.string() + ": " + ec.message();
+    return false;
+  }
+  std::sort(entries.begin(), entries.end());
+
+  for (const fs::path &entry : entries) {
+    const fs::path target = to / entry.filename();
+    boost::system::error_code entry_ec;
+    const fs::file_status entry_status = fs::status(entry, entry_ec);
+    if (entry_status.type() == fs::status_error) {
+      error = "could not read " + entry.string() + ": " + entry_ec.message();
+      return false;
+    }
+    if (fs::is_directory(entry_status)) {
+      if (!move_tree_by_copy(entry, target, error)) return false;
+      continue;
+    }
+    if (fs::exists(target, entry_ec)) continue;
+    fs::copy_file(entry, target, entry_ec);
+    if (entry_ec) {
+      error = "could not copy " + entry.string() + ": " + entry_ec.message();
+      return false;
+    }
+    // Best effort: a file we copied but could not unlink is a duplicate, not a
+    // loss, and the directory removal below will simply not happen.
+    boost::system::error_code remove_ec;
+    fs::remove(entry, remove_ec);
+  }
+
+  // Succeeds only once everything above is gone, which is exactly the condition
+  // we want: a leftover means something did not move.
+  fs::remove(from, ec);
+  return true;
+}
+
 void migrate_security(const fs::path &from, const fs::path &to, const bool dry_run, migration_report &report) {
   const fs::path source_dir = from / "security";
   boost::system::error_code ec;
@@ -135,7 +188,18 @@ void migrate_tree(const fs::path &from, const fs::path &to, const std::string &n
   }
   fs::rename(source_dir, target_dir, ec);
   if (ec) {
-    return report.steps.push_back(make(name + "/", migration_action::failed, ec.message(), essential));
+    // rename() cannot cross a volume boundary, and this one routinely does: the
+    // product installed on D: with %ProgramData% on C: is an ordinary setup, and
+    // `fleet` is essential, so failing here used to abandon the migration with
+    // nsclient.ini and security\ already moved. move_file() has had this
+    // fallback all along; a tree needs it just as much.
+    std::string copy_error;
+    if (!move_tree_by_copy(source_dir, target_dir, copy_error)) {
+      return report.steps.push_back(
+          make(name + "/", migration_action::failed, ec.message() + "; copying instead: " + copy_error + " (the folder is now split between the two locations)",
+               essential));
+    }
+    return report.steps.push_back(make(name + "/", migration_action::moved, "copied across volumes", essential));
   }
   report.steps.push_back(make(name + "/", migration_action::moved, "", essential));
 }
