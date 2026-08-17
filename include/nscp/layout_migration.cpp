@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
 #include <algorithm>
-#include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 #include <nscp/layout_migration.hpp>
+#include <nscp/path_defaults.hpp>
 
 namespace fs = boost::filesystem;
 
@@ -18,6 +18,12 @@ namespace {
 // Everything not named here stays: nscp.exe and its libraries, modules\, web\,
 // scripts\ and boot.ini, which stays beside the executable on purpose (it is
 // what tells the agent where the shared folder is, so it cannot live inside it).
+//
+// web\ is the one that looks like an omission and is not. It is shipped by the
+// installer and never downloaded on Windows, so it is program content, and
+// moving it somewhere the service can write would turn a compromise of the
+// service into injected browser-executed code. ${web-path} is anchored to
+// ${exe-path} for the same reason.
 const char *movable_directories[] = {"fleet", "cache", "crash-dumps", "log"};
 
 // Old logs and a stale bundle cache are not worth failing a migration for, and
@@ -26,8 +32,10 @@ bool is_essential_directory(const std::string &name) { return name != "log" && n
 
 // Files under security\ that belong to the package rather than the machine.
 // Shipped by the MSI, version-tied, and replaced on upgrade - moving them takes
-// them out of the installer's hands and leaves it unable to clean up.
-bool is_shipped_security_file(const std::string &name) { return boost::algorithm::starts_with(name, "nrpe_dh_"); }
+// them out of the installer's hands and leaves it unable to clean up. Because
+// they stay put, ${nrpe-dh} has to go looking for them; both sides share
+// is_nrpe_dh_file so "kept here" and "found here" cannot drift apart.
+bool is_shipped_security_file(const std::string &name) { return nscp::paths::is_nrpe_dh_file(name); }
 
 // The Windows ROOT store export. The service rewrites it at every start, so
 // moving it is pointless and moving a *stale* one is actively bad: it decides

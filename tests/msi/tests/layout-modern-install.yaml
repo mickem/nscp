@@ -52,3 +52,19 @@ required_files:
   modules:
     - modules/CheckDisk.dll
     - modules/CommandClient.dll
+  # The web UI is program content, not state: it ships with the MSI and is
+  # never downloaded on Windows, so ${web-path} stays in the install folder
+  # rather than following ${shared-path}. A web root the service can write to
+  # is one that anything reaching the service can inject scripts into.
+  web-ui:
+    - web/index.html
+    - web/assets/index.js
+  # Shipped package content, so it stays in the install folder even though the
+  # rest of security\ moved. This is the whole reason NRPE resolves its DH file
+  # through ${nrpe-dh} instead of ${certificate-path} - see
+  # docs/docs/concepts/file-layout.md. If the installer ever starts placing
+  # these under %ProgramData%, ${nrpe-dh}'s legacy candidate stops being the
+  # right fallback and this assertion is what says so.
+  shipped-dh-parameters:
+    - security/nrpe_dh_512.pem
+    - security/nrpe_dh_2048.pem

@@ -57,6 +57,23 @@ inline bool is_known_layout(const std::string &value) { return value.empty() || 
 
 inline const char *layout_name(const layout value) { return value == layout::modern ? "modern" : "legacy"; }
 
+// True for the shipped Diffie-Hellman parameter files (nrpe_dh_512.pem,
+// nrpe_dh_2048.pem). They are package content rather than machine state, so
+// two very different pieces of code have to agree on what "the DH files" are:
+// the layout migration, which leaves them behind, and the ${nrpe-dh} lookup,
+// which then has to find them where they were left. Prefix-only on purpose -
+// the migration has always treated anything named nrpe_dh_* as shipped, and
+// narrowing that here would start moving files it used to keep.
+inline bool is_nrpe_dh_file(const std::string &name) { return name.rfind("nrpe_dh_", 0) == 0; }
+
+// The tokens ${nrpe-dh} chooses between, in preference order. Resolving the
+// alias needs the filesystem, so it happens in the caller (path_manager);
+// this header only names the candidates so there is one list, not two.
+inline const char *const *nrpe_dh_candidates() {
+  static const char *const candidates[] = {"modern-nrpe-dh", "legacy-nrpe-dh", nullptr};
+  return candidates;
+}
+
 // The static default for `key`, or an empty string when the key has no static
 // default (the caller then resolves it itself, or falls back to the base path).
 //
@@ -80,6 +97,13 @@ inline std::string default_for(const std::string &key, const layout current) {
 
   static const std::map<std::string, std::string> defaults = {
       {"certificate-path", CERT_FOLDER},
+      {"modern-nrpe-dh", MODERN_NRPE_DH_FOLDER},
+      {"legacy-nrpe-dh", LEGACY_NRPE_DH_FOLDER},
+      // ${nrpe-dh} is normally a filesystem lookup over the two candidates
+      // above, which only the service can do. This is the answer for callers
+      // that expand tokens without a path_manager (the standalone clients):
+      // the modern location, i.e. the same thing ${certificate-path} says.
+      {"nrpe-dh", MODERN_NRPE_DH_FOLDER},
       {"module-path", MODULE_FOLDER},
       {"web-path", WEB_FOLDER},
       {"scripts", SCRIPTS_FOLDER},

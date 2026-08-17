@@ -47,6 +47,13 @@
 #define WEB_FOLDER "@CONFIG_WEB_FOLDER@"
 #define SCRIPTS_FOLDER "@CONFIG_SCRIPTS_FOLDER@"
 #define CERT_FOLDER "@CONFIG_CERT_FOLDER@"
+// The two candidate homes for the shipped NRPE DH parameters. They differ on
+// Windows, where the installer leaves them beside the executable while
+// ${certificate-path} moves to %ProgramData% under the modern layout; on unix
+// both name the package directory. The ${nrpe-dh} token resolves to whichever
+// one actually contains them - see nsclient::core::path_manager.
+#define MODERN_NRPE_DH_FOLDER "@CONFIG_MODERN_NRPE_DH_FOLDER@"
+#define LEGACY_NRPE_DH_FOLDER "@CONFIG_LEGACY_NRPE_DH_FOLDER@"
 // Trusted CA bundle used whenever a check does not name its own. On Windows the
 // service exports the ROOT store to this file at boot; on unix it is the system
 // bundle, detected at configure time because its location differs per

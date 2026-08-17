@@ -123,7 +123,10 @@ struct settings_helper {
 
         .add_string(
             "dh",
-            nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("dh", value); }, "${certificate-path}/nrpe_dh_512.pem"),
+            // ${nrpe-dh} resolves to wherever the shipped parameters actually
+            // live, which is not ${certificate-path} on the Windows modern
+            // layout - the installer leaves them beside the executable.
+            nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("dh", value); }, "${nrpe-dh}/nrpe_dh_512.pem"),
             "DH KEY", "", true)
 
         .add_string("certificate", nscapi::settings_helper::path_fun_key([&object](auto value) { object.set_property_string("certificate", value); }),

@@ -65,7 +65,8 @@ TEST_F(PathManagerTest, ExpandPathWithVariables) {
 
 TEST_F(PathManagerTest, GetFolderKeys) {
   const char *keys[] = {"certificate-path", "module-path", "web-path",    "scripts",  "log-path",  "cache-folder", "crash-folder",
-                        "base-path",        "temp",        "shared-path", "exe-path", "data-path", "ca-path",      "fleet-folder"};
+                        "base-path",        "temp",        "shared-path", "exe-path", "data-path", "ca-path",      "fleet-folder",
+                        "nrpe-dh",          "modern-nrpe-dh",             "legacy-nrpe-dh"};
 
   for (const auto &key : keys) {
     EXPECT_FALSE(pm->getFolder(key).empty()) << "Failed for key: " << key;
@@ -360,6 +361,41 @@ TEST_F(PathManagerTest, ModernLayoutMovesEverythingWritableOutOfTheInstallDirect
 #endif
 }
 
+TEST_F(PathManagerTest, ProgramContentStaysPutWhenTheLayoutMoves) {
+#ifdef WIN32
+  // The mirror of the test above, and the more security-relevant half. These
+  // are program content: shipped by the installer, never written by the running
+  // service. ${web-path} in particular must not follow ${shared-path} - a web
+  // root the service can write to is a web root that anything reaching the
+  // service can inject browser-executed code into. On Windows the UI is only
+  // ever installed by the MSI; it is never downloaded.
+  const std::string install = pm->expand_path("${exe-path}");
+  pm->set_layout(nscp::paths::layout::modern);
+  ASSERT_NE(pm->expand_path("${shared-path}"), install) << "the layout did not move, so this test proves nothing";
+
+  for (const char *token : {"${web-path}", "${module-path}", "${scripts}"}) {
+    const std::string resolved = pm->expand_path(token);
+    EXPECT_EQ(resolved.find(install), 0u) << token << " left the install folder -> " << resolved;
+  }
+  pm->set_layout(nscp::paths::layout::legacy);
+#else
+  GTEST_SKIP() << "the layout switch is Windows-only";
+#endif
+}
+
+TEST_F(PathManagerTest, WebRootIsNotWritableStateOnUnix) {
+#ifndef WIN32
+  // `nscp web install` downloads the UI and is run with sudo, so the web root
+  // belongs in the root-owned package directory - not under ${data-path} with
+  // the things the unprivileged service rewrites at runtime.
+  const std::string web = pm->expand_path("${web-path}");
+  EXPECT_EQ(web.find(pm->expand_path("${shared-path}")), 0u) << "web root left the package directory: " << web;
+  EXPECT_EQ(web.find(pm->expand_path("${data-path}")), std::string::npos) << "web root landed in the writable state: " << web;
+#else
+  GTEST_SKIP() << "covered by ProgramContentStaysPutWhenTheLayoutMoves on Windows";
+#endif
+}
+
 TEST_F(PathManagerTest, FleetFolderExpandsAndIsWritableByTheService) {
   // The fleet sync rewrites everything under this folder as the account the
   // service runs as, so it must resolve fully...
@@ -518,6 +554,104 @@ TEST_F(PathManagerTest, AddOverridesEmptyIsNoOp) {
   pm->set_overrides({{"certificate-path", "/existing"}});
   pm->add_overrides({});
   EXPECT_EQ(pm->getFolder("certificate-path"), "/existing");
+}
+
+// --- ${nrpe-dh}: a token that looks at the disk ------------------------------
+// The shipped DH parameters stay where the installer put them while
+// ${certificate-path} follows the writable state, so the token has to find
+// them rather than name them. Both candidates are pointed at temp folders via
+// overrides, which makes these tests say the same thing on every platform.
+
+class NrpeDhLookupTest : public PathManagerTest {
+ protected:
+  boost::filesystem::path root_, modern_, legacy_;
+
+  void SetUp() override {
+    PathManagerTest::SetUp();
+    root_ = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-nrpe-dh-%%%%-%%%%");
+    modern_ = root_ / "shared" / "security";
+    legacy_ = root_ / "install" / "security";
+    boost::filesystem::create_directories(modern_);
+    boost::filesystem::create_directories(legacy_);
+    pm->set_overrides({{"modern-nrpe-dh", modern_.string()}, {"legacy-nrpe-dh", legacy_.string()}});
+  }
+  void TearDown() override {
+    boost::system::error_code ignored;
+    boost::filesystem::remove_all(root_, ignored);
+    PathManagerTest::TearDown();
+  }
+
+  void put_dh(const boost::filesystem::path &dir, const std::string &name) {
+    std::ofstream out((dir / name).string().c_str());
+    out << "DH";
+  }
+};
+
+TEST_F(NrpeDhLookupTest, FallsBackToWhereTheInstallerLeftThem) {
+  // The Windows modern layout: security\ moved to %ProgramData% but the DH
+  // parameters were deliberately left behind, so the token must not follow
+  // ${certificate-path}. This is the case that broke NRPE's SSL init.
+  put_dh(legacy_, "nrpe_dh_2048.pem");
+
+  EXPECT_EQ(pm->getFolder("nrpe-dh"), legacy_.string());
+  EXPECT_EQ(pm->expand_path("${nrpe-dh}/nrpe_dh_2048.pem"), (legacy_ / "nrpe_dh_2048.pem").string());
+}
+
+TEST_F(NrpeDhLookupTest, PrefersParametersBesideTheWritableState) {
+  // An operator who puts their own parameters in with the rest of the state
+  // wins over the shipped copy - otherwise the alias would be undefeatable.
+  put_dh(modern_, "nrpe_dh_2048.pem");
+  put_dh(legacy_, "nrpe_dh_2048.pem");
+
+  EXPECT_EQ(pm->getFolder("nrpe-dh"), modern_.string());
+}
+
+TEST_F(NrpeDhLookupTest, AnUnrelatedFileDoesNotCountAsParameters) {
+  // certificate.pem lives in the modern folder on every enrolled host, so
+  // "the directory is non-empty" is not the question being asked.
+  put_dh(modern_, "certificate.pem");
+  put_dh(legacy_, "nrpe_dh_512.pem");
+
+  EXPECT_EQ(pm->getFolder("nrpe-dh"), legacy_.string());
+}
+
+TEST_F(NrpeDhLookupTest, WithNoParametersAnywhereItStillNamesARealFolder) {
+  // The file is missing either way; answering with the last candidate rather
+  // than an empty string keeps OpenSSL's error pointing somewhere actionable
+  // instead of at a root-relative path.
+  EXPECT_EQ(pm->getFolder("nrpe-dh"), legacy_.string());
+}
+
+TEST_F(NrpeDhLookupTest, AMissingCandidateFolderIsSkipped) {
+  boost::system::error_code ignored;
+  boost::filesystem::remove_all(modern_, ignored);
+  put_dh(legacy_, "nrpe_dh_512.pem");
+
+  EXPECT_EQ(pm->getFolder("nrpe-dh"), legacy_.string());
+}
+
+TEST_F(NrpeDhLookupTest, TheAnswerTracksTheFilesRatherThanBeingCached) {
+  // An upgrade or a migration can move the parameters while the service is
+  // running; the next expansion has to see that, which is why this is a lookup.
+  EXPECT_EQ(pm->getFolder("nrpe-dh"), legacy_.string());
+  put_dh(modern_, "nrpe_dh_2048.pem");
+  EXPECT_EQ(pm->getFolder("nrpe-dh"), modern_.string());
+}
+
+TEST_F(NrpeDhLookupTest, ACandidatePointedAtTheAliasDoesNotRecurse) {
+  // ${nrpe-dh} expands its candidates before it can stat them, so a boot.ini
+  // that points one back at the alias would spin forever without the shared
+  // depth guard. The answer does not matter; terminating does.
+  pm->set_overrides({{"modern-nrpe-dh", "${nrpe-dh}"}, {"legacy-nrpe-dh", legacy_.string()}});
+  EXPECT_NO_FATAL_FAILURE(pm->expand_path("${nrpe-dh}/nrpe_dh_2048.pem"));
+}
+
+// A CLI --path-override names the folder outright, which is the escape hatch
+// for an install that keeps its DH parameters somewhere else entirely.
+TEST_F(NrpeDhLookupTest, AnExplicitOverrideBeatsTheLookup) {
+  put_dh(modern_, "nrpe_dh_2048.pem");
+  pm->set_cli_overrides({{"nrpe-dh", "/etc/nrpe-dh"}});
+  EXPECT_EQ(pm->getFolder("nrpe-dh"), "/etc/nrpe-dh");
 }
 
 // --- migration: the awkward cases -------------------------------------------

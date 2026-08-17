@@ -74,7 +74,17 @@ class path_manager {
   static constexpr int kMaxExpandDepth = 32;
 
  private:
-  std::string get_path_for_key(const std::string& key);
+  // getFolder() with the caller's expansion depth threaded through, so a key
+  // whose value is itself a lookup (${nrpe-dh}, which has to expand its
+  // candidates before it can stat them) is covered by the same cycle guard as
+  // ordinary substitution instead of starting a fresh, unbounded chain.
+  std::string resolve_folder(const std::string& key, int depth);
+  std::string get_path_for_key(const std::string& key, int depth);
+
+  // Resolve ${nrpe-dh}: the first candidate folder that actually holds the
+  // shipped DH parameters, or the last candidate when none of them do.
+  std::string resolve_nrpe_dh(int depth);
+
   boost::filesystem::path get_app_data_path();
   boost::filesystem::path getBasePath();
   boost::filesystem::path getTempPath();

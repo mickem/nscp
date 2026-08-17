@@ -72,10 +72,50 @@ boost::filesystem::path nsclient::core::path_manager::get_app_data_path() {
 #endif
 }
 
-std::string nsclient::core::path_manager::get_path_for_key(const std::string &key) {
+namespace {
+// True when `dir` actually holds the shipped DH parameters, which is what
+// decides between the ${nrpe-dh} candidates. Errors count as "no": an
+// unreadable or missing folder is not one we want to hand to OpenSSL.
+bool holds_nrpe_dh_params(const std::string &dir) {
+  if (dir.empty()) return false;
+  boost::system::error_code ec;
+  const boost::filesystem::path path(dir);
+  if (!boost::filesystem::is_directory(path, ec) || ec) return false;
+  boost::filesystem::directory_iterator it(path, ec), end;
+  for (; !ec && it != end; it.increment(ec)) {
+    if (nscp::paths::is_nrpe_dh_file(it->path().filename().string())) return true;
+  }
+  return false;
+}
+}  // namespace
+
+std::string nsclient::core::path_manager::resolve_nrpe_dh(const int depth) {
+  // The DH parameters are shipped package content, so on Windows the installer
+  // leaves them beside the executable while ${certificate-path} moves to
+  // %ProgramData% under the modern layout - one token cannot name both. Try
+  // the modern location first so an operator who drops their own parameters in
+  // with the rest of the writable state wins, then fall back to where the
+  // installer put them.
+  //
+  // When neither candidate has them we still answer with the last one rather
+  // than an empty string: the file is missing either way, and naming a real
+  // folder makes OpenSSL's error message point somewhere an operator can act
+  // on. Note this is a lookup on every resolution by design - the answer
+  // changes when an upgrade or a migration moves the files, and the option is
+  // expanded at module load, not per request.
+  std::string last;
+  for (const char *const *candidate = nscp::paths::nrpe_dh_candidates(); *candidate != nullptr; ++candidate) {
+    last = expand_path_impl(resolve_folder(*candidate, depth + 1), depth + 1);
+    if (holds_nrpe_dh_params(last)) return last;
+  }
+  return last;
+}
+
+std::string nsclient::core::path_manager::get_path_for_key(const std::string &key, const int depth) {
   // Dynamic lookups that need member state or runtime OS calls.
   if (key == "base-path" || key == "exe-path") return getBasePath().string();
   if (key == "temp") return getTempPath().string();
+  if (key == "nrpe-dh") return resolve_nrpe_dh(depth);
 #ifdef WIN32
   if (key == "data-path" || key == "appdata") return shellapi::get_special_folder_path(CSIDL_APPDATA, getBasePath()).string();
   if (key == "common-appdata") return shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, getBasePath()).string();
@@ -110,13 +150,15 @@ void nsclient::core::path_manager::add_overrides(paths_type overrides) {
 
 void nsclient::core::path_manager::set_cli_overrides(paths_type overrides) { cli_overrides_ = std::move(overrides); }
 
-std::string nsclient::core::path_manager::getFolder(const std::string &key) {
+std::string nsclient::core::path_manager::getFolder(const std::string &key) { return resolve_folder(key, 0); }
+
+std::string nsclient::core::path_manager::resolve_folder(const std::string &key, const int depth) {
   // Precedence: CLI --path-override > boot.ini [paths] > compile-time defaults.
   const auto cli = cli_overrides_.find(key);
   if (cli != cli_overrides_.end()) return cli->second;
   const auto it = overrides_.find(key);
   if (it != overrides_.end()) return it->second;
-  return get_path_for_key(key);
+  return get_path_for_key(key, depth);
 }
 
 std::string nsclient::core::path_manager::expand_path(std::string file) { return expand_path_impl(std::move(file), 0); }
@@ -142,7 +184,7 @@ std::string nsclient::core::path_manager::expand_path_impl(std::string file, con
       if (!e.is_variable)
         ret += e.name;
       else
-        ret += expand_path_impl(getFolder(e.name), depth + 1);
+        ret += expand_path_impl(resolve_folder(e.name, depth + 1), depth + 1);
     }
     return ret;
   } catch (...) {

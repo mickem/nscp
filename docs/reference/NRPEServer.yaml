@@ -99,7 +99,7 @@ common:
           title: Debug peer certificate verification
         dh:
           advanced: true
-          default_value: ${certificate-path}/nrpe_dh_2048.pem
+          default_value: ${nrpe-dh}/nrpe_dh_2048.pem
           description: ''
           sample: false
           title: DH KEY

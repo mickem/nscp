@@ -110,9 +110,9 @@ What moves, and what does not:
 | | |
 |---|---|
 | `nsclient.ini`, `security\*`, `fleet\`, `cache\`, `log\`, `crash-dumps\` | moved — per-machine state |
-| `nrpe_dh_*.pem` | stays — shipped with the package |
+| `nrpe_dh_*.pem` | stays — shipped with the package; NRPE finds them through [`${nrpe-dh}`](#nrpe-dh) |
 | `windows-ca.pem` | dropped — re-exported from the Windows ROOT store at every start, and a stale trust bundle is worse than none |
-| `boot.ini`, `modules\`, `web\`, `scripts\`, the executables | stay — `boot.ini` is what points at the shared folder, so it cannot live inside it |
+| `boot.ini`, `modules\`, `web\`, `scripts\`, the executables | stay — program content. `boot.ini` is what points at the shared folder, so it cannot live inside it; `web\` is [deliberately not writable by the service](#the-web-root-stays-with-the-program) |
 
 Anything else you put under `security\` — your own CA bundle, an extra
 certificate — moves with the rest, because stranding a trust anchor breaks TLS
@@ -185,6 +185,8 @@ C:\Program Files\NSClient++\        ${exe-path} - the program, plus boot.ini
 ├── boot.ini                        [layout] and [paths] live here
 ├── modules\                        ${module-path}
 ├── scripts\                        ${scripts}
+├── security\
+│   └── nrpe_dh_*.pem               shipped DH parameters, ${nrpe-dh}
 └── web\                            ${web-path}
 
 C:\ProgramData\NSClient++\          ${shared-path} - SYSTEM + Administrators only
@@ -214,6 +216,43 @@ needs no access to the machine's files.
 `check_nrpe` and `check_nscp` read the same `[layout]` setting from the
 `boot.ini` next to them, so they resolve `${certificate-path}` to the same place
 the service does.
+
+### The web root stays with the program
+
+`${web-path}` does **not** follow the layout. It resolves to `${exe-path}\web`
+on Windows and to the package directory on unix — both places the running
+service cannot write to.
+
+That is deliberate, and it is a security property rather than an oversight. The
+web UI is program content: on Windows it ships in the MSI and is never
+downloaded, and on unix `nscp web install` fetches it as root. Nothing about
+serving those pages requires the service account to be able to change them, and
+a web root the service *can* write to turns any compromise of the service into
+browser-executed code delivered from your own agent.
+
+The practical consequence is that installing or updating the web UI needs an
+elevated prompt (Windows) or `sudo` (unix), the same as any other change to the
+installed program.
+
+### `${nrpe-dh}`
+
+The NRPE Diffie-Hellman parameters are the one piece of `security\` that does
+not move: they are shipped with the package, replaced on upgrade, and owned by
+the installer. That leaves them in Program Files while `${certificate-path}`
+points at `%ProgramData%`, so they get a token of their own.
+
+`${nrpe-dh}` is a lookup rather than a fixed path. It answers with
+`${modern-nrpe-dh}` (`${certificate-path}`) when that folder actually contains
+`nrpe_dh_*.pem`, and otherwise with `${legacy-nrpe-dh}`
+(`${exe-path}\security`), where the installer put them. Practical effect: the
+shipped parameters are found on either layout, and dropping your own
+`nrpe_dh_2048.pem` in beside the rest of the writable state overrides them.
+Both candidates are ordinary path tokens, so `boot.ini`'s `[paths]` section and
+`--path-override` can name either — or `nrpe-dh` itself, which skips the lookup.
+
+On unix there is no split: the parameters are installed into the package
+directory that `${certificate-path}` already names, and both candidates resolve
+there.
 
 ## Logging
 
