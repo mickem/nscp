@@ -142,13 +142,33 @@ std::string nsclient::logging::log_message_factory::create_trace(const std::stri
 // %ProgramData%\NSClient++, and everything writable is defined relative to it,
 // so this is the only place the two layouts differ here.
 
-// %ProgramData%\NSClient++, or empty if the folder cannot be determined.
-std::string modern_shared_folder() {
+// %ProgramData%, without a trailing separator, or empty if it cannot be
+// determined.
+std::string common_appdata_folder() {
   wchar_t buffer[MAX_PATH] = {0};
   if (FAILED(::SHGetFolderPathW(nullptr, CSIDL_COMMON_APPDATA, nullptr, SHGFP_TYPE_CURRENT, buffer))) return std::string();
   std::string folder = utf8::cvt<std::string>(std::wstring(buffer));
   while (!folder.empty() && (folder.back() == '\\' || folder.back() == '/')) folder.pop_back();
-  return folder + "\\" + nscp::paths::shared_folder_name();
+  return folder;
+}
+
+// %ProgramData%\NSClient++, or empty if the folder cannot be determined.
+std::string modern_shared_folder() {
+  const std::string common_appdata = common_appdata_folder();
+  if (common_appdata.empty()) return std::string();
+  return common_appdata + "\\" + nscp::paths::shared_folder_name();
+}
+
+// Resolve the tokens a `[paths] shared-path` override can plausibly use,
+// without the core's path resolver. ${shared-path} is deliberately absent: it
+// is the token being defined.
+std::string expand_shared_path_override(const std::string &value, const std::string &install_folder) {
+  std::string result = value;
+  str::utils::replace(result, "${exe-path}", install_folder);
+  str::utils::replace(result, "${base-path}", install_folder);
+  const std::string common_appdata = common_appdata_folder();
+  if (!common_appdata.empty()) str::utils::replace(result, "${common-appdata}", common_appdata);
+  return result;
 }
 
 // Which layout this install should use: what the host is on now, as recorded in
@@ -162,7 +182,29 @@ nscp::paths::layout resolve_layout(const std::string &install_folder, const std:
 // Where ${shared-path} points for `layout`. Legacy is the install folder, which
 // is also the fallback when %ProgramData% cannot be resolved - better to keep
 // the old layout than to write state to a path we guessed.
-std::string shared_folder_for(const nscp::paths::layout layout, const std::string &install_folder) {
+//
+// boot.ini's `[paths] shared-path` beats both, and beats the layout: the
+// service applies it either way, so an installer that ignored it would migrate
+// into %ProgramData% while the running agent looked in D:\nscp-state and found
+// nothing.
+std::string shared_folder_for(const nscp::paths::layout layout, const std::string &install_folder, msi_helper *h = nullptr) {
+  const std::string configured = boost::algorithm::trim_copy(
+      nscp::paths::path_override_from_boot_ini_file((boost::filesystem::path(install_folder) / "boot.ini").string(), "shared-path"));
+  if (!configured.empty()) {
+    const std::string expanded = expand_shared_path_override(configured, install_folder);
+    if (expanded.find("${") == std::string::npos) {
+      if (h != nullptr) h->logMessage("Using [paths] shared-path from boot.ini: " + expanded);
+      return expanded;
+    }
+    // A token only the core can resolve. Guessing would put the state
+    // somewhere the service does not look, so say so and fall back.
+    if (h != nullptr) {
+      h->logMessage("WARNING: boot.ini has [paths] shared-path = " + configured +
+                    ", which uses a token this installer cannot resolve; falling back to the layout default. The agent will look in the configured location, "
+                    "so move the files there by hand or use an absolute path.");
+    }
+  }
+
   if (layout != nscp::paths::layout::modern) return install_folder;
   const std::string modern = modern_shared_folder();
   return modern.empty() ? install_folder : modern;
@@ -526,7 +568,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     installer_settings_provider provider(&h, target, map_data);
     // The layout this host already uses: we are reading its current
     // configuration, which has not moved yet even if LAYOUT asks for it to.
-    provider.set_shared_path(shared_folder_for(resolve_layout(utf8::cvt<std::string>(target), L""), utf8::cvt<std::string>(target)));
+    provider.set_shared_path(shared_folder_for(resolve_layout(utf8::cvt<std::string>(target), L""), utf8::cvt<std::string>(target), &h));
     if (user_ca) provider.use_user_ca();
     if (!settings_manager::init_installer_settings(&provider, utf8::cvt<std::string>(context), tls_version, tls_verify_mode, tls_ca)) {
       h.setError(L"ImportConfig::init_installer_settings", L"Settings context had fatal errors");
@@ -963,7 +1005,7 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     // layout it has just been moved to the shared folder, and restoring the
     // backup into the install folder would leave a stale copy in the very place
     // the migration exists to empty.
-    const std::string shared_folder = shared_folder_for(resolve_layout(utf8::cvt<std::string>(target), L""), utf8::cvt<std::string>(target));
+    const std::string shared_folder = shared_folder_for(resolve_layout(utf8::cvt<std::string>(target), L""), utf8::cvt<std::string>(target), &h);
 
     boost::filesystem::path restore_path = restore;
 
@@ -1209,7 +1251,7 @@ extern "C" UINT __stdcall SchedulePrepareLayout(MSIHANDLE hInstall) {
       h.logMessage(L"Unknown LAYOUT '" + requested + L"'; keeping the current layout. Use LAYOUT=modern or LAYOUT=legacy.");
     }
     const nscp::paths::layout layout = resolve_layout(install_folder, requested);
-    const std::string shared_folder = shared_folder_for(layout, install_folder);
+    const std::string shared_folder = shared_folder_for(layout, install_folder, &h);
 
     h.logMessage("Layout: " + std::string(nscp::paths::layout_name(layout)));
     h.logMessage("Shared folder: " + shared_folder);
@@ -1340,7 +1382,7 @@ extern "C" UINT __stdcall ScheduleRemoveSecrets(MSIHANDLE hInstall) {
   try {
     const std::string install_folder = as_install_folder(h.getTargetPath(L"INSTALLLOCATION"));
     const nscp::paths::layout layout = resolve_layout(install_folder, L"");
-    const std::string shared_folder = shared_folder_for(layout, install_folder);
+    const std::string shared_folder = shared_folder_for(layout, install_folder, &h);
     if (shared_folder == install_folder) {
       // Legacy layout: the RemoveFile rows already cover this folder.
       h.logMessage("Layout: legacy, leaving the security folder to the RemoveFile rows");
@@ -1515,7 +1557,7 @@ extern "C" UINT __stdcall ExecEnrollFleet(MSIHANDLE hInstall) {
     // install is using - ExecPrepareLayout has already created and secured that
     // folder and written the choice into boot.ini, so reading it back here is
     // how the two agree.
-    const std::string shared_folder = shared_folder_for(resolve_layout(install_folder, L""), install_folder);
+    const std::string shared_folder = shared_folder_for(resolve_layout(install_folder, L""), install_folder, &h);
     const std::string state_file = expand_install_path(std::string(CERT_FOLDER) + "/agent-state.json", install_folder, shared_folder);
     h.logMessage("Fleet server: " + request.server_url);
     h.logMessage("Enrollment manifest: " + state_file);

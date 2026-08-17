@@ -361,6 +361,46 @@ TEST(BootLayout, ReadsTheModeFromBootIni) {
   boost::filesystem::remove_all(dir, ignored);
 }
 
+// The other half of boot.ini the installer has to agree with. The service
+// applies every [paths] key as an override before it opens the main settings
+// store, so an operator can put ${shared-path} - and with it the configuration,
+// the certificates and the fleet identity - anywhere. Anything that resolves
+// that token independently has to read this, or it ends up migrating into
+// %ProgramData% while the agent looks somewhere else entirely.
+TEST(BootLayout, ReadsPathOverridesFromBootIni) {
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-paths-%%%%");
+  boost::filesystem::create_directories(dir);
+  const boost::filesystem::path boot_ini = dir / "boot.ini";
+
+  const auto write = [&boot_ini](const std::string &content) {
+    std::ofstream out(boot_ini.string().c_str());
+    out << content;
+  };
+
+  write("[layout]\nmode = modern\n[paths]\nshared-path = D:\\nscp-state\n");
+  EXPECT_EQ(nscp::paths::path_override_from_boot_ini_file(boot_ini.string(), "shared-path"), "D:\\nscp-state");
+  // Keys that are not set answer empty rather than guessing.
+  EXPECT_EQ(nscp::paths::path_override_from_boot_ini_file(boot_ini.string(), "certificate-path"), "");
+
+  // No [paths] section at all: every installation that never set one.
+  write("[layout]\nmode = modern\n");
+  EXPECT_EQ(nscp::paths::path_override_from_boot_ini_file(boot_ini.string(), "shared-path"), "");
+
+  // An override is independent of the layout - the service applies it either
+  // way, so a legacy install can have one too.
+  write("[paths]\nshared-path = /var/lib/nsclient\n");
+  EXPECT_EQ(nscp::paths::path_override_from_boot_ini_file(boot_ini.string(), "shared-path"), "/var/lib/nsclient");
+  EXPECT_EQ(nscp::paths::layout_from_boot_ini_file(boot_ini.string()), nscp::paths::layout::legacy);
+
+  boost::system::error_code ignored;
+  boost::filesystem::remove_all(dir, ignored);
+}
+
+TEST(BootLayout, NoBootIniMeansNoPathOverrides) {
+  const boost::filesystem::path missing = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-none-%%%%") / "boot.ini";
+  EXPECT_EQ(nscp::paths::path_override_from_boot_ini_file(missing.string(), "shared-path"), "");
+}
+
 TEST(BootLayout, NoBootIniMeansLegacy) {
   // A fresh install, or one whose boot.ini has not been written yet.
   const boost::filesystem::path missing = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-none-%%%%") / "boot.ini";

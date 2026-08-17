@@ -38,6 +38,28 @@ inline layout layout_from_boot_ini_file(const std::string &path, std::string *ra
   return layout_from_boot_ini(boot_conf, raw_value);
 }
 
+// Read one key out of boot.ini's `[paths]` section, or an empty string when it
+// is not set.
+//
+// The service applies every key in that section as a path override before it
+// opens the main settings store (settings_manager_impl), so an operator can put
+// ${shared-path} - and therefore the configuration, the certificates and the
+// fleet identity - anywhere they like. Anything that has to agree with the
+// running service about where those live has to read it too; an installer that
+// resolves ${shared-path} from the layout alone will migrate into %ProgramData%
+// while the service looks somewhere else entirely and finds nothing.
+inline std::string path_override_from_boot_ini(CSimpleIni &boot_conf, const std::string &key) {
+  return utf8::cvt<std::string>(boot_conf.GetValue(L"paths", utf8::cvt<std::wstring>(key).c_str(), L""));
+}
+
+// The same, reading boot.ini at `path`. A missing or unreadable file has no
+// overrides, which is the same answer as a file without a [paths] section.
+inline std::string path_override_from_boot_ini_file(const std::string &path, const std::string &key) {
+  CSimpleIni boot_conf;
+  if (boot_conf.LoadFile(path.c_str()) < 0) return std::string();
+  return path_override_from_boot_ini(boot_conf, key);
+}
+
 // Decide the layout an installation should end up on, given the one it is on
 // and what was asked for (an MSI property, a command line). Kept apart from the
 // installer so the rules can be tested; the installer supplies `current` from
