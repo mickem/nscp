@@ -817,6 +817,34 @@ TEST_F(LayoutMigrationTest, ReportsEveryDecisionItMade) {
   EXPECT_NE(all.find("re-exported"), std::string::npos) << all;
 }
 
+TEST_F(LayoutMigrationTest, AnUnreadableSecurityFolderIsAFailureNotAnAbsence) {
+#ifdef WIN32
+  GTEST_SKIP() << "chmod is the portable way to make a folder unreadable";
+#else
+  if (::geteuid() == 0) {
+    GTEST_SKIP() << "root reads it regardless, so there is nothing to fail on";
+  }
+  // "Could not look" and "nothing there" used to be the same answer, so an
+  // unreadable security\ produced a clean report, report.ok() stayed true, and
+  // the caller wrote [layout] mode = modern for an installation whose
+  // certificates and agent-state.json never moved.
+  write(from_ / "security" / "certificate.pem", "CERT");
+  write(from_ / "security" / "agent-state.json", "IDENTITY");
+  boost::filesystem::permissions(from_ / "security", boost::filesystem::no_perms);
+
+  const nscp::paths::migration_report report = nscp::paths::apply_migration(from_.string(), to_.string());
+  boost::filesystem::permissions(from_ / "security", boost::filesystem::owner_all);
+
+  EXPECT_FALSE(report.ok()) << "an unreadable identity folder must not read as a successful migration";
+  EXPECT_TRUE(report.has(nscp::paths::migration_action::failed));
+  EXPECT_FALSE(exists(to_ / "security" / "agent-state.json"));
+  // And it has to say so, since this is what an operator sees.
+  std::string all;
+  for (const std::string &line : report.describe()) all += line + "\n";
+  EXPECT_NE(all.find("security/"), std::string::npos) << all;
+#endif
+}
+
 TEST_F(LayoutMigrationTest, MovesADirectoryAcrossAVolumeBoundary) {
   // The product on D: with %ProgramData% on C: is an ordinary Windows setup, and
   // rename() cannot cross that boundary. `fleet` is essential, so a failure here

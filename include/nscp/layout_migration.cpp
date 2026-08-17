@@ -42,6 +42,20 @@ bool is_shipped_security_file(const std::string &name) { return nscp::paths::is_
 // which CAs the agent trusts.
 bool is_regenerated_security_file(const std::string &name) { return name == "windows-ca.pem"; }
 
+// exists() and is_directory() answer false both when an entry is not there and
+// when we could not find out, and for a migration those are opposite outcomes:
+// the first means nothing to do, the second means we are about to report
+// success for something we never looked at. fs::status() keeps them apart -
+// a missing entry comes back file_not_found with `ec` cleared, anything else
+// comes back status_error with `ec` set.
+//
+// This matters because run() already guards the top-level source folder for
+// exactly this reason; without the same care further in, an unreadable
+// security\ is recorded as absent, report.ok() stays true, and the caller
+// writes `[layout] mode = modern` for an installation whose certificates and
+// agent-state.json never moved.
+bool unreadable(const fs::file_status &status) { return status.type() == fs::status_error; }
+
 migration_step make(const std::string &name, const migration_action action, const std::string &detail = "", const bool essential = true) {
   migration_step step;
   step.name = name;
@@ -55,8 +69,14 @@ migration_step make(const std::string &name, const migration_action action, cons
 // touching the disk, so the CLI can show a plan that matches what will happen.
 migration_step move_file(const fs::path &source, const fs::path &target, const std::string &name, const bool dry_run, const bool essential = true) {
   boost::system::error_code ec;
-  if (!fs::exists(source, ec)) return make(name, migration_action::absent, "", essential);
-  if (fs::exists(target, ec)) {
+  const fs::file_status source_status = fs::status(source, ec);
+  if (unreadable(source_status)) return make(name, migration_action::failed, "cannot read the source: " + ec.message(), essential);
+  if (!fs::exists(source_status)) return make(name, migration_action::absent, "", essential);
+
+  boost::system::error_code target_ec;
+  const fs::file_status target_status = fs::status(target, target_ec);
+  if (unreadable(target_status)) return make(name, migration_action::failed, "cannot read the destination: " + target_ec.message(), essential);
+  if (fs::exists(target_status)) {
     // The copy already at the destination is the live one - this is what makes
     // a repeated or half-finished migration safe.
     return make(name, migration_action::blocked, "already present at the destination; keeping it", essential);
@@ -136,7 +156,12 @@ bool move_tree_by_copy(const fs::path &from, const fs::path &to, std::string &er
 void migrate_security(const fs::path &from, const fs::path &to, const bool dry_run, migration_report &report) {
   const fs::path source_dir = from / "security";
   boost::system::error_code ec;
-  if (!fs::is_directory(source_dir, ec)) {
+  const fs::file_status source_status = fs::status(source_dir, ec);
+  if (unreadable(source_status)) {
+    report.steps.push_back(make("security/", migration_action::failed, "cannot read " + source_dir.string() + ": " + ec.message()));
+    return;
+  }
+  if (!fs::is_directory(source_status)) {
     report.steps.push_back(make("security/", migration_action::absent));
     return;
   }
@@ -146,12 +171,24 @@ void migrate_security(const fs::path &from, const fs::path &to, const bool dry_r
   // certificate - and stranding a trust anchor breaks TLS quietly.
   std::vector<fs::path> entries;
   for (fs::directory_iterator it(source_dir, ec), end; it != end && !ec; it.increment(ec)) entries.push_back(it->path());
+  if (ec) {
+    // Half a listing is worse than none: the entries we did not reach would be
+    // reported as nothing at all, and this folder holds the agent's identity.
+    report.steps.push_back(make("security/", migration_action::failed, "could not list " + source_dir.string() + ": " + ec.message()));
+    return;
+  }
   std::sort(entries.begin(), entries.end());
 
   for (const fs::path &entry : entries) {
     const std::string file = entry.filename().string();
     const std::string name = "security/" + file;
-    if (fs::is_directory(entry, ec)) {
+    boost::system::error_code entry_ec;
+    const fs::file_status entry_status = fs::status(entry, entry_ec);
+    if (unreadable(entry_status)) {
+      report.steps.push_back(make(name, migration_action::failed, "cannot read: " + entry_ec.message()));
+      continue;
+    }
+    if (fs::is_directory(entry_status)) {
       report.steps.push_back(make(name, migration_action::kept, "unexpected subdirectory; left alone"));
       continue;
     }
@@ -175,12 +212,21 @@ void migrate_tree(const fs::path &from, const fs::path &to, const std::string &n
   const fs::path source_dir = from / name;
   const bool essential = is_essential_directory(name);
   boost::system::error_code ec;
-  if (!fs::is_directory(source_dir, ec)) {
+  const fs::file_status source_status = fs::status(source_dir, ec);
+  if (unreadable(source_status)) {
+    return report.steps.push_back(make(name + "/", migration_action::failed, "cannot read " + source_dir.string() + ": " + ec.message(), essential));
+  }
+  if (!fs::is_directory(source_status)) {
     report.steps.push_back(make(name + "/", migration_action::absent, "", essential));
     return;
   }
   const fs::path target_dir = to / name;
-  if (fs::exists(target_dir, ec)) {
+  boost::system::error_code target_ec;
+  const fs::file_status target_status = fs::status(target_dir, target_ec);
+  if (unreadable(target_status)) {
+    return report.steps.push_back(make(name + "/", migration_action::failed, "cannot read " + target_dir.string() + ": " + target_ec.message(), essential));
+  }
+  if (fs::exists(target_status)) {
     return report.steps.push_back(make(name + "/", migration_action::blocked, "already present at the destination; keeping it", essential));
   }
   if (dry_run) {
