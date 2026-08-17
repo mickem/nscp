@@ -1317,6 +1317,88 @@ extern "C" UINT __stdcall ExecPrepareLayout(MSIHANDLE hInstall) {
   }
 }
 
+// Uninstall cleanup for the modern layout.
+//
+// The RemoveFile rows under INSTALLLOCATION_SECURITY take care of the legacy
+// layout, but on the modern one this host's client certificate, the
+// bundle-signing trust anchor and the fleet identity's private key live in
+// %ProgramData%\NSClient++\security, which the MSI knows nothing about - so
+// uninstalling an enrolled host used to leave all of it on disk.
+//
+// The immediate half resolves the shared folder while boot.ini is still there
+// to read; the deferred half does the deleting, elevated.
+namespace {
+// The generated, host-specific material - the files that must not outlive the
+// installation. Deliberately the same list as the RemoveFile rows in
+// Product.wxs plus the trust-store export, and deliberately not nsclient.ini:
+// an operator's configuration is theirs to keep, as it has always been.
+const char *const removable_security_files[] = {"certificate.pem", "certificate_key.pem", "ca.pem", "agent-state.json", "windows-ca.pem"};
+}  // namespace
+
+extern "C" UINT __stdcall ScheduleRemoveSecrets(MSIHANDLE hInstall) {
+  msi_helper h(hInstall, L"ScheduleRemoveSecrets");
+  try {
+    const std::string install_folder = as_install_folder(h.getTargetPath(L"INSTALLLOCATION"));
+    const nscp::paths::layout layout = resolve_layout(install_folder, L"");
+    const std::string shared_folder = shared_folder_for(layout, install_folder);
+    if (shared_folder == install_folder) {
+      // Legacy layout: the RemoveFile rows already cover this folder.
+      h.logMessage("Layout: legacy, leaving the security folder to the RemoveFile rows");
+      return ERROR_SUCCESS;
+    }
+
+    h.logMessage("Removing the generated security material from " + shared_folder);
+    msi_helper::custom_action_data_w data;
+    data.write_string(utf8::cvt<std::wstring>(shared_folder));
+    const HRESULT hr = h.do_deferred_action(L"ExecRemoveSecrets", data, 1000);
+    if (FAILED(hr)) {
+      h.errorMessage(L"failed to schedule the removal of the generated security material");
+      return hr;
+    }
+    return ERROR_SUCCESS;
+  } catch (const std::exception &e) {
+    h.setError(L"ScheduleRemoveSecrets", utf8::to_unicode(e.what()));
+    return ERROR_INSTALL_FAILURE;
+  } catch (...) {
+    h.setError(L"ScheduleRemoveSecrets", L"Unknown exception");
+    return ERROR_INSTALL_FAILURE;
+  }
+}
+
+extern "C" UINT __stdcall ExecRemoveSecrets(MSIHANDLE hInstall) {
+  msi_helper h(hInstall, L"ExecRemoveSecrets");
+  try {
+    msi_helper::custom_action_data_r data(h.getMsiPropery(L"CustomActionData"));
+    const boost::filesystem::path security = boost::filesystem::path(utf8::cvt<std::string>(data.get_next_string())) / "security";
+
+    for (const char *const name : removable_security_files) {
+      const boost::filesystem::path file = security / name;
+      boost::system::error_code ec;
+      if (!boost::filesystem::exists(file, ec)) continue;
+      if (!boost::filesystem::remove(file, ec) || ec) {
+        // Not fatal: failing an uninstall leaves the product half-removed,
+        // which is worse than a file we could not delete. Say so loudly enough
+        // that an operator who cares can finish the job by hand.
+        h.logMessage("WARNING: failed to remove " + file.string() + (ec ? ": " + ec.message() : std::string()));
+        continue;
+      }
+      h.logMessage("Removed " + file.string());
+    }
+
+    // Only if we emptied it: anything the operator put there themselves is
+    // theirs, and remove() on a non-empty directory fails harmlessly.
+    boost::system::error_code ignored;
+    boost::filesystem::remove(security, ignored);
+    return ERROR_SUCCESS;
+  } catch (const std::exception &e) {
+    h.setError(L"ExecRemoveSecrets", utf8::to_unicode(e.what()));
+    return ERROR_INSTALL_FAILURE;
+  } catch (...) {
+    h.setError(L"ExecRemoveSecrets", L"Unknown exception");
+    return ERROR_INSTALL_FAILURE;
+  }
+}
+
 extern "C" UINT __stdcall ScheduleEnrollFleet(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"ScheduleEnrollFleet");
   try {
