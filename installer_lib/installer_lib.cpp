@@ -237,7 +237,10 @@ struct installer_settings_provider : public settings_manager::provider_interface
       : h(h),
         basepath(utf8::cvt<std::string>(basepath)),
         shared_path(utf8::cvt<std::string>(basepath)),
-        old_settings_map(utf8::cvt<std::string>(old_settings_map)),
+        // No settings map in this overload. This must be an empty string, not
+        // `old_settings_map(...)` - there is no parameter of that name here, so
+        // that spelling initialises the member from its own uninitialised self.
+        old_settings_map(),
         logger(new msi_logger(h)) {}
 
   // Point ${shared-path} somewhere other than the install folder (the modern
@@ -1351,7 +1354,22 @@ extern "C" UINT __stdcall ExecPrepareLayout(MSIHANDLE hInstall) {
 
     // Only now, once the files are actually there.
     CSimpleIni boot_conf;
-    boot_conf.LoadFile(boot_ini.string().c_str());
+    const SI_Error load_result = boot_conf.LoadFile(boot_ini.string().c_str());
+    // LoadFile returns an error both when the file is genuinely absent (the
+    // fresh-install case: create it) and when it exists but could not be read -
+    // locked by AV/backup, or a decode error on non-UTF bytes in a [settings]
+    // URL or [paths] value. Rewriting in the second case would replace the
+    // operator's [settings] store list, [tls] trust config and [paths]
+    // overrides with a bare [layout] stub, so the agent boots on the next start
+    // with no remote configuration and no CA. Tell the two apart by existence
+    // and refuse to clobber.
+    boost::system::error_code exists_ec;
+    if (boost::filesystem::exists(boot_ini, exists_ec) && load_result < 0) {
+      h.setError(L"ExecPrepareLayout", L"Refusing to overwrite " + utf8::cvt<std::wstring>(boot_ini.string()) +
+                                           L": it exists but could not be read (error " + strEx::xtos(static_cast<int>(load_result)) +
+                                           L"). Recording the layout would discard its other sections.");
+      return ERROR_INSTALL_FAILURE;
+    }
     boot_conf.SetValue(L"layout", L"mode", utf8::cvt<std::wstring>(layout_name).c_str());
     if (boot_conf.SaveFile(boot_ini.string().c_str()) < 0) {
       h.setError(L"ExecPrepareLayout", L"Failed to write " + utf8::cvt<std::wstring>(boot_ini.string()));
