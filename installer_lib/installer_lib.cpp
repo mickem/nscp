@@ -958,6 +958,13 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     boost::filesystem::path old_path = target_path / "nsc.ini.old";
     boost::filesystem::path legacy_config_path = target_path / "nsc.ini";
 
+    // ExecPrepareLayout ran before this and recorded the layout in boot.ini, so
+    // reading it back tells us where the configuration lives now: on the modern
+    // layout it has just been moved to the shared folder, and restoring the
+    // backup into the install folder would leave a stale copy in the very place
+    // the migration exists to empty.
+    const std::string shared_folder = shared_folder_for(resolve_layout(utf8::cvt<std::string>(target), L""), utf8::cvt<std::string>(target));
+
     boost::filesystem::path restore_path = restore;
 
     boost::filesystem::path backup_path = backup;
@@ -968,7 +975,7 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     if (boost::filesystem::exists(backup_path)) {
       h.logMessage(L"Restoring from backup: " + backup_path.wstring());
       h.logMessage(L"Found Backup file with size: " + strEx::xtos(boost::filesystem::file_size(backup_path)));
-      boost::filesystem::path config_path = target_path / "nsclient.ini";
+      boost::filesystem::path config_path = boost::filesystem::path(shared_folder) / "nsclient.ini";
       copy_file(h, backup_path.wstring(), config_path.wstring());
       if (!boost::filesystem::remove(backup_path)) {
         h.errorMessage(L"Failed to remove backup file: " + backup_path.wstring());
@@ -989,10 +996,7 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     }
 
     installer_settings_provider provider(&h, target);
-    // ExecPrepareLayout ran before this and recorded the layout in boot.ini, so
-    // reading it back is how the configuration lands in the same folder the
-    // service will read it from.
-    provider.set_shared_path(shared_folder_for(resolve_layout(utf8::cvt<std::string>(target), L""), utf8::cvt<std::string>(target)));
+    provider.set_shared_path(shared_folder);
     if (!tls_ca.empty()) provider.use_user_ca();
 
     // Same defaults as ImportConfig - see the note there. Only the properties
