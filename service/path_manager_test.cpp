@@ -11,6 +11,7 @@
 #include <memory>
 #include <nsclient/logger/logger.hpp>
 #include <nscp/boot_layout.hpp>
+#include <nscp/client_path_resolver.hpp>
 #include <nscp/layout_migration.hpp>
 
 class MockLogger : public nsclient::logging::log_interface {
@@ -446,6 +447,61 @@ TEST(BootLayout, ReadsPathOverridesFromBootIni) {
 TEST(BootLayout, NoBootIniMeansNoPathOverrides) {
   const boost::filesystem::path missing = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-none-%%%%") / "boot.ini";
   EXPECT_EQ(nscp::paths::path_override_from_boot_ini_file(missing.string(), "shared-path"), "");
+  EXPECT_TRUE(nscp::paths::path_overrides_from_boot_ini_file(missing.string()).empty());
+}
+
+// The resolver check_nrpe and check_nscp both use. Its whole reason to exist is
+// that a client with no core must still land on the same folders as the
+// service: it reads [layout] and [paths] from the one boot.ini and applies them
+// exactly as the service's path_manager does. Both clients share this one class
+// so they cannot drift (and both used to miss [paths] entirely).
+class ClientPathResolverTest : public ::testing::Test {
+ protected:
+  boost::filesystem::path dir_;
+
+  void SetUp() override {
+    dir_ = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-client-paths-%%%%");
+    boost::filesystem::create_directories(dir_);
+  }
+  void TearDown() override {
+    boost::system::error_code ignored;
+    boost::filesystem::remove_all(dir_, ignored);
+  }
+  nscp::paths::client_path_resolver resolver_with(const std::string &boot_ini) {
+    const boost::filesystem::path path = dir_ / "boot.ini";
+    std::ofstream(path.string().c_str()) << boot_ini;
+    return nscp::paths::client_path_resolver(path);
+  }
+};
+
+TEST_F(ClientPathResolverTest, HonoursASharedPathOverrideTheServiceWouldApply) {
+  // The #9 case: with this in boot.ini the service writes certificates under
+  // the override; a client that ignored [paths] read them from the layout
+  // default and TLS failed.
+  const nscp::paths::client_path_resolver r = resolver_with("[layout]\nmode = modern\n[paths]\nshared-path = /srv/nscp-state\n");
+  EXPECT_EQ(r.get_folder("shared-path"), "/srv/nscp-state");
+  // ...and everything expressed relative to it follows, because expand_path
+  // resolves the default ${certificate-path} = ${shared-path}/security through
+  // the override.
+  EXPECT_EQ(r.expand_path("${certificate-path}/certificate.pem"), "/srv/nscp-state/security/certificate.pem");
+}
+
+TEST_F(ClientPathResolverTest, AnExplicitCertificatePathOverrideWins) {
+  const nscp::paths::client_path_resolver r = resolver_with("[paths]\ncertificate-path = /etc/nscp/pki\n");
+  EXPECT_EQ(r.expand_path("${certificate-path}/ca.pem"), "/etc/nscp/pki/ca.pem");
+}
+
+TEST_F(ClientPathResolverTest, WithoutOverridesItFallsBackToTheSharedDefaults) {
+  // No [paths]: the resolver must answer exactly what the service's table does,
+  // so the two agree on a stock install.
+  const nscp::paths::client_path_resolver r = resolver_with("[layout]\nmode = legacy\n");
+  EXPECT_EQ(r.get_folder("certificate-path"), nscp::paths::default_for("certificate-path", nscp::paths::layout::legacy));
+  EXPECT_EQ(r.get_layout(), nscp::paths::layout::legacy);
+}
+
+TEST_F(ClientPathResolverTest, ReadsTheLayoutAlongsideThePaths) {
+  const nscp::paths::client_path_resolver r = resolver_with("[layout]\nmode = modern\n");
+  EXPECT_EQ(r.get_layout(), nscp::paths::layout::modern);
 }
 
 TEST(BootLayout, NoBootIniMeansLegacy) {

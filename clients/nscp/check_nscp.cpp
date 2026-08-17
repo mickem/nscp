@@ -10,11 +10,9 @@
 #include <nscapi/protobuf/functions_copy.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_status.hpp>
-#include <nscp/boot_layout.hpp>
-#include <nscp/path_defaults.hpp>
+#include <nscp/client_path_resolver.hpp>
 
 #include "../modules/NSCPClient/nscp_handler.hpp"
-#include "win/shellapi.hpp"
 
 std::string gLog = "";
 
@@ -45,32 +43,6 @@ int main(int argc, char *argv[]) {
   return ret;
 }
 
-#ifdef WIN32
-boost::filesystem::path get_self_path() { return shellapi::get_module_file_name(); }
-#else
-boost::filesystem::path get_self_path() {
-  char buff[1024];
-  ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
-  if (len != -1) {
-    buff[len] = '\0';
-    boost::filesystem::path p = std::string(buff);
-    return p.parent_path();
-  }
-  return boost::filesystem::initial_path();
-}
-#endif
-boost::filesystem::path getBasePath() { return get_self_path(); }
-
-boost::filesystem::path getTempPath() {
-  std::string tempPath;
-#ifdef WIN32
-  tempPath = shellapi::get_temp_path().string();
-#else
-  tempPath = "/tmp";
-#endif
-  return tempPath;
-}
-
 struct stdout_client_handler : public socket_helpers::client::client_handler {
   void log_debug(std::string, int, std::string msg) const {
     if (gLog == "debug") std::cout << msg << std::endl;
@@ -79,31 +51,12 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
     if (gLog == "debug" || gLog == "error") std::cout << msg << std::endl;
   }
 
-  // The on-disk layout, read from boot.ini next to the executable. A client
-  // that disagrees with the service about ${shared-path} looks for
-  // certificates in a folder the service never wrote to.
-  // Read once, when the handler is constructed. A missing or silent boot.ini
-  // means the legacy layout, which is what every installation that predates
-  // the setting has.
-  nscp::paths::layout layout_ = nscp::paths::layout_from_boot_ini_file((getBasePath() / "boot.ini").string());
+  // Resolve ${...} tokens the way the service does, reading [layout] and
+  // [paths] from the boot.ini next to us. Shared with check_nrpe so the two
+  // cannot disagree about where certificates live (nscp/client_path_resolver.hpp).
+  nscp::paths::client_path_resolver resolver_{nscp::paths::client_path_resolver::executable_dir() / "boot.ini"};
 
-  std::string getFolder(std::string key) {
-    // Lookups only this binary can answer, about its own location.
-    if (key == "base-path" || key == "exe-path") return getBasePath().string();
-    if (key == "temp") return getTempPath().string();
-#ifdef WIN32
-    if (key == "common-appdata") return shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, getBasePath()).string();
-#endif
-    // Everything else comes from the table the service uses, so the two cannot
-    // drift apart - including ${shared-path}, which the layout moves.
-    const std::string shared = nscp::paths::default_for(key, layout_);
-    if (!shared.empty()) return shared;
-    return getBasePath().string();
-  }
-
-  std::string expand_path(std::string file) {
-    return nscp::paths::expand_tokens(std::move(file), [this](const std::string &key) { return getFolder(key); });
-  }
+  std::string expand_path(std::string file) { return resolver_.expand_path(file); }
 };
 
 bool test(client::destination_container &source, client::destination_container &) {

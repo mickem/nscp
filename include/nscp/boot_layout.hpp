@@ -5,6 +5,7 @@
 
 #include <simpleini/simpleini.h>
 
+#include <map>
 #include <str/utf8.hpp>
 #include <string>
 
@@ -58,6 +59,32 @@ inline std::string path_override_from_boot_ini_file(const std::string &path, con
   CSimpleIni boot_conf;
   if (boot_conf.LoadFile(path.c_str()) < 0) return std::string();
   return path_override_from_boot_ini(boot_conf, key);
+}
+
+// Every [paths] override, as key -> value. This is what the service installs as
+// its path-override layer (settings_manager_impl walks [paths] the same way);
+// anything that resolves ${...} tokens without the core - the standalone
+// clients - needs the whole set, not one key, to agree with the service about
+// where the writable state lives. Empty values are skipped so a blank override
+// does not mask the compile-time default.
+inline std::map<std::string, std::string> path_overrides_from_boot_ini(CSimpleIni &boot_conf) {
+  std::map<std::string, std::string> overrides;
+  CSimpleIni::TNamesDepend keys;
+  if (boot_conf.GetAllKeys(L"paths", keys)) {
+    for (const auto &k : keys) {
+      const std::string value = utf8::cvt<std::string>(boot_conf.GetValue(L"paths", k.pItem, L""));
+      if (!value.empty()) overrides[utf8::cvt<std::string>(k.pItem)] = value;
+    }
+  }
+  return overrides;
+}
+
+// The same, reading boot.ini at `path`. A missing or unreadable file, or one
+// with no [paths] section, yields an empty map.
+inline std::map<std::string, std::string> path_overrides_from_boot_ini_file(const std::string &path) {
+  CSimpleIni boot_conf;
+  if (boot_conf.LoadFile(path.c_str()) < 0) return {};
+  return path_overrides_from_boot_ini(boot_conf);
 }
 
 // Decide the layout an installation should end up on, given the one it is on
