@@ -799,6 +799,94 @@ TEST_F(OnboardingStateTest, AdoptOwnerRecursesIntoADirectory) {
     EXPECT_EQ(entry.st_uid, 12345u) << target;
   }
 }
+
+// The tree adopt_owner walks is owned by the unprivileged service account, so
+// its contents are attacker-controlled in the only threat model that matters
+// here: an agent whose service account has been compromised. Running as root
+// over paths that account can replace is the classic setup for
+// chown-follows-symlink, so these pin that it does not.
+
+TEST_F(OnboardingStateTest, AdoptOwnerRefusesASymlinkedTarget) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "the chown only happens as root, so there is nothing to refuse otherwise";
+  }
+  // `rm -rf fleet && ln -s /etc fleet` as the service account. Following this
+  // would hand the link's target to nsclient:nsclient.
+  const fs::path reference = dir_ / "state-dir";
+  const fs::path victim = dir_ / "victim";
+  const fs::path managed = dir_ / "fleet";
+  fs::create_directories(reference);
+  fs::create_directories(victim);
+  std::ofstream((victim / "shadow").string().c_str()) << "root:x:";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+  fs::create_directory_symlink(victim, managed);
+
+  std::string error;
+  EXPECT_FALSE(onboarding::adopt_owner(managed.string(), reference.string(), error));
+  EXPECT_FALSE(error.empty());
+
+  struct stat after = {};
+  ASSERT_EQ(::stat((victim / "shadow").string().c_str(), &after), 0);
+  EXPECT_EQ(after.st_uid, 0u) << "ownership was changed through a symlink";
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerDoesNotFollowASymlinkInsideTheTree) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a directory to another account";
+  }
+  // `ln -s /etc/shadow ${fleet-folder}/x`, the escalation this exists to stop.
+  // The real file must keep its owner; the link itself may be retargeted, which
+  // is harmless.
+  const fs::path reference = dir_ / "state-dir";
+  const fs::path managed = dir_ / "fleet";
+  const fs::path outside = dir_ / "outside.txt";
+  fs::create_directories(reference);
+  fs::create_directories(managed);
+  std::ofstream(outside.string().c_str()) << "not ours";
+  std::ofstream((managed / "fleet.ini").string().c_str()) << "; managed";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+  fs::create_symlink(outside, managed / "x");
+
+  std::string error;
+  ASSERT_TRUE(onboarding::adopt_owner(managed.string(), reference.string(), error)) << error;
+
+  struct stat victim = {};
+  ASSERT_EQ(::stat(outside.string().c_str(), &victim), 0);
+  EXPECT_EQ(victim.st_uid, 0u) << "the symlink was followed out of the tree";
+  // The rest of the handoff still happened.
+  struct stat managed_file = {};
+  ASSERT_EQ(::stat((managed / "fleet.ini").string().c_str(), &managed_file), 0);
+  EXPECT_EQ(managed_file.st_uid, 12345u);
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerLeavesHardlinkedFilesAlone) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a directory to another account";
+  }
+  // A hardlink is a second name for one file, so chowning it changes the owner
+  // everywhere it is named - a symlink check alone would not catch this.
+  // Nothing we write is ever hardlinked, so an extra link means someone else
+  // made it.
+  const fs::path reference = dir_ / "state-dir";
+  const fs::path managed = dir_ / "fleet";
+  const fs::path outside = dir_ / "outside.txt";
+  fs::create_directories(reference);
+  fs::create_directories(managed);
+  std::ofstream(outside.string().c_str()) << "not ours";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+  boost::system::error_code ec;
+  fs::create_hard_link(outside, managed / "x", ec);
+  if (ec) {
+    GTEST_SKIP() << "could not create a hardlink: " << ec.message();
+  }
+
+  std::string error;
+  ASSERT_TRUE(onboarding::adopt_owner(managed.string(), reference.string(), error)) << error;
+
+  struct stat victim = {};
+  ASSERT_EQ(::stat(outside.string().c_str(), &victim), 0);
+  EXPECT_EQ(victim.st_uid, 0u) << "a hardlinked file outside the tree changed owner";
+}
 #endif
 
 TEST_F(OnboardingStateTest, UnsupportedVersionThrows) {

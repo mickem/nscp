@@ -133,19 +133,54 @@ bool onboarding::adopt_owner(const std::string &target, const std::string &refer
     return true;
   }
 
-  std::vector<fs::path> targets;
+  // Everything below runs as root over a tree owned by the unprivileged service
+  // account, which is to say over paths that account can replace between our
+  // deciding to walk them and our touching them. That makes the ordinary
+  // root-chown-follows-symlink escalation available: plant
+  // `ln -s /etc/shadow ${fleet-folder}/x` and the next `sudo nscp enroll` hands
+  // /etc/shadow to nsclient:nsclient. So: never traverse a symlink, and never
+  // resolve one when changing ownership.
   boost::system::error_code ec;
-  if (fs::is_directory(target, ec)) {
-    targets.push_back(target);
+  const fs::file_status status = fs::symlink_status(target, ec);
+  if (ec || !fs::exists(status)) {
+    // Nothing there to hand over.
+    return true;
+  }
+  if (fs::is_symlink(status)) {
+    error = "Refusing to change the owner of " + target + ": it is a symbolic link";
+    return false;
+  }
+
+  std::vector<fs::path> targets;
+  targets.push_back(target);
+  if (fs::is_directory(status)) {
+    // recursive_directory_iterator does not descend into symlinked directories
+    // by default, so the walk itself stays inside the tree; the entries it
+    // yields still have to be handled one at a time below.
     for (fs::recursive_directory_iterator it(target, ec), end; it != end && !ec; it.increment(ec)) {
       targets.push_back(it->path());
     }
-  } else {
-    targets.push_back(target);
   }
 
   for (const fs::path &path : targets) {
-    if (::chown(path.string().c_str(), reference_stat.st_uid, reference_stat.st_gid) != 0) {
+    struct stat entry_stat = {};
+    if (::lstat(path.string().c_str(), &entry_stat) != 0) {
+      error = "Failed to inspect " + path.string() + ": " + std::strerror(errno);
+      return false;
+    }
+    // Only regular files and directories are ours to give away. Skipping the
+    // rest - symlinks above all - keeps the rule simple: nothing reachable
+    // from this tree but living outside it can be affected.
+    if (!S_ISREG(entry_stat.st_mode) && !S_ISDIR(entry_stat.st_mode)) continue;
+    // A hardlink is a second name for a file that may live anywhere, and
+    // chowning it changes the owner of that one file everywhere it is named.
+    // Nothing we write here is ever hardlinked, so an extra link means someone
+    // else made it.
+    if (S_ISREG(entry_stat.st_mode) && entry_stat.st_nlink > 1) continue;
+
+    // lchown, not chown: on a symlink that slipped past the checks above this
+    // retargets the link itself rather than whatever it points at.
+    if (::lchown(path.string().c_str(), reference_stat.st_uid, reference_stat.st_gid) != 0) {
       error = "Failed to change the owner of " + path.string() + ": " + std::strerror(errno);
       return false;
     }
