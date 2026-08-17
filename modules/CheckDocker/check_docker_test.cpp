@@ -4,10 +4,12 @@
 #include <gtest/gtest.h>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "check_docker.hpp"
+#include "docker_client.hpp"
 #include "docker_endpoint.hpp"
 
 // Test binaries have no generated module glue, so the plugin singleton
@@ -241,14 +243,18 @@ TEST(CheckDockerInfo, DaemonFailureIsUnknown) {
 namespace {
 
 // A daemon routing by path: the container list plus per-container payloads.
+// A path in `gone` answers HTTP 404, modelling a container removed between the
+// list call and its own inspect/stats.
 struct routed_daemon {
   std::map<std::string, std::string> routes;
+  std::set<std::string> gone;
   std::vector<std::string> requested;
 
   docker_checks::fetcher_factory factory() {
     return [this](const std::string &, int) -> docker_checks::fetcher {
       return [this](const std::string &path) -> std::string {
         requested.push_back(path);
+        if (gone.count(path)) throw docker_checks::docker_http_error(404, "HTTP 404 Not Found");
         const auto it = routes.find(path);
         if (it == routes.end()) throw std::runtime_error("unexpected path: " + path);
         return it->second;
@@ -329,6 +335,23 @@ TEST(CheckDockerStats, ContainerSelectorLimitsSampling) {
   }
 }
 
+TEST(CheckDockerStats, AVanishedContainerIsSkippedNotFatal) {
+  // The ~1s-per-container stats sample widens the removal window; a 404 on one
+  // container's stats must not discard the others.
+  routed_daemon daemon;
+  daemon.routes["/containers/json"] =
+      R"json([{"Id": "gone111", "Names": ["/job"], "Image": "alpine", "State": "running"},
+              {"Id": "aaa111", "Names": ["/web"], "Image": "nginx:1.25", "State": "running"}])json";
+  daemon.gone.insert("/containers/gone111/stats?stream=false");
+  daemon.routes["/containers/aaa111/stats?stream=false"] = WEB_STATS;
+
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_stats(daemon.factory(), {}, response), PB::Common::ResultCode::OK) << join_lines(response);
+  const std::string msg = join_lines(response);
+  EXPECT_NE(msg.find("web: cpu 40%"), std::string::npos) << msg;
+  EXPECT_EQ(msg.find("Failed to connect"), std::string::npos) << msg;
+}
+
 // --- check_docker_restarts -----------------------------------------------------
 
 namespace {
@@ -374,14 +397,39 @@ TEST(CheckDockerRestarts, NeverStartedTimestampIsMinusOne) {
   EXPECT_EQ(join_lines(response), "web=-1");
 }
 
+TEST(CheckDockerRestarts, AVanishedContainerIsSkippedNotFatal) {
+  // Two containers in the list; the first is removed (docker run --rm finishing)
+  // before its inspect, so that path 404s. The check must still report on the
+  // survivor rather than flipping to UNKNOWN and blaming the socket.
+  const boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
+  const std::string started = boost::posix_time::to_iso_extended_string(now) + "Z";
+  routed_daemon daemon;
+  daemon.routes["/containers/json?all=true"] =
+      R"json([{"Id": "gone111", "Names": ["/job"], "Image": "alpine", "State": "exited"},
+              {"Id": "web222", "Names": ["/web"], "Image": "nginx:1.25", "State": "restarting"}])json";
+  daemon.gone.insert("/containers/gone111/json");
+  daemon.routes["/containers/web222/json"] =
+      std::string(R"json({"Id": "web222", "RestartCount": 10, "State": {"Status": "restarting", "ExitCode": 137, "OOMKilled": false, "StartedAt": ")json") +
+      started + R"json("}})json";
+
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_restarts(daemon.factory(), {}, response), PB::Common::ResultCode::WARNING) << join_lines(response);
+  const std::string msg = join_lines(response);
+  EXPECT_NE(msg.find("web: 10 restarts"), std::string::npos) << msg;
+  EXPECT_EQ(msg.find("Failed to connect"), std::string::npos) << "a removed container must not read as a daemon outage: " << msg;
+}
+
 // --- check_docker_df -----------------------------------------------------------
 
 namespace {
-// One used image (10MB unique + 2MB shared), one unused (5MB unique of which
-// 2MB shared with the used one); a running and a stopped container; a
-// referenced and an orphan volume; build cache half in use.
+// A running and a stopped container; a referenced and an orphan volume; build
+// cache half in use.
+// Two images sharing a 2M base layer: img1 12M (10M unique), img2 7M (5M
+// unique). The deduplicated total on disk is 2M + 10M + 5M = 17M, which is what
+// the daemon reports as LayersSize and what `docker system df` prints - not the
+// 15M that summing (Size - SharedSize) gives, which drops the shared base.
 const char *DF_PAYLOAD = R"json({
-  "LayersSize": 0,
+  "LayersSize": 17000000,
   "Images": [
     {"Containers": 1, "Size": 12000000, "SharedSize": 2000000},
     {"Containers": 0, "Size": 7000000, "SharedSize": 2000000}
@@ -412,9 +460,10 @@ TEST(CheckDockerDf, AggregatesSizesAndReclaimable) {
                    response),
             PB::Common::ResultCode::OK)
       << join_lines(response);
-  // images_size = unique sizes: 10M + 5M; reclaimable: 5M (unused image) +
-  // 3M (stopped container) + 6M (orphan volume) + 8M (idle build cache) = 22M.
-  EXPECT_EQ(join_lines(response), "1|15000000|5000000|3000000|6000000|8000000|22000000");
+  // images_size = LayersSize (17M, the deduplicated on-disk total); reclaimable:
+  // 5M (unused image's unique layers) + 3M (stopped container) + 6M (orphan
+  // volume) + 8M (idle build cache) = 22M.
+  EXPECT_EQ(join_lines(response), "1|17000000|5000000|3000000|6000000|8000000|22000000");
 }
 
 TEST(CheckDockerDf, ThresholdsAcceptSizeUnits) {

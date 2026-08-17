@@ -151,9 +151,19 @@ void check_stats(const settings &defaults, const PB::Commands::QueryRequestMessa
     }
 
     // stream=false makes the daemon take two samples ~1s apart so the cpu
-    // delta is meaningful (one-shot mode leaves precpu empty).
+    // delta is meaningful (one-shot mode leaves precpu empty). That ~1s per
+    // container widens the window for the container to be removed mid-check, so
+    // a 404 here is if anything more likely than in check_restarts: skip the
+    // vanished container rather than failing the whole check.
     json::value stats;
-    if (!fetch_json(fetch, endpoint, std::string(API) + "/containers/" + get_str(c, "Id") + "/stats?stream=false", stats, response)) return;
+    switch (fetch_json_item(fetch, endpoint, std::string(API) + "/containers/" + get_str(c, "Id") + "/stats?stream=false", stats, response)) {
+      case item_fetch::vanished:
+        continue;
+      case item_fetch::failed:
+        return;
+      case item_fetch::ok:
+        break;
+    }
     if (stats.is_object()) parse_stats(stats.as_object(), record);
 
     filter.match(record);

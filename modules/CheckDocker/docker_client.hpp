@@ -19,6 +19,19 @@
 
 namespace docker_checks {
 
+// The daemon answered, but with a non-2xx HTTP status. Distinct from a
+// transport failure (which the fetcher reports as some other exception): a 404
+// here means the specific resource is gone - most usefully, a container removed
+// between the list call and its own inspect - which is a "skip it" rather than
+// a "the daemon is unreachable".
+class docker_http_error : public std::runtime_error {
+  long status_;
+
+ public:
+  docker_http_error(const long status, const std::string &message) : std::runtime_error(message), status_(status) {}
+  long status() const { return status_; }
+};
+
 // Unversioned paths: the daemon serves them with the newest API it speaks,
 // which every docker release (and podman's compat API) accepts. A pinned
 // version breaks in both directions - the previous /v1.40 predates what
@@ -84,6 +97,11 @@ inline bool fetch_json(const fetcher &fetch, const std::string &endpoint, const 
   std::string body;
   try {
     body = fetch(path);
+  } catch (const docker_http_error &e) {
+    // A non-2xx on a top-level call (the container list, /info, /system/df) is a
+    // real failure - it connected, but the daemon would not serve the request.
+    fail(response, "docker daemon at '" + endpoint + "' returned HTTP " + std::to_string(e.status()) + " for " + path + ": " + e.what());
+    return false;
   } catch (const std::exception &e) {
     fail(response, "Failed to connect to docker daemon at '" + endpoint + "': " + utf8::utf8_from_native(e.what()));
     return false;
@@ -95,6 +113,41 @@ inline bool fetch_json(const fetcher &fetch, const std::string &endpoint, const 
     return false;
   }
   return true;
+}
+
+// What happened to a per-item fetch (a single container's inspect or stats),
+// which - unlike the list call above - races against the container's lifetime.
+enum class item_fetch {
+  ok,        // parsed into `out`
+  vanished,  // the item is gone (HTTP 404); skip it and carry on
+  failed,    // the daemon is unreachable or misbehaving; the check is aborted
+};
+
+// Fetch one per-item resource. A 404 (the container was removed between the
+// list call and this one - routine on a host running `docker run --rm` jobs)
+// is `vanished`, so the caller drops that container and keeps the rest instead
+// of throwing the whole check away and blaming the socket. Any other error
+// fails the response, exactly as fetch_json would.
+inline item_fetch fetch_json_item(const fetcher &fetch, const std::string &endpoint, const std::string &path, boost::json::value &out,
+                                  PB::Commands::QueryResponseMessage::Response *response) {
+  std::string body;
+  try {
+    body = fetch(path);
+  } catch (const docker_http_error &e) {
+    if (e.status() == 404) return item_fetch::vanished;
+    fail(response, "docker daemon at '" + endpoint + "' returned HTTP " + std::to_string(e.status()) + " for " + path + ": " + e.what());
+    return item_fetch::failed;
+  } catch (const std::exception &e) {
+    fail(response, "Failed to connect to docker daemon at '" + endpoint + "': " + utf8::utf8_from_native(e.what()));
+    return item_fetch::failed;
+  }
+  try {
+    out = boost::json::parse(body);
+  } catch (const std::exception &e) {
+    fail(response, "Failed to parse docker daemon response from " + path + ": " + utf8::utf8_from_native(e.what()));
+    return item_fetch::failed;
+  }
+  return item_fetch::ok;
 }
 
 // --- duration-literal converter ----------------------------------------------

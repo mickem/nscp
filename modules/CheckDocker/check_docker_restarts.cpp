@@ -149,8 +149,19 @@ void check_restarts(const settings &defaults, const PB::Commands::QueryRequestMe
     }
 
     // RestartCount and the State details only exist in the inspect payload.
+    // The container can be removed between the list call and this one (a
+    // `--rm` job finishing, `docker compose run`, CI churn); a 404 there means
+    // "gone", so drop it and keep reporting on the rest rather than failing the
+    // whole check and blaming the socket.
     json::value inspected;
-    if (!fetch_json(fetch, endpoint, std::string(API) + "/containers/" + get_str(c, "Id") + "/json", inspected, response)) return;
+    switch (fetch_json_item(fetch, endpoint, std::string(API) + "/containers/" + get_str(c, "Id") + "/json", inspected, response)) {
+      case item_fetch::vanished:
+        continue;
+      case item_fetch::failed:
+        return;
+      case item_fetch::ok:
+        break;
+    }
     if (inspected.is_object()) {
       const json::object &o = inspected.as_object();
       record->restart_count = get_num(o, "RestartCount");
