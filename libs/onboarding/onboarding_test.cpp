@@ -755,10 +755,11 @@ TEST_F(OnboardingStateTest, AdoptOwnerGivesTheFileToTheReferenceOwner) {
   if (::geteuid() != 0) {
     GTEST_SKIP() << "needs root to hand a file to another account";
   }
-  // Model the packaged layout: a state directory owned by the service account,
-  // and an identity written by root that the service has to be able to read.
-  const fs::path reference = dir_ / "state-dir";
-  fs::create_directories(reference);
+  // Model the packaged layout: ${data-path} owned by the service account, with
+  // the identity written by root inside it. dir_ plays ${data-path} (the
+  // reference); path_ is the state file within it, exactly as the real
+  // ${data-path}/security/agent-state.json sits under ${data-path}.
+  const fs::path reference = dir_;
   const uid_t service_uid = 12345;
   const gid_t service_gid = 12345;
   ASSERT_EQ(::chown(reference.string().c_str(), service_uid, service_gid), 0);
@@ -780,10 +781,11 @@ TEST_F(OnboardingStateTest, AdoptOwnerRecursesIntoADirectory) {
   if (::geteuid() != 0) {
     GTEST_SKIP() << "needs root to hand a directory to another account";
   }
-  // The fleet managed directory: the sync rewrites everything under it.
-  const fs::path reference = dir_ / "state-dir";
+  // The fleet managed directory (${data-path}/fleet): the sync rewrites
+  // everything under it. dir_ is ${data-path} (the reference); managed is fleet
+  // within it.
+  const fs::path reference = dir_;
   const fs::path managed = dir_ / "fleet";
-  fs::create_directories(reference);
   fs::create_directories(managed / "cache");
   std::ofstream(( managed / "fleet.ini").string().c_str()) << "; managed";
   std::ofstream((managed / "cache" / "bundle.zip").string().c_str()) << "zip";
@@ -812,10 +814,9 @@ TEST_F(OnboardingStateTest, AdoptOwnerRefusesASymlinkedTarget) {
   }
   // `rm -rf fleet && ln -s /etc fleet` as the service account. Following this
   // would hand the link's target to nsclient:nsclient.
-  const fs::path reference = dir_ / "state-dir";
+  const fs::path reference = dir_;
   const fs::path victim = dir_ / "victim";
   const fs::path managed = dir_ / "fleet";
-  fs::create_directories(reference);
   fs::create_directories(victim);
   std::ofstream((victim / "shadow").string().c_str()) << "root:x:";
   ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
@@ -837,10 +838,9 @@ TEST_F(OnboardingStateTest, AdoptOwnerDoesNotFollowASymlinkInsideTheTree) {
   // `ln -s /etc/shadow ${fleet-folder}/x`, the escalation this exists to stop.
   // The real file must keep its owner; the link itself may be retargeted, which
   // is harmless.
-  const fs::path reference = dir_ / "state-dir";
+  const fs::path reference = dir_;
   const fs::path managed = dir_ / "fleet";
   const fs::path outside = dir_ / "outside.txt";
-  fs::create_directories(reference);
   fs::create_directories(managed);
   std::ofstream(outside.string().c_str()) << "not ours";
   std::ofstream((managed / "fleet.ini").string().c_str()) << "; managed";
@@ -867,10 +867,9 @@ TEST_F(OnboardingStateTest, AdoptOwnerLeavesHardlinkedFilesAlone) {
   // everywhere it is named - a symlink check alone would not catch this.
   // Nothing we write is ever hardlinked, so an extra link means someone else
   // made it.
-  const fs::path reference = dir_ / "state-dir";
+  const fs::path reference = dir_;
   const fs::path managed = dir_ / "fleet";
   const fs::path outside = dir_ / "outside.txt";
-  fs::create_directories(reference);
   fs::create_directories(managed);
   std::ofstream(outside.string().c_str()) << "not ours";
   ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
@@ -886,6 +885,49 @@ TEST_F(OnboardingStateTest, AdoptOwnerLeavesHardlinkedFilesAlone) {
   struct stat victim = {};
   ASSERT_EQ(::stat(outside.string().c_str(), &victim), 0);
   EXPECT_EQ(victim.st_uid, 0u) << "a hardlinked file outside the tree changed owner";
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerDoesNotDescendThroughASymlinkedIntermediate) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a file to another account";
+  }
+  // The variant the earlier lchown-by-path fix missed: not the target and not a
+  // leaf, but an *intermediate* directory swapped for a symlink. Target is
+  // ${data-path}/security/agent-state.json; the service account has replaced
+  // `security` with a symlink to a directory it does not own. Resolving the
+  // path by string would chown the victim's agent-state.json; descending with
+  // openat(O_NOFOLLOW) refuses at the symlinked component instead.
+  const fs::path reference = dir_;
+  const fs::path victim = dir_ / "victim";
+  fs::create_directories(victim);
+  std::ofstream((victim / "agent-state.json").string().c_str()) << "root-owned";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+  fs::create_directory_symlink(victim, dir_ / "security");
+
+  std::string error;
+  const fs::path target = dir_ / "security" / "agent-state.json";
+  EXPECT_FALSE(onboarding::adopt_owner(target.string(), reference.string(), error));
+  EXPECT_FALSE(error.empty());
+
+  struct stat after = {};
+  ASSERT_EQ(::stat((victim / "agent-state.json").string().c_str(), &after), 0);
+  EXPECT_EQ(after.st_uid, 0u) << "ownership was changed through a symlinked intermediate directory";
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerRefusesATargetOutsideTheReference) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "the anchor check runs only on the root chown path";
+  }
+  // The anchor only makes a path safe if the path is actually under it. A target
+  // elsewhere is refused rather than resolved without the anchor's protection.
+  ASSERT_EQ(::chown(dir_.string().c_str(), 12345, 12345), 0);  // a non-root reference, so we reach the check
+  const fs::path outside = fs::temp_directory_path() / fs::unique_path("nscp-elsewhere-%%%%");
+  fs::create_directories(outside);
+  std::ofstream((outside / "x").string().c_str()) << "x";
+  std::string error;
+  EXPECT_FALSE(onboarding::adopt_owner((outside / "x").string(), dir_.string(), error));
+  EXPECT_FALSE(error.empty());
+  fs::remove_all(outside);
 }
 #endif
 
