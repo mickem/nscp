@@ -36,11 +36,29 @@ namespace windows_acl {
 // decides how loud to be.
 bool protect_directory(const std::string &path, std::list<std::string> &errors);
 
-// Read back the owner and the DACL and report whether the directory is in the
-// state protect_directory aims for: owned by SYSTEM or Administrators, with no
-// ACE granting anyone else. Used by the caller to verify rather than assume -
-// "we set a DACL" and "the DACL excludes everyone else" are different claims,
-// and both traps above are cases where the first is true and the second is not.
+// What could be determined about a directory's protection.
+enum class protection {
+  // Owned by SYSTEM or Administrators, and no ACE grants anyone else.
+  restricted,
+  // Someone else has access, or owns it (and so can grant themselves access).
+  open,
+  // The security descriptor could not be read at all. Distinct from `open` on
+  // purpose: the most common reason is that the caller is not privileged
+  // enough to read it, which is what a *correctly* locked-down folder looks
+  // like from an unelevated process. Treating that as "wide open" produces a
+  // frightening warning about a folder that is in fact exactly right.
+  unknown,
+};
+
+// Read back the owner and the DACL and report which of the three above applies.
+// Used by the caller to verify rather than assume - "we set a DACL" and "the
+// DACL excludes everyone else" are different claims, and both traps above are
+// cases where the first is true and the second is not.
+protection inspect_protection(const std::string &path, std::list<std::string> &errors);
+
+// inspect_protection() for callers that have the access to tell the difference
+// and only care whether the directory is locked down. Anything other than
+// `restricted` is false.
 bool is_protected(const std::string &path, std::list<std::string> &errors);
 
 }  // namespace windows_acl

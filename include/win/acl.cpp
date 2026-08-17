@@ -144,7 +144,7 @@ bool protect_directory(const std::string &path, std::list<std::string> &errors) 
   return true;
 }
 
-bool is_protected(const std::string &path, std::list<std::string> &errors) {
+protection inspect_protection(const std::string &path, std::list<std::string> &errors) {
   PACL dacl = nullptr;
   PSID owner = nullptr;
   PSECURITY_DESCRIPTOR raw_descriptor = nullptr;
@@ -153,21 +153,25 @@ bool is_protected(const std::string &path, std::list<std::string> &errors) {
       ::GetNamedSecurityInfoW(wide.c_str(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &owner, nullptr, &dacl, nullptr,
                               &raw_descriptor);
   if (result != ERROR_SUCCESS) {
+    // Not "open": we learned nothing. Reading a security descriptor needs
+    // READ_CONTROL, which a folder restricted to SYSTEM and Administrators
+    // deliberately denies everyone else - so this is the expected answer for an
+    // unelevated caller looking at a folder that is working exactly as intended.
     errors.emplace_back("GetNamedSecurityInfo failed: error=" + std::to_string(result));
-    return false;
+    return protection::unknown;
   }
   const std::unique_ptr<void, local_free> descriptor(raw_descriptor);
   if (dacl == nullptr) {
     // A NULL DACL grants everyone everything - the opposite of protected.
     errors.emplace_back("the directory has no DACL, which grants full access to everyone");
-    return false;
+    return protection::open;
   }
 
   std::vector<unsigned char> system_sid_bytes, admin_sid_bytes;
   PSID system_sid = nullptr;
   PSID admin_sid = nullptr;
-  if (!build_sid(WinLocalSystemSid, system_sid_bytes, system_sid, errors)) return false;
-  if (!build_sid(WinBuiltinAdministratorsSid, admin_sid_bytes, admin_sid, errors)) return false;
+  if (!build_sid(WinLocalSystemSid, system_sid_bytes, system_sid, errors)) return protection::unknown;
+  if (!build_sid(WinBuiltinAdministratorsSid, admin_sid_bytes, admin_sid, errors)) return protection::unknown;
 
   bool clean = true;
 
@@ -186,8 +190,9 @@ bool is_protected(const std::string &path, std::list<std::string> &errors) {
   for (DWORD i = 0; i < dacl->AceCount; i++) {
     void *entry = nullptr;
     if (!::GetAce(dacl, i, &entry)) {
+      // Half an ACL read tells us nothing about the half we did not reach.
       errors.emplace_back(last_error("GetAce"));
-      return false;
+      return protection::unknown;
     }
     const ACE_HEADER *header = static_cast<ACE_HEADER *>(entry);
     if (header->AceType != ACCESS_ALLOWED_ACE_TYPE) continue;
@@ -198,8 +203,10 @@ bool is_protected(const std::string &path, std::list<std::string> &errors) {
     errors.emplace_back("unexpected grant to " + describe_sid(sid));
     clean = false;
   }
-  return clean;
+  return clean ? protection::restricted : protection::open;
 }
+
+bool is_protected(const std::string &path, std::list<std::string> &errors) { return inspect_protection(path, errors) == protection::restricted; }
 
 }  // namespace windows_acl
 }  // namespace nsclient

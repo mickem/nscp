@@ -115,7 +115,34 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
     try {
       const std::string shared = path_->expand_path("${shared-path}");
       if (shared.empty()) return;
+
+      // Look before acting. This runs during the settings bootstrap of *every*
+      // process, not just the service: an unelevated `nscp client ...` has no
+      // WRITE_DAC, so it used to fail below and announce that a folder which is
+      // in fact locked down "may be readable by every user on this machine".
+      // Restricting it is the service's job, and the same reasoning as the
+      // trust-store export below applies - complaining about something working
+      // as designed is noise that trains operators to ignore the message.
       boost::system::error_code ec;
+      if (boost::filesystem::is_directory(shared, ec)) {
+        std::list<std::string> state_errors;
+        switch (nsclient::windows_acl::inspect_protection(shared, state_errors)) {
+          case nsclient::windows_acl::protection::restricted:
+            LOG_DEBUG_CORE(shared + " is already restricted to SYSTEM and Administrators");
+            return;
+          case nsclient::windows_acl::protection::unknown:
+            // Reading the security descriptor needs READ_CONTROL, which the
+            // lockdown denies to everyone else - so being unable to look is
+            // itself evidence that the folder is not open, and there is nothing
+            // useful an unprivileged process could do about it either way.
+            for (const std::string &e : state_errors) LOG_DEBUG_CORE("acl: " + e);
+            LOG_DEBUG_CORE("Cannot inspect the permissions on " + shared + "; leaving that to the service");
+            return;
+          case nsclient::windows_acl::protection::open:
+            break;  // genuinely wide open - fix it, and complain if we cannot
+        }
+      }
+
       boost::filesystem::create_directories(shared, ec);
       if (ec) {
         LOG_ERROR_CORE("Failed to create " + shared + ": " + ec.message());
@@ -126,9 +153,11 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
         for (const std::string &e : errors) LOG_ERROR_CORE("acl: " + e);
         // Loud, and deliberately not fatal: refusing to start would take a
         // working agent offline over a permissions problem an operator can fix.
-        // Say plainly what is exposed instead.
+        // Say plainly what is exposed instead - and it is exposed, not "may
+        // be": we either just created the folder (which inherits
+        // Users: Read & Execute from %ProgramData%) or looked and found it open.
         LOG_ERROR_CORE("Could not restrict access to " + shared +
-                       " - it may be readable by every user on this machine, including the configuration and the fleet identity.");
+                       " - it is readable by every user on this machine, including the configuration and the fleet identity.");
         return;
       }
       errors.clear();

@@ -192,6 +192,32 @@ TEST_F(AclTest, ReprotectingTakesOwnershipBack) {
   EXPECT_TRUE(nsclient::windows_acl::is_protected(dir_.string(), errors)) << (errors.empty() ? "" : errors.front());
 }
 
+TEST_F(AclTest, AnUnreadableSecurityDescriptorIsUnknownRatherThanOpen) {
+  // The distinction the shared-folder bootstrap depends on. Reading a security
+  // descriptor needs READ_CONTROL, which the lockdown denies to everyone else,
+  // so an unelevated caller looking at a *correctly* protected folder cannot
+  // read it. Answering "open" there produced a frightening warning on every
+  // `nscp client ...` about a folder that was exactly right.
+  std::list<std::string> errors;
+  const std::string missing = (dir_ / "no-such-folder").string();
+  EXPECT_EQ(nsclient::windows_acl::inspect_protection(missing, errors), nsclient::windows_acl::protection::unknown);
+  EXPECT_FALSE(errors.empty());
+
+  // A directory we *can* read and that grants others access is a different
+  // answer, and the one worth warning about.
+  errors.clear();
+  EXPECT_EQ(nsclient::windows_acl::inspect_protection(dir_.string(), errors), nsclient::windows_acl::protection::open);
+}
+
+TEST_F(AclTest, InspectionAgreesWithIsProtected) {
+  std::list<std::string> errors;
+  ASSERT_TRUE(nsclient::windows_acl::protect_directory(dir_.string(), errors)) << (errors.empty() ? "" : errors.front());
+  protected_ = true;
+  errors.clear();
+  EXPECT_EQ(nsclient::windows_acl::inspect_protection(dir_.string(), errors), nsclient::windows_acl::protection::restricted);
+  EXPECT_TRUE(nsclient::windows_acl::is_protected(dir_.string(), errors));
+}
+
 TEST_F(AclTest, ReportsRatherThanThrowsForAMissingDirectory) {
   std::list<std::string> errors;
   const std::string missing = (dir_ / "no-such-folder").string();
