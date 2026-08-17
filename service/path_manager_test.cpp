@@ -775,7 +775,9 @@ TEST_F(NrpeDhLookupTest, FallsBackToWhereTheInstallerLeftThem) {
   put_dh(legacy_, "nrpe_dh_2048.pem");
 
   EXPECT_EQ(pm->getFolder("nrpe-dh"), legacy_.string());
-  EXPECT_EQ(pm->expand_path("${nrpe-dh}/nrpe_dh_2048.pem"), (legacy_ / "nrpe_dh_2048.pem").string());
+  // legacy_.string() + "/" rather than operator/: expansion only substitutes
+  // the token, so the separator stays the literal "/" even on Windows.
+  EXPECT_EQ(pm->expand_path("${nrpe-dh}/nrpe_dh_2048.pem"), legacy_.string() + "/nrpe_dh_2048.pem");
 }
 
 TEST_F(NrpeDhLookupTest, PrefersParametersBesideTheWritableState) {
