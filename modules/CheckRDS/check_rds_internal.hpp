@@ -43,5 +43,10 @@ inline std::string keypack_type_name(const long long type) {
   }
 }
 
+// True when a "Terminal Services Session" counter instance is an actual
+// session (console or RDP); the "Services" instance is the aggregate for
+// session 0 / system processes, not a user session.
+inline bool is_session_instance(const std::string &instance) { return instance != "Services"; }
+
 }  // namespace check_rds_internal
 }  // namespace check_rds

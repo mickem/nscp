@@ -23,6 +23,12 @@ TEST(CheckRdsLicenses, KeyPackTypeNamesMatchTheDocumentedValues) {
 
 TEST(CheckRdsLicenses, UnknownKeyPackTypesRenderTheRawValue) { EXPECT_EQ(keypack_type_name(42), "type_42"); }
 
+TEST(CheckRdsSessionLoad, ServicesIsNotAUserSession) {
+  EXPECT_FALSE(is_session_instance("Services"));
+  EXPECT_TRUE(is_session_instance("Console"));
+  EXPECT_TRUE(is_session_instance("RDP-Tcp 55"));
+}
+
 TEST(CheckRdsLicenses, KeyPackDefaultsAreEmpty) {
   const license_key_pack pack;
   EXPECT_EQ(pack.id, 0);

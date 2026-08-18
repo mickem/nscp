@@ -10,6 +10,16 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     check_rds_licenses.cpp
+    check_rds_sessions.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_object_gather.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.cpp
+    ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.cpp
     ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.cpp
     ${NSCP_DEF_PLUGIN_CPP}
     ${NSCP_FILTER_CPP}
@@ -23,7 +33,17 @@ if(WIN32)
         ${SRCS}
         "${TARGET}.h"
         check_rds_licenses.hpp
+        check_rds_sessions.hpp
         check_rds_internal.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_enumerations.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_interface.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_object_gather.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_query.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/pdh_resolver.hpp
+        ${NSCP_INCLUDEDIR}/win/pdh/thread_safe_impl.hpp
         ${NSCP_INCLUDEDIR}/win/wmi/wmi_query.hpp
         ${NSCP_DEF_PLUGIN_HPP}
         ${NSCP_FILTER_HPP}
@@ -37,10 +57,13 @@ NSCP_DEBUG_SYMBOLS(${TARGET})
 target_link_libraries(
     ${TARGET}
     ${NSCP_DEF_PLUGIN_LIB}
+    ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_REGEX_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${NSCP_FILTER_LIB}
     expression_parser
+    winsys_info
     Wbemuuid.lib
     OleAut32
 )

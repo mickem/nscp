@@ -16,18 +16,28 @@ bool is_total_instance(const std::string &name) { return name == "_Total"; }
 
 std::list<pdh_instance> add_counters(PDHQuery &query, const std::string &object, const std::vector<std::string> &counters, const bool with_instances) {
   std::list<pdh_instance> instances;
+  std::string first_error;
   for (const std::string &counter : counters) {
-    pdh_object obj;
-    obj.set_counter("\\" + object + (with_instances ? "(*)" : "") + "\\" + counter);
-    obj.set_alias(counter);
-    if (with_instances) obj.set_instances("true");
-    obj.set_strategy_static();
-    obj.set_type("double");
-    obj.set_resolution("auto");
-    pdh_instance instance = factory::create(obj);
-    query.addCounter(instance);
-    instances.push_back(instance);
+    try {
+      pdh_object obj;
+      obj.set_counter("\\" + object + (with_instances ? "(*)" : "") + "\\" + counter);
+      obj.set_alias(counter);
+      if (with_instances) obj.set_instances("true");
+      obj.set_strategy_static();
+      obj.set_type("double");
+      obj.set_resolution("auto");
+      pdh_instance instance = factory::create(obj);
+      query.addCounter(instance);
+      instances.push_back(instance);
+    } catch (const pdh_exception &e) {
+      // Individual counters vary between Windows versions and SKUs (e.g. the
+      // Terminal Services Session protocol counters only exist on session
+      // hosts): skip what this host does not have and let the values default,
+      // as long as at least one counter of the object resolves.
+      if (first_error.empty()) first_error = e.reason();
+    }
   }
+  if (instances.empty()) throw pdh_exception(first_error.empty() ? "No counters given for " + object : first_error);
   return instances;
 }
 
