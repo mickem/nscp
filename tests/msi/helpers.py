@@ -1,6 +1,6 @@
 from difflib import unified_diff
 from subprocess import run, CalledProcessError, CREATE_NEW_PROCESS_GROUP
-from os import path, makedirs, environ
+from os import path, makedirs, environ, walk
 from shutil import rmtree
 from configparser import ConfigParser
 import yaml
@@ -328,26 +328,38 @@ def validate_secured(folder):
     if not path.exists(folder):
         print(f"! Cannot check permissions, folder does not exist: {folder}", flush=True)
         return False
-    result = run(['icacls', folder], capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"! icacls failed for {folder}: {result.stderr.strip()}", flush=True)
-        return False
 
-    allowed = (r'NT AUTHORITY\SYSTEM', r'BUILTIN\Administrators')
-    offenders = []
-    for line in result.stdout.splitlines():
-        # "<path> PRINCIPAL:(perms)" on the first line, then "  PRINCIPAL:(perms)".
-        entry = line.replace(folder, '', 1).strip()
-        if not entry or ':' not in entry or entry.startswith('Successfully processed'):
+    # Every entry, not just the folder: a migrated file arrives by rename and
+    # keeps the security descriptor it had at the source, so the folder can be
+    # perfectly restricted around world-readable secrets. Checking one path at
+    # a time keeps the icacls output unambiguous (paths can contain spaces).
+    ok = True
+    items = [folder]
+    for root, dirs, files in walk(folder):
+        items.extend(path.join(root, name) for name in dirs + files)
+    for item in items:
+        result = run(['icacls', item], capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"! icacls failed for {item}: {result.stderr.strip()}", flush=True)
+            ok = False
             continue
-        principal = entry.rsplit(':', 1)[0].strip()
-        if principal not in allowed:
-            offenders.append(principal)
 
-    if offenders:
-        print(f"! {folder} grants access to: {', '.join(sorted(set(offenders)))}", flush=True)
-        print(f"! Only {' and '.join(allowed)} may have access.", flush=True)
-        print(result.stdout, flush=True)
-        return False
-    print(f"- {folder} is restricted to SYSTEM and administrators.", flush=True)
-    return True
+        allowed = (r'NT AUTHORITY\SYSTEM', r'BUILTIN\Administrators')
+        offenders = []
+        for line in result.stdout.splitlines():
+            # "<path> PRINCIPAL:(perms)" on the first line, then "  PRINCIPAL:(perms)".
+            entry = line.replace(item, '', 1).strip()
+            if not entry or ':' not in entry or entry.startswith('Successfully processed'):
+                continue
+            principal = entry.rsplit(':', 1)[0].strip()
+            if principal not in allowed:
+                offenders.append(principal)
+
+        if offenders:
+            print(f"! {item} grants access to: {', '.join(sorted(set(offenders)))}", flush=True)
+            print(f"! Only {' and '.join(allowed)} may have access.", flush=True)
+            print(result.stdout, flush=True)
+            ok = False
+    if ok:
+        print(f"- {folder} and its contents are restricted to SYSTEM and administrators.", flush=True)
+    return ok
