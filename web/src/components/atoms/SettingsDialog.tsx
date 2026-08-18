@@ -39,12 +39,20 @@ export default function SettingsDialog({ onClose, path, keyName, value, descript
     setNewValue(value);
   }, [value]);
 
+  // Only write when the value actually changed. Re-saving an unchanged value
+  // is at best a spurious write that dirties the settings store, and — once
+  // sensitive values are returned redacted ("***") — it would clobber the real
+  // stored secret with the mask. "No change" therefore means "nothing to do".
+  const dirty = newValue !== value;
+
   const onHandleSave = async () => {
-    await saveSettings({
-      path,
-      key: keyName,
-      value: newValue,
-    }).unwrap();
+    if (dirty) {
+      await saveSettings({
+        path,
+        key: keyName,
+        value: newValue,
+      }).unwrap();
+    }
     onClose();
   };
 
@@ -80,7 +88,7 @@ export default function SettingsDialog({ onClose, path, keyName, value, descript
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={onHandleSave} autoFocus>
+        <Button onClick={onHandleSave} disabled={!dirty} autoFocus>
           Update
         </Button>
       </DialogActions>
