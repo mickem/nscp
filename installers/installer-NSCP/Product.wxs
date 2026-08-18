@@ -379,6 +379,13 @@
          halves run after it: both write into that folder. -->
     <!-- Best effort (Return=ignore): a boot.ini that cannot be read leaves
          CURRENT_LAYOUT unset, which is the pre-layout behaviour. -->
+    <!-- ReadLayout runs before CostFinalize, where MsiGetTargetPath is not
+         valid yet and the INSTALLLOCATION property is only set when the
+         operator passed one - on an unattended upgrade neither yields a path.
+         Hand it the Directory-table default instead; the shell-folder
+         properties are set when the engine starts, so this formats fine at
+         costing time. -->
+    <CustomAction Id="ReadLayout.DefaultLocation" Property="DEFAULT_INSTALLLOCATION" Value="[$(var.ProgramFiles)]$(var.App.Path)" />
     <CustomAction Id="ReadLayout"            BinaryKey="InstallerHelper" DllEntry="ReadLayout"            Impersonate="yes" Execute="immediate" Return="ignore" />
     <CustomAction Id="SchedulePrepareLayout" BinaryKey="InstallerHelper" DllEntry="SchedulePrepareLayout" Impersonate="yes" Execute="immediate" Return="check" />
     <CustomAction Id="ExecPrepareLayout"     BinaryKey="InstallerHelper" DllEntry="ExecPrepareLayout"     Impersonate="no"  Execute="deferred"  Return="check" />
@@ -460,7 +467,8 @@
            creates the placeholder that include points at. -->
       <!-- Before CostFinalize, which is where the NSClientConfig component
            conditions read CURRENT_LAYOUT. -->
-      <Custom Action="ReadLayout" After="FileCost">NOT (REMOVE ="ALL")</Custom>
+      <Custom Action="ReadLayout.DefaultLocation" After="FileCost">NOT (REMOVE ="ALL")</Custom>
+      <Custom Action="ReadLayout" After="ReadLayout.DefaultLocation">NOT (REMOVE ="ALL")</Custom>
       <!-- First of the three, on install and upgrade alike: the other two write
            into the folder this one creates, secures and migrates into. -->
       <Custom Action="SchedulePrepareLayout" After="InstallFiles">NOT (REMOVE ="ALL")</Custom>

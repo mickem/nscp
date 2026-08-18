@@ -167,7 +167,7 @@ def compare_file(target_folder, file_name, test_case):
     replace_password = test_case.get("replace_password", True)
     config_file = path.join(target_folder, file_name)
     if not path.exists(config_file):
-        print(f"! {file_name} does not exist in the installation folder:", flush=True)
+        print(f"! {file_name} does not exist: {config_file}", flush=True)
         return False
     actual = reorder_config(read_and_remove_bom(config_file))
     # Replace any line starting with 'password =' with 'password = $$PASSWORD$$'
@@ -179,9 +179,9 @@ def compare_file(target_folder, file_name, test_case):
     expected = reorder_config('\n'.join(test_case[file_name].splitlines()))
 
     if expected == actual:
-        print(f"- {file_name} matches expected configuration.", flush=True)
+        print(f"- {config_file} matches expected configuration.", flush=True)
         return True
-    print(f"! {file_name} does not match expected configuration:", flush=True)
+    print(f"! {config_file} does not match expected configuration:", flush=True)
     print(f"! Differences:", flush=True)
     for line in compare_config(expected, actual):
         print(line, flush=True)
@@ -266,11 +266,11 @@ def validate_files(target_folder, required_files):
     all_exist = True
     for file_group in required_files.keys():
         missing_files = []
-        print(f"- Validating required files in block: {file_group}", flush=True)
+        print(f"- Validating required files in block: {file_group} (in {target_folder})", flush=True)
         for req_file in required_files[file_group]:
             file_path = path.join(target_folder, req_file.replace('/', path.sep))
             if not path.exists(file_path):
-                missing_files.append(req_file)
+                missing_files.append(file_path)
                 all_exist = False
         if missing_files:
             missing_files_str = ", ".join(missing_files)
@@ -289,11 +289,11 @@ def validate_files_absent(target_folder, forbidden_files):
     none_exist = True
     for file_group in forbidden_files.keys():
         present_files = []
-        print(f"- Validating absent files in block: {file_group}", flush=True)
+        print(f"- Validating absent files in block: {file_group} (in {target_folder})", flush=True)
         for bad_file in forbidden_files[file_group]:
             file_path = path.join(target_folder, bad_file.replace('/', path.sep))
             if path.exists(file_path):
-                present_files.append(bad_file)
+                present_files.append(file_path)
                 none_exist = False
         if present_files:
             present_files_str = ", ".join(present_files)

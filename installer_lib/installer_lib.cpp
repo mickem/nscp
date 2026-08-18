@@ -1310,19 +1310,37 @@ class temp_ca_bundle {
 extern "C" UINT __stdcall ReadLayout(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"ReadLayout");
   try {
-    std::string install_folder;
+    // Candidate install folders, most authoritative first. Running before
+    // CostFinalize is the whole point of this action, but it also means the
+    // directory manager has not resolved INSTALLLOCATION yet: MsiGetTargetPath
+    // normally fails here, and the INSTALLLOCATION *property* is only set when
+    // the operator passed one on the command line. DEFAULT_INSTALLLOCATION is
+    // a type-51 rendering of the Directory-table default
+    // ([ProgramFiles..Folder]NSClient++, see ReadLayout.DefaultLocation in
+    // Product.wxs), which is where every unattended install actually lives -
+    // without that fallback an upgrade of a modern host resolves no folder at
+    // all, leaves CURRENT_LAYOUT unset, and the default configuration template
+    // lands in Program Files again.
+    std::vector<std::string> candidates;
     try {
-      install_folder = as_install_folder(h.getTargetPath(L"INSTALLLOCATION"));
+      candidates.push_back(as_install_folder(h.getTargetPath(L"INSTALLLOCATION")));
     } catch (const installer_exception &) {
-      // Sequenced before CostFinalize, so directory resolution may not have
-      // happened yet; the public property carries the answer then.
-      install_folder = as_install_folder(h.getMsiPropery(L"INSTALLLOCATION"));
+      // Not resolved yet - expected before CostFinalize; the properties below
+      // carry the answer.
     }
-    if (install_folder.empty()) return ERROR_SUCCESS;
-    const nscp::paths::layout current = nscp::paths::layout_from_boot_ini_file((boost::filesystem::path(install_folder) / "boot.ini").string());
-    if (current == nscp::paths::layout::modern) {
-      h.setPropertyValue(L"CURRENT_LAYOUT", L"modern");
-      h.logMessage("This host is on the modern layout: leaving the default configuration template out of the install folder");
+    candidates.push_back(as_install_folder(h.getMsiPropery(L"INSTALLLOCATION")));
+    candidates.push_back(as_install_folder(h.getMsiPropery(L"DEFAULT_INSTALLLOCATION")));
+    for (const std::string &install_folder : candidates) {
+      if (install_folder.empty()) continue;
+      const boost::filesystem::path boot_ini = boost::filesystem::path(install_folder) / "boot.ini";
+      if (!boost::filesystem::exists(boot_ini)) continue;
+      // The first boot.ini that exists decides: it is the installed agent's
+      // own record of its layout.
+      if (nscp::paths::layout_from_boot_ini_file(boot_ini.string()) == nscp::paths::layout::modern) {
+        h.setPropertyValue(L"CURRENT_LAYOUT", L"modern");
+        h.logMessage("This host is on the modern layout: leaving the default configuration template out of the install folder");
+      }
+      return ERROR_SUCCESS;
     }
     return ERROR_SUCCESS;
   } catch (...) {

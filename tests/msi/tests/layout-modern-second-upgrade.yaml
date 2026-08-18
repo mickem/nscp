@@ -55,7 +55,12 @@ boot.ini: |
   [layout]
   mode = modern
 
-# The operator's configuration, untouched by the second upgrade.
+# The operator's configuration, untouched by the second upgrade. Note the two
+# nsclient.ini assertions in this file check *different folders*: this one is
+# the live configuration in the shared folder (config_folder above,
+# %ProgramData%\NSClient++\nsclient.ini), while `absent_files` at the bottom
+# checks the install folder (c:\Program Files\NSClient++). On the modern
+# layout the only pointer left beside nscp.exe is boot.ini.
 nsclient.ini: |
   [/modules]
   checkdisk = enabled
@@ -81,6 +86,8 @@ nsclient.ini: |
 
 # The whole point: no fresh default configuration in Program Files. Before the
 # component condition this file reappeared on every upgrade of a modern host.
+# Checked in the *install folder* (c:\Program Files\NSClient++) - the same file
+# name as the content assertion above, deliberately a different folder.
 absent_files:
   never-recreated:
     - nsclient.ini
