@@ -164,6 +164,7 @@
               <File Id="ModCheckDisk.dll" Name="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
               <File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
               <File Id="ModCheckRDS.dll" Name="CheckRDS.dll" DiskId="1" Source="$(var.Source)/modules/CheckRDS.dll" Vital="no" />
+              <File Id="ModCheckIIS.dll" Name="CheckIIS.dll" DiskId="1" Source="$(var.Source)/modules/CheckIIS.dll" Vital="no" />
               <File Id="ModCheckSecurity.dll" Name="CheckSecurity.dll" DiskId="1" Source="$(var.Source)/modules/CheckSecurity.dll" Vital="no" />
               <File Id="ModCheckMSSQL.dll" Name="CheckMSSQL.dll" DiskId="1" Source="$(var.Source)/modules/CheckMSSQL.dll" Vital="no" />
               <File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
