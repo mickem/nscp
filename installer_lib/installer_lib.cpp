@@ -1289,6 +1289,47 @@ class temp_ca_bundle {
 // deferred halves run after this one: both write into ${shared-path}, and on
 // the modern layout that folder has to exist, be locked down, and have the old
 // installation's files moved into it first.
+// Give component conditions a costing-time view of the layout: read
+// `[layout] mode` from the installed boot.ini into CURRENT_LAYOUT, before
+// CostFinalize evaluates the conditions.
+//
+// This exists for the NSClientConfig components. Their key file is
+// INSTALLLOCATION\nsclient.ini, which is *absent* on a modern host (the
+// configuration lives in %ProgramData%), so NeverOverwrite never suppresses
+// them and every upgrade or repair lays a fresh default configuration into
+// Program Files - where the migration then reports it blocked, nothing cleans
+// it up, and an admin edits the wrong file. With CURRENT_LAYOUT=modern the
+// components are simply not installed.
+//
+// Deliberately boot.ini only, not the LAYOUT property: on the *first* switch
+// the host is still legacy at costing time, the template is wanted (it is what
+// the migration moves), and ExecPrepareLayout does the moving later.
+//
+// Best effort throughout: not setting the property keeps today's behaviour,
+// which is also the pre-layout behaviour every legacy host already has.
+extern "C" UINT __stdcall ReadLayout(MSIHANDLE hInstall) {
+  msi_helper h(hInstall, L"ReadLayout");
+  try {
+    std::string install_folder;
+    try {
+      install_folder = as_install_folder(h.getTargetPath(L"INSTALLLOCATION"));
+    } catch (const installer_exception &) {
+      // Sequenced before CostFinalize, so directory resolution may not have
+      // happened yet; the public property carries the answer then.
+      install_folder = as_install_folder(h.getMsiPropery(L"INSTALLLOCATION"));
+    }
+    if (install_folder.empty()) return ERROR_SUCCESS;
+    const nscp::paths::layout current = nscp::paths::layout_from_boot_ini_file((boost::filesystem::path(install_folder) / "boot.ini").string());
+    if (current == nscp::paths::layout::modern) {
+      h.setMsiProperty(L"CURRENT_LAYOUT", L"modern");
+      h.logMessage("This host is on the modern layout: leaving the default configuration template out of the install folder");
+    }
+    return ERROR_SUCCESS;
+  } catch (...) {
+    return ERROR_SUCCESS;
+  }
+}
+
 extern "C" UINT __stdcall SchedulePrepareLayout(MSIHANDLE hInstall) {
   msi_helper h(hInstall, L"SchedulePrepareLayout");
   try {
