@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-set(TARGET CheckIIS)
+set(TARGET CheckWindowsApps)
 
 project(${TARGET})
 
@@ -10,6 +10,8 @@ set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
     check_iis_checks.cpp
+    check_rds_licenses.cpp
+    check_rds_sessions.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.cpp
     ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.cpp
@@ -33,6 +35,9 @@ if(WIN32)
         "${TARGET}.h"
         check_iis_checks.hpp
         check_iis_internal.hpp
+        check_rds_licenses.hpp
+        check_rds_sessions.hpp
+        check_rds_internal.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/basic_impl.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_collectors.hpp
         ${NSCP_INCLUDEDIR}/win/pdh/pdh_counters.hpp
@@ -73,6 +78,26 @@ NSCP_CREATE_TEST(
     check_iis_test
     SOURCES
         check_iis_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${PLUGIN_API_TARGET}
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+NSCP_CREATE_TEST(
+    check_rds_test
+    SOURCES
+        check_rds_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES

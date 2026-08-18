@@ -73,8 +73,7 @@ nav:
         - CheckSecurity: reference/check/CheckSecurity.md
         - CheckSystem: reference/check/CheckSystem.md
         - CheckMSSQL (Windows): reference/windows/CheckMSSQL.md
-        - CheckIIS (Windows): reference/windows/CheckIIS.md
-        - CheckRDS (Windows): reference/windows/CheckRDS.md
+        - CheckWindowsApps (Windows): reference/windows/CheckWindowsApps.md
         - CheckTaskSched (Windows): reference/windows/CheckTaskSched.md
         - CheckWindowsApps (Windows): reference/misc/CheckWindowsApps.md
         - CheckWMI (Windows): reference/windows/CheckWMI.md

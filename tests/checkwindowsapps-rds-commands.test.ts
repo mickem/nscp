@@ -1,6 +1,6 @@
 /**
- * Exercises the CheckRDS module end-to-end (Windows only — CheckRDS is a
- * Windows module) via one-shot client queries: `nscp client --module CheckRDS
+ * Exercises the Remote Desktop Services checks of the CheckWindowsApps module
+ * end-to-end (Windows only) via one-shot client queries: `nscp client --module CheckWindowsApps
  * --boot --query <cmd> ...`. No server/port needed, and `k=v` arguments travel
  * as single tokens, exercising the same REST-style argument parsing as the web
  * API.
@@ -17,12 +17,12 @@ jest.setTimeout(120_000);
 
 const onWindows = process.platform === "win32";
 
-(onWindows ? describe : describe.skip)("CheckRDS commands", () => {
+(onWindows ? describe : describe.skip)("CheckWindowsApps RDS commands", () => {
   let nscp: NscpInstance;
 
-  /** Run a CheckRDS query and return the combined output. */
+  /** Run a CheckWindowsApps query and return the combined output. */
   async function query(command: string, args: string[] = []): Promise<string> {
-    const r = await nscp.run(["client", "--module", "CheckRDS", "--boot", "--query", command, ...args], {
+    const r = await nscp.run(["client", "--module", "CheckWindowsApps", "--boot", "--query", command, ...args], {
       allowFailure: true,
     });
     return r.all ?? `${r.stdout}\n${r.stderr}`;

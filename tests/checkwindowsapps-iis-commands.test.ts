@@ -1,6 +1,6 @@
 /**
- * Exercises the CheckIIS module end-to-end (Windows only) via one-shot client
- * queries: `nscp client --module CheckIIS --boot --query <cmd> ...`. `k=v`
+ * Exercises the IIS checks of the CheckWindowsApps module end-to-end (Windows
+ * only) via one-shot client queries: `nscp client --module CheckWindowsApps --boot --query <cmd> ...`. `k=v`
  * arguments travel as single tokens, exercising the same REST-style argument
  * parsing as the web API (including valued booleans like averages=true).
  *
@@ -19,12 +19,12 @@ const onWindows = process.platform === "win32";
 
 const NOT_AVAILABLE = /not available - is the Web Server \(IIS\) role installed\?/;
 
-(onWindows ? describe : describe.skip)("CheckIIS commands", () => {
+(onWindows ? describe : describe.skip)("CheckWindowsApps IIS commands", () => {
   let nscp: NscpInstance;
 
-  /** Run a CheckIIS query and return the combined output. */
+  /** Run a CheckWindowsApps query and return the combined output. */
   async function query(command: string, args: string[] = []): Promise<string> {
-    const r = await nscp.run(["client", "--module", "CheckIIS", "--boot", "--query", command, ...args], {
+    const r = await nscp.run(["client", "--module", "CheckWindowsApps", "--boot", "--query", command, ...args], {
       allowFailure: true,
     });
     return r.all ?? `${r.stdout}\n${r.stderr}`;

@@ -1,5 +1,0 @@
-if(WIN32)
-    set(BUILD_MODULE 1)
-else(WIN32)
-    set(BUILD_MODULE_SKIP_REASON "Only supported on Windows")
-endif(WIN32)
