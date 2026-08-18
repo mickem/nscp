@@ -3,16 +3,21 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/json.hpp>
+#include <cerrno>
+#include <cstring>
 #include <fstream>
 #include <onboarding/onboarding.hpp>
 #include <sstream>
+#include <vector>
 
 #include "json_util.hpp"
 
 #ifdef WIN32
-#include <cstdio>
 #include <io.h>
+
+#include <cstdio>
 #else
+#include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -101,6 +106,177 @@ void onboarding::save_state(const enrolled_identity &state, const std::string &p
     fs::remove(tmp, ignored);
     throw onboarding_error("Failed to move " + tmp + " to " + path + ": " + ec.message(), false);
   }
+}
+
+#ifndef WIN32
+namespace {
+
+// Give a directory and everything under it to (uid, gid), following no symlink
+// at any level. `dir_fd` is a descriptor already opened O_NOFOLLOW, which this
+// consumes (closes). Every entry is chowned through its parent's descriptor
+// with AT_SYMLINK_NOFOLLOW, and every subdirectory is re-opened O_NOFOLLOW, so a
+// component the (untrusted) service account swaps for a symlink between our
+// steps is rejected rather than traversed - closing the root-chown-follows-
+// symlink escalation, including the intermediate-directory variant a single
+// lchown-by-path could not.
+bool chown_subtree(int dir_fd, uid_t uid, gid_t gid, const std::string &label, std::string &error) {
+  if (::fchown(dir_fd, uid, gid) != 0) {
+    error = "Failed to change the owner of " + label + ": " + std::strerror(errno);
+    ::close(dir_fd);
+    return false;
+  }
+  DIR *dir = ::fdopendir(dir_fd);  // takes ownership of dir_fd
+  if (dir == nullptr) {
+    error = "Failed to read " + label + ": " + std::strerror(errno);
+    ::close(dir_fd);
+    return false;
+  }
+  bool ok = true;
+  while (const dirent *entry = ::readdir(dir)) {
+    const std::string name = entry->d_name;
+    if (name == "." || name == "..") continue;
+    struct stat st = {};
+    if (::fstatat(dir_fd, name.c_str(), &st, AT_SYMLINK_NOFOLLOW) != 0) {
+      error = "Failed to inspect " + label + "/" + name + ": " + std::strerror(errno);
+      ok = false;
+      break;
+    }
+    if (S_ISDIR(st.st_mode)) {
+      const int child = ::openat(dir_fd, name.c_str(), O_RDONLY | O_NOFOLLOW | O_DIRECTORY | O_CLOEXEC | O_NONBLOCK);
+      if (child < 0) {
+        error = "Failed to open " + label + "/" + name + ": " + std::strerror(errno);
+        ok = false;
+        break;
+      }
+      if (!chown_subtree(child, uid, gid, label + "/" + name, error)) {  // consumes child
+        ok = false;
+        break;
+      }
+    } else if (S_ISREG(st.st_mode) && st.st_nlink == 1) {
+      // A hardlinked file (st_nlink > 1) is a second name for an inode that may
+      // live anywhere; nothing we write is ever hardlinked, so leave it alone.
+      if (::fchownat(dir_fd, name.c_str(), uid, gid, AT_SYMLINK_NOFOLLOW) != 0) {
+        error = "Failed to change the owner of " + label + "/" + name + ": " + std::strerror(errno);
+        ok = false;
+        break;
+      }
+    }
+    // Symlinks, devices, fifos and multiply-linked files are skipped.
+  }
+  ::closedir(dir);  // closes dir_fd
+  return ok;
+}
+
+}  // namespace
+#endif
+
+bool onboarding::adopt_owner(const std::string &target, const std::string &reference, std::string &error) {
+#ifdef WIN32
+  // Windows has no equivalent handoff: the service runs as LocalSystem and the
+  // installer writes as SYSTEM, so the material is readable as written.
+  static_cast<void>(target);
+  static_cast<void>(reference);
+  static_cast<void>(error);
+  return true;
+#else
+  if (::geteuid() != 0) {
+    // Only root can give a file away, and a non-root enrollment already writes
+    // as whoever will read it.
+    return true;
+  }
+  struct stat reference_stat = {};
+  if (::stat(reference.c_str(), &reference_stat) != 0) {
+    // No reference to copy from (a from-source install that never created the
+    // state directory). Leaving ownership alone is the safe answer.
+    return true;
+  }
+  if (reference_stat.st_uid == 0 && reference_stat.st_gid == 0) {
+    // Root owns the reference too, so there is nothing to hand over - this is
+    // an install that genuinely runs everything as root.
+    return true;
+  }
+
+  // Everything below runs as root over a tree owned by the unprivileged service
+  // account - paths that account can replace between our inspecting them and our
+  // touching them. Addressing anything by path string is therefore unsafe: the
+  // ordinary root-chown-follows-symlink escalation (plant
+  // `ln -s /etc/shadow ${fleet-folder}/x`, and even swap an intermediate
+  // directory for a symlink) hands the target to nsclient:nsclient.
+  //
+  // So anchor on the reference directory and never touch anything by path again.
+  // `reference` is ${data-path}, whose parent is root-owned (packaging creates
+  // it under a root directory), so it cannot be swapped; opening it O_NOFOLLOW
+  // and descending with openat(O_NOFOLLOW) keeps every step provably inside the
+  // tree even though the tree itself is untrusted.
+  const int base = ::open(reference.c_str(), O_RDONLY | O_NOFOLLOW | O_DIRECTORY | O_CLOEXEC);
+  if (base < 0) {
+    // The reference is not a directory we can open (a symlink, or gone). With no
+    // trusted anchor, leave ownership alone rather than resolve a path we do not
+    // trust.
+    return true;
+  }
+
+  // The callers always pass a path within the reference; refuse anything else
+  // rather than fall back to an unanchored (unsafe) resolution.
+  const fs::path rel = fs::path(target).lexically_relative(reference);
+  if (rel.empty() || rel.begin()->string() == "..") {
+    ::close(base);
+    error = "Refusing to change the owner of " + target + ": it is not within " + reference;
+    return false;
+  }
+  std::vector<std::string> parts;
+  for (const fs::path &part : rel) {
+    if (part.string() != ".") parts.push_back(part.string());
+  }
+  if (parts.empty()) {
+    // target == reference: hand over the whole reference tree.
+    return chown_subtree(base, reference_stat.st_uid, reference_stat.st_gid, target, error);  // consumes base
+  }
+
+  // Descend to the target's parent, following no symlink at any level.
+  int parent_fd = base;
+  for (std::size_t i = 0; i + 1 < parts.size(); ++i) {
+    const int next = ::openat(parent_fd, parts[i].c_str(), O_RDONLY | O_NOFOLLOW | O_DIRECTORY | O_CLOEXEC | O_NONBLOCK);
+    ::close(parent_fd);
+    if (next < 0) {
+      error = "Failed to open " + reference + " component '" + parts[i] + "': " + std::strerror(errno);
+      return false;
+    }
+    parent_fd = next;
+  }
+
+  const std::string &name = parts.back();
+  struct stat st = {};
+  if (::fstatat(parent_fd, name.c_str(), &st, AT_SYMLINK_NOFOLLOW) != 0) {
+    const bool absent = errno == ENOENT;
+    if (!absent) error = "Failed to inspect " + target + ": " + std::strerror(errno);
+    ::close(parent_fd);
+    return absent;  // nothing there to hand over is success
+  }
+  if (S_ISLNK(st.st_mode)) {
+    ::close(parent_fd);
+    error = "Refusing to change the owner of " + target + ": it is a symbolic link";
+    return false;
+  }
+  if (S_ISDIR(st.st_mode)) {
+    const int fd = ::openat(parent_fd, name.c_str(), O_RDONLY | O_NOFOLLOW | O_DIRECTORY | O_CLOEXEC | O_NONBLOCK);
+    ::close(parent_fd);
+    if (fd < 0) {
+      error = "Failed to open " + target + ": " + std::strerror(errno);
+      return false;
+    }
+    return chown_subtree(fd, reference_stat.st_uid, reference_stat.st_gid, target, error);  // consumes fd
+  }
+  if (S_ISREG(st.st_mode) && st.st_nlink == 1) {
+    const bool ok = ::fchownat(parent_fd, name.c_str(), reference_stat.st_uid, reference_stat.st_gid, AT_SYMLINK_NOFOLLOW) == 0;
+    if (!ok) error = "Failed to change the owner of " + target + ": " + std::strerror(errno);
+    ::close(parent_fd);
+    return ok;
+  }
+  // A device, fifo, or a hardlinked file: nothing of ours to hand over.
+  ::close(parent_fd);
+  return true;
+#endif
 }
 
 boost::optional<onboarding::enrolled_identity> onboarding::load_state(const std::string &path) {

@@ -21,6 +21,17 @@ struct provider_interface {
   // opened, so that overrides take effect for every subsequent path lookup
   // (including the main INI's own location).
   virtual void apply_path_overrides(std::map<std::string, std::string> overrides) = 0;
+  // Select the on-disk layout named by boot.ini's [layout] section, before any
+  // path is resolved and before the [paths] overrides are applied - an explicit
+  // override is a statement about one folder, the layout is the default the
+  // rest of them are built from, so the layout has to be in place first.
+  // Default is a no-op for providers that have only one layout.
+  virtual void apply_layout(const std::string &mode) { static_cast<void>(mode); }
+  // Create the folder the layout points at, with whatever access control the
+  // platform needs, before anything writes into it. Called after the [paths]
+  // overrides so it acts on the operator's final answer, and before
+  // prepare_trust_store(), which is the first thing to write a file there.
+  virtual void prepare_shared_folder() {}
   // Materialise anything the settings transport needs to verify a peer, before
   // the main settings store is opened. A remote (https://) settings source is
   // fetched as part of opening that store, and on Windows the CA bundle it
@@ -110,4 +121,13 @@ bool has_boot_conf();
 void write_boot_ini_key(std::string section, std::string key, std::string value);
 bool context_exists(const std::string &key);
 bool create_context(std::string key);
+// True when this host carries configuration of its own, i.e. anything in the
+// active settings store beyond the [/includes] entry that pulls in the
+// fleet-managed file.
+//
+// It matters because a local value wins: a lookup reads this store first and
+// only falls back to an included file when the key is absent, so anything set
+// here silently shadows what the fleet server sends. Enrollment warns about it
+// and the agent reports *that* it is the case (never what is configured).
+bool has_local_configuration();
 }  // namespace settings_manager

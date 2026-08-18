@@ -84,20 +84,10 @@ foreach ($module in @('Az.Accounts', 'Az.Compute', 'Az.Network', 'Az.Marketplace
     Import-Module $module
 }
 
-Write-Host "Connecting to Azure account..."
-if (-not (Get-AzContext)) {
-    # WSL / headless hosts have no local browser for the interactive account
-    # picker (it hangs on "Please select the account..."), so fall back to
-    # device-code auth on Linux/macOS — open the printed URL in any browser
-    # and enter the code.
-    if ($IsLinux -or $IsMacOS) {
-        Connect-AzAccount -UseDeviceAuthentication
-    } else {
-        Connect-AzAccount
-    }
-    Set-AzContext -Subscription (Get-AzSubscription)[0]
-}
-Write-Host "✅ Successfully connected to Azure."
+# Shared with the other setup scripts: it also validates an autosaved-but-expired
+# context instead of trusting Get-AzContext, which would otherwise let us run on
+# to New-AzResourceGroup and fail there.
+& (Join-Path (Split-Path -Parent $PSScriptRoot) "connect-to-azure.ps1")
 
 # Run a script on the VM via RunCommand, retrying transient Azure API errors
 # (Invoke-AzVMRunCommand can fail with "An error occurred while sending the
@@ -288,9 +278,50 @@ if [ -z "`$state" ]; then
     echo "FLEET: enrollment reported success but no agent-state.json was written"
     exit 1
 fi
-echo "FLEET: enrolled (`$state)"
+# Verify, do not repair.
+#
+# Enrollment runs under sudo while the packaged service runs unprivileged, so
+# the material it writes has to be handed to the service account or the agent
+# enrolls, starts its sync, fails to read its own identity and never appears in
+# the fleet. The *agent* does that now (onboarding::adopt_owner, plus the
+# package post-install for an upgrade). These scripts used to chown it here,
+# which fixed the machine and hid the bug at the same time - so the check below
+# would have passed no matter what the package did.
+svc_user=`$(systemctl show nsclient -p User --value 2>/dev/null)
+[ -n "`$svc_user" ] || svc_user=nsclient
+# fleet.ini, applied-state.json and the bundle cache live here, next to the
+# manifest's parent (the core's fleet folder).
+managed="`$(dirname "`$(dirname "`$state")")/fleet"
 # Restart so the fleet sync starts now instead of at the next reboot.
 sudo systemctl restart nsclient
+# Assert what actually broke, as the service user itself: an unreadable manifest
+# or an unwritable managed path is a machine that enrolls and never syncs. The
+# agent's own log is no help on an older package - it is written to a directory
+# the service user cannot create either, so the failure is invisible on the box.
+if ! sudo -u "`$svc_user" test -r "`$state"; then
+    echo "FLEET: `$svc_user cannot read `$state"
+    ls -l "`$state" 2>/dev/null
+    echo "FLEET: the installed package does not hand the enrollment material to the service account."
+    echo "FLEET: install a build that includes that fix (-PackageUrl), or chown it by hand to keep this machine."
+    exit 1
+fi
+if ! sudo -u "`$svc_user" test -w "`$managed"; then
+    echo "FLEET: `$svc_user cannot write `$managed"
+    ls -ld "`$managed" 2>/dev/null
+    echo "FLEET: the installed package does not create the fleet folder writable by the service account."
+    exit 1
+fi
+# Best-effort: the sync thread dying is reported only to the journal, and only
+# for the process now running (an earlier boot's buffered errors flush at
+# restart, so match the current PID or they read as a fresh failure).
+sleep 10
+pid=`$(systemctl show nsclient -p MainPID --value 2>/dev/null)
+if [ -n "`$pid" ] && sudo journalctl -u nsclient --no-pager -n 200 2>/dev/null | grep "nscp\[`$pid\]" | grep -q "Fleet sync thread died"; then
+    sudo journalctl -u nsclient --no-pager -n 200 | grep "nscp\[`$pid\]" | grep -i fleet | tail -5
+    echo "FLEET: the fleet sync thread died after enrollment"
+    exit 1
+fi
+echo "FLEET: enrolled (`$state, service user `$svc_user)"
 "@
     $result = Invoke-VMRun -ResourceGroupName $ResourceGroupName -VMName $VmName -ScriptString $scriptBlock
     if ($result.Status -ne "Succeeded") {

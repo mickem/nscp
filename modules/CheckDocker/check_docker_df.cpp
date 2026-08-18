@@ -60,6 +60,14 @@ struct df_obj {
 std::shared_ptr<df_obj> parse_df(const json::object &o) {
   auto record = std::make_shared<df_obj>();
 
+  // Total image disk usage is the top-level LayersSize: the deduplicated size
+  // of all image layers, exactly what `docker system df` prints. Summing the
+  // per-image (Size - SharedSize) does NOT give this - it counts each shared
+  // base layer zero times (subtracted out of every image that shares it), so a
+  // fleet of images on a common base reads far smaller than the disk they hold
+  // and an images_size threshold never trips.
+  record->images_size = get_num(o, "LayersSize");
+
   if (const json::value *images = o.if_contains("Images")) {
     if (images->is_array()) {
       for (const auto &v : images->as_array()) {
@@ -68,7 +76,9 @@ std::shared_ptr<df_obj> parse_df(const json::object &o) {
         record->images++;
         const long long size = get_num(img, "Size");
         const long long shared = get_num(img, "SharedSize");
-        record->images_size += size - shared;  // sum unique sizes; shared layers would otherwise count once per image
+        // Reclaimable is per-image: pruning an unused image frees the layers no
+        // one else references, i.e. its non-shared size. This one is a sum, not
+        // LayersSize, because it is asking a different question than "total".
         if (get_num(img, "Containers") == 0) {
           record->unused_images++;
           if (size > shared) record->images_reclaimable += size - shared;

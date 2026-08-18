@@ -111,8 +111,12 @@ struct installed_bundle {
 
 // Build a /agent/v1/state-report body. Pass none as `applied_state_hash`
 // after a failed apply (the server then only refreshes last_seen_at).
+//
+// `local_config_present` reports THAT the host carries local configuration
+// outranking the fleet-managed values, never what that configuration is.
 std::string build_state_report(const boost::optional<std::string> &applied_state_hash, const std::vector<installed_bundle> &bundles_installed,
-                               const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags);
+                               const std::vector<std::string> &errors, const std::map<std::string, std::string> &reported_tags,
+                               bool local_config_present);
 
 // --- transport error classification ------------------------------------------
 

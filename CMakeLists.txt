@@ -852,7 +852,12 @@ if(WIN32)
         CACHE STRING
         "modules folder"
     )
-    set(CONFIG_WEB_FOLDER "\${shared-path}/web" CACHE STRING "web folder")
+    # ${exe-path}, not ${shared-path}: the web UI is program content, shipped by
+    # the installer and never downloaded on Windows, so it does not follow the
+    # writable state. Keeping it in Program Files is the point - a folder the
+    # service could write to is a folder an attacker who reaches the service can
+    # inject browser-executed code into.
+    set(CONFIG_WEB_FOLDER "\${exe-path}/web" CACHE STRING "web folder")
     set(CONFIG_SCRIPTS_FOLDER
         "\${exe-path}/scripts"
         CACHE STRING
@@ -862,6 +867,37 @@ if(WIN32)
         "\${shared-path}/security"
         CACHE STRING
         "security (certificates) folder"
+    )
+
+    # The shipped NRPE DH parameters are package content, not machine state:
+    # the MSI writes them to security\ under the install folder and the layout
+    # migration deliberately leaves them there. ${certificate-path} follows
+    # ${shared-path} into %ProgramData% on the modern layout, so one token
+    # cannot name both the installed copy and a copy placed beside the rest of
+    # the writable state. Hence two, plus the ${nrpe-dh} alias that resolves to
+    # whichever actually holds the files (see path_manager::get_path_for_key).
+    set(CONFIG_MODERN_NRPE_DH_FOLDER
+        "\${certificate-path}"
+        CACHE STRING
+        "DH parameter folder that follows the writable state"
+    )
+    set(CONFIG_LEGACY_NRPE_DH_FOLDER
+        "\${exe-path}/security"
+        CACHE STRING
+        "DH parameter folder as shipped by the installer, beside the executable"
+    )
+
+    # Windows keeps both next to the rest of the writable state: the service
+    # runs as LocalSystem, so there is no unprivileged account to hand them to.
+    set(CONFIG_FLEET_STATE_LOCATION
+        "\${certificate-path}/agent-state.json"
+        CACHE STRING
+        "fleet enrollment manifest"
+    )
+    set(CONFIG_FLEET_FOLDER
+        "\${shared-path}/fleet"
+        CACHE STRING
+        "fleet managed configuration folder"
     )
     # The service exports the Windows ROOT store here at boot (windows_ca_store),
     # so unlike unix this is a path we own rather than one the platform ships.
@@ -880,8 +916,12 @@ if(WIN32)
         CACHE STRING
         "Path for log files"
     )
+    # ${log-path}, not ${exe-path}: the log belongs in the log folder, which on
+    # the modern layout moves out of the install directory with everything else
+    # writable. Pointing it at the executable's own folder meant the folder
+    # moved and the file the agent actually writes stayed behind.
     set(CONFIG_DEFAULT_LOG_LOCATION
-        "\${exe-path}/nsclient.log"
+        "\${log-path}/nsclient.log"
         CACHE STRING
         "PAth for log file"
     )
@@ -918,6 +958,11 @@ else()
     set(UNIX_SHARED_PATH_FOLDER "${NSCP_PKGLIBDIR}")
     set(UNIX_DATA_PATH_FOLDER "${NSCP_PKGSTATEDIR}")
     set(CONFIG_ETC_FOLDER "${NSCP_SYSCONFDIR}")
+    # ${shared-path} is the package directory, which is root-owned while the
+    # service runs unprivileged - so this is deliberately NOT under
+    # ${data-path} with the writable state. `nscp web install` downloads the UI
+    # and is run with sudo; the running service must not be able to rewrite the
+    # pages it serves.
     set(CONFIG_WEB_FOLDER "\${shared-path}/web" CACHE STRING "web folder")
     set(CONFIG_SCRIPTS_FOLDER
         "\${shared-path}/scripts"
@@ -928,6 +973,42 @@ else()
         "\${shared-path}/security"
         CACHE STRING
         "security (certificates) folder"
+    )
+
+    # Unix has no install-folder/state-folder split for shipped material: the
+    # DH parameters are installed into the package directory that
+    # ${certificate-path} already names, and nothing moves them. Both tokens
+    # therefore answer the same thing, and ${nrpe-dh} degenerates to a single
+    # candidate - kept defined so the option defaults are one string on every
+    # platform.
+    set(CONFIG_MODERN_NRPE_DH_FOLDER
+        "\${certificate-path}"
+        CACHE STRING
+        "DH parameter folder that follows the writable state"
+    )
+    set(CONFIG_LEGACY_NRPE_DH_FOLDER
+        "\${certificate-path}"
+        CACHE STRING
+        "DH parameter folder as shipped by the package"
+    )
+
+    # The fleet identity and the synced configuration are written after install
+    # and rewritten at runtime by a service that does not run as root, so they
+    # belong under the state directory (${data-path}, i.e. NSCP_PKGSTATEDIR) -
+    # which packaging already creates and chowns - and not under the read-only
+    # package directory that ${shared-path} and ${certificate-path} point at.
+    # ${certificate-path} keeps holding shipped read-only material (the NRPE DH
+    # parameters, an admin supplied CA), which is why only the generated
+    # identity moves. See docs/design/linux-writable-state.md.
+    set(CONFIG_FLEET_STATE_LOCATION
+        "\${data-path}/security/agent-state.json"
+        CACHE STRING
+        "fleet enrollment manifest"
+    )
+    set(CONFIG_FLEET_FOLDER
+        "\${data-path}/fleet"
+        CACHE STRING
+        "fleet managed configuration folder"
     )
 
     # The trusted CA bundle belongs to the distribution, so this is an absolute
@@ -979,8 +1060,13 @@ else()
         CACHE STRING
         "Path for caching stuff"
     )
+    # NSCP_LOGDIR (/var/log/nsclient), not ${shared-path}/log: the service runs
+    # unprivileged and cannot create a directory inside the package directory,
+    # so the default log location was unwritable and every log line was dropped.
+    # This is what docs/design/linux-prefix-builds.md already documents
+    # NSCP_LOGDIR as backing.
     set(CONFIG_LOG_FOLDER
-        "\${shared-path}/log"
+        "${NSCP_LOGDIR}"
         CACHE STRING
         "Path for log files"
     )

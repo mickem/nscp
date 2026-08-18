@@ -81,6 +81,11 @@ foreach ($module in @('Az.Accounts', 'Az.Compute', 'Az.Network')) {
     Import-Module $module
 }
 
+# Shared with the other setup scripts: it also validates an autosaved-but-expired
+# context instead of trusting Get-AzContext, which would otherwise let us run on
+# to New-AzResourceGroup and fail there.
+& (Join-Path (Split-Path -Parent $PSScriptRoot) "connect-to-azure.ps1")
+
 # Run a script on the VM via RunCommand, retrying transient Azure API errors.
 # Invoke-AzVMRunCommand occasionally fails with "An error occurred while sending
 # the request" (a client-side HTTP hiccup) even though the VM is healthy —

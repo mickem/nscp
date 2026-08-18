@@ -30,6 +30,11 @@ class settings_client {
 
   int migrate_from(std::string src);
   int migrate_to(std::string target);
+  // Move this installation's writable state to the folder the named layout
+  // uses, then record the choice in boot.ini. `dry_run` prints the plan and
+  // changes nothing. See include/nscp/layout_migration.hpp - the mover itself
+  // is core-free so the installer can call it too.
+  int migrate_layout(const std::string& mode, bool dry_run);
 
   void dump_path(std::string root);
 

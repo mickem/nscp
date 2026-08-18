@@ -16,6 +16,11 @@
 #include <utility>
 #include <vector>
 
+#ifndef WIN32
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 namespace fs = boost::filesystem;
 namespace json = boost::json;
 
@@ -701,6 +706,230 @@ TEST_F(OnboardingStateTest, IncompleteFileThrows) {
   out.close();
   EXPECT_THROW(onboarding::load_state(path_), onboarding::onboarding_error);
 }
+
+// --- adopt_owner ------------------------------------------------------------
+// The handoff that makes a sudo enrollment readable by an unprivileged service.
+// The chown itself only happens as root, so the portable cases below pin the
+// contract everyone else relies on: it must never fail the enrollment, and it
+// must never touch anything when there is nothing to hand over.
+
+TEST_F(OnboardingStateTest, AdoptOwnerSucceedsWhenTheReferenceDoesNotExist) {
+  onboarding::save_state(test_state(), path_);
+  std::string error;
+  // A from-source install that never created a state directory: leaving
+  // ownership alone is the right answer, and it is not an enrollment failure.
+  EXPECT_TRUE(onboarding::adopt_owner(path_, (dir_ / "no-such-directory").string(), error));
+  EXPECT_TRUE(error.empty());
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerLeavesTheStateFileReadable) {
+  onboarding::save_state(test_state(), path_);
+  std::string error;
+  EXPECT_TRUE(onboarding::adopt_owner(path_, dir_.string(), error)) << error;
+  // Whatever it did with ownership, the identity must still load - and on POSIX
+  // it must still be 0600, since the file holds the private key.
+  EXPECT_TRUE(static_cast<bool>(onboarding::load_state(path_)));
+#ifndef WIN32
+  EXPECT_EQ(fs::status(path_).permissions() & fs::perms_mask, fs::owner_read | fs::owner_write);
+#endif
+}
+
+#ifndef WIN32
+TEST_F(OnboardingStateTest, AdoptOwnerIsANoOpForAnUnprivilegedProcess) {
+  if (::geteuid() == 0) {
+    GTEST_SKIP() << "running as root: this covers the non-root contract";
+  }
+  onboarding::save_state(test_state(), path_);
+  struct stat file_stat = {};
+  ASSERT_EQ(::stat(path_.c_str(), &file_stat), 0);
+  std::string error;
+  // Cannot chown as a normal user, so this must report success rather than
+  // failing an enrollment that otherwise worked.
+  EXPECT_TRUE(onboarding::adopt_owner(path_, "/", error)) << error;
+  struct stat after = {};
+  ASSERT_EQ(::stat(path_.c_str(), &after), 0);
+  EXPECT_EQ(after.st_uid, file_stat.st_uid);
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerGivesTheFileToTheReferenceOwner) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a file to another account";
+  }
+  // Model the packaged layout: ${data-path} owned by the service account, with
+  // the identity written by root inside it. dir_ plays ${data-path} (the
+  // reference); path_ is the state file within it, exactly as the real
+  // ${data-path}/security/agent-state.json sits under ${data-path}.
+  const fs::path reference = dir_;
+  const uid_t service_uid = 12345;
+  const gid_t service_gid = 12345;
+  ASSERT_EQ(::chown(reference.string().c_str(), service_uid, service_gid), 0);
+  onboarding::save_state(test_state(), path_);
+
+  std::string error;
+  ASSERT_TRUE(onboarding::adopt_owner(path_, reference.string(), error)) << error;
+
+  struct stat after = {};
+  ASSERT_EQ(::stat(path_.c_str(), &after), 0);
+  EXPECT_EQ(after.st_uid, service_uid);
+  EXPECT_EQ(after.st_gid, service_gid);
+  // Still secret, still loadable.
+  EXPECT_EQ(fs::status(path_).permissions() & fs::perms_mask, fs::owner_read | fs::owner_write);
+  EXPECT_TRUE(static_cast<bool>(onboarding::load_state(path_)));
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerRecursesIntoADirectory) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a directory to another account";
+  }
+  // The fleet managed directory (${data-path}/fleet): the sync rewrites
+  // everything under it. dir_ is ${data-path} (the reference); managed is fleet
+  // within it.
+  const fs::path reference = dir_;
+  const fs::path managed = dir_ / "fleet";
+  fs::create_directories(managed / "cache");
+  std::ofstream(( managed / "fleet.ini").string().c_str()) << "; managed";
+  std::ofstream((managed / "cache" / "bundle.zip").string().c_str()) << "zip";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+
+  std::string error;
+  ASSERT_TRUE(onboarding::adopt_owner(managed.string(), reference.string(), error)) << error;
+
+  for (const char *relative : {"", "fleet.ini", "cache", "cache/bundle.zip"}) {
+    struct stat entry = {};
+    const std::string target = relative[0] == '\0' ? managed.string() : (managed / relative).string();
+    ASSERT_EQ(::stat(target.c_str(), &entry), 0) << target;
+    EXPECT_EQ(entry.st_uid, 12345u) << target;
+  }
+}
+
+// The tree adopt_owner walks is owned by the unprivileged service account, so
+// its contents are attacker-controlled in the only threat model that matters
+// here: an agent whose service account has been compromised. Running as root
+// over paths that account can replace is the classic setup for
+// chown-follows-symlink, so these pin that it does not.
+
+TEST_F(OnboardingStateTest, AdoptOwnerRefusesASymlinkedTarget) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "the chown only happens as root, so there is nothing to refuse otherwise";
+  }
+  // `rm -rf fleet && ln -s /etc fleet` as the service account. Following this
+  // would hand the link's target to nsclient:nsclient.
+  const fs::path reference = dir_;
+  const fs::path victim = dir_ / "victim";
+  const fs::path managed = dir_ / "fleet";
+  fs::create_directories(victim);
+  std::ofstream((victim / "shadow").string().c_str()) << "root:x:";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+  fs::create_directory_symlink(victim, managed);
+
+  std::string error;
+  EXPECT_FALSE(onboarding::adopt_owner(managed.string(), reference.string(), error));
+  EXPECT_FALSE(error.empty());
+
+  struct stat after = {};
+  ASSERT_EQ(::stat((victim / "shadow").string().c_str(), &after), 0);
+  EXPECT_EQ(after.st_uid, 0u) << "ownership was changed through a symlink";
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerDoesNotFollowASymlinkInsideTheTree) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a directory to another account";
+  }
+  // `ln -s /etc/shadow ${fleet-folder}/x`, the escalation this exists to stop.
+  // The real file must keep its owner; the link itself may be retargeted, which
+  // is harmless.
+  const fs::path reference = dir_;
+  const fs::path managed = dir_ / "fleet";
+  const fs::path outside = dir_ / "outside.txt";
+  fs::create_directories(managed);
+  std::ofstream(outside.string().c_str()) << "not ours";
+  std::ofstream((managed / "fleet.ini").string().c_str()) << "; managed";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+  fs::create_symlink(outside, managed / "x");
+
+  std::string error;
+  ASSERT_TRUE(onboarding::adopt_owner(managed.string(), reference.string(), error)) << error;
+
+  struct stat victim = {};
+  ASSERT_EQ(::stat(outside.string().c_str(), &victim), 0);
+  EXPECT_EQ(victim.st_uid, 0u) << "the symlink was followed out of the tree";
+  // The rest of the handoff still happened.
+  struct stat managed_file = {};
+  ASSERT_EQ(::stat((managed / "fleet.ini").string().c_str(), &managed_file), 0);
+  EXPECT_EQ(managed_file.st_uid, 12345u);
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerLeavesHardlinkedFilesAlone) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a directory to another account";
+  }
+  // A hardlink is a second name for one file, so chowning it changes the owner
+  // everywhere it is named - a symlink check alone would not catch this.
+  // Nothing we write is ever hardlinked, so an extra link means someone else
+  // made it.
+  const fs::path reference = dir_;
+  const fs::path managed = dir_ / "fleet";
+  const fs::path outside = dir_ / "outside.txt";
+  fs::create_directories(managed);
+  std::ofstream(outside.string().c_str()) << "not ours";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+  boost::system::error_code ec;
+  fs::create_hard_link(outside, managed / "x", ec);
+  if (ec) {
+    GTEST_SKIP() << "could not create a hardlink: " << ec.message();
+  }
+
+  std::string error;
+  ASSERT_TRUE(onboarding::adopt_owner(managed.string(), reference.string(), error)) << error;
+
+  struct stat victim = {};
+  ASSERT_EQ(::stat(outside.string().c_str(), &victim), 0);
+  EXPECT_EQ(victim.st_uid, 0u) << "a hardlinked file outside the tree changed owner";
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerDoesNotDescendThroughASymlinkedIntermediate) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "needs root to hand a file to another account";
+  }
+  // The variant the earlier lchown-by-path fix missed: not the target and not a
+  // leaf, but an *intermediate* directory swapped for a symlink. Target is
+  // ${data-path}/security/agent-state.json; the service account has replaced
+  // `security` with a symlink to a directory it does not own. Resolving the
+  // path by string would chown the victim's agent-state.json; descending with
+  // openat(O_NOFOLLOW) refuses at the symlinked component instead.
+  const fs::path reference = dir_;
+  const fs::path victim = dir_ / "victim";
+  fs::create_directories(victim);
+  std::ofstream((victim / "agent-state.json").string().c_str()) << "root-owned";
+  ASSERT_EQ(::chown(reference.string().c_str(), 12345, 12345), 0);
+  fs::create_directory_symlink(victim, dir_ / "security");
+
+  std::string error;
+  const fs::path target = dir_ / "security" / "agent-state.json";
+  EXPECT_FALSE(onboarding::adopt_owner(target.string(), reference.string(), error));
+  EXPECT_FALSE(error.empty());
+
+  struct stat after = {};
+  ASSERT_EQ(::stat((victim / "agent-state.json").string().c_str(), &after), 0);
+  EXPECT_EQ(after.st_uid, 0u) << "ownership was changed through a symlinked intermediate directory";
+}
+
+TEST_F(OnboardingStateTest, AdoptOwnerRefusesATargetOutsideTheReference) {
+  if (::geteuid() != 0) {
+    GTEST_SKIP() << "the anchor check runs only on the root chown path";
+  }
+  // The anchor only makes a path safe if the path is actually under it. A target
+  // elsewhere is refused rather than resolved without the anchor's protection.
+  ASSERT_EQ(::chown(dir_.string().c_str(), 12345, 12345), 0);  // a non-root reference, so we reach the check
+  const fs::path outside = fs::temp_directory_path() / fs::unique_path("nscp-elsewhere-%%%%");
+  fs::create_directories(outside);
+  std::ofstream((outside / "x").string().c_str()) << "x";
+  std::string error;
+  EXPECT_FALSE(onboarding::adopt_owner((outside / "x").string(), dir_.string(), error));
+  EXPECT_FALSE(error.empty());
+  fs::remove_all(outside);
+}
+#endif
 
 TEST_F(OnboardingStateTest, UnsupportedVersionThrows) {
   std::ofstream out(path_.c_str(), std::ios::binary);

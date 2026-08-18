@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <nsclient/logger/logger.hpp>
+#include <nscp/path_defaults.hpp>
 #include <string>
 
 namespace nsclient {
@@ -33,6 +34,11 @@ class path_manager {
   // init_settings() so they can even relocate ${boot-conf} itself.
   paths_type cli_overrides_;
 
+  // Which on-disk layout this installation uses. Set once from boot.ini during
+  // the settings bootstrap, before anything resolves a path; legacy until then,
+  // and legacy forever on unix, where the layout comes from the package prefix.
+  nscp::paths::layout layout_ = nscp::paths::layout::legacy;
+
  public:
   explicit path_manager(const logging::log_client_accessor& log_instance_);
   std::string getFolder(const std::string& key);
@@ -53,6 +59,14 @@ class path_manager {
   // called once, before init_settings(), from the CLI parser plumbing.
   void set_cli_overrides(paths_type overrides);
 
+  // Select the on-disk layout (Windows only in practice; a no-op elsewhere
+  // because the unix defaults are absolute). Called from the settings
+  // bootstrap once boot.ini has been read, before the main settings store is
+  // opened and before anything resolves a path - the whole point is that
+  // ${shared-path} answers consistently from the first lookup onwards.
+  void set_layout(nscp::paths::layout value);
+  nscp::paths::layout get_layout() const { return layout_; }
+
   // Maximum recursion depth for ${var} substitution. Caps the cycle defence
   // ("${a}" -> "${b}" -> "${a}") so a misconfiguration cannot stack-overflow
   // the service. 32 is comfortably more than any sane chain - real templates
@@ -60,7 +74,17 @@ class path_manager {
   static constexpr int kMaxExpandDepth = 32;
 
  private:
-  std::string get_path_for_key(const std::string& key);
+  // getFolder() with the caller's expansion depth threaded through, so a key
+  // whose value is itself a lookup (${nrpe-dh}, which has to expand its
+  // candidates before it can stat them) is covered by the same cycle guard as
+  // ordinary substitution instead of starting a fresh, unbounded chain.
+  std::string resolve_folder(const std::string& key, int depth);
+  std::string get_path_for_key(const std::string& key, int depth);
+
+  // Resolve ${nrpe-dh}: the first candidate folder that actually holds the
+  // shipped DH parameters, or the last candidate when none of them do.
+  std::string resolve_nrpe_dh(int depth);
+
   boost::filesystem::path get_app_data_path();
   boost::filesystem::path getBasePath();
   boost::filesystem::path getTempPath();

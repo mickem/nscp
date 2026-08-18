@@ -1,0 +1,81 @@
+# Upgrading a legacy installation onto the modern layout (LAYOUT=modern).
+#
+# This is the case that actually moves files, and the one worth being careful
+# about: an existing host has a configuration it cares about, and the migration
+# has to move it rather than leave the agent pointed at a folder its files are
+# not in. The [foo] section below is a hand-edited value that must survive.
+#
+# See docs/design/shared-folder-migration.md.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL", "LAYOUT=modern"]
+replace_password: true
+
+# The starting point: a normal legacy install, everything in the install folder.
+upgrade:
+  boot.ini: |
+    [settings]
+    1 = ini://${shared-path}/nsclient.ini
+
+  nsclient.ini: |
+    [/modules]
+    checkdisk = enabled
+    checkeventlog = enabled
+    checkexternalscripts = enabled
+    checkhelpers = enabled
+    checknscp = enabled
+    checksystem = enabled
+    nrpeserver = enabled
+    webserver = enabled
+
+    [/settings/NRPE/server]
+    insecure = false
+    tls version = tlsv1.2+
+    verify mode = peer-cert
+
+    [/settings/default]
+    allowed hosts = 127.0.0.1
+    password = $$PASSWORD$$
+
+    [foo]
+    bar = baz
+
+config_folder: "%ProgramData%\\NSClient++"
+secured_folder: "%ProgramData%\\NSClient++"
+
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+  [layout]
+  mode = modern
+
+# The operator's configuration, moved rather than regenerated: [foo] bar = baz
+# is here because it was there before, and nothing else would have created it.
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  insecure = false
+  tls version = tlsv1.2+
+  verify mode = peer-cert
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$
+
+  [foo]
+  bar = baz
+
+# Moved, not copied. A configuration left behind in the install folder is the
+# failure mode that looks like success: the agent reads the new one, the admin
+# edits the old one, and nothing ever says why the change had no effect.
+absent_files:
+  migrated:
+    - nsclient.ini

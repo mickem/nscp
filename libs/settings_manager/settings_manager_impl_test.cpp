@@ -15,12 +15,14 @@
 #include <config.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <map>
 #include <memory>
 #include <settings/test_helpers.hpp>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -37,16 +39,30 @@ class recording_provider : public settings_manager::provider_interface {
   void apply_path_overrides(std::map<std::string, std::string> overrides) override {
     overrides_ = std::move(overrides);
     apply_count_++;
+    calls_.push_back("paths");
   }
+  void apply_layout(const std::string &mode) override {
+    layout_mode_ = mode;
+    layout_count_++;
+    calls_.push_back("layout");
+  }
+  void prepare_shared_folder() override { calls_.push_back("shared-folder"); }
 
   const std::map<std::string, std::string> &overrides() const { return overrides_; }
   int apply_count() const { return apply_count_; }
+  const std::string &layout_mode() const { return layout_mode_; }
+  int layout_count() const { return layout_count_; }
+  // The order the hooks fired in, which is load-bearing: see the ordering tests.
+  const std::vector<std::string> &calls() const { return calls_; }
 
  private:
   std::string boot_ini_path_;
   nsclient::logging::logger_instance logger_;
   std::map<std::string, std::string> overrides_;
   int apply_count_ = 0;
+  std::string layout_mode_;
+  int layout_count_ = 0;
+  std::vector<std::string> calls_;
 };
 
 // Most boot() tests want a single boot.ini under a unique temp dir plus a
@@ -194,6 +210,97 @@ TEST_F(SettingsManagerBootTest, PathsSectionAcceptsTemplatedValues) {
 // ---------------------------------------------------------------------------
 // boot() - [tls] section
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// [layout] - which on-disk layout this installation uses
+// ---------------------------------------------------------------------------
+
+TEST_F(SettingsManagerBootTest, LayoutModeIsHandedToTheProvider) {
+  write_boot_ini("[layout]\nmode=modern\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_EQ(provider_->layout_count(), 1);
+  EXPECT_EQ(provider_->layout_mode(), "modern");
+}
+
+TEST_F(SettingsManagerBootTest, MissingLayoutSectionAsksForNoParticularLayout) {
+  // Every installation that predates the setting. An empty mode means "keep
+  // whatever this host already uses" - boot() must not invent "legacy" and
+  // hand that down as though the operator had asked for it.
+  write_boot_ini("[paths]\nshared-path=/tmp/x\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_EQ(provider_->layout_count(), 1) << "the hook still fires, with an empty mode";
+  EXPECT_EQ(provider_->layout_mode(), "");
+}
+
+TEST_F(SettingsManagerBootTest, UnknownLayoutModeIsPassedThroughVerbatim) {
+  // boot() warns but does not rewrite: deciding what an unrecognised mode means
+  // belongs to one place (nscp::paths::parse_layout), not two.
+  write_boot_ini("[layout]\nmode=moderne\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_EQ(provider_->layout_mode(), "moderne");
+}
+
+TEST_F(SettingsManagerBootTest, EmptyLayoutModeIsTreatedAsAbsent) {
+  write_boot_ini("[layout]\nmode=\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  EXPECT_EQ(provider_->layout_mode(), "");
+}
+
+TEST_F(SettingsManagerBootTest, LayoutIsAppliedBeforePathOverrides) {
+  // The layout decides what ${shared-path} defaults to; an explicit [paths]
+  // entry overrides that default. Applying them the other way round would let
+  // the layout land on top of the operator's explicit choice.
+  write_boot_ini("[layout]\nmode=modern\n[paths]\nshared-path=/tmp/explicit\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  const auto &calls = provider_->calls();
+  const auto layout = std::find(calls.begin(), calls.end(), "layout");
+  const auto paths = std::find(calls.begin(), calls.end(), "paths");
+  ASSERT_NE(layout, calls.end());
+  ASSERT_NE(paths, calls.end());
+  EXPECT_LT(layout - calls.begin(), paths - calls.begin()) << "layout must be applied before the path overrides";
+}
+
+TEST_F(SettingsManagerBootTest, SharedFolderIsPreparedAfterPathOverridesAndBeforeTheStoreOpens) {
+  // The folder has to be created and locked down before anything writes into
+  // it, and against the operator's *final* paths - so after [paths], and before
+  // the settings store is opened (the trust store export writes there).
+  write_boot_ini("[layout]\nmode=modern\n[paths]\nshared-path=/tmp/explicit\n");
+
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("");
+
+  const auto &calls = provider_->calls();
+  const auto paths = std::find(calls.begin(), calls.end(), "paths");
+  const auto shared = std::find(calls.begin(), calls.end(), "shared-folder");
+  ASSERT_NE(paths, calls.end());
+  ASSERT_NE(shared, calls.end());
+  EXPECT_LT(paths - calls.begin(), shared - calls.begin()) << "the shared folder must be prepared against the final paths";
+}
+
+TEST_F(SettingsManagerBootTest, MissingBootIniStillPreparesTheSharedFolder) {
+  // A host with no boot.ini gets the default layout, but the folder that layout
+  // points at still has to exist and be locked down.
+  settings_manager::NSCSettingsImpl impl(provider_.get());
+  impl.boot("dummy");
+
+  const auto &calls = provider_->calls();
+  EXPECT_NE(std::find(calls.begin(), calls.end(), "shared-folder"), calls.end());
+}
 
 TEST_F(SettingsManagerBootTest, TlsSectionPopulatesAccessors) {
   write_boot_ini(

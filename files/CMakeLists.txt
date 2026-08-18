@@ -32,12 +32,17 @@ if(NOT WIN32)
         COMPONENT configs
         RENAME nsclient.ini
     )
-    # ${LOG_TARGET_FOLDER} is the full log dir (e.g. /var/log/nsclient). The
-    # trailing slash on the source copies the *contents* of files/nsclient/
-    # into it, so the staged tree keeps <logdir>/nsclient.log.
+    # ${LOG_TARGET_FOLDER} is the full log dir (e.g. /var/log/nsclient). Create
+    # it empty: a DIRECTORY argument with no source names only the destination.
+    #
+    # This used to copy the contents of files/nsclient/, whose sole purpose was
+    # to carry a placeholder nsclient.log so the directory existed in the staged
+    # tree. That placeholder shipped as a root-owned file, and the post-install
+    # scripts chown the directory but not its contents - so the service, running
+    # unprivileged, could never open its own log file and every log line was
+    # dropped. See docs/design/linux-writable-state.md.
     install(
         DIRECTORY
-            "nsclient/"
         DESTINATION ${LOG_TARGET_FOLDER}
         DIRECTORY_PERMISSIONS
             OWNER_WRITE

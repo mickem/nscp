@@ -261,7 +261,9 @@ describe("core fleet sync loop", () => {
     // The sync loop lives in the core; enrollment must NOT enable any module.
     expect(ini).not.toContain("NSClientConfig");
     expect(ini).toMatch(/\[\/includes\]/);
-    expect(ini).toMatch(/fleet\s*=.*fleet[/\\]fleet\.ini/);
+    // Written as the ${fleet-folder} token, unexpanded and identical on every
+    // platform, so relocating the folder moves the include with it.
+    expect(ini).toMatch(/fleet\s*=\s*\$\{fleet-folder\}\/fleet\.ini/);
     // The include target exists as a placeholder so boot never logs a
     // missing-file error before the first sync.
     expect(fs.existsSync(path.join(workDir, "fleet", "fleet.ini"))).toBe(true);
@@ -279,6 +281,11 @@ describe("core fleet sync loop", () => {
     expect(report.body.bundles_installed).toEqual([{ id: "b-good", version: "1.0" }]);
     expect(report.body.errors).toEqual([]);
     expect(report.body.reported_tags.os).toBeTruthy();
+    // Whether the host has configuration of its own that outranks what we just
+    // applied. This suite enables CheckDisk locally, so it does - and the report
+    // still carries no hint of *what* is configured.
+    expect(report.body.local_config_present).toBe(true);
+    expect(JSON.stringify(report.body)).not.toContain("CheckDisk");
     if (process.platform === "win32") {
       // Module-contributed tags (CheckDisk's drive list) ride along in every
       // state report, merged from the central tag repository.

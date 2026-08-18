@@ -10,6 +10,22 @@ later).
 > `./install-azure.ps1`, then connect with `./connect-to-azure.ps1`
 > (or the setup scripts will call `Connect-AzAccount` themselves).
 
+> **"was disallowed by Azure … without authenticating through MFA".** Every
+> resource creation fails while reads keep working: you are signed in, but the
+> token did not do MFA and the tenant enforces it for resource management.
+> `connect-to-azure.ps1` warns about this up front; to fix it, sign in again
+> answering the MFA challenge, then re-run:
+>
+> ```powershell
+> Connect-AzAccount -Tenant (Get-AzContext).Tenant.Id `
+>     -ClaimsChallenge "eyJhY2Nlc3NfdG9rZW4iOnsiYWNycyI6eyJlc3NlbnRpYWwiOnRydWUsInZhbHVlcyI6WyJwMSJdfX19"
+> ```
+>
+> Az caches the context on disk, so a *stale* login is the other half of this
+> trap — `Get-AzContext` keeps returning an account whose token expired long ago.
+> `connect-to-azure.ps1` verifies the cached context and re-authenticates instead
+> of failing on the first `New-Az…` call.
+
 ## The flow
 
 ```
@@ -76,6 +92,25 @@ Enrollment differs per platform, and both paths end at the same
 Either way the setup script verifies that `agent-state.json` exists before it
 reports success — a machine that silently never joined the fleet is exactly the
 failure this tooling exists to catch.
+
+> **The setup scripts verify enrollment, they do not repair it.** `nscp enroll`
+> runs under `sudo` while the DEB/RPM run the service as `nsclient`, so the
+> material it writes has to be handed to that account or the agent enrolls,
+> starts its sync, fails to read its own identity and never appears in the
+> fleet. The agent does that itself now.
+>
+> These scripts used to `chown` it here, which fixed the machine and hid the bug
+> at the same time — the check that follows would have passed no matter what the
+> package did. They now only assert, as the service user, that the manifest is
+> readable and the fleet folder writable, and fail the run when it is not.
+>
+> **So provisioning against a package that predates the fix will now fail**, by
+> design, telling you so. Point `-*PackageUrl` at a build that includes it.
+> Windows is unaffected (the service runs as LocalSystem).
+>
+> This failure used to be invisible on the box, because the packaged log file
+> was root-owned too. Both are fixed, but `journalctl -u nsclient | grep -i
+> fleet` is still the fastest way to see what the sync is doing.
 
 Every run appends to `.fleet-machines.json` (name, OS, resource group, public IP,
 fleet host id). Tear the whole estate down again with:

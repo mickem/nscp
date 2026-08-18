@@ -144,4 +144,21 @@ void save_state(const enrolled_identity &state, const std::string &path);
 // error, not a half-usable identity.
 boost::optional<enrolled_identity> load_state(const std::string &path);
 
+// Hand `target` (recursively, when it is a directory) to the account that owns
+// `reference`.
+//
+// Enrollment runs as root while the packaged service runs as an unprivileged
+// account, so everything written above lands root-owned and 0600 - the core
+// then starts the fleet sync, cannot read the identity, and the sync thread
+// dies. `reference` is a path packaging already owns (the state directory), so
+// its owner is by construction the account that has to read this: no service
+// user is hardcoded and an admin who runs the service as somebody else still
+// gets the right answer.
+//
+// No-op returning true when not running as root, when the platform has no
+// concept of this (Windows), or when reference and target already agree.
+// Returns false with `error` set when the ownership change itself failed; the
+// caller reports that as a warning, never as a failed enrollment.
+bool adopt_owner(const std::string &target, const std::string &reference, std::string &error);
+
 }  // namespace onboarding

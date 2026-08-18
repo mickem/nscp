@@ -5,7 +5,16 @@
 
 #include <config.h>
 
+#include <boost/filesystem.hpp>
+#include <fstream>
+#include <nscp/layout_migration.hpp>
+#include <nscp/path_defaults.hpp>
+
 #include "../libs/settings_manager/settings_manager_impl.h"
+#ifdef WIN32
+#include <win/acl.hpp>
+#endif
+#include <list>
 
 settings::settings_core *nsclient_core::settings_client::get_core() const { return settings_manager::get_core(); }
 
@@ -72,6 +81,107 @@ int nsclient_core::settings_client::migrate_to(std::string target) {
     return 1;
   } catch (const settings::settings_exception &e) {
     error_msg(e.file(), e.line(), "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
+  } catch (...) {
+    error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
+  }
+  return -1;
+}
+
+int nsclient_core::settings_client::migrate_layout(const std::string &mode, const bool dry_run) {
+  try {
+    if (!nscp::paths::is_known_layout(mode)) {
+      error_msg(__FILE__, __LINE__, "Unknown layout '" + mode + "'. Use 'modern' or 'legacy'.");
+      return -1;
+    }
+    const nscp::paths::layout target_layout = nscp::paths::parse_layout(mode);
+    const nscp::paths::layout current_layout = core_->get_path()->get_layout();
+
+    // Resolve the source with the layout that is in force *now*, and the
+    // destination by asking what the other layout would answer. Doing it in
+    // that order is what makes this work while the agent is still configured
+    // the old way.
+    const std::string from = core_->get_path()->expand_path("${shared-path}");
+    core_->get_path()->set_layout(target_layout);
+    const std::string to = core_->get_path()->expand_path("${shared-path}");
+    core_->get_path()->set_layout(current_layout);
+
+    if (from == to) {
+      std::cout << "Already using the " << nscp::paths::layout_name(target_layout) << " layout (" << from << "); nothing to do." << std::endl;
+      return 1;
+    }
+    std::cout << (dry_run ? "Would migrate" : "Migrating") << " from " << from << std::endl << "                to " << to << std::endl << std::endl;
+
+    // Switching into the modern layout means moving the configuration and the
+    // fleet private key into a folder we are about to create and lock down; it
+    // must be empty first, or a file already there is silently adopted as the
+    // agent's own (round-2 #3). from == to above has already ruled out an
+    // already-modern re-run, so reaching here with a modern target is a genuine
+    // first switch.
+    const nscp::paths::destination_policy policy =
+        target_layout == nscp::paths::layout::modern ? nscp::paths::destination_policy::require_pristine : nscp::paths::destination_policy::adopt_existing;
+
+    if (dry_run) {
+      const nscp::paths::migration_report plan = nscp::paths::plan_migration(from, to, policy);
+      for (const std::string &line : plan.describe()) std::cout << "  " << line << std::endl;
+      std::cout << std::endl << "Nothing was changed. Re-run without --dry-run to apply, then restart the service." << std::endl;
+      return plan.ok() ? 1 : -1;
+    }
+
+    // The destination has to exist *and* be locked down before any secret is
+    // written into it - the configuration holds passwords and the fleet
+    // identity is a private key. apply_migration refuses a destination that
+    // does not exist for exactly this reason.
+    boost::system::error_code ec;
+    boost::filesystem::create_directories(to, ec);
+    if (ec) {
+      error_msg(__FILE__, __LINE__, "Failed to create " + to + ": " + ec.message() + " (try an elevated prompt)");
+      return -1;
+    }
+#ifdef WIN32
+    if (target_layout == nscp::paths::layout::modern) {
+      std::list<std::string> acl_errors;
+      if (!nsclient::windows_acl::protect_directory(to, acl_errors)) {
+        for (const std::string &e : acl_errors) error_msg(__FILE__, __LINE__, "acl: " + e);
+        error_msg(__FILE__, __LINE__, "Refusing to migrate into " + to + ": it could not be restricted to SYSTEM and Administrators.");
+        return -1;
+      }
+      // Locking the destination down can lock *us* out: the DACL grants SYSTEM
+      // and Administrators, and a process that is not elevated does not carry
+      // the Administrators group in its token. Find that out here, with one
+      // sentence, rather than through a wall of "Access is denied" once the
+      // move is under way.
+      const boost::filesystem::path probe = boost::filesystem::path(to) / ".nscp-migrate-probe";
+      boost::system::error_code probe_ec;
+      {
+        std::ofstream(probe.string().c_str());
+      }
+      if (!boost::filesystem::exists(probe, probe_ec)) {
+        error_msg(__FILE__, __LINE__, "Cannot write to " + to + " after restricting it to SYSTEM and Administrators.");
+        error_msg(__FILE__, __LINE__, "Run this from an elevated prompt (\"Run as administrator\"); nothing has been moved.");
+        return -1;
+      }
+      boost::filesystem::remove(probe, probe_ec);
+    }
+#endif
+
+    const nscp::paths::migration_report report = nscp::paths::apply_migration(from, to, policy);
+    for (const std::string &line : report.describe()) std::cout << "  " << line << std::endl;
+    if (!report.ok()) {
+      error_msg(__FILE__, __LINE__, "Migration failed; the configuration has NOT been switched to the new layout.");
+      return -1;
+    }
+
+    // Only now: the switch is what makes the agent look in the new place, so
+    // it must not be written until the files are actually there.
+    settings_manager::write_boot_ini_key("layout", "mode", nscp::paths::layout_name(target_layout));
+    std::cout << std::endl
+              << "Switched to the " << nscp::paths::layout_name(target_layout) << " layout." << std::endl
+              << "Restart the service for it to take effect." << std::endl;
+    return 1;
+  } catch (const settings::settings_exception &e) {
+    error_msg(e.file(), e.line(), "Failed to record the layout in boot.ini: " + utf8::utf8_from_native(e.what()));
+  } catch (const std::exception &e) {
+    error_msg(__FILE__, __LINE__, std::string("Failed to migrate the layout: ") + e.what());
   } catch (...) {
     error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYSTEM");
   }

@@ -13,6 +13,7 @@
 #include "check_docker_df.hpp"
 #include "check_docker_restarts.hpp"
 #include "check_docker_stats.hpp"
+#include "docker_client.hpp"
 #include "docker_endpoint.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -31,9 +32,16 @@ docker_checks::fetcher make_daemon_fetcher(const std::string &endpoint, const in
     http::http_client_options options("pipe", "", "", "");
     options.timeout_seconds_ = timeout_seconds > 0 ? static_cast<unsigned int>(timeout_seconds) : 10;
     http::simple_client client(options);
-    std::stringstream ss;
-    client.execute(ss, endpoint, "", rq);
-    return ss.str();
+    // fetch(), not execute(): execute() throws on any non-2xx, collapsing a
+    // container-gone 404 into the same failure as an unreachable daemon. fetch()
+    // hands back the status so a 404 can be told apart and skipped (see
+    // docker_http_error / fetch_json_item). Docker responses are well under
+    // fetch()'s 5 MB buffer cap, and it decodes chunked bodies for us.
+    const http::response resp = client.fetch(endpoint, "", rq);
+    if (!resp.is_2xx()) {
+      throw docker_checks::docker_http_error(resp.status_code_, "HTTP " + std::to_string(resp.status_code_) + " " + resp.status_message_);
+    }
+    return resp.payload_;
   };
 }
 }  // namespace

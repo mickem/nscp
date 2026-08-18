@@ -12,11 +12,16 @@
 #define CONSOLE_BACKEND "console"
 #define THREADED_FILE_BACKEND "threaded-file"
 #define FILE_BACKEND "file"
-#ifdef WIN32
-#define DEFAULT_BACKEND THREADED_FILE_BACKEND
-#else
+// Console everywhere, on every platform. Writing to a log file is a thing the
+// *service* does - it selects the file backend explicitly when it starts (see
+// cli_parser::parse_service, and the --log-backend in the systemd unit).
+//
+// It used to default to the file backend on Windows, which meant every CLI
+// invocation opened a file next to the executable: under Program Files, so an
+// ordinary user running `nscp client ...` failed to open it and logging quietly
+// degraded. Nothing about a one-shot command needs a log file, and needing
+// write access to the install directory to run one is worse than useless.
 #define DEFAULT_BACKEND CONSOLE_BACKEND
-#endif
 
 void nsclient::logging::impl::nsclient_logger::set_backend(const std::string backend) {
   log_driver_instance tmp;

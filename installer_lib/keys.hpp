@@ -54,6 +54,15 @@
 #define FLEET_VERIFY_MODE L"FLEET_VERIFY_MODE"
 #define FLEET_INSECURE L"FLEET_INSECURE"
 
+// On-disk layout (experimental): LAYOUT=modern moves the writable state to
+// %ProgramData%\NSClient++ and restricts it to SYSTEM and administrators, while
+// the program stays in Program Files. A plain property for now, with no UI.
+//
+// Absent means "keep whatever this host already uses", read from boot.ini - so
+// an upgrade never silently moves an installation, and never silently moves a
+// modern one back. See docs/design/shared-folder-migration.md.
+#define LAYOUT_MODE L"LAYOUT"
+
 #define OP5_SERVER L"OP5_SERVER"
 #define OP5_USER L"OP5_USER"
 #define OP5_PASSWORD L"OP5_PASSWORD"

@@ -6,6 +6,10 @@ EXPORTS
 	ApplyTool
 	DetectTool
 	BackupConfig
+	SchedulePrepareLayout
+	ExecPrepareLayout
+	ScheduleRemoveSecrets
+	ExecRemoveSecrets
 	ScheduleEnrollFleet
 	ExecEnrollFleet
 	NeedUninstall

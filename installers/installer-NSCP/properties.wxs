@@ -37,6 +37,19 @@
 	<Property Id="FLEET_INSECURE" Secure="yes" />
 	<Property Id="ExecEnrollFleet" Hidden="yes" />
 
+	<!-- On-disk layout (experimental, no UI yet): LAYOUT=modern keeps the
+	     writable state in %ProgramData%\NSClient++, restricted to SYSTEM and
+	     administrators, while the program stays in Program Files. LAYOUT=legacy
+	     keeps everything in the install folder, which is the default.
+
+	     Deliberately has no default value here. An absent property means "keep
+	     whatever this host already uses", read from its boot.ini, so an upgrade
+	     neither moves an installation that did not ask to move nor moves a
+	     modern one back because the property was not repeated. Secure so it
+	     survives a managed or elevated install. -->
+	<Property Id="LAYOUT" Secure="yes" />
+	<Property Id="ExecPrepareLayout" Hidden="yes" />
+
 	<!-- internal keys (required for the UI, never used) -->
 	<Property Id="KEY_NRPEMODE">SECURE</Property>
   

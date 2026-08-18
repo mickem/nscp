@@ -122,8 +122,15 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     expect(requests[0].body.os).toBe("linux");
   });
 
-  it("defaults the state file to ${certificate-path}/agent-state.json", async () => {
-    const expected = path.join(nscp.pathOverrides["certificate-path"], "agent-state.json");
+  it("defaults the state file to the platform's security directory", async () => {
+    // ${certificate-path}/agent-state.json on Windows, but on unix that is the
+    // read-only package directory, so the identity defaults to
+    // ${data-path}/security/agent-state.json instead. The fixture points both
+    // at the work dir, so spell out which one is actually being relied on.
+    const expected =
+      process.platform === "win32"
+        ? path.join(nscp.pathOverrides["certificate-path"], "agent-state.json")
+        : path.join(nscp.pathOverrides["data-path"], "security", "agent-state.json");
     // A previous suite run (or test) may have left a state file behind.
     fs.rmSync(expected, { force: true });
     const r = await enroll();
@@ -324,13 +331,54 @@ describe("nscp enroll (fleet onboarding CLI)", () => {
     const ini = fs.readFileSync(own.settingsFile, "utf8");
     expect(ini).toMatch(/\[\/includes\]/);
     expect(ini).toMatch(/fleet\s*=/);
-    // Unexpanded on purpose, so the configuration stays relocatable.
-    expect(ini).toContain("${shared-path}/fleet/fleet.ini");
+    // Unexpanded on purpose, so the configuration stays relocatable, and the
+    // same on every platform: only what ${fleet-folder} resolves to differs.
+    expect(ini).toContain("${fleet-folder}/fleet.ini");
     expect(ini).not.toMatch(/\[\/modules\]/);
 
     const placeholder = path.join(dir, "fleet", "fleet.ini");
     expect(fs.existsSync(placeholder)).toBe(true);
     expect(fs.readFileSync(placeholder, "utf8")).toMatch(/managed by the fleet sync/i);
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  // A local key beats the included fleet.ini: a lookup reads the local store
+  // first and only falls back to an include when the key is absent. Silently
+  // ignoring a fleet setting is a miserable thing to debug, so enrollment says
+  // so once, at the point where the two sources start competing.
+  describe("local configuration notice", () => {
+    /** Enroll a fresh instance whose ini is seeded with `ini`. */
+    async function enrollWithConfig(label: string, ini: string) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), `nscp-${label}-`));
+      const own = new NscpInstance({ workDir: dir, pathOverrides: { "shared-path": dir } });
+      fs.writeFileSync(own.settingsFile, ini);
+      const r = await own.run(["enroll", "--server", baseUrl, "--token", `tok-${label}`, "--insecure"], { allowFailure: true });
+      fs.rmSync(dir, { recursive: true, force: true });
+      return r;
+    }
+
+    it("warns that existing local configuration keeps overriding the fleet", async () => {
+      const r = await enrollWithConfig("localcfg", "[/settings/default]\npassword = hunter2\n");
+      expect(r.exitCode).toBe(0);
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(out).toMatch(/local configuration/i);
+      expect(out).toMatch(/take[s]? precedence/i);
+      // The notice must not quote the configuration it found.
+      expect(out).not.toContain("hunter2");
+    });
+
+    it("stays quiet on a host with no configuration of its own", async () => {
+      const r = await enrollWithConfig("nocfg", "; nothing here\n");
+      expect(r.exitCode).toBe(0);
+      expect(`${r.stdout}\n${r.stderr}`).not.toMatch(/local configuration/i);
+    });
+
+    it("does not count a previous enrollment's include as local configuration", async () => {
+      // Re-enrolling an already-enrolled host must not start claiming there are
+      // local overrides just because the fleet include is present.
+      const r = await enrollWithConfig("includeonly", "[/includes]\nfleet = ${fleet-folder}/fleet.ini\n");
+      expect(r.exitCode).toBe(0);
+      expect(`${r.stdout}\n${r.stderr}`).not.toMatch(/local configuration/i);
+    });
   });
 });

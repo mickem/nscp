@@ -10,9 +10,9 @@
 #include <nscapi/protobuf/functions_copy.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/functions_status.hpp>
+#include <nscp/client_path_resolver.hpp>
 
 #include "../modules/NSCPClient/nscp_handler.hpp"
-#include "win/shellapi.hpp"
 
 std::string gLog = "";
 
@@ -43,32 +43,6 @@ int main(int argc, char *argv[]) {
   return ret;
 }
 
-#ifdef WIN32
-boost::filesystem::path get_self_path() { return shellapi::get_module_file_name(); }
-#else
-boost::filesystem::path get_self_path() {
-  char buff[1024];
-  ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
-  if (len != -1) {
-    buff[len] = '\0';
-    boost::filesystem::path p = std::string(buff);
-    return p.parent_path();
-  }
-  return boost::filesystem::initial_path();
-}
-#endif
-boost::filesystem::path getBasePath() { return get_self_path(); }
-
-boost::filesystem::path getTempPath() {
-  std::string tempPath;
-#ifdef WIN32
-  tempPath = shellapi::get_temp_path().string();
-#else
-  tempPath = "/tmp";
-#endif
-  return tempPath;
-}
-
 struct stdout_client_handler : public socket_helpers::client::client_handler {
   void log_debug(std::string, int, std::string msg) const {
     if (gLog == "debug") std::cout << msg << std::endl;
@@ -77,57 +51,12 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
     if (gLog == "debug" || gLog == "error") std::cout << msg << std::endl;
   }
 
-  std::string getFolder(std::string key) {
-    std::string default_value = getBasePath().string();
-    if (key == "certificate-path") {
-      default_value = CERT_FOLDER;
-    } else if (key == "module-path") {
-      default_value = MODULE_FOLDER;
-    } else if (key == "web-path") {
-      default_value = WEB_FOLDER;
-    } else if (key == "scripts") {
-      default_value = SCRIPTS_FOLDER;
-    } else if (key == CACHE_FOLDER_KEY) {
-      default_value = DEFAULT_CACHE_PATH;
-    } else if (key == CRASH_ARCHIVE_FOLDER_KEY) {
-      default_value = CRASH_ARCHIVE_FOLDER;
-    } else if (key == "base-path") {
-      default_value = getBasePath().string();
-    } else if (key == "temp") {
-      default_value = getTempPath().string();
-    } else if (key == "shared-path" || key == "base-path" || key == "exe-path") {
-      default_value = getBasePath().string();
-    }
-#ifdef WIN32
-    else if (key == "common-appdata") {
-      default_value = shellapi::get_special_folder_path(CSIDL_COMMON_APPDATA, getBasePath()).string();
-    }
-#else
-    else if (key == "etc") {
-      // Track the daemon's ${etc} (NSCP_SYSCONFDIR) so a build for a non-/usr
-      // prefix resolves ${etc}/... the same way nscp does. See path_manager.cpp.
-      default_value = ETC_FOLDER;
-    }
-#endif
-    return default_value;
-  }
+  // Resolve ${...} tokens the way the service does, reading [layout] and
+  // [paths] from the boot.ini next to us. Shared with check_nrpe so the two
+  // cannot disagree about where certificates live (nscp/client_path_resolver.hpp).
+  nscp::paths::client_path_resolver resolver_{nscp::paths::client_path_resolver::executable_dir() / "boot.ini"};
 
-  std::string expand_path(std::string file) {
-    std::string::size_type pos = file.find('$');
-    while (pos != std::string::npos) {
-      std::string::size_type pstart = file.find('{', pos);
-      std::string::size_type pend = file.find('}', pstart);
-      std::string key = file.substr(pstart + 1, pend - 2);
-
-      std::string tmp = file;
-      str::utils::replace(file, "${" + key + "}", getFolder(key));
-      if (file == tmp)
-        pos = file.find_first_of('$', pos + 1);
-      else
-        pos = file.find_first_of('$');
-    }
-    return file;
-  }
+  std::string expand_path(std::string file) { return resolver_.expand_path(file); }
 };
 
 bool test(client::destination_container &source, client::destination_container &) {

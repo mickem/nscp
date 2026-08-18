@@ -1,6 +1,6 @@
 from difflib import unified_diff
 from subprocess import run, CalledProcessError, CREATE_NEW_PROCESS_GROUP
-from os import path, makedirs
+from os import path, makedirs, environ
 from shutil import rmtree
 from configparser import ConfigParser
 import yaml
@@ -98,6 +98,20 @@ def ensure_uninstalled(msi_file, target_folder):
     if path.exists(target_folder):
         print(f"- Removing folder: {target_folder}", flush=True)
         rmtree(target_folder, ignore_errors=True)
+
+    # The modern layout keeps the writable state outside the install folder, so
+    # the MSI does not own it and uninstalling leaves it behind. Left in place it
+    # becomes the *destination* of the next test's migration, which then finds it
+    # occupied and - correctly - refuses to merge into it, so that test fails for
+    # a reason that has nothing to do with what it is testing.
+    shared_folder = path.join(environ.get("ProgramData", r"c:\ProgramData"), "NSClient++")
+    if path.exists(shared_folder):
+        print(f"- Removing folder: {shared_folder}", flush=True)
+        rmtree(shared_folder, ignore_errors=True)
+        if path.exists(shared_folder):
+            # It is restricted to SYSTEM and administrators; say so plainly
+            # rather than letting the next test fail somewhere confusing.
+            print(f"! Could not remove {shared_folder}; the next test may fail against its leftovers.", flush=True)
 
 
 def read_config(config_file):
@@ -275,3 +289,55 @@ def validate_files_absent(target_folder, forbidden_files):
             present_files_str = ", ".join(present_files)
             print(f"! File in {file_group} should not have been installed: {present_files_str}", flush=True)
     return none_exist
+
+def resolve_folder(target_folder, folder):
+    """Resolve a folder reference from a test case.
+
+    `None` means the install folder. Anything else is taken literally, with
+    %ProgramData% expanded, so a test case can point at the modern layout's
+    shared folder without hardcoding a drive letter.
+    """
+    if not folder:
+        return target_folder
+    return path.expandvars(folder)
+
+
+def validate_secured(folder):
+    """Assert that `folder` is readable only by SYSTEM and administrators.
+
+    The modern layout moves the configuration (which holds passwords) and the
+    fleet identity's private key into %ProgramData%, which grants
+    `Users: Read & Execute` by inheritance. Breaking that inheritance is the
+    whole point of the move, and it is invisible when it fails: the files are
+    all in the right place and every check passes, they are just readable by
+    every account on the machine.
+
+    So this asserts the outcome (no ACE for anyone else) rather than that the
+    installer tried - see docs/design/shared-folder-migration.md.
+    """
+    if not path.exists(folder):
+        print(f"! Cannot check permissions, folder does not exist: {folder}", flush=True)
+        return False
+    result = run(['icacls', folder], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"! icacls failed for {folder}: {result.stderr.strip()}", flush=True)
+        return False
+
+    allowed = (r'NT AUTHORITY\SYSTEM', r'BUILTIN\Administrators')
+    offenders = []
+    for line in result.stdout.splitlines():
+        # "<path> PRINCIPAL:(perms)" on the first line, then "  PRINCIPAL:(perms)".
+        entry = line.replace(folder, '', 1).strip()
+        if not entry or ':' not in entry or entry.startswith('Successfully processed'):
+            continue
+        principal = entry.rsplit(':', 1)[0].strip()
+        if principal not in allowed:
+            offenders.append(principal)
+
+    if offenders:
+        print(f"! {folder} grants access to: {', '.join(sorted(set(offenders)))}", flush=True)
+        print(f"! Only {' and '.join(allowed)} may have access.", flush=True)
+        print(result.stdout, flush=True)
+        return False
+    print(f"- {folder} is restricted to SYSTEM and administrators.", flush=True)
+    return True

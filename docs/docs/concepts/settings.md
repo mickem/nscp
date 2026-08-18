@@ -333,20 +333,32 @@ of path variables that can be used.
 
 | Key              | Value (Windows)                 | Value (Linux)          | Comment                                                                |
 |------------------|---------------------------------|------------------------|------------------------------------------------------------------------|
-| certificate-path | ${shared-path}/security         |                        |                                                                        |
+| certificate-path | ${shared-path}/security         | ${shared-path}/security | Shipped and admin-supplied certificates. Read-only at runtime on Linux. |
 | module-path      | ${exe-path}/modules             | ${shared-path}/modules | Moves with `shared-path` on Linux.                                     |
-| web-path         | ${shared-path}/web              |                        |                                                                        |
+| web-path         | ${shared-path}/web              | ${shared-path}/web     |                                                                        |
 | scripts          | ${exe-path}/scripts             | ${shared-path}/scripts |                                                                        |
-| cache-folder     | ${shared-path}/cache            |                        |                                                                        |
-| crash-folder     | ${shared-path}/crash-dumps      |                        |                                                                        |
-| log-path         | ${shared-path}/log              |                        |                                                                        |
+| cache-folder     | ${shared-path}/cache            | ${shared-path}/cache   |                                                                        |
+| crash-folder     | ${shared-path}/crash-dumps      | ${shared-path}/crash-dumps |                                                                    |
+| log-path         | ${shared-path}/log              | /var/log/nsclient      | Created and owned by the service account by the package.               |
+| common-appdata   | %ProgramData%                   | N/A                    | Backs `${shared-path}` on the modern Windows layout.                   |
+| fleet-folder     | ${shared-path}/fleet            | ${data-path}/fleet     | Everything the fleet sync owns: `fleet.ini`, staged scripts, bundle cache. Must be writable by the service account. |
+| data-path        | The user's profile folder.      | /var/lib/nsclient      | Writable per-machine state on Linux; also `${appdata}` on Windows.     |
 | base-path        | Path of NSClient++ exe file     |                        | This will in the future change to an actual shared path.               |
 | temp             | The temporary file path         | /tmp                   |                                                                        |
-| shared-path      | Path of NSClient++ exe file     |                        | This will in the future change to an actual shared path.               |
+| shared-path      | Path of NSClient++ exe file     | /usr/lib/nsclient      | The package directory on Linux: root-owned, not written at runtime.    |
 | exe-path         | Path of NSClient++ exe file     |                        |                                                                        |
 | common-appdata   | Application data for all users. | N/A                    | The file system directory that contains application data for all users |
 | appdata          | The user's profile folder.      | N/A                    |                                                                        |
 | etc              | N/A                             | /etc                   | Linux only                                                             |
+
+The Linux values above are for a default `--prefix=/usr` package build; a build
+with another prefix moves them together (see the packaging variables in
+`CMakeLists.txt`). For the full picture of what lives where, and which account
+owns it, see [File layout](file-layout.md).
+
+On Windows, `${shared-path}` — and therefore everything defined relative to it —
+depends on which layout the installation uses. `boot.ini`'s `[layout] mode`
+selects it; see [File layout](file-layout.md#windows).
 
 All paths can also be overridden using the `[paths]` section in `boot.ini`.
 

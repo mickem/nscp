@@ -23,6 +23,15 @@ if [ "$1" = "configure" ]; then
         # Enable and start the service (optional, policy dependent)
         systemctl enable nsclient
         systemctl start nsclient
+
+        # On an upgrade the service is already running, so `start` above does
+        # nothing and the old binary keeps serving until someone restarts it -
+        # meaning an admin who upgraded to pick up a fix does not have it yet.
+        # $2 is the previously configured version, i.e. set only on upgrade.
+        # (The RPM equivalent has always done this.)
+        if [ -n "$2" ]; then
+            systemctl try-restart nsclient
+        fi
     fi
 
     # Web UI is shipped as a separate release artifact (Debian/Fedora

@@ -60,6 +60,11 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
 
       settings.add_options()
         ("migrate-to", po::value<std::string>(), "Migrate (copy) settings from current store to given target store")
+        ("migrate-layout", po::value<std::string>()->implicit_value("modern"),
+         "Move this installation's writable state (configuration, certificates, logs, cache) to the folder the given layout uses "
+         "and record the choice in boot.ini. 'modern' keeps it under %ProgramData% with access restricted to SYSTEM and "
+         "administrators; 'legacy' keeps it beside the executable. Needs an elevated prompt, and a service restart to take effect.")
+        ("dry-run", "Show what --migrate-layout would do, without changing anything.")
         ("migrate-from", po::value<std::string>(), "Migrate (copy) settings from old given store to current store")
         ("generate", po::value<std::string>()->implicit_value("settings"), "Deprecated use update in stead.")
         ("update", po::value<std::string>()->implicit_value("settings"), "Save config file (adding comments in place and moving sensitive keys to/from credential manager).")
@@ -318,6 +323,8 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
         ret = settings_cli.generate(option);
       } else if (vm.count("migrate-to")) {
         ret = settings_cli.migrate_to(vm["migrate-to"].as<std::string>());
+      } else if (vm.count("migrate-layout")) {
+        ret = settings_cli.migrate_layout(vm["migrate-layout"].as<std::string>(), vm.count("dry-run") == 1);
       } else if (vm.count("migrate-from")) {
         ret = settings_cli.migrate_from(vm["migrate-from"].as<std::string>());
       } else if (vm.count("set")) {
@@ -364,6 +371,16 @@ int cli_parser::parse_service(int argc, char *argv[]) {
     po::variables_map vm;
     po::store(do_parse(argc, argv, all), vm);
     po::notify(vm);
+
+    // The service is the one invocation that logs to a file: it runs
+    // unattended, so console output goes nowhere. Everything else defaults to
+    // the console and needs no write access anywhere. Decided here rather than
+    // in the registered command line, because an already-installed service
+    // keeps its old ImagePath until it is re-registered and would silently
+    // stop logging on upgrade. An explicit --log-backend still wins.
+    if (vm.count("run") && log_backend.empty()) {
+      log_backend = "threaded-file";
+    }
 
     if (process_common_options("service", all)) return 1;
 
@@ -752,7 +769,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       ("verify", po::value<std::string>(&request.verify_mode), "TLS verify mode (default: certificate). 'none' disables server verification and requires --insecure")
       ("retries", po::value<unsigned int>(&request.max_attempts)->default_value(3), "Attempts for transient failures (rate limiting, server errors)")
       ("timeout", po::value<unsigned int>(&request.timeout_seconds)->default_value(60), "Seconds a single read or write to the fleet server may take before the attempt is abandoned. 0 waits forever, which lets an unresponsive server block the command indefinitely")
-      ("state-file", po::value<std::string>(&state_file), "Where to store the enrolled identity (default: ${certificate-path}/agent-state.json)")
+      ("state-file", po::value<std::string>(&state_file), "Where to store the enrolled identity (default: " DEFAULT_FLEET_STATE_LOCATION ")")
       ("force", po::bool_switch(&force), "Overwrite an existing enrollment state file")
       ("insecure", po::bool_switch(&insecure), "Allow an unauthenticated enrollment: plain HTTP, or HTTPS with --verify none. Either way the fleet server is not authenticated, so an on-path attacker can read the bootstrap token and supply the trust anchors this agent will use from then on - only on a trusted network or for testing")
     ;
@@ -782,9 +799,11 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     const std::string scheme = scheme_sep == std::string::npos ? "" : request.server_url.substr(0, scheme_sep);
     if (boost::iequals(scheme, "http") && !insecure) {
       std::cerr << "Refusing to enroll over plain HTTP: the bootstrap token would be sent in cleartext, "
-                   "so anyone on the network path could read it and enroll as this host." << std::endl;
+                   "so anyone on the network path could read it and enroll as this host."
+                << std::endl;
       std::cerr << "Use an https:// server URL (recommended), or pass --insecure to allow plain HTTP anyway "
-                   "(e.g. a trusted local network or for testing)." << std::endl;
+                   "(e.g. a trusted local network or for testing)."
+                << std::endl;
       return 1;
     }
 
@@ -794,7 +813,7 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       std::cerr << "Failed to load configuration" << std::endl;
       return 1;
     }
-    if (state_file.empty()) state_file = "${certificate-path}/agent-state.json";
+    if (state_file.empty()) state_file = DEFAULT_FLEET_STATE_LOCATION;
     state_file = core_->get_path()->expand_path(state_file);
 
     // Enrollment is where this agent decides who the fleet server is: the
@@ -815,12 +834,14 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
         if (!insecure) {
           std::cerr << "Refusing to enroll without verifying the fleet server certificate (--verify none)." << std::endl;
           std::cerr << "The enrollment response supplies the certificate this agent will pin for every later call and the key it will trust for "
-                       "executable bundles, so an unverified enrollment hands both to whoever answers." << std::endl;
+                       "executable bundles, so an unverified enrollment hands both to whoever answers."
+                    << std::endl;
           std::cerr << "Point --ca at the issuing CA (recommended), or pass --insecure to accept an unauthenticated enrollment anyway." << std::endl;
           return 1;
         }
         std::cerr << "WARNING: enrolling without verifying the fleet server certificate. The trust anchors stored by this enrollment are only as "
-                     "trustworthy as the network path you ran it over." << std::endl;
+                     "trustworthy as the network path you ran it over."
+                  << std::endl;
       }
     }
 
@@ -831,11 +852,32 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
       return 1;
     }
     const boost::filesystem::path state_dir = boost::filesystem::path(state_file).parent_path();
-    if (!state_dir.empty()) boost::filesystem::create_directories(state_dir, fs_error);
+    // Only a directory we created ourselves may have its ownership changed
+    // below: an existing one can be the packaged security folder, which also
+    // holds shipped read-only material that is not ours to hand over.
+    const bool created_state_dir = !state_dir.empty() && boost::filesystem::create_directories(state_dir, fs_error);
 
     std::cout << "Enrolling with " << request.server_url << "..." << std::endl;
     const onboarding::enrolled_identity state = onboarding::enroll(request);
     onboarding::save_state(state, state_file);
+
+    // Enrollment is normally run with sudo while the service runs unprivileged,
+    // so everything written here is root-owned and unreadable to the account
+    // that has to load it at boot. The state directory is the reference: it is
+    // created and owned by packaging, so whoever owns it is the service.
+    const std::string owner_reference = core_->get_path()->expand_path("${data-path}");
+    std::string owner_error;
+    if (!onboarding::adopt_owner(state_file, owner_reference, owner_error)) {
+      // The identity is written and valid - this is a warning, not a failed
+      // enrollment. Say exactly what to run, because the symptom otherwise is a
+      // healthy-looking agent that never appears in the fleet.
+      std::cerr << "WARNING: " << owner_error << std::endl;
+      std::cerr << "The service may not be able to read its identity. Fix it with: chown --reference=" << owner_reference << " " << state_file << std::endl;
+    }
+    if (created_state_dir) {
+      std::string dir_error;
+      onboarding::adopt_owner(state_dir.string(), owner_reference, dir_error);
+    }
     std::cout << "Enrollment successful." << std::endl;
     std::cout << "  Identity stored in: " << state_file << std::endl;
     std::cout << "  Agent API (mTLS):   " << state.mtls_url << std::endl;
@@ -846,8 +888,13 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
     // active settings store. The token is stored unexpanded so the config
     // stays relocatable; a placeholder fleet.ini avoids an include error
     // before the first sync.
+    // The same token the core defaults its managed path to, so the include we
+    // write and the directory the sync writes into cannot drift apart - and so
+    // relocating ${fleet-folder} moves both at once. Identical on Windows and
+    // unix; only the token's default differs. Declared out here so the failure
+    // path below can tell the operator what to add by hand.
+    const std::string fleet_ini_token = "${" FLEET_FOLDER_KEY "}/fleet.ini";
     try {
-      const std::string fleet_ini_token = "${shared-path}/fleet/fleet.ini";
       const std::string fleet_ini = core_->get_path()->expand_path(fleet_ini_token);
       const boost::filesystem::path fleet_dir = boost::filesystem::path(fleet_ini).parent_path();
       if (!fleet_dir.empty()) boost::filesystem::create_directories(fleet_dir, fs_error);
@@ -855,12 +902,39 @@ int cli_parser::parse_enroll(int argc, char *argv[]) {
         std::ofstream placeholder(fleet_ini.c_str());
         placeholder << "; Managed by the fleet sync - populated on the first sync." << std::endl;
       }
+      // The sync writes fleet.ini, applied-state.json, the bundle cache and the
+      // script tree here, all as the service account.
+      if (!fleet_dir.empty()) {
+        std::string fleet_error;
+        if (!onboarding::adopt_owner(fleet_dir.string(), owner_reference, fleet_error)) {
+          std::cerr << "WARNING: " << fleet_error << std::endl;
+          std::cerr << "The fleet sync may not be able to apply configuration. Fix it with: chown -R --reference=" << owner_reference << " "
+                    << fleet_dir.string() << std::endl;
+        }
+      }
+      // Ask before adding the include, so the answer describes the host as the
+      // operator left it rather than as enrollment just changed it.
+      const bool local_config = settings_manager::has_local_configuration();
       settings_manager::get_settings()->set_string("/includes", "fleet", fleet_ini_token);
       settings_manager::get_settings()->save(false);
       std::cout << "  Fleet configuration sync starts on the next service start." << std::endl;
+      if (local_config) {
+        // A lookup reads the local store first and only falls back to the
+        // include, so every key already configured here keeps winning after
+        // enrollment. That is a legitimate way to run - pin something locally
+        // and manage the rest centrally - but it is a surprise when a fleet
+        // setting appears to have no effect, so say it once, at the point where
+        // the two sources start competing.
+        std::cout << std::endl;
+        std::cout << "NOTE: this host already has local configuration, and local settings take precedence" << std::endl;
+        std::cout << "      over the fleet-managed ones. Any key set in the configuration below will keep" << std::endl;
+        std::cout << "      its local value even if the fleet server sends a different one:" << std::endl;
+        std::cout << "        " << settings_manager::get_settings()->get_context() << std::endl;
+        std::cout << "      The fleet server is told that local overrides exist, but never what they are." << std::endl;
+      }
     } catch (const std::exception &e) {
       std::cerr << "Enrolled, but failed to add the fleet.ini include to the configuration: " << utf8::utf8_from_native(e.what()) << std::endl;
-      std::cerr << "Add it manually: [/includes] fleet = ${shared-path}/fleet/fleet.ini" << std::endl;
+      std::cerr << "Add it manually: [/includes] fleet = " << fleet_ini_token << std::endl;
     }
     return 0;
   } catch (const onboarding::onboarding_error &e) {

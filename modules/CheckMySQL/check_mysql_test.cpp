@@ -120,6 +120,60 @@ TEST(CheckMysql, HealthyServerIsOk) {
   EXPECT_NE(msg.find("connections 3/151"), std::string::npos) << msg;
 }
 
+// A factory that records whether it was ever asked to connect, and with what.
+// The security fix hangs on connect never being reached for a rejected option -
+// an "UNKNOWN" that still dialed out would have loaded the plugin already.
+struct connect_probe {
+  bool called = false;
+  mysql_client::connection_info seen;
+  mysql_client::session_factory factory() {
+    return [this](const mysql_client::connection_info &info) -> mysql_client::query_runner {
+      called = true;
+      seen = info;
+      return [](const std::string &sql) -> mysql_client::result {
+        if (sql.find("@@version") != std::string::npos)
+          return make_result({"version", "version_comment", "max_connections"}, {{"8.4.3", "MySQL", "151"}});
+        return make_result({"Variable_name", "Value"}, {{"Uptime", "1"}, {"Threads_connected", "1"}});
+      };
+    };
+  }
+};
+
+// plugin-dir / socket / defaults-file are settings-only: as per-request options
+// they are an arbitrary-DLL-load (plugin-dir), SMB-relay (socket) or arbitrary
+// file read (defaults-file) as the service account. They must be rejected
+// outright - not merely ignored - and the connect must never be attempted.
+TEST(CheckMysql, CodeLoadingOptionsAreRejectedFromTheRequest) {
+  for (const std::string &arg : {std::string("plugin-dir=\\\\attacker\\share"), std::string("socket=\\\\attacker\\pipe\\x"),
+                                 std::string("defaults-file=\\\\attacker\\share\\my.cnf")}) {
+    connect_probe probe;
+    PB::Commands::QueryResponseMessage::Response response;
+    EXPECT_EQ(run_health(probe.factory(), {arg}, response), PB::Common::ResultCode::UNKNOWN) << arg << ": " << join_lines(response);
+    EXPECT_FALSE(probe.called) << arg << ": the connect was attempted despite the option being refused";
+    EXPECT_NE(join_lines(response).find("Invalid command line"), std::string::npos) << arg << ": " << join_lines(response);
+  }
+}
+
+// The same parameters are still honoured from /settings/mysql (the defaults the
+// module hands to check_with), so the legitimate deployment case keeps working -
+// this is a move to config, not a removal.
+TEST(CheckMysql, PluginDirFromSettingsStillReachesTheConnection) {
+  mysql_client::connection_info defaults;
+  defaults.plugin_dir = "/opt/mysql/plugin";
+  defaults.socket = "/var/run/mysqld/mysqld.sock";
+
+  connect_probe probe;
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_mysql");
+  PB::Commands::QueryResponseMessage::Response response;
+  check_mysql_command::check_with(defaults, request, &response, probe.factory());
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << join_lines(response);
+  ASSERT_TRUE(probe.called);
+  EXPECT_EQ(probe.seen.plugin_dir, "/opt/mysql/plugin");
+  EXPECT_EQ(probe.seen.socket, "/var/run/mysqld/mysqld.sock");
+}
+
 TEST(CheckMysql, UptimeThresholdSupportsTimeUnits) {
   // Uptime is 86400s = 1d, so warning on "< 2d" must trip.
   PB::Commands::QueryResponseMessage::Response response;

@@ -28,6 +28,11 @@ struct fleet_config {
   // accepts the connection and then stops responding would otherwise block the
   // sync thread for good - the host would stay enrolled but stop being managed.
   unsigned int timeout_seconds = 60;
+  // Answers "does this host carry local configuration that outranks what we
+  // send it?" for the state report. A callback rather than a captured bool
+  // because the sync outlives configuration reloads - including the ones it
+  // triggers itself - and the answer can change under it.
+  std::function<bool()> local_config_probe;
 };
 
 // The post-enrollment fleet sync loop (see the fleet agent integration
@@ -36,23 +41,41 @@ struct fleet_config {
 // config rendered to <managed_path>/fleet.ini, scripts staged under
 // <managed_path>/scripts), reports state, and renews the client
 // certificate before expiry. The core starts it at boot only when the
-// enrollment manifest exists (see fleet_sync::has_manifest) and stops it at
+// enrollment manifest is readable (see fleet_sync::check_manifest) and stops it at
 // shutdown; it survives configuration reloads, which it itself requests
 // (via `request_reload`) after applying new configuration.
 class fleet_sync {
  public:
   typedef std::function<void()> reload_function;
 
-  // True when the enrollment manifest (agent-state.json) exists - the boot
-  // gate for starting the sync thread at all.
-  static bool has_manifest(const std::string &state_file);
+  // Why the sync will or will not start, as decided at boot.
+  //
+  // `unreadable` is deliberately distinct from `missing`: a host that was never
+  // enrolled is the normal case and stays quiet, while a manifest that exists
+  // but cannot be opened is a misconfiguration that has to be reported. That
+  // case is what an enrollment run under sudo produces on a packaged install,
+  // where the service runs as an unprivileged account - and testing only for
+  // existence made it start a sync that then died on the first read, leaving an
+  // agent that looks healthy and never joins the fleet.
+  enum class manifest_status { missing, unreadable, present };
+
+  // `detail` is filled for `unreadable` with an operator-actionable
+  // description (who owns the file, who we are running as).
+  static manifest_status check_manifest(const std::string &state_file, std::string &detail);
 
   fleet_sync(nsclient::logging::logger_instance logger, fleet_config config, nsclient::core::tag_repository_instance tags, reload_function request_reload);
   ~fleet_sync();
   void stop();
 
  private:
+  // Retry wrapper: catches whatever escapes run() and starts it again after a
+  // widening delay, so no single failure ends the sync for the life of the
+  // process.
   void thread_proc();
+  // One life of the sync: load the identity, then poll until interrupted.
+  // Returns normally only for a deliberate stop; everything else throws and is
+  // retried by thread_proc.
+  void run();
   // One poll cycle; returns how many seconds to sleep before the next one.
   unsigned long poll_once();
   // `stale` is set when the server says a bundle is no longer ours (the
