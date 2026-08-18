@@ -216,6 +216,9 @@ struct installer_settings_provider : public settings_manager::provider_interface
   // Where ${shared-path} resolves to. The same as basepath on the legacy
   // layout; %ProgramData%\NSClient++ on the modern one.
   std::string shared_path;
+  // The layout shared_path was resolved for, so default_for() can answer any
+  // other layout-dependent token consistently with it.
+  nscp::paths::layout layout_ = nscp::paths::layout::legacy;
   std::string old_settings_map;
   std::shared_ptr<msi_logger> logger;
   std::map<std::string, std::string> path_overrides_;
@@ -249,6 +252,11 @@ struct installer_settings_provider : public settings_manager::provider_interface
   void set_shared_path(const std::string &path) {
     if (!path.empty()) shared_path = path;
   }
+
+  // The layout this provider resolves for, so the shared default table can
+  // answer layout-dependent tokens the same way the service would. Callers set
+  // it alongside set_shared_path from the same resolve_layout answer.
+  void set_layout(const nscp::paths::layout layout) { layout_ = layout; }
 
   ~installer_settings_provider() {
     if (!ca_bundle_is_ours_ || ca_bundle_.empty()) return;
@@ -309,35 +317,46 @@ struct installer_settings_provider : public settings_manager::provider_interface
     }
   }
 
-  virtual std::string expand_path(std::string file) {
-    // Overrides win over the hardcoded fallbacks. We apply them first so a
-    // shared-path override (the common case) replaces ${shared-path} before
-    // the basepath fallback below ever sees it.
-    //
-    // Caveat: this is a single-pass textual replace and does not recursively
-    // expand templated override values like
-    //   shared-path = ${common-appdata}/NSClient++
-    // The installer doesn't currently know how to resolve ${common-appdata};
-    // admins who need templated overrides should write absolute paths in
-    // boot.ini until the installer grows a full path resolver.
-    for (const auto &kv : path_overrides_) {
-      str::utils::replace(file, "${" + kv.first + "}", kv.second);
-    }
+  // One ${token}, resolved with the same precedence the service and the
+  // standalone clients use: boot.ini [paths] overrides beat everything, then
+  // the handful of values only this custom action knows, then the compiled
+  // default table shared with the other resolvers (path_defaults.hpp). The
+  // table is what makes ${fleet-folder} and friends resolve at all: they are
+  // written in terms of ${shared-path}, and this provider used to leave them
+  // unexpanded - so the first settings->save() after enrollment hit SaveFile
+  // of the literal "${fleet-folder}/fleet.ini" and failed the whole install.
+  std::string get_folder(const std::string &key) {
+    const auto it = path_overrides_.find(key);
+    if (it != path_overrides_.end()) return it->second;
     // ${ca-path} means the same thing here as it does to the service - "the
     // platform trust store as a PEM bundle" - but it resolves to the temp copy
     // prepare_trust_store() exported, since the service's own copy does not
-    // exist during an install. Left alone if the export never ran or failed, so
-    // the transport reports a missing CA rather than reading some other file.
-    if (!ca_bundle_.empty()) {
-      str::utils::replace(file, "${ca-path}", ca_bundle_);
-    }
-    str::utils::replace(file, "${base-path}", basepath);
-    str::utils::replace(file, "${exe-path}", basepath);
+    // exist during an install. Left alone if the export never ran or failed,
+    // so the transport reports a missing CA rather than reading some other
+    // file (expand_tokens treats a token that resolves to itself as opaque).
+    if (key == "ca-path") return ca_bundle_.empty() ? "${ca-path}" : ca_bundle_;
+    if (key == "base-path" || key == "exe-path") return basepath;
     // Not basepath: on the modern layout the writable state lives elsewhere,
-    // and this is the token everything writable is defined against. The program
-    // stays where it was installed, so exe-path and base-path do not move.
-    str::utils::replace(file, "${shared-path}", shared_path);
-    return file;
+    // and this is the token everything writable is defined against. The
+    // program stays where it was installed, so exe-path and base-path do not
+    // move. Resolved for *this* run rather than through the default table,
+    // because on the first LAYOUT=modern install the property, not boot.ini,
+    // is what knows the layout until ExecPrepareLayout stamps it.
+    if (key == "shared-path") return shared_path;
+    if (key == "common-appdata") {
+      const std::string folder = common_appdata_folder();
+      return folder.empty() ? "${common-appdata}" : folder;
+    }
+    const std::string def = nscp::paths::default_for(key, layout_);
+    if (!def.empty()) return def;
+    // Last resort, matching the service and the clients: the install folder,
+    // never a literal ${...} that fails whatever tries to open the path.
+    logger->warning("settings", __FILE__, __LINE__, "Unknown path token ${" + key + "}; resolving to the install folder " + basepath);
+    return basepath;
+  }
+
+  virtual std::string expand_path(std::string file) {
+    return nscp::paths::expand_tokens(file, [this](const std::string &key) { return get_folder(key); });
   }
   std::string get_data(std::string key) {
     if (!old_settings_map.empty() && key == "old_settings_map_data") {
@@ -571,7 +590,9 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
     installer_settings_provider provider(&h, target, map_data);
     // The layout this host already uses: we are reading its current
     // configuration, which has not moved yet even if LAYOUT asks for it to.
-    provider.set_shared_path(shared_folder_for(resolve_layout(utf8::cvt<std::string>(target), L""), utf8::cvt<std::string>(target), &h));
+    const nscp::paths::layout current_layout = resolve_layout(utf8::cvt<std::string>(target), L"");
+    provider.set_layout(current_layout);
+    provider.set_shared_path(shared_folder_for(current_layout, utf8::cvt<std::string>(target), &h));
     if (user_ca) provider.use_user_ca();
     if (!settings_manager::init_installer_settings(&provider, utf8::cvt<std::string>(context), tls_version, tls_verify_mode, tls_ca)) {
       h.setError(L"ImportConfig::init_installer_settings", L"Settings context had fatal errors");
@@ -1008,7 +1029,8 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     // layout it has just been moved to the shared folder, and restoring the
     // backup into the install folder would leave a stale copy in the very place
     // the migration exists to empty.
-    const std::string shared_folder = shared_folder_for(resolve_layout(utf8::cvt<std::string>(target), L""), utf8::cvt<std::string>(target), &h);
+    const nscp::paths::layout recorded_layout = resolve_layout(utf8::cvt<std::string>(target), L"");
+    const std::string shared_folder = shared_folder_for(recorded_layout, utf8::cvt<std::string>(target), &h);
 
     boost::filesystem::path restore_path = restore;
 
@@ -1041,6 +1063,7 @@ extern "C" UINT __stdcall ExecWriteConfig(MSIHANDLE hInstall) {
     }
 
     installer_settings_provider provider(&h, target);
+    provider.set_layout(recorded_layout);
     provider.set_shared_path(shared_folder);
     if (!tls_ca.empty()) provider.use_user_ca();
 

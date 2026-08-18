@@ -1,0 +1,77 @@
+# Upgrading a host that was enrolled with a fleet server.
+#
+# Enrollment writes `[/includes] fleet = ${fleet-folder}/fleet.ini` into the
+# configuration. On the next msiexec run the installer loads that include as a
+# child settings store and saves it back, so it has to resolve ${fleet-folder}
+# the way the service does. It used to leave the token unexpanded, and saving
+# the literal "${fleet-folder}/fleet.ini" failed every upgrade of an enrolled
+# host with ERROR_INSTALL_FAILURE.
+#
+# No FLEET_SERVER on the command line: an upgrade does not repeat the
+# enrollment, the include is simply already there.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL"]
+replace_password: true
+
+upgrade:
+  boot.ini: |
+    [settings]
+    1 = ini://${shared-path}/nsclient.ini
+
+  nsclient.ini: |
+    [/modules]
+    checkdisk = enabled
+    checkeventlog = enabled
+    checkexternalscripts = enabled
+    checkhelpers = enabled
+    checknscp = enabled
+    checksystem = enabled
+    nrpeserver = enabled
+    webserver = enabled
+
+    [/settings/NRPE/server]
+    insecure = false
+    tls version = tlsv1.2+
+    verify mode = peer-cert
+
+    [/settings/default]
+    allowed hosts = 127.0.0.1
+    password = $$PASSWORD$$
+
+    [/includes]
+    fleet = ${fleet-folder}/fleet.ini
+
+  # What enrollment leaves on disk: the placeholder the fleet sync later
+  # renders over. Without the folder the include cannot be saved at all, and a
+  # real enrolled host always has it.
+  files:
+    fleet/fleet.ini: |
+      ; Managed by the fleet sync - populated on the first sync.
+
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+# The include survives the upgrade, still unexpanded: the token is the point -
+# it follows the layout instead of pinning it.
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  insecure = false
+  tls version = tlsv1.2+
+  verify mode = peer-cert
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$
+
+  [/includes]
+  fleet = ${fleet-folder}/fleet.ini

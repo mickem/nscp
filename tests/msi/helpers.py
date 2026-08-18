@@ -249,6 +249,16 @@ def create_upgrade_config(upgrade_config, target_folder):
         with open(nsclient_ini_path, 'w') as file:
             file.write(upgrade_config['nsclient.ini'])
         print("- nsclient.ini file created successfully.", flush=True)
+    # Anything else an existing installation would have on disk, keyed by path
+    # relative to the install folder - e.g. an enrolled host's fleet\fleet.ini.
+    # %VAR% is expanded and an absolute result wins over the install folder, so
+    # a case can seed the modern layout's %ProgramData%\NSClient++ as well.
+    for relative, content in upgrade_config.get('files', {}).items():
+        file_path = path.join(target_folder, path.expandvars(relative))
+        makedirs(path.dirname(file_path), exist_ok=True)
+        print(f"- Creating file: {file_path}", flush=True)
+        with open(file_path, 'w') as file:
+            file.write(content)
 
 
 def validate_files(target_folder, required_files):
