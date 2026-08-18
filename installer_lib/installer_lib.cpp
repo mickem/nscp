@@ -1321,7 +1321,7 @@ extern "C" UINT __stdcall ReadLayout(MSIHANDLE hInstall) {
     if (install_folder.empty()) return ERROR_SUCCESS;
     const nscp::paths::layout current = nscp::paths::layout_from_boot_ini_file((boost::filesystem::path(install_folder) / "boot.ini").string());
     if (current == nscp::paths::layout::modern) {
-      h.setMsiProperty(L"CURRENT_LAYOUT", L"modern");
+      h.setPropertyValue(L"CURRENT_LAYOUT", L"modern");
       h.logMessage("This host is on the modern layout: leaving the default configuration template out of the install folder");
     }
     return ERROR_SUCCESS;
