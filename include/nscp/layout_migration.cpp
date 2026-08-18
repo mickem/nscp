@@ -62,7 +62,7 @@ bool unreadable(const fs::file_status &status) { return status.type() == fs::sta
 // `Users: Read & Execute` it inherited in Program Files - readable by every
 // account on the machine while the folder around it claims otherwise. Reset it
 // to inherit from its new parent instead (propagated through a renamed
-// directory's contents by SetNamedSecurityInfo). The cross-volume copy paths
+// directory's contents by TreeResetNamedSecurityInfo). The cross-volume copy paths
 // need none of this: copies are new files and inherit where they are created.
 //
 // Returns a detail for the step: empty on success, a warning when the reset

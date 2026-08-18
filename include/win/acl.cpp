@@ -211,20 +211,25 @@ bool is_protected(const std::string &path, std::list<std::string> &errors) { ret
 bool reset_to_inherited(const std::string &path, std::list<std::string> &errors) {
   // An *empty* ACL, not a NULL one: NULL grants everyone everything, while an
   // empty one grants nothing of its own. Combined with UNPROTECTED (re-enable
-  // inheritance) the inherited ACEs become the only entries, and
-  // SetNamedSecurityInfo recomputes them from the parent and propagates the
-  // change through any subtree below `path` - which is what fixes a renamed
-  // directory's contents along with it.
+  // inheritance) the inherited ACEs become the only entries.
+  //
+  // TreeReset rather than SetNamedSecurityInfo: the plain set does propagate
+  // the parent's inheritable ACEs through the subtree, but it leaves each
+  // descendant's *explicit* ACEs in place - so a file that carried its own
+  // grant (rather than an inherited one) at the source would keep it inside
+  // the locked-down folder. KeepExplicit=FALSE is the whole point: every entry
+  // under `path` ends up with purely inherited access from its new parent.
   ACL empty = {};
   if (!::InitializeAcl(&empty, sizeof(empty), ACL_REVISION)) {
     errors.emplace_back(last_error("InitializeAcl"));
     return false;
   }
   const std::wstring wide = utf8::cvt<std::wstring>(path);
-  const DWORD result = ::SetNamedSecurityInfoW(const_cast<LPWSTR>(wide.c_str()), SE_FILE_OBJECT,
-                                               DACL_SECURITY_INFORMATION | UNPROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, &empty, nullptr);
+  const DWORD result = ::TreeResetNamedSecurityInfoW(const_cast<LPWSTR>(wide.c_str()), SE_FILE_OBJECT,
+                                                     DACL_SECURITY_INFORMATION | UNPROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr, &empty,
+                                                     nullptr, FALSE, nullptr, ProgressInvokeNever, nullptr);
   if (result != ERROR_SUCCESS) {
-    errors.emplace_back("SetNamedSecurityInfo(reset to inherited) failed: error=" + std::to_string(result));
+    errors.emplace_back("TreeResetNamedSecurityInfo(reset to inherited) failed: error=" + std::to_string(result));
     return false;
   }
   return true;
