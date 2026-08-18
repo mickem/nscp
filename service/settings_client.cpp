@@ -187,6 +187,21 @@ int nsclient_core::settings_client::migrate_layout(const std::string &mode, cons
   }
   return -1;
 }
+namespace {
+// Mask values for keys registered sensitive (add_password / is_sensitive_key)
+// so a shared `--list` dump or an accidental `--show` does not spill secrets.
+// `--list`/`--show` are local tools, so this is defence-in-depth (the caller
+// can still read nsclient.ini), and it keeps CLI output consistent with the
+// masking the REST read paths and /diff already apply. Only keys whose module
+// registered them sensitive are masked; an unknown backend returns false.
+std::string redacted_for_display(settings::settings_core *core, const std::string &path, const std::string &key, const std::string &value) {
+  try {
+    if (core->is_sensitive_key(path, key)) return "***";
+  } catch (...) {
+  }
+  return value;
+}
+}  // namespace
 
 void nsclient_core::settings_client::dump_path(std::string root) {
   for (const std::string &path : get_core()->get()->get_sections(root)) {
@@ -198,7 +213,7 @@ void nsclient_core::settings_client::dump_path(std::string root) {
   }
   for (std::string key : get_core()->get()->get_keys(root)) {
     settings::settings_interface::op_string val = get_core()->get()->get_string(root, key);
-    if (val) std::cout << root << "." << key << "=" << *val << std::endl;
+    if (val) std::cout << root << "." << key << "=" << redacted_for_display(get_core(), root, key, *val) << std::endl;
   }
 }
 
@@ -246,7 +261,7 @@ int nsclient_core::settings_client::show(std::string path, std::string key) {
     list_settings_context_info(2, settings_manager::get_settings());
   else {
     settings::settings_interface::op_string val = get_core()->get()->get_string(path, key);
-    if (val) std::cout << *val;
+    if (val) std::cout << redacted_for_display(get_core(), path, key, *val);
   }
   return 0;
 }

@@ -116,7 +116,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
             rpp->mutable_info()->set_sample(desc.is_sample);
             rpp->mutable_info()->set_default_value(desc.default_value);
             settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-            if (val) rpp->mutable_node()->set_value(*val);
+            if (val) rpp->mutable_node()->set_value(redact_value(path, key, *val, q.redact_sensitive()));
             settings_add_plugin_data(desc.plugins, rpp->mutable_info());
           }
           if (!plugin_id) {
@@ -133,7 +133,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
                 rpp->mutable_info()->set_sample(false);
                 rpp->mutable_info()->set_default_value("");
                 settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-                if (val) rpp->mutable_node()->set_value(*val);
+                if (val) rpp->mutable_node()->set_value(redact_value(path, key, *val, q.redact_sensitive()));
               }
             }
           }
@@ -177,7 +177,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
           rpp->mutable_info()->set_sample(desc.is_sample);
           rpp->mutable_info()->set_default_value(desc.default_value);
           try {
-            rpp->mutable_node()->set_value(settings_manager::get_settings()->get_string(path, key, ""));
+            rpp->mutable_node()->set_value(redact_value(path, key, settings_manager::get_settings()->get_string(path, key, ""), q.redact_sensitive()));
           } catch (settings::settings_exception &) {
           }
           settings_add_plugin_data(desc.plugins, rpp->mutable_info());
@@ -195,7 +195,7 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
               rpp->mutable_info()->set_advanced(true);
               rpp->mutable_info()->set_sample(false);
               settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-              if (val) rpp->mutable_node()->set_value(*val);
+              if (val) rpp->mutable_node()->set_value(redact_value(path, key, *val, q.redact_sensitive()));
             }
           }
         }
@@ -231,8 +231,17 @@ void settings_query_handler::parse_inventory(const PB::Settings::SettingsRequest
   }
 }
 
+std::string settings_query_handler::redact_value(const std::string &path, const std::string &key, const std::string &value, bool redact) {
+  if (!redact || value.empty() || key.empty()) return value;
+  try {
+    if (settings_manager::get_core()->is_sensitive_key(path, key)) return "***";
+  } catch (...) {
+  }
+  return value;
+}
+
 void settings_query_handler::recurse_find(PB::Settings::SettingsResponseMessage::Response::Query *rpp, const std::string base_path, bool recurse,
-                                          bool fetch_keys) {
+                                          bool fetch_keys, bool redact) {
   std::string path = base_path;
   if (base_path.size() > 1 && base_path[base_path.size() - 1] == '/') {
     path = base_path.substr(0, base_path.size() - 1);
@@ -244,7 +253,7 @@ void settings_query_handler::recurse_find(PB::Settings::SettingsResponseMessage:
       node->set_path(child_path);
     }
     if (recurse) {
-      recurse_find(rpp, child_path, true, fetch_keys);
+      recurse_find(rpp, child_path, true, fetch_keys, redact);
     }
   }
   if (fetch_keys) {
@@ -252,7 +261,7 @@ void settings_query_handler::recurse_find(PB::Settings::SettingsResponseMessage:
       PB::Settings::Node *node = rpp->add_nodes();
       node->set_path(path);
       node->set_key(key);
-      node->set_value(settings_manager::get_settings()->get_string(path, key, ""));
+      node->set_value(redact_value(path, key, settings_manager::get_settings()->get_string(path, key, ""), redact));
     }
   }
 }
@@ -262,9 +271,10 @@ void settings_query_handler::parse_query(const PB::Settings::SettingsRequestMess
   rpp->mutable_node()->CopyFrom(q.node());
   if (!q.node().key().empty()) {
     std::string def = q.default_value().empty() ? "" : q.default_value();
-    rpp->mutable_node()->set_value(settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), def));
+    rpp->mutable_node()->set_value(
+        redact_value(q.node().path(), q.node().key(), settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), def), q.redact_sensitive()));
   } else {
-    recurse_find(rpp, q.node().path(), q.recursive(), q.include_keys());
+    recurse_find(rpp, q.node().path(), q.recursive(), q.include_keys(), q.redact_sensitive());
   }
   rp->mutable_result()->set_code(PB::Common::Result_StatusCodeType_STATUS_OK);
 }

@@ -39,6 +39,8 @@ void settings_controller::get(Mongoose::Request &request, boost::smatch &what, M
   payload->mutable_query()->mutable_node()->set_path(path);
   payload->mutable_query()->set_recursive(true);
   payload->mutable_query()->set_include_keys(true);
+  // REST read: mask values for keys registered sensitive, matching /diff.
+  payload->mutable_query()->set_redact_sensitive(true);
   payload->set_plugin_id(plugin_id);
 
   std::string str_response;
@@ -85,6 +87,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
   payload_1->mutable_inventory()->set_fetch_paths(true);
   payload_1->mutable_inventory()->set_fetch_keys(true);
   payload_1->mutable_inventory()->set_fetch_samples(request.get_bool("samples", false));
+  payload_1->mutable_inventory()->set_redact_sensitive(true);
   payload_1->set_plugin_id(plugin_id);
 
   std::string str_response_1;
@@ -111,6 +114,7 @@ void settings_controller::get_desc(Mongoose::Request &request, boost::smatch &wh
     payload_2->mutable_query()->mutable_node()->set_path(path);
     payload_2->mutable_query()->set_recursive(true);
     payload_2->mutable_query()->set_include_keys(true);
+    payload_2->mutable_query()->set_redact_sensitive(true);
     payload_2->set_plugin_id(plugin_id);
 
     std::string str_response_2;
