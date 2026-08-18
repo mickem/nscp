@@ -1078,3 +1078,22 @@ TEST(ResolveRequestedLayout, AModernInstallIsNeverSentBackToLegacy) {
 TEST(ResolveRequestedLayout, ALegacyInstallAskedForLegacyStaysLegacy) {
   EXPECT_EQ(resolve(layout::legacy, "legacy"), layout::legacy);
 }
+
+// --- where the shared folder is for a layout ---------------------------------
+
+TEST(SharedFolderForLayout, LegacyIsTheInstallFolder) {
+  EXPECT_EQ(nscp::paths::shared_folder_for_layout(layout::legacy, "C:\\install", "C:\\ProgramData"), "C:\\install");
+  EXPECT_EQ(nscp::paths::shared_folder_for_layout(layout::legacy, "C:\\install", ""), "C:\\install") << "legacy never needs %ProgramData% at all";
+}
+
+TEST(SharedFolderForLayout, ModernLivesUnderProgramData) {
+  EXPECT_EQ(nscp::paths::shared_folder_for_layout(layout::modern, "C:\\install", "C:\\ProgramData"), "C:\\ProgramData\\NSClient++");
+}
+
+TEST(SharedFolderForLayout, ModernWithoutProgramDataIsAnErrorNotAFallback) {
+  // Every substitute is wrong: the install folder means ACL-locking
+  // Program Files and stamping a layout whose files are somewhere else, and a
+  // guessed path is one the service never reads. The empty answer forces the
+  // caller to fail rather than half-apply.
+  EXPECT_EQ(nscp::paths::shared_folder_for_layout(layout::modern, "C:\\install", ""), "");
+}
