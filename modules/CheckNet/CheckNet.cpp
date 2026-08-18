@@ -20,6 +20,7 @@
 #include "check_http.h"
 #include "check_nsclient_web_online.h"
 #include "check_ping_internal.hpp"
+#include "check_webserver.h"
 #include "check_ntp_offset.h"
 #include "check_tcp.h"
 #include "filter.hpp"
@@ -151,6 +152,18 @@ void CheckNet::check_http(const PB::Commands::QueryRequestMessage::Request &requ
 }
 void CheckNet::check_nsclient_web_online(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
   check_net::check_nsclient_web_online(default_ca_, request, response);
+}
+void CheckNet::check_apache_status(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_apache_status(default_ca_, request, response);
+}
+void CheckNet::check_nginx_status(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_nginx_status(default_ca_, request, response);
+}
+void CheckNet::check_phpfpm_status(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_phpfpm_status(default_ca_, request, response);
+}
+void CheckNet::check_tomcat_status(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) const {
+  check_net::check_tomcat_status(default_ca_, request, response);
 }
 void CheckNet::check_connections(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
   check_net::check_connections(request, response);
