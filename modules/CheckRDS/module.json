@@ -1,0 +1,13 @@
+{
+	"module"		: {
+		"title"			: "Remote Desktop Services checks",
+		"description"		: "Checks for Remote Desktop Services: CAL licensing, session host load and the Connection Broker.",
+		"name"			: "CheckRDS",
+		"alias"			: "rds",
+		"version"		: "auto"
+	},
+
+	"commands" : {
+		"check_rds_licenses"	: "Check Remote Desktop licensing (CAL key packs: issued versus available licenses)."
+	}
+}
