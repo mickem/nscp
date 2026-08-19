@@ -28,7 +28,7 @@ class WEBServer : public nscapi::impl::simple_plugin {
   bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 
   void ensure_role(role_map &roles, const nscapi::settings_helper::settings_registry &settings, const std::string &role_path, const std::string &role,
-                   const std::string &value, const std::string &reason);
+                   const std::string &value, const std::string &reason, bool seed = true);
   void ensure_user(const nscapi::settings_helper::settings_registry &settings, const std::string &path, const std::string &user, const std::string &role,
                    const std::string &value, const std::string &reason);
 

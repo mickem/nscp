@@ -141,6 +141,15 @@ Options:
       scrapes.
     * `client` — adds query listing; needed for the legacy `check_nscp_api` integration.
     * `full` — admin (settings, modules, scripts). Avoid for monitoring callers.
+    * `legacy` — `legacy,login.get`. **Dangerous — do not use for normal clients.** It unlocks the deprecated
+      `POST /query.pb` and `GET /query/{name}` endpoints, which dispatch through the same command registry as the
+      versioned query API. A `legacy`-only token can therefore run **any** registered check or command — including any
+      configured `CheckExternalScripts` command, which can amount to arbitrary command execution — even though it lacks
+      `queries.execute`. The danger is the **`legacy` grant token itself**, not the role name: any role whose grant
+      string includes `legacy` (a custom role such as `reporting = legacy,login.get`, not just the built-in one) is
+      equally powerful, and NSClient++ logs a `SECURITY` warning at startup for each such role. Grant `legacy` only to a
+      specific, trusted legacy system that cannot be upgraded, and constrain it with a
+      [permission policy](#permission-policy). See the warning on the [Web interface](web-interface.md) page.
 * `--grant`: Additional grants beyond the role (see `add-role` to define new roles).
 
 Move the per-user passwords into the credential manager rather than leaving them in the INI; see the Passwords section
