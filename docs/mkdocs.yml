@@ -31,8 +31,11 @@ nav:
       - Permissions: concepts/permissions.md
   - Setup:
       - Installation: setup/installing.md
+      - Upgrading: setup/upgrading.md
       - Securing NSClient++: setup/securing.md
       - Web Interface: setup/web-interface.md
+  - Security:
+      - Security notices: security/notices.md
   - Monitoring Scenarios:
       - Overview: scenarios/index.md
       - Windows Server Health: scenarios/windows-server-health.md

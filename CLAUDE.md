@@ -141,3 +141,17 @@ group minor items under a shared subsection (e.g. `### Bug fixes`).
 Conventions: title is a theme sentence, not a version number; lead each highlight
 bullet with a **bold** phrase; prefer tables for option/keyword matrices; always
 end with the compare link.
+
+### Keep the docs upgrade/security pages in sync
+Release notes live on GitHub and get buried over time, so two docs pages mirror
+them durably. Whenever a change introduces a **breaking change, a behaviour
+change that needs operator action, or a new/removed default**, add a
+newest-first entry to `docs/docs/setup/upgrading.md` (the same content as the
+release's `## Upgrade notes`). Whenever a change is **security-relevant** —
+including hardening handled without a CVE — also add an entry to
+`docs/docs/security/notices.md` (under "Published advisories" if it carries a
+CVE/GHSA, otherwise under "Hardening changes (no CVE)"), and mark the matching
+`upgrading.md` item with a 🔒 that links to it. For an embargoed fix, add these
+entries **in the same branch/PR as the fix** so the notice becomes public only
+when the fix does — never describe an unfixed issue on a page that ships ahead
+of the patch.
