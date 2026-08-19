@@ -51,6 +51,11 @@ message SettingsRequestMessage {
 			bool recursive = 2;
 			bool include_keys = 6;
 			string default_value = 7;
+			// When set, values for keys registered sensitive (add_password /
+			// is_sensitive_key) are returned as "***". Opt-in so internal
+			// self-reads (modules loading their own secrets) still get the
+			// real value; the REST read endpoints set it, nothing else does.
+			bool redact_sensitive = 8;
 		};
 		message Update {
 			Node node = 1;
@@ -64,6 +69,8 @@ message SettingsRequestMessage {
 			bool fetch_samples = 5;
 			bool fetch_templates = 7;
 			bool descriptions = 6;
+			// See Query.redact_sensitive: mask values for sensitive keys.
+			bool redact_sensitive = 8;
 		};
 		message Control {
 			Command command = 1;

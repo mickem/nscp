@@ -12,6 +12,23 @@ page tracks those in one place. Full per-release detail lives in each
 
 ---
 
+## 0.16.2
+
+- 🔒 **Sensitive settings values are redacted on read.** The REST settings
+  read endpoints (`GET /api/v2/settings/...`, `/descriptions`) and
+  `nscp settings --list` / `--show` now return `***` for keys registered
+  sensitive, matching the `diff` endpoint. No action required; tooling that
+  read such a value back now receives `***`. See
+  [Security notices](../security/notices.md).
+- 🔒 **The built-in `legacy` WEB role is no longer seeded on fresh installs,**
+  and any role granting the `legacy` permission now triggers a `SECURITY`
+  warning at startup (and from `nscp web add-role` / `add-user`). Existing
+  installs are unaffected — the role stays in their config. The `legacy` grant
+  unlocks the deprecated `/query.pb` and `/query/{name}` query-dispatch
+  endpoints, so a token with it can run any registered check/command; only
+  grant it to trusted legacy systems. See
+  [Security notices](../security/notices.md).
+
 ## 0.16.1
 
 - **RHEL/SUSE:** workaround `ca=` arguments can be dropped — `${ca-path}` now

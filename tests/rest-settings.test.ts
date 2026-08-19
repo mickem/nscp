@@ -141,4 +141,42 @@ describe("REST settings controller", () => {
         .expect(400);
     });
   });
+
+  // /settings/default/password is registered sensitive by WEBServer
+  // (add_password) and the fixture pins it to "default-password". The read
+  // paths must mask it to "***" the way /diff already does, while leaving a
+  // non-sensitive sibling key (allowed hosts) untouched. Guards the
+  // settings.get -> plaintext-secret disclosure.
+  describe("sensitive values are redacted on read", () => {
+    it("GET masks a sensitive key but not its neighbours", async () => {
+      await request(REST_URL)
+        .get("/api/v2/settings/settings/default")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200)
+        .then((response) => {
+          const password = response.body.find((n: { key: string }) => n.key === "password");
+          expect(password).toBeDefined();
+          expect(password.value).toEqual("***");
+          expect(password.value).not.toContain("default-password");
+
+          const hosts = response.body.find((n: { key: string }) => n.key === "allowed hosts");
+          expect(hosts).toBeDefined();
+          expect(hosts.value).toEqual("127.0.0.1,::1");
+        });
+    });
+
+    it("GET /descriptions masks a sensitive key", async () => {
+      await request(REST_URL)
+        .get("/api/v2/settings/descriptions/settings/default")
+        .set("Authorization", `Bearer ${key}`)
+        .trustLocalhost(true)
+        .expect(200)
+        .then((response) => {
+          const password = response.body.find((n: { key: string }) => n.key === "password");
+          expect(password).toBeDefined();
+          expect(password.value).not.toContain("default-password");
+        });
+    });
+  });
 });

@@ -54,7 +54,6 @@ What this does is add the following configuration:
 
 ```ini
 [/settings/WEB/server/roles]
-legacy = legacy,login.get
 client = public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list
 full = *
 view = *
@@ -72,6 +71,36 @@ WEBServer = enabled
 [/settings/WEB/server]
 port = 8443
 ```
+
+<!-- @formatter:off -->
+!!! danger "The `legacy` role is powerful — only for legacy integrations"
+    The `legacy` role (`legacy,login.get`) exists so that old clients which
+    predate the versioned REST API can still run checks, through the
+    deprecated `POST /query.pb` and `GET /query/{name}` endpoints. Those
+    endpoints dispatch through the **same command registry** as the modern
+    `GET /api/v2/queries/{name}/commands/execute` API, so a token holding only
+    the `legacy` grant can run **any** check or command registered on the
+    agent — including any `CheckExternalScripts` command an operator has
+    configured, which can be equivalent to arbitrary command execution.
+
+    What matters is the **`legacy` grant token**, not the role name: any role
+    whose grant string includes `legacy` — the built-in role, or a custom one
+    such as `cucumber = legacy,login.get` — unlocks these endpoints and is
+    exactly as powerful. Because the routes are gated by that coarse grant
+    rather than by `queries.execute`, such a role is **more capable than its
+    name suggests** and is not restricted relative to `client` / `monitoring`
+    for running checks.
+
+    Do **not** grant `legacy` to a normal user or monitoring server: modern
+    clients should use the `monitoring` or `client` role and the versioned
+    `/api/v2/queries/...` endpoints. Grant `legacy` only for a specific,
+    trusted legacy system that genuinely cannot be upgraded, and pair it with
+    the [permission policy](../concepts/permissions.md) to restrict which
+    commands it may run. A normal install grants this permission to no role
+    (the built-in `legacy` role is no longer created by default) and never
+    exposes those endpoints. NSClient++ logs a `SECURITY` warning at startup
+    for any role that grants `legacy`.
+<!-- @formatter:on -->
 
 Next up we need top restart NSClient++: 
 

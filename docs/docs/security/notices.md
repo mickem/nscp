@@ -52,4 +52,43 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
-_No hardening notices recorded yet._
+### Settings values for sensitive keys are redacted on read
+
+**Fixed in:** 0.16.2 · **Severity:** Medium · **Reported by:** [yagust](https://github.com/yagust)
+
+The settings read paths — `GET /api/v2/settings/...`,
+`GET /api/v2/settings/descriptions/...`, and the `nscp settings --list` /
+`--show` CLI — returned values for keys registered sensitive (via
+`add_password` / `is_sensitive_key`) in clear text, while the settings `diff`
+endpoint already masked them. They now return `***` for sensitive keys, to
+match `diff`; internal reads a module makes of its own configuration are
+unaffected. This is a defense-in-depth / consistency change, not an
+authorization boundary: the values remain stored in plaintext in
+`nsclient.ini` (shared with the legacy NRPE/NSCA/NSClient protocols) and are
+readable by any principal with write or execute privilege regardless.
+
+**What to do:** nothing required. Tooling that read a secret back out of
+`GET /api/v2/settings/...` now receives `***` for keys registered sensitive.
+
+### The `legacy` WEB permission is flagged and no longer seeded by default
+
+**Fixed in:** 0.16.2 · **Severity:** Medium · **Reported by:** [yagust](https://github.com/yagust)
+
+The `legacy` WEB grant unlocks the deprecated `POST /query.pb` and
+`GET /query/{name}` endpoints, which dispatch through the same command registry
+as the versioned `/api/v2/queries` API — so a token holding the `legacy`
+permission can run any registered check or command (including any configured
+`CheckExternalScripts` command) even without `queries.execute`. This is
+intended compatibility behaviour for clients that predate the versioned API,
+but it was under-documented and more powerful than the role name suggests.
+
+The built-in `legacy` role is no longer seeded on fresh installs; NSClient++
+now logs a `SECURITY` warning at startup — and from `nscp web add-role` /
+`add-user` — for any role whose grant includes the `legacy` token (so a custom
+role such as `reporting = legacy,login.get` is flagged too); and the capability
+is documented in the securing guide.
+
+**What to do:** existing installs are unaffected (the role stays in their
+config and keeps working). Only grant `legacy` to trusted legacy systems that
+cannot use the versioned `/api/v2/queries` endpoints; see
+[Securing NSClient++](../setup/securing.md).

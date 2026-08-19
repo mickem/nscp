@@ -33,7 +33,11 @@ class settings_query_handler {
   void parse_diff(const PB::Settings::SettingsRequestMessage::Request::Diff &q, PB::Settings::SettingsResponseMessage::Response *rp);
 
  private:
-  void recurse_find(PB::Settings::SettingsResponseMessage::Response::Query *rpp, const std::string base, bool recurse, bool fetch_keys);
+  void recurse_find(PB::Settings::SettingsResponseMessage::Response::Query *rpp, const std::string base, bool recurse, bool fetch_keys, bool redact);
+  // Returns "***" for a non-empty value whose key is registered sensitive
+  // when redact is set, otherwise the value unchanged. Mirrors parse_diff's
+  // masking so every read path treats sensitive keys the same way.
+  static std::string redact_value(const std::string &path, const std::string &key, const std::string &value, bool redact);
   void settings_add_plugin_data(const std::set<unsigned int> &plugins, PB::Settings::Information *info);
   logging::logger_instance get_logger() const { return logger_; }
 };
