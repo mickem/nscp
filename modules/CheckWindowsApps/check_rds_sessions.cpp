@@ -36,10 +36,7 @@ std::string counters_error(const std::string &object, const PDH::pdh_exception &
   return "Remote Desktop Services counters (" + object + ") not available - is the role installed on this host? (" + reason + ")";
 }
 
-double value_of(const std::map<std::string, double> &values, const std::string &counter) {
-  const auto it = values.find(counter);
-  return it == values.end() ? 0.0 : it->second;
-}
+using PDH::value_of;
 
 }  // namespace
 
@@ -191,6 +188,11 @@ struct filter_obj {
   std::string instance;
   double value = 0.0;
 
+  // Unique per record: the instanced branch emits one record per counter per
+  // instance, so the counter name alone would collide as a perfdata label
+  // (graphing backends keep one series and silently drop the rest).
+  std::string label() const { return instance.empty() ? counter : counter + "_" + instance; }
+
   std::string show() const { return counter + (instance.empty() ? "" : " (" + instance + ")") + " = " + std::to_string(static_cast<long long>(value)); }
 };
 
@@ -199,6 +201,8 @@ struct filter_obj_handler : public native_context {
   filter_obj_handler() {
     registry_.add_string_var("counter", [](auto obj) { return obj->counter; }, "Name of the broker counter");
     registry_.add_string_var("instance", [](auto obj) { return obj->instance; }, "Counter instance (empty for the single-instance counters)");
+    registry_.add_string_var("label", [](auto obj) { return obj->label(); },
+                             "Counter name suffixed with the instance name when the counterset is multi-instance (unique per record)");
     registry_.add_numbers("value", parsers::where::type_float, [](auto obj) { return static_cast<long long>(obj->value); },
                           [](auto obj) { return obj->value; }, "Value of the counter")
         .add_int_perf("", "", "");
@@ -220,7 +224,7 @@ void check_rds_broker(const PB::Commands::QueryRequestMessage::Request &request,
 
   filter f;
   filter_helper.add_options("", "", "", f.get_filter_syntax(), "unknown");
-  filter_helper.add_syntax("${status}: ${list}", "${counter} = ${value}", "${counter}", "No Connection Broker counters found", "");
+  filter_helper.add_syntax("${status}: ${list}", "${label} = ${value}", "${label}", "No Connection Broker counters found", "");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("averages", po::value<bool>(&averages)->implicit_value(true)->default_value(false),
@@ -242,26 +246,38 @@ void check_rds_broker(const PB::Commands::QueryRequestMessage::Request &request,
   }
   const std::vector<std::string> counters(object.counters.begin(), object.counters.end());
 
-  try {
-    if (object.instances.empty()) {
-      const std::map<std::string, double> values = PDH::gather_object_values(kObject, counters, averages);
-      for (const auto &entry : values) {
+  const auto match_instanced = [&f](const PDH::object_instance_values &values) {
+    for (const auto &instance : values) {
+      for (const auto &entry : instance.second) {
         auto obj = std::make_shared<filter_obj>();
         obj->counter = entry.first;
+        obj->instance = instance.first;
         obj->value = entry.second;
         f.match(obj);
       }
-    } else {
-      const PDH::object_instance_values values = PDH::gather_object_instances(kObject, counters, averages);
-      for (const auto &instance : values) {
-        for (const auto &entry : instance.second) {
+    }
+  };
+
+  try {
+    if (object.instances.empty()) {
+      try {
+        const std::map<std::string, double> values = PDH::gather_object_values(kObject, counters, averages);
+        for (const auto &entry : values) {
           auto obj = std::make_shared<filter_obj>();
           obj->counter = entry.first;
-          obj->instance = instance.first;
           obj->value = entry.second;
           f.match(obj);
         }
+      } catch (const PDH::pdh_exception &) {
+        // A multi-instance counterset that momentarily has no instances (e.g.
+        // a freshly started, idle broker) also enumerates an empty instance
+        // list, and its counter paths fail without an instance specifier.
+        // Retry as instanced: an empty result then renders the empty-state
+        // message instead of a bogus "is the role installed?" error.
+        match_instanced(PDH::gather_object_instances(kObject, counters, averages));
       }
+    } else {
+      match_instanced(PDH::gather_object_instances(kObject, counters, averages));
     }
   } catch (const PDH::pdh_exception &e) {
     return nscapi::protobuf::functions::set_response_bad(*response, counters_error(kObject, e));

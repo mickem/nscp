@@ -36,6 +36,8 @@ if(WIN32)
         check_tcp.h
         check_dns.h
         check_http.h
+        check_http_fetch.hpp
+        check_http_internal.hpp
         check_webserver.h
         check_webserver_internal.hpp
         check_nsclient_web_online.h

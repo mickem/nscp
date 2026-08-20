@@ -27,4 +27,12 @@ object_instance_values gather_object_instances(const std::string &object, const 
 // Throws PDH::pdh_exception like gather_object_instances.
 std::map<std::string, double> gather_object_values(const std::string &object, const std::vector<std::string> &counters, bool double_sample);
 
+// The formatted value of one counter from a gathered map, or 0.0 when the
+// counter is missing (a counter the object does not carry reads as 0 rather
+// than as an error, matching how per-value formatting failures are reported).
+inline double value_of(const std::map<std::string, double> &values, const std::string &counter) {
+  const auto it = values.find(counter);
+  return it == values.end() ? 0.0 : it->second;
+}
+
 }  // namespace PDH

@@ -26,6 +26,7 @@ import {
   CRITICAL,
   NscpInstance,
   OK,
+  UNKNOWN,
   WARNING,
   type CertPair,
   executeQuery,
@@ -1266,6 +1267,38 @@ describe("CheckNet commands", () => {
       warning: "error_count > 10",
     });
     expect(q.result).toBe(WARNING);
+  });
+
+  it("check_tomcat_status reports parse_error for XML without connectors", async () => {
+    // A truncated/partial manager response can parse as XML yet carry zero
+    // <connector> elements; that must not be reported as "OK: 0/0 threads".
+    const jvmOnly = `<?xml version="1.0" encoding="utf-8"?><status><jvm><memory free='1' total='2' max='3'/></jvm></status>`;
+    const s = await startHttp((_req, res) => res.end(jvmOnly));
+    const q = await executeQuery(key, "check_tomcat_status", {
+      url: `http://127.0.0.1:${s.port}/manager/status`,
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/parse_error/);
+  });
+
+  it("status-page checks report invalid_url for a malformed port instead of throwing", async () => {
+    // ":" with nothing after it used to hit an unguarded std::stoll and escape
+    // the check as a generic module exception; ":8o80" silently parsed as 8.
+    for (const url of ["http://127.0.0.1:/server-status", "http://127.0.0.1:8o80/server-status"]) {
+      const q = await executeQuery(key, "check_apache_status", { url });
+      expect(q.result).toBe(CRITICAL);
+      expect(messageOf(q)).toMatch(/invalid_url/);
+    }
+  });
+
+  it("status-page checks reject a non-positive timeout", async () => {
+    // timeout=-1 used to be cast to unsigned and become a ~136-year timeout.
+    const q = await executeQuery(key, "check_nginx_status", {
+      url: "http://127.0.0.1/nginx_status",
+      timeout: "-1",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/timeout must be a positive number of seconds/);
   });
 
   // `verify=none` against a local self-signed server fails too. On Rocky 10 it

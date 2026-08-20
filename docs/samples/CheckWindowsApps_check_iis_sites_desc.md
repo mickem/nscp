@@ -6,8 +6,9 @@ the IIS WMI provider is installed, records are enriched from
 `root\WebAdministration`: sites gain their `ServerAutoStart` flag
 (`auto_start`) and sites with no counter instance (stopped) are still listed.
 
-A site is considered `stopped` when the Web Service counters report no uptime
-for it. The default **critical** expression is
+A site is considered `stopped` when it has no Web Service counter instance
+(the counters only exist for started sites, so stopped sites are surfaced via
+the WMI enrichment). The default **critical** expression is
 `state = 'stopped' and auto_start != 0` — an auto-start site that is not
 serving alerts, an intentionally stopped one (`auto_start` = 0) stays quiet.
 Without the WMI provider `auto_start` is `-1`, so every stopped site alerts.
@@ -21,7 +22,7 @@ Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
 | Keyword            | Description                                                    |
 |--------------------|----------------------------------------------------------------|
 | `site`             | Name of the web site                                           |
-| `state`            | `running` or `stopped`                                         |
+| `state`            | `running` or `stopped` (no counter instance)                   |
 | `connections`      | Current connections to the site                                |
 | `uptime`           | Seconds the site has been up (0 when stopped)                  |
 | `requests_per_sec` | Requests/second (`averages=true` required)                     |

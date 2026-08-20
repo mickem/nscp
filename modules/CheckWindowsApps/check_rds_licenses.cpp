@@ -3,8 +3,6 @@
 
 #include "check_rds_licenses.hpp"
 
-#include <objbase.h>
-
 #include <boost/program_options.hpp>
 #include <memory>
 #include <nscapi/nscapi_program_options.hpp>
@@ -14,6 +12,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <string>
 #include <vector>
+#include <win/com_helpers.hpp>
 #include <win/wmi/wmi_query.hpp>
 
 #include "check_rds_internal.hpp"
@@ -27,10 +26,10 @@ using check_rds_internal::license_key_pack;
 
 namespace {
 
-// Fetch all Win32_TSLicenseKeyPack rows. Returns false with `not_installed`
-// set when the class does not exist on this host (the Remote Desktop
-// licensing role is not installed); throws wmi_exception on real errors.
-bool fetch_key_packs(std::vector<license_key_pack> &out, std::string &error) {
+// Fetch all Win32_TSLicenseKeyPack rows. Returns false when the class does
+// not exist on this host (the Remote Desktop licensing role is not
+// installed); throws wmi_exception on real errors.
+bool fetch_key_packs(std::vector<license_key_pack> &out) {
   // The class only exists on RD licensing servers; WMI reports its absence as
   // an invalid-class/not-found error from either ExecQuery or the first Next.
   const auto is_missing_class = [](const HRESULT hr) { return hr == WBEM_E_INVALID_CLASS || hr == WBEM_E_NOT_FOUND; };
@@ -54,7 +53,6 @@ bool fetch_key_packs(std::vector<license_key_pack> &out, std::string &error) {
     return true;
   } catch (const wmi_impl::wmi_exception &e) {
     if (is_missing_class(e.get_code())) return false;
-    error = e.reason();
     throw;
   }
 }
@@ -109,21 +107,17 @@ void check_rds_licenses(const PB::Commands::QueryRequestMessage::Request &reques
   f.add_manual_perf("issued");
   f.add_manual_perf("available");
 
-  const bool com_inited = SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
+  const com_helper::mta_scope com;
   try {
     std::vector<license_key_pack> packs;
-    std::string error;
-    if (!fetch_key_packs(packs, error)) {
-      if (com_inited) CoUninitialize();
+    if (!fetch_key_packs(packs)) {
       return nscapi::protobuf::functions::set_response_bad(
           *response, "Remote Desktop licensing information not available: the Remote Desktop licensing role is not installed (Win32_TSLicenseKeyPack missing)");
     }
     for (const license_key_pack &pack : packs) f.match(std::make_shared<filter_obj>(pack));
   } catch (const wmi_impl::wmi_exception &e) {
-    if (com_inited) CoUninitialize();
     return nscapi::protobuf::functions::set_response_bad(*response, "Failed to query Win32_TSLicenseKeyPack: " + e.reason());
   }
-  if (com_inited) CoUninitialize();
 
   filter_helper.post_process(f);
 }

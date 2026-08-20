@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <boost/algorithm/string/trim.hpp>
 #include <string>
 #include <vector>
 

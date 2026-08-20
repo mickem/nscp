@@ -3,8 +3,6 @@
 
 #include "check_iis_checks.hpp"
 
-#include <objbase.h>
-
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/program_options.hpp>
 #include <map>
@@ -18,6 +16,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <string>
 #include <vector>
+#include <win/com_helpers.hpp>
 #include <win/pdh/pdh_interface.hpp>
 #include <win/pdh/pdh_object_gather.hpp>
 #include <win/wmi/wmi_query.hpp>
@@ -31,15 +30,6 @@ namespace check_iis {
 using namespace check_iis_internal;
 
 namespace {
-
-// RAII COM init for the WMI enrichment; harmless when COM is already up.
-struct com_scope {
-  const bool inited;
-  com_scope() : inited(SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED))) {}
-  ~com_scope() {
-    if (inited) CoUninitialize();
-  }
-};
 
 // Fetch Name -> auto-start from root\WebAdministration. The namespace only
 // exists when the "IIS Management Scripts and Tools" feature is installed, so
@@ -120,7 +110,8 @@ void check_iis_app_pools(const PB::Commands::QueryRequestMessage::Request &reque
   f.add_manual_perf("uptime");
   f.add_manual_perf("recycles");
 
-  com_scope com;
+  // COM for the WMI enrichment; harmless when COM is already up.
+  const com_helper::mta_scope com;
   instance_values pools;
   try {
     pools = PDH::gather_object_instances("APP_POOL_WAS",
@@ -146,7 +137,11 @@ struct filter_obj {
   site_record rec;
   explicit filter_obj(site_record rec) : rec(std::move(rec)) {}
 
-  std::string state() const { return rec.in_pdh && rec.uptime > 0 ? "running" : "stopped"; }
+  // A stopped site has no Web Service counter instance (the counters only
+  // exist for started sites); a zero uptime sample alone must NOT mean
+  // stopped — a site recycled less than a second ago, or a transient PDH
+  // formatting failure (reported as 0), would page for a healthy site.
+  std::string state() const { return rec.in_pdh ? "running" : "stopped"; }
   std::string show() const { return rec.name + " (" + state() + ")"; }
 };
 
@@ -154,7 +149,7 @@ typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
     registry_.add_string_var("site", [](auto obj) { return obj->rec.name; }, "Name of the web site");
-    registry_.add_string_var("state", [](auto obj) { return obj->state(); }, "running or stopped (stopped = no uptime reported by the Web Service counters)");
+    registry_.add_string_var("state", [](auto obj) { return obj->state(); }, "running or stopped (stopped = the site has no Web Service counter instance)");
     registry_.add_int_var("connections", parsers::where::type_int, [](auto obj) { return obj->rec.connections; }, "Current connections to the site")
         .add_int_perf("", "", "_connections");
     registry_.add_int_var("uptime", parsers::where::type_int, [](auto obj) { return obj->rec.uptime; }, "Seconds the site has been up (0 when stopped)")
@@ -193,7 +188,8 @@ void check_iis_sites(const PB::Commands::QueryRequestMessage::Request &request, 
   if (!filter_helper.build_filter(f)) return;
   f.add_manual_perf("connections");
 
-  com_scope com;
+  // COM for the WMI enrichment; harmless when COM is already up.
+  const com_helper::mta_scope com;
   instance_values sites;
   try {
     sites = PDH::gather_object_instances("Web Service", {"Current Connections", "Service Uptime", "Total Method Requests/sec", "Bytes Total/sec"}, averages);
@@ -268,10 +264,8 @@ void check_iis_worker_processes(const PB::Commands::QueryRequestMessage::Request
     auto obj = std::make_shared<filter_obj>();
     obj->instance = entry.first;
     parse_worker_instance(entry.first, obj->pid, obj->pool);
-    const auto active = entry.second.find("Active Requests");
-    if (active != entry.second.end()) obj->active_requests = static_cast<long long>(active->second);
-    const auto total = entry.second.find("Total HTTP Requests Served");
-    if (total != entry.second.end()) obj->total_requests = static_cast<long long>(total->second);
+    obj->active_requests = static_cast<long long>(PDH::value_of(entry.second, "Active Requests"));
+    obj->total_requests = static_cast<long long>(PDH::value_of(entry.second, "Total HTTP Requests Served"));
     f.match(obj);
   }
 
@@ -335,12 +329,9 @@ void check_iis_request_queues(const PB::Commands::QueryRequestMessage::Request &
   for (const auto &entry : queues) {
     auto obj = std::make_shared<filter_obj>();
     obj->name = entry.first;
-    const auto size = entry.second.find("CurrentQueueSize");
-    if (size != entry.second.end()) obj->queue_length = static_cast<long long>(size->second);
-    const auto rejected = entry.second.find("RejectedRequests");
-    if (rejected != entry.second.end()) obj->rejected = static_cast<long long>(rejected->second);
-    const auto age = entry.second.find("MaxQueueItemAge");
-    if (age != entry.second.end()) obj->max_age = static_cast<long long>(age->second);
+    obj->queue_length = static_cast<long long>(PDH::value_of(entry.second, "CurrentQueueSize"));
+    obj->rejected = static_cast<long long>(PDH::value_of(entry.second, "RejectedRequests"));
+    obj->max_age = static_cast<long long>(PDH::value_of(entry.second, "MaxQueueItemAge"));
     f.match(obj);
   }
 

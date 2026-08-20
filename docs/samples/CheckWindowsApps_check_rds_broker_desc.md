@@ -18,6 +18,7 @@ Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
 |------------|--------------------------------------------------------------|
 | `counter`  | Name of the broker counter                                   |
 | `instance` | Counter instance (empty for single-instance counters)        |
+| `label`    | `counter`, suffixed with `_instance` when the counterset is multi-instance (used as the detail/perfdata label so instances do not collide) |
 | `value`    | Value of the counter                                         |
 
 Pass `averages=true` to collect a second sample after one second so rate

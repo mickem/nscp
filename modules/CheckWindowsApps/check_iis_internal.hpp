@@ -6,14 +6,13 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <win/pdh/pdh_object_gather.hpp>
 
 namespace check_iis {
 namespace check_iis_internal {
 
-// Values collected per PDH instance: counter name -> formatted value.
-typedef std::map<std::string, double> counter_values;
-// All instances of one PDH object: instance name -> its counter values.
-typedef std::map<std::string, counter_values> instance_values;
+// All instances of one PDH object: instance name -> (counter name -> value).
+typedef PDH::object_instance_values instance_values;
 
 // Human-readable name for an APP_POOL_WAS "Current Application Pool State"
 // value (per the WAS performance counter documentation).
@@ -56,12 +55,9 @@ inline std::vector<pool_record> merge_pools(const instance_values &pdh_pools, co
   for (const auto &entry : pdh_pools) {
     pool_record rec;
     rec.name = entry.first;
-    const auto state = entry.second.find("Current Application Pool State");
-    if (state != entry.second.end()) rec.state = static_cast<long long>(state->second);
-    const auto uptime = entry.second.find("Current Application Pool Uptime");
-    if (uptime != entry.second.end()) rec.uptime = static_cast<long long>(uptime->second);
-    const auto recycles = entry.second.find("Total Application Pool Recycles");
-    if (recycles != entry.second.end()) rec.recycles = static_cast<long long>(recycles->second);
+    rec.state = static_cast<long long>(PDH::value_of(entry.second, "Current Application Pool State"));
+    rec.uptime = static_cast<long long>(PDH::value_of(entry.second, "Current Application Pool Uptime"));
+    rec.recycles = static_cast<long long>(PDH::value_of(entry.second, "Total Application Pool Recycles"));
     const auto auto_start = wmi_auto_start.find(rec.name);
     if (auto_start != wmi_auto_start.end()) rec.auto_start = auto_start->second ? 1 : 0;
     out.push_back(rec);
@@ -81,7 +77,7 @@ inline std::vector<pool_record> merge_pools(const instance_values &pdh_pools, co
 struct site_record {
   std::string name;
   long long connections = 0;
-  long long uptime = 0;  // Service Uptime in seconds (0 = stopped)
+  long long uptime = 0;  // Service Uptime in seconds
   double requests_per_sec = 0.0;
   double bytes_per_sec = 0.0;
   long long auto_start = -1;  // 1/0 from WMI; -1 when WMI is unavailable
@@ -94,14 +90,10 @@ inline std::vector<site_record> merge_sites(const instance_values &pdh_sites, co
     site_record rec;
     rec.name = entry.first;
     rec.in_pdh = true;
-    const auto connections = entry.second.find("Current Connections");
-    if (connections != entry.second.end()) rec.connections = static_cast<long long>(connections->second);
-    const auto uptime = entry.second.find("Service Uptime");
-    if (uptime != entry.second.end()) rec.uptime = static_cast<long long>(uptime->second);
-    const auto requests = entry.second.find("Total Method Requests/sec");
-    if (requests != entry.second.end()) rec.requests_per_sec = requests->second;
-    const auto bytes = entry.second.find("Bytes Total/sec");
-    if (bytes != entry.second.end()) rec.bytes_per_sec = bytes->second;
+    rec.connections = static_cast<long long>(PDH::value_of(entry.second, "Current Connections"));
+    rec.uptime = static_cast<long long>(PDH::value_of(entry.second, "Service Uptime"));
+    rec.requests_per_sec = PDH::value_of(entry.second, "Total Method Requests/sec");
+    rec.bytes_per_sec = PDH::value_of(entry.second, "Bytes Total/sec");
     const auto auto_start = wmi_auto_start.find(rec.name);
     if (auto_start != wmi_auto_start.end()) rec.auto_start = auto_start->second ? 1 : 0;
     out.push_back(rec);

@@ -4,17 +4,14 @@
 #include "check_webserver.h"
 
 #include <boost/program_options.hpp>
-#include <bytes/base64.hpp>
 #include <memory>
-#include <net/http/client.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 
-#include "check_http_internal.hpp"
-#include "check_net_error.hpp"
+#include "check_http_fetch.hpp"
 #include "check_webserver_internal.hpp"
 
 namespace po = boost::program_options;
@@ -24,61 +21,36 @@ namespace check_net {
 namespace {
 
 using namespace check_webserver_internal;
-using check_http_internal::host_header_value;
-using check_http_internal::parse_url;
-using check_http_internal::parsed_url;
+using check_http_fetch::fetch_options;
+using check_http_fetch::fetch_result;
+using check_http_fetch::fetch_status_page;
 
-// Connection options shared by all four status-page checks.
-struct fetch_options {
-  std::string username;
-  std::string password;
-  std::string tls_version = "tlsv1.2+";
-  std::string verify_mode = "peer";
-  std::string ca_file;
-  int timeout = 30;
-};
-
-struct fetch_result {
-  // "ok" when the endpoint answered 2xx; otherwise "invalid_url",
-  // "http_<code>" or "error: <message>". The vendor parsers later refine "ok"
-  // into "parse_error" when the body is not the expected format.
-  std::string result = "error";
-  long long code = 0;
-  std::string body;
+// Fields every status-page filter record shares. The per-check filter_obj
+// structs derive from this; register_status_vars/fill_status keep the
+// keywords and the fetch_result plumbing in one place.
+struct status_obj {
+  std::string url;
   std::string host;
   long long port = 0;
+  long long code = 0;
+  std::string result;
 };
 
-fetch_result fetch_status_page(const std::string &url, const fetch_options &opt) {
-  fetch_result out;
-  parsed_url u;
-  if (!parse_url(url, u)) {
-    out.result = "invalid_url";
-    return out;
-  }
-  out.host = u.host;
-  out.port = std::stoll(u.port);
-  try {
-    http::http_client_options options(u.protocol, opt.tls_version, opt.verify_mode, opt.ca_file);
-    options.timeout_seconds_ = static_cast<unsigned int>(opt.timeout);
-    http::simple_client client(options);
+template <class THandler>
+void register_status_vars(THandler &registry) {
+  registry.add_string_var("url", [](auto obj) { return obj->url; }, "Full URL that was requested");
+  registry.add_string_var("host", [](auto obj) { return obj->host; }, "Host part of the URL");
+  registry.add_string_var("result", [](auto obj) { return obj->result; }, "Result of the check: ok, parse_error, http_<code> or error: <message>");
+  registry.add_int_var("port", parsers::where::type_int, [](auto obj) { return obj->port; }, "TCP port that was used");
+  registry.add_int_var("code", parsers::where::type_int, [](auto obj) { return obj->code; }, "HTTP status code of the response");
+}
 
-    http::request rq("GET", host_header_value(u.host), u.path);
-    rq.add_header("User-Agent", "NSClient++");
-    if (!opt.username.empty() || !opt.password.empty())
-      rq.add_header("Authorization", "Basic " + bytes::base64_encode(opt.username + ":" + opt.password));
-
-    const http::response resp = client.fetch(u.host, u.port, rq);
-    out.code = resp.status_code_;
-    out.body = resp.payload_;
-    if (resp.status_code_ >= 200 && resp.status_code_ < 300)
-      out.result = "ok";
-    else
-      out.result = "http_" + std::to_string(resp.status_code_);
-  } catch (const std::exception &e) {
-    out.result = std::string("error: ") + check_net::format_exception_message(e);
-  }
-  return out;
+void fill_status(status_obj &obj, const std::string &url, const fetch_result &r) {
+  obj.url = url;
+  obj.host = r.host;
+  obj.port = r.port;
+  obj.code = r.code;
+  obj.result = r.result;
 }
 
 // Add the connection options shared by all four checks to the option
@@ -88,7 +60,11 @@ void add_fetch_options(po::options_description &desc, std::string *url, const st
   // clang-format off
   desc.add_options()
     ("url", po::value<std::string>(url)->default_value(default_url), "URL of the status endpoint (http://host[:port]/path or https://...).")
-    ("timeout", po::value<int>(&opt.timeout)->default_value(30), "Connection/read timeout in seconds.")
+    ("timeout", po::value<int>(&opt.timeout)->default_value(30)->notifier([](const int value) {
+        // Fetching casts this to unsigned; without the check timeout=-1 would
+        // silently become a ~136-year timeout instead of an error.
+        if (value <= 0) throw po::error("timeout must be a positive number of seconds");
+      }), "Connection/read timeout in seconds.")
     ("username", po::value<std::string>(&opt.username), "Username for HTTP Basic authentication.")
     ("password", po::value<std::string>(&opt.password), "Password for HTTP Basic authentication.")
     ("tls-version", po::value<std::string>(&opt.tls_version)->default_value("tlsv1.2+"),
@@ -108,32 +84,17 @@ void add_fetch_options(po::options_description &desc, std::string *url, const st
 
 namespace check_apache_filter {
 
-struct filter_obj {
-  std::string url;
-  std::string host;
-  long long port = 0;
-  long long code = 0;
-  std::string result;
+struct filter_obj : status_obj {
   apache_status s;
 
   std::string show() const { return host + " (" + result + ")"; }
-
-  std::string get_url() const { return url; }
-  std::string get_host() const { return host; }
-  long long get_port() const { return port; }
-  long long get_code() const { return code; }
-  std::string get_result() const { return result; }
 };
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
-    registry_.add_string_var("url", &filter_obj::get_url, "Full URL that was requested");
-    registry_.add_string_var("host", &filter_obj::get_host, "Host part of the URL");
-    registry_.add_string_var("result", &filter_obj::get_result, "Result of the check: ok, parse_error, http_<code> or error: <message>");
+    register_status_vars(registry_);
     registry_.add_string_var("scoreboard", [](auto obj) { return obj->s.scoreboard; }, "The raw mod_status scoreboard string");
-    registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port that was used");
-    registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code of the response");
     registry_.add_int_var("busy_workers", parsers::where::type_int, [](auto obj) { return obj->s.busy_workers; }, "Workers currently serving requests")
         .add_int_perf("", "", "_busy_workers");
     registry_.add_int_var("idle_workers", parsers::where::type_int, [](auto obj) { return obj->s.idle_workers; }, "Idle (spare) workers")
@@ -183,12 +144,8 @@ void check_apache_status(const std::string &default_ca_file, const PB::Commands:
   // for the user so a bare .../server-status URL works.
   const fetch_result r = fetch_status_page(ensure_query_param(url, "auto"), opt);
   auto obj = std::make_shared<filter_obj>();
-  obj->url = url;
-  obj->host = r.host;
-  obj->port = r.port;
-  obj->code = r.code;
-  obj->result = r.result;
-  if (r.result == "ok" && !parse_apache_auto(r.body, obj->s)) obj->result = "parse_error";
+  fill_status(*obj, url, r);
+  if (obj->result == "ok" && !parse_apache_auto(r.body, obj->s)) obj->result = "parse_error";
   f.match(obj);
 
   filter_helper.post_process(f);
@@ -200,31 +157,16 @@ void check_apache_status(const std::string &default_ca_file, const PB::Commands:
 
 namespace check_nginx_filter {
 
-struct filter_obj {
-  std::string url;
-  std::string host;
-  long long port = 0;
-  long long code = 0;
-  std::string result;
+struct filter_obj : status_obj {
   nginx_status s;
 
   std::string show() const { return host + " (" + result + ")"; }
-
-  std::string get_url() const { return url; }
-  std::string get_host() const { return host; }
-  long long get_port() const { return port; }
-  long long get_code() const { return code; }
-  std::string get_result() const { return result; }
 };
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
-    registry_.add_string_var("url", &filter_obj::get_url, "Full URL that was requested");
-    registry_.add_string_var("host", &filter_obj::get_host, "Host part of the URL");
-    registry_.add_string_var("result", &filter_obj::get_result, "Result of the check: ok, parse_error, http_<code> or error: <message>");
-    registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port that was used");
-    registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code of the response");
+    register_status_vars(registry_);
     registry_.add_int_var("active", parsers::where::type_int, [](auto obj) { return obj->s.active; }, "Active client connections (including waiting)")
         .add_int_perf("", "", "_active");
     registry_.add_int_var("reading", parsers::where::type_int, [](auto obj) { return obj->s.reading; }, "Connections where nginx is reading the request")
@@ -271,12 +213,8 @@ void check_nginx_status(const std::string &default_ca_file, const PB::Commands::
 
   const fetch_result r = fetch_status_page(url, opt);
   auto obj = std::make_shared<filter_obj>();
-  obj->url = url;
-  obj->host = r.host;
-  obj->port = r.port;
-  obj->code = r.code;
-  obj->result = r.result;
-  if (r.result == "ok" && !parse_nginx_stub(r.body, obj->s)) obj->result = "parse_error";
+  fill_status(*obj, url, r);
+  if (obj->result == "ok" && !parse_nginx_stub(r.body, obj->s)) obj->result = "parse_error";
   f.match(obj);
 
   filter_helper.post_process(f);
@@ -288,33 +226,18 @@ void check_nginx_status(const std::string &default_ca_file, const PB::Commands::
 
 namespace check_phpfpm_filter {
 
-struct filter_obj {
-  std::string url;
-  std::string host;
-  long long port = 0;
-  long long code = 0;
-  std::string result;
+struct filter_obj : status_obj {
   phpfpm_status s;
 
   std::string show() const { return (s.pool.empty() ? host : s.pool) + " (" + result + ")"; }
-
-  std::string get_url() const { return url; }
-  std::string get_host() const { return host; }
-  long long get_port() const { return port; }
-  long long get_code() const { return code; }
-  std::string get_result() const { return result; }
 };
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
-    registry_.add_string_var("url", &filter_obj::get_url, "Full URL that was requested");
-    registry_.add_string_var("host", &filter_obj::get_host, "Host part of the URL");
-    registry_.add_string_var("result", &filter_obj::get_result, "Result of the check: ok, parse_error, http_<code> or error: <message>");
+    register_status_vars(registry_);
     registry_.add_string_var("pool", [](auto obj) { return obj->s.pool; }, "Name of the FPM pool");
     registry_.add_string_var("process_manager", [](auto obj) { return obj->s.process_manager; }, "Process manager mode (static, dynamic or ondemand)");
-    registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port that was used");
-    registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code of the response");
     registry_.add_int_var("active_processes", parsers::where::type_int, [](auto obj) { return obj->s.active_processes; }, "Workers currently serving requests")
         .add_int_perf("", "", "_active_processes");
     registry_.add_int_var("idle_processes", parsers::where::type_int, [](auto obj) { return obj->s.idle_processes; }, "Idle (spare) workers")
@@ -371,12 +294,8 @@ void check_phpfpm_status(const std::string &default_ca_file, const PB::Commands:
 
   const fetch_result r = fetch_status_page(url, opt);
   auto obj = std::make_shared<filter_obj>();
-  obj->url = url;
-  obj->host = r.host;
-  obj->port = r.port;
-  obj->code = r.code;
-  obj->result = r.result;
-  if (r.result == "ok" && !parse_phpfpm_status(r.body, obj->s)) obj->result = "parse_error";
+  fill_status(*obj, url, r);
+  if (obj->result == "ok" && !parse_phpfpm_status(r.body, obj->s)) obj->result = "parse_error";
   f.match(obj);
 
   filter_helper.post_process(f);
@@ -390,12 +309,7 @@ namespace check_tomcat_filter {
 
 // One record per connector; the JVM heap numbers are repeated on every record
 // so thresholds can mix connector and memory keywords.
-struct filter_obj {
-  std::string url;
-  std::string host;
-  long long port = 0;
-  long long code = 0;
-  std::string result;
+struct filter_obj : status_obj {
   tomcat_connector c;
   long long memory_free = 0;
   long long memory_total = 0;
@@ -404,23 +318,13 @@ struct filter_obj {
   std::string show() const { return (c.name.empty() ? host : c.name) + " (" + result + ")"; }
 
   double thread_usage() const { return c.threads_max > 0 ? 100.0 * static_cast<double>(c.threads_busy) / static_cast<double>(c.threads_max) : 0.0; }
-
-  std::string get_url() const { return url; }
-  std::string get_host() const { return host; }
-  long long get_port() const { return port; }
-  long long get_code() const { return code; }
-  std::string get_result() const { return result; }
 };
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
-    registry_.add_string_var("url", &filter_obj::get_url, "Full URL that was requested");
-    registry_.add_string_var("host", &filter_obj::get_host, "Host part of the URL");
-    registry_.add_string_var("result", &filter_obj::get_result, "Result of the check: ok, parse_error, http_<code> or error: <message>");
+    register_status_vars(registry_);
     registry_.add_string_var("connector", [](auto obj) { return obj->c.name; }, "Name of the connector (e.g. http-nio-8080)");
-    registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port that was used");
-    registry_.add_int_var("code", parsers::where::type_int, &filter_obj::get_code, "HTTP status code of the response");
     registry_.add_int_var("threads_busy", parsers::where::type_int, [](auto obj) { return obj->c.threads_busy; }, "Threads currently serving requests")
         .add_int_perf("", "", "_threads_busy");
     registry_.add_int_var("threads_current", parsers::where::type_int, [](auto obj) { return obj->c.threads_current; }, "Threads currently alive in the pool")
@@ -481,15 +385,15 @@ void check_tomcat_status(const std::string &default_ca_file, const PB::Commands:
   tomcat_status status;
   std::string result = r.result;
   if (result == "ok" && !parse_tomcat_status_xml(r.body, status)) result = "parse_error";
+  // A body with zero <connector> elements (e.g. a truncated manager response)
+  // never carried the data this check reports; treat it like a parse failure
+  // rather than reporting a degenerate 0/0-threads record as OK.
+  if (result == "ok" && status.connectors.empty()) result = "parse_error";
 
-  if (result == "ok" && !status.connectors.empty()) {
+  if (result == "ok") {
     for (const tomcat_connector &c : status.connectors) {
       auto obj = std::make_shared<filter_obj>();
-      obj->url = url;
-      obj->host = r.host;
-      obj->port = r.port;
-      obj->code = r.code;
-      obj->result = result;
+      fill_status(*obj, url, r);
       obj->c = c;
       obj->memory_free = status.memory_free;
       obj->memory_total = status.memory_total;
@@ -497,13 +401,10 @@ void check_tomcat_status(const std::string &default_ca_file, const PB::Commands:
       f.match(obj);
     }
   } else {
-    // Fetch or parse failure (or a connector-less response): emit a single
-    // record carrying the failure so the default critical expression fires.
+    // Fetch or parse failure: emit a single record carrying the failure so
+    // the default critical expression fires.
     auto obj = std::make_shared<filter_obj>();
-    obj->url = url;
-    obj->host = r.host;
-    obj->port = r.port;
-    obj->code = r.code;
+    fill_status(*obj, url, r);
     obj->result = result;
     obj->memory_free = status.memory_free;
     obj->memory_total = status.memory_total;
