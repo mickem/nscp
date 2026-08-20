@@ -217,14 +217,6 @@ This is a section of objects. This means that you will create objects below this
 
 index_template = u"""
 
-# Modules
-
-{% set table = [] -%}
-{% for key,module in modules|dictsort  -%}
-    {% do table.append([module.namespace, (module.namespace + '/' + module.key + '.md')|md_link(module.key), module.description|firstline]) -%}
-{%- endfor -%}
-{{table|rst_table('Type', 'Module', 'Description')}}
-
 # Queries
 {% set table = [] -%}
 {% for mk,module in modules|dictsort  -%}
@@ -237,10 +229,18 @@ index_template = u"""
         {%- elif query.description.startswith('Alias for:') -%}
             {% set desc = query.description[11:]|rst_link('query') -%}
         {%- endif -%}
-        {% do table.append([mk, (module.namespace + '/' + module.key + '.md#' + query.key)|md_link(query.key), desc]) -%}
+        {% do table.append([mk, (module.namespace + '/' + module.key + '.md#' + query.key)|md_link(query.key), query.os, desc]) -%}
     {%- endfor -%}
 {%- endfor -%}
-{{table|rst_table('Module', 'Command', 'Description')}}
+{{table|rst_table('Module', 'Command', 'OS', 'Description')}}
+
+# Modules
+
+{% set table = [] -%}
+{% for key,module in modules|dictsort  -%}
+    {% do table.append([module.namespace, (module.namespace + '/' + module.key + '.md')|md_link(module.key), module.os, module.description|firstline]) -%}
+{%- endfor -%}
+{{table|rst_table('Type', 'Module', 'OS', 'Description')}}
 """
 
 
@@ -370,6 +370,17 @@ def availability_note(present, all_present):
         return ''
     labels = ', '.join(PLATFORM_LABEL[p] for p in PLATFORM_ORDER if p in present)
     return '*Available on %s only.*\n' % labels
+
+
+# OS-logo shortcodes for the index tables, rendered to inline SVG by the
+# pymdownx.emoji extension configured in docs/mkdocs.yml.
+PLATFORM_ICON = {'windows': ':fontawesome-brands-windows:', 'unix': ':fontawesome-brands-linux:'}
+
+
+def os_label(platforms):
+    # Index-table OS column: one logo per platform the item is available on
+    # (both logos when it spans every supported platform).
+    return ' '.join(PLATFORM_ICON[p] for p in PLATFORM_ORDER if p in platforms)
 
 
 # --- Platform factoring (storage-only; KEEP IN SYNC with docs_extract.py). -------
@@ -724,7 +735,8 @@ class DocumentationGenerator(object):
 
     def build_index_model(self, modules):
         # Flat model the index_template consumes: one entry per module with a
-        # unioned queries map (name -> {key, description}).
+        # unioned queries map (name -> {key, description, os}). The `os` field
+        # (both per module and per query) is the OS column of the index tables.
         model = {}
         for name, slices in modules.items():
             present = [p for p in PLATFORM_ORDER if p in slices]
@@ -738,8 +750,12 @@ class DocumentationGenerator(object):
             for p in present:
                 for qn, q in slices[p].get('queries', {}).items():
                     if qn not in queries:
-                        queries[qn] = {'key': qn, 'description': q.get('info', {}).get('description', '')}
-            model[name] = {'key': name, 'namespace': namespace,
+                        queries[qn] = {'key': qn, 'description': q.get('info', {}).get('description', ''),
+                                       'platforms': []}
+                    queries[qn]['platforms'].append(p)
+            for q in queries.values():
+                q['os'] = os_label(q.pop('platforms'))
+            model[name] = {'key': name, 'namespace': namespace, 'os': os_label(present),
                            'description': description, 'queries': queries}
         return model
 
