@@ -1,15 +1,20 @@
 name: Publish to Chocolatey
 
 # Builds a Chocolatey package that wraps the signed MSI and pushes it to
-# https://community.chocolatey.org/ whenever a non-draft, non-prerelease
-# release is published.
+# https://community.chocolatey.org/.
+#
+# NOTE: automatic publishing on release is DISABLED for now — we ran into
+# issues getting the package onboarded on chocolatey.org. The workflow can
+# still be run manually (workflow_dispatch, defaults to dry-run) or via
+# workflow_call; restore the release trigger below once onboarding is sorted:
+#
+#   release:
+#     types: [published]
 
 permissions:
   contents: read
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       version:
