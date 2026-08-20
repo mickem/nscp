@@ -71,6 +71,7 @@ Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
 | `tests/icinga-client-api.test.ts` | `tests/icinga-client/run-test.bat`     |
 | `tests/graphite-submit.test.ts`   | (new) GraphiteClient metrics + submit  |
 | `tests/graphite-tls.test.ts`      | (new) GraphiteClient TLS (socat proxy) |
+| `tests/check_nt-client.test.ts`   | (new) NSClientServer vs the real nagios-plugins check_nt, incl. the `allow` gate |
 
 Docker-free scenarios (always run, including in no-docker CI pipelines):
 
