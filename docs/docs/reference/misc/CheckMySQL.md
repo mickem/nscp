@@ -8,10 +8,14 @@ servers on both Windows and Linux. It connects with MariaDB Connector/C
 and is only built/shipped when the connector is available.
 
 Default connection settings live under `/settings/mysql` (host, port, socket,
-user, password, TLS, timeouts) and every command accepts the same overrides
-(`host=`, `port=`, `user=`, `password=`, `socket=`, `tls=true`, ...).
-Credentials can also be kept out of `nsclient.ini` entirely via
-`defaults file` pointing at a permission-protected my.cnf-style file.
+user, password, TLS, timeouts) and every command accepts the network overrides
+per request (`host=`, `port=`, `user=`, `password=`, `tls=true`, ...). The
+parameters that name a local resource the service loads or reads on its own
+account — `socket`, `plugin dir` and `defaults file` — are configured only in
+`/settings/mysql`, never per request, so a check caller cannot make the agent
+load a plugin or read a file it chooses. Credentials can be kept out of
+`nsclient.ini` entirely via `defaults file` pointing at a permission-protected
+my.cnf-style file.
 
 
 ## Enable module
@@ -43,7 +47,7 @@ Check MySQL/MariaDB server connectivity and health (version, flavor, uptime, con
 #### About `check_mysql`
 
 `check_mysql` verifies that a MySQL-compatible server is reachable and healthy.
-It connects (TCP by default, or a socket/named pipe via `socket=`), reads the
+It connects (TCP by default, or via the `socket` setting), reads the
 server version and a couple of global status values, and reports them. Being
 able to connect is the health signal: a reachable server is **OK** unless you
 add thresholds, and any connection failure is reported as **UNKNOWN** with the
@@ -65,19 +69,26 @@ Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
 | `max_connections`   | Configured connection limit (`max_connections`)                     |
 | `connections_pct`   | Open connections as a percentage of `max_connections`               |
 
-Common connection options (shared by all CheckMySQL commands, defaults come
-from `/settings/mysql`): `host=`, `port=`, `socket=`, `user=`, `password=`,
-`database=`, `defaults-file=`, `plugin-dir=`, `tls=true`, `timeout=`,
-`query-timeout=`.
+Common connection options that can be passed per request (shared by all
+CheckMySQL commands, defaults come from `/settings/mysql`): `host=`, `port=`,
+`user=`, `password=`, `database=`, `tls=true`, `timeout=`, `query-timeout=`.
+
+The `socket`, `defaults file` and `plugin dir` connection parameters are set
+**only** in `/settings/mysql`, not per request. Each names a local resource the
+service loads or reads as its own account — a plugin directory the connector
+loads a DLL/`.so` from, a named pipe that can point off-box, an option file read
+for credentials — so accepting them from a check request would let any caller
+who can run a check load code or exfiltrate credentials as the agent. They are
+deployment properties; configure them once in `nsclient.ini`.
 
 Notes:
 
-* `host=localhost` connects over **TCP** like any other host name; use
-  `socket=` when you want the local socket / named pipe (the check does not
-  inherit the mysql client's silent localhost-means-socket behaviour).
+* `host=localhost` connects over **TCP** like any other host name; set the
+  `socket` setting when you want the local socket / named pipe (the check does
+  not inherit the mysql client's silent localhost-means-socket behaviour).
 * MySQL 8 accounts default to the `caching_sha2_password` auth plugin, which
-  the connector loads from its plugin directory; if that fails use
-  `plugin-dir=` (or the `plugin dir` setting) to point at it.
+  the connector loads from its plugin directory; if that fails set the
+  `plugin dir` setting to point at it.
 * Give the monitoring user as few privileges as possible; `USAGE` is enough
   for `check_mysql`.
 
