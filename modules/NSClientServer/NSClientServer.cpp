@@ -3,10 +3,10 @@
 
 #include "NSClientServer.h"
 
+#include "check_nt_commands.hpp"
+
 #include <time.h>
 
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/trim.hpp>
 #include <boost/assign.hpp>
 #include <net/socket/socket_settings_helper.hpp>
 #include <nscapi/macros.hpp>
@@ -14,82 +14,12 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/command.hpp>
-#include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <str/constant_time.hpp>
 #include <str/utils.hpp>
 
 namespace sh = nscapi::settings_helper;
-
-#define REQ_CLIENTVERSION 1  // Works fine!
-#define REQ_CPULOAD 2        // Quirks
-#define REQ_UPTIME 3         // Works fine!
-#define REQ_USEDDISKSPACE 4  // Works fine!
-#define REQ_SERVICESTATE 5   // Works fine!
-#define REQ_PROCSTATE 6      // Works fine!
-#define REQ_MEMUSE 7         // Works fine!
-#define REQ_COUNTER 8        // Works fine!
-#define REQ_FILEAGE 9        // Works fine! (i hope)
-#define REQ_INSTANCES 10     // Works fine! (i hope)
-
-namespace {
-// Resolve a single token from the `allow` setting - either the keyword
-// "any"/"all", a group name, or an individual check_nt command name - into the
-// request code(s) it permits. Unrecognised tokens are collected in `unknown`.
-void add_allow_token(const std::string &raw, std::set<int> &out, std::set<std::string> &unknown) {
-  std::string t = boost::algorithm::to_lower_copy(boost::algorithm::trim_copy(raw));
-  if (t.empty()) return;
-  if (t == "any" || t == "all") {
-    for (int c = REQ_CLIENTVERSION; c <= REQ_INSTANCES; ++c) out.insert(c);
-  } else if (t == "metrics") {  // harmless aggregate system metrics
-    out.insert(REQ_CPULOAD);
-    out.insert(REQ_UPTIME);
-    out.insert(REQ_USEDDISKSPACE);
-    out.insert(REQ_MEMUSE);
-  } else if (t == "info") {
-    out.insert(REQ_CLIENTVERSION);
-  } else if (t == "service") {
-    out.insert(REQ_SERVICESTATE);
-  } else if (t == "process") {
-    out.insert(REQ_PROCSTATE);
-  } else if (t == "counters") {  // arbitrary PDH counter read
-    out.insert(REQ_COUNTER);
-    out.insert(REQ_INSTANCES);
-  } else if (t == "files") {  // arbitrary file existence/age
-    out.insert(REQ_FILEAGE);
-  } else if (t == "clientversion") {
-    out.insert(REQ_CLIENTVERSION);
-  } else if (t == "cpuload") {
-    out.insert(REQ_CPULOAD);
-  } else if (t == "uptime") {
-    out.insert(REQ_UPTIME);
-  } else if (t == "useddiskspace") {
-    out.insert(REQ_USEDDISKSPACE);
-  } else if (t == "servicestate") {
-    out.insert(REQ_SERVICESTATE);
-  } else if (t == "procstate") {
-    out.insert(REQ_PROCSTATE);
-  } else if (t == "memuse") {
-    out.insert(REQ_MEMUSE);
-  } else if (t == "counter") {
-    out.insert(REQ_COUNTER);
-  } else if (t == "fileage") {
-    out.insert(REQ_FILEAGE);
-  } else if (t == "instances") {
-    out.insert(REQ_INSTANCES);
-  } else {
-    unknown.insert(t);
-  }
-}
-
-std::set<int> parse_allowed_commands(const std::string &spec, std::set<std::string> &unknown) {
-  std::set<int> out;
-  for (const std::string &tok : str::utils::split_lst(spec, std::string(","))) {
-    add_allow_token(tok, out, unknown);
-  }
-  return out;
-}
-}  // namespace
+namespace ntc = check_nt_commands;
 
 NSClientServer::NSClientServer() : noPerfData_(false), allowNasty_(false), allowArgs_(false) {}
 NSClientServer::~NSClientServer() {}
@@ -138,7 +68,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
   {
     std::set<std::string> unknown;
-    allowed_commands_ = parse_allowed_commands(allow_spec, unknown);
+    allowed_commands_ = ntc::parse_allowed_commands(allow_spec, unknown);
     for (const std::string &u : unknown) {
       NSC_LOG_ERROR_STD("Ignoring unknown entry '" + u + "' in the check_nt 'allow' setting (expected a group, 'any', or a command name).");
     }
@@ -240,12 +170,6 @@ bool NSClientServer::isPasswordOk(std::string remotePassword) {
   return str::constant_time_eq(localPassword, remotePassword);
 }
 
-void split_to_list(std::list<std::string> &list, const std::string str, const std::string key) {
-  for (const std::string &s : str::utils::split_lst(str, std::string("&"))) {
-    list.push_back(key + "=" + s);
-  }
-}
-
 void log_bad_command(const std::string &cmd) {
   if (cmd == "check_cpu" || cmd == "check_uptime" || cmd == "check_memory") {
     NSC_LOG_ERROR(cmd + std::string(" failed to execute have you loaded CheckSystem? (CheckSystem=enabled under modules)"));
@@ -253,10 +177,6 @@ void log_bad_command(const std::string &cmd) {
     NSC_LOG_ERROR("Unknown command: " + cmd);
   }
 }
-
-inline std::string extract_perf_value(const PB::Common::PerformanceData &perf) { return nscapi::protobuf::functions::extract_perf_value_as_string(perf); }
-inline std::string extract_perf_total(const PB::Common::PerformanceData &perf) { return nscapi::protobuf::functions::extract_perf_maximum_as_string(perf); }
-inline long long extract_perf_value_i(const PB::Common::PerformanceData &perf) { return nscapi::protobuf::functions::extract_perf_value_as_int(perf); }
 
 std::string NSClientServer::list_instance(std::string counter) {
   std::list<std::string> exeresult;
@@ -322,118 +242,31 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
     return check_nt::packet("ERROR: Command not allowed.");
   }
 
-  std::list<std::string> args;
+  // The two codes that are answered inline rather than by dispatching a
+  // modern query.
+  if (c == ntc::REQ_CLIENTVERSION) {
+    return check_nt::packet(get_core()->getApplicationName() + " " + get_core()->getApplicationVersionString());
+  }
+  if (c == ntc::REQ_INSTANCES) {
+    return check_nt::packet(list_instance(cmd.second));
+  }
 
-  // prefix various commands
-  switch (c) {
-    case REQ_CPULOAD:
-      cmd.first = "check_cpu";
-      for (const std::string &s : str::utils::split_lst(cmd.second, std::string("&"))) {
-        args.push_back("time=" + s + "m");
-      }
-      break;
-    case REQ_UPTIME:
-      cmd.first = "check_uptime";
-      args.push_back("warn=uptime<0");
-      break;
-    case REQ_USEDDISKSPACE:
-      cmd.first = "check_drivesize";
-      split_to_list(args, cmd.second, "drive");
-      args.push_back("warn=free<0");
-      args.push_back("crit=free<0");
-      args.push_back("filter=type='fixed' and mounted = 1");
-      args.push_back("perf-config=used(unit:B)free(unit:B)");
-      break;
-    case REQ_CLIENTVERSION:
-      return check_nt::packet(get_core()->getApplicationName() + " " + get_core()->getApplicationVersionString());
-    case REQ_SERVICESTATE:
-      cmd.first = "check_service";
-      split_to_list(args, cmd.second, "service");
-      if (args.size() > 0 && *args.begin() == "service=ShowFail") args.erase(args.begin());
-      if (args.size() > 0 && *args.begin() == "service=ShowAll") {
-        args.erase(args.begin());
-        args.push_back("top-syntax=${list}");
-      }
-      args.push_back("detail-syntax=${name}: ${legacy_state}");
-      args.push_back("empty-syntax=OK: All services are in their appropriate state.");
-      args.push_back("filter=none");
-      args.push_back("crit=not state = 'running'");
-      break;
-    case REQ_PROCSTATE:
-      cmd.first = "check_process";
-      split_to_list(args, cmd.second, "process");
-      if (args.size() > 0 && *args.begin() == "process=ShowFail") args.erase(args.begin());
-      if (args.size() > 0 && *args.begin() == "process=ShowAll") {
-        args.erase(args.begin());
-        args.push_back("top-syntax=${list}");
-      }
-      args.push_back("detail-syntax=${exe}: ${legacy_state}");
-      args.push_back("empty-syntax=OK: All processes are running.");
-      break;
-    case REQ_MEMUSE:
-      cmd.first = "check_memory";
-      args.push_back("warn=used<0");
-      args.push_back("crit=used<0");
-      args.push_back("filter=none");
-      args.push_back("type=committed");
-      args.push_back("perf-config=used(unit:B)free(unit:B)");
-      break;
-    case REQ_COUNTER:
-      cmd.first = "check_pdh";
-      args.push_back("counter=" + cmd.second);
-      break;
-    case REQ_FILEAGE:
-      cmd.first = "check_files";
-      args.push_back("path=" + cmd.second);
-      args.push_back("crit=age<0");
-      args.push_back("detail-syntax=${file} ${written}");
-      args.push_back("top-syntax=${list}");
-      break;
-    case REQ_INSTANCES:
-      return check_nt::packet(list_instance(cmd.second));
-    default:
-      return check_nt::packet("ERROR: Unknown command.");
+  ntc::mapped_command real_command;
+  if (!ntc::map_request(c, cmd.second, real_command)) {
+    return check_nt::packet("ERROR: Unknown command.");
   }
 
   std::string response;
   nscapi::core_helper ch(get_core(), get_id());
-  NSC_DEBUG_MSG("Real command: " + cmd.first + " " + str::utils::joinEx(args, " "));
-  if (!ch.simple_query(cmd.first, args, response)) {
-    log_bad_command(cmd.first);
+  NSC_DEBUG_MSG("Real command: " + real_command.command + " " + str::utils::joinEx(real_command.arguments, " "));
+  if (!ch.simple_query(real_command.command, real_command.arguments, response)) {
+    log_bad_command(real_command.command);
     return check_nt::packet("ERROR: Could not complete the request check log file for more information.");
   }
 
   ::PB::Commands::QueryResponseMessage message;
-  if (!message.ParseFromString(response)) return check_nt::packet("ERROR: Failed to parse data from: " + cmd.first);
+  if (!message.ParseFromString(response)) return check_nt::packet("ERROR: Failed to parse data from: " + real_command.command);
   if (message.payload_size() != 1)
-    return check_nt::packet("ERROR: Command returned invalid number of payloads: " + cmd.first + ", " + str::xtos(message.payload_size()));
-  const ::PB::Commands::QueryResponseMessage::Response &payload = message.payload(0);
-  if (payload.lines_size() != 1) {
-    return check_nt::packet("ERROR: Invalid number of lines returned from command: " + cmd.first + ", " + str::xtos(payload.lines_size()));
-  }
-  const ::PB::Commands::QueryResponseMessage::Response::Line &line = payload.lines(0);
-
-  switch (c) {
-    case REQ_CPULOAD:  // Return the first performance data value
-    case REQ_UPTIME:
-    case REQ_COUNTER:
-      if (line.perf_size() < 1) return check_nt::packet("ERROR: No performance data from command: " + cmd.first);
-      return check_nt::packet(extract_perf_value(line.perf(0)));
-
-    case REQ_MEMUSE:
-      if (line.perf_size() < 1) return check_nt::packet("ERROR: No performance data from command: " + cmd.first);
-      return check_nt::packet(extract_perf_total(line.perf(0)) + "&" + extract_perf_value(line.perf(0)));
-    case REQ_USEDDISKSPACE:
-      if (line.perf_size() < 1) return check_nt::packet("ERROR: No performance data from command: " + cmd.first);
-      return check_nt::packet(extract_perf_value(line.perf(0)) + "&" + extract_perf_total(line.perf(0)));
-    case REQ_FILEAGE:
-      if (line.perf_size() < 1) return check_nt::packet("ERROR: No performance data from command: " + cmd.first);
-      return check_nt::packet(str::xtos_non_sci(extract_perf_value_i(line.perf(0)) / 60) + "&" + line.message());
-
-    case REQ_SERVICESTATE:  // Some check_nt commands return the return code (coded as a string)
-    case REQ_PROCSTATE:
-      return check_nt::packet(str::xtos(payload.result()) + "& " + line.message());
-  }
-
-  return check_nt::packet("ERROR: Unknown command " + cmd.first);
+    return check_nt::packet("ERROR: Command returned invalid number of payloads: " + real_command.command + ", " + str::xtos(message.payload_size()));
+  return check_nt::packet(ntc::format_response(c, real_command.command, message.payload(0)));
 }
