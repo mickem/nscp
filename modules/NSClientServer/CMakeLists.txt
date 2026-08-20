@@ -9,6 +9,7 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(SRCS
     ${SRCS}
     "${TARGET}.cpp"
+    check_nt_commands.cpp
     ${NSCP_INCLUDEDIR}/net/check_nt/packet.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/net/socket/allowed_hosts.cpp
@@ -35,6 +36,7 @@ if(WIN32)
     set(SRCS
         ${SRCS}
         "${TARGET}.h"
+        check_nt_commands.hpp
         ${NSCP_INCLUDEDIR}/net/check_nt/server/protocol.hpp
         ${NSCP_INCLUDEDIR}/net/check_nt/server/parser.hpp
         ${NSCP_INCLUDEDIR}/net/check_nt/packet.hpp
@@ -59,3 +61,19 @@ target_link_libraries(
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Server" REGULAR_EXPRESSION .*include/check_nt/.*)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+
+# The dispatch-free protocol logic (allow parsing, request mapping, response
+# formatting) is platform-neutral, so the test runs everywhere the module
+# builds.
+NSCP_CREATE_TEST(
+    check_nt_commands_test
+    SOURCES
+        check_nt_commands_test.cpp
+        check_nt_commands.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${PLUGIN_API_TARGET}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)

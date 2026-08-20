@@ -12,10 +12,9 @@
 namespace check_nt {
 namespace server {
 class parser : public boost::noncopyable {
-  // check_nt requests are short (`<password>&<cmd>&<args>\n`). Cap the
-  // per-connection buffer so a peer that never sends a newline cannot pin
-  // memory by trickling bytes. 4 KiB is generous - real requests are well
-  // under 1 KiB.
+  // check_nt requests are short (`<password>&<cmd>&<args>`). Cap the
+  // per-connection buffer so a peer cannot pin memory by trickling bytes.
+  // 4 KiB is generous - real requests are well under 1 KiB.
   static constexpr std::size_t kMaxLineBytes = 4 * 1024;
   std::vector<char> buffer_;
 
@@ -37,11 +36,13 @@ class parser : public boost::noncopyable {
         return boost::make_tuple(true, begin);
       }
     }
-    // No newline yet and the buffer is still under the cap: signal "not
-    // complete" so the protocol layer keeps reading. Previously this always
-    // returned true, which meant the handler ran on partial input and any
-    // bytes pipelined after a mid-buffer newline were silently discarded.
-    return boost::make_tuple(false, begin);
+    // The legacy wire format has no terminator: the real check_nt client
+    // sends `<password>&<cmd>&<args>` with no trailing newline and waits for
+    // the response, so end-of-chunk is end-of-request. (Requiring a newline
+    // here made every nagios-plugins check_nt hang until its socket timeout.)
+    // The newline path above additionally serves line-oriented clients and
+    // keeps any pipelined bytes after a mid-buffer newline intact.
+    return boost::make_tuple(!buffer_.empty(), begin);
   }
 
   check_nt::packet parse() {

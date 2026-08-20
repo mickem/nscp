@@ -522,7 +522,7 @@ Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
 | Keyword                   | Description                                                  |
 |---------------------------|--------------------------------------------------------------|
 | `images` / `unused_images`| Number of images / images no container uses                  |
-| `images_size`             | Disk used by images (unique layer sizes)                     |
+| `images_size`             | Disk used by all image layers, deduplicated (matches `docker system df`) |
 | `images_reclaimable`      | Freed by pruning unused images                               |
 | `containers`              | Number of containers (running and stopped)                   |
 | `containers_size`         | Disk used by container writable layers                       |

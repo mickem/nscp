@@ -203,6 +203,8 @@ if(OPENSSL_FOUND)
             ${NSCP_INCLUDEDIR}/net/nsca/nsca_packet_test.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/server/parser_test.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/server/protocol_test.cpp
+            ${NSCP_INCLUDEDIR}/net/check_nt/server/parser_test.cpp
+            ${NSCP_INCLUDEDIR}/net/check_nt/server/protocol_test.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/client/nsca_client_protocol_test.cpp
             ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
             ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
