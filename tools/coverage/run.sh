@@ -114,9 +114,9 @@ rm -f "$OUT_DIR/unit.json" "$OUT_DIR/integration.json"
 #   gcovr --add-tracefile coverage/unit.json \
 #         --filter '.*/module\.cpp$' --txt glue.txt --print-summary
 gcovr_common=(
-    --root .
+    --root "$ROOT"
     --gcov-executable "$GCOV"
-    "$BUILD_DIR"
+    "$BUILD_ABS"
     --exclude '.*_test\.cpp'
     --exclude '.*\.pb\.(cc|h)$'
     --exclude '.*/_deps/.*'
@@ -124,8 +124,25 @@ gcovr_common=(
     --exclude-unreachable-branches
     --exclude-throw-branches
     --gcov-ignore-parse-errors
-    -j "$JOBS"
 )
+
+# gcov writes its .gcov output into the *current* directory, named after the
+# source file. Two objects that include the same header therefore produce the
+# same file name, so gcovr's parallel workers race: one deletes the file
+# another is still reading. The visible failure is a FileNotFoundError on some
+# .gcov half way through a run - but the quiet failure is worse, because
+# --gcov-ignore-parse-errors turns a lost file into silently missing coverage,
+# and the report still looks complete. Hence no -j here (the build and the
+# test runs above still use it), and a scratch cwd below so the temporary
+# .gcov files never land in the working tree.
+run_gcovr() {
+    local workdir rc=0
+    workdir="$(mktemp -d)"
+    # `|| rc=$?` so set -e does not abort before the scratch dir is removed.
+    ( cd "$workdir" && gcovr "$@" ) || rc=$?
+    rm -rf "$workdir"
+    return $rc
+}
 
 # Applied when *rendering*, not when reading gcov, so the .json tracefiles
 # keep the generated glue and the one-liner above stays a cheap tracefile
@@ -141,10 +158,10 @@ if [ "$run_unit" = 1 ]; then
     ctest --test-dir "$BUILD_DIR" -R '_test$' --output-on-failure ${CTEST_ARGS:-} \
         || { test_status=1; echo "!!! unit tests failed - collecting coverage anyway"; }
     echo "==> Collecting unit coverage"
-    gcovr "${gcovr_common[@]}" --json "$OUT_DIR/unit.json"
-    gcovr --root . --add-tracefile "$OUT_DIR/unit.json" \
+    run_gcovr "${gcovr_common[@]}" --json "$ROOT/$OUT_DIR/unit.json"
+    run_gcovr --root "$ROOT" --add-tracefile "$ROOT/$OUT_DIR/unit.json" \
         "${gcovr_report_excludes[@]}" \
-        --html "$OUT_DIR/unit.html" \
+        --html "$ROOT/$OUT_DIR/unit.html" \
         --print-summary
 fi
 
@@ -170,23 +187,23 @@ if [ "$run_integration" = 1 ]; then
             npx jest --runInBand ${JEST_ARGS:-}
     ) || { test_status=1; echo "!!! integration tests failed - collecting coverage anyway"; }
     echo "==> Collecting integration coverage"
-    gcovr "${gcovr_common[@]}" --json "$OUT_DIR/integration.json"
-    gcovr --root . --add-tracefile "$OUT_DIR/integration.json" \
+    run_gcovr "${gcovr_common[@]}" --json "$ROOT/$OUT_DIR/integration.json"
+    run_gcovr --root "$ROOT" --add-tracefile "$ROOT/$OUT_DIR/integration.json" \
         "${gcovr_report_excludes[@]}" \
-        --html "$OUT_DIR/integration.html" \
+        --html "$ROOT/$OUT_DIR/integration.html" \
         --print-summary
 fi
 
 echo "==> Merging reports"
 merge_args=()
 for f in "$OUT_DIR/unit.json" "$OUT_DIR/integration.json"; do
-    [ -f "$f" ] && merge_args+=(--add-tracefile "$f")
+    [ -f "$f" ] && merge_args+=(--add-tracefile "$ROOT/$f")
 done
 mkdir -p "$OUT_DIR/html"
-gcovr --root . "${merge_args[@]}" \
+run_gcovr --root "$ROOT" "${merge_args[@]}" \
     "${gcovr_report_excludes[@]}" \
-    --html-details "$OUT_DIR/html/index.html" \
-    --cobertura "$OUT_DIR/cobertura.xml" \
+    --html-details "$ROOT/$OUT_DIR/html/index.html" \
+    --cobertura "$ROOT/$OUT_DIR/cobertura.xml" \
     --cobertura-pretty \
     --print-summary
 
