@@ -92,6 +92,13 @@ fi
 
 mkdir -p "$OUT_DIR"
 
+# Tracefiles left by an earlier run describe an earlier tree. The merge below
+# picks up whatever it finds in $OUT_DIR, so a stale one is not merely out of
+# date - gcovr aborts on an md5 mismatch the moment a covered source file has
+# changed since. Only the suites that run here belong in the merge (see the
+# one-suite note above), so drop the leftovers before starting.
+rm -f "$OUT_DIR/unit.json" "$OUT_DIR/integration.json"
+
 # gcovr filters shared by every report. --root is the repo, so only our own
 # sources are considered; the excludes drop the test bodies themselves,
 # generated protobuf code and the FetchContent'ed googletest under _deps.
