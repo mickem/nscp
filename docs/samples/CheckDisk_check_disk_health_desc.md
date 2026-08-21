@@ -24,13 +24,13 @@ records nothing rather than a fabricated 0%. Test for it with
 Byte-valued keywords can be formatted and scaled with `format_bytes`,
 `convert_bytes` and `scale`; see the same section under `check_disk_io`.
 
-### Device-state rows (Windows)
+#### Device-state rows (Windows)
 
 Device rows are best-effort: if the `MSFT_PhysicalDisk` / `MSFT_Disk` WMI classes
 are unavailable (very old Windows, or a system with no Storage provider), no
 device rows are produced and the check still reports space and I/O normally.
 
-### Default thresholds
+#### Default thresholds
 
 By default the check is WARNING when a filesystem drops below 20% free, its disk
 is over 80% busy, or a physical disk reports `Warning` health; and CRITICAL below

@@ -73,13 +73,13 @@ records nothing rather than a fabricated 0%. Test for it with
 Byte-valued keywords can be formatted and scaled with `format_bytes`,
 `convert_bytes` and `scale`; see the same section under `check_disk_io`.
 
-### Device-state rows (Windows)
+#### Device-state rows (Windows)
 
 Device rows are best-effort: if the `MSFT_PhysicalDisk` / `MSFT_Disk` WMI classes
 are unavailable (very old Windows, or a system with no Storage provider), no
 device rows are produced and the check still reports space and I/O normally.
 
-### Default thresholds
+#### Default thresholds
 
 By default the check is WARNING when a filesystem drops below 20% free, its disk
 is over 80% busy, or a physical disk reports `Warning` health; and CRITICAL below
@@ -222,7 +222,7 @@ The keywords fall into two groups:
   and the latency keywords (`read_latency`, `write_latency`, `total_latency`,
   in milliseconds): whether the storage is keeping up.
 
-### Latency keywords
+#### Latency keywords
 
 Average latency per I/O is the most portable saturation signal: it is
 independent of the workload shape and comparable across machines. As a rule of
@@ -247,7 +247,7 @@ module's `collection interval` accordingly:
 collection interval=2s
 ```
 
-### Formatting byte values
+#### Formatting byte values
 
 The byte-rate keywords are plain byte counts, and the filter language has no
 arithmetic of its own, so three functions are available in both `detail-syntax`
@@ -270,7 +270,7 @@ client splits an argument on whitespace, so `format_bytes(value, 'MB')` is
 passed as two tokens and the option fails to parse. Over REST, and in
 `nsclient.ini`, both spellings work.
 
-### Performance data labels
+#### Performance data labels
 
 `percent_disk_time` is what this check is about, so it is graphed under the bare
 drive name — `'C:'` — as it always has been. Every other keyword adds its own:
@@ -1644,9 +1644,8 @@ two modes:
   exist. Each requested share becomes a row with an `exists` flag, and the check
   is **CRITICAL** when a required share is missing (default `crit=not exists`).
 
-This complements [`check_uncpath`](CheckDisk_check_uncpath_samples.md), which
-checks a *remote* share's free space, with the server-side "are my shares
-published?" view.
+This complements `check_uncpath`, which checks a *remote* share's free space, 
+with the server-side "are my shares published?" view.
 
 Each share (or requested share name) becomes one row in the filter.
 

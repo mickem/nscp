@@ -2,7 +2,7 @@
 
 A server that listens for incoming NRPE connection and processes incoming requests.
 
-## Getting started
+#### Getting started
 
 See the [Getting Started](https://nsclient.org/docs/getting-started/) guide for information on using the NRPE Server.
 

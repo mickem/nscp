@@ -9,9 +9,8 @@ two modes:
   exist. Each requested share becomes a row with an `exists` flag, and the check
   is **CRITICAL** when a required share is missing (default `crit=not exists`).
 
-This complements [`check_uncpath`](CheckDisk_check_uncpath_samples.md), which
-checks a *remote* share's free space, with the server-side "are my shares
-published?" view.
+This complements `check_uncpath`, which checks a *remote* share's free space, 
+with the server-side "are my shares published?" view.
 
 Each share (or requested share name) becomes one row in the filter.
 

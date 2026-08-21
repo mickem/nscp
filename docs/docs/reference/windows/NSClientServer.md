@@ -26,7 +26,7 @@ To use this module you need to enable it:
 NSClientServer = enabled
 ```
 
-## Securing the server
+#### Securing the server
 
 Three settings make up the security configuration; all live under `[/settings/NSClient/server]` (`allowed hosts` and
 `password` can also be inherited from `[/settings/default]`):
@@ -43,7 +43,7 @@ Three settings make up the security configuration; all live under `[/settings/NS
     protocol in cleartext - treat the network path as untrusted and rely on `allowed hosts` (and network segmentation)
     instead.
 
-## Restricting commands with `allow`
+#### Restricting commands with `allow`
 
 By default the server answers every check_nt variable (`allow = any`). The `allow` setting caps that: it is a comma
 separated list where each entry is a group, the keyword `any`/`all`, or an individual command name. Anything not
