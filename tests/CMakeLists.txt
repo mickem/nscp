@@ -617,3 +617,20 @@ if(BUILD_MODULE_LUAScript)
         NSCP_ADD_LUA_TEST(lua_scheduler_test test_scheduler)
     endif()
 endif()
+
+# client::configuration is what every outbound client module (NRPEClient,
+# NSCAClient, ...) shares, so it is built from the same ${NSCP_CLIENT_CPP}
+# list those modules use rather than a copy of it.
+NSCP_CREATE_TEST(
+    client_command_line_parser_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/client/command_line_parser_test.cpp
+        ${NSCP_CLIENT_CPP}
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
