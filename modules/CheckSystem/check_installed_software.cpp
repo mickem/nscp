@@ -38,7 +38,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("install_location", &software_entry::get_install_location, "Install folder (InstallLocation)")
       .add_string_var("uninstall_string", &software_entry::get_uninstall_string, "Uninstall command line (UninstallString)")
       .add_string_var("hive", &software_entry::get_hive, "'machine' (HKLM) or 'user' (per-user install)")
-      .add_string_var("user", &software_entry::get_user, "Account (or SID) owning a per-user install; empty for machine-wide")
+      .add_string_var("user", &software_entry::get_user, "Account ('DOMAIN\\name' or SID) owning a per-user install; empty for machine-wide")
       .add_string_var("architecture", &software_entry::get_architecture, "'x64' or 'x86' (registry view); empty for per-user installs")
       .add_string_var("key", &software_entry::get_key, "Uninstall registry sub-key name (product GUID or slug)");
   registry_.add_int_var("install_date", type_date, &software_entry::get_install_date,

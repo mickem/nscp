@@ -10,7 +10,7 @@ To simply check if there are any pending updates:
 check_os_updates
 ```
 
-If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `count > 0`).
+If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `updates > 0`).
 
 **Checking for critical updates**
 
@@ -48,17 +48,17 @@ threshold them separately from OS patches. `defender` counts updates in the
 counts monthly `Update Rollup` updates:
 
 ```
-check_os_updates "warning=count - defender > 0" "detail-syntax=${count} total, ${defender} defender, ${rollups} rollups"
+check_os_updates "warning=updates - defender > 0" "detail-syntax=${updates} total, ${defender} defender, ${rollups} rollups"
 ```
 
 **Filtering by title**
 
 `update-filter=<substring>` restricts the check to updates whose title contains
-the (case-insensitive) substring; all counters (`count`, `security`, …) are then
+the (case-insensitive) substring; all counters (`updates`, `security`, …) are then
 recomputed over just the matching subset:
 
 ```
-check_os_updates update-filter=".NET" "detail-syntax=${count} .NET updates: ${titles}"
+check_os_updates update-filter=".NET" "detail-syntax=${updates} .NET updates: ${titles}"
 ```
 
 > **Note:** the WUA search criteria is `Type='Software'`, so **driver updates are
@@ -69,5 +69,9 @@ check_os_updates update-filter=".NET" "detail-syntax=${count} .NET updates: ${ti
 You can use the syntax options to format the output string:
 
 ```
-check_os_updates "top-syntax=${status}: Found ${count} missing updates. Security: ${security}, Critical: ${critical}" "detail-syntax=${titles}" show-all
+check_os_updates "top-syntax=${status}: ${list}" "detail-syntax=Found ${updates} missing updates. Security: ${security}, Critical: ${critical} - ${titles}"
 ```
+
+Note that the update counters (`updates`, `security`, …) are record keywords: reference
+them from `detail-syntax` (rendered per record and included in `${list}`), not from
+`top-syntax`, where they read as 0.

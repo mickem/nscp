@@ -270,7 +270,8 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &filter_obj::get_name, "Battery name")
       .add_string_var("power_source", &filter_obj::get_power_source, "Power source: ac/battery/unknown")
-      .add_string_var("status", &filter_obj::get_status, "Charge status")
+      .add_string_var("battery_status", &filter_obj::get_status, "Charge status")
+      .add_string_var("status", &filter_obj::get_status, "Deprecated alias for battery_status (the name clashes with the generic status summary keyword).")
       .add_string_var("battery_present", &filter_obj::get_battery_present, "Whether a battery is present: 'true' or 'false'")
       .add_string_var("present", &filter_obj::get_battery_present, "Alias for battery_present");
 
@@ -300,7 +301,7 @@ void check_battery(const PB::Commands::QueryRequestMessage::Request &request, PB
   filter_helper.add_options("charge < 20", "charge < 10", "battery_present = 'true'", filter.get_filter_syntax(), "warning");
   // The empty-syntax renders when zero records match (no battery, or all
   // filtered out) — without it the top-syntax renders a useless ": ".
-  filter_helper.add_syntax("${status}: ${list}", "${name}: ${charge}% (${power_source}, ${status})", "${name}", "No battery found",
+  filter_helper.add_syntax("${status}: ${list}", "${name}: ${charge}% (${power_source}, ${battery_status})", "${name}", "No battery found",
                            "%(status): No battery found or all batteries ok.");
 
   if (!filter_helper.parse_options()) return;

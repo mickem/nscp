@@ -194,6 +194,17 @@ TEST(PrintQueue, DeviceKeywordsCanBeFilteredOn) {
   EXPECT_EQ("1: HP LaserJet/HP Universal Printing PCL 6", response.lines(0).message());
 }
 
+TEST(PrintQueue, PrinterStatusKeywordAndDeprecatedStatusAlias) {
+  const std::vector<printer_info> printers = {make_printer("HP LaserJet", 3, 2)};  // idle
+
+  PB::Commands::QueryResponseMessage::Response renamed;
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, run_queue(printers, {}, at_0900, {"warning=printer_status = 'idle'", "critical=none"}, renamed));
+
+  // The old name keeps working as a deprecated alias.
+  PB::Commands::QueryResponseMessage::Response alias;
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, run_queue(printers, {}, at_0900, {"warning=status = 'idle'", "critical=none"}, alias));
+}
+
 TEST(PrintQueue, TheMinusOneOldestAgeSentinelIsComparable) {
   // "-1 if the queue is empty" is documented; the duration converter must pass
   // the signed literal through rather than silently evaluating it as false.

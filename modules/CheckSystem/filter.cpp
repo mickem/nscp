@@ -30,9 +30,12 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("time", &filter_obj::get_time, "The time frame to check")
       .add_string_var("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
       .add_string_var("core_id", &filter_obj::get_core_id, &filter_obj::get_core_i, "The core to check (total or core_##)");
-  registry_.add_int_var("load", type_custom_pct, &filter_obj::get_total, "deprecated (use total instead)")
+  registry_.add_int_var("load", type_custom_pct, &filter_obj::get_total, "deprecated (use usage instead)")
       .add_int_perf("%")
-      .add_int_var("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
+      .add_int_var("usage", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
+      .add_int_perf("%", "", "_total")
+      .add_int_var("total", type_custom_pct, &filter_obj::get_total,
+                   "Deprecated alias for usage (the name clashes with the generic total summary keyword).")
       .add_int_perf("%", "", "_total")
       .add_int_var("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
       .add_int_perf("%", "", "_user")
@@ -116,25 +119,34 @@ filter_obj_handler::filter_obj_handler() {
 
 namespace os_version_filter {
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_int_var("major", &filter_obj::get_major, "Major version number")
+  registry_.add_int_var("major", &filter_obj::get_major, "Major version number (perfdata)")
       .add_int_perf("", "", "_major")
-      .add_int_var("version", &filter_obj::get_version_i, &filter_obj::get_version_s, "The system version")
+      .add_int_var("version", &filter_obj::get_version_i, &filter_obj::get_version_s,
+                   "System version: numeric for thresholds (major*10+minor, e.g. 'version <= 50'), rendered as the friendly product name (e.g. 'Windows 11 "
+                   "23H2')")
       .add_int_perf("")
-      .add_int_var("minor", &filter_obj::get_minor, "Minor version number")
+      .add_int_var("minor", &filter_obj::get_minor, "Minor version number (perfdata)")
       .add_int_perf("", "", "_minor")
-      .add_int_var("build", &filter_obj::get_build, "Build version number")
+      .add_int_var("build", &filter_obj::get_build, "Build version number (perfdata)")
       .add_int_perf("", "", "_build")
-      .add_int_var("ubr", &filter_obj::get_ubr, "Update Build Revision (patch level within a build; 0 when unavailable, e.g. pre-Windows 10)");
+      .add_int_var("ubr", &filter_obj::get_ubr,
+                   "Update Build Revision — the patch level within a build (the .3803 in 10.0.19045.3803), read from the registry; 0 when unavailable (e.g. "
+                   "pre-Windows 10)");
   registry_.add_string_var(
       "suite", &filter_obj::get_suite_string,
       "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise "
       "Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)");
-  registry_.add_string_var("arch", &filter_obj::get_arch, "Native processor architecture: x64, x86, arm64, arm, ia64 or unknown")
-      .add_string_var("kernel_version", &filter_obj::get_kernel_version, "NT kernel version as major.minor.build.ubr");
+  registry_
+      .add_string_var("arch", &filter_obj::get_arch,
+                      "Native processor architecture: x64, x86, arm64, arm, ia64 or unknown (via GetNativeSystemInfo, so a 32-bit agent under WOW64 still "
+                      "reports the true hardware architecture)")
+      .add_string_var("kernel_version", &filter_obj::get_kernel_version,
+                      "NT kernel version as major.minor.build.ubr (on Windows the kernel version tracks the OS version)");
   // Inventory-only fields from Win32_BIOS (never alert; empty if WMI is unavailable).
-  registry_.add_string_var("serial", &filter_obj::get_serial, "BIOS/system serial number (Win32_BIOS.SerialNumber)")
-      .add_string_var("bios_version", &filter_obj::get_bios_version, "BIOS version (Win32_BIOS.SMBIOSBIOSVersion)")
-      .add_string_var("manufacturer", &filter_obj::get_manufacturer, "BIOS manufacturer / vendor (Win32_BIOS.Manufacturer)");
+  registry_.add_string_var("serial", &filter_obj::get_serial, "BIOS/system serial number (Win32_BIOS.SerialNumber); inventory only, empty when WMI is unavailable")
+      .add_string_var("bios_version", &filter_obj::get_bios_version, "BIOS version (Win32_BIOS.SMBIOSBIOSVersion); inventory only, empty when WMI is unavailable")
+      .add_string_var("manufacturer", &filter_obj::get_manufacturer,
+                      "BIOS manufacturer / vendor (Win32_BIOS.Manufacturer); inventory only, empty when WMI is unavailable");
 }
 
 std::string arch_from_native(unsigned short processor_architecture) {

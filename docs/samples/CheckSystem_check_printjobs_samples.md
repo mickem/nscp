@@ -28,7 +28,7 @@ WARNING: OneNote (Desktop): 'document' by micha (queued, 23s)|'OneNote (Desktop)
 **Full per-job detail:**
 
 ```
-check_printjobs warning=none critical=none "top-syntax=${list}" "detail-syntax=printer=${printer} id=${id} doc='${document}' owner=${owner} status=${status} size=${size} pages=${pages}/${pages_printed} prio=${priority} age=${age} sub=${submitted}"
+check_printjobs warning=none critical=none "top-syntax=${list}" "detail-syntax=printer=${printer} id=${id} doc='${document}' owner=${owner} status=${job_status} size=${size} pages=${pages}/${pages_printed} prio=${priority} age=${age} sub=${submitted}"
 printer=OneNote (Desktop) id=2 doc='document' owner=micha status=queued size=53620 pages=1/0 prio=1 age=18 sub=2026-08-16 12:10:02|'count'=1;0;0
 ```
 

@@ -49,9 +49,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("join", &host_identity::get_join, "Join state: domain, workgroup, standalone or unknown")
       .add_string_var("join_name", &host_identity::get_join_name, "The joined domain or workgroup name");
   registry_.add_int_var("fqdn_consistent", type_bool, &host_identity::get_fqdn_consistent,
-                        "True when fqdn == dns_hostname[.domain]; false flags DNS-suffix drift")
+                        "True when fqdn == dns_hostname[.domain] (case-insensitive); false flags DNS-suffix drift")
       .add_int_var("netbios_matches_dns", type_bool, &host_identity::get_netbios_matches_dns,
-                   "True when the NetBIOS name matches the (truncated) DNS hostname; false flags rename/imaging drift");
+                   "True when the NetBIOS name matches the first 15 characters of the DNS hostname; false flags rename/imaging drift");
   // clang-format on
 }
 

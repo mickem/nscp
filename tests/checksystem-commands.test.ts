@@ -76,12 +76,25 @@ describe("CheckSystem commands", () => {
   // --- check_cpu / check_memory / check_pagefile -----------------------------
 
   it("check_cpu reports collector-backed load per time window", async () => {
+    // `usage` is the renamed keyword (was `total`, which clashed with the
+    // generic summary keyword); its perf keeps the historical _total suffix.
     const q = await executeQuery(key, "check_cpu", {
-      warning: "load > 101",
-      critical: "load > 101",
+      warning: "usage > 101",
+      critical: "usage > 101",
     });
     expect(q.result).toBe(OK);
-    const load = perfValue(q, "total 5m");
+    const load = perfValue(q, "total 5m_total");
+    expect(load).toBeGreaterThanOrEqual(0);
+    expect(load).toBeLessThanOrEqual(100);
+  });
+
+  it("check_cpu still accepts the deprecated total alias", async () => {
+    const q = await executeQuery(key, "check_cpu", {
+      warning: "total > 101",
+      critical: "total > 101",
+    });
+    expect(q.result).toBe(OK);
+    const load = perfValue(q, "total 5m_total");
     expect(load).toBeGreaterThanOrEqual(0);
     expect(load).toBeLessThanOrEqual(100);
   });
@@ -399,18 +412,21 @@ describe("CheckSystem commands", () => {
     // (default "warning"); pin it to OK so battery-less CI hosts are
     // deterministic AND the user-configurable empty-state is exercised.
     const q = await executeQuery(key, "check_battery", { "empty-state": "ok" });
-    const charge = Object.entries(perfOf(q)).find(([k]) => /charge/i.test(k));
-    if (!charge) {
+    if (/no battery found/i.test(messageOf(q))) {
       // No (usable) battery on this machine (typical CI/VM): zero rows match,
       // so the pinned empty-state decides the result and the empty-syntax
       // renders the informative message.
       expect(q.result).toBe(OK);
-      expect(messageOf(q)).toMatch(/no battery found/i);
       return;
     }
+    // A battery matched: the default thresholds reference `charge`, whose perf
+    // entry is keyed by the battery name (perf-syntax ${name}, e.g. 'system')
+    // with unit %.
     expect(q.result).toBeLessThanOrEqual(CRITICAL);
-    expect(charge[1].value).toBeGreaterThanOrEqual(0);
-    expect(charge[1].value).toBeLessThanOrEqual(100);
+    const charge = Object.values(perfOf(q)).find((p) => String(p.unit ?? "") === "%");
+    expect(charge).toBeDefined();
+    expect(charge!.value).toBeGreaterThanOrEqual(0);
+    expect(charge!.value).toBeLessThanOrEqual(100);
   });
 
   it("check_temperature reports sensors or UNKNOWN without hardware", async () => {
@@ -499,8 +515,8 @@ describe("CheckSystem commands", () => {
 
   it("check_network lists at least one interface with throughput perf", async () => {
     const args = {
-      warning: "total > 999999999999",
-      critical: "total > 999999999999",
+      warning: "throughput > 999999999999",
+      critical: "throughput > 999999999999",
     };
     // Both platforms serve this from the background collector: Linux returns
     // UNKNOWN before its first sample while Windows renders an empty OK, so
@@ -560,10 +576,12 @@ describe("CheckSystem commands", () => {
     expect(messageOf(q)).toMatch(/reboot/i);
     const perf = perfOf(q);
     expect(perf["reboot_pending"]).toBeDefined();
-    expect(perf["reboot_count"]).toBeDefined();
-    // pending is a 0/1 flag; count is the number of active signals.
+    expect(perf["reboot_signals"]).toBeDefined();
+    // pending is a 0/1 flag; signals is the number of active signals
+    // (the keyword was renamed from `count`, which clashed with the generic
+    // summary keyword).
     expect([0, 1]).toContain(perf["reboot_pending"].value as number);
-    expect(perf["reboot_count"].value as number).toBeGreaterThanOrEqual(0);
+    expect(perf["reboot_signals"].value as number).toBeGreaterThanOrEqual(0);
   });
 
   it("check_pending_reboot accepts per-cause boolean expressions over REST (Windows)", async () => {
@@ -588,11 +606,13 @@ describe("CheckSystem commands", () => {
     const q = await executeQuery(key, "check_patch_age", {});
     expect(q.result).toBe(OK);
     const perf = perfOf(q);
-    expect(perf["patch_count"]).toBeDefined();
+    // `patches` is the renamed keyword (was `count`, which clashed with the
+    // generic summary keyword).
+    expect(perf["patch_patches"]).toBeDefined();
     expect(perf["patch_age"]).toBeDefined();
     expect(perf["patch_missing"]).toBeDefined();
     // A real Windows host has at least one servicing hotfix and none missing.
-    expect(perf["patch_count"].value as number).toBeGreaterThan(0);
+    expect(perf["patch_patches"].value as number).toBeGreaterThan(0);
     expect(perf["patch_missing"].value as number).toBe(0);
   });
 
@@ -840,7 +860,7 @@ describe("CheckSystem commands", () => {
     const q = await executeQuery(key, "check_printjobs", {
       warning: "none",
       critical: "none",
-      "detail-syntax": "id=${id} doc=[${document}] owner=[${owner}] status=${status} size=${size} pages=${pages}/${pages_printed} age=${age}",
+      "detail-syntax": "id=${id} doc=[${document}] owner=[${owner}] status=${job_status} size=${size} pages=${pages}/${pages_printed} age=${age}",
       "top-syntax": "${list}",
     });
     expect(messageOf(q)).not.toMatch(/does not take any arguments|invalid|error parsing/i);
@@ -966,15 +986,15 @@ describe("CheckSystem commands", () => {
   it("check_cpu_utilization exposes iowait/steal breakdown (Linux)", async () => {
     if (onWindows) return; // check_cpu_utilization is CheckSystemUnix-only.
     const q = await executeQuery(key, "check_cpu_utilization", {
-      warning: "total > 101", // never trips; just exercise the check
-      critical: "total > 101",
-      "detail-syntax": "total=${total} iowait=${iowait} steal=${steal}",
+      warning: "usage > 101", // never trips; just exercise the check
+      critical: "usage > 101",
+      "detail-syntax": "usage=${usage} iowait=${iowait} steal=${steal}",
     });
     expect(q.result).toBe(OK);
-    expect(messageOf(q)).toMatch(/total=[\d.]+ iowait=[\d.]+ steal=[\d.]+/);
-    const total = perfValue(q, "cpu_total"); // perf label is "<perf-syntax>_<keyword>"
-    expect(total).toBeGreaterThanOrEqual(0);
-    expect(total).toBeLessThanOrEqual(100);
+    expect(messageOf(q)).toMatch(/usage=[\d.]+ iowait=[\d.]+ steal=[\d.]+/);
+    const usage = perfValue(q, "cpu_usage"); // perf label is "<perf-syntax>_<keyword>"
+    expect(usage).toBeGreaterThanOrEqual(0);
+    expect(usage).toBeLessThanOrEqual(100);
   });
 
   it("check_kernel_stats reports ctxt/processes/threads", async () => {

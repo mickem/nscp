@@ -43,7 +43,7 @@ std::string load_obj::show() const {
 }
 
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string_var("type", &load_obj::get_type, "'total' or (with --percpu) 'scaled'");
+  registry_.add_string_var("type", &load_obj::get_type, "'total', or 'scaled' with percpu=true (the averages divided by the core count)");
 
   // Perf is emitted via the extra() perf-config below; the default perf
   // generator names each metric "<perf-syntax>_<keyword>" (e.g. total_load1),
@@ -51,10 +51,12 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_float("load1", &load_obj::get_load1, "Load average over the last 1 minute");
   registry_.add_float("load5", &load_obj::get_load5, "Load average over the last 5 minutes");
   registry_.add_float("load15", &load_obj::get_load15, "Load average over the last 15 minutes");
-  registry_.add_float("load", &load_obj::get_load, "The largest of load1, load5 and load15");
-  registry_.add_float("queue", &load_obj::get_queue, "Smoothed (1-minute) processor queue length: threads waiting to run, excluding those running");
+  registry_.add_float("load", &load_obj::get_load, "The largest of load1, load5 and load15 — threshold on it to alert when any window is high");
+  registry_.add_float("queue", &load_obj::get_queue,
+                      "Smoothed (1-minute) processor queue length: threads waiting to run, excluding those running — the pure saturation signal");
 
-  registry_.add_int_var("procs_running", &load_obj::get_procs_running, "Number of currently runnable kernel scheduling entities (last-tick estimate)")
+  registry_.add_int_var("procs_running", &load_obj::get_procs_running,
+                        "Runnable + running kernel scheduling entities (instantaneous last-tick estimate)")
       .add_int_var("procs_total", &load_obj::get_procs_total, "Total number of kernel scheduling entities (threads)")
       .add_int_var("cores", &load_obj::get_cores, "Number of logical processors")
       .add_int_var("samples", &load_obj::get_samples, "Collector ticks folded into the averages (the 5/15m values converge as this grows)");

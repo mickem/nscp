@@ -36,7 +36,7 @@ OK: 42 hotfixes installed, newest KB5034441 on 3/12/2024 (18d ago)
 **Custom output listing the newest hotfix only:**
 
 ```
-check_patch_age "top-syntax=%(status): %(list)" "detail-syntax=newest %(newest_id) (%(age)d ago), %(count) installed"
+check_patch_age "top-syntax=%(status): %(list)" "detail-syntax=newest %(newest_id) (%(age)d ago), %(patches) installed"
 OK: newest KB5034441 (18d ago), 42 installed
 ```
 

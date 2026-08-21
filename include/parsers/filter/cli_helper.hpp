@@ -14,6 +14,14 @@
 #include <str/utils_no_boost.hpp>
 
 namespace modern_filter {
+// Appended to the description of every option that is shared by all
+// modern_filter based checks. docs_extract.py keys on this exact text to fold
+// the option out of the per-command reference and into the shared
+// common-options page -- keep the two in sync (see also the "Common option for
+// all commands." marker in nscapi::program_options::add_help and the
+// "Common option for all checks." marker on the generic filter keywords).
+const std::string common_option_marker = "\nCommon option for all filter checks.";
+
 struct data_container {
   std::vector<std::string> filter_string, warn_string, crit_string, ok_string;
   std::string syntax_empty, syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_state, syntax_unique, list_separator;
@@ -76,7 +84,7 @@ struct cli_helper : boost::noncopyable {
     // clang-format off
     desc.add_options()
       ("filter", filter_op,
-      (std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.")).c_str())
+      (std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.") + common_option_marker).c_str())
       ;
     // clang-format on
   }
@@ -92,9 +100,9 @@ struct cli_helper : boost::noncopyable {
     // clang-format off
     desc.add_options()
       ("warning", warn_op,
-      (std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n")).c_str())
+      (std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n") + common_option_marker).c_str())
       ("warn", boost::program_options::value<std::vector<std::string> >(),
-      "Short alias for warning")
+      (std::string("Short alias for warning") + common_option_marker).c_str())
       ;
     // clang-format on
   }
@@ -109,9 +117,9 @@ struct cli_helper : boost::noncopyable {
     // clang-format off
     desc.add_options()
       ("warning", warn_op,
-      (std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n")).c_str())
+      (std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n") + common_option_marker).c_str())
       ("warn", boost::program_options::value<std::vector<std::string> >(),
-      "Short alias for warning")
+      (std::string("Short alias for warning") + common_option_marker).c_str())
       ;
     // clang-format on
   }
@@ -127,9 +135,9 @@ struct cli_helper : boost::noncopyable {
     // clang-format off
     desc.add_options()
       ("critical", crit_op,
-      (std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n")).c_str())
+      (std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n") + common_option_marker).c_str())
       ("crit", boost::program_options::value<std::vector<std::string> >(),
-	      "Short alias for critical.")
+	      (std::string("Short alias for critical.") + common_option_marker).c_str())
       ;
     // clang-format on
   }
@@ -144,9 +152,9 @@ struct cli_helper : boost::noncopyable {
     // clang-format off
     desc.add_options()
       ("critical", crit_op,
-      (std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n")).c_str())
+      (std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n") + common_option_marker).c_str())
       ("crit", boost::program_options::value<std::vector<std::string> >(),
-        "Short alias for critical.")
+        (std::string("Short alias for critical.") + common_option_marker).c_str())
       ;
     // clang-format on
   }
@@ -162,7 +170,7 @@ struct cli_helper : boost::noncopyable {
     // clang-format off
     desc.add_options()
       ("ok", ok_op,
-        "Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.")
+        (std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.") + common_option_marker).c_str())
       ;
     // clang-format on
   }
@@ -179,21 +187,21 @@ struct cli_helper : boost::noncopyable {
     // clang-format off
     desc.add_options()
       ("debug", boost::program_options::value<bool>(&data.debug)->implicit_value(true)->default_value(false),
-        "Show debugging information in the log")
+        (std::string("Show debugging information in the log") + common_option_marker).c_str())
       ("show-all", boost::program_options::value<bool>(&show_all)->implicit_value(true)->default_value(false),
-        "Show details for all matches regardless of status (normally details are only showed for warnings and criticals).")
+        (std::string("Show details for all matches regardless of status (normally details are only showed for warnings and criticals).") + common_option_marker).c_str())
       ("empty-state", empty_state_op,
-	"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
+	(std::string("Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.") + common_option_marker).c_str())
       ("perf-config", perf_config_op,
-	"Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)")
+	(std::string("Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)") + common_option_marker).c_str())
       ("escape-html", boost::program_options::value<bool>(&data.escape_html)->implicit_value(true)->default_value(false),
-	"Escape any < and > characters to prevent HTML encoding")
+	(std::string("Escape any < and > characters to prevent HTML encoding") + common_option_marker).c_str())
       ("list-separator", boost::program_options::value<std::string>(&data.list_separator)->default_value(", "),
-	"String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).\n"
+	(std::string("String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).\n"
 	"Accepts the escapes \\n, \\r, \\t and \\\\ (a configuration file value is a single line, so a real newline cannot be written).\n"
 	"Set to \\n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.\n"
 	"The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break "
-	"before it too: --top-syntax \"%(status): %(count) items:%(sep)%(list)\".")
+	"before it too: --top-syntax \"%(status): %(count) items:%(sep)%(list)\".") + common_option_marker).c_str())
       ;
     // clang-format on
     nscapi::program_options::add_help(desc);
@@ -305,23 +313,28 @@ struct cli_helper : boost::noncopyable {
         "Top level syntax.\n"
         "Used to format the message to return can include text as well as special keywords which will include information from the checks.\n"
         "To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be "
-        "difficult to escape on linux).";
+        "difficult to escape on linux)." +
+        common_option_marker;
     const std::string dk =
         "Detail level syntax.\n"
         "Used to format each resulting item in the message.\n"
         "%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.\n"
         "To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be "
-        "difficult to escape on linux).";
+        "difficult to escape on linux)." +
+        common_option_marker;
     const std::string pk =
         "Performance alias syntax.\n"
-        "This is the syntax for the base names of the performance data.";
+        "This is the syntax for the base names of the performance data." +
+        common_option_marker;
     const std::string ek =
         "Empty syntax.\n"
-        "DEPRECATED! This is the syntax for when nothing matches the filter.";
+        "DEPRECATED! This is the syntax for when nothing matches the filter." +
+        common_option_marker;
     const std::string ok =
         "ok syntax.\n"
         "DEPRECATED! This is the syntax for when an ok result is returned.\n"
-        "This value will not be used if your syntax contains %(list) or %(count).";
+        "This value will not be used if your syntax contains %(list) or %(count)." +
+        common_option_marker;
 
     // clang-format off
     desc.add_options()
@@ -335,7 +348,8 @@ struct cli_helper : boost::noncopyable {
   }
 
   void add_index(const std::string &default_unique_syntax) {
-    const std::string tk = "Unique syntax.\nUsed to filter unique items (counted will still increase but messages will not repeated)";
+    const std::string tk =
+        "Unique syntax.\nUsed to filter unique items (counted will still increase but messages will not repeated)" + common_option_marker;
 
     desc.add_options()("unique-index", boost::program_options::value<std::string>(&data.syntax_unique)->default_value(default_unique_syntax), tk.c_str());
   }

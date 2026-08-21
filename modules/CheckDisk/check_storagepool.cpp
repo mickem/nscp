@@ -69,7 +69,8 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &filter_obj::get_name, "Storage pool friendly name")
       .add_string_var("health_status", &filter_obj::get_health_status, "Pool health: Healthy, Warning, Unhealthy or Unknown")
-      .add_string_var("operational_status", &filter_obj::get_operational_status, "Pool operational status: OK, ReadOnly, ...");
+      .add_string_var("operational_status", &filter_obj::get_operational_status,
+                      "Pool operational status, synthesised single value: OK, ReadOnly, or the health string");
 
   // Distinct perf suffixes so co-referenced metrics each get their own series
   // ('<pool>_capacity', ...) instead of collapsing onto the shared ${name} alias.

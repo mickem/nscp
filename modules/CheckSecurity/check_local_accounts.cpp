@@ -24,7 +24,7 @@ using parsers::where::type_bool;
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &filter_obj::get_name, "Account name").add_string_var("sid", &filter_obj::get_sid, "Account SID");
   registry_.add_int_var("disabled", type_bool, &filter_obj::get_disabled, "True if the account is disabled")
-      .add_int_var("enabled", type_bool, &filter_obj::get_enabled, "True if the account is enabled")
+      .add_int_var("enabled", type_bool, &filter_obj::get_enabled, "True if the account is enabled (convenience inverse of disabled)")
       .add_int_var("locked", type_bool, &filter_obj::get_locked, "True if the account is locked out")
       .add_int_var("password_expires", type_bool, &filter_obj::get_password_expires, "True if the password is set to expire")
       .add_int_var("password_required", type_bool, &filter_obj::get_password_required, "True if a password is required to log on")

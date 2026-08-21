@@ -145,41 +145,14 @@ common:
             title: VERIFY MODE
   queries:
     submit_graphite:
+      common_options:
+        help: ''
+        help-pb: ''
+        help-short: ''
+        show-default: ''
       info:
         description: Submit information to the remote Graphite server.
       params:
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
       - content_type: 2
         default_value: ''
         is_simple: true

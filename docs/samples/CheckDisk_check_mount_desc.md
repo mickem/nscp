@@ -17,17 +17,6 @@ Behaviour at a glance:
 * `options=<a,b,c>` requires each listed mount option to be present; any missing
   option is flagged as a `missing options` issue.
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword      | Description                                             |
-|--------------|--------------------------------------------------------|
-| `mount`      | Path of the mounted folder                             |
-| `device`     | Device backing this mount                              |
-| `fstype`     | Filesystem type of this mount                          |
-| `options`    | Mount options (comma separated)                        |
-| `issues`     | Human-readable description of any problems found       |
-| `has_issues` | `1` when this mount has one or more issues, else `0`   |
-
 Default thresholds: **warning** `has_issues = 1`, **critical**
 `issues like 'not mounted'`. So a missing filesystem is CRITICAL while a
 fstype/options mismatch is WARNING out of the box; override `warning=` /

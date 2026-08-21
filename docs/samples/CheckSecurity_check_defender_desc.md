@@ -8,19 +8,7 @@ Defender-specific depth operators actually threshold on the very common
 Defender-only estate: how old the definitions are, when the machine last
 scanned, and whether real-time and tamper protection are on.
 
-Keywords (a single aggregate row):
-
-| Keyword             | Description                                                        |
-|---------------------|-------------------------------------------------------------------|
-| `enabled`           | 1 if Defender antivirus / service is enabled                      |
-| `realtime_enabled`  | 1 if real-time protection is on                                   |
-| `tamper_protection` | 1 if tamper protection is on                                      |
-| `signature_age`     | Antivirus signature (definition) age in **days** (-1 if unknown)  |
-| `quick_scan_age`    | Days since the last quick scan (-1 if never / unknown)            |
-| `full_scan_age`     | Days since the last full scan (-1 if never / unknown)             |
-| `engine_version`    | Anti-malware engine version                                       |
-| `signature_version` | Antivirus signature (definition) version                          |
-| `product_version`   | Defender platform / product version                               |
+All keywords are reported on a single aggregate row.
 
 Defaults: **WARNING** when `signature_age > 3`, **CRITICAL** when
 `enabled = 0 or realtime_enabled = 0 or signature_age > 7`. A negative

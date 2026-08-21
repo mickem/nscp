@@ -1,0 +1,165 @@
+# Canonical descriptions of the command-line options and filter keywords that
+# are shared by many commands (folded out of the per-module YAML files, which
+# only record `common_options: {name: default}` / `common_fields: [name, ...]`
+# per query). Written by docs_extract.py from the marker lines the C++ appends
+# to shared option descriptions; rendered once by docs_generate.py as
+# docs/reference/common-options.md.
+fields:
+  count: Number of items matching the filter.
+  crit_count: Number of items matched the critical criteria.
+  crit_list: A list of all items which matched the critical criteria.
+  detail_list: A special list with critical, then warning and finally ok.
+  list: A list of all items which matched the filter.
+  ok_count: Number of items matched the ok criteria.
+  ok_list: A list of all items which matched the ok criteria.
+  problem_count: Number of items matched either warning or critical criteria.
+  problem_list: A list of all items which matched either the critical or the warning criteria.
+  sep: 'The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal
+    C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list
+    item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list).'
+  status: The returned status (OK/WARN/CRIT/UNKNOWN).
+  total: Total number of items.
+  warn_count: Number of items matched the warning criteria.
+  warn_list: A list of all items which matched the warning criteria.
+options:
+  crit:
+    content_type: 2
+    description: Short alias for critical.
+    group: filter
+  critical:
+    content_type: 2
+    description: 'Filter which marks items which generates a critical state.
+
+      If anything matches this filter the return status will be escalated to critical.
+
+      '
+    group: filter
+  debug:
+    content_type: 2
+    description: Show debugging information in the log
+    group: filter
+  detail-syntax:
+    content_type: 2
+    description: 'Detail level syntax.
+
+      Used to format each resulting item in the message.
+
+      %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
+
+      To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+      is no difference between them apart from ${} can be difficult to escape on linux).'
+    group: filter
+  empty-state:
+    content_type: 2
+    description: 'Return status to use when nothing matched filter.
+
+      If no filter is specified this will never happen unless the file is empty.'
+    group: filter
+  empty-syntax:
+    content_type: 2
+    description: 'Empty syntax.
+
+      DEPRECATED! This is the syntax for when nothing matches the filter.'
+    group: filter
+  escape-html:
+    content_type: 2
+    description: Escape any < and > characters to prevent HTML encoding
+    group: filter
+  filter:
+    content_type: 2
+    description: 'Filter which marks interesting items.
+
+      Interesting items are items which will be included in the check.
+
+      They do not denote warning or critical state instead it defines which items are relevant and you
+      can remove unwanted items.'
+    group: filter
+  help:
+    content_type: 4
+    description: Show help screen (this screen)
+    group: standard
+  help-pb:
+    content_type: 4
+    description: Show help screen as a protocol buffer payload
+    group: standard
+  help-short:
+    content_type: 4
+    description: Show help screen (short format).
+    group: standard
+  list-separator:
+    content_type: 2
+    description: 'String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list),
+      %(problem_list) and %(detail_list).
+
+      Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline
+      cannot be written).
+
+      Set to \n to render one item per line, which most Nagios compatible frontends show as long output
+      below the summary line.
+
+      The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference
+      the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".'
+    group: filter
+  ok:
+    content_type: 2
+    description: 'Filter which marks items which generates an ok state.
+
+      If anything matches this any previous state for this item will be reset to ok.'
+    group: filter
+  ok-syntax:
+    content_type: 2
+    description: 'ok syntax.
+
+      DEPRECATED! This is the syntax for when an ok result is returned.
+
+      This value will not be used if your syntax contains %(list) or %(count).'
+    group: filter
+  perf-config:
+    content_type: 2
+    description: 'Performance data generation configuration
+
+      TODO: obj ( key: value; key: value) obj (key:valuer;key:value)'
+    group: filter
+  perf-syntax:
+    content_type: 2
+    description: 'Performance alias syntax.
+
+      This is the syntax for the base names of the performance data.'
+    group: filter
+  show-all:
+    content_type: 2
+    description: Show details for all matches regardless of status (normally details are only showed for
+      warnings and criticals).
+    group: filter
+  show-default:
+    content_type: 4
+    description: Show default values for a given command
+    group: standard
+  top-syntax:
+    content_type: 2
+    description: 'Top level syntax.
+
+      Used to format the message to return can include text as well as special keywords which will include
+      information from the checks.
+
+      To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there
+      is no difference between them apart from ${} can be difficult to escape on linux).'
+    group: filter
+  unique-index:
+    content_type: 2
+    description: 'Unique syntax.
+
+      Used to filter unique items (counted will still increase but messages will not repeated)'
+    group: filter
+  warn:
+    content_type: 2
+    description: Short alias for warning
+    group: filter
+  warning:
+    content_type: 2
+    description: 'Filter which marks items which generates a warning state.
+
+      If anything matches this filter the return status will be escalated to warning.
+
+      '
+    group: filter

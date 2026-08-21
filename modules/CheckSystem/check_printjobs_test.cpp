@@ -150,6 +150,17 @@ TEST(PrintJobs, ThresholdsCanBeWrittenAgainstTheJobDetail) {
   EXPECT_EQ(PB::Common::ResultCode::OK, run(jobs, {"warning=pages > 100", "critical=none"}, pages));
 }
 
+TEST(PrintJobs, JobStatusKeywordAndDeprecatedStatusAlias) {
+  const std::vector<job_info> jobs = {make_job("HP LaserJet", "a.pdf", "ann", printjobs_check::job_paused, 30)};
+
+  PB::Commands::QueryResponseMessage::Response renamed;
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, run(jobs, {"warning=job_status like 'paused'", "critical=none"}, renamed));
+
+  // The old name keeps working as a deprecated alias.
+  PB::Commands::QueryResponseMessage::Response alias;
+  EXPECT_EQ(PB::Common::ResultCode::WARNING, run(jobs, {"warning=status like 'paused'", "critical=none"}, alias));
+}
+
 TEST(PrintJobs, EmitsPerJobPerfdataKeyedByPrinterAndJobId) {
   PB::Commands::QueryResponseMessage::Response response;
   run({make_job("HP LaserJet", "a.pdf", "ann", 0, 42)}, {"warning=age > 600"}, response);

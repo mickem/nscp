@@ -36,7 +36,7 @@ OK: All 1 printer(s) ok.
 **Custom output with full per-printer detail:**
 
 ```
-check_printqueue "top-syntax=%(status): %(list)" "detail-syntax=%(printer): %(status)/%(error_state) jobs=%(jobs) oldest=%(oldest_job_age)s offline=%(offline)"
+check_printqueue "top-syntax=%(status): %(list)" "detail-syntax=%(printer): %(printer_status)/%(error_state) jobs=%(jobs) oldest=%(oldest_job_age)s offline=%(offline)"
 OK: HP LaserJet: idle/no_error jobs=0 oldest=-1s offline=0, Microsoft Print to PDF: idle/no_error jobs=0 oldest=-1s offline=0
 ```
 

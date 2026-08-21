@@ -429,13 +429,14 @@ struct filter_obj_handler : public native_context {
             "full_in", type_custom_full_in, [](std::shared_ptr<filter_obj> obj, parsers::where::evaluation_context context) { return obj->get_full_in(context); },
             "never",
             "Estimated seconds until the drive is full at the current growth rate, projected from the current free space. Thresholds take durations "
-            "(full_in < 12h, full_in < 5d); renders 'never' (and no threshold fires) while the drive is shrinking or no trend exists yet. Window set "
-            "by trend-window (default 24h)")
+            "(full_in < 12h, full_in < 5d); renders as a duration ('3d 04:00'), or 'never' (and no threshold fires) while the drive is shrinking or "
+            "no trend exists yet. Window set by trend-window (default 24h)")
         .add_int_perf("s", "", " full_in");
     registry_
         .add_optional_int_var(
             "rate", [](std::shared_ptr<filter_obj> obj) { return obj->get_rate(); }, "unknown",
-            "Growth of used space in bytes/day over the trend window (negative = emptying); 'unknown' until enough history exists")
+            "Growth of used space in bytes/day over the trend window, signed (negative = emptying); renders auto-scaled ('12.3MB/day'), or 'unknown' "
+            "until enough history exists")
         .add_int_perf("", "", " rate");
     registry_
         .add_int_var("trend_span", [](std::shared_ptr<filter_obj> obj) { return obj->get_trend_span(); },

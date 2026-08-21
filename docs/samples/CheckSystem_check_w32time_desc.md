@@ -19,30 +19,9 @@ The data is assembled from four places:
 | `W32TimeQuerySource` (w32time.dll) | The source the running service is actually following. Like `w32tm /query /source`, this needs privilege: the agent has it running as a service, an unprivileged caller gets access denied and the check falls back to the configured peers. |
 | "Windows Time Service" PDH counters | Computed time offset, NTP round trip delay, clock frequency adjustment and the number of time sources in use. |
 
-Keywords:
-
-| Keyword | Type | Meaning |
-|---|---|---|
-| `service_state` | string | `running`, `stopped`, `starting`, … or `not installed`. |
-| `start_type` | string | `auto`, `delayed`, `demand`, `disabled`, … |
-| `sync_type` | string | Configured mode: `NT5DS` (domain hierarchy), `NTP`, `AllSync`, `NoSync`. |
-| `source` | string | The time source in use, or the configured peers — see `source_from`. |
-| `source_from` | string | `service` (asked the running service), `configuration` or `unknown`. |
-| `peers` | string | Configured NTP peers, comma separated. Empty on a domain member, which discovers its source instead of being given one. |
-| `last_sync` | string | Time of the last synchronization W32Time recorded as good, or `unknown`. |
-| `state` | string | One-line verdict; what the default output shows. |
-| `installed` | bool | W32Time exists on this host. |
-| `running` | bool | The service is running. |
-| `synchronized` | bool | The machine is following a time source — see the evidence order below. |
-| `local_clock` | bool | The source is the machine's own clock (`Local CMOS Clock`, `Free-running System Clock`). |
-| `peer_count` | int | Number of configured peers. |
-| `offset` | int | Absolute clock offset against the source, milliseconds (perfdata). |
-| `delay` | int | NTP round trip delay to the source, milliseconds (perfdata). |
-| `frequency_adjustment` | int | Correction applied to the clock frequency, parts per billion; negative slows the clock down (perfdata). |
-| `time_sources` | int | Number of NTP time sources in use. |
-| `last_sync_age` | int | Seconds since the last known good synchronization (perfdata). |
-
-The last five come from counters the service only maintains while it runs. When
+The counter-backed keywords — `offset`, `delay`, `frequency_adjustment`,
+`time_sources` and `last_sync_age` — come from counters the service only
+maintains while it runs. When
 there is no measurement they render as `unknown`, compare false against every
 number (so a threshold like `offset > 1000` cannot fire on a missing value) and
 emit no perfdata. Test for the absence explicitly with `offset = 'unknown'`.

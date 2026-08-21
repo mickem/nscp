@@ -93,7 +93,7 @@ struct filter_obj {
 template <typename Registry>
 void register_common_keywords(Registry &registry) {
   registry.add_string_var("host", &filter_obj::get_host, "Host the check connected to");
-  registry.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, refused, timeout, no_match, ...)");
+  registry.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, refused, timeout, no_match, resolve_failed, ...)");
   registry.add_string_var("response", &filter_obj::get_response, "The data received from the peer (use with 'like'/'regexp' for custom matching)");
   registry.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port the check connected to");
   registry.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Connection time in milliseconds").add_int_perf("ms");

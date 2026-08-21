@@ -36,84 +36,157 @@ Submit information to the remote NSCA-NG server. Custom relay commands defined u
 <a id="submit_nsca_ng_options"></a>
 #### Command-line Arguments
 
-<a id="submit_nsca_ng_help"></a>
-<a id="submit_nsca_ng_help-pb"></a>
-<a id="submit_nsca_ng_show-default"></a>
-<a id="submit_nsca_ng_help-short"></a>
-<a id="submit_nsca_ng_host"></a>
-<a id="submit_nsca_ng_port"></a>
-<a id="submit_nsca_ng_address"></a>
-<a id="submit_nsca_ng_timeout"></a>
-<a id="submit_nsca_ng_target"></a>
-<a id="submit_nsca_ng_retry"></a>
-<a id="submit_nsca_ng_retries"></a>
-<a id="submit_nsca_ng_source-host"></a>
-<a id="submit_nsca_ng_sender-host"></a>
-<a id="submit_nsca_ng_command"></a>
-<a id="submit_nsca_ng_alias"></a>
-<a id="submit_nsca_ng_message"></a>
-<a id="submit_nsca_ng_result"></a>
-<a id="submit_nsca_ng_separator"></a>
-<a id="submit_nsca_ng_batch"></a>
-<a id="submit_nsca_ng_certificate"></a>
-<a id="submit_nsca_ng_dh"></a>
-<a id="submit_nsca_ng_certificate-key"></a>
-<a id="submit_nsca_ng_certificate-format"></a>
-<a id="submit_nsca_ng_ca"></a>
-<a id="submit_nsca_ng_verify"></a>
-<a id="submit_nsca_ng_allowed-ciphers"></a>
-<a id="submit_nsca_ng_password"></a>
-<a id="submit_nsca_ng_identity"></a>
-<a id="submit_nsca_ng_hostname"></a>
-<a id="submit_nsca_ng_no-psk"></a>
-<a id="submit_nsca_ng_insecure"></a>
-<a id="submit_nsca_ng_host-check"></a>
-<a id="submit_nsca_ng_max-output-length"></a>
+=== "Windows"
 
-| Option                     | Default Value | Description                                                                                        |
-|----------------------------|---------------|----------------------------------------------------------------------------------------------------|
-| help                       | N/A           | Show help screen (this screen)                                                                     |
-| help-pb                    | N/A           | Show help screen as a protocol buffer payload                                                      |
-| show-default               | N/A           | Show default values for a given command                                                            |
-| help-short                 | N/A           | Show help screen (short format).                                                                   |
-| host                       |               | The host of the host running the server                                                            |
-| port                       |               | The port of the host running the server                                                            |
-| address                    |               | The address (host:port) of the host running the server                                             |
-| timeout                    |               | Number of seconds before connection times out (default=10)                                         |
-| target                     |               | Target to use (lookup connection info from config)                                                 |
-| retry                      |               | Number of times ti retry a failed connection attempt (default=2)                                   |
-| retries                    |               | legacy version of retry                                                                            |
-| source-host                |               | Source/sender host name (default is auto which means use the name of the actual host)              |
-| sender-host                |               | Source/sender host name (default is auto which means use the name of the actual host)              |
-| command                    |               | The name of the command that the remote daemon should run                                          |
-| alias                      |               | Same as command                                                                                    |
-| message                    |               | Message                                                                                            |
-| result                     |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                             |
-| separator                  |               | Separator to use for the batch command (default is |)                                              |
-| batch                      |               | Add multiple records using the separator format is: command|result|message                         |
-| certificate                |               | The client certificate to use                                                                      |
-| dh                         |               | The DH key to use                                                                                  |
-| certificate-key            |               | Client certificate to use                                                                          |
-| certificate-format         |               | Client certificate format                                                                          |
-| ca                         |               | Certificate authority                                                                              |
-| verify                     |               | Client certificate format                                                                          |
-| allowed-ciphers            |               | Client certificate format                                                                          |
-| [ssl](#submit_nsca_ng_ssl) | 1             | Initial an ssl handshake with the server.                                                          |
-| password                   |               | The PSK password (must match the NSCA-NG server configuration)                                     |
-| identity                   |               | PSK identity string (defaults to hostname when empty)                                              |
-| hostname                   |               | Host name to report to the NSCA-NG server                                                          |
-| no-psk                     | N/A           | Disable PSK and use certificate-based TLS authentication instead                                   |
-| insecure                   | N/A           | Allow TLS connections without PSK and without peer-cert verification. Disables MITM protection.    |
-| host-check                 | N/A           | Submit every result as a Nagios host check (PROCESS_HOST_CHECK_RESULT) instead of a service check. |
-| max-output-length          |               | Maximum bytes of plugin output forwarded over the wire (default 65536)                             |
+    <a id="submit_nsca_ng_host"></a>
+    <a id="submit_nsca_ng_port"></a>
+    <a id="submit_nsca_ng_address"></a>
+    <a id="submit_nsca_ng_timeout"></a>
+    <a id="submit_nsca_ng_target"></a>
+    <a id="submit_nsca_ng_retry"></a>
+    <a id="submit_nsca_ng_retries"></a>
+    <a id="submit_nsca_ng_source-host"></a>
+    <a id="submit_nsca_ng_sender-host"></a>
+    <a id="submit_nsca_ng_command"></a>
+    <a id="submit_nsca_ng_alias"></a>
+    <a id="submit_nsca_ng_message"></a>
+    <a id="submit_nsca_ng_result"></a>
+    <a id="submit_nsca_ng_separator"></a>
+    <a id="submit_nsca_ng_batch"></a>
+    <a id="submit_nsca_ng_certificate"></a>
+    <a id="submit_nsca_ng_dh"></a>
+    <a id="submit_nsca_ng_certificate-key"></a>
+    <a id="submit_nsca_ng_certificate-format"></a>
+    <a id="submit_nsca_ng_ca"></a>
+    <a id="submit_nsca_ng_verify"></a>
+    <a id="submit_nsca_ng_allowed-ciphers"></a>
+    <a id="submit_nsca_ng_password"></a>
+    <a id="submit_nsca_ng_identity"></a>
+    <a id="submit_nsca_ng_hostname"></a>
+    <a id="submit_nsca_ng_no-psk"></a>
+    <a id="submit_nsca_ng_insecure"></a>
+    <a id="submit_nsca_ng_host-check"></a>
+    <a id="submit_nsca_ng_max-output-length"></a>
+
+    | Option                     | Default Value | Description                                                                                        |
+    |----------------------------|---------------|----------------------------------------------------------------------------------------------------|
+    | host                       |               | The host of the host running the server                                                            |
+    | port                       |               | The port of the host running the server                                                            |
+    | address                    |               | The address (host:port) of the host running the server                                             |
+    | timeout                    |               | Number of seconds before connection times out (default=10)                                         |
+    | target                     |               | Target to use (lookup connection info from config)                                                 |
+    | retry                      |               | Number of times ti retry a failed connection attempt (default=2)                                   |
+    | retries                    |               | legacy version of retry                                                                            |
+    | source-host                |               | Source/sender host name (default is auto which means use the name of the actual host)              |
+    | sender-host                |               | Source/sender host name (default is auto which means use the name of the actual host)              |
+    | command                    |               | The name of the command that the remote daemon should run                                          |
+    | alias                      |               | Same as command                                                                                    |
+    | message                    |               | Message                                                                                            |
+    | result                     |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                             |
+    | separator                  |               | Separator to use for the batch command (default is |)                                              |
+    | batch                      |               | Add multiple records using the separator format is: command|result|message                         |
+    | certificate                |               | The client certificate to use                                                                      |
+    | dh                         |               | The DH key to use                                                                                  |
+    | certificate-key            |               | Client certificate to use                                                                          |
+    | certificate-format         |               | Client certificate format                                                                          |
+    | ca                         |               | Certificate authority                                                                              |
+    | verify                     |               | Client certificate format                                                                          |
+    | allowed-ciphers            |               | Client certificate format                                                                          |
+    | [ssl](#submit_nsca_ng_ssl) | true          | Initial an ssl handshake with the server.                                                          |
+    | password                   |               | The PSK password (must match the NSCA-NG server configuration)                                     |
+    | identity                   |               | PSK identity string (defaults to hostname when empty)                                              |
+    | hostname                   |               | Host name to report to the NSCA-NG server                                                          |
+    | no-psk                     | N/A           | Disable PSK and use certificate-based TLS authentication instead                                   |
+    | insecure                   | N/A           | Allow TLS connections without PSK and without peer-cert verification. Disables MITM protection.    |
+    | host-check                 | N/A           | Submit every result as a Nagios host check (PROCESS_HOST_CHECK_RESULT) instead of a service check. |
+    | max-output-length          |               | Maximum bytes of plugin output forwarded over the wire (default 65536)                             |
 
 
 
-<h5 id="submit_nsca_ng_ssl">ssl:</h5>
+    <h5 id="submit_nsca_ng_ssl">ssl:</h5>
 
-Initial an ssl handshake with the server.
+    Initial an ssl handshake with the server.
 
-*Default Value:* `1`
+    *Default Value:* `true`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+=== "Linux"
+
+    <a id="submit_nsca_ng_host"></a>
+    <a id="submit_nsca_ng_port"></a>
+    <a id="submit_nsca_ng_address"></a>
+    <a id="submit_nsca_ng_timeout"></a>
+    <a id="submit_nsca_ng_target"></a>
+    <a id="submit_nsca_ng_retry"></a>
+    <a id="submit_nsca_ng_retries"></a>
+    <a id="submit_nsca_ng_source-host"></a>
+    <a id="submit_nsca_ng_sender-host"></a>
+    <a id="submit_nsca_ng_command"></a>
+    <a id="submit_nsca_ng_alias"></a>
+    <a id="submit_nsca_ng_message"></a>
+    <a id="submit_nsca_ng_result"></a>
+    <a id="submit_nsca_ng_separator"></a>
+    <a id="submit_nsca_ng_batch"></a>
+    <a id="submit_nsca_ng_certificate"></a>
+    <a id="submit_nsca_ng_dh"></a>
+    <a id="submit_nsca_ng_certificate-key"></a>
+    <a id="submit_nsca_ng_certificate-format"></a>
+    <a id="submit_nsca_ng_ca"></a>
+    <a id="submit_nsca_ng_verify"></a>
+    <a id="submit_nsca_ng_allowed-ciphers"></a>
+    <a id="submit_nsca_ng_password"></a>
+    <a id="submit_nsca_ng_identity"></a>
+    <a id="submit_nsca_ng_hostname"></a>
+    <a id="submit_nsca_ng_no-psk"></a>
+    <a id="submit_nsca_ng_insecure"></a>
+    <a id="submit_nsca_ng_host-check"></a>
+    <a id="submit_nsca_ng_max-output-length"></a>
+
+    | Option                     | Default Value | Description                                                                                        |
+    |----------------------------|---------------|----------------------------------------------------------------------------------------------------|
+    | host                       |               | The host of the host running the server                                                            |
+    | port                       |               | The port of the host running the server                                                            |
+    | address                    |               | The address (host:port) of the host running the server                                             |
+    | timeout                    |               | Number of seconds before connection times out (default=10)                                         |
+    | target                     |               | Target to use (lookup connection info from config)                                                 |
+    | retry                      |               | Number of times ti retry a failed connection attempt (default=2)                                   |
+    | retries                    |               | legacy version of retry                                                                            |
+    | source-host                |               | Source/sender host name (default is auto which means use the name of the actual host)              |
+    | sender-host                |               | Source/sender host name (default is auto which means use the name of the actual host)              |
+    | command                    |               | The name of the command that the remote daemon should run                                          |
+    | alias                      |               | Same as command                                                                                    |
+    | message                    |               | Message                                                                                            |
+    | result                     |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                             |
+    | separator                  |               | Separator to use for the batch command (default is |)                                              |
+    | batch                      |               | Add multiple records using the separator format is: command|result|message                         |
+    | certificate                |               | The client certificate to use                                                                      |
+    | dh                         |               | The DH key to use                                                                                  |
+    | certificate-key            |               | Client certificate to use                                                                          |
+    | certificate-format         |               | Client certificate format                                                                          |
+    | ca                         |               | Certificate authority                                                                              |
+    | verify                     |               | Client certificate format                                                                          |
+    | allowed-ciphers            |               | Client certificate format                                                                          |
+    | [ssl](#submit_nsca_ng_ssl) | 1             | Initial an ssl handshake with the server.                                                          |
+    | password                   |               | The PSK password (must match the NSCA-NG server configuration)                                     |
+    | identity                   |               | PSK identity string (defaults to hostname when empty)                                              |
+    | hostname                   |               | Host name to report to the NSCA-NG server                                                          |
+    | no-psk                     | N/A           | Disable PSK and use certificate-based TLS authentication instead                                   |
+    | insecure                   | N/A           | Allow TLS connections without PSK and without peer-cert verification. Disables MITM protection.    |
+    | host-check                 | N/A           | Submit every result as a Nagios host check (PROCESS_HOST_CHECK_RESULT) instead of a service check. |
+    | max-output-length          |               | Maximum bytes of plugin output forwarded over the wire (default 65536)                             |
+
+
+
+    <h5 id="submit_nsca_ng_ssl">ssl:</h5>
+
+    Initial an ssl handshake with the server.
+
+    *Default Value:* `1`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ## Configuration

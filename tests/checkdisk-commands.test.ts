@@ -325,6 +325,28 @@ describe("CheckDisk commands", () => {
     expect(messageOf(q)).not.toMatch(/free_pct/); // no threshold annotation on the rows
   });
 
+  it("check_disk_health size keyword and its deprecated total alias resolve to disk size", async () => {
+    // `total` was renamed to `size` (the old name clashes with the generic
+    // `total` summary keyword). Both must resolve to the row's disk size in
+    // bytes: any real filesystem is larger than 1MB, so the thresholds below
+    // trip WARNING. The generic summary `total` (the row count) never would.
+    const args = {
+      filter: "has_space = 1",
+      warning: "size > 1048576",
+      critical: "size < 0",
+    };
+    const q = await pollQuery(key, "check_disk_health", args, (r) => r.result === WARNING);
+    expect(q.result).toBe(WARNING);
+
+    const alias = await pollQuery(
+      key,
+      "check_disk_health",
+      { ...args, warning: "total > 1048576" },
+      (r) => r.result === WARNING,
+    );
+    expect(alias.result).toBe(WARNING);
+  });
+
   // --- check_disk_write ------------------------------------------------------
   //
   // Platform-neutral by design (plain file I/O + fsync/_commit), so every case
@@ -486,6 +508,20 @@ describe("CheckDisk commands", () => {
       "empty-state": "critical",
     });
     expect([OK, CRITICAL]).toContain(q.result);
+  });
+
+  it("check_shadowcopy accepts the copies keyword and its deprecated count alias (Windows)", async () => {
+    if (!onWindows) return;
+    // `count` was renamed to `copies` (the old name clashes with the generic
+    // `count` summary keyword). Both must parse in threshold expressions — an
+    // unknown keyword would make the whole check UNKNOWN. No volume has that
+    // many copies and the empty state is OK, so the result is deterministic.
+    const q = await executeQuery(key, "check_shadowcopy", {
+      warning: "copies > 999999",
+      critical: "count > 999999",
+      "empty-state": "ok",
+    });
+    expect(q.result).toBe(OK);
   });
 
   // --- check_share (§3.6, Windows) ------------------------------------------

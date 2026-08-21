@@ -53,11 +53,11 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("recovery_model", &filter_obj::get_recovery_model, "Recovery model: SIMPLE, FULL or BULK_LOGGED");
 
   static const parsers::where::value_type type_age = parsers::where::type_custom_int_1;
-  registry_.add_int_var("full_age", type_age, &filter_obj::get_full_age, "Seconds since the last full backup, -1 = never (supports units, e.g. full_age > 7d)")
+  registry_.add_int_var("full_age", type_age, &filter_obj::get_full_age, "Seconds since the last full backup finished, -1 = never (supports units, e.g. full_age > 7d)")
       .add_int_perf("s", "", "_full_age")
-      .add_int_var("diff_age", type_age, &filter_obj::get_diff_age, "Seconds since the last differential backup, -1 = never (supports units)")
+      .add_int_var("diff_age", type_age, &filter_obj::get_diff_age, "Seconds since the last differential backup finished, -1 = never (supports units)")
       .add_int_perf("s", "", "_diff_age")
-      .add_int_var("log_age", type_age, &filter_obj::get_log_age, "Seconds since the last log backup, -1 = never (supports units, e.g. log_age > 1h)")
+      .add_int_var("log_age", type_age, &filter_obj::get_log_age, "Seconds since the last log backup finished, -1 = never (supports units, e.g. log_age > 1h)")
       .add_int_perf("s", "", "_log_age");
   registry_.add_converter(type_age, &mssql_filter::parse_time<std::shared_ptr<filter_obj>>);
 }

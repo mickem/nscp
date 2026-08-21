@@ -32,6 +32,30 @@ helper = None
 PLATFORM_ORDER = ['windows', 'unix']
 PLATFORM_LABEL = {'windows': 'Windows', 'unix': 'Linux'}
 
+# --- Common options / keywords (see docs/reference/common-options.yaml). ---------
+# Shared options are stored per query as a slim `common_options: {name: default}`
+# map (and generic filter keywords as `common_fields: [name, ...]`); their full
+# descriptions live once in common-options.yaml and render on a single shared
+# page. These lists fix a logical display order; unknown names sort last,
+# alphabetically.
+COMMON_OPTION_ORDER = ['filter', 'warning', 'warn', 'critical', 'crit', 'ok',
+                       'debug', 'show-all', 'empty-state', 'perf-config', 'escape-html',
+                       'list-separator', 'top-syntax', 'ok-syntax', 'empty-syntax',
+                       'detail-syntax', 'perf-syntax', 'unique-index',
+                       'help', 'help-pb', 'show-default', 'help-short']
+COMMON_FIELD_ORDER = ['count', 'total', 'ok_count', 'warn_count', 'crit_count', 'problem_count',
+                      'list', 'ok_list', 'warn_list', 'crit_list', 'problem_list', 'detail_list',
+                      'sep', 'status']
+
+
+def common_sort(names, order):
+    def key(n):
+        try:
+            return (0, order.index(n), n)
+        except ValueError:
+            return (1, 0, n)
+    return sorted(names, key=key)
+
 
 # --- Sub-templates (markup lifted from docs.py's module_template, split so each
 # renderable section can be rendered per-platform and merged). --------------------
@@ -49,7 +73,10 @@ query_intro_template = u"""{{query.info.description}}
 
 # Content of the "Command-line Arguments" section (table + per-option detail),
 # WITHOUT the heading/anchor -- those are emitted once by the layout template.
-query_args_template = u"""{% for help in query.params -%}{%- if help.is_simple %}
+# Options shared by all filter checks render as a compact name+default table
+# linking to the shared common-options page; the standard help options collapse
+# to a single sentence.
+query_args_template = u"""{% if query.params %}{% for help in query.params -%}{%- if help.is_simple %}
 <a id="{{help.name|md_prefix_lnk(query.key)}}"></a>{% endif %}{%- endfor %}
 {% set table = [] -%}
 {% for help in query.params -%}
@@ -70,20 +97,42 @@ query_args_template = u"""{% for help in query.params -%}{%- if help.is_simple %
 {% if help.default_value %}
 *Default Value:* `{{help.default_value}}`
 {%- endif %}{{'\n'}}
-{%- endif %}{%- endfor %}"""
+{%- endif %}{%- endfor %}
+{% endif %}
+{%- if query.common_option_rows %}
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+{% set table = [] -%}
+{% for opt in query.common_option_rows -%}
+    {% do table.append(['<a id="' + (opt.name|md_prefix_lnk(query.key)) + '"></a>' + (('../common-options.md#' + opt.name)|md_link(opt.name)), opt.default_value]) %}
+{%- endfor %}
+{{table|rst_table('Option', 'Default Value')}}
+{% endif %}
+{%- if query.standard_options %}
+This command also accepts the standard [help options](../common-options.md#standard-options): {{query.standard_options|join(', ')}}.
+{% endif %}"""
 
 # Content of the "Filter keywords" section, WITHOUT the heading/anchor.
+# (The generic_fields table only renders for keywords not yet folded into
+# common_fields by docs_extract.py, e.g. one with a check-local description.)
 query_filter_template = u"""{% set table = [] -%}
 {% for help in query.own_fields -%}
     {% do table.append([help.name,help.long_description|firstline]) %}
 {%- endfor %}
 {{table|rst_table('Option', 'Description')}}
+{%- if query.generic_fields %}
 **Common options for all checks:**
 {% set table = [] -%}
 {% for help in query.generic_fields -%}
     {% do table.append([help.name,help.long_description|replace("Common option for all checks.","")|firstline]) %}
 {%- endfor %}
-{{table|rst_table('Option', 'Description')}}"""
+{{table|rst_table('Option', 'Description')}}
+{% endif %}
+{%- if query.common_fields %}
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): {{query.common_fields|join(', ')}}.
+{% endif %}"""
 
 # Layout scaffold: emits the single sub-headings, anchors and jump list, and drops
 # the already-merged (possibly tabbed) section bodies into place. Rendered once per
@@ -215,7 +264,74 @@ This is a section of objects. This means that you will create objects below this
 {% endfor %}
 """
 
+# The shared page documenting the options/keywords folded out of every command
+# page (rendered from docs/reference/common-options.yaml). Section headings
+# auto-slug to the anchors the per-command pages link to (#common-options,
+# #standard-options, #common-filter-keywords); per-item anchors are raw HTML
+# headings so the id is exactly the option/keyword name.
+common_page_template = u"""# Common options and filter keywords
+
+Most check commands are built on top of the same filter engine and therefore accept the same set of
+command-line options and expose the same generic filter keywords. They are documented once on this
+page; each command's reference page lists which of them the command accepts together with the
+command specific default values.
+
+## Common options
+
+These options are available on all filter based commands. Default values are command specific and
+listed on each command's reference page.
+
+{% set table = [] -%}
+{% for opt in options -%}
+    {% do table.append([opt.name|md_self_link, opt.description|firstline]) %}
+{%- endfor %}
+{{table|rst_table('Option', 'Description')}}
+
+{% for opt in options %}
+<h4 id="{{opt.name}}">{{opt.name}}</h4>
+
+{{opt.description}}
+{% endfor %}
+
+## Standard options
+
+These options are available on every command.
+
+{% set table = [] -%}
+{% for opt in standard -%}
+    {% do table.append([opt.name|md_self_link, opt.description|firstline]) %}
+{%- endfor %}
+{{table|rst_table('Option', 'Description')}}
+
+{% for opt in standard %}
+<h4 id="{{opt.name}}">{{opt.name}}</h4>
+
+{{opt.description}}
+{% endfor %}
+
+## Common filter keywords
+
+These keywords can be used in the filter expressions (`filter`, `warning`, `critical`, `ok`) and in
+the syntax templates (`top-syntax`, `detail-syntax`, `perf-syntax`, ...) of every filter based
+command, in addition to the command specific keywords listed on each command's reference page.
+
+{% set table = [] -%}
+{% for f in fields -%}
+    {%- if f.is_simple %}{% do table.append([f.name, f.description|firstline]) %}
+    {%- else %}{% do table.append([f.name|md_self_link, f.description|firstline]) %}{% endif %}
+{%- endfor %}
+{{table|rst_table('Keyword', 'Description')}}
+
+{% for f in fields %}{% if not f.is_simple %}
+<h4 id="{{f.name}}">{{f.name}}</h4>
+
+{{f.description}}
+{% endif %}{% endfor %}
+"""
+
 index_template = u"""
+Most check commands share a set of common command-line options and filter keywords, they are
+documented on the [common options](common-options.md) page.
 
 # Queries
 {% set table = [] -%}
@@ -372,6 +488,31 @@ def availability_note(present, all_present):
     return '*Available on %s only.*\n' % labels
 
 
+def declared_platforms(desc):
+    # Some Windows-only checks are registered on every platform but only stub out
+    # with an explanatory error elsewhere (e.g. CheckSecurity's posture checks).
+    # The registry therefore lists them on both platforms, so the presence-based
+    # availability logic cannot see the restriction. Such commands declare it by
+    # ending the first line of their description (from module.json) with
+    # "Windows only." / "Linux only."; honour that here so they are documented
+    # as single-platform. Returns the declared platform list, or None.
+    line = first_line(desc)
+    if line.endswith('Windows only.'):
+        return ['windows']
+    if line.endswith('Linux only.'):
+        return ['unix']
+    return None
+
+
+def effective_platforms(present, desc):
+    # Registered platforms narrowed by a "... only." description declaration.
+    declared = declared_platforms(desc)
+    if not declared:
+        return present
+    narrowed = [p for p in present if p in declared]
+    return narrowed or present
+
+
 # OS-logo shortcodes for the index tables, rendered to inline SVG by the
 # pymdownx.emoji extension configured in docs/mkdocs.yml.
 PLATFORM_ICON = {'windows': ':fontawesome-brands-windows:', 'unix': ':fontawesome-brands-linux:'}
@@ -410,11 +551,24 @@ def expand(data):
 
 
 # --- Query / path preparation (compute the derived keys the templates expect). ---
-def prepare_query(qdict, qname, module, sample_folder):
+def prepare_query(qdict, qname, module, sample_folder, canonical_options):
     q = dict(qdict)
     q['key'] = qname
     q.setdefault('info', {})
     q.setdefault('params', [])
+    # Shared options: the filter-group ones render as a name+default table, the
+    # standard (help) ones collapse to a single sentence. The split comes from
+    # the canonical registry (common-options.yaml).
+    common = q.get('common_options', {}) or {}
+    rows, std = [], []
+    for name in common_sort(common.keys(), COMMON_OPTION_ORDER):
+        if canonical_options.get(name, {}).get('group') == 'standard':
+            std.append(name)
+        else:
+            rows.append({'name': name, 'default_value': common[name]})
+    q['common_option_rows'] = rows
+    q['standard_options'] = std
+    q['common_fields'] = common_sort(q.get('common_fields', []) or [], COMMON_FIELD_ORDER)
     fields = q.get('fields', [])
     q['own_fields'] = [f for f in fields if not f.get('generic')]
     q['generic_fields'] = [f for f in fields if f.get('generic')]
@@ -442,11 +596,25 @@ class DocumentationGenerator(object):
         self.query_filter = self.env.from_string(query_filter_template)
         self.query_layout = self.env.from_string(query_layout_template)
         self.path_block = self.env.from_string(path_block_template)
+        self.common_page = self.env.from_string(common_page_template)
         self.index = self.env.from_string(index_template)
+        self.common = self._load_common()
+
+    def _load_common(self):
+        # Canonical descriptions of the shared options/keywords (see
+        # docs_extract.py); {'options': {name: {description, content_type,
+        # group}}, 'fields': {name: description}}.
+        path = os.path.join(self.yaml_dir, 'common-options.yaml')
+        if not os.path.exists(path):
+            return {}
+        with open(path, encoding='utf-8') as f:
+            return yaml.safe_load(f) or {}
 
     def load(self):
         modules = {}
         for path in sorted(glob.glob(os.path.join(self.yaml_dir, '*.yaml'))):
+            if os.path.basename(path) == 'common-options.yaml':
+                continue
             with open(path, encoding='utf-8') as f:
                 data = yaml.safe_load(f) or {}
             # Reconstruct full per-platform trees from the factored common/overrides.
@@ -538,20 +706,28 @@ class DocumentationGenerator(object):
         for name in sorted(names):
             qpresent = [p for p in present if name in slices[p].get('queries', {})]
             out.append('### %s\n' % name)
-            note = availability_note(qpresent, present)
+            desc = ''
+            for p in qpresent:
+                desc = slices[p]['queries'][name].get('info', {}).get('description', '')
+                if desc:
+                    break
+            note = availability_note(effective_platforms(qpresent, desc), present)
             if note:
                 out.append(note)
 
             prepared = {p: prepare_query(slices[p]['queries'][name], name,
-                                         module, self.sample_folder)
+                                         module, self.sample_folder,
+                                         self.common.get('options', {}))
                         for p in qpresent}
             has_sample = bool(prepared[qpresent[0]].get('sample'))
             # Select the platforms to render each section for by whether that
             # platform actually carries the section's data. This skips empty stubs
             # (e.g. a command registered on a platform but with no arguments), which
             # would otherwise produce a broken, empty content tab.
-            apresent = [p for p in qpresent if prepared[p].get('params')]
-            fpresent = [p for p in qpresent if prepared[p].get('fields')]
+            apresent = [p for p in qpresent if prepared[p].get('params')
+                        or prepared[p].get('common_option_rows') or prepared[p].get('standard_options')]
+            fpresent = [p for p in qpresent if prepared[p].get('fields')
+                        or prepared[p].get('common_fields')]
 
             intro = per_platform(qpresent,
                                  lambda p: self.query_intro.render(query=prepared[p]))
@@ -754,10 +930,30 @@ class DocumentationGenerator(object):
                                        'platforms': []}
                     queries[qn]['platforms'].append(p)
             for q in queries.values():
-                q['os'] = os_label(q.pop('platforms'))
+                q['os'] = os_label(effective_platforms(q.pop('platforms'), q['description']))
             model[name] = {'key': name, 'namespace': namespace, 'os': os_label(present),
                            'description': description, 'queries': queries}
         return model
+
+    def render_common_page(self, output_dir):
+        opts = self.common.get('options', {})
+        fields = self.common.get('fields', {})
+        if not opts and not fields:
+            return
+
+        def option_rows(group):
+            names = common_sort([n for n, v in opts.items() if v.get('group') == group],
+                                COMMON_OPTION_ORDER)
+            return [{'name': n, 'description': opts[n].get('description', '')} for n in names]
+
+        field_rows = [{'name': n, 'description': fields[n],
+                       'is_simple': '\n' not in fields[n]}
+                      for n in common_sort(fields.keys(), COMMON_FIELD_ORDER)]
+        text = self.common_page.render(options=option_rows('filter'),
+                                       standard=option_rows('standard'),
+                                       fields=field_rows)
+        render_template(text, '%s/docs/reference/common-options.md' % output_dir)
+        print('Rendered common options page (%d options, %d keywords)' % (len(opts), len(fields)))
 
     def generate(self, output_dir):
         modules = self.load()
@@ -766,6 +962,7 @@ class DocumentationGenerator(object):
             out_path = '%s/docs/reference/%s/%s.md' % (output_dir, namespace, module)
             render_template(text, out_path)
             print('Rendered %d of %d [%s -> %s]' % (i, len(modules), module, namespace))
+        self.render_common_page(output_dir)
 
         index_model = self.build_index_model(modules)
         text = self.index.render(modules=index_model)

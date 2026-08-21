@@ -36,10 +36,6 @@ Submit information to the remote Icinga 2 Server.
 <a id="submit_icinga_options"></a>
 #### Command-line Arguments
 
-<a id="submit_icinga_help"></a>
-<a id="submit_icinga_help-pb"></a>
-<a id="submit_icinga_show-default"></a>
-<a id="submit_icinga_help-short"></a>
 <a id="submit_icinga_host"></a>
 <a id="submit_icinga_port"></a>
 <a id="submit_icinga_address"></a>
@@ -67,10 +63,6 @@ Submit information to the remote Icinga 2 Server.
 
 | Option                                          | Default Value | Description                                                                                                                                                               |
 |-------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| help                                            | N/A           | Show help screen (this screen)                                                                                                                                            |
-| help-pb                                         | N/A           | Show help screen as a protocol buffer payload                                                                                                                             |
-| show-default                                    | N/A           | Show default values for a given command                                                                                                                                   |
-| help-short                                      | N/A           | Show help screen (short format).                                                                                                                                          |
 | host                                            |               | The host of the host running the server                                                                                                                                   |
 | port                                            |               | The port of the host running the server                                                                                                                                   |
 | address                                         |               | The address (host:port) of the host running the server                                                                                                                    |
@@ -111,6 +103,9 @@ Create missing host/service objects in Icinga 2 before submitting (true/false).
 The TLS version to use 1.0, 1.1, 1.2, 1.3 or any
 
 *Default Value:* `1.3`
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ## Configuration

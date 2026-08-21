@@ -32,41 +32,14 @@ common:
           title: PRIMARY CACHE INDEX
   queries:
     check_cache:
+      common_options:
+        help: ''
+        help-pb: ''
+        help-short: ''
+        show-default: ''
       info:
         description: Fetch results from the cache.
       params:
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
       - content_type: 2
         default_value: ''
         is_simple: true
@@ -124,41 +97,13 @@ common:
         required: false
         short_description: The return status to return when a message is not found
     list_cache:
+      common_options:
+        help: ''
+        help-pb: ''
+        help-short: ''
+        show-default: ''
       info:
         description: List all keys in the cache.
-      params:
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (this screen)
-        name: help
-        repeatable: false
-        required: false
-        short_description: Show help screen (this screen)
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen as a protocol buffer payload
-        name: help-pb
-        repeatable: false
-        required: false
-        short_description: Show help screen as a protocol buffer payload
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show default values for a given command
-        name: show-default
-        repeatable: false
-        required: false
-        short_description: Show default values for a given command
-      - content_type: 4
-        default_value: ''
-        is_simple: true
-        long_description: Show help screen (short format).
-        name: help-short
-        repeatable: false
-        required: false
-        short_description: Show help screen (short format).
 module: SimpleCache
 namespace: generic
 platforms:

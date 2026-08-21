@@ -34,7 +34,9 @@ std::string filter_obj::show() const {
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("manager", &filter_obj::get_manager, "Package manager used to query updates")
       .add_string_var("packages", &filter_obj::get_packages, "Comma separated list of available package updates");
-  registry_.add_int_var("count", &filter_obj::get_count, "Total number of available updates")
+  registry_.add_int_var("updates", &filter_obj::get_count, "Total number of available updates")
+      .add_int_perf("")
+      .add_int_var("count", &filter_obj::get_count, "Deprecated alias for updates (the name clashes with the generic count summary keyword)")
       .add_int_perf("")
       .add_int_var("security", &filter_obj::get_security, "Number of available security updates")
       .add_int_perf("", "", "_security");
@@ -250,9 +252,12 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
   filter_type filter;
-  filter_helper.add_options("count > 0", "security > 0", "", filter.get_filter_syntax(), "ok");
-  filter_helper.add_syntax("${status}: ${count} updates available (${security} security) via ${manager}",
-                           "${count} updates (${security} security) via ${manager}", "updates", "", "%(status): No updates available.");
+  filter_helper.add_options("updates > 0", "security > 0", "", filter.get_filter_syntax(), "ok");
+  // Top-syntax renders after the record is detached, so record variables like
+  // ${updates} read as 0 there (and the generic ${count} is the matched-row
+  // count) -- the real numbers render through the detail line via ${list}.
+  filter_helper.add_syntax("${status}: ${list}", "${updates} updates available (${security} security) via ${manager}", "updates", "",
+                           "%(status): No updates available.");
 
   if (!filter_helper.parse_options()) return;
 

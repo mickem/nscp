@@ -2,14 +2,8 @@
 
 `offset` answers the first question. A source can answer promptly with a
 believable offset and still be unusable, because that offset will not hold
-still — that is what the remaining keywords are for.
-
-| Keyword           | Description                                                                                      |
-|-------------------|--------------------------------------------------------------------------------------------------|
-| `jitter`          | RMS variation between the sampled offsets, in ms. **`unknown` until `samples` is raised to 2 or more.** |
-| `samples`         | How many samples actually answered.                                                               |
-| `root_delay`      | Round-trip delay the server reports to its own reference clock, in ms.                            |
-| `root_dispersion` | Maximum error the server claims for the time it serves, in ms.                                    |
+still — that is what the remaining keywords (`jitter`, `samples`, `root_delay`
+and `root_dispersion`) are for.
 
 `root_delay` and `root_dispersion` come straight out of the packet header, so
 they need no extra traffic and are available from the default single query.

@@ -56,15 +56,19 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
       .add_string_var("uri", &filter_obj::get_uri,
                       "The task's full path / URI (e.g. \\Microsoft\\Windows\\Defrag\\ScheduledDefrag). Empty on the legacy ITask API.");
 
-  registry_.add_int_var("exit_code", &filter_obj::get_exit_code, "Retrieves the work item's last exit code.")
+  registry_.add_int_var("exit_code", &filter_obj::get_exit_code, "The task's last run result (last exit code).")
       .add_int_var("enabled", &filter_obj::is_enabled, "TODO.")
       .add_int_var("max_run_time", &filter_obj::get_max_run_time, "Retrieves the maximum length of time the task can run.")
       .add_int_var("priority", &filter_obj::get_priority, "Retrieves the priority for the task.")
-      .add_int_var("task_status", type_custom_state, &filter_obj::get_status, "Retrieves the status of the work item.")
-      .add_int_var("most_recent_run_time", type_date, &filter_obj::get_most_recent_run_time, "Retrieves the most recent time the work item began running.")
+      .add_int_var("task_status", type_custom_state, &filter_obj::get_status,
+                   "The task state: ready, running, disabled, queued or unknown (the legacy ITask API instead uses ready, running, disabled, not_scheduled, "
+                   "has_not_run, no_more_runs or no_valid_triggers).")
+      .add_int_var("most_recent_run_time", type_date, &filter_obj::get_most_recent_run_time,
+                   "The most recent time the task began running. Comparable to relative times, e.g. most_recent_run_time < -1d.")
       .add_int_var("has_run", type_bool, &filter_obj::get_has_run, "True if the task has ever executed.")
       .add_int_var("next_run_time", type_date, &filter_obj::get_next_run_time,
-                   "The next time the task is scheduled to run (0 / rendered as 'none' if it has no upcoming run).")
+                   "The next time the task is scheduled to run. Rendered as 'none' (value 0) when the task has no upcoming run (disabled, on-demand, or no "
+                   "more triggers).")
       .add_int_var("number_of_missed_runs", &filter_obj::get_number_of_missed_runs,
                    "Number of times the task was scheduled to run but did not (0 on the legacy ITask API).")
       .add_int_var("last_run_age", &filter_obj::get_last_run_age,

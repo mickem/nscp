@@ -72,7 +72,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("id", &filter_obj::get_id, "Product SKU id (GUID)")
       .add_string_var("key", &filter_obj::get_key, "Partial product key (the last five characters of the installed key)")
       .add_string_var("channel", &filter_obj::get_channel, "Product key channel: Retail, Volume:MAK, Volume:GVLK, OEM, ...")
-      .add_string_var("status", &filter_obj::get_status, "Licensing status as a word: licensed, unlicensed, initial_grace, additional_grace, non_genuine_grace, notification, extended_grace")
+      .add_string_var("activation_status", &filter_obj::get_status, "Licensing status as a word: licensed, unlicensed, initial_grace, additional_grace, non_genuine_grace, notification, extended_grace")
+      .add_string_var("status", &filter_obj::get_status, "Deprecated alias for activation_status (the name clashes with the generic status summary keyword)")
       .add_string_var("genuine_state", &filter_obj::get_genuine_state, "Genuine status as a word: genuine, invalid_license, tampered, offline, unknown");
   registry_.add_int_var("licensed", type_bool, &filter_obj::get_licensed, "True when the product is fully licensed (activated)")
       .no_perf()
@@ -86,7 +87,7 @@ filter_obj_handler::filter_obj_handler() {
       .no_perf()
       .add_int_var("grace_days", type_int, &filter_obj::get_grace_days, "Remaining grace/renewal period in whole days (0 when no grace period applies)")
       .add_int_perf("d", "", "_grace")
-      .add_int_var("grace_minutes", type_int, &filter_obj::get_grace_minutes, "Remaining grace/renewal period in minutes (0 when no grace period applies)")
+      .add_int_var("grace_minutes", type_int, &filter_obj::get_grace_minutes, "Remaining grace/renewal period in minutes, as Windows reports it (0 when no grace period applies)")
       .no_perf();
   // clang-format on
 }
@@ -109,7 +110,7 @@ void check(const PB::Commands::QueryRequestMessage::Request &request, PB::Comman
   filter_helper.add_options("grace_days > 0 and grace_days < 30", "licensed = 0", "", filter.get_filter_syntax(), "unknown");
   // The perf label is a fixed word (there is normally exactly one row); pass
   // perf-syntax=${name} to tell several products apart with all-products=true.
-  filter_helper.add_syntax("${status}: ${list}", "${name}: ${status} (${genuine_state}, grace ${grace_days}d)", "license",
+  filter_helper.add_syntax("${status}: ${list}", "${name}: ${activation_status} (${genuine_state}, grace ${grace_days}d)", "license",
                            "%(status): No licensing information found (Software Licensing service unavailable?)", "%(status): ${list}");
 
   // clang-format off

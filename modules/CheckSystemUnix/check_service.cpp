@@ -326,9 +326,9 @@ filter_obj_handler::filter_obj_handler() {
   static constexpr value_type type_custom_state = type_custom_int_1;
   static constexpr value_type type_custom_start_type = type_custom_int_2;
 
-  registry_.add_string_var("name", &filter_obj::get_name, "Service name")
+  registry_.add_string_var("name", &filter_obj::get_name, "Unit (service) name")
       .add_string_var("service", &filter_obj::get_name, "Alias for name")
-      .add_string_var("desc", &filter_obj::get_desc, "Service description")
+      .add_string_var("desc", &filter_obj::get_desc, "Unit description")
       .add_string_var("active", &filter_obj::get_active, "Raw systemd ActiveState (active, inactive, failed)")
       .add_string_var("sub_state", &filter_obj::get_sub_state, "Raw systemd SubState (running, dead, exited, ...)")
       .add_string_var("preset", &filter_obj::get_preset, "Vendor preset (enabled, disabled)");

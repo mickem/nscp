@@ -190,6 +190,17 @@ TEST(CheckInstalledSoftware, OldInstallDoesNotTripDateExpression) {
   EXPECT_EQ(run_check(entries, {"warn=install_date > -7d"}, response), PB::Common::ResultCode::OK) << join_lines(response);
 }
 
+TEST(CheckInstalledSoftware, PackageStatusKeywordAndDeprecatedStatusAliasBothParse) {
+  // "status" is a deprecated alias for "package_status" (renamed to avoid
+  // clashing with the generic status summary keyword); both must parse.
+  for (const std::string &keyword : {std::string("package_status"), std::string("status")}) {
+    PB::Commands::QueryResponseMessage::Response response;
+    EXPECT_EQ(run_check(sample_entries(), {"filter=" + keyword + " = 'installed'"}, response), PB::Common::ResultCode::OK)
+        << keyword << ": " << join_lines(response);
+    EXPECT_NE(join_lines(response).find("2 software packages installed"), std::string::npos) << keyword << ": " << join_lines(response);
+  }
+}
+
 TEST(CheckInstalledSoftware, EmptyMatchSetTakesEmptyState) {
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run_check(sample_entries(), {"filter=name like 'zz_no_such_package_zz'"}, response), PB::Common::ResultCode::OK) << join_lines(response);

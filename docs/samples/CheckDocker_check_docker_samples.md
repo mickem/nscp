@@ -27,7 +27,7 @@ CRITICAL: old-job=exited
 **Use the container keywords in the output:**
 
 ```
-check_docker container=web-frontend "detail-syntax=%(names): %(image) %(status) ports=%(ports)" "top-syntax=${status}: ${list}"
+check_docker container=web-frontend "detail-syntax=%(names): %(image) %(container_status) ports=%(ports)" "top-syntax=${status}: ${list}"
 OK: web-frontend: nginx:alpine Up 2 hours ports=0.0.0.0:18080->80/tcp,:::18080->80/tcp
 ```
 

@@ -8,16 +8,9 @@ a key exchange or authenticate — it is a lightweight "is sshd up and answering
 probe.
 
 It builds on [`check_tcp`](#check_tcp) (the `service=ssh` preset), so it shares
-`check_tcp`'s keywords and thresholds:
-
-| Keyword     | Description                                             |
-|-------------|--------------------------------------------------------|
-| `host`      | Host the check connected to                            |
-| `port`      | Port the check connected to (default 22)               |
-| `time`      | Connection + banner-read time in milliseconds          |
-| `result`    | `ok`, `no_match`, `refused`, `timeout`, `resolve_failed`, … |
-| `response`  | The banner the server returned                          |
-| `connected` | `1` when the TCP connection succeeded                   |
+`check_tcp`'s keywords (`host`, `port`, `time`, `result`, `response`,
+`connected`) and thresholds; on an SSH check `response` holds the banner the
+server returned.
 
 Default thresholds: **warning** `time > 1000`, **critical**
 `time > 5000 or result != 'ok'`. A port that answers but is not SSH yields
@@ -36,16 +29,9 @@ SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5
     └── protocol
 ```
 
-| Keyword            | Type   | Description                                                                 |
-|--------------------|--------|-----------------------------------------------------------------------------|
-| `banner`           | string | The raw identification line, e.g. `SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5` |
-| `protocol`         | string | Protocol version as announced, e.g. `2.0` or `1.99`                         |
-| `protocol_major`   | int    | Major protocol version as a number (`2` for `2.0`)                          |
-| `protocol_minor`   | int    | Minor protocol version as a number (`0` for `2.0`, `99` for `1.99`)         |
-| `version`          | string | The whole software version field, e.g. `OpenSSH_9.6p1`                      |
-| `software`         | string | Software name, e.g. `OpenSSH`, `dropbear`, `OpenSSH_for_Windows`            |
-| `software_version` | string | Version number, e.g. `9.6p1`, `2022.83`                                     |
-| `comments`         | string | Anything after the first space, typically a distribution patch level        |
+`banner` keeps the raw identification line, and `protocol_major` /
+`protocol_minor` expose the protocol version as numbers (`2` and `0` for
+`2.0`; `99` is the minor for `1.99`).
 
 `software` / `software_version` are split on the last `_` that is followed by a
 digit, which keeps multi-word names intact (`OpenSSH_for_Windows_9.5` →

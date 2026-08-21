@@ -9,30 +9,6 @@ restricts nothing.
 Rules are read through `INetFwPolicy2::Rules`, the same store
 `Get-NetFirewallRule` uses, in a single pass across all profiles. No WMI needed.
 
-Keywords (one row per rule):
-
-| Keyword | Type | Meaning |
-|---|---|---|
-| `name` | string | Rule name as it appears in the firewall. |
-| `description` | string | Rule description. |
-| `group` | string | Rule group, e.g. `Remote Desktop` — often a resource reference like `@FirewallAPI.dll,-28752` for built-in rules. |
-| `direction` | string | `in` or `out`. |
-| `action` | string | `allow` or `block`. |
-| `protocol` | string | `tcp`, `udp`, `icmpv4`, `icmpv6`, `any`, or the raw protocol number (e.g. `41` for IPv6). |
-| `profiles` | string | `all`, or a comma separated subset of `domain`, `private`, `public`. |
-| `local_ports` / `remote_ports` | string | Ports the rule covers; `*` for any. |
-| `local_addresses` / `remote_addresses` | string | Addresses the rule covers; `*` for any. |
-| `application` | string | Program the rule is bound to (empty when it is not program specific). |
-| `service` | string | Service the rule is bound to. |
-| `state` | string | One-line summary of what the rule does; what the default output shows. |
-| `enabled` | bool | The rule is switched on. |
-| `present` | bool | False only for an `expect=` name that no enabled rule satisfies — this is the default critical. |
-| `expected` | bool | The rule matched one of the `expect=` names. |
-| `any_remote` | bool | Accepts traffic from any remote address. |
-| `any_port` | bool | Covers any local port. |
-| `any_any` | bool | An **enabled inbound allow** rule that restricts neither. |
-| `edge_traversal` | bool | Accepts traffic that traversed a NAT device. |
-
 Options:
 
 | Option | Repeatable | Meaning |

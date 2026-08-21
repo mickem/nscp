@@ -26,7 +26,7 @@ Which one to use is controlled by the `mode=` argument:
 
 A `source` filter keyword is available in every mode (its value is the literal
 string `interface` or `adapter`), so you can write expressions such as
-`source = 'adapter' and total > 100000000` to scope thresholds to a particular
+`source = 'adapter' and throughput > 100000000` to scope thresholds to a particular
 source.
 
 ##### Identifying teamed adapters
@@ -73,7 +73,7 @@ what Windows tells it; it does not measure the link.
 | `usage_out`   | Reads as `0` - indistinguishable from a genuinely idle link |
 | `usage_total` | Reads as `0` - indistinguishable from a genuinely idle link |
 
-The byte-rate variables (`received`, `sent`, `total`) and their
+The byte-rate variables (`received`, `sent`, `throughput`) and their
 `*_human` companions are **not** derived from `Speed` and are unaffected
 by these caveats. They come straight from
 `Win32_PerfRawData_Tcpip_NetworkInterface` / `NetworkAdapter` cumulative
@@ -95,13 +95,13 @@ check_network "filter=speed_bps > 0" \
 
 For environments where percent thresholds are not viable (mixed wireless,
 heavy NIC-team use, lots of virtual adapters), prefer absolute byte-rate
-thresholds against `received`/`sent`/`total`, scoped to specific
+thresholds against `received`/`sent`/`throughput`, scoped to specific
 interfaces by name:
 
 ```
 check_network "filter=name = 'Ethernet 1'" \
-              "warning=total > 800000000" \
-              "critical=total > 950000000"
+              "warning=throughput > 800000000" \
+              "critical=throughput > 950000000"
 ```
 
 Both styles can be combined in a single check by using `filter` to scope

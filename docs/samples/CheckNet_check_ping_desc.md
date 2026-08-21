@@ -1,11 +1,8 @@
 #### Jitter
 
 Beyond "does it answer" (`loss`) and "how fast" (`time`), `check_ping` reports
-how *steady* the latency is:
-
-| Keyword  | Description                                                                                 |
-|----------|---------------------------------------------------------------------------------------------|
-| `jitter` | Mean variation between the round trip times, in ms. **`unknown` until `count` is 2 or more.** |
+how *steady* the latency is with `jitter`, the mean variation between the
+round trip times in ms.
 
 Jitter is the variation *between* packets, so it needs more than one. **`count`
 defaults to 1**, which leaves `jitter` unmeasured; raise it to measure:
@@ -57,12 +54,11 @@ average over the burst.
 #### TTL
 
 `ttl` and the `ttl=` argument are two different numbers that share a name, the
-same way `ping -t` and the `ttl=` in its output do:
-
-| Name              | Meaning                                                                        |
-|-------------------|--------------------------------------------------------------------------------|
-| `ttl=N` (argument)| TTL / hop limit stamped on the packets **we send**. `0` (default) keeps the system default. |
-| `${ttl}` (keyword)| TTL of the **reply we got back** — what is left of the remote host's own outgoing TTL after the return path. |
+same way `ping -t` and the `ttl=` in its output do. The `ttl=N` *argument* is
+the TTL / hop limit stamped on the packets **we send** (`0`, the default,
+keeps the system default); the `${ttl}` *keyword* is the TTL of the **reply we
+got back** — what is left of the remote host's own outgoing TTL after the
+return path.
 
 ```
 check_ping host=router.example.com "top-syntax=${list}" "detail-syntax=${host} replied with ttl=${ttl}"

@@ -27,10 +27,11 @@ filter_obj_handler::filter_obj_handler() {
   // Perf is emitted via the extra() perf-config; the default perf generator
   // names each metric "io_<keyword>" (e.g. io_swap_in, io_swap_in_bytes),
   // matching the Linux check_swap_io.
-  registry_.add_float("swap_in", &swap_obj::get_swap_in, "Pages paged in from disk per second");
-  registry_.add_float("swap_out", &swap_obj::get_swap_out, "Pages paged out to disk per second");
-  registry_.add_int_var("swap_in_bytes", &swap_obj::get_swap_in_bytes, "Bytes paged in per second");
-  registry_.add_int_var("swap_out_bytes", &swap_obj::get_swap_out_bytes, "Bytes paged out per second");
+  registry_.add_float("swap_in", &swap_obj::get_swap_in, "Pages paged in from disk per second (perfdata io_swap_in)");
+  registry_.add_float("swap_out", &swap_obj::get_swap_out, "Pages paged out to disk per second (perfdata io_swap_out)");
+  registry_.add_int_var("swap_in_bytes", &swap_obj::get_swap_in_bytes,
+                        "Bytes paged in per second — swap_in multiplied by the system page size (perfdata io_swap_in_bytes)");
+  registry_.add_int_var("swap_out_bytes", &swap_obj::get_swap_out_bytes, "Bytes paged out per second (perfdata io_swap_out_bytes)");
 }
 
 void check_swap_io_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,

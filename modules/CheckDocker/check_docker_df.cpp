@@ -146,7 +146,8 @@ struct df_obj_handler : public df_context {
         .add_int_var("containers", &df_obj::get_containers, "Number of containers (running and stopped)")
         .add_int_var("volumes", &df_obj::get_volumes, "Number of volumes")
         .add_int_var("unused_volumes", &df_obj::get_unused_volumes, "Number of volumes not referenced by any container");
-    registry_.add_int_var("images_size", type_size, &df_obj::get_images_size, "Disk used by images (bytes; supports units, e.g. images_size > 10G)")
+    registry_.add_int_var("images_size", type_size, &df_obj::get_images_size,
+                          "Disk used by all image layers, deduplicated as in docker system df (bytes; supports units, e.g. images_size > 10G)")
         .add_int_perf("B", "", " images size")
         .add_int_var("images_reclaimable", type_size, &df_obj::get_images_reclaimable, "Disk freed by pruning unused images (bytes)")
         .add_int_var("containers_size", type_size, &df_obj::get_containers_size, "Disk used by container writable layers (bytes)")

@@ -10,19 +10,6 @@ two questions operators actually ask:
 - **"Is KB\<n\> installed?"** — via the `hotfix=` option (vulnerability-response
   patch verification), or by testing the `ids` list directly.
 
-Keywords (a single aggregate row):
-
-| Keyword            | Description                                                                             |
-|--------------------|-----------------------------------------------------------------------------------------|
-| `count`            | Total number of installed hotfixes                                                      |
-| `age`              | Days since the newest hotfix was installed (`-1` if the install date is unknown)        |
-| `newest_id`        | HotFixID of the most recently installed hotfix                                          |
-| `newest_installed` | Its install date, as Windows reports it                                                 |
-| `ids`              | Semicolon-separated list of all installed HotFixIDs (`ids like 'KB5034441'` tests one)  |
-| `required`         | Number of hotfixes requested via `hotfix=`                                              |
-| `missing`          | Requested hotfixes that are not installed                                               |
-| `missing_ids`      | Semicolon-separated list of the missing requested hotfixes                              |
-
 The default threshold is `crit=missing > 0`, which is inert unless you pass one
 or more `hotfix=` options (a bare number is matched with an implicit `KB`
 prefix, so `hotfix=5034441` == `hotfix=KB5034441`). Age alerting is opt-in via

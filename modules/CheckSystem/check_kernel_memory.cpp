@@ -37,14 +37,16 @@ kernel_memory_obj make_kernel_memory_obj(const long long pool_paged, const long 
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
-  registry_.add_int_var("pool_paged", type_size, &kernel_memory_obj::get_pool_paged, "Paged pool bytes (supports size units, e.g. 'pool_paged > 2G')")
+  registry_.add_int_var("pool_paged", type_size, &kernel_memory_obj::get_pool_paged,
+                        "Paged pool bytes (counter 'Pool Paged Bytes'; supports size units, e.g. 'pool_paged > 2G'); renders human-readable")
       .add_int_var("pool_nonpaged", type_size, &kernel_memory_obj::get_pool_nonpaged,
-                   "Nonpaged pool bytes — steady growth here is the classic driver-leak signal")
-      .add_int_var("cache", type_size, &kernel_memory_obj::get_cache, "System file-cache bytes (Cache Bytes)");
+                   "Nonpaged pool bytes (counter 'Pool Nonpaged Bytes') — steady growth here is the classic driver-leak signal")
+      .add_int_var("cache", type_size, &kernel_memory_obj::get_cache, "System file-cache working set in bytes (counter 'Cache Bytes')");
   registry_.add_float("page_faults_per_sec", &kernel_memory_obj::get_page_faults,
-                      "Total page faults per second (soft + hard). Dominated by cheap soft faults and routinely very large on a healthy host — "
-                      "alert on hard_faults_per_sec instead")
-      .add_float("transition_faults_per_sec", &kernel_memory_obj::get_transition_faults, "Transition (soft) faults per second, resolved without disk I/O")
+                      "Total page faults per second (counter 'Page Faults/sec', soft + hard). Dominated by cheap soft faults and routinely very large on a "
+                      "healthy host — alert on hard_faults_per_sec instead")
+      .add_float("transition_faults_per_sec", &kernel_memory_obj::get_transition_faults,
+                 "Transition (soft) faults per second (counter 'Transition Faults/sec'), resolved without disk I/O — the dominant soft-fault kind")
       .add_float("hard_faults_per_sec", &kernel_memory_obj::get_hard_faults,
                  "Hard faults per second (Page Reads/sec): faults that had to read from disk — the fault-storm signal");
   // Render the three byte gauges human-readable; expressions keep comparing bytes.

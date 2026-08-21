@@ -675,6 +675,20 @@ TEST(CheckDiskHealth, LowFreeSpaceStillGoesCritical) {
   EXPECT_EQ(run_health_check(disk_health_check::join({}, df)), PB::Common::ResultCode::CRITICAL);
 }
 
+TEST(CheckDiskHealth, SizeKeywordAndDeprecatedTotalAliasResolveToDiskSize) {
+  // `size` is the total disk size in bytes; `total` is its deprecated alias.
+  // Both must resolve to the record's 100000-byte size — not to the generic
+  // `total` summary keyword (the row count, 1 here), which a check-registered
+  // variable shadows in threshold expressions.
+  PB::Commands::QueryResponseMessage::Response renamed;
+  run_health_check(one_space_row(), {"filter=none", "warning=size > 50000"}, renamed);
+  EXPECT_EQ(renamed.result(), PB::Common::ResultCode::WARNING) << all_messages(renamed);
+
+  PB::Commands::QueryResponseMessage::Response alias;
+  run_health_check(one_space_row(), {"filter=none", "warning=total > 50000"}, alias);
+  EXPECT_EQ(alias.result(), PB::Common::ResultCode::WARNING) << all_messages(alias);
+}
+
 // ============================================================================
 // Physical-disk device state (§4.1) — enum mapping, join, thresholds
 // ============================================================================

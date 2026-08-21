@@ -65,6 +65,17 @@
   perfdata), driven by `modern_filter::cli_helper` (`add_options(warn, crit,
   filter, syntax, empty_state)` + `add_syntax(top, detail, perf, empty, ok)`).
   See `CheckDisk/check_single_file.cpp` for a minimal template.
+- **Never name a check keyword after a generic summary keyword.** These names
+  are reserved by the filter engine (`generic_summary` in
+  `parsers/where/filter_handler_impl.hpp`): `count`, `total`, `ok_count`,
+  `warn_count`, `crit_count`, `problem_count`, `list`, `ok_list`, `warn_list`,
+  `crit_list`, `problem_list`, `detail_list`, `sep`, `status`. A check keyword
+  with one of these names half-works: it wins in `filter`/`warning`/`critical`
+  and `detail-syntax`, but `top-syntax` resolves the generic summary value and
+  the reference docs show the generic description instead of yours (the docs
+  pipeline folds it into the common keywords). Pick a distinct name
+  (`battery_status`, `updates`, `usage`, …); qualify with the check's noun when
+  in doubt.
 - Unit-test binaries have no generated module glue, so they must define the
   plugin singleton themselves (normally provided by `NSC_WRAP_DLL()`):
   `nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();`
@@ -74,9 +85,24 @@ Every new check command needs, under `docs/samples/`:
 - `<Module>_<command>_samples.md` — usage examples with real captured output.
 - `<Module>_<command>_desc.md` — clarifying prose (suffix is `_desc`, not `_docs`).
 
+Headings inside these files must be `####` or deeper: the content is merged
+into the generated reference page below a `### <command>` heading, so anything
+shallower escapes its command in the page hierarchy. Don't add keyword tables
+here — the generated "Filter keywords" section is the single source for those.
+
 These are merged into the reference docs by the downstream `nscp-docs` build.
 Scenario walkthroughs live in `docs/docs/scenarios/` and must be registered in
 both `docs/mkdocs.yml` (nav) and `docs/docs/scenarios/index.md`.
+
+Options shared by all filter checks (`filter`, `warning`, `top-syntax`, …, from
+`modern_filter::cli_helper` / `add_help`) are folded out of the per-command
+reference automatically: a marker line appended to their description in C++
+("Common option for all filter checks." / "Common option for all commands.")
+makes `docs_extract.py` store only `common_options: {name: default}` per query
+and the full text once in `docs/reference/common-options.yaml`, rendered as the
+shared `reference/common-options.md` page (generic filter keywords fold the same
+way via `common_fields`). A check-specific option must NOT carry the marker —
+its description then stays inline on the command's page.
 
 ## Integration tests
 **Every new check command must have at least one test under `tests/` that

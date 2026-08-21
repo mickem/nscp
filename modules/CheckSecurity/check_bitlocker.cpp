@@ -12,8 +12,8 @@ namespace bitlocker_filter {
 using parsers::where::type_bool;
 using parsers::where::type_int;
 filter_obj_handler::filter_obj_handler() {
-  registry_.add_string_var("drive", &filter_obj::get_drive, "Drive letter of the volume");
-  registry_.add_int_var("protected", type_bool, &filter_obj::get_protected, "True if BitLocker protection is on")
+  registry_.add_string_var("drive", &filter_obj::get_drive, "Drive letter of the volume (may be empty for non-lettered volumes)");
+  registry_.add_int_var("protected", type_bool, &filter_obj::get_protected, "True if BitLocker protection is on (protection_status is 1)")
       .add_int_var("protection_status", type_int, &filter_obj::get_protection_status, "Raw protection status (0 off, 1 on, 2 unknown)")
       .add_int_var("conversion_status", type_int, &filter_obj::get_conversion_status, "Raw conversion status (0 decrypted, 1 encrypted, ...)");
 }

@@ -129,6 +129,18 @@ TEST(CheckDocker, KeywordsAreExposed) {
   EXPECT_EQ(join_lines(response), "web|nginx:1.25|healthy|172.20.0.2|0.0.0.0:8080->80/tcp|env=prod");
 }
 
+TEST(CheckDocker, ContainerStatusKeywordAndDeprecatedAlias) {
+  // In record context (detail-syntax, filters) container_status carries the
+  // human readable status; the deprecated alias `status` must keep working.
+  fake_daemon daemon;
+  daemon.payload = TWO_CONTAINERS;
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_containers(daemon.factory(), {"filter=names = 'web'", "detail-syntax=%(container_status)|%(status)", "top-syntax=${list}"}, response),
+            PB::Common::ResultCode::OK)
+      << join_lines(response);
+  EXPECT_EQ(join_lines(response), "Up 3 hours (healthy)|Up 3 hours (healthy)");
+}
+
 TEST(CheckDocker, HealthFilterViaHasHealthCheck) {
   // The where-parser has no empty-string literal, so scoping to containers
   // with a health check goes through has_health_check.

@@ -31,7 +31,9 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("type", &filter_obj::get_type, "Record type that was queried (A, AAAA, MX, TXT, ...)");
   registry_.add_string_var("server", &filter_obj::get_server, "DNS server used (empty for the system resolver)");
   registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the lookup (ok, not_found, mismatch, error, ...)");
-  registry_.add_int_var("count", parsers::where::type_int, &filter_obj::get_count, "Number of records returned by the resolver");
+  registry_.add_int_var("records", parsers::where::type_int, &filter_obj::get_count, "Number of records returned by the resolver");
+  registry_.add_int_var("count", parsers::where::type_int, &filter_obj::get_count,
+                        "Deprecated alias for records (the name clashes with the generic count summary keyword).");
   registry_.add_int_var("time", parsers::where::type_int, &filter_obj::get_time, "Time taken by the lookup in milliseconds");
 }
 
@@ -281,7 +283,7 @@ void check_dns(const PB::Commands::QueryRequestMessage::Request &request, PB::Co
 
   filter f;
   filter_helper.add_options("time > 1000", "result != 'ok'", "", f.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${problem_list}", "${host} -> ${addresses} (${count}) in ${time}ms [${result}]", "${host}", "No DNS lookup performed",
+  filter_helper.add_syntax("${status}: ${problem_list}", "${host} -> ${addresses} (${records}) in ${time}ms [${result}]", "${host}", "No DNS lookup performed",
                            "%(status): %(list)");
   // clang-format off
   filter_helper.get_desc().add_options()

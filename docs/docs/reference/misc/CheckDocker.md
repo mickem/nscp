@@ -52,23 +52,6 @@ Three ways to use it:
   (`container_state != 'running'`), so combine it with `filter=` on hosts
   where exited one-shot containers are expected.
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword           | Description                                                                  |
-|-------------------|------------------------------------------------------------------------------|
-| `names`           | Container name(s), comma separated                                           |
-| `container_state` | `created`, `restarting`, `running`, `removing`, `paused`, `exited`, `dead` or `missing` |
-| `status`          | Human readable status, e.g. `Up 3 hours (healthy)`                           |
-| `health`          | Health-check state: `healthy`, `unhealthy`, `starting`, or empty without a health check |
-| `image`           | Image the container was created from                                         |
-| `image_id`        | Id of that image                                                             |
-| `id`              | Container id                                                                 |
-| `command`         | Command the container runs                                                   |
-| `ip`              | First IP address on any attached network                                     |
-| `ports`           | Published/exposed ports, e.g. `0.0.0.0:8080->80/tcp`                         |
-| `labels`          | Container labels as `key=value`, comma separated                             |
-| `created`         | When the container was created (date)                                        |
-
 The daemon endpoint is restricted to a local named pipe / absolute socket path:
 a UNC path in `host=` would make a Windows host authenticate to a remote SMB
 server with the service account, so anything non-local is refused outright.
@@ -112,7 +95,7 @@ CRITICAL: old-job=exited
 **Use the container keywords in the output:**
 
 ```
-check_docker container=web-frontend "detail-syntax=%(names): %(image) %(status) ports=%(ports)" "top-syntax=${status}: ${list}"
+check_docker container=web-frontend "detail-syntax=%(names): %(image) %(container_status) ports=%(ports)" "top-syntax=${status}: ${list}"
 OK: web-frontend: nginx:alpine Up 2 hours ports=0.0.0.0:18080->80/tcp,:::18080->80/tcp
 ```
 
@@ -137,149 +120,16 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
 === "Windows"
 
-    <a id="check_docker_warn"></a>
-    <a id="check_docker_crit"></a>
-    <a id="check_docker_help"></a>
-    <a id="check_docker_help-pb"></a>
-    <a id="check_docker_show-default"></a>
-    <a id="check_docker_help-short"></a>
     <a id="check_docker_container"></a>
 
-    | Option                                         | Default Value                | Description                                                                                                                    |
-    |------------------------------------------------|------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_filter)                 |                              | Filter which marks interesting items.                                                                                          |
-    | [warning](#check_docker_warning)               |                              | Filter which marks items which generates a warning state.                                                                      |
-    | warn                                           |                              | Short alias for warning                                                                                                        |
-    | [critical](#check_docker_critical)             | container_state != 'running' | Filter which marks items which generates a critical state.                                                                     |
-    | crit                                           |                              | Short alias for critical.                                                                                                      |
-    | [ok](#check_docker_ok)                         |                              | Filter which marks items which generates an ok state.                                                                          |
-    | [debug](#check_docker_debug)                   | 1)] (=0                      | Show debugging information in the log                                                                                          |
-    | [show-all](#check_docker_show-all)             | 1)] (=0                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).               |
-    | [empty-state](#check_docker_empty-state)       | warning                      | Return status to use when nothing matched filter.                                                                              |
-    | [perf-config](#check_docker_perf-config)       |                              | Performance data generation configuration                                                                                      |
-    | [escape-html](#check_docker_escape-html)       | 1)] (=0                      | Escape any < and > characters to prevent HTML encoding                                                                         |
-    | [list-separator](#check_docker_list-separator) | ,                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).      |
-    | help                                           | N/A                          | Show help screen (this screen)                                                                                                 |
-    | help-pb                                        | N/A                          | Show help screen as a protocol buffer payload                                                                                  |
-    | show-default                                   | N/A                          | Show default values for a given command                                                                                        |
-    | help-short                                     | N/A                          | Show help screen (short format).                                                                                               |
-    | [top-syntax](#check_docker_top-syntax)         | ${status}: ${list}           | Top level syntax.                                                                                                              |
-    | [ok-syntax](#check_docker_ok-syntax)           |                              | ok syntax.                                                                                                                     |
-    | [empty-syntax](#check_docker_empty-syntax)     | No containers found          | Empty syntax.                                                                                                                  |
-    | [detail-syntax](#check_docker_detail-syntax)   | ${names}=${container_state}  | Detail level syntax.                                                                                                           |
-    | [perf-syntax](#check_docker_perf-syntax)       | ${names}                     | Performance alias syntax.                                                                                                      |
-    | [host](#check_docker_host)                     | \\.\pipe\docker_engine       | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                 |
-    | [timeout](#check_docker_timeout)               | 10                           | Timeout for talking to the daemon, in seconds.                                                                                 |
-    | [all](#check_docker_all)                       | 1)] (=0                      | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
-    | container                                      |                              | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'. |
+    | Option                           | Default Value          | Description                                                                                                                    |
+    |----------------------------------|------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                 |
+    | [timeout](#check_docker_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                                                                 |
+    | [all](#check_docker_all)         | false                  | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
+    | container                        |                        | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'. |
 
 
-
-    <h5 id="check_docker_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_docker_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-    *Default Value:* `container_state != 'running'`
-
-    <h5 id="check_docker_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `warning`
-
-    <h5 id="check_docker_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `No containers found`
-
-    <h5 id="check_docker_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${names}=${container_state}`
-
-    <h5 id="check_docker_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${names}`
 
     <h5 id="check_docker_host">host:</h5>
 
@@ -297,153 +147,49 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Include stopped containers (docker ps -a); by default only running containers are listed.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
+
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                        | Default Value                |
+    |-----------------------------------------------------------------------------------------------|------------------------------|
+    | <a id="check_docker_filter"></a>[filter](../common-options.md#filter)                         |                              |
+    | <a id="check_docker_warning"></a>[warning](../common-options.md#warning)                      |                              |
+    | <a id="check_docker_warn"></a>[warn](../common-options.md#warn)                               |                              |
+    | <a id="check_docker_critical"></a>[critical](../common-options.md#critical)                   | container_state != 'running' |
+    | <a id="check_docker_crit"></a>[crit](../common-options.md#crit)                               |                              |
+    | <a id="check_docker_ok"></a>[ok](../common-options.md#ok)                                     |                              |
+    | <a id="check_docker_debug"></a>[debug](../common-options.md#debug)                            | false                        |
+    | <a id="check_docker_show-all"></a>[show-all](../common-options.md#show-all)                   | false                        |
+    | <a id="check_docker_empty-state"></a>[empty-state](../common-options.md#empty-state)          | warning                      |
+    | <a id="check_docker_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                              |
+    | <a id="check_docker_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                        |
+    | <a id="check_docker_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                            |
+    | <a id="check_docker_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}           |
+    | <a id="check_docker_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                              |
+    | <a id="check_docker_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No containers found          |
+    | <a id="check_docker_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}=${container_state}  |
+    | <a id="check_docker_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                     |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 === "Linux"
 
-    <a id="check_docker_warn"></a>
-    <a id="check_docker_crit"></a>
-    <a id="check_docker_help"></a>
-    <a id="check_docker_help-pb"></a>
-    <a id="check_docker_show-default"></a>
-    <a id="check_docker_help-short"></a>
     <a id="check_docker_container"></a>
 
-    | Option                                         | Default Value                | Description                                                                                                                    |
-    |------------------------------------------------|------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_filter)                 |                              | Filter which marks interesting items.                                                                                          |
-    | [warning](#check_docker_warning)               |                              | Filter which marks items which generates a warning state.                                                                      |
-    | warn                                           |                              | Short alias for warning                                                                                                        |
-    | [critical](#check_docker_critical)             | container_state != 'running' | Filter which marks items which generates a critical state.                                                                     |
-    | crit                                           |                              | Short alias for critical.                                                                                                      |
-    | [ok](#check_docker_ok)                         |                              | Filter which marks items which generates an ok state.                                                                          |
-    | [debug](#check_docker_debug)                   | 1)] (=0                      | Show debugging information in the log                                                                                          |
-    | [show-all](#check_docker_show-all)             | 1)] (=0                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).               |
-    | [empty-state](#check_docker_empty-state)       | warning                      | Return status to use when nothing matched filter.                                                                              |
-    | [perf-config](#check_docker_perf-config)       |                              | Performance data generation configuration                                                                                      |
-    | [escape-html](#check_docker_escape-html)       | 1)] (=0                      | Escape any < and > characters to prevent HTML encoding                                                                         |
-    | [list-separator](#check_docker_list-separator) | ,                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).      |
-    | help                                           | N/A                          | Show help screen (this screen)                                                                                                 |
-    | help-pb                                        | N/A                          | Show help screen as a protocol buffer payload                                                                                  |
-    | show-default                                   | N/A                          | Show default values for a given command                                                                                        |
-    | help-short                                     | N/A                          | Show help screen (short format).                                                                                               |
-    | [top-syntax](#check_docker_top-syntax)         | ${status}: ${list}           | Top level syntax.                                                                                                              |
-    | [ok-syntax](#check_docker_ok-syntax)           |                              | ok syntax.                                                                                                                     |
-    | [empty-syntax](#check_docker_empty-syntax)     | No containers found          | Empty syntax.                                                                                                                  |
-    | [detail-syntax](#check_docker_detail-syntax)   | ${names}=${container_state}  | Detail level syntax.                                                                                                           |
-    | [perf-syntax](#check_docker_perf-syntax)       | ${names}                     | Performance alias syntax.                                                                                                      |
-    | [host](#check_docker_host)                     | /var/run/docker.sock         | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                 |
-    | [timeout](#check_docker_timeout)               | 10                           | Timeout for talking to the daemon, in seconds.                                                                                 |
-    | [all](#check_docker_all)                       | 1)] (=0                      | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
-    | container                                      |                              | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'. |
+    | Option                           | Default Value        | Description                                                                                                                    |
+    |----------------------------------|----------------------|--------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                 |
+    | [timeout](#check_docker_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                                                                 |
+    | [all](#check_docker_all)         | false                | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
+    | container                        |                      | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'. |
 
 
-
-    <h5 id="check_docker_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_docker_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-    *Default Value:* `container_state != 'running'`
-
-    <h5 id="check_docker_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `warning`
-
-    <h5 id="check_docker_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `No containers found`
-
-    <h5 id="check_docker_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${names}=${container_state}`
-
-    <h5 id="check_docker_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${names}`
 
     <h5 id="check_docker_host">host:</h5>
 
@@ -461,7 +207,36 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Include stopped containers (docker ps -a); by default only running containers are listed.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
+
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                        | Default Value                |
+    |-----------------------------------------------------------------------------------------------|------------------------------|
+    | <a id="check_docker_filter"></a>[filter](../common-options.md#filter)                         |                              |
+    | <a id="check_docker_warning"></a>[warning](../common-options.md#warning)                      |                              |
+    | <a id="check_docker_warn"></a>[warn](../common-options.md#warn)                               |                              |
+    | <a id="check_docker_critical"></a>[critical](../common-options.md#critical)                   | container_state != 'running' |
+    | <a id="check_docker_crit"></a>[crit](../common-options.md#crit)                               |                              |
+    | <a id="check_docker_ok"></a>[ok](../common-options.md#ok)                                     |                              |
+    | <a id="check_docker_debug"></a>[debug](../common-options.md#debug)                            | false                        |
+    | <a id="check_docker_show-all"></a>[show-all](../common-options.md#show-all)                   | false                        |
+    | <a id="check_docker_empty-state"></a>[empty-state](../common-options.md#empty-state)          | warning                      |
+    | <a id="check_docker_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                              |
+    | <a id="check_docker_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                        |
+    | <a id="check_docker_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                            |
+    | <a id="check_docker_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}           |
+    | <a id="check_docker_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                              |
+    | <a id="check_docker_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No containers found          |
+    | <a id="check_docker_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}=${container_state}  |
+    | <a id="check_docker_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                     |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 <a id="check_docker_filter_keys"></a>
@@ -471,7 +246,8 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 |------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | command          | Command the container runs                                                                                                                      |
 | container_state  | Container state: created, restarting, running, removing, paused, exited, dead or missing (a requested container the daemon does not know about) |
-| created          | When the container was created                                                                                                                  |
+| container_status | Human readable status, e.g. 'Up 3 hours (healthy)'                                                                                              |
+| created          | When the container was created (date)                                                                                                           |
 | has_health_check | 1 when the container defines a health check, else 0                                                                                             |
 | health           | Health-check state: healthy, unhealthy, starting or empty when the container has no health check                                                |
 | id               | Container id                                                                                                                                    |
@@ -482,24 +258,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 | names            | Container name(s), comma separated                                                                                                              |
 | ports            | Published/exposed ports, e.g. 0.0.0.0:8080->80/tcp                                                                                              |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_docker_df
 
@@ -516,25 +275,6 @@ The daemon computes this by walking every image layer, container filesystem
 and volume, so **the request is slow on large hosts** (seconds to minutes).
 The check therefore defaults to six times the module's normal timeout; don't
 schedule it more often than you need it.
-
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword                   | Description                                                  |
-|---------------------------|--------------------------------------------------------------|
-| `images` / `unused_images`| Number of images / images no container uses                  |
-| `images_size`             | Disk used by all image layers, deduplicated (matches `docker system df`) |
-| `images_reclaimable`      | Freed by pruning unused images                               |
-| `containers`              | Number of containers (running and stopped)                   |
-| `containers_size`         | Disk used by container writable layers                       |
-| `containers_reclaimable`  | Freed by pruning stopped containers                          |
-| `volumes` / `unused_volumes` | Number of volumes / volumes no container references       |
-| `volumes_size`            | Disk used by volumes                                         |
-| `volumes_reclaimable`     | Freed by pruning unused volumes                              |
-| `build_cache_size`        | Disk used by the build cache                                 |
-| `build_cache_reclaimable` | Freed by pruning the idle build cache                        |
-| `total_size`              | Everything above combined                                    |
-| `total_reclaimable`       | Everything a full prune would free                           |
-| `message`                 | The human readable summary line                              |
 
 All `*_size` / `*_reclaimable` keywords are byte-sized: thresholds take a unit
 (`500M`, `10G`, `1T`); a bare number is rejected. No default thresholds — a
@@ -585,145 +325,12 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
 
 === "Windows"
 
-    <a id="check_docker_df_warn"></a>
-    <a id="check_docker_df_crit"></a>
-    <a id="check_docker_df_help"></a>
-    <a id="check_docker_df_help-pb"></a>
-    <a id="check_docker_df_show-default"></a>
-    <a id="check_docker_df_help-short"></a>
-
-    | Option                                            | Default Value                                 | Description                                                                                                               |
-    |---------------------------------------------------|-----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_df_filter)                 |                                               | Filter which marks interesting items.                                                                                     |
-    | [warning](#check_docker_df_warning)               |                                               | Filter which marks items which generates a warning state.                                                                 |
-    | warn                                              |                                               | Short alias for warning                                                                                                   |
-    | [critical](#check_docker_df_critical)             |                                               | Filter which marks items which generates a critical state.                                                                |
-    | crit                                              |                                               | Short alias for critical.                                                                                                 |
-    | [ok](#check_docker_df_ok)                         |                                               | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_df_debug)                   | 1)] (=0                                       | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_df_show-all)             | 1)] (=0                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-    | [empty-state](#check_docker_df_empty-state)       | unknown                                       | Return status to use when nothing matched filter.                                                                         |
-    | [perf-config](#check_docker_df_perf-config)       |                                               | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_df_escape-html)       | 1)] (=0                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
-    | [list-separator](#check_docker_df_list-separator) | ,                                             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-    | help                                              | N/A                                           | Show help screen (this screen)                                                                                            |
-    | help-pb                                           | N/A                                           | Show help screen as a protocol buffer payload                                                                             |
-    | show-default                                      | N/A                                           | Show default values for a given command                                                                                   |
-    | help-short                                        | N/A                                           | Show help screen (short format).                                                                                          |
-    | [top-syntax](#check_docker_df_top-syntax)         | ${status}: ${list}                            | Top level syntax.                                                                                                         |
-    | [ok-syntax](#check_docker_df_ok-syntax)           |                                               | ok syntax.                                                                                                                |
-    | [empty-syntax](#check_docker_df_empty-syntax)     | %(status): No disk usage information returned | Empty syntax.                                                                                                             |
-    | [detail-syntax](#check_docker_df_detail-syntax)   | ${message}                                    | Detail level syntax.                                                                                                      |
-    | [perf-syntax](#check_docker_df_perf-syntax)       | docker                                        | Performance alias syntax.                                                                                                 |
-    | [host](#check_docker_df_host)                     | \\.\pipe\docker_engine                        | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                            |
-    | [timeout](#check_docker_df_timeout)               | 60                                            | Timeout for talking to the daemon, in seconds (this endpoint is slow on large hosts).                                     |
+    | Option                              | Default Value          | Description                                                                           |
+    |-------------------------------------|------------------------|---------------------------------------------------------------------------------------|
+    | [host](#check_docker_df_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).        |
+    | [timeout](#check_docker_df_timeout) | 60                     | Timeout for talking to the daemon, in seconds (this endpoint is slow on large hosts). |
 
 
-
-    <h5 id="check_docker_df_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_df_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_docker_df_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-
-    <h5 id="check_docker_df_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_df_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_df_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_df_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `unknown`
-
-    <h5 id="check_docker_df_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_df_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_df_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_df_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_df_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_df_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `%(status): No disk usage information returned`
-
-    <h5 id="check_docker_df_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${message}`
-
-    <h5 id="check_docker_df_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `docker`
 
     <h5 id="check_docker_df_host">host:</h5>
 
@@ -737,147 +344,43 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
 
     *Default Value:* `60`
 
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                           | Default Value                                 |
+    |--------------------------------------------------------------------------------------------------|-----------------------------------------------|
+    | <a id="check_docker_df_filter"></a>[filter](../common-options.md#filter)                         |                                               |
+    | <a id="check_docker_df_warning"></a>[warning](../common-options.md#warning)                      |                                               |
+    | <a id="check_docker_df_warn"></a>[warn](../common-options.md#warn)                               |                                               |
+    | <a id="check_docker_df_critical"></a>[critical](../common-options.md#critical)                   |                                               |
+    | <a id="check_docker_df_crit"></a>[crit](../common-options.md#crit)                               |                                               |
+    | <a id="check_docker_df_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
+    | <a id="check_docker_df_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
+    | <a id="check_docker_df_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                         |
+    | <a id="check_docker_df_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                       |
+    | <a id="check_docker_df_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                               |
+    | <a id="check_docker_df_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                         |
+    | <a id="check_docker_df_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                             |
+    | <a id="check_docker_df_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                            |
+    | <a id="check_docker_df_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                               |
+    | <a id="check_docker_df_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No disk usage information returned |
+    | <a id="check_docker_df_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${message}                                    |
+    | <a id="check_docker_df_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | docker                                        |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
 === "Linux"
 
-    <a id="check_docker_df_warn"></a>
-    <a id="check_docker_df_crit"></a>
-    <a id="check_docker_df_help"></a>
-    <a id="check_docker_df_help-pb"></a>
-    <a id="check_docker_df_show-default"></a>
-    <a id="check_docker_df_help-short"></a>
-
-    | Option                                            | Default Value                                 | Description                                                                                                               |
-    |---------------------------------------------------|-----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_df_filter)                 |                                               | Filter which marks interesting items.                                                                                     |
-    | [warning](#check_docker_df_warning)               |                                               | Filter which marks items which generates a warning state.                                                                 |
-    | warn                                              |                                               | Short alias for warning                                                                                                   |
-    | [critical](#check_docker_df_critical)             |                                               | Filter which marks items which generates a critical state.                                                                |
-    | crit                                              |                                               | Short alias for critical.                                                                                                 |
-    | [ok](#check_docker_df_ok)                         |                                               | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_df_debug)                   | 1)] (=0                                       | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_df_show-all)             | 1)] (=0                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-    | [empty-state](#check_docker_df_empty-state)       | unknown                                       | Return status to use when nothing matched filter.                                                                         |
-    | [perf-config](#check_docker_df_perf-config)       |                                               | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_df_escape-html)       | 1)] (=0                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
-    | [list-separator](#check_docker_df_list-separator) | ,                                             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-    | help                                              | N/A                                           | Show help screen (this screen)                                                                                            |
-    | help-pb                                           | N/A                                           | Show help screen as a protocol buffer payload                                                                             |
-    | show-default                                      | N/A                                           | Show default values for a given command                                                                                   |
-    | help-short                                        | N/A                                           | Show help screen (short format).                                                                                          |
-    | [top-syntax](#check_docker_df_top-syntax)         | ${status}: ${list}                            | Top level syntax.                                                                                                         |
-    | [ok-syntax](#check_docker_df_ok-syntax)           |                                               | ok syntax.                                                                                                                |
-    | [empty-syntax](#check_docker_df_empty-syntax)     | %(status): No disk usage information returned | Empty syntax.                                                                                                             |
-    | [detail-syntax](#check_docker_df_detail-syntax)   | ${message}                                    | Detail level syntax.                                                                                                      |
-    | [perf-syntax](#check_docker_df_perf-syntax)       | docker                                        | Performance alias syntax.                                                                                                 |
-    | [host](#check_docker_df_host)                     | /var/run/docker.sock                          | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                            |
-    | [timeout](#check_docker_df_timeout)               | 60                                            | Timeout for talking to the daemon, in seconds (this endpoint is slow on large hosts).                                     |
+    | Option                              | Default Value        | Description                                                                           |
+    |-------------------------------------|----------------------|---------------------------------------------------------------------------------------|
+    | [host](#check_docker_df_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).        |
+    | [timeout](#check_docker_df_timeout) | 60                   | Timeout for talking to the daemon, in seconds (this endpoint is slow on large hosts). |
 
 
-
-    <h5 id="check_docker_df_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_df_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_docker_df_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-
-    <h5 id="check_docker_df_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_df_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_df_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_df_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `unknown`
-
-    <h5 id="check_docker_df_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_df_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_df_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_df_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_df_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_df_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `%(status): No disk usage information returned`
-
-    <h5 id="check_docker_df_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${message}`
-
-    <h5 id="check_docker_df_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `docker`
 
     <h5 id="check_docker_df_host">host:</h5>
 
@@ -892,46 +395,58 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
     *Default Value:* `60`
 
 
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                           | Default Value                                 |
+    |--------------------------------------------------------------------------------------------------|-----------------------------------------------|
+    | <a id="check_docker_df_filter"></a>[filter](../common-options.md#filter)                         |                                               |
+    | <a id="check_docker_df_warning"></a>[warning](../common-options.md#warning)                      |                                               |
+    | <a id="check_docker_df_warn"></a>[warn](../common-options.md#warn)                               |                                               |
+    | <a id="check_docker_df_critical"></a>[critical](../common-options.md#critical)                   |                                               |
+    | <a id="check_docker_df_crit"></a>[crit](../common-options.md#crit)                               |                                               |
+    | <a id="check_docker_df_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
+    | <a id="check_docker_df_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
+    | <a id="check_docker_df_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                         |
+    | <a id="check_docker_df_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                       |
+    | <a id="check_docker_df_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                               |
+    | <a id="check_docker_df_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                         |
+    | <a id="check_docker_df_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                             |
+    | <a id="check_docker_df_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                            |
+    | <a id="check_docker_df_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                               |
+    | <a id="check_docker_df_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No disk usage information returned |
+    | <a id="check_docker_df_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${message}                                    |
+    | <a id="check_docker_df_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | docker                                        |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_docker_df_filter_keys"></a>
 #### Filter keywords
 
-| Option                  | Description                                                         |
-|-------------------------|---------------------------------------------------------------------|
-| build_cache_reclaimable | Disk freed by pruning the idle build cache (bytes)                  |
-| build_cache_size        | Disk used by the build cache (bytes)                                |
-| containers              | Number of containers (running and stopped)                          |
-| containers_reclaimable  | Disk freed by pruning stopped containers (bytes)                    |
-| containers_size         | Disk used by container writable layers (bytes)                      |
-| images                  | Number of images                                                    |
-| images_reclaimable      | Disk freed by pruning unused images (bytes)                         |
-| images_size             | Disk used by images (bytes; supports units, e.g. images_size > 10G) |
-| message                 | Human readable disk-usage summary                                   |
-| total_reclaimable       | Total disk a full prune would free (bytes)                          |
-| total_size              | Total disk used by docker (bytes)                                   |
-| unused_images           | Number of images not used by any container                          |
-| unused_volumes          | Number of volumes not referenced by any container                   |
-| volumes                 | Number of volumes                                                   |
-| volumes_reclaimable     | Disk freed by pruning unused volumes (bytes)                        |
-| volumes_size            | Disk used by volumes (bytes)                                        |
+| Option                  | Description                                                                                                        |
+|-------------------------|--------------------------------------------------------------------------------------------------------------------|
+| build_cache_reclaimable | Disk freed by pruning the idle build cache (bytes)                                                                 |
+| build_cache_size        | Disk used by the build cache (bytes)                                                                               |
+| containers              | Number of containers (running and stopped)                                                                         |
+| containers_reclaimable  | Disk freed by pruning stopped containers (bytes)                                                                   |
+| containers_size         | Disk used by container writable layers (bytes)                                                                     |
+| images                  | Number of images                                                                                                   |
+| images_reclaimable      | Disk freed by pruning unused images (bytes)                                                                        |
+| images_size             | Disk used by all image layers, deduplicated as in docker system df (bytes; supports units, e.g. images_size > 10G) |
+| message                 | Human readable disk-usage summary                                                                                  |
+| total_reclaimable       | Total disk a full prune would free (bytes)                                                                         |
+| total_size              | Total disk used by docker (bytes)                                                                                  |
+| unused_images           | Number of images not used by any container                                                                         |
+| unused_volumes          | Number of volumes not referenced by any container                                                                  |
+| volumes                 | Number of volumes                                                                                                  |
+| volumes_reclaimable     | Disk freed by pruning unused volumes (bytes)                                                                       |
+| volumes_size            | Disk used by volumes (bytes)                                                                                       |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_docker_info
 
@@ -945,19 +460,6 @@ container/image counts. A responding daemon is **OK** unless you threshold the
 counts; an unreachable daemon is **UNKNOWN** with the transport error — which
 makes this the natural "is docker itself healthy" companion to per-container
 `check_docker` checks.
-
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword      | Description                            |
-|--------------|----------------------------------------|
-| `version`    | Docker server version                  |
-| `name`       | Daemon host name                       |
-| `os`         | Operating system the daemon runs on    |
-| `containers` | Total number of containers             |
-| `running`    | Number of running containers           |
-| `paused`     | Number of paused containers            |
-| `stopped`    | Number of stopped containers           |
-| `images`     | Number of images                       |
 
 Count keywords used in thresholds are emitted as performance data.
 
@@ -999,145 +501,12 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
 === "Windows"
 
-    <a id="check_docker_info_warn"></a>
-    <a id="check_docker_info_crit"></a>
-    <a id="check_docker_info_help"></a>
-    <a id="check_docker_info_help-pb"></a>
-    <a id="check_docker_info_show-default"></a>
-    <a id="check_docker_info_help-short"></a>
-
-    | Option                                              | Default Value                                                                                                       | Description                                                                                                               |
-    |-----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_info_filter)                 |                                                                                                                     | Filter which marks interesting items.                                                                                     |
-    | [warning](#check_docker_info_warning)               |                                                                                                                     | Filter which marks items which generates a warning state.                                                                 |
-    | warn                                                |                                                                                                                     | Short alias for warning                                                                                                   |
-    | [critical](#check_docker_info_critical)             |                                                                                                                     | Filter which marks items which generates a critical state.                                                                |
-    | crit                                                |                                                                                                                     | Short alias for critical.                                                                                                 |
-    | [ok](#check_docker_info_ok)                         |                                                                                                                     | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_info_debug)                   | 1)] (=0                                                                                                             | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_info_show-all)             | 1)] (=0                                                                                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-    | [empty-state](#check_docker_info_empty-state)       | unknown                                                                                                             | Return status to use when nothing matched filter.                                                                         |
-    | [perf-config](#check_docker_info_perf-config)       |                                                                                                                     | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_info_escape-html)       | 1)] (=0                                                                                                             | Escape any < and > characters to prevent HTML encoding                                                                    |
-    | [list-separator](#check_docker_info_list-separator) | ,                                                                                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-    | help                                                | N/A                                                                                                                 | Show help screen (this screen)                                                                                            |
-    | help-pb                                             | N/A                                                                                                                 | Show help screen as a protocol buffer payload                                                                             |
-    | show-default                                        | N/A                                                                                                                 | Show default values for a given command                                                                                   |
-    | help-short                                          | N/A                                                                                                                 | Show help screen (short format).                                                                                          |
-    | [top-syntax](#check_docker_info_top-syntax)         | ${status}: ${list}                                                                                                  | Top level syntax.                                                                                                         |
-    | [ok-syntax](#check_docker_info_ok-syntax)           |                                                                                                                     | ok syntax.                                                                                                                |
-    | [empty-syntax](#check_docker_info_empty-syntax)     | %(status): No daemon information returned                                                                           | Empty syntax.                                                                                                             |
-    | [detail-syntax](#check_docker_info_detail-syntax)   | docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images | Detail level syntax.                                                                                                      |
-    | [perf-syntax](#check_docker_info_perf-syntax)       | ${name}                                                                                                             | Performance alias syntax.                                                                                                 |
-    | [host](#check_docker_info_host)                     | \\.\pipe\docker_engine                                                                                              | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                            |
-    | [timeout](#check_docker_info_timeout)               | 10                                                                                                                  | Timeout for talking to the daemon, in seconds.                                                                            |
+    | Option                                | Default Value          | Description                                                                    |
+    |---------------------------------------|------------------------|--------------------------------------------------------------------------------|
+    | [host](#check_docker_info_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). |
+    | [timeout](#check_docker_info_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                 |
 
 
-
-    <h5 id="check_docker_info_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_info_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_docker_info_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-
-    <h5 id="check_docker_info_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_info_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_info_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_info_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `unknown`
-
-    <h5 id="check_docker_info_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_info_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_info_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_info_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_info_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_info_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `%(status): No daemon information returned`
-
-    <h5 id="check_docker_info_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images`
-
-    <h5 id="check_docker_info_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${name}`
 
     <h5 id="check_docker_info_host">host:</h5>
 
@@ -1151,147 +520,43 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     *Default Value:* `10`
 
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                             | Default Value                                                                                                       |
+    |----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+    | <a id="check_docker_info_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                                     |
+    | <a id="check_docker_info_warning"></a>[warning](../common-options.md#warning)                      |                                                                                                                     |
+    | <a id="check_docker_info_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                     |
+    | <a id="check_docker_info_critical"></a>[critical](../common-options.md#critical)                   |                                                                                                                     |
+    | <a id="check_docker_info_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                     |
+    | <a id="check_docker_info_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                     |
+    | <a id="check_docker_info_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                               |
+    | <a id="check_docker_info_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                               |
+    | <a id="check_docker_info_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                                                             |
+    | <a id="check_docker_info_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                     |
+    | <a id="check_docker_info_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                               |
+    | <a id="check_docker_info_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                                   |
+    | <a id="check_docker_info_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                                  |
+    | <a id="check_docker_info_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                                                     |
+    | <a id="check_docker_info_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No daemon information returned                                                                           |
+    | <a id="check_docker_info_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images |
+    | <a id="check_docker_info_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                                                             |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
 === "Linux"
 
-    <a id="check_docker_info_warn"></a>
-    <a id="check_docker_info_crit"></a>
-    <a id="check_docker_info_help"></a>
-    <a id="check_docker_info_help-pb"></a>
-    <a id="check_docker_info_show-default"></a>
-    <a id="check_docker_info_help-short"></a>
-
-    | Option                                              | Default Value                                                                                                       | Description                                                                                                               |
-    |-----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_info_filter)                 |                                                                                                                     | Filter which marks interesting items.                                                                                     |
-    | [warning](#check_docker_info_warning)               |                                                                                                                     | Filter which marks items which generates a warning state.                                                                 |
-    | warn                                                |                                                                                                                     | Short alias for warning                                                                                                   |
-    | [critical](#check_docker_info_critical)             |                                                                                                                     | Filter which marks items which generates a critical state.                                                                |
-    | crit                                                |                                                                                                                     | Short alias for critical.                                                                                                 |
-    | [ok](#check_docker_info_ok)                         |                                                                                                                     | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_info_debug)                   | 1)] (=0                                                                                                             | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_info_show-all)             | 1)] (=0                                                                                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-    | [empty-state](#check_docker_info_empty-state)       | unknown                                                                                                             | Return status to use when nothing matched filter.                                                                         |
-    | [perf-config](#check_docker_info_perf-config)       |                                                                                                                     | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_info_escape-html)       | 1)] (=0                                                                                                             | Escape any < and > characters to prevent HTML encoding                                                                    |
-    | [list-separator](#check_docker_info_list-separator) | ,                                                                                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-    | help                                                | N/A                                                                                                                 | Show help screen (this screen)                                                                                            |
-    | help-pb                                             | N/A                                                                                                                 | Show help screen as a protocol buffer payload                                                                             |
-    | show-default                                        | N/A                                                                                                                 | Show default values for a given command                                                                                   |
-    | help-short                                          | N/A                                                                                                                 | Show help screen (short format).                                                                                          |
-    | [top-syntax](#check_docker_info_top-syntax)         | ${status}: ${list}                                                                                                  | Top level syntax.                                                                                                         |
-    | [ok-syntax](#check_docker_info_ok-syntax)           |                                                                                                                     | ok syntax.                                                                                                                |
-    | [empty-syntax](#check_docker_info_empty-syntax)     | %(status): No daemon information returned                                                                           | Empty syntax.                                                                                                             |
-    | [detail-syntax](#check_docker_info_detail-syntax)   | docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images | Detail level syntax.                                                                                                      |
-    | [perf-syntax](#check_docker_info_perf-syntax)       | ${name}                                                                                                             | Performance alias syntax.                                                                                                 |
-    | [host](#check_docker_info_host)                     | /var/run/docker.sock                                                                                                | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                            |
-    | [timeout](#check_docker_info_timeout)               | 10                                                                                                                  | Timeout for talking to the daemon, in seconds.                                                                            |
+    | Option                                | Default Value        | Description                                                                    |
+    |---------------------------------------|----------------------|--------------------------------------------------------------------------------|
+    | [host](#check_docker_info_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). |
+    | [timeout](#check_docker_info_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                 |
 
 
-
-    <h5 id="check_docker_info_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_info_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_docker_info_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-
-    <h5 id="check_docker_info_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_info_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_info_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_info_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `unknown`
-
-    <h5 id="check_docker_info_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_info_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_info_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_info_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_info_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_info_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `%(status): No daemon information returned`
-
-    <h5 id="check_docker_info_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images`
-
-    <h5 id="check_docker_info_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${name}`
 
     <h5 id="check_docker_info_host">host:</h5>
 
@@ -1304,6 +569,35 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     Timeout for talking to the daemon, in seconds.
 
     *Default Value:* `10`
+
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                             | Default Value                                                                                                       |
+    |----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+    | <a id="check_docker_info_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                                     |
+    | <a id="check_docker_info_warning"></a>[warning](../common-options.md#warning)                      |                                                                                                                     |
+    | <a id="check_docker_info_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                     |
+    | <a id="check_docker_info_critical"></a>[critical](../common-options.md#critical)                   |                                                                                                                     |
+    | <a id="check_docker_info_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                     |
+    | <a id="check_docker_info_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                     |
+    | <a id="check_docker_info_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                               |
+    | <a id="check_docker_info_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                               |
+    | <a id="check_docker_info_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                                                             |
+    | <a id="check_docker_info_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                     |
+    | <a id="check_docker_info_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                               |
+    | <a id="check_docker_info_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                                   |
+    | <a id="check_docker_info_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                                  |
+    | <a id="check_docker_info_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                                                     |
+    | <a id="check_docker_info_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No daemon information returned                                                                           |
+    | <a id="check_docker_info_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images |
+    | <a id="check_docker_info_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                                                             |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 <a id="check_docker_info_filter_keys"></a>
@@ -1320,24 +614,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 | stopped    | Number of stopped containers        |
 | version    | Docker server version               |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_docker_restarts
 
@@ -1356,18 +633,6 @@ Default thresholds encode the crash-loop signature: **warning** when
 recent start — a container that has been up for a month is fine no matter how
 bumpy its past), **critical** when `oom_killed = 1` (the last exit was an
 out-of-memory kill).
-
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword           | Description                                                           |
-|-------------------|-----------------------------------------------------------------------|
-| `names`           | Container name(s), comma separated                                    |
-| `image`           | Image the container was created from                                  |
-| `container_state` | `created`, `restarting`, `running`, `removing`, `paused`, `exited`, `dead` |
-| `restart_count`   | Restarts since the container was created                              |
-| `started`         | Seconds since the last start, `-1` if it never started; supports units (`started < 10m`) |
-| `exit_code`       | Exit code of the last exit (0 while running fine)                     |
-| `oom_killed`      | `1` when the last exit was an out-of-memory kill, else `0`            |
 
 `container=<name>` (repeatable) scopes the check to specific containers.
 Note that `restart_count` is cumulative for the container's lifetime; that is
@@ -1418,149 +683,15 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 
 === "Windows"
 
-    <a id="check_docker_restarts_warn"></a>
-    <a id="check_docker_restarts_crit"></a>
-    <a id="check_docker_restarts_help"></a>
-    <a id="check_docker_restarts_help-pb"></a>
-    <a id="check_docker_restarts_show-default"></a>
-    <a id="check_docker_restarts_help-short"></a>
     <a id="check_docker_restarts_container"></a>
 
-    | Option                                                  | Default Value                                           | Description                                                                                                               |
-    |---------------------------------------------------------|---------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_restarts_filter)                 |                                                         | Filter which marks interesting items.                                                                                     |
-    | [warning](#check_docker_restarts_warning)               | restart_count > 3 and started < 15m and started >= 0    | Filter which marks items which generates a warning state.                                                                 |
-    | warn                                                    |                                                         | Short alias for warning                                                                                                   |
-    | [critical](#check_docker_restarts_critical)             | oom_killed = 1                                          | Filter which marks items which generates a critical state.                                                                |
-    | crit                                                    |                                                         | Short alias for critical.                                                                                                 |
-    | [ok](#check_docker_restarts_ok)                         |                                                         | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_restarts_debug)                   | 1)] (=0                                                 | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_restarts_show-all)             | 1)] (=0                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-    | [empty-state](#check_docker_restarts_empty-state)       | ok                                                      | Return status to use when nothing matched filter.                                                                         |
-    | [perf-config](#check_docker_restarts_perf-config)       |                                                         | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_restarts_escape-html)       | 1)] (=0                                                 | Escape any < and > characters to prevent HTML encoding                                                                    |
-    | [list-separator](#check_docker_restarts_list-separator) | ,                                                       | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-    | help                                                    | N/A                                                     | Show help screen (this screen)                                                                                            |
-    | help-pb                                                 | N/A                                                     | Show help screen as a protocol buffer payload                                                                             |
-    | show-default                                            | N/A                                                     | Show default values for a given command                                                                                   |
-    | help-short                                              | N/A                                                     | Show help screen (short format).                                                                                          |
-    | [top-syntax](#check_docker_restarts_top-syntax)         | ${status}: ${list}                                      | Top level syntax.                                                                                                         |
-    | [ok-syntax](#check_docker_restarts_ok-syntax)           |                                                         | ok syntax.                                                                                                                |
-    | [empty-syntax](#check_docker_restarts_empty-syntax)     | No containers found                                     | Empty syntax.                                                                                                             |
-    | [detail-syntax](#check_docker_restarts_detail-syntax)   | ${names}: ${restart_count} restarts, ${container_state} | Detail level syntax.                                                                                                      |
-    | [perf-syntax](#check_docker_restarts_perf-syntax)       | ${names}                                                | Performance alias syntax.                                                                                                 |
-    | [host](#check_docker_restarts_host)                     | \\.\pipe\docker_engine                                  | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                            |
-    | [timeout](#check_docker_restarts_timeout)               | 10                                                      | Timeout for talking to the daemon, in seconds.                                                                            |
-    | container                                               |                                                         | Only inspect the named container (repeatable).                                                                            |
+    | Option                                    | Default Value          | Description                                                                    |
+    |-------------------------------------------|------------------------|--------------------------------------------------------------------------------|
+    | [host](#check_docker_restarts_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). |
+    | [timeout](#check_docker_restarts_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                 |
+    | container                                 |                        | Only inspect the named container (repeatable).                                 |
 
 
-
-    <h5 id="check_docker_restarts_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_restarts_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-    *Default Value:* `restart_count > 3 and started < 15m and started >= 0`
-
-    <h5 id="check_docker_restarts_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-    *Default Value:* `oom_killed = 1`
-
-    <h5 id="check_docker_restarts_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_restarts_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_restarts_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_restarts_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `ok`
-
-    <h5 id="check_docker_restarts_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_restarts_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_restarts_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_restarts_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_restarts_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_restarts_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `No containers found`
-
-    <h5 id="check_docker_restarts_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${names}: ${restart_count} restarts, ${container_state}`
-
-    <h5 id="check_docker_restarts_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${names}`
 
     <h5 id="check_docker_restarts_host">host:</h5>
 
@@ -1574,151 +705,46 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 
     *Default Value:* `10`
 
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                                 | Default Value                                           |
+    |--------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
+    | <a id="check_docker_restarts_filter"></a>[filter](../common-options.md#filter)                         |                                                         |
+    | <a id="check_docker_restarts_warning"></a>[warning](../common-options.md#warning)                      | restart_count > 3 and started < 15m and started >= 0    |
+    | <a id="check_docker_restarts_warn"></a>[warn](../common-options.md#warn)                               |                                                         |
+    | <a id="check_docker_restarts_critical"></a>[critical](../common-options.md#critical)                   | oom_killed = 1                                          |
+    | <a id="check_docker_restarts_crit"></a>[crit](../common-options.md#crit)                               |                                                         |
+    | <a id="check_docker_restarts_ok"></a>[ok](../common-options.md#ok)                                     |                                                         |
+    | <a id="check_docker_restarts_debug"></a>[debug](../common-options.md#debug)                            | false                                                   |
+    | <a id="check_docker_restarts_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                   |
+    | <a id="check_docker_restarts_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                      |
+    | <a id="check_docker_restarts_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                         |
+    | <a id="check_docker_restarts_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                   |
+    | <a id="check_docker_restarts_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                       |
+    | <a id="check_docker_restarts_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                      |
+    | <a id="check_docker_restarts_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                         |
+    | <a id="check_docker_restarts_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No containers found                                     |
+    | <a id="check_docker_restarts_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}: ${restart_count} restarts, ${container_state} |
+    | <a id="check_docker_restarts_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                                                |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
 === "Linux"
 
-    <a id="check_docker_restarts_warn"></a>
-    <a id="check_docker_restarts_crit"></a>
-    <a id="check_docker_restarts_help"></a>
-    <a id="check_docker_restarts_help-pb"></a>
-    <a id="check_docker_restarts_show-default"></a>
-    <a id="check_docker_restarts_help-short"></a>
     <a id="check_docker_restarts_container"></a>
 
-    | Option                                                  | Default Value                                           | Description                                                                                                               |
-    |---------------------------------------------------------|---------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_restarts_filter)                 |                                                         | Filter which marks interesting items.                                                                                     |
-    | [warning](#check_docker_restarts_warning)               | restart_count > 3 and started < 15m and started >= 0    | Filter which marks items which generates a warning state.                                                                 |
-    | warn                                                    |                                                         | Short alias for warning                                                                                                   |
-    | [critical](#check_docker_restarts_critical)             | oom_killed = 1                                          | Filter which marks items which generates a critical state.                                                                |
-    | crit                                                    |                                                         | Short alias for critical.                                                                                                 |
-    | [ok](#check_docker_restarts_ok)                         |                                                         | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_restarts_debug)                   | 1)] (=0                                                 | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_restarts_show-all)             | 1)] (=0                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-    | [empty-state](#check_docker_restarts_empty-state)       | ok                                                      | Return status to use when nothing matched filter.                                                                         |
-    | [perf-config](#check_docker_restarts_perf-config)       |                                                         | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_restarts_escape-html)       | 1)] (=0                                                 | Escape any < and > characters to prevent HTML encoding                                                                    |
-    | [list-separator](#check_docker_restarts_list-separator) | ,                                                       | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-    | help                                                    | N/A                                                     | Show help screen (this screen)                                                                                            |
-    | help-pb                                                 | N/A                                                     | Show help screen as a protocol buffer payload                                                                             |
-    | show-default                                            | N/A                                                     | Show default values for a given command                                                                                   |
-    | help-short                                              | N/A                                                     | Show help screen (short format).                                                                                          |
-    | [top-syntax](#check_docker_restarts_top-syntax)         | ${status}: ${list}                                      | Top level syntax.                                                                                                         |
-    | [ok-syntax](#check_docker_restarts_ok-syntax)           |                                                         | ok syntax.                                                                                                                |
-    | [empty-syntax](#check_docker_restarts_empty-syntax)     | No containers found                                     | Empty syntax.                                                                                                             |
-    | [detail-syntax](#check_docker_restarts_detail-syntax)   | ${names}: ${restart_count} restarts, ${container_state} | Detail level syntax.                                                                                                      |
-    | [perf-syntax](#check_docker_restarts_perf-syntax)       | ${names}                                                | Performance alias syntax.                                                                                                 |
-    | [host](#check_docker_restarts_host)                     | /var/run/docker.sock                                    | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                            |
-    | [timeout](#check_docker_restarts_timeout)               | 10                                                      | Timeout for talking to the daemon, in seconds.                                                                            |
-    | container                                               |                                                         | Only inspect the named container (repeatable).                                                                            |
+    | Option                                    | Default Value        | Description                                                                    |
+    |-------------------------------------------|----------------------|--------------------------------------------------------------------------------|
+    | [host](#check_docker_restarts_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere). |
+    | [timeout](#check_docker_restarts_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                 |
+    | container                                 |                      | Only inspect the named container (repeatable).                                 |
 
 
-
-    <h5 id="check_docker_restarts_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_restarts_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-    *Default Value:* `restart_count > 3 and started < 15m and started >= 0`
-
-    <h5 id="check_docker_restarts_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-    *Default Value:* `oom_killed = 1`
-
-    <h5 id="check_docker_restarts_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_restarts_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_restarts_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_restarts_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `ok`
-
-    <h5 id="check_docker_restarts_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_restarts_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_restarts_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_restarts_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_restarts_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_restarts_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `No containers found`
-
-    <h5 id="check_docker_restarts_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${names}: ${restart_count} restarts, ${container_state}`
-
-    <h5 id="check_docker_restarts_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${names}`
 
     <h5 id="check_docker_restarts_host">host:</h5>
 
@@ -1731,6 +757,35 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
     Timeout for talking to the daemon, in seconds.
 
     *Default Value:* `10`
+
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                                 | Default Value                                           |
+    |--------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
+    | <a id="check_docker_restarts_filter"></a>[filter](../common-options.md#filter)                         |                                                         |
+    | <a id="check_docker_restarts_warning"></a>[warning](../common-options.md#warning)                      | restart_count > 3 and started < 15m and started >= 0    |
+    | <a id="check_docker_restarts_warn"></a>[warn](../common-options.md#warn)                               |                                                         |
+    | <a id="check_docker_restarts_critical"></a>[critical](../common-options.md#critical)                   | oom_killed = 1                                          |
+    | <a id="check_docker_restarts_crit"></a>[crit](../common-options.md#crit)                               |                                                         |
+    | <a id="check_docker_restarts_ok"></a>[ok](../common-options.md#ok)                                     |                                                         |
+    | <a id="check_docker_restarts_debug"></a>[debug](../common-options.md#debug)                            | false                                                   |
+    | <a id="check_docker_restarts_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                   |
+    | <a id="check_docker_restarts_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                      |
+    | <a id="check_docker_restarts_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                         |
+    | <a id="check_docker_restarts_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                   |
+    | <a id="check_docker_restarts_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                       |
+    | <a id="check_docker_restarts_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                      |
+    | <a id="check_docker_restarts_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                         |
+    | <a id="check_docker_restarts_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No containers found                                     |
+    | <a id="check_docker_restarts_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}: ${restart_count} restarts, ${container_state} |
+    | <a id="check_docker_restarts_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                                                |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 <a id="check_docker_restarts_filter_keys"></a>
@@ -1746,24 +801,7 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 | restart_count   | How many times the container has been restarted (since creation)                                        |
 | started         | Seconds since the container last started, -1 when it never started (supports units, e.g. started < 10m) |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_docker_stats
 
@@ -1780,18 +818,6 @@ Sampling uses the daemon's `stream=false` stats mode, which takes two readings
 about a second apart so the CPU delta is meaningful — expect roughly **one
 second per sampled container**. On hosts with many containers, scope the check
 with `container=<name>` (repeatable) or accept the added latency.
-
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword        | Description                                                        |
-|----------------|--------------------------------------------------------------------|
-| `names`        | Container name(s), comma separated                                 |
-| `image`        | Image the container was created from                               |
-| `cpu_pct`      | CPU usage in percent of the host (like `docker stats`)             |
-| `memory_used`  | Memory used in bytes, page cache excluded; size units in thresholds (`memory_used > 200M`) |
-| `memory_limit` | Memory limit in bytes (the host's total memory when unlimited)     |
-| `memory_pct`   | Memory usage in percent of the limit                               |
-| `memory`       | Human readable usage, e.g. `45.2MB of 256MB` (display only)        |
 
 Size-typed thresholds need a unit (`1b`, `64k`, `200M`, `1G`); a bare number
 is rejected. No default thresholds: an idle container is OK until you say
@@ -1842,147 +868,15 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
 
 === "Windows"
 
-    <a id="check_docker_stats_warn"></a>
-    <a id="check_docker_stats_crit"></a>
-    <a id="check_docker_stats_help"></a>
-    <a id="check_docker_stats_help-pb"></a>
-    <a id="check_docker_stats_show-default"></a>
-    <a id="check_docker_stats_help-short"></a>
     <a id="check_docker_stats_container"></a>
 
-    | Option                                               | Default Value                                                | Description                                                                                                                   |
-    |------------------------------------------------------|--------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_stats_filter)                 |                                                              | Filter which marks interesting items.                                                                                         |
-    | [warning](#check_docker_stats_warning)               |                                                              | Filter which marks items which generates a warning state.                                                                     |
-    | warn                                                 |                                                              | Short alias for warning                                                                                                       |
-    | [critical](#check_docker_stats_critical)             |                                                              | Filter which marks items which generates a critical state.                                                                    |
-    | crit                                                 |                                                              | Short alias for critical.                                                                                                     |
-    | [ok](#check_docker_stats_ok)                         |                                                              | Filter which marks items which generates an ok state.                                                                         |
-    | [debug](#check_docker_stats_debug)                   | 1)] (=0                                                      | Show debugging information in the log                                                                                         |
-    | [show-all](#check_docker_stats_show-all)             | 1)] (=0                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).              |
-    | [empty-state](#check_docker_stats_empty-state)       | ok                                                           | Return status to use when nothing matched filter.                                                                             |
-    | [perf-config](#check_docker_stats_perf-config)       |                                                              | Performance data generation configuration                                                                                     |
-    | [escape-html](#check_docker_stats_escape-html)       | 1)] (=0                                                      | Escape any < and > characters to prevent HTML encoding                                                                        |
-    | [list-separator](#check_docker_stats_list-separator) | ,                                                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).     |
-    | help                                                 | N/A                                                          | Show help screen (this screen)                                                                                                |
-    | help-pb                                              | N/A                                                          | Show help screen as a protocol buffer payload                                                                                 |
-    | show-default                                         | N/A                                                          | Show default values for a given command                                                                                       |
-    | help-short                                           | N/A                                                          | Show help screen (short format).                                                                                              |
-    | [top-syntax](#check_docker_stats_top-syntax)         | ${status}: ${list}                                           | Top level syntax.                                                                                                             |
-    | [ok-syntax](#check_docker_stats_ok-syntax)           |                                                              | ok syntax.                                                                                                                    |
-    | [empty-syntax](#check_docker_stats_empty-syntax)     | No running containers                                        | Empty syntax.                                                                                                                 |
-    | [detail-syntax](#check_docker_stats_detail-syntax)   | ${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%) | Detail level syntax.                                                                                                          |
-    | [perf-syntax](#check_docker_stats_perf-syntax)       | ${names}                                                     | Performance alias syntax.                                                                                                     |
-    | [host](#check_docker_stats_host)                     | \\.\pipe\docker_engine                                       | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                |
-    | [timeout](#check_docker_stats_timeout)               | 10                                                           | Timeout for talking to the daemon, in seconds.                                                                                |
-    | container                                            |                                                              | Only sample the named container (repeatable). Sampling takes about a second per container, so scope this check on busy hosts. |
+    | Option                                 | Default Value          | Description                                                                                                                   |
+    |----------------------------------------|------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_stats_host)       | \\.\pipe\docker_engine | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                |
+    | [timeout](#check_docker_stats_timeout) | 10                     | Timeout for talking to the daemon, in seconds.                                                                                |
+    | container                              |                        | Only sample the named container (repeatable). Sampling takes about a second per container, so scope this check on busy hosts. |
 
 
-
-    <h5 id="check_docker_stats_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_stats_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_docker_stats_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-
-    <h5 id="check_docker_stats_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_stats_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_stats_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_stats_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `ok`
-
-    <h5 id="check_docker_stats_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_stats_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_stats_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_stats_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_stats_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_stats_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `No running containers`
-
-    <h5 id="check_docker_stats_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%)`
-
-    <h5 id="check_docker_stats_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${names}`
 
     <h5 id="check_docker_stats_host">host:</h5>
 
@@ -1996,149 +890,46 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
 
     *Default Value:* `10`
 
+
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                              | Default Value                                                |
+    |-----------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+    | <a id="check_docker_stats_filter"></a>[filter](../common-options.md#filter)                         |                                                              |
+    | <a id="check_docker_stats_warning"></a>[warning](../common-options.md#warning)                      |                                                              |
+    | <a id="check_docker_stats_warn"></a>[warn](../common-options.md#warn)                               |                                                              |
+    | <a id="check_docker_stats_critical"></a>[critical](../common-options.md#critical)                   |                                                              |
+    | <a id="check_docker_stats_crit"></a>[crit](../common-options.md#crit)                               |                                                              |
+    | <a id="check_docker_stats_ok"></a>[ok](../common-options.md#ok)                                     |                                                              |
+    | <a id="check_docker_stats_debug"></a>[debug](../common-options.md#debug)                            | false                                                        |
+    | <a id="check_docker_stats_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                        |
+    | <a id="check_docker_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                           |
+    | <a id="check_docker_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                              |
+    | <a id="check_docker_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                        |
+    | <a id="check_docker_stats_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                            |
+    | <a id="check_docker_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                           |
+    | <a id="check_docker_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                              |
+    | <a id="check_docker_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No running containers                                        |
+    | <a id="check_docker_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%) |
+    | <a id="check_docker_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                                                     |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
 === "Linux"
 
-    <a id="check_docker_stats_warn"></a>
-    <a id="check_docker_stats_crit"></a>
-    <a id="check_docker_stats_help"></a>
-    <a id="check_docker_stats_help-pb"></a>
-    <a id="check_docker_stats_show-default"></a>
-    <a id="check_docker_stats_help-short"></a>
     <a id="check_docker_stats_container"></a>
 
-    | Option                                               | Default Value                                                | Description                                                                                                                   |
-    |------------------------------------------------------|--------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-    | [filter](#check_docker_stats_filter)                 |                                                              | Filter which marks interesting items.                                                                                         |
-    | [warning](#check_docker_stats_warning)               |                                                              | Filter which marks items which generates a warning state.                                                                     |
-    | warn                                                 |                                                              | Short alias for warning                                                                                                       |
-    | [critical](#check_docker_stats_critical)             |                                                              | Filter which marks items which generates a critical state.                                                                    |
-    | crit                                                 |                                                              | Short alias for critical.                                                                                                     |
-    | [ok](#check_docker_stats_ok)                         |                                                              | Filter which marks items which generates an ok state.                                                                         |
-    | [debug](#check_docker_stats_debug)                   | 1)] (=0                                                      | Show debugging information in the log                                                                                         |
-    | [show-all](#check_docker_stats_show-all)             | 1)] (=0                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).              |
-    | [empty-state](#check_docker_stats_empty-state)       | ok                                                           | Return status to use when nothing matched filter.                                                                             |
-    | [perf-config](#check_docker_stats_perf-config)       |                                                              | Performance data generation configuration                                                                                     |
-    | [escape-html](#check_docker_stats_escape-html)       | 1)] (=0                                                      | Escape any < and > characters to prevent HTML encoding                                                                        |
-    | [list-separator](#check_docker_stats_list-separator) | ,                                                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).     |
-    | help                                                 | N/A                                                          | Show help screen (this screen)                                                                                                |
-    | help-pb                                              | N/A                                                          | Show help screen as a protocol buffer payload                                                                                 |
-    | show-default                                         | N/A                                                          | Show default values for a given command                                                                                       |
-    | help-short                                           | N/A                                                          | Show help screen (short format).                                                                                              |
-    | [top-syntax](#check_docker_stats_top-syntax)         | ${status}: ${list}                                           | Top level syntax.                                                                                                             |
-    | [ok-syntax](#check_docker_stats_ok-syntax)           |                                                              | ok syntax.                                                                                                                    |
-    | [empty-syntax](#check_docker_stats_empty-syntax)     | No running containers                                        | Empty syntax.                                                                                                                 |
-    | [detail-syntax](#check_docker_stats_detail-syntax)   | ${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%) | Detail level syntax.                                                                                                          |
-    | [perf-syntax](#check_docker_stats_perf-syntax)       | ${names}                                                     | Performance alias syntax.                                                                                                     |
-    | [host](#check_docker_stats_host)                     | /var/run/docker.sock                                         | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                |
-    | [timeout](#check_docker_stats_timeout)               | 10                                                           | Timeout for talking to the daemon, in seconds.                                                                                |
-    | container                                            |                                                              | Only sample the named container (repeatable). Sampling takes about a second per container, so scope this check on busy hosts. |
+    | Option                                 | Default Value        | Description                                                                                                                   |
+    |----------------------------------------|----------------------|-------------------------------------------------------------------------------------------------------------------------------|
+    | [host](#check_docker_stats_host)       | /var/run/docker.sock | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                |
+    | [timeout](#check_docker_stats_timeout) | 10                   | Timeout for talking to the daemon, in seconds.                                                                                |
+    | container                              |                      | Only sample the named container (repeatable). Sampling takes about a second per container, so scope this check on busy hosts. |
 
 
-
-    <h5 id="check_docker_stats_filter">filter:</h5>
-
-    Filter which marks interesting items.
-    Interesting items are items which will be included in the check.
-    They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-    <h5 id="check_docker_stats_warning">warning:</h5>
-
-    Filter which marks items which generates a warning state.
-    If anything matches this filter the return status will be escalated to warning.
-
-
-
-    <h5 id="check_docker_stats_critical">critical:</h5>
-
-    Filter which marks items which generates a critical state.
-    If anything matches this filter the return status will be escalated to critical.
-
-
-
-    <h5 id="check_docker_stats_ok">ok:</h5>
-
-    Filter which marks items which generates an ok state.
-    If anything matches this any previous state for this item will be reset to ok.
-
-
-    <h5 id="check_docker_stats_debug">debug:</h5>
-
-    Show debugging information in the log
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_stats_show-all">show-all:</h5>
-
-    Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_stats_empty-state">empty-state:</h5>
-
-    Return status to use when nothing matched filter.
-    If no filter is specified this will never happen unless the file is empty.
-
-    *Default Value:* `ok`
-
-    <h5 id="check_docker_stats_perf-config">perf-config:</h5>
-
-    Performance data generation configuration
-    TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-    <h5 id="check_docker_stats_escape-html">escape-html:</h5>
-
-    Escape any < and > characters to prevent HTML encoding
-
-    *Default Value:* `1)] (=0`
-
-    <h5 id="check_docker_stats_list-separator">list-separator:</h5>
-
-    String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-    Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-    Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-    The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-    *Default Value:* `, `
-
-    <h5 id="check_docker_stats_top-syntax">top-syntax:</h5>
-
-    Top level syntax.
-    Used to format the message to return can include text as well as special keywords which will include information from the checks.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${status}: ${list}`
-
-    <h5 id="check_docker_stats_ok-syntax">ok-syntax:</h5>
-
-    ok syntax.
-    DEPRECATED! This is the syntax for when an ok result is returned.
-    This value will not be used if your syntax contains %(list) or %(count).
-
-
-    <h5 id="check_docker_stats_empty-syntax">empty-syntax:</h5>
-
-    Empty syntax.
-    DEPRECATED! This is the syntax for when nothing matches the filter.
-
-    *Default Value:* `No running containers`
-
-    <h5 id="check_docker_stats_detail-syntax">detail-syntax:</h5>
-
-    Detail level syntax.
-    Used to format each resulting item in the message.
-    %(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-    To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-    *Default Value:* `${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%)`
-
-    <h5 id="check_docker_stats_perf-syntax">perf-syntax:</h5>
-
-    Performance alias syntax.
-    This is the syntax for the base names of the performance data.
-
-    *Default Value:* `${names}`
 
     <h5 id="check_docker_stats_host">host:</h5>
 
@@ -2153,37 +944,49 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
     *Default Value:* `10`
 
 
+    **Common options:**
+
+    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+    | Option                                                                                              | Default Value                                                |
+    |-----------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+    | <a id="check_docker_stats_filter"></a>[filter](../common-options.md#filter)                         |                                                              |
+    | <a id="check_docker_stats_warning"></a>[warning](../common-options.md#warning)                      |                                                              |
+    | <a id="check_docker_stats_warn"></a>[warn](../common-options.md#warn)                               |                                                              |
+    | <a id="check_docker_stats_critical"></a>[critical](../common-options.md#critical)                   |                                                              |
+    | <a id="check_docker_stats_crit"></a>[crit](../common-options.md#crit)                               |                                                              |
+    | <a id="check_docker_stats_ok"></a>[ok](../common-options.md#ok)                                     |                                                              |
+    | <a id="check_docker_stats_debug"></a>[debug](../common-options.md#debug)                            | false                                                        |
+    | <a id="check_docker_stats_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                        |
+    | <a id="check_docker_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                           |
+    | <a id="check_docker_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                              |
+    | <a id="check_docker_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                        |
+    | <a id="check_docker_stats_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                            |
+    | <a id="check_docker_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                           |
+    | <a id="check_docker_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                              |
+    | <a id="check_docker_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No running containers                                        |
+    | <a id="check_docker_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%) |
+    | <a id="check_docker_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                                                     |
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_docker_stats_filter_keys"></a>
 #### Filter keywords
 
-| Option       | Description                                                                     |
-|--------------|---------------------------------------------------------------------------------|
-| cpu_pct      | CPU usage in percent of the host (like docker stats)                            |
-| image        | Image the container was created from                                            |
-| memory       | Memory usage as human readable text, e.g. 45.2M of 512M                         |
-| memory_limit | Memory limit in bytes (the host's total memory when the container is unlimited) |
-| memory_pct   | Memory usage in percent of the container's limit                                |
-| memory_used  | Memory used in bytes (page cache excluded)                                      |
-| names        | Container name(s), comma separated                                              |
+| Option       | Description                                                                                                    |
+|--------------|----------------------------------------------------------------------------------------------------------------|
+| cpu_pct      | CPU usage in percent of the host (like docker stats)                                                           |
+| image        | Image the container was created from                                                                           |
+| memory       | Memory usage as human readable text, e.g. 45.2M of 512M (display only; threshold on memory_used or memory_pct) |
+| memory_limit | Memory limit in bytes (the host's total memory when the container is unlimited)                                |
+| memory_pct   | Memory usage in percent of the container's limit                                                               |
+| memory_used  | Memory used in bytes, page cache excluded (supports size units, e.g. memory_used > 200M)                       |
+| names        | Container name(s), comma separated                                                                             |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ## Configuration
 

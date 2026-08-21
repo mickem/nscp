@@ -11,15 +11,10 @@ The keywords fall into two groups:
   healthy datastore may sustain thousands of IOPS while a saturated one
   struggles at hundreds.
 * **Saturation** — `percent_disk_time`, `percent_idle_time`, `queue_length`,
-  and the latency keywords: whether the storage is keeping up.
+  and the latency keywords (`read_latency`, `write_latency`, `total_latency`,
+  in milliseconds): whether the storage is keeping up.
 
-### Latency keywords
-
-| Keyword         | Description                                                        |
-|-----------------|--------------------------------------------------------------------|
-| `read_latency`  | Average time per read in **milliseconds** over the interval.       |
-| `write_latency` | Average time per write in **milliseconds** over the interval.      |
-| `total_latency` | Average time per I/O (read + write) in milliseconds.               |
+#### Latency keywords
 
 Average latency per I/O is the most portable saturation signal: it is
 independent of the workload shape and comparable across machines. As a rule of
@@ -44,7 +39,7 @@ module's `collection interval` accordingly:
 collection interval=2s
 ```
 
-### Formatting byte values
+#### Formatting byte values
 
 The byte-rate keywords are plain byte counts, and the filter language has no
 arithmetic of its own, so three functions are available in both `detail-syntax`
@@ -67,7 +62,7 @@ client splits an argument on whitespace, so `format_bytes(value, 'MB')` is
 passed as two tokens and the option fails to parse. Over REST, and in
 `nsclient.ini`, both spellings work.
 
-### Performance data labels
+#### Performance data labels
 
 `percent_disk_time` is what this check is about, so it is graphed under the bare
 drive name — `'C:'` — as it always has been. Every other keyword adds its own:

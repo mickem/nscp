@@ -3,16 +3,8 @@ Checks the health and capacity of Windows Storage Spaces pools, read from
 primordial pool (the reservoir of unpooled physical disks) is excluded, so only
 real Storage Spaces are reported.
 
-| Keyword                 | Description                                                       |
-|-------------------------|-------------------------------------------------------------------|
-| `name`                  | Pool friendly name.                                               |
-| `health_status`         | `Healthy`, `Warning`, `Unhealthy` or `Unknown`.                   |
-| `operational_status`    | Synthesised single value: `OK`, `ReadOnly`, or the health string. |
-| `capacity`              | Total pool capacity in bytes (perf).                              |
-| `used`                  | Allocated (used) space in bytes (perf).                           |
-| `free`                  | Unallocated space in bytes (perf).                                |
-| `free_pct` / `used_pct` | Percentage free / used (perf).                                    |
-| `is_readonly`           | `1` if the pool is read-only.                                     |
+The capacity keywords (`capacity`, `used`, `free`, `free_pct`, `used_pct`) are
+emitted as performance data when used in thresholds.
 
 Defaults: WARNING on `Warning` health or `< 20%` free; CRITICAL on `Unhealthy`
 health or `< 10%` free. If the Storage namespace/class is unavailable (no Storage

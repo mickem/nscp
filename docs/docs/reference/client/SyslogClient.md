@@ -36,10 +36,6 @@ Submit information to the remote syslog server.
 <a id="submit_syslog_options"></a>
 #### Command-line Arguments
 
-<a id="submit_syslog_help"></a>
-<a id="submit_syslog_help-pb"></a>
-<a id="submit_syslog_show-default"></a>
-<a id="submit_syslog_help-short"></a>
 <a id="submit_syslog_host"></a>
 <a id="submit_syslog_port"></a>
 <a id="submit_syslog_address"></a>
@@ -67,10 +63,6 @@ Submit information to the remote syslog server.
 
 | Option            | Default Value | Description                                                                           |
 |-------------------|---------------|---------------------------------------------------------------------------------------|
-| help              | N/A           | Show help screen (this screen)                                                        |
-| help-pb           | N/A           | Show help screen as a protocol buffer payload                                         |
-| show-default      | N/A           | Show default values for a given command                                               |
-| help-short        | N/A           | Show help screen (short format).                                                      |
 | host              |               | The host of the host running the server                                               |
 | port              |               | The port of the host running the server                                               |
 | address           |               | The address (host:port) of the host running the server                                |
@@ -95,6 +87,11 @@ Submit information to the remote syslog server.
 | facility          |               | Facility of error message                                                             |
 | tag template      |               | Tag template (TODO)                                                                   |
 | message template  |               | Message template (TODO)                                                               |
+
+
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ## Configuration

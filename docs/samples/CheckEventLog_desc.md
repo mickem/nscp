@@ -1,4 +1,4 @@
-### Standard event-logs
+#### Standard event-logs
 
 The default command will monitor the application/system/security logs which usually have the generic errors.
 
@@ -8,7 +8,7 @@ L        cli CRITICAL: CRITICAL: 5 message(s) Application Bonjour Service (Task 
 L        cli  Performance data: 'problem_count'=5;0;0
 ```
 
-### Time and date
+#### Time and date
 
 The default time frame is 24 hours. This can be configured via the scan-range which specifies the number of hours from now to look.
 This might seem a bit off at first but all date and time ranges which reflect past times are "negative" in NSClient++.
@@ -23,7 +23,7 @@ But if you for instance want to get an error if the message is 24 hours old and 
 check_eventlog scan-range=-1w "warn=count gt 0" "critical=written > -24h"
 ```
 
-### Checking for specific messages
+#### Checking for specific messages
 
 There are many ways to find messages but the optimum solution is to filter on log, source (provider), and id.
 This is as this combination is guaranteed to be unique and still quick to look for.
@@ -44,7 +44,7 @@ Sometimes, rarely, the message is important and then it is best to add that as a
 check_eventlog "filter=provider = 'Microsoft-Windows-Security-SPP' and id = 903 and message like 'foo'"
 ```
 
-### Modern windows (channels)
+#### Modern windows (channels)
 
 NSClient++ also has had the ability to check all logs on modern windows machines.
 This works out of the box and you specify the path of the channel you want to look for with the file command.
@@ -58,7 +58,7 @@ A simple way to find the actual name of an event log channel is to view its prop
 check_eventlog scan-range=-100w show-all filter=none "file=Microsoft-Windows-AAD/Operational"
 ```
 
-### Checking for non errors
+#### Checking for non errors
 
 The default filters are filtering out only warnings, errors and critical messages:
 
@@ -74,7 +74,7 @@ Thus if you want to find a message which is not warnings, errors and critical me
 check_eventlog filter=none
 ```
 
-### Severity/Level/Error
+#### Severity/Level/Error
 
 In the previous event-log API it was common for people to use severity to filter out errors.
 This has never worked as severity was never message severity, it remains however, a common thing.
@@ -84,16 +84,7 @@ Regardless of version of API and version of NSClient++ the proper way to find er
 check_eventlog "filter=level = 'error'"
 ```
 
-While we have never been able to find an official list of the meaning of the level this is how NSClient++ interprets the values:
-
-| Level | Keyword in NSClient++                                   |
-|-------|---------------------------------------------------------|
-| 1     | critical                                                |
-| 2     | error                                                   |
-| 3     | warning, warn                                           |
-| 4     | informational, info, information, success, auditSuccess |
-| 5     | debug, verbose                                          |
-| #     | Specify any number for other values                     |
+While we have never been able to find an official list of the meaning of the levels, the mapping NSClient++ uses between the numeric values and the keywords (critical, error, warning, ...) is documented on the `level` keyword in the filter keywords table below.
 
 Thus if you run into a non standard level you can check this like so:
 
@@ -101,7 +92,7 @@ Thus if you run into a non standard level you can check this like so:
 check_eventlog "filter=level = 42"
 ```
 
-### Using Real-time monitoring
+#### Using Real-time monitoring
 
 The benefit of real-time monitoring of the event-log is that it is often significantly faster and more resources efficient.
 The drawback is that it is more complex to setup and normally requires passive monitoring (via NSCA/NRDP)
@@ -123,7 +114,7 @@ So in short we need to configure three things
 *   Add a filter which listens for events
 *   Setup a destination
 
-#### Enabling real-time filtering
+##### Enabling real-time filtering
 
 To setup real time filtering we only need a single flag (as well as the eventlog module).
 
@@ -183,6 +174,6 @@ If we check the log we should see something similar to this:
 * 3: This is the periodical "ok" message we get when there are not errors: `Notification 0: eventlog found no records`
 * 4: Here we can see the output when there is a message but it does not match our filter.
 
-#### Enabling cache to check actively
+##### Enabling cache to check actively
 
 **TODO**

@@ -65,6 +65,19 @@ TEST(CheckPendingReboot, PerCauseCriticalExpression) {
   EXPECT_EQ(run_reboot(o, {"critical=servicing = 1"}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
 
+TEST(CheckPendingReboot, SignalsKeywordAndDeprecatedCountAlias) {
+  reboot_obj o;
+  o.servicing = true;
+  o.windows_update = true;  // two distinct signals
+
+  PB::Commands::QueryResponseMessage::Response renamed;
+  EXPECT_EQ(run_reboot(o, {"warning=none", "critical=signals > 1"}, renamed), PB::Common::ResultCode::CRITICAL) << join_lines(renamed);
+
+  // The old name keeps working as a deprecated alias.
+  PB::Commands::QueryResponseMessage::Response alias;
+  EXPECT_EQ(run_reboot(o, {"warning=none", "critical=count > 1"}, alias), PB::Common::ResultCode::CRITICAL) << join_lines(alias);
+}
+
 TEST(CheckPendingReboot, PerCauseCriticalDoesNotTripOnOtherCause) {
   PB::Commands::QueryResponseMessage::Response response;
   reboot_obj o;

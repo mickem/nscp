@@ -167,7 +167,8 @@ filter_obj_handler::filter_obj_handler() {
   using parsers::where::type_bool;
   using parsers::where::type_int;
   registry_.add_string_var("printer", &filter_obj::get_printer, "Printer / queue name")
-      .add_string_var("status", &filter_obj::get_status, "Printer status: idle, printing, offline, stopped_printing, ...")
+      .add_string_var("printer_status", &filter_obj::get_status, "Printer status: idle, printing, offline, stopped_printing, warmup, ...")
+      .add_string_var("status", &filter_obj::get_status, "Deprecated alias for printer_status (the name clashes with the generic status summary keyword).")
       .add_string_var("error_state", &filter_obj::get_error_state, "Detected error state: no_error, no_paper, jammed, door_open, ...")
       .add_string_var("driver", &filter_obj::get_driver, "Print driver the queue uses")
       .add_string_var("port", &filter_obj::get_port, "Port the queue prints through (IP_x.x.x.x, USB001, PORTPROMPT:, ...)")
@@ -206,7 +207,7 @@ void check_printqueue_from(const PB::Commands::QueryRequestMessage::Request &req
   // by default — use the `offline` keyword to opt in. empty_state=ok: a host
   // with no printers is not a problem.
   filter_helper.add_options("jobs > 10", "error = 1", "", filter.get_filter_syntax(), "ok");
-  filter_helper.add_syntax("${status}: ${list}", "${printer}: ${status}, ${jobs} job(s)", "${printer}", "%(status): No printers found",
+  filter_helper.add_syntax("${status}: ${list}", "${printer}: ${printer_status}, ${jobs} job(s)", "${printer}", "%(status): No printers found",
                            "%(status): All %(count) printer(s) ok.");
 
   if (!filter_helper.parse_options()) return;

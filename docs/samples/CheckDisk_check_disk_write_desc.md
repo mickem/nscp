@@ -24,19 +24,6 @@ Behaviour at a glance:
   when you also want the timing keywords to say something meaningful about
   disk performance.
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword      | Description                                                     |
-|--------------|-----------------------------------------------------------------|
-| `path`       | Path of the test file                                           |
-| `size`       | Number of bytes written to (and read back from) the test file   |
-| `write_time` | Time spent creating, writing and flushing the file to disk (ms) |
-| `read_time`  | Time spent reading back and verifying the file (ms)             |
-| `total_time` | Total time for the create/write/read/delete cycle (ms)          |
-| `issues`     | Human-readable description of any problems found                |
-| `has_issues` | `1` when the write test failed, else `0`                        |
-| `message`    | Human readable outcome of the write test                        |
-
 Default thresholds: **critical** `has_issues = 1` (no default warning). Add
 time thresholds (e.g. `warning=total_time > 1000`) to also alert on a disk that
 is still writable but slow; keywords used in thresholds are emitted as

@@ -98,6 +98,18 @@ TEST(CheckPatchAge, PresentHotfixIsOk) {
   EXPECT_EQ(run_patch(sample_hotfixes(), parse_installed_on("3/1/2024"), {"hotfix=KB111"}, response), PB::Common::ResultCode::OK) << join_lines(response);
 }
 
+TEST(CheckPatchAge, PatchesKeywordTripsWarning) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_patch(sample_hotfixes(), parse_installed_on("3/1/2024"), {"warning=patches > 1"}, response), PB::Common::ResultCode::WARNING)
+      << join_lines(response);
+}
+
+TEST(CheckPatchAge, DeprecatedCountAliasStillWorks) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_patch(sample_hotfixes(), parse_installed_on("3/1/2024"), {"warning=count > 1"}, response), PB::Common::ResultCode::WARNING)
+      << join_lines(response);
+}
+
 TEST(CheckPatchAge, AgeWarningTrips) {
   PB::Commands::QueryResponseMessage::Response response;
   // Newest hotfix is 10 days old; warn above 5 days.

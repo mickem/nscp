@@ -39,9 +39,11 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("core", &filter_obj::get_core_s, &filter_obj::get_core_i, "The core to check (total or core ##)")
       .add_string_var("core_id", &filter_obj::get_core_id, &filter_obj::get_core_i, "The core to check (total or core_##)");
 
-  registry_.add_int_var("load", type_custom_pct, &filter_obj::get_total, "The current load for a given core (deprecated, use total)")
+  registry_.add_int_var("load", type_custom_pct, &filter_obj::get_total, "The current load for a given core (deprecated, use usage)")
       .add_int_perf("%")
-      .add_int_var("total", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
+      .add_int_var("usage", type_custom_pct, &filter_obj::get_total, "The current load used by user and system")
+      .add_int_perf("%", "", "_total")
+      .add_int_var("total", type_custom_pct, &filter_obj::get_total, "Deprecated alias for usage (the name clashes with the generic total summary keyword).")
       .add_int_perf("%", "", "_total")
       .add_int_var("user", type_custom_pct, &filter_obj::get_user, "The current load used by user applications")
       .add_int_perf("%", "", "_user")

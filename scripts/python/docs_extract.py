@@ -58,6 +58,48 @@ def classify_namespace(name):
     return 'misc'
 
 
+# --- Common options / keywords folding. -------------------------------------
+# Options whose long description ends with one of these marker lines are shared
+# by many commands (the marker is appended in C++: modern_filter::cli_helper
+# for the filter options, nscapi::program_options::add_help for the standard
+# options -- keep the exact texts in sync). Instead of repeating name,
+# description and flags for every query, such an option is folded into a slim
+# per-query `common_options: {name: default_value}` map (the default IS
+# query-specific) and its full description is written ONCE to
+# docs/reference/common-options.yaml, which docs_generate.py renders as a
+# shared reference page.
+OPTION_MARKERS = {
+    '\nCommon option for all filter checks.': 'filter',
+    '\nCommon option for all commands.': 'standard',
+}
+# Generic filter keywords carry this sentinel (filter_handler_impl.hpp). They
+# have no per-query data at all, so they fold into `common_fields: [name, ...]`.
+FIELD_MARKER = 'Common option for all checks.'
+
+
+class CommonRegistry(object):
+    # Collects the canonical description of every folded option/keyword across
+    # all modules of an extraction run; written once to common-options.yaml.
+    def __init__(self):
+        self.options = {}
+        self.fields = {}
+
+    def add_option(self, name, description, content_type, group):
+        rec = {'description': description, 'content_type': content_type, 'group': group}
+        old = self.options.get(name)
+        if old is not None and old != rec:
+            log_error('common option "%s" has diverging descriptions; keeping the first one seen' % name)
+            return
+        self.options[name] = rec
+
+    def add_field(self, name, description):
+        old = self.fields.get(name)
+        if old is not None and old != description:
+            log_error('common keyword "%s" has diverging descriptions; keeping the first one seen' % name)
+            return
+        self.fields[name] = description
+
+
 # --- Known path variables resolved via core.expand_path. Mirrors the fixed set
 # in service/path_manager.cpp get_path_for_key -- unknown keys there fall back to
 # base-path, so probing arbitrary names would not yield more matches.
@@ -209,18 +251,46 @@ def ser_field(f):
         'short_description': f.short_description,
         'long_description': f.long_description,
         # docs.py splits fields into generic (common to every check) vs own.
-        'generic': f.long_description.endswith('Common option for all checks.'),
+        'generic': f.long_description.endswith(FIELD_MARKER),
     }
 
 
-def ser_command(cinfo, unexpand):
+def match_option_marker(long_description):
+    # Returns (stripped_description, group) when the description carries a
+    # common-option marker, (None, None) otherwise.
+    for marker, group in OPTION_MARKERS.items():
+        if long_description.endswith(marker):
+            return long_description[:-len(marker)], group
+    return None, None
+
+
+def ser_command(cinfo, unexpand, commons):
     d = {'info': {'description': cinfo.info.description}}
-    params = [ser_param(p, unexpand) for p in cinfo.parameters.parameter]
+    params = []
+    common_options = {}
+    for p in cinfo.parameters.parameter:
+        stripped, group = match_option_marker(p.long_description)
+        if group:
+            common_options[p.name] = unexpand(p.default_value)
+            commons.add_option(p.name, stripped, int(p.content_type), group)
+        else:
+            params.append(ser_param(p, unexpand))
     if params:
         d['params'] = params
-    fields = [ser_field(f) for f in cinfo.parameters.fields]
+    if common_options:
+        d['common_options'] = common_options
+    fields = []
+    common_fields = []
+    for f in cinfo.parameters.fields:
+        if f.long_description.endswith(FIELD_MARKER):
+            common_fields.append(f.name)
+            commons.add_field(f.name, f.long_description[:-len(FIELD_MARKER)].rstrip())
+        else:
+            fields.append(ser_field(f))
     if fields:
         d['fields'] = fields
+    if common_fields:
+        d['common_fields'] = sorted(common_fields)
     return d
 
 
@@ -258,7 +328,7 @@ def ser_path(pc, unexpand):
     return d
 
 
-def serialize_module(root, module, minfo, unexpand):
+def serialize_module(root, module, minfo, unexpand, commons):
     slice = {
         'module': module,
         'namespace': classify_namespace(module),
@@ -272,7 +342,7 @@ def serialize_module(root, module, minfo, unexpand):
         if cinfo.info.description.startswith('Legacy version of'):
             continue
         if module in cinfo.info.plugin:
-            queries[c] = ser_command(cinfo, unexpand)
+            queries[c] = ser_command(cinfo, unexpand, commons)
     if queries:
         slice['queries'] = queries
 
@@ -373,6 +443,43 @@ def factor(trees):
         if ov[p]:
             data[p] = ov[p]
     return data
+
+
+COMMON_FILE_HEADER = """\
+# Canonical descriptions of the command-line options and filter keywords that
+# are shared by many commands (folded out of the per-module YAML files, which
+# only record `common_options: {name: default}` / `common_fields: [name, ...]`
+# per query). Written by docs_extract.py from the marker lines the C++ appends
+# to shared option descriptions; rendered once by docs_generate.py as
+# docs/reference/common-options.md.
+"""
+
+
+def write_common_yaml(yaml_dir, commons):
+    # Merge into the existing file rather than overwrite: a run that loads only
+    # a subset of modules (or one platform) must not drop entries contributed
+    # by another run.
+    path = os.path.join(yaml_dir, 'common-options.yaml')
+    data = {}
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+    options = data.get('options', {})
+    options.update(commons.options)
+    fields = data.get('fields', {})
+    fields.update(commons.fields)
+    data = {'options': options, 'fields': fields}
+    text = COMMON_FILE_HEADER + yaml.safe_dump(data, sort_keys=True, default_flow_style=False,
+                                               allow_unicode=True, width=100)
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            if f.read() == text:
+                log_debug('no changes detected in: %s' % path)
+                return
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(text)
+    log_debug('wrote %d common options / %d common keywords -> %s'
+              % (len(options), len(fields), path))
 
 
 def write_module_yaml(yaml_dir, module, platform, fresh_tree):
@@ -526,12 +633,14 @@ class DocumentationExtractor(object):
         unexpand = make_unexpand_path(path_cache)
 
         root = self.get_info()
+        commons = CommonRegistry()
         i = 0
         for module, minfo in sorted(root.plugins.items()):
-            slice = serialize_module(root, module, minfo, unexpand)
+            slice = serialize_module(root, module, minfo, unexpand, commons)
             write_module_yaml(yaml_dir, module, platform, slice)
             i += 1
             log_debug('Extracted module %d of %d [%s]' % (i, len(root.plugins), module))
+        write_common_yaml(yaml_dir, commons)
         log('Extracted %d modules (%s slice) into %s' % (i, platform, yaml_dir))
 
     def main(self, args):

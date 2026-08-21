@@ -5,18 +5,6 @@
 `DBCC SQLPERF(LOGSPACE)`) and produces one row per database, so availability
 and capacity policies can be expressed with filter expressions.
 
-Keywords (one row per database):
-
-| Keyword          | Description                                                                     |
-|------------------|---------------------------------------------------------------------------------|
-| `name`           | Database name                                                                   |
-| `state`          | `ONLINE`, `RESTORING`, `RECOVERING`, `RECOVERY_PENDING`, `SUSPECT`, `EMERGENCY` or `OFFLINE` |
-| `recovery_model` | `SIMPLE`, `FULL` or `BULK_LOGGED`                                               |
-| `is_read_only`   | `1` if the database is read-only                                                |
-| `data_size`      | Total data-file size in bytes (accepts units: `data_size > 10G`)                |
-| `log_size`       | Total log-file size in bytes (accepts units)                                    |
-| `log_used_pct`   | Percentage of the log in use, `-1` if unavailable                               |
-
 Defaults: **CRITICAL** on broken states
 (`state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING'`),
 **WARNING** on transitional or offline states

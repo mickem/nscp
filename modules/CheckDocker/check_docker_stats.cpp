@@ -76,12 +76,14 @@ struct stats_obj_handler : public stats_context {
   stats_obj_handler() {
     registry_.add_string_var("names", &stats_obj::get_names, "Container name(s), comma separated")
         .add_string_var("image", &stats_obj::get_image, "Image the container was created from")
-        .add_string_var("memory", &stats_obj::get_memory_human, "Memory usage as human readable text, e.g. 45.2M of 512M");
+        .add_string_var("memory", &stats_obj::get_memory_human,
+                        "Memory usage as human readable text, e.g. 45.2M of 512M (display only; threshold on memory_used or memory_pct)");
     registry_.add_int_var("cpu_pct", &stats_obj::get_cpu_pct, "CPU usage in percent of the host (like docker stats)")
         .add_int_perf("%", "", " cpu")
         .add_int_var("memory_pct", &stats_obj::get_memory_pct, "Memory usage in percent of the container's limit")
         .add_int_perf("%", "", " memory %");
-    registry_.add_int_var("memory_used", parsers::where::type_size, &stats_obj::get_memory_used, "Memory used in bytes (page cache excluded)")
+    registry_.add_int_var("memory_used", parsers::where::type_size, &stats_obj::get_memory_used,
+                          "Memory used in bytes, page cache excluded (supports size units, e.g. memory_used > 200M)")
         .add_int_perf("B", "", " memory")
         .add_int_var("memory_limit", parsers::where::type_size, &stats_obj::get_memory_limit,
                      "Memory limit in bytes (the host's total memory when the container is unlimited)")

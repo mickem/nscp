@@ -19,24 +19,6 @@ moving value:
   server fleet, or `warn=modules < slots`-style capacity planning via the
   `slots` count.
 
-Keywords (a single aggregate row):
-
-| Keyword          | Description                                                                       |
-|------------------|-----------------------------------------------------------------------------------|
-| `vendor`         | System vendor/manufacturer                                                        |
-| `model`          | System model / product name                                                       |
-| `uuid`           | SMBIOS system UUID                                                                |
-| `serial`         | System serial number                                                              |
-| `chassis`        | Chassis type name (`Desktop`, `Laptop`, `Rack Mount Chassis`, ...)                |
-| `chassis_type`   | Raw SMBIOS chassis type number (0 when unknown)                                   |
-| `chassis_serial` | Enclosure serial number                                                           |
-| `asset_tag`      | SMBIOS asset tag                                                                  |
-| `memory`         | Total installed memory (size units work: `memory < 64G`); renders human-readable  |
-| `modules`        | Number of populated memory modules                                                |
-| `slots`          | Total memory sockets on the board (0 when not reported)                           |
-| `memory_speed`   | Slowest populated module's configured clock in MHz (0 when unknown)               |
-| `module_list`    | Semicolon-separated per-DIMM inventory (`DIMM_A1: 32GB@4800MHz; ...`)             |
-
 There are no default thresholds (a bare call is an inventory line); `memory`
 and `modules` are always emitted as perf data (`hardware_memory`,
 `hardware_modules`). Per-item keywords such as `module_list` belong in

@@ -124,10 +124,10 @@ filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_string_var("name", &filter_obj::get_name, "Rule name as it appears in the firewall (localized on a localized Windows)")
       .add_string_var("description", &filter_obj::get_description, "Rule description")
-      .add_string_var("group", &filter_obj::get_group, "Rule group, e.g. 'Remote Desktop' or '@FirewallAPI.dll,-28752'")
+      .add_string_var("group", &filter_obj::get_group, "Rule group, e.g. 'Remote Desktop'; often a resource reference like '@FirewallAPI.dll,-28752' for built-in rules")
       .add_string_var("direction", &filter_obj::get_direction, "Direction the rule applies to: in or out")
       .add_string_var("action", &filter_obj::get_action, "What the rule does with matching traffic: allow or block")
-      .add_string_var("protocol", &filter_obj::get_protocol, "Protocol: tcp, udp, icmpv4, icmpv6, any, or the raw protocol number")
+      .add_string_var("protocol", &filter_obj::get_protocol, "Protocol: tcp, udp, icmpv4, icmpv6, any, or the raw protocol number (e.g. 41 for IPv6)")
       .add_string_var("profiles", &filter_obj::get_profiles, "Profiles the rule applies to: all, or a comma separated subset of domain, private and public")
       .add_string_var("local_ports", &filter_obj::get_local_ports, "Local ports the rule covers ('*' for any)")
       .add_string_var("remote_ports", &filter_obj::get_remote_ports, "Remote ports the rule covers ('*' for any)")

@@ -16,25 +16,6 @@ It answers three operator questions:
 - **"What is installed at all?"** — a bare call is an OK inventory with the
   package count as perf data.
 
-Keywords (one row per installed package):
-
-| Keyword             | Description                                                                          |
-|---------------------|--------------------------------------------------------------------------------------|
-| `name`              | Product display name                                                                 |
-| `version`           | Display version string (comparisons are lexical, not semver-aware)                  |
-| `publisher`         | Publisher / vendor                                                                   |
-| `install_date`      | Install date; supports date expressions (`install_date > -30d`). Unset when Windows did not record one |
-| `install_date_s`    | Raw `InstallDate` string as recorded (usually `YYYYMMDD`; often empty)               |
-| `install_location`  | Install folder                                                                       |
-| `uninstall_string`  | Uninstall command line                                                               |
-| `size`              | Estimated install size (from `EstimatedSize`); 0 when not recorded                   |
-| `hive`              | `machine` (HKLM) or `user` (per-user hive)                                           |
-| `user`              | Account (`DOMAIN\name`, or SID) owning a per-user install; empty for machine-wide    |
-| `architecture`      | `x64` or `x86` (registry view); empty for per-user installs                          |
-| `key`               | Uninstall registry sub-key name (product GUID or slug)                               |
-| `system_component`  | True for entries flagged `SystemComponent` (hidden from Add/Remove Programs)         |
-| `windows_installer` | True when the product was installed via Windows Installer (MSI)                      |
-
 The default filter is `system_component = 0`, matching what Add/Remove Programs
 shows; pass `filter=none` to include runtime/driver components. There are no
 default thresholds (a bare call is an inventory), an empty match set returns OK,

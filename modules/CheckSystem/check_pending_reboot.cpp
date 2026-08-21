@@ -36,17 +36,18 @@ filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_int_var("pending", parsers::where::type_bool, &reboot_obj::get_pending,
                         "1 if any pending-reboot signal is set (the aggregate flag most checks threshold on)")
-      .add_int_var("count", &reboot_obj::get_count, "Number of distinct pending-reboot signals currently set")
+      .add_int_var("signals", &reboot_obj::get_count, "Number of distinct pending-reboot signals currently set")
+      .add_int_var("count", &reboot_obj::get_count, "Deprecated alias for signals (the name clashes with the generic count summary keyword).")
       .add_int_var("servicing", parsers::where::type_bool, &reboot_obj::get_servicing,
-                   "1 if Component Based Servicing (CBS) has queued a reboot")
+                   "1 if Component Based Servicing (CBS) has queued a reboot (the 'Component Based Servicing\\RebootPending' key exists)")
       .add_int_var("windows_update", parsers::where::type_bool, &reboot_obj::get_windows_update,
                    "1 if Windows Update has queued a reboot (WindowsUpdate\\Auto Update\\RebootRequired)")
       .add_int_var("file_rename", parsers::where::type_bool, &reboot_obj::get_file_rename,
-                   "1 if PendingFileRenameOperations is queued (a file replacement awaits reboot)")
+                   "1 if 'Session Manager\\PendingFileRenameOperations' is present and non-empty (a file replacement awaits reboot)")
       .add_int_var("computer_rename", parsers::where::type_bool, &reboot_obj::get_computer_rename,
-                   "1 if the computer has been renamed but not yet rebooted")
+                   "1 if the computer has been renamed but not yet rebooted (ActiveComputerName differs from the pending ComputerName)")
       .add_int_var("domain_join", parsers::where::type_bool, &reboot_obj::get_domain_join,
-                   "1 if a domain join / SPN update is pending in Netlogon");
+                   "1 if a domain join / SPN update is pending in Netlogon (JoinDomain / AvoidSpnSet present)");
   registry_.add_string_var("reasons", &reboot_obj::get_reasons, "Comma-separated human-readable list of pending-reboot causes ('none' if clear)")
       .add_string_var("message", &reboot_obj::get_message, "Full status sentence, e.g. 'Reboot required: Windows Update'");
   // clang-format on
@@ -118,7 +119,7 @@ void check_pending_reboot_from(const PB::Commands::QueryRequestMessage::Request 
   // exactly one row, so the empty-state never applies.
   filter_helper.add_options("pending = 1", "", "", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${list}", "${message}", "reboot", "", "%(status): No reboot pending");
-  filter_helper.set_default_perf_config("extra(pending;count)");
+  filter_helper.set_default_perf_config("extra(pending;signals)");
 
   if (!filter_helper.parse_options()) return;
 

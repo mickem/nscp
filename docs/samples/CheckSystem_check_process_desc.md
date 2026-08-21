@@ -1,13 +1,9 @@
 #### Process owner and cross-agent portability keywords
 
-For portability `check_process` also exposes:
-
-| Keyword    | Description                                                                           |
-|------------|---------------------------------------------------------------------------------------|
-| `rss`      | Resident set size — a straight alias for `working_set` (same bytes / human value)     |
-| `username` | Process owner as `DOMAIN\name` (empty unless `resolve-owner=true`)                    |
-| `uid`      | Process owner SID string — the Windows analogue of a Unix uid (empty unless resolved) |
-| `state`    | Accepts `running` as a synonym for `started` (the rendered value stays `started`)     |
+For cross-agent portability `check_process` mirrors the Linux agent's keyword
+vocabulary: `rss` is a straight alias for `working_set` (same bytes and human
+value), and `state` accepts `running` as a synonym for `started` (the rendered
+value stays `started`), so the same expressions work on both platforms.
 
 **`resolve-owner`** (default `false`) turns on owner resolution: it reads each
 matching process's token to populate `username`/`uid`. It is opt-in because

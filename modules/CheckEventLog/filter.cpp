@@ -343,7 +343,9 @@ filter_obj_handler::filter_obj_handler() {
   if (eventlog::api::supports_modern()) {
     registry_.add_string_var("xml", &filter_obj::get_xml, "Get event as XML message.");
     registry_.add_converter(type_custom_type, &fun_convert_new_type);
-    registry_.add_int_var("level", type_custom_type, &filter_obj::get_el_type, "Severity level (error, warning, info, success, auditSuccess, auditFailure)");
+    registry_.add_int_var("level", type_custom_type, &filter_obj::get_el_type,
+                          "Severity level: critical (1), error (2), warning/warn (3), informational/info/information/success/auditSuccess (4), debug/verbose (5); "
+                          "use the raw number for other values (e.g. level = 42)");
   } else {
     registry_.add_int_var("level", type_custom_type, &filter_obj::get_el_type, "Severity level (error, warning, info)")
         .add_int_var("severity", type_custom_severity, &filter_obj::get_severity,

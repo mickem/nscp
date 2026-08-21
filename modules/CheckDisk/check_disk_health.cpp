@@ -164,7 +164,7 @@ filter_obj_handler::filter_obj_handler() {
   // both read as a full disk in the message and recorded a flat 0% in the
   // graphs (#1392). As optionals they render as `-`, compare false against
   // every numeric threshold, and emit no perfdata on those rows.
-  registry_.add_optional_int_var("total", space_value(&filter_obj::get_total), no_space, "Total disk size in bytes (I/O-only rows have none)")
+  registry_.add_optional_int_var("size", space_value(&filter_obj::get_total), no_space, "Total disk size in bytes (I/O-only rows have none)")
       .add_int_perf("B", "", "_total")
       .add_optional_int_var("free", space_value(&filter_obj::get_free), no_space, "Free disk space in bytes (I/O-only rows have none)")
       .add_int_perf("B", "", "_free")
@@ -177,6 +177,16 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("%")
       .add_optional_int_var("used_pct", space_value(&filter_obj::get_used_pct), no_space, "Percentage of used disk space (I/O-only rows have none)")
       .add_int_perf("%", "", "_used_pct");
+
+  // Deprecated alias: `total` predates the rename to `size` (the name clashes
+  // with the generic `total` summary keyword, which shadows it in top-syntax and
+  // in the generated docs; `size` also matches check_drivesize). Kept so
+  // existing filters keep working; same perf spec so existing graphs keep their
+  // series.
+  registry_
+      .add_optional_int_var("total", space_value(&filter_obj::get_total), no_space,
+                            "Deprecated alias for size (the name clashes with the generic total summary keyword).")
+      .add_int_perf("B", "", "_total");
 
   // I/O metrics
   registry_.add_int_var("read_bytes_per_sec", &filter_obj::get_read_bytes_per_sec, "Bytes read per second")
@@ -202,13 +212,14 @@ filter_obj_handler::filter_obj_handler() {
   // populate only on device rows (has_device = 1). has_device is a guard, not a
   // metric, so it emits no perfdata.
   registry_
-      .add_int_var("has_device", &filter_obj::get_has_device, "1 if the row carries physical-disk device state (a per-disk row), 0 otherwise")
+      .add_int_var("has_device", &filter_obj::get_has_device, "1 if the row carries physical-disk device state (a per-disk row), 0 otherwise (guard; no perfdata)")
       .no_perf();
   registry_.add_string_var("friendly_name", &filter_obj::get_friendly_name, "Physical disk friendly name (device rows)")
       .add_string_var("serial", &filter_obj::get_serial, "Physical disk serial number (device rows)")
       .add_string_var("media_type", &filter_obj::get_media_type, "Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)")
       .add_string_var("health_status", &filter_obj::get_health_status, "Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)")
-      .add_string_var("operational_status", &filter_obj::get_operational_status, "Physical disk operational status: OK, Offline, ... (device rows)");
+      .add_string_var("operational_status", &filter_obj::get_operational_status,
+                      "Physical disk operational status, synthesised single value: Offline, OK, or the health string (device rows)");
   registry_.add_int_var("disk_number", &filter_obj::get_disk_number, "Physical disk number/index (device rows)")
       .no_perf()
       .add_int_var("is_offline", &filter_obj::get_is_offline, "1 if the physical disk is offline (device rows)")
@@ -220,7 +231,8 @@ filter_obj_handler::filter_obj_handler() {
   // a raw byte count, and a row with no filesystem prints `-` instead of a
   // fabricated zero. Thresholds and perfdata keep using the numeric variables
   // above, exactly as in check_drivesize.
-  registry_.add_human_string("total", space_bytes_human(&filter_obj::get_total), "")
+  registry_.add_human_string("size", space_bytes_human(&filter_obj::get_total), "")
+      .add_human_string("total", space_bytes_human(&filter_obj::get_total), "")  // deprecated alias for size
       .add_human_string("free", space_bytes_human(&filter_obj::get_free), "")
       .add_human_string("used", space_bytes_human(&filter_obj::get_used), "")
       .add_human_string("user_free", space_bytes_human(&filter_obj::get_user_free), "")

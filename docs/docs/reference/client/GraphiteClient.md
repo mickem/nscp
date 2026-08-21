@@ -36,10 +36,6 @@ Submit information to the remote Graphite server.
 <a id="submit_graphite_options"></a>
 #### Command-line Arguments
 
-<a id="submit_graphite_help"></a>
-<a id="submit_graphite_help-pb"></a>
-<a id="submit_graphite_show-default"></a>
-<a id="submit_graphite_help-short"></a>
 <a id="submit_graphite_host"></a>
 <a id="submit_graphite_port"></a>
 <a id="submit_graphite_address"></a>
@@ -57,28 +53,29 @@ Submit information to the remote Graphite server.
 <a id="submit_graphite_batch"></a>
 <a id="submit_graphite_path"></a>
 
-| Option       | Default Value | Description                                                                           |
-|--------------|---------------|---------------------------------------------------------------------------------------|
-| help         | N/A           | Show help screen (this screen)                                                        |
-| help-pb      | N/A           | Show help screen as a protocol buffer payload                                         |
-| show-default | N/A           | Show default values for a given command                                               |
-| help-short   | N/A           | Show help screen (short format).                                                      |
-| host         |               | The host of the host running the server                                               |
-| port         |               | The port of the host running the server                                               |
-| address      |               | The address (host:port) of the host running the server                                |
-| timeout      |               | Number of seconds before connection times out (default=10)                            |
-| target       |               | Target to use (lookup connection info from config)                                    |
-| retry        |               | Number of times ti retry a failed connection attempt (default=2)                      |
-| retries      |               | legacy version of retry                                                               |
-| source-host  |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| sender-host  |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| command      |               | The name of the command that the remote daemon should run                             |
-| alias        |               | Same as command                                                                       |
-| message      |               | Message                                                                               |
-| result       |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                |
-| separator    |               | Separator to use for the batch command (default is |)                                 |
-| batch        |               | Add multiple records using the separator format is: command|result|message            |
-| path         |               |                                                                                       |
+| Option      | Default Value | Description                                                                           |
+|-------------|---------------|---------------------------------------------------------------------------------------|
+| host        |               | The host of the host running the server                                               |
+| port        |               | The port of the host running the server                                               |
+| address     |               | The address (host:port) of the host running the server                                |
+| timeout     |               | Number of seconds before connection times out (default=10)                            |
+| target      |               | Target to use (lookup connection info from config)                                    |
+| retry       |               | Number of times ti retry a failed connection attempt (default=2)                      |
+| retries     |               | legacy version of retry                                                               |
+| source-host |               | Source/sender host name (default is auto which means use the name of the actual host) |
+| sender-host |               | Source/sender host name (default is auto which means use the name of the actual host) |
+| command     |               | The name of the command that the remote daemon should run                             |
+| alias       |               | Same as command                                                                       |
+| message     |               | Message                                                                               |
+| result      |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                |
+| separator   |               | Separator to use for the batch command (default is |)                                 |
+| batch       |               | Add multiple records using the separator format is: command|result|message            |
+| path        |               |                                                                                       |
+
+
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ## Configuration

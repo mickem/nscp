@@ -44,8 +44,12 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("protocol", &filter_obj::get_protocol, "Protocol of this bucket (tcp, tcp6, udp, udp6, total)");
   registry_.add_string_var("family", &filter_obj::get_family, "Address family (ipv4, ipv6, any)");
   registry_.add_string_var("state", &filter_obj::get_state, "TCP state name (ESTABLISHED, LISTEN, ...) or 'all'");
-  registry_.add_int_var("count", parsers::where::type_int, &filter_obj::get_count, "Number of connections matching this bucket");
-  registry_.add_int_var("total", parsers::where::type_int, &filter_obj::get_total, "Total number of connections (only on the 'total' bucket)");
+  registry_.add_int_var("connections", parsers::where::type_int, &filter_obj::get_count, "Number of connections matching this bucket");
+  registry_.add_int_var("count", parsers::where::type_int, &filter_obj::get_count,
+                        "Deprecated alias for connections (the name clashes with the generic count summary keyword).");
+  registry_.add_int_var("total_connections", parsers::where::type_int, &filter_obj::get_total, "Total number of connections (only on the 'total' bucket)");
+  registry_.add_int_var("total", parsers::where::type_int, &filter_obj::get_total,
+                        "Deprecated alias for total_connections (the name clashes with the generic total summary keyword).");
   registry_.add_int_var("established", parsers::where::type_int, &filter_obj::get_established, "Number of TCP connections in ESTABLISHED state (total bucket)");
   registry_.add_int_var("listen", parsers::where::type_int, &filter_obj::get_listen, "Number of TCP sockets in LISTEN state (total bucket)");
   registry_.add_int_var("syn_sent", parsers::where::type_int, &filter_obj::get_syn_sent, "Number of TCP connections in SYN_SENT state (total bucket)");
@@ -350,8 +354,8 @@ void check_connections(const PB::Commands::QueryRequestMessage::Request &request
   modern_filter::cli_helper<filter> filter_helper(request, response, data);
 
   filter f;
-  filter_helper.add_options("total > 1000", "total > 2000", "protocol = 'total'", f.get_filter_syntax(), "ignored");
-  filter_helper.add_syntax("${status}: ${list}", "${protocol}/${state}: ${count}", "${protocol}_${state}", "No connection data", "%(status): %(list)");
+  filter_helper.add_options("total_connections > 1000", "total_connections > 2000", "protocol = 'total'", f.get_filter_syntax(), "ignored");
+  filter_helper.add_syntax("${status}: ${list}", "${protocol}/${state}: ${connections}", "${protocol}_${state}", "No connection data", "%(status): %(list)");
   // Emit useful default performance data for the 'total' bucket so the check
   // graphs out of the box even without warn/crit thresholds.
   filter_helper.set_default_perf_config("extra(total;established;listen;syn_sent;syn_recv;time_wait;close_wait;closing;fin_wait;last_ack;udp)");

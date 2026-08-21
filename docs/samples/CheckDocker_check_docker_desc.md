@@ -19,23 +19,6 @@ Three ways to use it:
   (`container_state != 'running'`), so combine it with `filter=` on hosts
   where exited one-shot containers are expected.
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword           | Description                                                                  |
-|-------------------|------------------------------------------------------------------------------|
-| `names`           | Container name(s), comma separated                                           |
-| `container_state` | `created`, `restarting`, `running`, `removing`, `paused`, `exited`, `dead` or `missing` |
-| `status`          | Human readable status, e.g. `Up 3 hours (healthy)`                           |
-| `health`          | Health-check state: `healthy`, `unhealthy`, `starting`, or empty without a health check |
-| `image`           | Image the container was created from                                         |
-| `image_id`        | Id of that image                                                             |
-| `id`              | Container id                                                                 |
-| `command`         | Command the container runs                                                   |
-| `ip`              | First IP address on any attached network                                     |
-| `ports`           | Published/exposed ports, e.g. `0.0.0.0:8080->80/tcp`                         |
-| `labels`          | Container labels as `key=value`, comma separated                             |
-| `created`         | When the container was created (date)                                        |
-
 The daemon endpoint is restricted to a local named pipe / absolute socket path:
 a UNC path in `host=` would make a Windows host authenticate to a remote SMB
 server with the service account, so anything non-local is refused outright.

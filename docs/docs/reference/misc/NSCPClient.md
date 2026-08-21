@@ -40,68 +40,125 @@ Request remote information via NSCP.
 <a id="check_remote_nscp_options"></a>
 #### Command-line Arguments
 
-<a id="check_remote_nscp_help"></a>
-<a id="check_remote_nscp_help-pb"></a>
-<a id="check_remote_nscp_show-default"></a>
-<a id="check_remote_nscp_help-short"></a>
-<a id="check_remote_nscp_host"></a>
-<a id="check_remote_nscp_port"></a>
-<a id="check_remote_nscp_address"></a>
-<a id="check_remote_nscp_timeout"></a>
-<a id="check_remote_nscp_target"></a>
-<a id="check_remote_nscp_retry"></a>
-<a id="check_remote_nscp_retries"></a>
-<a id="check_remote_nscp_source-host"></a>
-<a id="check_remote_nscp_sender-host"></a>
-<a id="check_remote_nscp_command"></a>
-<a id="check_remote_nscp_argument"></a>
-<a id="check_remote_nscp_separator"></a>
-<a id="check_remote_nscp_batch"></a>
-<a id="check_remote_nscp_certificate"></a>
-<a id="check_remote_nscp_dh"></a>
-<a id="check_remote_nscp_certificate-key"></a>
-<a id="check_remote_nscp_certificate-format"></a>
-<a id="check_remote_nscp_ca"></a>
-<a id="check_remote_nscp_verify"></a>
-<a id="check_remote_nscp_allowed-ciphers"></a>
-<a id="check_remote_nscp_password"></a>
+=== "Windows"
 
-| Option                        | Default Value | Description                                                                           |
-|-------------------------------|---------------|---------------------------------------------------------------------------------------|
-| help                          | N/A           | Show help screen (this screen)                                                        |
-| help-pb                       | N/A           | Show help screen as a protocol buffer payload                                         |
-| show-default                  | N/A           | Show default values for a given command                                               |
-| help-short                    | N/A           | Show help screen (short format).                                                      |
-| host                          |               | The host of the host running the server                                               |
-| port                          |               | The port of the host running the server                                               |
-| address                       |               | The address (host:port) of the host running the server                                |
-| timeout                       |               | Number of seconds before connection times out (default=10)                            |
-| target                        |               | Target to use (lookup connection info from config)                                    |
-| retry                         |               | Number of times ti retry a failed connection attempt (default=2)                      |
-| retries                       |               | legacy version of retry                                                               |
-| source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| command                       |               | The name of the command that the remote daemon should run                             |
-| argument                      |               | Set command line arguments                                                            |
-| separator                     |               | Separator to use for the batch command (default is |)                                 |
-| batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
-| certificate                   |               | The client certificate to use                                                         |
-| dh                            |               | The DH key to use                                                                     |
-| certificate-key               |               | Client certificate to use                                                             |
-| certificate-format            |               | Client certificate format                                                             |
-| ca                            |               | Certificate authority                                                                 |
-| verify                        |               | Client certificate format                                                             |
-| allowed-ciphers               |               | Client certificate format                                                             |
-| [ssl](#check_remote_nscp_ssl) | 1             | Initial an ssl handshake with the server.                                             |
-| password                      |               | Password                                                                              |
+    <a id="check_remote_nscp_host"></a>
+    <a id="check_remote_nscp_port"></a>
+    <a id="check_remote_nscp_address"></a>
+    <a id="check_remote_nscp_timeout"></a>
+    <a id="check_remote_nscp_target"></a>
+    <a id="check_remote_nscp_retry"></a>
+    <a id="check_remote_nscp_retries"></a>
+    <a id="check_remote_nscp_source-host"></a>
+    <a id="check_remote_nscp_sender-host"></a>
+    <a id="check_remote_nscp_command"></a>
+    <a id="check_remote_nscp_argument"></a>
+    <a id="check_remote_nscp_separator"></a>
+    <a id="check_remote_nscp_batch"></a>
+    <a id="check_remote_nscp_certificate"></a>
+    <a id="check_remote_nscp_dh"></a>
+    <a id="check_remote_nscp_certificate-key"></a>
+    <a id="check_remote_nscp_certificate-format"></a>
+    <a id="check_remote_nscp_ca"></a>
+    <a id="check_remote_nscp_verify"></a>
+    <a id="check_remote_nscp_allowed-ciphers"></a>
+    <a id="check_remote_nscp_password"></a>
+
+    | Option                        | Default Value | Description                                                                           |
+    |-------------------------------|---------------|---------------------------------------------------------------------------------------|
+    | host                          |               | The host of the host running the server                                               |
+    | port                          |               | The port of the host running the server                                               |
+    | address                       |               | The address (host:port) of the host running the server                                |
+    | timeout                       |               | Number of seconds before connection times out (default=10)                            |
+    | target                        |               | Target to use (lookup connection info from config)                                    |
+    | retry                         |               | Number of times ti retry a failed connection attempt (default=2)                      |
+    | retries                       |               | legacy version of retry                                                               |
+    | source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | command                       |               | The name of the command that the remote daemon should run                             |
+    | argument                      |               | Set command line arguments                                                            |
+    | separator                     |               | Separator to use for the batch command (default is |)                                 |
+    | batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
+    | certificate                   |               | The client certificate to use                                                         |
+    | dh                            |               | The DH key to use                                                                     |
+    | certificate-key               |               | Client certificate to use                                                             |
+    | certificate-format            |               | Client certificate format                                                             |
+    | ca                            |               | Certificate authority                                                                 |
+    | verify                        |               | Client certificate format                                                             |
+    | allowed-ciphers               |               | Client certificate format                                                             |
+    | [ssl](#check_remote_nscp_ssl) | true          | Initial an ssl handshake with the server.                                             |
+    | password                      |               | Password                                                                              |
 
 
 
-<h5 id="check_remote_nscp_ssl">ssl:</h5>
+    <h5 id="check_remote_nscp_ssl">ssl:</h5>
 
-Initial an ssl handshake with the server.
+    Initial an ssl handshake with the server.
 
-*Default Value:* `1`
+    *Default Value:* `true`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+=== "Linux"
+
+    <a id="check_remote_nscp_host"></a>
+    <a id="check_remote_nscp_port"></a>
+    <a id="check_remote_nscp_address"></a>
+    <a id="check_remote_nscp_timeout"></a>
+    <a id="check_remote_nscp_target"></a>
+    <a id="check_remote_nscp_retry"></a>
+    <a id="check_remote_nscp_retries"></a>
+    <a id="check_remote_nscp_source-host"></a>
+    <a id="check_remote_nscp_sender-host"></a>
+    <a id="check_remote_nscp_command"></a>
+    <a id="check_remote_nscp_argument"></a>
+    <a id="check_remote_nscp_separator"></a>
+    <a id="check_remote_nscp_batch"></a>
+    <a id="check_remote_nscp_certificate"></a>
+    <a id="check_remote_nscp_dh"></a>
+    <a id="check_remote_nscp_certificate-key"></a>
+    <a id="check_remote_nscp_certificate-format"></a>
+    <a id="check_remote_nscp_ca"></a>
+    <a id="check_remote_nscp_verify"></a>
+    <a id="check_remote_nscp_allowed-ciphers"></a>
+    <a id="check_remote_nscp_password"></a>
+
+    | Option                        | Default Value | Description                                                                           |
+    |-------------------------------|---------------|---------------------------------------------------------------------------------------|
+    | host                          |               | The host of the host running the server                                               |
+    | port                          |               | The port of the host running the server                                               |
+    | address                       |               | The address (host:port) of the host running the server                                |
+    | timeout                       |               | Number of seconds before connection times out (default=10)                            |
+    | target                        |               | Target to use (lookup connection info from config)                                    |
+    | retry                         |               | Number of times ti retry a failed connection attempt (default=2)                      |
+    | retries                       |               | legacy version of retry                                                               |
+    | source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | command                       |               | The name of the command that the remote daemon should run                             |
+    | argument                      |               | Set command line arguments                                                            |
+    | separator                     |               | Separator to use for the batch command (default is |)                                 |
+    | batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
+    | certificate                   |               | The client certificate to use                                                         |
+    | dh                            |               | The DH key to use                                                                     |
+    | certificate-key               |               | Client certificate to use                                                             |
+    | certificate-format            |               | Client certificate format                                                             |
+    | ca                            |               | Certificate authority                                                                 |
+    | verify                        |               | Client certificate format                                                             |
+    | allowed-ciphers               |               | Client certificate format                                                             |
+    | [ssl](#check_remote_nscp_ssl) | 1             | Initial an ssl handshake with the server.                                             |
+    | password                      |               | Password                                                                              |
+
+
+
+    <h5 id="check_remote_nscp_ssl">ssl:</h5>
+
+    Initial an ssl handshake with the server.
+
+    *Default Value:* `1`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ### exec_remote_nscp
@@ -117,68 +174,125 @@ Execute remote script via NSCP.
 <a id="exec_remote_nscp_options"></a>
 #### Command-line Arguments
 
-<a id="exec_remote_nscp_help"></a>
-<a id="exec_remote_nscp_help-pb"></a>
-<a id="exec_remote_nscp_show-default"></a>
-<a id="exec_remote_nscp_help-short"></a>
-<a id="exec_remote_nscp_host"></a>
-<a id="exec_remote_nscp_port"></a>
-<a id="exec_remote_nscp_address"></a>
-<a id="exec_remote_nscp_timeout"></a>
-<a id="exec_remote_nscp_target"></a>
-<a id="exec_remote_nscp_retry"></a>
-<a id="exec_remote_nscp_retries"></a>
-<a id="exec_remote_nscp_source-host"></a>
-<a id="exec_remote_nscp_sender-host"></a>
-<a id="exec_remote_nscp_command"></a>
-<a id="exec_remote_nscp_argument"></a>
-<a id="exec_remote_nscp_separator"></a>
-<a id="exec_remote_nscp_batch"></a>
-<a id="exec_remote_nscp_certificate"></a>
-<a id="exec_remote_nscp_dh"></a>
-<a id="exec_remote_nscp_certificate-key"></a>
-<a id="exec_remote_nscp_certificate-format"></a>
-<a id="exec_remote_nscp_ca"></a>
-<a id="exec_remote_nscp_verify"></a>
-<a id="exec_remote_nscp_allowed-ciphers"></a>
-<a id="exec_remote_nscp_password"></a>
+=== "Windows"
 
-| Option                       | Default Value | Description                                                                           |
-|------------------------------|---------------|---------------------------------------------------------------------------------------|
-| help                         | N/A           | Show help screen (this screen)                                                        |
-| help-pb                      | N/A           | Show help screen as a protocol buffer payload                                         |
-| show-default                 | N/A           | Show default values for a given command                                               |
-| help-short                   | N/A           | Show help screen (short format).                                                      |
-| host                         |               | The host of the host running the server                                               |
-| port                         |               | The port of the host running the server                                               |
-| address                      |               | The address (host:port) of the host running the server                                |
-| timeout                      |               | Number of seconds before connection times out (default=10)                            |
-| target                       |               | Target to use (lookup connection info from config)                                    |
-| retry                        |               | Number of times ti retry a failed connection attempt (default=2)                      |
-| retries                      |               | legacy version of retry                                                               |
-| source-host                  |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| sender-host                  |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| command                      |               | The name of the command that the remote daemon should run                             |
-| argument                     |               | Set command line arguments                                                            |
-| separator                    |               | Separator to use for the batch command (default is |)                                 |
-| batch                        |               | Add multiple records using the separator format is: command|argument|argument         |
-| certificate                  |               | The client certificate to use                                                         |
-| dh                           |               | The DH key to use                                                                     |
-| certificate-key              |               | Client certificate to use                                                             |
-| certificate-format           |               | Client certificate format                                                             |
-| ca                           |               | Certificate authority                                                                 |
-| verify                       |               | Client certificate format                                                             |
-| allowed-ciphers              |               | Client certificate format                                                             |
-| [ssl](#exec_remote_nscp_ssl) | 1             | Initial an ssl handshake with the server.                                             |
-| password                     |               | Password                                                                              |
+    <a id="exec_remote_nscp_host"></a>
+    <a id="exec_remote_nscp_port"></a>
+    <a id="exec_remote_nscp_address"></a>
+    <a id="exec_remote_nscp_timeout"></a>
+    <a id="exec_remote_nscp_target"></a>
+    <a id="exec_remote_nscp_retry"></a>
+    <a id="exec_remote_nscp_retries"></a>
+    <a id="exec_remote_nscp_source-host"></a>
+    <a id="exec_remote_nscp_sender-host"></a>
+    <a id="exec_remote_nscp_command"></a>
+    <a id="exec_remote_nscp_argument"></a>
+    <a id="exec_remote_nscp_separator"></a>
+    <a id="exec_remote_nscp_batch"></a>
+    <a id="exec_remote_nscp_certificate"></a>
+    <a id="exec_remote_nscp_dh"></a>
+    <a id="exec_remote_nscp_certificate-key"></a>
+    <a id="exec_remote_nscp_certificate-format"></a>
+    <a id="exec_remote_nscp_ca"></a>
+    <a id="exec_remote_nscp_verify"></a>
+    <a id="exec_remote_nscp_allowed-ciphers"></a>
+    <a id="exec_remote_nscp_password"></a>
+
+    | Option                       | Default Value | Description                                                                           |
+    |------------------------------|---------------|---------------------------------------------------------------------------------------|
+    | host                         |               | The host of the host running the server                                               |
+    | port                         |               | The port of the host running the server                                               |
+    | address                      |               | The address (host:port) of the host running the server                                |
+    | timeout                      |               | Number of seconds before connection times out (default=10)                            |
+    | target                       |               | Target to use (lookup connection info from config)                                    |
+    | retry                        |               | Number of times ti retry a failed connection attempt (default=2)                      |
+    | retries                      |               | legacy version of retry                                                               |
+    | source-host                  |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | sender-host                  |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | command                      |               | The name of the command that the remote daemon should run                             |
+    | argument                     |               | Set command line arguments                                                            |
+    | separator                    |               | Separator to use for the batch command (default is |)                                 |
+    | batch                        |               | Add multiple records using the separator format is: command|argument|argument         |
+    | certificate                  |               | The client certificate to use                                                         |
+    | dh                           |               | The DH key to use                                                                     |
+    | certificate-key              |               | Client certificate to use                                                             |
+    | certificate-format           |               | Client certificate format                                                             |
+    | ca                           |               | Certificate authority                                                                 |
+    | verify                       |               | Client certificate format                                                             |
+    | allowed-ciphers              |               | Client certificate format                                                             |
+    | [ssl](#exec_remote_nscp_ssl) | true          | Initial an ssl handshake with the server.                                             |
+    | password                     |               | Password                                                                              |
 
 
 
-<h5 id="exec_remote_nscp_ssl">ssl:</h5>
+    <h5 id="exec_remote_nscp_ssl">ssl:</h5>
 
-Initial an ssl handshake with the server.
+    Initial an ssl handshake with the server.
 
-*Default Value:* `1`
+    *Default Value:* `true`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+=== "Linux"
+
+    <a id="exec_remote_nscp_host"></a>
+    <a id="exec_remote_nscp_port"></a>
+    <a id="exec_remote_nscp_address"></a>
+    <a id="exec_remote_nscp_timeout"></a>
+    <a id="exec_remote_nscp_target"></a>
+    <a id="exec_remote_nscp_retry"></a>
+    <a id="exec_remote_nscp_retries"></a>
+    <a id="exec_remote_nscp_source-host"></a>
+    <a id="exec_remote_nscp_sender-host"></a>
+    <a id="exec_remote_nscp_command"></a>
+    <a id="exec_remote_nscp_argument"></a>
+    <a id="exec_remote_nscp_separator"></a>
+    <a id="exec_remote_nscp_batch"></a>
+    <a id="exec_remote_nscp_certificate"></a>
+    <a id="exec_remote_nscp_dh"></a>
+    <a id="exec_remote_nscp_certificate-key"></a>
+    <a id="exec_remote_nscp_certificate-format"></a>
+    <a id="exec_remote_nscp_ca"></a>
+    <a id="exec_remote_nscp_verify"></a>
+    <a id="exec_remote_nscp_allowed-ciphers"></a>
+    <a id="exec_remote_nscp_password"></a>
+
+    | Option                       | Default Value | Description                                                                           |
+    |------------------------------|---------------|---------------------------------------------------------------------------------------|
+    | host                         |               | The host of the host running the server                                               |
+    | port                         |               | The port of the host running the server                                               |
+    | address                      |               | The address (host:port) of the host running the server                                |
+    | timeout                      |               | Number of seconds before connection times out (default=10)                            |
+    | target                       |               | Target to use (lookup connection info from config)                                    |
+    | retry                        |               | Number of times ti retry a failed connection attempt (default=2)                      |
+    | retries                      |               | legacy version of retry                                                               |
+    | source-host                  |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | sender-host                  |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | command                      |               | The name of the command that the remote daemon should run                             |
+    | argument                     |               | Set command line arguments                                                            |
+    | separator                    |               | Separator to use for the batch command (default is |)                                 |
+    | batch                        |               | Add multiple records using the separator format is: command|argument|argument         |
+    | certificate                  |               | The client certificate to use                                                         |
+    | dh                           |               | The DH key to use                                                                     |
+    | certificate-key              |               | Client certificate to use                                                             |
+    | certificate-format           |               | Client certificate format                                                             |
+    | ca                           |               | Certificate authority                                                                 |
+    | verify                       |               | Client certificate format                                                             |
+    | allowed-ciphers              |               | Client certificate format                                                             |
+    | [ssl](#exec_remote_nscp_ssl) | 1             | Initial an ssl handshake with the server.                                             |
+    | password                     |               | Password                                                                              |
+
+
+
+    <h5 id="exec_remote_nscp_ssl">ssl:</h5>
+
+    Initial an ssl handshake with the server.
+
+    *Default Value:* `1`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ### remote_nscp_query
@@ -194,68 +308,125 @@ Request remote information via NSCP.
 <a id="remote_nscp_query_options"></a>
 #### Command-line Arguments
 
-<a id="remote_nscp_query_help"></a>
-<a id="remote_nscp_query_help-pb"></a>
-<a id="remote_nscp_query_show-default"></a>
-<a id="remote_nscp_query_help-short"></a>
-<a id="remote_nscp_query_host"></a>
-<a id="remote_nscp_query_port"></a>
-<a id="remote_nscp_query_address"></a>
-<a id="remote_nscp_query_timeout"></a>
-<a id="remote_nscp_query_target"></a>
-<a id="remote_nscp_query_retry"></a>
-<a id="remote_nscp_query_retries"></a>
-<a id="remote_nscp_query_source-host"></a>
-<a id="remote_nscp_query_sender-host"></a>
-<a id="remote_nscp_query_command"></a>
-<a id="remote_nscp_query_argument"></a>
-<a id="remote_nscp_query_separator"></a>
-<a id="remote_nscp_query_batch"></a>
-<a id="remote_nscp_query_certificate"></a>
-<a id="remote_nscp_query_dh"></a>
-<a id="remote_nscp_query_certificate-key"></a>
-<a id="remote_nscp_query_certificate-format"></a>
-<a id="remote_nscp_query_ca"></a>
-<a id="remote_nscp_query_verify"></a>
-<a id="remote_nscp_query_allowed-ciphers"></a>
-<a id="remote_nscp_query_password"></a>
+=== "Windows"
 
-| Option                        | Default Value | Description                                                                           |
-|-------------------------------|---------------|---------------------------------------------------------------------------------------|
-| help                          | N/A           | Show help screen (this screen)                                                        |
-| help-pb                       | N/A           | Show help screen as a protocol buffer payload                                         |
-| show-default                  | N/A           | Show default values for a given command                                               |
-| help-short                    | N/A           | Show help screen (short format).                                                      |
-| host                          |               | The host of the host running the server                                               |
-| port                          |               | The port of the host running the server                                               |
-| address                       |               | The address (host:port) of the host running the server                                |
-| timeout                       |               | Number of seconds before connection times out (default=10)                            |
-| target                        |               | Target to use (lookup connection info from config)                                    |
-| retry                         |               | Number of times ti retry a failed connection attempt (default=2)                      |
-| retries                       |               | legacy version of retry                                                               |
-| source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| command                       |               | The name of the command that the remote daemon should run                             |
-| argument                      |               | Set command line arguments                                                            |
-| separator                     |               | Separator to use for the batch command (default is |)                                 |
-| batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
-| certificate                   |               | The client certificate to use                                                         |
-| dh                            |               | The DH key to use                                                                     |
-| certificate-key               |               | Client certificate to use                                                             |
-| certificate-format            |               | Client certificate format                                                             |
-| ca                            |               | Certificate authority                                                                 |
-| verify                        |               | Client certificate format                                                             |
-| allowed-ciphers               |               | Client certificate format                                                             |
-| [ssl](#remote_nscp_query_ssl) | 1             | Initial an ssl handshake with the server.                                             |
-| password                      |               | Password                                                                              |
+    <a id="remote_nscp_query_host"></a>
+    <a id="remote_nscp_query_port"></a>
+    <a id="remote_nscp_query_address"></a>
+    <a id="remote_nscp_query_timeout"></a>
+    <a id="remote_nscp_query_target"></a>
+    <a id="remote_nscp_query_retry"></a>
+    <a id="remote_nscp_query_retries"></a>
+    <a id="remote_nscp_query_source-host"></a>
+    <a id="remote_nscp_query_sender-host"></a>
+    <a id="remote_nscp_query_command"></a>
+    <a id="remote_nscp_query_argument"></a>
+    <a id="remote_nscp_query_separator"></a>
+    <a id="remote_nscp_query_batch"></a>
+    <a id="remote_nscp_query_certificate"></a>
+    <a id="remote_nscp_query_dh"></a>
+    <a id="remote_nscp_query_certificate-key"></a>
+    <a id="remote_nscp_query_certificate-format"></a>
+    <a id="remote_nscp_query_ca"></a>
+    <a id="remote_nscp_query_verify"></a>
+    <a id="remote_nscp_query_allowed-ciphers"></a>
+    <a id="remote_nscp_query_password"></a>
+
+    | Option                        | Default Value | Description                                                                           |
+    |-------------------------------|---------------|---------------------------------------------------------------------------------------|
+    | host                          |               | The host of the host running the server                                               |
+    | port                          |               | The port of the host running the server                                               |
+    | address                       |               | The address (host:port) of the host running the server                                |
+    | timeout                       |               | Number of seconds before connection times out (default=10)                            |
+    | target                        |               | Target to use (lookup connection info from config)                                    |
+    | retry                         |               | Number of times ti retry a failed connection attempt (default=2)                      |
+    | retries                       |               | legacy version of retry                                                               |
+    | source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | command                       |               | The name of the command that the remote daemon should run                             |
+    | argument                      |               | Set command line arguments                                                            |
+    | separator                     |               | Separator to use for the batch command (default is |)                                 |
+    | batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
+    | certificate                   |               | The client certificate to use                                                         |
+    | dh                            |               | The DH key to use                                                                     |
+    | certificate-key               |               | Client certificate to use                                                             |
+    | certificate-format            |               | Client certificate format                                                             |
+    | ca                            |               | Certificate authority                                                                 |
+    | verify                        |               | Client certificate format                                                             |
+    | allowed-ciphers               |               | Client certificate format                                                             |
+    | [ssl](#remote_nscp_query_ssl) | true          | Initial an ssl handshake with the server.                                             |
+    | password                      |               | Password                                                                              |
 
 
 
-<h5 id="remote_nscp_query_ssl">ssl:</h5>
+    <h5 id="remote_nscp_query_ssl">ssl:</h5>
 
-Initial an ssl handshake with the server.
+    Initial an ssl handshake with the server.
 
-*Default Value:* `1`
+    *Default Value:* `true`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+=== "Linux"
+
+    <a id="remote_nscp_query_host"></a>
+    <a id="remote_nscp_query_port"></a>
+    <a id="remote_nscp_query_address"></a>
+    <a id="remote_nscp_query_timeout"></a>
+    <a id="remote_nscp_query_target"></a>
+    <a id="remote_nscp_query_retry"></a>
+    <a id="remote_nscp_query_retries"></a>
+    <a id="remote_nscp_query_source-host"></a>
+    <a id="remote_nscp_query_sender-host"></a>
+    <a id="remote_nscp_query_command"></a>
+    <a id="remote_nscp_query_argument"></a>
+    <a id="remote_nscp_query_separator"></a>
+    <a id="remote_nscp_query_batch"></a>
+    <a id="remote_nscp_query_certificate"></a>
+    <a id="remote_nscp_query_dh"></a>
+    <a id="remote_nscp_query_certificate-key"></a>
+    <a id="remote_nscp_query_certificate-format"></a>
+    <a id="remote_nscp_query_ca"></a>
+    <a id="remote_nscp_query_verify"></a>
+    <a id="remote_nscp_query_allowed-ciphers"></a>
+    <a id="remote_nscp_query_password"></a>
+
+    | Option                        | Default Value | Description                                                                           |
+    |-------------------------------|---------------|---------------------------------------------------------------------------------------|
+    | host                          |               | The host of the host running the server                                               |
+    | port                          |               | The port of the host running the server                                               |
+    | address                       |               | The address (host:port) of the host running the server                                |
+    | timeout                       |               | Number of seconds before connection times out (default=10)                            |
+    | target                        |               | Target to use (lookup connection info from config)                                    |
+    | retry                         |               | Number of times ti retry a failed connection attempt (default=2)                      |
+    | retries                       |               | legacy version of retry                                                               |
+    | source-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | sender-host                   |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | command                       |               | The name of the command that the remote daemon should run                             |
+    | argument                      |               | Set command line arguments                                                            |
+    | separator                     |               | Separator to use for the batch command (default is |)                                 |
+    | batch                         |               | Add multiple records using the separator format is: command|argument|argument         |
+    | certificate                   |               | The client certificate to use                                                         |
+    | dh                            |               | The DH key to use                                                                     |
+    | certificate-key               |               | Client certificate to use                                                             |
+    | certificate-format            |               | Client certificate format                                                             |
+    | ca                            |               | Certificate authority                                                                 |
+    | verify                        |               | Client certificate format                                                             |
+    | allowed-ciphers               |               | Client certificate format                                                             |
+    | [ssl](#remote_nscp_query_ssl) | 1             | Initial an ssl handshake with the server.                                             |
+    | password                      |               | Password                                                                              |
+
+
+
+    <h5 id="remote_nscp_query_ssl">ssl:</h5>
+
+    Initial an ssl handshake with the server.
+
+    *Default Value:* `1`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ### remote_nscpforward
@@ -281,72 +452,133 @@ Submit information to remote host via NSCP.
 <a id="submit_remote_nscp_options"></a>
 #### Command-line Arguments
 
-<a id="submit_remote_nscp_help"></a>
-<a id="submit_remote_nscp_help-pb"></a>
-<a id="submit_remote_nscp_show-default"></a>
-<a id="submit_remote_nscp_help-short"></a>
-<a id="submit_remote_nscp_host"></a>
-<a id="submit_remote_nscp_port"></a>
-<a id="submit_remote_nscp_address"></a>
-<a id="submit_remote_nscp_timeout"></a>
-<a id="submit_remote_nscp_target"></a>
-<a id="submit_remote_nscp_retry"></a>
-<a id="submit_remote_nscp_retries"></a>
-<a id="submit_remote_nscp_source-host"></a>
-<a id="submit_remote_nscp_sender-host"></a>
-<a id="submit_remote_nscp_command"></a>
-<a id="submit_remote_nscp_alias"></a>
-<a id="submit_remote_nscp_message"></a>
-<a id="submit_remote_nscp_result"></a>
-<a id="submit_remote_nscp_separator"></a>
-<a id="submit_remote_nscp_batch"></a>
-<a id="submit_remote_nscp_certificate"></a>
-<a id="submit_remote_nscp_dh"></a>
-<a id="submit_remote_nscp_certificate-key"></a>
-<a id="submit_remote_nscp_certificate-format"></a>
-<a id="submit_remote_nscp_ca"></a>
-<a id="submit_remote_nscp_verify"></a>
-<a id="submit_remote_nscp_allowed-ciphers"></a>
-<a id="submit_remote_nscp_password"></a>
+=== "Windows"
 
-| Option                         | Default Value | Description                                                                           |
-|--------------------------------|---------------|---------------------------------------------------------------------------------------|
-| help                           | N/A           | Show help screen (this screen)                                                        |
-| help-pb                        | N/A           | Show help screen as a protocol buffer payload                                         |
-| show-default                   | N/A           | Show default values for a given command                                               |
-| help-short                     | N/A           | Show help screen (short format).                                                      |
-| host                           |               | The host of the host running the server                                               |
-| port                           |               | The port of the host running the server                                               |
-| address                        |               | The address (host:port) of the host running the server                                |
-| timeout                        |               | Number of seconds before connection times out (default=10)                            |
-| target                         |               | Target to use (lookup connection info from config)                                    |
-| retry                          |               | Number of times ti retry a failed connection attempt (default=2)                      |
-| retries                        |               | legacy version of retry                                                               |
-| source-host                    |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| sender-host                    |               | Source/sender host name (default is auto which means use the name of the actual host) |
-| command                        |               | The name of the command that the remote daemon should run                             |
-| alias                          |               | Same as command                                                                       |
-| message                        |               | Message                                                                               |
-| result                         |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                |
-| separator                      |               | Separator to use for the batch command (default is |)                                 |
-| batch                          |               | Add multiple records using the separator format is: command|result|message            |
-| certificate                    |               | The client certificate to use                                                         |
-| dh                             |               | The DH key to use                                                                     |
-| certificate-key                |               | Client certificate to use                                                             |
-| certificate-format             |               | Client certificate format                                                             |
-| ca                             |               | Certificate authority                                                                 |
-| verify                         |               | Client certificate format                                                             |
-| allowed-ciphers                |               | Client certificate format                                                             |
-| [ssl](#submit_remote_nscp_ssl) | 1             | Initial an ssl handshake with the server.                                             |
-| password                       |               | Password                                                                              |
+    <a id="submit_remote_nscp_host"></a>
+    <a id="submit_remote_nscp_port"></a>
+    <a id="submit_remote_nscp_address"></a>
+    <a id="submit_remote_nscp_timeout"></a>
+    <a id="submit_remote_nscp_target"></a>
+    <a id="submit_remote_nscp_retry"></a>
+    <a id="submit_remote_nscp_retries"></a>
+    <a id="submit_remote_nscp_source-host"></a>
+    <a id="submit_remote_nscp_sender-host"></a>
+    <a id="submit_remote_nscp_command"></a>
+    <a id="submit_remote_nscp_alias"></a>
+    <a id="submit_remote_nscp_message"></a>
+    <a id="submit_remote_nscp_result"></a>
+    <a id="submit_remote_nscp_separator"></a>
+    <a id="submit_remote_nscp_batch"></a>
+    <a id="submit_remote_nscp_certificate"></a>
+    <a id="submit_remote_nscp_dh"></a>
+    <a id="submit_remote_nscp_certificate-key"></a>
+    <a id="submit_remote_nscp_certificate-format"></a>
+    <a id="submit_remote_nscp_ca"></a>
+    <a id="submit_remote_nscp_verify"></a>
+    <a id="submit_remote_nscp_allowed-ciphers"></a>
+    <a id="submit_remote_nscp_password"></a>
+
+    | Option                         | Default Value | Description                                                                           |
+    |--------------------------------|---------------|---------------------------------------------------------------------------------------|
+    | host                           |               | The host of the host running the server                                               |
+    | port                           |               | The port of the host running the server                                               |
+    | address                        |               | The address (host:port) of the host running the server                                |
+    | timeout                        |               | Number of seconds before connection times out (default=10)                            |
+    | target                         |               | Target to use (lookup connection info from config)                                    |
+    | retry                          |               | Number of times ti retry a failed connection attempt (default=2)                      |
+    | retries                        |               | legacy version of retry                                                               |
+    | source-host                    |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | sender-host                    |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | command                        |               | The name of the command that the remote daemon should run                             |
+    | alias                          |               | Same as command                                                                       |
+    | message                        |               | Message                                                                               |
+    | result                         |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                |
+    | separator                      |               | Separator to use for the batch command (default is |)                                 |
+    | batch                          |               | Add multiple records using the separator format is: command|result|message            |
+    | certificate                    |               | The client certificate to use                                                         |
+    | dh                             |               | The DH key to use                                                                     |
+    | certificate-key                |               | Client certificate to use                                                             |
+    | certificate-format             |               | Client certificate format                                                             |
+    | ca                             |               | Certificate authority                                                                 |
+    | verify                         |               | Client certificate format                                                             |
+    | allowed-ciphers                |               | Client certificate format                                                             |
+    | [ssl](#submit_remote_nscp_ssl) | true          | Initial an ssl handshake with the server.                                             |
+    | password                       |               | Password                                                                              |
 
 
 
-<h5 id="submit_remote_nscp_ssl">ssl:</h5>
+    <h5 id="submit_remote_nscp_ssl">ssl:</h5>
 
-Initial an ssl handshake with the server.
+    Initial an ssl handshake with the server.
 
-*Default Value:* `1`
+    *Default Value:* `true`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+=== "Linux"
+
+    <a id="submit_remote_nscp_host"></a>
+    <a id="submit_remote_nscp_port"></a>
+    <a id="submit_remote_nscp_address"></a>
+    <a id="submit_remote_nscp_timeout"></a>
+    <a id="submit_remote_nscp_target"></a>
+    <a id="submit_remote_nscp_retry"></a>
+    <a id="submit_remote_nscp_retries"></a>
+    <a id="submit_remote_nscp_source-host"></a>
+    <a id="submit_remote_nscp_sender-host"></a>
+    <a id="submit_remote_nscp_command"></a>
+    <a id="submit_remote_nscp_alias"></a>
+    <a id="submit_remote_nscp_message"></a>
+    <a id="submit_remote_nscp_result"></a>
+    <a id="submit_remote_nscp_separator"></a>
+    <a id="submit_remote_nscp_batch"></a>
+    <a id="submit_remote_nscp_certificate"></a>
+    <a id="submit_remote_nscp_dh"></a>
+    <a id="submit_remote_nscp_certificate-key"></a>
+    <a id="submit_remote_nscp_certificate-format"></a>
+    <a id="submit_remote_nscp_ca"></a>
+    <a id="submit_remote_nscp_verify"></a>
+    <a id="submit_remote_nscp_allowed-ciphers"></a>
+    <a id="submit_remote_nscp_password"></a>
+
+    | Option                         | Default Value | Description                                                                           |
+    |--------------------------------|---------------|---------------------------------------------------------------------------------------|
+    | host                           |               | The host of the host running the server                                               |
+    | port                           |               | The port of the host running the server                                               |
+    | address                        |               | The address (host:port) of the host running the server                                |
+    | timeout                        |               | Number of seconds before connection times out (default=10)                            |
+    | target                         |               | Target to use (lookup connection info from config)                                    |
+    | retry                          |               | Number of times ti retry a failed connection attempt (default=2)                      |
+    | retries                        |               | legacy version of retry                                                               |
+    | source-host                    |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | sender-host                    |               | Source/sender host name (default is auto which means use the name of the actual host) |
+    | command                        |               | The name of the command that the remote daemon should run                             |
+    | alias                          |               | Same as command                                                                       |
+    | message                        |               | Message                                                                               |
+    | result                         |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                |
+    | separator                      |               | Separator to use for the batch command (default is |)                                 |
+    | batch                          |               | Add multiple records using the separator format is: command|result|message            |
+    | certificate                    |               | The client certificate to use                                                         |
+    | dh                             |               | The DH key to use                                                                     |
+    | certificate-key                |               | Client certificate to use                                                             |
+    | certificate-format             |               | Client certificate format                                                             |
+    | ca                             |               | Certificate authority                                                                 |
+    | verify                         |               | Client certificate format                                                             |
+    | allowed-ciphers                |               | Client certificate format                                                             |
+    | [ssl](#submit_remote_nscp_ssl) | 1             | Initial an ssl handshake with the server.                                             |
+    | password                       |               | Password                                                                              |
+
+
+
+    <h5 id="submit_remote_nscp_ssl">ssl:</h5>
+
+    Initial an ssl handshake with the server.
+
+    *Default Value:* `1`
+
+
+    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ## Configuration

@@ -20,14 +20,5 @@ The useful alerts are **pinned expectations**:
   canonicalising this host under a *different* name (stale `/etc/hosts`
   entries, CNAME chains, re-imaged boxes keeping an old DNS record).
 
-Keywords (a single aggregate row):
-
-| Keyword           | Description                                                                  |
-|-------------------|-------------------------------------------------------------------------------|
-| `hostname`        | Configured hostname (`gethostname`)                                          |
-| `fqdn`            | Canonical fully qualified name from the resolver (hostname when unresolvable) |
-| `domain`          | DNS domain (the FQDN with the first label removed; empty when none)          |
-| `fqdn_consistent` | True when the FQDN equals, or starts with, the configured hostname           |
-
-There are no default thresholds and no perf data. Comparisons are
+The check returns a single aggregate row. There are no default thresholds and no perf data. Comparisons are
 case-insensitive (DNS is case-insensitive; case differences are not drift).

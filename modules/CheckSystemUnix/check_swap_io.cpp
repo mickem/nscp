@@ -84,8 +84,8 @@ filter_obj_handler::filter_obj_handler() {
   // names each metric "io_<keyword>" (e.g. io_swap_in, io_swap_in_bytes).
   registry_.add_float("swap_in", &swap_obj::get_swap_in, "Pages swapped in per second");
   registry_.add_float("swap_out", &swap_obj::get_swap_out, "Pages swapped out per second");
-  registry_.add_int_var("swap_in_bytes", &swap_obj::get_swap_in_bytes, "Bytes swapped in per second");
-  registry_.add_int_var("swap_out_bytes", &swap_obj::get_swap_out_bytes, "Bytes swapped out per second");
+  registry_.add_int_var("swap_in_bytes", &swap_obj::get_swap_in_bytes, "Bytes swapped in per second (pages x page size)");
+  registry_.add_int_var("swap_out_bytes", &swap_obj::get_swap_out_bytes, "Bytes swapped out per second (pages x page size)");
 }
 
 void check_swap_io_from(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,

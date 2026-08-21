@@ -62,6 +62,14 @@ TEST(check_activation, grace_minutes_render_as_whole_days) {
   EXPECT_EQ(180, activation_filter::grace_minutes_to_days(180 * 24 * 60));
 }
 
+TEST(check_activation, status_keyword_is_a_deprecated_alias_for_activation_status) {
+  // The word-form status keyword is activation_status; the old name `status` is
+  // kept as a deprecated alias (it clashes with the generic summary keyword).
+  activation_filter::filter_obj_handler handler;
+  EXPECT_TRUE(handler.registry_.has_variable("activation_status"));
+  EXPECT_TRUE(handler.registry_.has_variable("status"));
+}
+
 TEST(check_activation, activated_windows_is_licensed_without_a_countdown) {
   activation_filter::filter_obj obj = windows_product(activation_filter::status_licensed, 0);
   obj.genuine_status = activation_filter::genuine_is_genuine;

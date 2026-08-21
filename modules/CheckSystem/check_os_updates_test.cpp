@@ -258,3 +258,56 @@ TEST(CheckOsUpdates, data_get_returns_default_before_fetch) {
 // fetch() will exercise the WUA COM API; we don't run it here because it
 // requires admin / network access and may take 30+ seconds. The data class is
 // otherwise covered by the snapshot/TTL tests above.
+
+// ============================================================================
+// filter keyword tests (the `updates` keyword and its deprecated `count` alias)
+// ============================================================================
+
+namespace {
+PB::Common::ResultCode run_updates(os_updates_obj data, const std::vector<std::string> &args, PB::Commands::QueryResponseMessage::Response &response) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_os_updates");
+  for (const std::string &a : args) request.add_arguments(a);
+  os_updates_check::check::check_os_updates(request, &response, data);
+  return response.result();
+}
+
+os_updates_obj one_update() {
+  os_updates_obj o;
+  o.fetch_succeeded = true;
+  update_info u;
+  u.title = "KB1";
+  o.updates.push_back(u);
+  o.recompute();
+  return o;
+}
+}  // namespace
+
+TEST(CheckOsUpdates, updates_keyword_trips_warning) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_updates(one_update(), {"warning=updates > 0", "critical=none"}, response), PB::Common::ResultCode::WARNING);
+}
+
+TEST(CheckOsUpdates, deprecated_count_alias_still_works) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_updates(one_update(), {"warning=count > 0", "critical=none"}, response), PB::Common::ResultCode::WARNING);
+}
+
+TEST(CheckOsUpdates, default_output_renders_update_total_not_row_count) {
+  // There is exactly one matched row, but three updates: the default output
+  // must render the number of updates (3), not the generic row count (1).
+  // The counts flow through ${list} because record variables read as 0 when
+  // rendered directly from the top-syntax (no record attached there).
+  os_updates_obj o;
+  o.fetch_succeeded = true;
+  for (int i = 0; i < 3; ++i) {
+    update_info u;
+    u.title = "KB" + std::to_string(i);
+    o.updates.push_back(u);
+  }
+  o.recompute();
+  PB::Commands::QueryResponseMessage::Response response;
+  run_updates(o, {}, response);
+  ASSERT_EQ(1, response.lines_size());
+  EXPECT_NE(std::string::npos, response.lines(0).message().find("3 updates available")) << response.lines(0).message();
+}

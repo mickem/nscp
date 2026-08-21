@@ -36,8 +36,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("exe", &filter_obj::get_exe, "The name of the executable")
       .add_string_var("error", &filter_obj::get_error, "Any error messages associated with fetching info")
       .add_string_var("command_line", &filter_obj::get_command_line, "Command line of process (not always available)")
-      .add_string_var("username", &filter_obj::get_username, "Process owner as DOMAIN\\name (empty for processes whose token cannot be read)")
-      .add_string_var("uid", &filter_obj::get_uid, "Process owner SID (the Windows analogue of a Unix uid)")
+      .add_string_var("username", &filter_obj::get_username,
+                      "Process owner as DOMAIN\\name (empty unless resolve-owner=true, or when the token cannot be read)")
+      .add_string_var("uid", &filter_obj::get_uid, "Process owner SID, the Windows analogue of a Unix uid (empty unless resolve-owner=true)")
       .add_string_var("legacy_state", &filter_obj::get_legacy_state_s, "Get process status (for legacy use via check_nt only)");
   registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
       .add_int_var("started", parsers::where::type_bool, &filter_obj::get_started, "Process is started")
@@ -70,11 +71,11 @@ filter_obj_handler::filter_obj_handler() {
     ("user", [](auto obj, auto context) {return obj->get_user_time(); }, "User CPU time: cumulative seconds, or % of total CPU with delta=true").add_perf("", "", " user")
     ("time", [](auto obj, auto context) {return obj->get_total_time(); }, "User+kernel CPU time: cumulative seconds, or % of total CPU with delta=true").add_perf("", "", " total")
 
-    ("state", type_custom_state, [](auto obj, auto context) {return obj->get_state_i(); }, "The current state (started, stopped hung)").add_perf("", "", " state")
+    ("state", type_custom_state, [](auto obj, auto context) {return obj->get_state_i(); }, "The current state (started, stopped, hung); 'running' is accepted as a synonym for started").add_perf("", "", " state")
     ;
   // clang-format on
 
-  registry_.add_human_string("state", &filter_obj::get_state_s, "The current state (started, stopped hung)");
+  registry_.add_human_string("state", &filter_obj::get_state_s, "The current state (started, stopped, hung)");
   registry_.add_human_string("peak_virtual", &filter_obj::get_PeakVirtualSize_human, "");
   registry_.add_human_string("virtual", &filter_obj::get_VirtualSize_human, "");
   registry_.add_human_string("peak_working_set", &filter_obj::get_PeakWorkingSetSize_human, "");

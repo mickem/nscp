@@ -58,7 +58,9 @@ nav:
       - External Scripts: scenarios/external-scripts.md
   - Reference:
       - Reference: reference/index.md
+      - Common options: reference/common-options.md
       - Check commands:
+        - CheckActiveDirectory (Windows): reference/misc/CheckActiveDirectory.md
         - CheckDisk: reference/check/CheckDisk.md
         - CheckExternalScripts: reference/check/CheckExternalScripts.md
         - CheckEventLog (Windows): reference/windows/CheckEventLog.md
@@ -72,6 +74,7 @@ nav:
         - CheckSystem: reference/check/CheckSystem.md
         - CheckMSSQL (Windows): reference/windows/CheckMSSQL.md
         - CheckTaskSched (Windows): reference/windows/CheckTaskSched.md
+        - CheckWindowsApps (Windows): reference/misc/CheckWindowsApps.md
         - CheckWMI (Windows): reference/windows/CheckWMI.md
       - Clients & Servers:
         - WEBServer: reference/generic/WEBServer.md
