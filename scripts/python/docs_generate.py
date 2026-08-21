@@ -372,6 +372,31 @@ def availability_note(present, all_present):
     return '*Available on %s only.*\n' % labels
 
 
+def declared_platforms(desc):
+    # Some Windows-only checks are registered on every platform but only stub out
+    # with an explanatory error elsewhere (e.g. CheckSecurity's posture checks).
+    # The registry therefore lists them on both platforms, so the presence-based
+    # availability logic cannot see the restriction. Such commands declare it by
+    # ending the first line of their description (from module.json) with
+    # "Windows only." / "Linux only."; honour that here so they are documented
+    # as single-platform. Returns the declared platform list, or None.
+    line = first_line(desc)
+    if line.endswith('Windows only.'):
+        return ['windows']
+    if line.endswith('Linux only.'):
+        return ['unix']
+    return None
+
+
+def effective_platforms(present, desc):
+    # Registered platforms narrowed by a "... only." description declaration.
+    declared = declared_platforms(desc)
+    if not declared:
+        return present
+    narrowed = [p for p in present if p in declared]
+    return narrowed or present
+
+
 # OS-logo shortcodes for the index tables, rendered to inline SVG by the
 # pymdownx.emoji extension configured in docs/mkdocs.yml.
 PLATFORM_ICON = {'windows': ':fontawesome-brands-windows:', 'unix': ':fontawesome-brands-linux:'}
@@ -538,7 +563,12 @@ class DocumentationGenerator(object):
         for name in sorted(names):
             qpresent = [p for p in present if name in slices[p].get('queries', {})]
             out.append('### %s\n' % name)
-            note = availability_note(qpresent, present)
+            desc = ''
+            for p in qpresent:
+                desc = slices[p]['queries'][name].get('info', {}).get('description', '')
+                if desc:
+                    break
+            note = availability_note(effective_platforms(qpresent, desc), present)
             if note:
                 out.append(note)
 
@@ -754,7 +784,7 @@ class DocumentationGenerator(object):
                                        'platforms': []}
                     queries[qn]['platforms'].append(p)
             for q in queries.values():
-                q['os'] = os_label(q.pop('platforms'))
+                q['os'] = os_label(effective_platforms(q.pop('platforms'), q['description']))
             model[name] = {'key': name, 'namespace': namespace, 'os': os_label(present),
                            'description': description, 'queries': queries}
         return model

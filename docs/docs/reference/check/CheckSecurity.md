@@ -37,6 +37,8 @@ A list of all available queries (check commands)
 
 ### check_activation
 
+*Available on Windows only.*
+
 Check the Windows activation/licensing state: license status, remaining grace or KMS renewal period and genuineness. Windows only.
 
 #### About `check_activation`
@@ -370,6 +372,8 @@ Do not evaluate the genuine state (skips the SLIsGenuineLocal call); genuine_sta
 
 ### check_antivirus
 
+*Available on Windows only.*
+
 Check registered antivirus products' enabled/up-to-date state (Windows Security Center). Windows only.
 
 #### About `check_antivirus`
@@ -617,6 +621,8 @@ This is the syntax for the base names of the performance data.
 | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_bitlocker
+
+*Available on Windows only.*
 
 Check BitLocker drive-encryption protection status per volume. Windows only.
 
@@ -1246,6 +1252,8 @@ Windows store location: LocalMachine or CurrentUser. Windows only.
 
 ### check_defender
 
+*Available on Windows only.*
+
 Check Microsoft Defender status: signature/scan age, real-time and tamper protection, engine/signature versions. Windows only.
 
 #### About `check_defender`
@@ -1531,6 +1539,8 @@ This is the syntax for the base names of the performance data.
 | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_file_security
+
+*Available on Windows only.*
 
 Check the owner and DACL of files, folders or service binaries; alerts on world-writable paths and unexpected owners. Windows only.
 
@@ -1908,6 +1918,8 @@ This is the syntax for the base names of the performance data.
 
 ### check_firewall
 
+*Available on Windows only.*
+
 Check the Windows firewall profile (Domain/Private/Public) enabled state. Windows only.
 
 #### About `check_firewall`
@@ -2213,6 +2225,8 @@ This is the syntax for the base names of the performance data.
 | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_firewall_rules
+
+*Available on Windows only.*
 
 Check individual Windows firewall rules: assert that specific rules exist and are enabled, and find inbound allow rules that restrict neither address nor port. Windows only.
 
@@ -2568,6 +2582,8 @@ This is the syntax for the base names of the performance data.
 
 ### check_group_members
 
+*Available on Windows only.*
+
 Check local group membership (default Administrators) and alert on members not on an expected allow-list. Windows only.
 
 #### About `check_group_members`
@@ -2856,6 +2872,8 @@ This is the syntax for the base names of the performance data.
 
 ### check_local_accounts
 
+*Available on Windows only.*
+
 Check local user account hygiene: enabled/disabled, locked, password-required/expires, built-in admin/guest. Windows only.
 
 #### About `check_local_accounts`
@@ -3132,6 +3150,8 @@ This is the syntax for the base names of the performance data.
 
 ### check_nla
 
+*Available on Windows only.*
+
 Check the Network Location Awareness profile (public/private/domain) per network. Windows only.
 
 #### About `check_nla`
@@ -3370,6 +3390,8 @@ This is the syntax for the base names of the performance data.
 | warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
 
 ### check_secureboot
+
+*Available on Windows only.*
 
 Check whether UEFI Secure Boot is enabled. Windows only.
 

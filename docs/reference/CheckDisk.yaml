@@ -1794,7 +1794,7 @@ common:
         short_description: ''
       info:
         description: Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage
-          per volume (Windows).
+          per volume. Windows only.
       params:
       - content_type: 2
         default_value: ''
@@ -2109,8 +2109,8 @@ common:
         name: warn_list
         short_description: ''
       info:
-        description: 'Check Windows SMB shares: list them, or verify that specific required shares exist
-          (Windows).'
+        description: 'Check Windows SMB shares: list them, or verify that specific required shares exist.
+          Windows only.'
       params:
       - content_type: 2
         default_value: ''
@@ -2903,7 +2903,7 @@ common:
         name: warn_list
         short_description: ''
       info:
-        description: Check Storage Spaces pool health and capacity (Windows).
+        description: Check Storage Spaces pool health and capacity. Windows only.
       params:
       - content_type: 2
         default_value: ''

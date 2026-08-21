@@ -37,10 +37,10 @@ A list of all available queries (check commands)
 | [check_drivesize](#check_drivesize)     | Check the size (free-space) of a drive or volume.                                                                                                                 |
 | [check_files](#check_files)             | Check various aspects of a file and/or folder.                                                                                                                    |
 | [check_mount](#check_mount)             | Check that a filesystem is mounted with the expected fstype and options.                                                                                          |
-| [check_shadowcopy](#check_shadowcopy)   | Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage per volume (Windows).                                                          |
-| [check_share](#check_share)             | Check Windows SMB shares: list them, or verify that specific required shares exist (Windows).                                                                     |
+| [check_shadowcopy](#check_shadowcopy)   | Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage per volume. Windows only.                                                      |
+| [check_share](#check_share)             | Check Windows SMB shares: list them, or verify that specific required shares exist. Windows only.                                                                 |
 | [check_single_file](#check_single_file) | Check various aspects of a single file (size, age, line count, version, ...). Simpler alternative to check_files when you only need to inspect one specific file. |
-| [check_storagepool](#check_storagepool) | Check Storage Spaces pool health and capacity (Windows).                                                                                                          |
+| [check_storagepool](#check_storagepool) | Check Storage Spaces pool health and capacity. Windows only.                                                                                                      |
 | [check_uncpath](#check_uncpath)         | Check free space on a UNC path (server share), with optional alternate credentials.                                                                               |
 
 ### check_disk_health
@@ -2401,7 +2401,9 @@ This is the syntax for the base names of the performance data.
 
 ### check_shadowcopy
 
-Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage per volume (Windows).
+*Available on Windows only.*
+
+Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage per volume. Windows only.
 
 #### About `check_shadowcopy`
 
@@ -2691,7 +2693,9 @@ This is the syntax for the base names of the performance data.
 
 ### check_share
 
-Check Windows SMB shares: list them, or verify that specific required shares exist (Windows).
+*Available on Windows only.*
+
+Check Windows SMB shares: list them, or verify that specific required shares exist. Windows only.
 
 #### About `check_share`
 
@@ -3288,7 +3292,9 @@ Return OK instead of failing when the file does not exist. Intended for files th
 
 ### check_storagepool
 
-Check Storage Spaces pool health and capacity (Windows).
+*Available on Windows only.*
+
+Check Storage Spaces pool health and capacity. Windows only.
 
 Checks the health and capacity of Windows Storage Spaces pools, read from
 `MSFT_StoragePool` in the `root\Microsoft\Windows\Storage` WMI namespace. The
