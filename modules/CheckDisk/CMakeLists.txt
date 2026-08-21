@@ -192,6 +192,20 @@ else()
             check_mount.cpp
             check_mount_test.cpp
             check_single_file.cpp
+            # The Windows-only checks: their data acquisition is #ifdef'd out
+            # here (query() returns nothing), but the keyword registry, the
+            # flag/status decoding and the rendering are ordinary C++ that the
+            # win32 build shares - and it was going untested on this platform
+            # only because the test target it lived in is if(WIN32).
+            check_shadowcopy.cpp
+            check_shadowcopy_test.cpp
+            check_share.cpp
+            check_share_test.cpp
+            check_storagepool.cpp
+            check_storagepool_test.cpp
+            check_uncpath.cpp
+            check_uncpath_test.cpp
+            check_windows_checks_unix_test.cpp
             collector_thread.cpp
             collector_thread_test.cpp
             file_finder_unix.cpp
