@@ -59,7 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # backend (Beast pulls in Boost.Asio's OpenSSL headers, so the no-OpenSSL and
 # minimal builds fall back to NSCP_WEB_BACKEND=mongoose). Beast scenarios keep
 # OpenSSL and simply ignore this directory.
-ARG MONGOOSE_VERSION=7.19
+ARG MONGOOSE_VERSION=7.23
 RUN mkdir -p /opt/mongoose \
     && curl -fsSL "https://raw.githubusercontent.com/cesanta/mongoose/${MONGOOSE_VERSION}/mongoose.h" -o /opt/mongoose/mongoose.h \
     && curl -fsSL "https://raw.githubusercontent.com/cesanta/mongoose/${MONGOOSE_VERSION}/mongoose.c" -o /opt/mongoose/mongoose.c
