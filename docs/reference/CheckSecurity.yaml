@@ -192,7 +192,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -200,7 +200,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -230,7 +230,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -351,7 +351,7 @@ common:
         required: false
         short_description: Performance alias syntax.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Report every licensed product with an installed key (Office, ...) instead of
           only Windows itself.
@@ -361,7 +361,7 @@ common:
         short_description: Report every licensed product with an installed key (Office, ...) instead of
           only Windows itself.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Do not evaluate the genuine state (skips the SLIsGenuineLocal call); genuine_state
           then reads 'unknown'.
@@ -520,7 +520,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -528,7 +528,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -558,7 +558,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -827,7 +827,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -835,7 +835,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -865,7 +865,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -1208,7 +1208,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -1216,7 +1216,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -1246,7 +1246,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -1385,7 +1385,7 @@ common:
         required: false
         short_description: Alias for file.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Recurse into directories given via file=/path=.
         name: recursive
@@ -1596,7 +1596,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -1604,7 +1604,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -1634,7 +1634,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -1957,7 +1957,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -1965,7 +1965,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -1995,7 +1995,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -2322,7 +2322,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -2330,7 +2330,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -2360,7 +2360,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -2701,7 +2701,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -2709,7 +2709,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -2739,7 +2739,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -3035,7 +3035,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -3043,7 +3043,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -3073,7 +3073,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -3381,7 +3381,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -3389,7 +3389,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -3419,7 +3419,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -3686,7 +3686,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -3694,7 +3694,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -3724,7 +3724,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -3985,7 +3985,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -3993,7 +3993,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -4023,7 +4023,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -4292,7 +4292,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -4300,7 +4300,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -4330,7 +4330,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html

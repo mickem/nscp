@@ -219,7 +219,7 @@ windows:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -227,7 +227,7 @@ windows:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -257,7 +257,7 @@ windows:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -444,7 +444,7 @@ windows:
         required: false
         short_description: Query timeout in seconds.
       - content_type: 2
-        default_value: 1)] (=1
+        default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
           only).
@@ -616,7 +616,7 @@ windows:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -624,7 +624,7 @@ windows:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -654,7 +654,7 @@ windows:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -775,7 +775,7 @@ windows:
         required: false
         short_description: Performance alias syntax.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: 'Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc
           copy-only backup does not belong to the scheduled restore chain, so counting it would hide a
@@ -787,7 +787,7 @@ windows:
           copy-only backup does not belong to the scheduled restore chain, so counting it would hide a
           failing backup job.'
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Count snapshot (VSS/third-party agent) backups when computing the ages. Excluded
           by default for the same reason.
@@ -863,7 +863,7 @@ windows:
         required: false
         short_description: Query timeout in seconds.
       - content_type: 2
-        default_value: 1)] (=1
+        default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
           only).
@@ -1042,7 +1042,7 @@ windows:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -1050,7 +1050,7 @@ windows:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -1080,7 +1080,7 @@ windows:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -1267,7 +1267,7 @@ windows:
         required: false
         short_description: Query timeout in seconds.
       - content_type: 2
-        default_value: 1)] (=1
+        default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
           only).
@@ -1442,7 +1442,7 @@ windows:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -1450,7 +1450,7 @@ windows:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -1480,7 +1480,7 @@ windows:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -1667,7 +1667,7 @@ windows:
         required: false
         short_description: Query timeout in seconds.
       - content_type: 2
-        default_value: 1)] (=1
+        default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
           only).
@@ -1817,7 +1817,7 @@ windows:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -1825,7 +1825,7 @@ windows:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -1855,7 +1855,7 @@ windows:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -2050,7 +2050,7 @@ windows:
         required: false
         short_description: Query timeout in seconds.
       - content_type: 2
-        default_value: 1)] (=1
+        default_value: 'true'
         is_simple: false
         long_description: Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers
           only).

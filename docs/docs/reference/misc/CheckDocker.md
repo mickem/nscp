@@ -153,11 +153,11 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     | [critical](#check_docker_critical)             | container_state != 'running' | Filter which marks items which generates a critical state.                                                                     |
     | crit                                           |                              | Short alias for critical.                                                                                                      |
     | [ok](#check_docker_ok)                         |                              | Filter which marks items which generates an ok state.                                                                          |
-    | [debug](#check_docker_debug)                   | 1)] (=0                      | Show debugging information in the log                                                                                          |
-    | [show-all](#check_docker_show-all)             | 1)] (=0                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).               |
+    | [debug](#check_docker_debug)                   | false                        | Show debugging information in the log                                                                                          |
+    | [show-all](#check_docker_show-all)             | false                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).               |
     | [empty-state](#check_docker_empty-state)       | warning                      | Return status to use when nothing matched filter.                                                                              |
     | [perf-config](#check_docker_perf-config)       |                              | Performance data generation configuration                                                                                      |
-    | [escape-html](#check_docker_escape-html)       | 1)] (=0                      | Escape any < and > characters to prevent HTML encoding                                                                         |
+    | [escape-html](#check_docker_escape-html)       | false                        | Escape any < and > characters to prevent HTML encoding                                                                         |
     | [list-separator](#check_docker_list-separator) | ,                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).      |
     | help                                           | N/A                          | Show help screen (this screen)                                                                                                 |
     | help-pb                                        | N/A                          | Show help screen as a protocol buffer payload                                                                                  |
@@ -170,7 +170,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     | [perf-syntax](#check_docker_perf-syntax)       | ${names}                     | Performance alias syntax.                                                                                                      |
     | [host](#check_docker_host)                     | \\.\pipe\docker_engine       | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                 |
     | [timeout](#check_docker_timeout)               | 10                           | Timeout for talking to the daemon, in seconds.                                                                                 |
-    | [all](#check_docker_all)                       | 1)] (=0                      | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
+    | [all](#check_docker_all)                       | false                        | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
     | container                                      |                              | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'. |
 
 
@@ -207,13 +207,13 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_empty-state">empty-state:</h5>
 
@@ -232,7 +232,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_list-separator">list-separator:</h5>
 
@@ -297,7 +297,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Include stopped containers (docker ps -a); by default only running containers are listed.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
 === "Linux"
 
@@ -317,11 +317,11 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     | [critical](#check_docker_critical)             | container_state != 'running' | Filter which marks items which generates a critical state.                                                                     |
     | crit                                           |                              | Short alias for critical.                                                                                                      |
     | [ok](#check_docker_ok)                         |                              | Filter which marks items which generates an ok state.                                                                          |
-    | [debug](#check_docker_debug)                   | 1)] (=0                      | Show debugging information in the log                                                                                          |
-    | [show-all](#check_docker_show-all)             | 1)] (=0                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).               |
+    | [debug](#check_docker_debug)                   | false                        | Show debugging information in the log                                                                                          |
+    | [show-all](#check_docker_show-all)             | false                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).               |
     | [empty-state](#check_docker_empty-state)       | warning                      | Return status to use when nothing matched filter.                                                                              |
     | [perf-config](#check_docker_perf-config)       |                              | Performance data generation configuration                                                                                      |
-    | [escape-html](#check_docker_escape-html)       | 1)] (=0                      | Escape any < and > characters to prevent HTML encoding                                                                         |
+    | [escape-html](#check_docker_escape-html)       | false                        | Escape any < and > characters to prevent HTML encoding                                                                         |
     | [list-separator](#check_docker_list-separator) | ,                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).      |
     | help                                           | N/A                          | Show help screen (this screen)                                                                                                 |
     | help-pb                                        | N/A                          | Show help screen as a protocol buffer payload                                                                                  |
@@ -334,7 +334,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     | [perf-syntax](#check_docker_perf-syntax)       | ${names}                     | Performance alias syntax.                                                                                                      |
     | [host](#check_docker_host)                     | /var/run/docker.sock         | The local docker daemon socket (named pipe on Windows, unix socket elsewhere).                                                 |
     | [timeout](#check_docker_timeout)               | 10                           | Timeout for talking to the daemon, in seconds.                                                                                 |
-    | [all](#check_docker_all)                       | 1)] (=0                      | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
+    | [all](#check_docker_all)                       | false                        | Include stopped containers (docker ps -a); by default only running containers are listed.                                      |
     | container                                      |                              | Name of a container that must exist (repeatable). Implies all; a name the daemon does not know gets container_state 'missing'. |
 
 
@@ -371,13 +371,13 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_empty-state">empty-state:</h5>
 
@@ -396,7 +396,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_list-separator">list-separator:</h5>
 
@@ -461,7 +461,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Include stopped containers (docker ps -a); by default only running containers are listed.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
 
 <a id="check_docker_filter_keys"></a>
@@ -600,11 +600,11 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
     | [critical](#check_docker_df_critical)             |                                               | Filter which marks items which generates a critical state.                                                                |
     | crit                                              |                                               | Short alias for critical.                                                                                                 |
     | [ok](#check_docker_df_ok)                         |                                               | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_df_debug)                   | 1)] (=0                                       | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_df_show-all)             | 1)] (=0                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_docker_df_debug)                   | false                                         | Show debugging information in the log                                                                                     |
+    | [show-all](#check_docker_df_show-all)             | false                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_docker_df_empty-state)       | unknown                                       | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_docker_df_perf-config)       |                                               | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_df_escape-html)       | 1)] (=0                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_docker_df_escape-html)       | false                                         | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_docker_df_list-separator) | ,                                             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                              | N/A                                           | Show help screen (this screen)                                                                                            |
     | help-pb                                           | N/A                                           | Show help screen as a protocol buffer payload                                                                             |
@@ -651,13 +651,13 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_df_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_df_empty-state">empty-state:</h5>
 
@@ -676,7 +676,7 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_df_list-separator">list-separator:</h5>
 
@@ -754,11 +754,11 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
     | [critical](#check_docker_df_critical)             |                                               | Filter which marks items which generates a critical state.                                                                |
     | crit                                              |                                               | Short alias for critical.                                                                                                 |
     | [ok](#check_docker_df_ok)                         |                                               | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_df_debug)                   | 1)] (=0                                       | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_df_show-all)             | 1)] (=0                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_docker_df_debug)                   | false                                         | Show debugging information in the log                                                                                     |
+    | [show-all](#check_docker_df_show-all)             | false                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_docker_df_empty-state)       | unknown                                       | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_docker_df_perf-config)       |                                               | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_df_escape-html)       | 1)] (=0                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_docker_df_escape-html)       | false                                         | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_docker_df_list-separator) | ,                                             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                              | N/A                                           | Show help screen (this screen)                                                                                            |
     | help-pb                                           | N/A                                           | Show help screen as a protocol buffer payload                                                                             |
@@ -805,13 +805,13 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_df_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_df_empty-state">empty-state:</h5>
 
@@ -830,7 +830,7 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_df_list-separator">list-separator:</h5>
 
@@ -1014,11 +1014,11 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     | [critical](#check_docker_info_critical)             |                                                                                                                     | Filter which marks items which generates a critical state.                                                                |
     | crit                                                |                                                                                                                     | Short alias for critical.                                                                                                 |
     | [ok](#check_docker_info_ok)                         |                                                                                                                     | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_info_debug)                   | 1)] (=0                                                                                                             | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_info_show-all)             | 1)] (=0                                                                                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_docker_info_debug)                   | false                                                                                                               | Show debugging information in the log                                                                                     |
+    | [show-all](#check_docker_info_show-all)             | false                                                                                                               | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_docker_info_empty-state)       | unknown                                                                                                             | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_docker_info_perf-config)       |                                                                                                                     | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_info_escape-html)       | 1)] (=0                                                                                                             | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_docker_info_escape-html)       | false                                                                                                               | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_docker_info_list-separator) | ,                                                                                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                | N/A                                                                                                                 | Show help screen (this screen)                                                                                            |
     | help-pb                                             | N/A                                                                                                                 | Show help screen as a protocol buffer payload                                                                             |
@@ -1065,13 +1065,13 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_info_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_info_empty-state">empty-state:</h5>
 
@@ -1090,7 +1090,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_info_list-separator">list-separator:</h5>
 
@@ -1168,11 +1168,11 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     | [critical](#check_docker_info_critical)             |                                                                                                                     | Filter which marks items which generates a critical state.                                                                |
     | crit                                                |                                                                                                                     | Short alias for critical.                                                                                                 |
     | [ok](#check_docker_info_ok)                         |                                                                                                                     | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_info_debug)                   | 1)] (=0                                                                                                             | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_info_show-all)             | 1)] (=0                                                                                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_docker_info_debug)                   | false                                                                                                               | Show debugging information in the log                                                                                     |
+    | [show-all](#check_docker_info_show-all)             | false                                                                                                               | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_docker_info_empty-state)       | unknown                                                                                                             | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_docker_info_perf-config)       |                                                                                                                     | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_info_escape-html)       | 1)] (=0                                                                                                             | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_docker_info_escape-html)       | false                                                                                                               | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_docker_info_list-separator) | ,                                                                                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                | N/A                                                                                                                 | Show help screen (this screen)                                                                                            |
     | help-pb                                             | N/A                                                                                                                 | Show help screen as a protocol buffer payload                                                                             |
@@ -1219,13 +1219,13 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_info_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_info_empty-state">empty-state:</h5>
 
@@ -1244,7 +1244,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_info_list-separator">list-separator:</h5>
 
@@ -1434,11 +1434,11 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
     | [critical](#check_docker_restarts_critical)             | oom_killed = 1                                          | Filter which marks items which generates a critical state.                                                                |
     | crit                                                    |                                                         | Short alias for critical.                                                                                                 |
     | [ok](#check_docker_restarts_ok)                         |                                                         | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_restarts_debug)                   | 1)] (=0                                                 | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_restarts_show-all)             | 1)] (=0                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_docker_restarts_debug)                   | false                                                   | Show debugging information in the log                                                                                     |
+    | [show-all](#check_docker_restarts_show-all)             | false                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_docker_restarts_empty-state)       | ok                                                      | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_docker_restarts_perf-config)       |                                                         | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_restarts_escape-html)       | 1)] (=0                                                 | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_docker_restarts_escape-html)       | false                                                   | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_docker_restarts_list-separator) | ,                                                       | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                    | N/A                                                     | Show help screen (this screen)                                                                                            |
     | help-pb                                                 | N/A                                                     | Show help screen as a protocol buffer payload                                                                             |
@@ -1488,13 +1488,13 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_restarts_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_restarts_empty-state">empty-state:</h5>
 
@@ -1513,7 +1513,7 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_restarts_list-separator">list-separator:</h5>
 
@@ -1592,11 +1592,11 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
     | [critical](#check_docker_restarts_critical)             | oom_killed = 1                                          | Filter which marks items which generates a critical state.                                                                |
     | crit                                                    |                                                         | Short alias for critical.                                                                                                 |
     | [ok](#check_docker_restarts_ok)                         |                                                         | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_docker_restarts_debug)                   | 1)] (=0                                                 | Show debugging information in the log                                                                                     |
-    | [show-all](#check_docker_restarts_show-all)             | 1)] (=0                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_docker_restarts_debug)                   | false                                                   | Show debugging information in the log                                                                                     |
+    | [show-all](#check_docker_restarts_show-all)             | false                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_docker_restarts_empty-state)       | ok                                                      | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_docker_restarts_perf-config)       |                                                         | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_docker_restarts_escape-html)       | 1)] (=0                                                 | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_docker_restarts_escape-html)       | false                                                   | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_docker_restarts_list-separator) | ,                                                       | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                    | N/A                                                     | Show help screen (this screen)                                                                                            |
     | help-pb                                                 | N/A                                                     | Show help screen as a protocol buffer payload                                                                             |
@@ -1646,13 +1646,13 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_restarts_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_restarts_empty-state">empty-state:</h5>
 
@@ -1671,7 +1671,7 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_restarts_list-separator">list-separator:</h5>
 
@@ -1858,11 +1858,11 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
     | [critical](#check_docker_stats_critical)             |                                                              | Filter which marks items which generates a critical state.                                                                    |
     | crit                                                 |                                                              | Short alias for critical.                                                                                                     |
     | [ok](#check_docker_stats_ok)                         |                                                              | Filter which marks items which generates an ok state.                                                                         |
-    | [debug](#check_docker_stats_debug)                   | 1)] (=0                                                      | Show debugging information in the log                                                                                         |
-    | [show-all](#check_docker_stats_show-all)             | 1)] (=0                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).              |
+    | [debug](#check_docker_stats_debug)                   | false                                                        | Show debugging information in the log                                                                                         |
+    | [show-all](#check_docker_stats_show-all)             | false                                                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).              |
     | [empty-state](#check_docker_stats_empty-state)       | ok                                                           | Return status to use when nothing matched filter.                                                                             |
     | [perf-config](#check_docker_stats_perf-config)       |                                                              | Performance data generation configuration                                                                                     |
-    | [escape-html](#check_docker_stats_escape-html)       | 1)] (=0                                                      | Escape any < and > characters to prevent HTML encoding                                                                        |
+    | [escape-html](#check_docker_stats_escape-html)       | false                                                        | Escape any < and > characters to prevent HTML encoding                                                                        |
     | [list-separator](#check_docker_stats_list-separator) | ,                                                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).     |
     | help                                                 | N/A                                                          | Show help screen (this screen)                                                                                                |
     | help-pb                                              | N/A                                                          | Show help screen as a protocol buffer payload                                                                                 |
@@ -1910,13 +1910,13 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_stats_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_stats_empty-state">empty-state:</h5>
 
@@ -1935,7 +1935,7 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_stats_list-separator">list-separator:</h5>
 
@@ -2014,11 +2014,11 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
     | [critical](#check_docker_stats_critical)             |                                                              | Filter which marks items which generates a critical state.                                                                    |
     | crit                                                 |                                                              | Short alias for critical.                                                                                                     |
     | [ok](#check_docker_stats_ok)                         |                                                              | Filter which marks items which generates an ok state.                                                                         |
-    | [debug](#check_docker_stats_debug)                   | 1)] (=0                                                      | Show debugging information in the log                                                                                         |
-    | [show-all](#check_docker_stats_show-all)             | 1)] (=0                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).              |
+    | [debug](#check_docker_stats_debug)                   | false                                                        | Show debugging information in the log                                                                                         |
+    | [show-all](#check_docker_stats_show-all)             | false                                                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).              |
     | [empty-state](#check_docker_stats_empty-state)       | ok                                                           | Return status to use when nothing matched filter.                                                                             |
     | [perf-config](#check_docker_stats_perf-config)       |                                                              | Performance data generation configuration                                                                                     |
-    | [escape-html](#check_docker_stats_escape-html)       | 1)] (=0                                                      | Escape any < and > characters to prevent HTML encoding                                                                        |
+    | [escape-html](#check_docker_stats_escape-html)       | false                                                        | Escape any < and > characters to prevent HTML encoding                                                                        |
     | [list-separator](#check_docker_stats_list-separator) | ,                                                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).     |
     | help                                                 | N/A                                                          | Show help screen (this screen)                                                                                                |
     | help-pb                                              | N/A                                                          | Show help screen as a protocol buffer payload                                                                                 |
@@ -2066,13 +2066,13 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_stats_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_stats_empty-state">empty-state:</h5>
 
@@ -2091,7 +2091,7 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_docker_stats_list-separator">list-separator:</h5>
 

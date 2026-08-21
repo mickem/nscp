@@ -180,19 +180,33 @@ void nscapi::program_options::format_description(std::ostream &os, const std::st
 }
 
 std::string nscapi::program_options::strip_default_value(const std::string &arg) {
-  if (arg.size() > 3) {
-    std::string ret;
-    if (arg[arg.size() - 1] == ')') ret = arg.substr(0, arg.size() - 1);
-    if (arg[arg.size() - 1] == ']') ret = arg.substr(0, arg.size() - 2);
-    str::utils::replace(ret, "arg (=", "");
-    str::utils::replace(ret, "[=arg(=", "");
-    if (ret == "arg") return "";
-    return ret;
-  } else {
-    if (arg == "arg") return "";
-    return arg;
+  // boost's format_parameter() renders the value slot as one of:
+  //   "arg"               plain value
+  //   "arg (=D)"          with default D
+  //   "[=arg(=I)]"        with implicit I
+  //   "[=arg(=I)] (=D)"   with implicit I and default D
+  // Extract D, falling back to I when only an implicit value is declared.
+  if (arg.size() > 4 && arg[arg.size() - 1] == ')') {
+    const std::string::size_type pos = arg.rfind(" (=");
+    if (pos != std::string::npos) return arg.substr(pos + 3, arg.size() - pos - 4);
   }
+  if (arg.size() > 9 && arg.compare(0, 7, "[=arg(=") == 0 && arg.compare(arg.size() - 2, 2, ")]") == 0) return arg.substr(7, arg.size() - 9);
+  return "";
 }
+
+namespace {
+// Boolean options (po::value<bool>) get their defaults rendered by boost as
+// "0"/"1"; translate to "false"/"true" so help texts and the generated docs
+// show the value the user would actually pass (x=true).
+std::string format_default_value(const po::option_description &op) {
+  std::string value = nscapi::program_options::strip_default_value(op.format_parameter());
+  if (dynamic_cast<const po::typed_value<bool> *>(op.semantic().get()) != nullptr) {
+    if (value == "0") return "false";
+    if (value == "1") return "true";
+  }
+  return value;
+}
+}  // namespace
 
 std::string nscapi::program_options::help(const po::options_description &desc, const std::string &extra_info) {
   std::stringstream main_stream;
@@ -218,10 +232,10 @@ std::string nscapi::program_options::help(const po::options_description &desc, c
     main_stream << "\n";
 
     if (hasargs) {
-      std::string arg = op->format_parameter();
-      if (arg.size() > 3) {
+      const std::string value = format_default_value(*op);
+      if (!value.empty()) {
         for (std::string::size_type pad = opwidth; pad > 0; --pad) main_stream.put(' ');
-        main_stream << "Default value: " << op->key("") << "=" << strip_default_value(arg) << "\n";
+        main_stream << "Default value: " << op->key("") << "=" << value << "\n";
       }
     }
   }
@@ -235,7 +249,7 @@ std::string nscapi::program_options::help_short(const po::options_description &d
   for (const auto &op : desc.options()) {
     if (op->long_name().size() > opwidth) opwidth = op->long_name().size();
     if (op->semantic()->max_tokens() != 0) {
-      std::size_t len = op->long_name().size() + strip_default_value(op->format_parameter()).size() + 1;
+      std::size_t len = op->long_name().size() + format_default_value(*op).size() + 1;
       if (len > opwidth) opwidth = len;
     }
   }
@@ -243,7 +257,7 @@ std::string nscapi::program_options::help_short(const po::options_description &d
   for (const auto &op : desc.options()) {
     std::stringstream ss;
     ss << op->long_name();
-    if (op->semantic()->max_tokens() != 0) ss << "=" << strip_default_value(op->format_parameter());
+    if (op->semantic()->max_tokens() != 0) ss << "=" << format_default_value(*op);
     main_stream << ss.str();
 
     for (std::string::size_type pad = opwidth - ss.str().size(); pad + 8 > 8; pad -= 8) main_stream.put('\t');
@@ -272,7 +286,7 @@ std::string nscapi::program_options::help_csv(const po::options_description &des
     main_stream << make_csv(op->long_name()) << ",";
     bool hasargs = op->semantic()->max_tokens() != 0;
     if (hasargs)
-      main_stream << "true," << make_csv(strip_default_value(op->format_parameter())) << ",";
+      main_stream << "true," << make_csv(format_default_value(*op)) << ",";
     else
       main_stream << "false,,";
     main_stream << make_csv(op->description()) << "\n";
@@ -288,7 +302,7 @@ std::string nscapi::program_options::help_pb(const po::options_description &desc
     bool hasargs = op->semantic()->max_tokens() != 0;
     if (hasargs) {
       detail->set_content_type(PB::Common::STRING);
-      detail->set_default_value(strip_default_value(op->format_parameter()));
+      detail->set_default_value(format_default_value(*op));
     } else
       detail->set_content_type(PB::Common::BOOL);
     std::string ldesc = op->description();
@@ -312,7 +326,7 @@ std::string nscapi::program_options::help_pb(const po::options_description &desc
 std::string nscapi::program_options::help_show_default(const po::options_description &desc) {
   std::stringstream ret;
   for (const auto &op : desc.options()) {
-    std::string param = strip_default_value(op->format_parameter());
+    std::string param = format_default_value(*op);
     if (param.empty()) continue;
     ret << "\"" << op->long_name() << "=";
     ret << param << "\" ";

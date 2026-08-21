@@ -150,11 +150,11 @@ OK: DBSRV01: SQL Server 16.0.4265.3 RTM Developer Edition (64-bit), uptime 144s
 | [critical](#check_mssql_critical)             |                                                                                      | Filter which marks items which generates a critical state.                                                                |
 | crit                                          |                                                                                      | Short alias for critical.                                                                                                 |
 | [ok](#check_mssql_ok)                         |                                                                                      | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_mssql_debug)                   | 1)] (=0                                                                              | Show debugging information in the log                                                                                     |
-| [show-all](#check_mssql_show-all)             | 1)] (=0                                                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_mssql_debug)                   | false                                                                                | Show debugging information in the log                                                                                     |
+| [show-all](#check_mssql_show-all)             | false                                                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_mssql_empty-state)       | unknown                                                                              | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_mssql_perf-config)       |                                                                                      | Performance data generation configuration                                                                                 |
-| [escape-html](#check_mssql_escape-html)       | 1)] (=0                                                                              | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_mssql_escape-html)       | false                                                                                | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_mssql_list-separator) | ,                                                                                    | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                          | N/A                                                                                  | Show help screen (this screen)                                                                                            |
 | help-pb                                       | N/A                                                                                  | Show help screen as a protocol buffer payload                                                                             |
@@ -173,7 +173,7 @@ OK: DBSRV01: SQL Server 16.0.4265.3 RTM Developer Edition (64-bit), uptime 144s
 | connection-string                             |                                                                                      | Raw ODBC connection string; overrides all other connection options.                                                       |
 | [timeout](#check_mssql_timeout)               | 10                                                                                   | Connection (login) timeout in seconds.                                                                                    |
 | [query-timeout](#check_mssql_query-timeout)   | 30                                                                                   | Query timeout in seconds.                                                                                                 |
-| [trust-cert](#check_mssql_trust-cert)         | 1)] (=1                                                                              | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
+| [trust-cert](#check_mssql_trust-cert)         | true                                                                                 | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
 | encrypt                                       |                                                                                      | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                              |
 
 
@@ -209,13 +209,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_empty-state">empty-state:</h5>
 
@@ -234,7 +234,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_list-separator">list-separator:</h5>
 
@@ -305,7 +305,7 @@ Query timeout in seconds.
 
 Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).
 
-*Default Value:* `1)] (=1`
+*Default Value:* `true`
 
 
 <a id="check_mssql_filter_keys"></a>
@@ -475,11 +475,11 @@ OK: All 2 databases have recent backups|'master_full_age'=248s;259200;0 'msdb_fu
 | [critical](#check_mssql_backup_critical)                   | full_age < 0 or full_age > 7d                                    | Filter which marks items which generates a critical state.                                                                                                                                       |
 | crit                                                       |                                                                  | Short alias for critical.                                                                                                                                                                        |
 | [ok](#check_mssql_backup_ok)                               |                                                                  | Filter which marks items which generates an ok state.                                                                                                                                            |
-| [debug](#check_mssql_backup_debug)                         | 1)] (=0                                                          | Show debugging information in the log                                                                                                                                                            |
-| [show-all](#check_mssql_backup_show-all)                   | 1)] (=0                                                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                 |
+| [debug](#check_mssql_backup_debug)                         | false                                                            | Show debugging information in the log                                                                                                                                                            |
+| [show-all](#check_mssql_backup_show-all)                   | false                                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                 |
 | [empty-state](#check_mssql_backup_empty-state)             | unknown                                                          | Return status to use when nothing matched filter.                                                                                                                                                |
 | [perf-config](#check_mssql_backup_perf-config)             |                                                                  | Performance data generation configuration                                                                                                                                                        |
-| [escape-html](#check_mssql_backup_escape-html)             | 1)] (=0                                                          | Escape any < and > characters to prevent HTML encoding                                                                                                                                           |
+| [escape-html](#check_mssql_backup_escape-html)             | false                                                            | Escape any < and > characters to prevent HTML encoding                                                                                                                                           |
 | [list-separator](#check_mssql_backup_list-separator)       | ,                                                                | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                        |
 | help                                                       | N/A                                                              | Show help screen (this screen)                                                                                                                                                                   |
 | help-pb                                                    | N/A                                                              | Show help screen as a protocol buffer payload                                                                                                                                                    |
@@ -490,8 +490,8 @@ OK: All 2 databases have recent backups|'master_full_age'=248s;259200;0 'msdb_fu
 | [empty-syntax](#check_mssql_backup_empty-syntax)           | %(status): No databases found                                    | Empty syntax.                                                                                                                                                                                    |
 | [detail-syntax](#check_mssql_backup_detail-syntax)         | ${name}: last full backup ${full_age}s ago                       | Detail level syntax.                                                                                                                                                                             |
 | [perf-syntax](#check_mssql_backup_perf-syntax)             | ${name}                                                          | Performance alias syntax.                                                                                                                                                                        |
-| [include-copy-only](#check_mssql_backup_include-copy-only) | 1)] (=0                                                          | Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc copy-only backup does not belong to the scheduled restore chain, so counting it would hide a failing backup job. |
-| [include-snapshot](#check_mssql_backup_include-snapshot)   | 1)] (=0                                                          | Count snapshot (VSS/third-party agent) backups when computing the ages. Excluded by default for the same reason.                                                                                 |
+| [include-copy-only](#check_mssql_backup_include-copy-only) | false                                                            | Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc copy-only backup does not belong to the scheduled restore chain, so counting it would hide a failing backup job. |
+| [include-snapshot](#check_mssql_backup_include-snapshot)   | false                                                            | Count snapshot (VSS/third-party agent) backups when computing the ages. Excluded by default for the same reason.                                                                                 |
 | [server](#check_mssql_backup_server)                       | localhost                                                        | SQL Server to connect to: host, host\INSTANCE or host,port.                                                                                                                                      |
 | database                                                   |                                                                  | Database (initial catalog) to connect to (default: the login's default database).                                                                                                                |
 | user                                                       |                                                                  | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication.                                                                                   |
@@ -500,7 +500,7 @@ OK: All 2 databases have recent backups|'master_full_age'=248s;259200;0 'msdb_fu
 | connection-string                                          |                                                                  | Raw ODBC connection string; overrides all other connection options.                                                                                                                              |
 | [timeout](#check_mssql_backup_timeout)                     | 10                                                               | Connection (login) timeout in seconds.                                                                                                                                                           |
 | [query-timeout](#check_mssql_backup_query-timeout)         | 30                                                               | Query timeout in seconds.                                                                                                                                                                        |
-| [trust-cert](#check_mssql_backup_trust-cert)               | 1)] (=1                                                          | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                                                                                             |
+| [trust-cert](#check_mssql_backup_trust-cert)               | true                                                             | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                                                                                             |
 | encrypt                                                    |                                                                  | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                                                                                                     |
 
 
@@ -538,13 +538,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_backup_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_backup_empty-state">empty-state:</h5>
 
@@ -563,7 +563,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_backup_list-separator">list-separator:</h5>
 
@@ -617,13 +617,13 @@ This is the syntax for the base names of the performance data.
 
 Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc copy-only backup does not belong to the scheduled restore chain, so counting it would hide a failing backup job.
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_backup_include-snapshot">include-snapshot:</h5>
 
 Count snapshot (VSS/third-party agent) backups when computing the ages. Excluded by default for the same reason.
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_backup_server">server:</h5>
 
@@ -647,7 +647,7 @@ Query timeout in seconds.
 
 Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).
 
-*Default Value:* `1)] (=1`
+*Default Value:* `true`
 
 
 <a id="check_mssql_backup_filter_keys"></a>
@@ -787,11 +787,11 @@ OK: All 5 databases are ONLINE
 | [critical](#check_mssql_databases_critical)             | state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING' | Filter which marks items which generates a critical state.                                                                |
 | crit                                                    |                                                                        | Short alias for critical.                                                                                                 |
 | [ok](#check_mssql_databases_ok)                         |                                                                        | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_mssql_databases_debug)                   | 1)] (=0                                                                | Show debugging information in the log                                                                                     |
-| [show-all](#check_mssql_databases_show-all)             | 1)] (=0                                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_mssql_databases_debug)                   | false                                                                  | Show debugging information in the log                                                                                     |
+| [show-all](#check_mssql_databases_show-all)             | false                                                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_mssql_databases_empty-state)       | unknown                                                                | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_mssql_databases_perf-config)       |                                                                        | Performance data generation configuration                                                                                 |
-| [escape-html](#check_mssql_databases_escape-html)       | 1)] (=0                                                                | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_mssql_databases_escape-html)       | false                                                                  | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_mssql_databases_list-separator) | ,                                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                    | N/A                                                                    | Show help screen (this screen)                                                                                            |
 | help-pb                                                 | N/A                                                                    | Show help screen as a protocol buffer payload                                                                             |
@@ -810,7 +810,7 @@ OK: All 5 databases are ONLINE
 | connection-string                                       |                                                                        | Raw ODBC connection string; overrides all other connection options.                                                       |
 | [timeout](#check_mssql_databases_timeout)               | 10                                                                     | Connection (login) timeout in seconds.                                                                                    |
 | [query-timeout](#check_mssql_databases_query-timeout)   | 30                                                                     | Query timeout in seconds.                                                                                                 |
-| [trust-cert](#check_mssql_databases_trust-cert)         | 1)] (=1                                                                | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
+| [trust-cert](#check_mssql_databases_trust-cert)         | true                                                                   | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
 | encrypt                                                 |                                                                        | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                              |
 
 
@@ -848,13 +848,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_databases_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_databases_empty-state">empty-state:</h5>
 
@@ -873,7 +873,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_databases_list-separator">list-separator:</h5>
 
@@ -945,7 +945,7 @@ Query timeout in seconds.
 
 Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).
 
-*Default Value:* `1)] (=1`
+*Default Value:* `true`
 
 
 <a id="check_mssql_databases_filter_keys"></a>
@@ -1110,11 +1110,11 @@ OK: No enabled SQL Agent jobs found
 | [critical](#check_mssql_jobs_critical)             | last_run_status = 'failed'                                  | Filter which marks items which generates a critical state.                                                                |
 | crit                                               |                                                             | Short alias for critical.                                                                                                 |
 | [ok](#check_mssql_jobs_ok)                         |                                                             | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_mssql_jobs_debug)                   | 1)] (=0                                                     | Show debugging information in the log                                                                                     |
-| [show-all](#check_mssql_jobs_show-all)             | 1)] (=0                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_mssql_jobs_debug)                   | false                                                       | Show debugging information in the log                                                                                     |
+| [show-all](#check_mssql_jobs_show-all)             | false                                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_mssql_jobs_empty-state)       | ok                                                          | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_mssql_jobs_perf-config)       |                                                             | Performance data generation configuration                                                                                 |
-| [escape-html](#check_mssql_jobs_escape-html)       | 1)] (=0                                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_mssql_jobs_escape-html)       | false                                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_mssql_jobs_list-separator) | ,                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                               | N/A                                                         | Show help screen (this screen)                                                                                            |
 | help-pb                                            | N/A                                                         | Show help screen as a protocol buffer payload                                                                             |
@@ -1133,7 +1133,7 @@ OK: No enabled SQL Agent jobs found
 | connection-string                                  |                                                             | Raw ODBC connection string; overrides all other connection options.                                                       |
 | [timeout](#check_mssql_jobs_timeout)               | 10                                                          | Connection (login) timeout in seconds.                                                                                    |
 | [query-timeout](#check_mssql_jobs_query-timeout)   | 30                                                          | Query timeout in seconds.                                                                                                 |
-| [trust-cert](#check_mssql_jobs_trust-cert)         | 1)] (=1                                                     | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
+| [trust-cert](#check_mssql_jobs_trust-cert)         | true                                                        | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
 | encrypt                                            |                                                             | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                              |
 
 
@@ -1172,13 +1172,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_jobs_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_jobs_empty-state">empty-state:</h5>
 
@@ -1197,7 +1197,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_jobs_list-separator">list-separator:</h5>
 
@@ -1269,7 +1269,7 @@ Query timeout in seconds.
 
 Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).
 
-*Default Value:* `1)] (=1`
+*Default Value:* `true`
 
 
 <a id="check_mssql_jobs_filter_keys"></a>
@@ -1423,11 +1423,11 @@ UNKNOWN: Query returned no result set (the statement produced no columns)
 | [critical](#check_mssql_query_critical)             |               | Filter which marks items which generates a critical state.                                                                |
 | crit                                                |               | Short alias for critical.                                                                                                 |
 | [ok](#check_mssql_query_ok)                         |               | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_mssql_query_debug)                   | 1)] (=0       | Show debugging information in the log                                                                                     |
-| [show-all](#check_mssql_query_show-all)             | 1)] (=0       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_mssql_query_debug)                   | false         | Show debugging information in the log                                                                                     |
+| [show-all](#check_mssql_query_show-all)             | false         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_mssql_query_empty-state)       | ignored       | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_mssql_query_perf-config)       |               | Performance data generation configuration                                                                                 |
-| [escape-html](#check_mssql_query_escape-html)       | 1)] (=0       | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_mssql_query_escape-html)       | false         | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_mssql_query_list-separator) | ,             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                | N/A           | Show help screen (this screen)                                                                                            |
 | help-pb                                             | N/A           | Show help screen as a protocol buffer payload                                                                             |
@@ -1447,7 +1447,7 @@ UNKNOWN: Query returned no result set (the statement produced no columns)
 | connection-string                                   |               | Raw ODBC connection string; overrides all other connection options.                                                       |
 | [timeout](#check_mssql_query_timeout)               | 10            | Connection (login) timeout in seconds.                                                                                    |
 | [query-timeout](#check_mssql_query_query-timeout)   | 30            | Query timeout in seconds.                                                                                                 |
-| [trust-cert](#check_mssql_query_trust-cert)         | 1)] (=1       | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
+| [trust-cert](#check_mssql_query_trust-cert)         | true          | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
 | encrypt                                             |               | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                              |
 
 
@@ -1483,13 +1483,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_query_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_query_empty-state">empty-state:</h5>
 
@@ -1508,7 +1508,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mssql_query_list-separator">list-separator:</h5>
 
@@ -1577,7 +1577,7 @@ Query timeout in seconds.
 
 Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).
 
-*Default Value:* `1)] (=1`
+*Default Value:* `true`
 
 
 <a id="check_mssql_query_filter_keys"></a>

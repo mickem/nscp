@@ -324,7 +324,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -332,7 +332,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -362,7 +362,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -692,7 +692,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -700,7 +700,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -730,7 +730,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -1017,7 +1017,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -1025,7 +1025,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -1055,7 +1055,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -1450,7 +1450,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -1458,7 +1458,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -1488,7 +1488,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -1664,7 +1664,7 @@ common:
         short_description: Include the total of either (filter) all files matching the filter or (all)
           all files regardless of the filter
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Silently skip top-level paths that do not exist, instead of failing the whole
           check. Intended for directories that are legitimately absent some of the time. Implies empty-state=ok,
@@ -1860,7 +1860,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -1868,7 +1868,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -1898,7 +1898,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -2176,7 +2176,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -2184,7 +2184,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -2214,7 +2214,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -2594,7 +2594,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -2602,7 +2602,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -2632,7 +2632,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -2769,7 +2769,7 @@ common:
         required: false
         short_description: Alias for file.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Return OK instead of failing when the file does not exist. Intended for files
           that are legitimately absent some of the time, such as a lock file or a report that is only
@@ -2969,7 +2969,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -2977,7 +2977,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -3007,7 +3007,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -3308,7 +3308,7 @@ common:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -3316,7 +3316,7 @@ common:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -3346,7 +3346,7 @@ common:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -3791,7 +3791,7 @@ unix:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -3799,7 +3799,7 @@ unix:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -3829,7 +3829,7 @@ unix:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -3969,7 +3969,7 @@ unix:
         required: false
         short_description: A list of drives (mount points) not to check
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Include the total of all matching drives
         name: total
@@ -3977,7 +3977,7 @@ unix:
         required: false
         short_description: Include the total of all matching drives
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Silently skip drives named with drive= that do not exist, instead of failing
           the whole check. Intended for optional mounts. Implies empty-state=ok, so a check whose drives
@@ -4157,7 +4157,7 @@ unix:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -4165,7 +4165,7 @@ unix:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -4195,7 +4195,7 @@ unix:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -4615,7 +4615,7 @@ windows:
         required: false
         short_description: Filter which marks items which generates an ok state.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show debugging information in the log
         name: debug
@@ -4623,7 +4623,7 @@ windows:
         required: false
         short_description: Show debugging information in the log
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Show details for all matches regardless of status (normally details are only
           showed for warnings and criticals).
@@ -4653,7 +4653,7 @@ windows:
         required: false
         short_description: Performance data generation configuration
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Escape any < and > characters to prevent HTML encoding
         name: escape-html
@@ -4785,7 +4785,7 @@ windows:
         required: false
         short_description: The drives to check.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: 'DEPRECATED (manually set filter instead) Ignore drives which are not reachable
           by the current user.
@@ -4797,7 +4797,7 @@ windows:
         short_description: DEPRECATED (manually set filter instead) Ignore drives which are not reachable
           by the current user.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: DEPRECATED (this is now default) Show only mounted rives i.e. drives which have
           a mount point.
@@ -4841,7 +4841,7 @@ windows:
         required: false
         short_description: Alias for require.
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: Include the total of all matching drives
         name: total
@@ -4849,7 +4849,7 @@ windows:
         required: false
         short_description: Include the total of all matching drives
       - content_type: 2
-        default_value: 1)] (=0
+        default_value: 'false'
         is_simple: false
         long_description: 'Silently skip drives named with drive= that do not exist, instead of failing
           the whole check. Intended for optional mounts. Implies empty-state=ok, so a check whose drives

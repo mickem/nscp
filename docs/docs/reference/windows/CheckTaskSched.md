@@ -148,11 +148,11 @@ OK: \Microsoft\Windows\Defrag\ScheduledDefrag hidden=0
 | [critical](#check_tasksched_critical)             | exit_code < 0                         | Filter which marks items which generates a critical state.                                                                             |
 | crit                                              |                                       | Short alias for critical.                                                                                                              |
 | [ok](#check_tasksched_ok)                         |                                       | Filter which marks items which generates an ok state.                                                                                  |
-| [debug](#check_tasksched_debug)                   | 1)] (=0                               | Show debugging information in the log                                                                                                  |
-| [show-all](#check_tasksched_show-all)             | 1)] (=0                               | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                       |
+| [debug](#check_tasksched_debug)                   | false                                 | Show debugging information in the log                                                                                                  |
+| [show-all](#check_tasksched_show-all)             | false                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                       |
 | [empty-state](#check_tasksched_empty-state)       | warning                               | Return status to use when nothing matched filter.                                                                                      |
 | [perf-config](#check_tasksched_perf-config)       |                                       | Performance data generation configuration                                                                                              |
-| [escape-html](#check_tasksched_escape-html)       | 1)] (=0                               | Escape any < and > characters to prevent HTML encoding                                                                                 |
+| [escape-html](#check_tasksched_escape-html)       | false                                 | Escape any < and > characters to prevent HTML encoding                                                                                 |
 | [list-separator](#check_tasksched_list-separator) | ,                                     | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).              |
 | help                                              | N/A                                   | Show help screen (this screen)                                                                                                         |
 | help-pb                                           | N/A                                   | Show help screen as a protocol buffer payload                                                                                          |
@@ -163,7 +163,7 @@ OK: \Microsoft\Windows\Defrag\ScheduledDefrag hidden=0
 | [empty-syntax](#check_tasksched_empty-syntax)     | %(status): No tasks found             | Empty syntax.                                                                                                                          |
 | [detail-syntax](#check_tasksched_detail-syntax)   | ${folder}/${title}: ${exit_code} != 0 | Detail level syntax.                                                                                                                   |
 | [perf-syntax](#check_tasksched_perf-syntax)       | ${title}                              | Performance alias syntax.                                                                                                              |
-| [force-old](#check_tasksched_force-old)           | 1)] (=0                               | The name of the computer that you want to connect to.                                                                                  |
+| [force-old](#check_tasksched_force-old)           | false                                 | The name of the computer that you want to connect to.                                                                                  |
 | computer                                          |                                       | The name of the computer that you want to connect to.                                                                                  |
 | user                                              |                                       | The user name that is used during the connection to the computer.                                                                      |
 | domain                                            |                                       | The domain of the user specified in the user parameter.                                                                                |
@@ -208,13 +208,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_tasksched_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_tasksched_empty-state">empty-state:</h5>
 
@@ -233,7 +233,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_tasksched_list-separator">list-separator:</h5>
 
@@ -287,7 +287,7 @@ This is the syntax for the base names of the performance data.
 
 The name of the computer that you want to connect to.
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 
 <a id="check_tasksched_filter_keys"></a>

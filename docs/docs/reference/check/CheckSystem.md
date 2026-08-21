@@ -102,11 +102,11 @@ A list of all short hand aliases for queries (check commands)
 | [critical](#check_battery_critical)             | charge < 10                                      | Filter which marks items which generates a critical state.                                                                |
 | crit                                            |                                                  | Short alias for critical.                                                                                                 |
 | [ok](#check_battery_ok)                         |                                                  | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_battery_debug)                   | 1)] (=0                                          | Show debugging information in the log                                                                                     |
-| [show-all](#check_battery_show-all)             | 1)] (=0                                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_battery_debug)                   | false                                            | Show debugging information in the log                                                                                     |
+| [show-all](#check_battery_show-all)             | false                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_battery_empty-state)       | warning                                          | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_battery_perf-config)       |                                                  | Performance data generation configuration                                                                                 |
-| [escape-html](#check_battery_escape-html)       | 1)] (=0                                          | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_battery_escape-html)       | false                                            | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_battery_list-separator) | ,                                                | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                            | N/A                                              | Show help screen (this screen)                                                                                            |
 | help-pb                                         | N/A                                              | Show help screen as a protocol buffer payload                                                                             |
@@ -154,13 +154,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_battery_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_battery_empty-state">empty-state:</h5>
 
@@ -179,7 +179,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_battery_list-separator">list-separator:</h5>
 
@@ -530,11 +530,11 @@ CPU Load ok
     | [critical](#check_cpu_critical)             | load > 90                  | Filter which marks items which generates a critical state.                                                                |
     | crit                                        |                            | Short alias for critical.                                                                                                 |
     | [ok](#check_cpu_ok)                         |                            | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_cpu_debug)                   | 1)] (=0                    | Show debugging information in the log                                                                                     |
-    | [show-all](#check_cpu_show-all)             | 1)] (=0                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_cpu_debug)                   | false                      | Show debugging information in the log                                                                                     |
+    | [show-all](#check_cpu_show-all)             | false                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_cpu_empty-state)       | ignored                    | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_cpu_perf-config)       |                            | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_cpu_escape-html)       | 1)] (=0                    | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_cpu_escape-html)       | false                      | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_cpu_list-separator) | ,                          | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                        | N/A                        | Show help screen (this screen)                                                                                            |
     | help-pb                                     | N/A                        | Show help screen as a protocol buffer payload                                                                             |
@@ -584,13 +584,13 @@ CPU Load ok
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_cpu_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_cpu_empty-state">empty-state:</h5>
 
@@ -609,7 +609,7 @@ CPU Load ok
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_cpu_list-separator">list-separator:</h5>
 
@@ -677,11 +677,11 @@ CPU Load ok
     | [critical](#check_cpu_critical)             | load > 90                  | Filter which marks items which generates a critical state.                                                                |
     | crit                                        |                            | Short alias for critical.                                                                                                 |
     | [ok](#check_cpu_ok)                         |                            | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_cpu_debug)                   | 1)] (=0                    | Show debugging information in the log                                                                                     |
-    | [show-all](#check_cpu_show-all)             | 1)] (=0                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_cpu_debug)                   | false                      | Show debugging information in the log                                                                                     |
+    | [show-all](#check_cpu_show-all)             | false                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_cpu_empty-state)       | ignored                    | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_cpu_perf-config)       |                            | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_cpu_escape-html)       | 1)] (=0                    | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_cpu_escape-html)       | false                      | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_cpu_list-separator) | ,                          | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                        | N/A                        | Show help screen (this screen)                                                                                            |
     | help-pb                                     | N/A                        | Show help screen as a protocol buffer payload                                                                             |
@@ -731,13 +731,13 @@ CPU Load ok
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_cpu_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_cpu_empty-state">empty-state:</h5>
 
@@ -756,7 +756,7 @@ CPU Load ok
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_cpu_list-separator">list-separator:</h5>
 
@@ -997,11 +997,11 @@ OK: Intel(R) Core(TM) Ultra 7 265H: 2200/2200 MHz (100%)
 | [critical](#check_cpu_frequency_critical)             |                                                            | Filter which marks items which generates a critical state.                                                                |
 | crit                                                  |                                                            | Short alias for critical.                                                                                                 |
 | [ok](#check_cpu_frequency_ok)                         |                                                            | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_cpu_frequency_debug)                   | 1)] (=0                                                    | Show debugging information in the log                                                                                     |
-| [show-all](#check_cpu_frequency_show-all)             | 1)] (=0                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_cpu_frequency_debug)                   | false                                                      | Show debugging information in the log                                                                                     |
+| [show-all](#check_cpu_frequency_show-all)             | false                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_cpu_frequency_empty-state)       | ignored                                                    | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_cpu_frequency_perf-config)       |                                                            | Performance data generation configuration                                                                                 |
-| [escape-html](#check_cpu_frequency_escape-html)       | 1)] (=0                                                    | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_cpu_frequency_escape-html)       | false                                                      | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_cpu_frequency_list-separator) | ,                                                          | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                  | N/A                                                        | Show help screen (this screen)                                                                                            |
 | help-pb                                               | N/A                                                        | Show help screen as a protocol buffer payload                                                                             |
@@ -1046,13 +1046,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_cpu_frequency_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_cpu_frequency_empty-state">empty-state:</h5>
 
@@ -1071,7 +1071,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_cpu_frequency_list-separator">list-separator:</h5>
 
@@ -1189,11 +1189,11 @@ Check CPU utilization broken down by user/system/iowait/steal/guest.
 | [critical](#check_cpu_utilization_critical)             | total > 95                                                                           | Filter which marks items which generates a critical state.                                                                |
 | crit                                                    |                                                                                      | Short alias for critical.                                                                                                 |
 | [ok](#check_cpu_utilization_ok)                         |                                                                                      | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_cpu_utilization_debug)                   | 1)] (=0                                                                              | Show debugging information in the log                                                                                     |
-| [show-all](#check_cpu_utilization_show-all)             | 1)] (=0                                                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_cpu_utilization_debug)                   | false                                                                                | Show debugging information in the log                                                                                     |
+| [show-all](#check_cpu_utilization_show-all)             | false                                                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_cpu_utilization_empty-state)       | ignored                                                                              | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_cpu_utilization_perf-config)       |                                                                                      | Performance data generation configuration                                                                                 |
-| [escape-html](#check_cpu_utilization_escape-html)       | 1)] (=0                                                                              | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_cpu_utilization_escape-html)       | false                                                                                | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_cpu_utilization_list-separator) | ,                                                                                    | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                    | N/A                                                                                  | Show help screen (this screen)                                                                                            |
 | help-pb                                                 | N/A                                                                                  | Show help screen as a protocol buffer payload                                                                             |
@@ -1240,13 +1240,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_cpu_utilization_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_cpu_utilization_empty-state">empty-state:</h5>
 
@@ -1265,7 +1265,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_cpu_utilization_list-separator">list-separator:</h5>
 
@@ -1480,11 +1480,11 @@ OK: Dell Inc. Dell Pro Max 16 MC16250 (Notebook), serial=ABC1234, 2 memory modul
 | [critical](#check_hardware_critical)             |                                                                                           | Filter which marks items which generates a critical state.                                                                |
 | crit                                             |                                                                                           | Short alias for critical.                                                                                                 |
 | [ok](#check_hardware_ok)                         |                                                                                           | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_hardware_debug)                   | 1)] (=0                                                                                   | Show debugging information in the log                                                                                     |
-| [show-all](#check_hardware_show-all)             | 1)] (=0                                                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_hardware_debug)                   | false                                                                                     | Show debugging information in the log                                                                                     |
+| [show-all](#check_hardware_show-all)             | false                                                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_hardware_empty-state)       | ignored                                                                                   | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_hardware_perf-config)       |                                                                                           | Performance data generation configuration                                                                                 |
-| [escape-html](#check_hardware_escape-html)       | 1)] (=0                                                                                   | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_hardware_escape-html)       | false                                                                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_hardware_list-separator) | ,                                                                                         | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                             | N/A                                                                                       | Show help screen (this screen)                                                                                            |
 | help-pb                                          | N/A                                                                                       | Show help screen as a protocol buffer payload                                                                             |
@@ -1529,13 +1529,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_hardware_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_hardware_empty-state">empty-state:</h5>
 
@@ -1554,7 +1554,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_hardware_list-separator">list-separator:</h5>
 
@@ -1821,11 +1821,11 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
     | [critical](#check_hostname_critical)             |                                             | Filter which marks items which generates a critical state.                                                                |
     | crit                                             |                                             | Short alias for critical.                                                                                                 |
     | [ok](#check_hostname_ok)                         |                                             | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_hostname_debug)                   | 1)] (=0                                     | Show debugging information in the log                                                                                     |
-    | [show-all](#check_hostname_show-all)             | 1)] (=0                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_hostname_debug)                   | false                                       | Show debugging information in the log                                                                                     |
+    | [show-all](#check_hostname_show-all)             | false                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_hostname_empty-state)       | ignored                                     | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_hostname_perf-config)       |                                             | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_hostname_escape-html)       | 1)] (=0                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_hostname_escape-html)       | false                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_hostname_list-separator) | ,                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                             | N/A                                         | Show help screen (this screen)                                                                                            |
     | help-pb                                          | N/A                                         | Show help screen as a protocol buffer payload                                                                             |
@@ -1870,13 +1870,13 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_hostname_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_hostname_empty-state">empty-state:</h5>
 
@@ -1895,7 +1895,7 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_hostname_list-separator">list-separator:</h5>
 
@@ -1960,11 +1960,11 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
     | [critical](#check_hostname_critical)             |                                         | Filter which marks items which generates a critical state.                                                                |
     | crit                                             |                                         | Short alias for critical.                                                                                                 |
     | [ok](#check_hostname_ok)                         |                                         | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_hostname_debug)                   | 1)] (=0                                 | Show debugging information in the log                                                                                     |
-    | [show-all](#check_hostname_show-all)             | 1)] (=0                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_hostname_debug)                   | false                                   | Show debugging information in the log                                                                                     |
+    | [show-all](#check_hostname_show-all)             | false                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_hostname_empty-state)       | ignored                                 | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_hostname_perf-config)       |                                         | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_hostname_escape-html)       | 1)] (=0                                 | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_hostname_escape-html)       | false                                   | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_hostname_list-separator) | ,                                       | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                             | N/A                                     | Show help screen (this screen)                                                                                            |
     | help-pb                                          | N/A                                     | Show help screen as a protocol buffer payload                                                                             |
@@ -2009,13 +2009,13 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_hostname_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_hostname_empty-state">empty-state:</h5>
 
@@ -2034,7 +2034,7 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_hostname_list-separator">list-separator:</h5>
 
@@ -2353,11 +2353,11 @@ OK: 101 software packages installed.
     | [critical](#check_installed_software_critical)             |                                                  | Filter which marks items which generates a critical state.                                                                |
     | crit                                                       |                                                  | Short alias for critical.                                                                                                 |
     | [ok](#check_installed_software_ok)                         |                                                  | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_installed_software_debug)                   | 1)] (=0                                          | Show debugging information in the log                                                                                     |
-    | [show-all](#check_installed_software_show-all)             | 1)] (=0                                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_installed_software_debug)                   | false                                            | Show debugging information in the log                                                                                     |
+    | [show-all](#check_installed_software_show-all)             | false                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_installed_software_empty-state)       | ok                                               | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_installed_software_perf-config)       |                                                  | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_installed_software_escape-html)       | 1)] (=0                                          | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_installed_software_escape-html)       | false                                            | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_installed_software_list-separator) | ,                                                | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                       | N/A                                              | Show help screen (this screen)                                                                                            |
     | help-pb                                                    | N/A                                              | Show help screen as a protocol buffer payload                                                                             |
@@ -2403,13 +2403,13 @@ OK: 101 software packages installed.
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_installed_software_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_installed_software_empty-state">empty-state:</h5>
 
@@ -2428,7 +2428,7 @@ OK: 101 software packages installed.
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_installed_software_list-separator">list-separator:</h5>
 
@@ -2495,11 +2495,11 @@ OK: 101 software packages installed.
     | [critical](#check_installed_software_critical)             |                                                  | Filter which marks items which generates a critical state.                                                                |
     | crit                                                       |                                                  | Short alias for critical.                                                                                                 |
     | [ok](#check_installed_software_ok)                         |                                                  | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_installed_software_debug)                   | 1)] (=0                                          | Show debugging information in the log                                                                                     |
-    | [show-all](#check_installed_software_show-all)             | 1)] (=0                                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_installed_software_debug)                   | false                                            | Show debugging information in the log                                                                                     |
+    | [show-all](#check_installed_software_show-all)             | false                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_installed_software_empty-state)       | ok                                               | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_installed_software_perf-config)       |                                                  | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_installed_software_escape-html)       | 1)] (=0                                          | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_installed_software_escape-html)       | false                                            | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_installed_software_list-separator) | ,                                                | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                       | N/A                                              | Show help screen (this screen)                                                                                            |
     | help-pb                                                    | N/A                                              | Show help screen as a protocol buffer payload                                                                             |
@@ -2544,13 +2544,13 @@ OK: 101 software packages installed.
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_installed_software_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_installed_software_empty-state">empty-state:</h5>
 
@@ -2569,7 +2569,7 @@ OK: 101 software packages installed.
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_installed_software_list-separator">list-separator:</h5>
 
@@ -2846,11 +2846,11 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
     | [critical](#check_kernel_memory_critical)             |                                                                                                                | Filter which marks items which generates a critical state.                                                                |
     | crit                                                  |                                                                                                                | Short alias for critical.                                                                                                 |
     | [ok](#check_kernel_memory_ok)                         |                                                                                                                | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_kernel_memory_debug)                   | 1)] (=0                                                                                                        | Show debugging information in the log                                                                                     |
-    | [show-all](#check_kernel_memory_show-all)             | 1)] (=0                                                                                                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_kernel_memory_debug)                   | false                                                                                                          | Show debugging information in the log                                                                                     |
+    | [show-all](#check_kernel_memory_show-all)             | false                                                                                                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_kernel_memory_empty-state)       | ignored                                                                                                        | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_kernel_memory_perf-config)       |                                                                                                                | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_kernel_memory_escape-html)       | 1)] (=0                                                                                                        | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_kernel_memory_escape-html)       | false                                                                                                          | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_kernel_memory_list-separator) | ,                                                                                                              | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                  | N/A                                                                                                            | Show help screen (this screen)                                                                                            |
     | help-pb                                               | N/A                                                                                                            | Show help screen as a protocol buffer payload                                                                             |
@@ -2895,13 +2895,13 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_memory_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_memory_empty-state">empty-state:</h5>
 
@@ -2920,7 +2920,7 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_memory_list-separator">list-separator:</h5>
 
@@ -2985,11 +2985,11 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
     | [critical](#check_kernel_memory_critical)             |                                                                                                            | Filter which marks items which generates a critical state.                                                                |
     | crit                                                  |                                                                                                            | Short alias for critical.                                                                                                 |
     | [ok](#check_kernel_memory_ok)                         |                                                                                                            | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_kernel_memory_debug)                   | 1)] (=0                                                                                                    | Show debugging information in the log                                                                                     |
-    | [show-all](#check_kernel_memory_show-all)             | 1)] (=0                                                                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_kernel_memory_debug)                   | false                                                                                                      | Show debugging information in the log                                                                                     |
+    | [show-all](#check_kernel_memory_show-all)             | false                                                                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_kernel_memory_empty-state)       | ignored                                                                                                    | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_kernel_memory_perf-config)       |                                                                                                            | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_kernel_memory_escape-html)       | 1)] (=0                                                                                                    | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_kernel_memory_escape-html)       | false                                                                                                      | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_kernel_memory_list-separator) | ,                                                                                                          | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                  | N/A                                                                                                        | Show help screen (this screen)                                                                                            |
     | help-pb                                               | N/A                                                                                                        | Show help screen as a protocol buffer payload                                                                             |
@@ -3034,13 +3034,13 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_memory_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_memory_empty-state">empty-state:</h5>
 
@@ -3059,7 +3059,7 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_memory_list-separator">list-separator:</h5>
 
@@ -3313,11 +3313,11 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
     | [critical](#check_kernel_stats_critical)             | name = 'threads' and current > 10000 | Filter which marks items which generates a critical state.                                                                |
     | crit                                                 |                                      | Short alias for critical.                                                                                                 |
     | [ok](#check_kernel_stats_ok)                         |                                      | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_kernel_stats_debug)                   | 1)] (=0                              | Show debugging information in the log                                                                                     |
-    | [show-all](#check_kernel_stats_show-all)             | 1)] (=0                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_kernel_stats_debug)                   | false                                | Show debugging information in the log                                                                                     |
+    | [show-all](#check_kernel_stats_show-all)             | false                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_kernel_stats_empty-state)       | ignored                              | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_kernel_stats_perf-config)       |                                      | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_kernel_stats_escape-html)       | 1)] (=0                              | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_kernel_stats_escape-html)       | false                                | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_kernel_stats_list-separator) | ,                                    | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                 | N/A                                  | Show help screen (this screen)                                                                                            |
     | help-pb                                              | N/A                                  | Show help screen as a protocol buffer payload                                                                             |
@@ -3365,13 +3365,13 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_stats_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_stats_empty-state">empty-state:</h5>
 
@@ -3390,7 +3390,7 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_stats_list-separator">list-separator:</h5>
 
@@ -3456,11 +3456,11 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
     | [critical](#check_kernel_stats_critical)             | name = 'threads' and current > 10000 | Filter which marks items which generates a critical state.                                                                |
     | crit                                                 |                                      | Short alias for critical.                                                                                                 |
     | [ok](#check_kernel_stats_ok)                         |                                      | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_kernel_stats_debug)                   | 1)] (=0                              | Show debugging information in the log                                                                                     |
-    | [show-all](#check_kernel_stats_show-all)             | 1)] (=0                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_kernel_stats_debug)                   | false                                | Show debugging information in the log                                                                                     |
+    | [show-all](#check_kernel_stats_show-all)             | false                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_kernel_stats_empty-state)       | ignored                              | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_kernel_stats_perf-config)       |                                      | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_kernel_stats_escape-html)       | 1)] (=0                              | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_kernel_stats_escape-html)       | false                                | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_kernel_stats_list-separator) | ,                                    | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                 | N/A                                  | Show help screen (this screen)                                                                                            |
     | help-pb                                              | N/A                                  | Show help screen as a protocol buffer payload                                                                             |
@@ -3508,13 +3508,13 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_stats_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_stats_empty-state">empty-state:</h5>
 
@@ -3533,7 +3533,7 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_kernel_stats_list-separator">list-separator:</h5>
 
@@ -3842,11 +3842,11 @@ OK: total load average: 2.33528, 1.84625, 1.74261
 | [critical](#check_load_critical)             |                                                     | Filter which marks items which generates a critical state.                                                                |
 | crit                                         |                                                     | Short alias for critical.                                                                                                 |
 | [ok](#check_load_ok)                         |                                                     | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_load_debug)                   | 1)] (=0                                             | Show debugging information in the log                                                                                     |
-| [show-all](#check_load_show-all)             | 1)] (=0                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_load_debug)                   | false                                               | Show debugging information in the log                                                                                     |
+| [show-all](#check_load_show-all)             | false                                               | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_load_empty-state)       | ignored                                             | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_load_perf-config)       |                                                     | Performance data generation configuration                                                                                 |
-| [escape-html](#check_load_escape-html)       | 1)] (=0                                             | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_load_escape-html)       | false                                               | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_load_list-separator) | ,                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                         | N/A                                                 | Show help screen (this screen)                                                                                            |
 | help-pb                                      | N/A                                                 | Show help screen as a protocol buffer payload                                                                             |
@@ -3857,7 +3857,7 @@ OK: total load average: 2.33528, 1.84625, 1.74261
 | [empty-syntax](#check_load_empty-syntax)     |                                                     | Empty syntax.                                                                                                             |
 | [detail-syntax](#check_load_detail-syntax)   | ${type} load average: ${load1}, ${load5}, ${load15} | Detail level syntax.                                                                                                      |
 | [perf-syntax](#check_load_perf-syntax)       | ${type}                                             | Performance alias syntax.                                                                                                 |
-| [percpu](#check_load_percpu)                 | 1)] (=0                                             | Divide the load averages by the number of CPUs (reports the 'scaled' per-core load)                                       |
+| [percpu](#check_load_percpu)                 | false                                               | Divide the load averages by the number of CPUs (reports the 'scaled' per-core load)                                       |
 
 
 
@@ -3892,13 +3892,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_load_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_load_empty-state">empty-state:</h5>
 
@@ -3917,7 +3917,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_load_list-separator">list-separator:</h5>
 
@@ -3969,7 +3969,7 @@ This is the syntax for the base names of the performance data.
 
 Divide the load averages by the number of CPUs (reports the 'scaled' per-core load)
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 
 <a id="check_load_filter_keys"></a>
@@ -4105,11 +4105,11 @@ page = 8.05G, physical = 7.85G
     | [critical](#check_memory_critical)             | used > 90%               | Filter which marks items which generates a critical state.                                                                |
     | crit                                           |                          | Short alias for critical.                                                                                                 |
     | [ok](#check_memory_ok)                         |                          | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_memory_debug)                   | 1)] (=0                  | Show debugging information in the log                                                                                     |
-    | [show-all](#check_memory_show-all)             | 1)] (=0                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_memory_debug)                   | false                    | Show debugging information in the log                                                                                     |
+    | [show-all](#check_memory_show-all)             | false                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_memory_empty-state)       | ignored                  | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_memory_perf-config)       |                          | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_memory_escape-html)       | 1)] (=0                  | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_memory_escape-html)       | false                    | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_memory_list-separator) | ,                        | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                           | N/A                      | Show help screen (this screen)                                                                                            |
     | help-pb                                        | N/A                      | Show help screen as a protocol buffer payload                                                                             |
@@ -4157,13 +4157,13 @@ page = 8.05G, physical = 7.85G
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_memory_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_memory_empty-state">empty-state:</h5>
 
@@ -4182,7 +4182,7 @@ page = 8.05G, physical = 7.85G
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_memory_list-separator">list-separator:</h5>
 
@@ -4248,11 +4248,11 @@ page = 8.05G, physical = 7.85G
     | [critical](#check_memory_critical)             | used > 90%         | Filter which marks items which generates a critical state.                                                                |
     | crit                                           |                    | Short alias for critical.                                                                                                 |
     | [ok](#check_memory_ok)                         |                    | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_memory_debug)                   | 1)] (=0            | Show debugging information in the log                                                                                     |
-    | [show-all](#check_memory_show-all)             | 1)] (=0            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_memory_debug)                   | false              | Show debugging information in the log                                                                                     |
+    | [show-all](#check_memory_show-all)             | false              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_memory_empty-state)       | ignored            | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_memory_perf-config)       |                    | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_memory_escape-html)       | 1)] (=0            | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_memory_escape-html)       | false              | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_memory_list-separator) | ,                  | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                           | N/A                | Show help screen (this screen)                                                                                            |
     | help-pb                                        | N/A                | Show help screen as a protocol buffer payload                                                                             |
@@ -4300,13 +4300,13 @@ page = 8.05G, physical = 7.85G
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_memory_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_memory_empty-state">empty-state:</h5>
 
@@ -4325,7 +4325,7 @@ page = 8.05G, physical = 7.85G
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_memory_list-separator">list-separator:</h5>
 
@@ -4766,11 +4766,11 @@ page = 8.05G, physical = 7.85G
     | [critical](#check_network_critical)             | total > 100000                                | Filter which marks items which generates a critical state.                                                                                                                                                                                                          |
     | crit                                            |                                               | Short alias for critical.                                                                                                                                                                                                                                           |
     | [ok](#check_network_ok)                         |                                               | Filter which marks items which generates an ok state.                                                                                                                                                                                                               |
-    | [debug](#check_network_debug)                   | 1)] (=0                                       | Show debugging information in the log                                                                                                                                                                                                                               |
-    | [show-all](#check_network_show-all)             | 1)] (=0                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                    |
+    | [debug](#check_network_debug)                   | false                                         | Show debugging information in the log                                                                                                                                                                                                                               |
+    | [show-all](#check_network_show-all)             | false                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                    |
     | [empty-state](#check_network_empty-state)       | critical                                      | Return status to use when nothing matched filter.                                                                                                                                                                                                                   |
     | [perf-config](#check_network_perf-config)       |                                               | Performance data generation configuration                                                                                                                                                                                                                           |
-    | [escape-html](#check_network_escape-html)       | 1)] (=0                                       | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                              |
+    | [escape-html](#check_network_escape-html)       | false                                         | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                              |
     | [list-separator](#check_network_list-separator) | ,                                             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                           |
     | help                                            | N/A                                           | Show help screen (this screen)                                                                                                                                                                                                                                      |
     | help-pb                                         | N/A                                           | Show help screen as a protocol buffer payload                                                                                                                                                                                                                       |
@@ -4818,13 +4818,13 @@ page = 8.05G, physical = 7.85G
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_network_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_network_empty-state">empty-state:</h5>
 
@@ -4843,7 +4843,7 @@ page = 8.05G, physical = 7.85G
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_network_list-separator">list-separator:</h5>
 
@@ -4915,11 +4915,11 @@ page = 8.05G, physical = 7.85G
     | [critical](#check_network_critical)             | total > 100000                                | Filter which marks items which generates a critical state.                                                                |
     | crit                                            |                                               | Short alias for critical.                                                                                                 |
     | [ok](#check_network_ok)                         |                                               | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_network_debug)                   | 1)] (=0                                       | Show debugging information in the log                                                                                     |
-    | [show-all](#check_network_show-all)             | 1)] (=0                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_network_debug)                   | false                                         | Show debugging information in the log                                                                                     |
+    | [show-all](#check_network_show-all)             | false                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_network_empty-state)       | critical                                      | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_network_perf-config)       |                                               | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_network_escape-html)       | 1)] (=0                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_network_escape-html)       | false                                         | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_network_list-separator) | ,                                             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                            | N/A                                           | Show help screen (this screen)                                                                                            |
     | help-pb                                         | N/A                                           | Show help screen as a protocol buffer payload                                                                             |
@@ -4966,13 +4966,13 @@ page = 8.05G, physical = 7.85G
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_network_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_network_empty-state">empty-state:</h5>
 
@@ -4991,7 +4991,7 @@ page = 8.05G, physical = 7.85G
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_network_list-separator">list-separator:</h5>
 
@@ -5323,11 +5323,11 @@ page = 8.05G, physical = 7.85G
     | [critical](#check_os_updates_critical)             | security > 0 or critical > 0                                                       | Filter which marks items which generates a critical state.                                                                                  |
     | crit                                               |                                                                                    | Short alias for critical.                                                                                                                   |
     | [ok](#check_os_updates_ok)                         |                                                                                    | Filter which marks items which generates an ok state.                                                                                       |
-    | [debug](#check_os_updates_debug)                   | 1)] (=0                                                                            | Show debugging information in the log                                                                                                       |
-    | [show-all](#check_os_updates_show-all)             | 1)] (=0                                                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                            |
+    | [debug](#check_os_updates_debug)                   | false                                                                              | Show debugging information in the log                                                                                                       |
+    | [show-all](#check_os_updates_show-all)             | false                                                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                            |
     | [empty-state](#check_os_updates_empty-state)       | ok                                                                                 | Return status to use when nothing matched filter.                                                                                           |
     | [perf-config](#check_os_updates_perf-config)       |                                                                                    | Performance data generation configuration                                                                                                   |
-    | [escape-html](#check_os_updates_escape-html)       | 1)] (=0                                                                            | Escape any < and > characters to prevent HTML encoding                                                                                      |
+    | [escape-html](#check_os_updates_escape-html)       | false                                                                              | Escape any < and > characters to prevent HTML encoding                                                                                      |
     | [list-separator](#check_os_updates_list-separator) | ,                                                                                  | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                   |
     | help                                               | N/A                                                                                | Show help screen (this screen)                                                                                                              |
     | help-pb                                            | N/A                                                                                | Show help screen as a protocol buffer payload                                                                                               |
@@ -5375,13 +5375,13 @@ page = 8.05G, physical = 7.85G
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_updates_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_updates_empty-state">empty-state:</h5>
 
@@ -5400,7 +5400,7 @@ page = 8.05G, physical = 7.85G
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_updates_list-separator">list-separator:</h5>
 
@@ -5466,11 +5466,11 @@ page = 8.05G, physical = 7.85G
     | [critical](#check_os_updates_critical)             | security > 0                                                                | Filter which marks items which generates a critical state.                                                                |
     | crit                                               |                                                                             | Short alias for critical.                                                                                                 |
     | [ok](#check_os_updates_ok)                         |                                                                             | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_os_updates_debug)                   | 1)] (=0                                                                     | Show debugging information in the log                                                                                     |
-    | [show-all](#check_os_updates_show-all)             | 1)] (=0                                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_os_updates_debug)                   | false                                                                       | Show debugging information in the log                                                                                     |
+    | [show-all](#check_os_updates_show-all)             | false                                                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_os_updates_empty-state)       | ok                                                                          | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_os_updates_perf-config)       |                                                                             | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_os_updates_escape-html)       | 1)] (=0                                                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_os_updates_escape-html)       | false                                                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_os_updates_list-separator) | ,                                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                               | N/A                                                                         | Show help screen (this screen)                                                                                            |
     | help-pb                                            | N/A                                                                         | Show help screen as a protocol buffer payload                                                                             |
@@ -5517,13 +5517,13 @@ page = 8.05G, physical = 7.85G
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_updates_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_updates_empty-state">empty-state:</h5>
 
@@ -5542,7 +5542,7 @@ page = 8.05G, physical = 7.85G
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_updates_list-separator">list-separator:</h5>
 
@@ -5768,11 +5768,11 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
     | [critical](#check_os_version_critical)             | version <= 50                          | Filter which marks items which generates a critical state.                                                                |
     | crit                                               |                                        | Short alias for critical.                                                                                                 |
     | [ok](#check_os_version_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_os_version_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                     |
-    | [show-all](#check_os_version_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_os_version_debug)                   | false                                  | Show debugging information in the log                                                                                     |
+    | [show-all](#check_os_version_show-all)             | false                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_os_version_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_os_version_perf-config)       |                                        | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_os_version_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_os_version_escape-html)       | false                                  | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_os_version_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                               | N/A                                    | Show help screen (this screen)                                                                                            |
     | help-pb                                            | N/A                                    | Show help screen as a protocol buffer payload                                                                             |
@@ -5819,13 +5819,13 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_version_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_version_empty-state">empty-state:</h5>
 
@@ -5844,7 +5844,7 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_version_list-separator">list-separator:</h5>
 
@@ -5909,11 +5909,11 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
     | [critical](#check_os_version_critical)             |                                  | Filter which marks items which generates a critical state.                                                                |
     | crit                                               |                                  | Short alias for critical.                                                                                                 |
     | [ok](#check_os_version_ok)                         |                                  | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_os_version_debug)                   | 1)] (=0                          | Show debugging information in the log                                                                                     |
-    | [show-all](#check_os_version_show-all)             | 1)] (=0                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_os_version_debug)                   | false                            | Show debugging information in the log                                                                                     |
+    | [show-all](#check_os_version_show-all)             | false                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_os_version_empty-state)       | ignored                          | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_os_version_perf-config)       |                                  | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_os_version_escape-html)       | 1)] (=0                          | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_os_version_escape-html)       | false                            | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_os_version_list-separator) | ,                                | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                               | N/A                              | Show help screen (this screen)                                                                                            |
     | help-pb                                            | N/A                              | Show help screen as a protocol buffer payload                                                                             |
@@ -5958,13 +5958,13 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_version_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_version_empty-state">empty-state:</h5>
 
@@ -5983,7 +5983,7 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_os_version_list-separator">list-separator:</h5>
 
@@ -6192,11 +6192,11 @@ check_pagefile help
 | [critical](#check_pagefile_critical)             | used > 80%                | Filter which marks items which generates a critical state.                                                                |
 | crit                                             |                           | Short alias for critical.                                                                                                 |
 | [ok](#check_pagefile_ok)                         |                           | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_pagefile_debug)                   | 1)] (=0                   | Show debugging information in the log                                                                                     |
-| [show-all](#check_pagefile_show-all)             | 1)] (=0                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_pagefile_debug)                   | false                     | Show debugging information in the log                                                                                     |
+| [show-all](#check_pagefile_show-all)             | false                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_pagefile_empty-state)       | ignored                   | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_pagefile_perf-config)       |                           | Performance data generation configuration                                                                                 |
-| [escape-html](#check_pagefile_escape-html)       | 1)] (=0                   | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_pagefile_escape-html)       | false                     | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_pagefile_list-separator) | ,                         | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                             | N/A                       | Show help screen (this screen)                                                                                            |
 | help-pb                                          | N/A                       | Show help screen as a protocol buffer payload                                                                             |
@@ -6243,13 +6243,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pagefile_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pagefile_empty-state">empty-state:</h5>
 
@@ -6268,7 +6268,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pagefile_list-separator">list-separator:</h5>
 
@@ -6504,11 +6504,11 @@ OK: 42 hotfixes installed, newest KB5034441 on 3/12/2024 (18d ago)
 | [critical](#check_patch_age_critical)             | missing > 0        | Filter which marks items which generates a critical state.                                                                                                                                    |
 | crit                                              |                    | Short alias for critical.                                                                                                                                                                     |
 | [ok](#check_patch_age_ok)                         |                    | Filter which marks items which generates an ok state.                                                                                                                                         |
-| [debug](#check_patch_age_debug)                   | 1)] (=0            | Show debugging information in the log                                                                                                                                                         |
-| [show-all](#check_patch_age_show-all)             | 1)] (=0            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                              |
+| [debug](#check_patch_age_debug)                   | false              | Show debugging information in the log                                                                                                                                                         |
+| [show-all](#check_patch_age_show-all)             | false              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                              |
 | [empty-state](#check_patch_age_empty-state)       | ignored            | Return status to use when nothing matched filter.                                                                                                                                             |
 | [perf-config](#check_patch_age_perf-config)       |                    | Performance data generation configuration                                                                                                                                                     |
-| [escape-html](#check_patch_age_escape-html)       | 1)] (=0            | Escape any < and > characters to prevent HTML encoding                                                                                                                                        |
+| [escape-html](#check_patch_age_escape-html)       | false              | Escape any < and > characters to prevent HTML encoding                                                                                                                                        |
 | [list-separator](#check_patch_age_list-separator) | ,                  | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                     |
 | help                                              | N/A                | Show help screen (this screen)                                                                                                                                                                |
 | help-pb                                           | N/A                | Show help screen as a protocol buffer payload                                                                                                                                                 |
@@ -6555,13 +6555,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_patch_age_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_patch_age_empty-state">empty-state:</h5>
 
@@ -6580,7 +6580,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_patch_age_list-separator">list-separator:</h5>
 
@@ -6770,11 +6770,11 @@ L     client OK: \\MIME-LAPTOP\Processor(0)\% processortid = 100, \\MIME-LAPTOP\
 | [critical](#check_pdh_critical)             |                     | Filter which marks items which generates a critical state.                                                                                                                                                                                                                                  |
 | crit                                        |                     | Short alias for critical.                                                                                                                                                                                                                                                                   |
 | [ok](#check_pdh_ok)                         |                     | Filter which marks items which generates an ok state.                                                                                                                                                                                                                                       |
-| [debug](#check_pdh_debug)                   | 1)] (=0             | Show debugging information in the log                                                                                                                                                                                                                                                       |
-| [show-all](#check_pdh_show-all)             | 1)] (=0             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                                            |
+| [debug](#check_pdh_debug)                   | false               | Show debugging information in the log                                                                                                                                                                                                                                                       |
+| [show-all](#check_pdh_show-all)             | false               | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                                            |
 | [empty-state](#check_pdh_empty-state)       | unknown             | Return status to use when nothing matched filter.                                                                                                                                                                                                                                           |
 | [perf-config](#check_pdh_perf-config)       |                     | Performance data generation configuration                                                                                                                                                                                                                                                   |
-| [escape-html](#check_pdh_escape-html)       | 1)] (=0             | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                                      |
+| [escape-html](#check_pdh_escape-html)       | false               | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                                      |
 | [list-separator](#check_pdh_list-separator) | ,                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                                                   |
 | help                                        | N/A                 | Show help screen (this screen)                                                                                                                                                                                                                                                              |
 | help-pb                                     | N/A                 | Show help screen as a protocol buffer payload                                                                                                                                                                                                                                               |
@@ -6786,15 +6786,15 @@ L     client OK: \\MIME-LAPTOP\Processor(0)\% processortid = 100, \\MIME-LAPTOP\
 | [detail-syntax](#check_pdh_detail-syntax)   | ${alias} = ${value} | Detail level syntax.                                                                                                                                                                                                                                                                        |
 | [perf-syntax](#check_pdh_perf-syntax)       | ${alias}            | Performance alias syntax.                                                                                                                                                                                                                                                                   |
 | counter                                     |                     | Performance counter to check                                                                                                                                                                                                                                                                |
-| [expand-index](#check_pdh_expand-index)     | 1)] (=0             | Expand indexes in counter strings                                                                                                                                                                                                                                                           |
+| [expand-index](#check_pdh_expand-index)     | false               | Expand indexes in counter strings                                                                                                                                                                                                                                                           |
 | [resolution](#check_pdh_resolution)         | auto                | How to resolve counter names against the system locale: auto (try the localized name, then the English API, then index expansion - the default), english (force English counter names regardless of the system language) or index (expand numeric counter indexes to their localized names) |
-| [instances](#check_pdh_instances)           | 1)] (=0             | Expand wildcards and fetch all instances                                                                                                                                                                                                                                                    |
-| [reload](#check_pdh_reload)                 | 1)] (=0             | Reload counters on errors (useful to check counters which are not added at boot)                                                                                                                                                                                                            |
-| [averages](#check_pdh_averages)             | 1)] (=0             | Check average values (ie. wait for 1 second to collecting two samples)                                                                                                                                                                                                                      |
+| [instances](#check_pdh_instances)           | false               | Expand wildcards and fetch all instances                                                                                                                                                                                                                                                    |
+| [reload](#check_pdh_reload)                 | false               | Reload counters on errors (useful to check counters which are not added at boot)                                                                                                                                                                                                            |
+| [averages](#check_pdh_averages)             | false               | Check average values (ie. wait for 1 second to collecting two samples)                                                                                                                                                                                                                      |
 | time                                        |                     | Timeframe to use for named rrd counters                                                                                                                                                                                                                                                     |
 | flags                                       |                     | Extra flags to configure the counter (nocap100, 1000, noscale)                                                                                                                                                                                                                              |
 | [type](#check_pdh_type)                     | large               | Format of value (double, long, large)                                                                                                                                                                                                                                                       |
-| [ignore-errors](#check_pdh_ignore-errors)   | 1)] (=0             | If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors                                                                                                                                                        |
+| [ignore-errors](#check_pdh_ignore-errors)   | false               | If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors                                                                                                                                                        |
 
 
 
@@ -6829,13 +6829,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pdh_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pdh_empty-state">empty-state:</h5>
 
@@ -6854,7 +6854,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pdh_list-separator">list-separator:</h5>
 
@@ -6906,7 +6906,7 @@ This is the syntax for the base names of the performance data.
 
 Expand indexes in counter strings
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pdh_resolution">resolution:</h5>
 
@@ -6918,19 +6918,19 @@ How to resolve counter names against the system locale: auto (try the localized 
 
 Expand wildcards and fetch all instances
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pdh_reload">reload:</h5>
 
 Reload counters on errors (useful to check counters which are not added at boot)
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pdh_averages">averages:</h5>
 
 Check average values (ie. wait for 1 second to collecting two samples)
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pdh_type">type:</h5>
 
@@ -6942,7 +6942,7 @@ Format of value (double, long, large)
 
 If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 
 <a id="check_pdh_filter_keys"></a>
@@ -7089,11 +7089,11 @@ OK: No reboot pending
 | [critical](#check_pending_reboot_critical)             |                              | Filter which marks items which generates a critical state.                                                                |
 | crit                                                   |                              | Short alias for critical.                                                                                                 |
 | [ok](#check_pending_reboot_ok)                         |                              | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_pending_reboot_debug)                   | 1)] (=0                      | Show debugging information in the log                                                                                     |
-| [show-all](#check_pending_reboot_show-all)             | 1)] (=0                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_pending_reboot_debug)                   | false                        | Show debugging information in the log                                                                                     |
+| [show-all](#check_pending_reboot_show-all)             | false                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_pending_reboot_empty-state)       | ignored                      | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_pending_reboot_perf-config)       |                              | Performance data generation configuration                                                                                 |
-| [escape-html](#check_pending_reboot_escape-html)       | 1)] (=0                      | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_pending_reboot_escape-html)       | false                        | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_pending_reboot_list-separator) | ,                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                   | N/A                          | Show help screen (this screen)                                                                                            |
 | help-pb                                                | N/A                          | Show help screen as a protocol buffer payload                                                                             |
@@ -7139,13 +7139,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pending_reboot_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pending_reboot_empty-state">empty-state:</h5>
 
@@ -7164,7 +7164,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_pending_reboot_list-separator">list-separator:</h5>
 
@@ -7402,11 +7402,11 @@ OK: All 2 job(s) ok.
 | [critical](#check_printjobs_critical)             | error = 1 or blocked = 1 or user_intervention = 1          | Filter which marks items which generates a critical state.                                                                |
 | crit                                              |                                                            | Short alias for critical.                                                                                                 |
 | [ok](#check_printjobs_ok)                         |                                                            | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_printjobs_debug)                   | 1)] (=0                                                    | Show debugging information in the log                                                                                     |
-| [show-all](#check_printjobs_show-all)             | 1)] (=0                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_printjobs_debug)                   | false                                                      | Show debugging information in the log                                                                                     |
+| [show-all](#check_printjobs_show-all)             | false                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_printjobs_empty-state)       | ok                                                         | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_printjobs_perf-config)       |                                                            | Performance data generation configuration                                                                                 |
-| [escape-html](#check_printjobs_escape-html)       | 1)] (=0                                                    | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_printjobs_escape-html)       | false                                                      | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_printjobs_list-separator) | ,                                                          | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                              | N/A                                                        | Show help screen (this screen)                                                                                            |
 | help-pb                                           | N/A                                                        | Show help screen as a protocol buffer payload                                                                             |
@@ -7453,13 +7453,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_printjobs_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_printjobs_empty-state">empty-state:</h5>
 
@@ -7478,7 +7478,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_printjobs_list-separator">list-separator:</h5>
 
@@ -7727,11 +7727,11 @@ OK: All 4 printer(s) ok.
 | [critical](#check_printqueue_critical)             | error = 1                              | Filter which marks items which generates a critical state.                                                                |
 | crit                                               |                                        | Short alias for critical.                                                                                                 |
 | [ok](#check_printqueue_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_printqueue_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                     |
-| [show-all](#check_printqueue_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_printqueue_debug)                   | false                                  | Show debugging information in the log                                                                                     |
+| [show-all](#check_printqueue_show-all)             | false                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_printqueue_empty-state)       | ok                                     | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_printqueue_perf-config)       |                                        | Performance data generation configuration                                                                                 |
-| [escape-html](#check_printqueue_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_printqueue_escape-html)       | false                                  | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_printqueue_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                               | N/A                                    | Show help screen (this screen)                                                                                            |
 | help-pb                                            | N/A                                    | Show help screen as a protocol buffer payload                                                                             |
@@ -7778,13 +7778,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_printqueue_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_printqueue_empty-state">empty-state:</h5>
 
@@ -7803,7 +7803,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_printqueue_list-separator">list-separator:</h5>
 
@@ -8073,11 +8073,11 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
     | [critical](#check_process_critical)             | state = 'stopped', count = 0     | Filter which marks items which generates a critical state.                                                                                               |
     | crit                                            |                                  | Short alias for critical.                                                                                                                                |
     | [ok](#check_process_ok)                         |                                  | Filter which marks items which generates an ok state.                                                                                                    |
-    | [debug](#check_process_debug)                   | 1)] (=0                          | Show debugging information in the log                                                                                                                    |
-    | [show-all](#check_process_show-all)             | 1)] (=0                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                         |
+    | [debug](#check_process_debug)                   | false                            | Show debugging information in the log                                                                                                                    |
+    | [show-all](#check_process_show-all)             | false                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                         |
     | [empty-state](#check_process_empty-state)       | unknown                          | Return status to use when nothing matched filter.                                                                                                        |
     | [perf-config](#check_process_perf-config)       |                                  | Performance data generation configuration                                                                                                                |
-    | [escape-html](#check_process_escape-html)       | 1)] (=0                          | Escape any < and > characters to prevent HTML encoding                                                                                                   |
+    | [escape-html](#check_process_escape-html)       | false                            | Escape any < and > characters to prevent HTML encoding                                                                                                   |
     | [list-separator](#check_process_list-separator) | ,                                | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                |
     | help                                            | N/A                              | Show help screen (this screen)                                                                                                                           |
     | help-pb                                         | N/A                              | Show help screen as a protocol buffer payload                                                                                                            |
@@ -8091,10 +8091,10 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
     | process                                         |                                  | The service to check, set this to * to check all services                                                                                                |
     | scan-info                                       |                                  | If all process metrics should be fetched (otherwise only status is fetched)                                                                              |
     | scan-16bit                                      |                                  | If 16bit processes should be included                                                                                                                    |
-    | [delta](#check_process_delta)                   | 1)] (=0                          | Report CPU usage as a percentage of total CPU instead of cumulative seconds.                                                                             |
+    | [delta](#check_process_delta)                   | false                            | Report CPU usage as a percentage of total CPU instead of cumulative seconds.                                                                             |
     | scan-unreadable                                 |                                  | If unreadable processes should be included (will not have information)                                                                                   |
-    | [total](#check_process_total)                   | 1)] (=0                          | Include the total of all matching files                                                                                                                  |
-    | [resolve-owner](#check_process_resolve-owner)   | 1)] (=0                          | Populate the username/uid keywords with the process owner. Off by default: resolving the owner name can block for seconds on domain / Azure-AD accounts. |
+    | [total](#check_process_total)                   | false                            | Include the total of all matching files                                                                                                                  |
+    | [resolve-owner](#check_process_resolve-owner)   | false                            | Populate the username/uid keywords with the process owner. Off by default: resolving the owner name can block for seconds on domain / Azure-AD accounts. |
 
 
 
@@ -8132,13 +8132,13 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_process_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_process_empty-state">empty-state:</h5>
 
@@ -8157,7 +8157,7 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_process_list-separator">list-separator:</h5>
 
@@ -8212,19 +8212,19 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
     Report CPU usage as a percentage of total CPU instead of cumulative seconds.
     With delta=true the 'time' (and 'kernel'/'user') fields report the process CPU usage over a one second window as a whole percentage of total CPU. The reading is taken from the CheckSystem background collector (no per-check sleep), so it requires 'process cpu = true' under [/settings/system/windows]; without that the check returns UNKNOWN telling you to enable it.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_process_total">total:</h5>
 
     Include the total of all matching files
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_process_resolve-owner">resolve-owner:</h5>
 
     Populate the username/uid keywords with the process owner. Off by default: resolving the owner name can block for seconds on domain / Azure-AD accounts.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
 === "Linux"
 
@@ -8244,11 +8244,11 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
     | [critical](#check_process_critical)             | state = 'stopped', count = 0     | Filter which marks items which generates a critical state.                                                                                                                                                                                                  |
     | crit                                            |                                  | Short alias for critical.                                                                                                                                                                                                                                   |
     | [ok](#check_process_ok)                         |                                  | Filter which marks items which generates an ok state.                                                                                                                                                                                                       |
-    | [debug](#check_process_debug)                   | 1)] (=0                          | Show debugging information in the log                                                                                                                                                                                                                       |
-    | [show-all](#check_process_show-all)             | 1)] (=0                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                            |
+    | [debug](#check_process_debug)                   | false                            | Show debugging information in the log                                                                                                                                                                                                                       |
+    | [show-all](#check_process_show-all)             | false                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                            |
     | [empty-state](#check_process_empty-state)       | unknown                          | Return status to use when nothing matched filter.                                                                                                                                                                                                           |
     | [perf-config](#check_process_perf-config)       |                                  | Performance data generation configuration                                                                                                                                                                                                                   |
-    | [escape-html](#check_process_escape-html)       | 1)] (=0                          | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                      |
+    | [escape-html](#check_process_escape-html)       | false                            | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                      |
     | [list-separator](#check_process_list-separator) | ,                                | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                   |
     | help                                            | N/A                              | Show help screen (this screen)                                                                                                                                                                                                                              |
     | help-pb                                         | N/A                              | Show help screen as a protocol buffer payload                                                                                                                                                                                                               |
@@ -8261,8 +8261,8 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
     | [perf-syntax](#check_process_perf-syntax)       | ${exe}                           | Performance alias syntax.                                                                                                                                                                                                                                   |
     | process                                         |                                  | The process to check, set this to * to check all processes                                                                                                                                                                                                  |
     | [delta](#check_process_delta)                   |                                  | Measure CPU usage as a delta over a one second interval.                                                                                                                                                                                                    |
-    | [total](#check_process_total)                   | 1)] (=0                          | Include the total of all matching processes                                                                                                                                                                                                                 |
-    | [resolve-owner](#check_process_resolve-owner)   | 1)] (=0                          | Populate the username keyword with the process owner's user name. Off by default: the lookup goes through NSS and can block for seconds when it is backed by a remote directory (LDAP/SSSD). The numeric uid keyword is always populated and needs no flag. |
+    | [total](#check_process_total)                   | false                            | Include the total of all matching processes                                                                                                                                                                                                                 |
+    | [resolve-owner](#check_process_resolve-owner)   | false                            | Populate the username keyword with the process owner's user name. Off by default: the lookup goes through NSS and can block for seconds when it is backed by a remote directory (LDAP/SSSD). The numeric uid keyword is always populated and needs no flag. |
 
 
 
@@ -8300,13 +8300,13 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_process_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_process_empty-state">empty-state:</h5>
 
@@ -8325,7 +8325,7 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_process_list-separator">list-separator:</h5>
 
@@ -8385,13 +8385,13 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 
     Include the total of all matching processes
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_process_resolve-owner">resolve-owner:</h5>
 
     Populate the username keyword with the process owner's user name. Off by default: the lookup goes through NSS and can block for seconds when it is backed by a remote directory (LDAP/SSSD). The numeric uid keyword is always populated and needs no flag.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
 
 <a id="check_process_filter_keys"></a>
@@ -8536,11 +8536,11 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 | [critical](#check_process_history_critical)             |                                           | Filter which marks items which generates a critical state.                                                                |
 | crit                                                    |                                           | Short alias for critical.                                                                                                 |
 | [ok](#check_process_history_ok)                         |                                           | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_process_history_debug)                   | 1)] (=0                                   | Show debugging information in the log                                                                                     |
-| [show-all](#check_process_history_show-all)             | 1)] (=0                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_process_history_debug)                   | false                                     | Show debugging information in the log                                                                                     |
+| [show-all](#check_process_history_show-all)             | false                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_process_history_empty-state)       | ok                                        | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_process_history_perf-config)       |                                           | Performance data generation configuration                                                                                 |
-| [escape-html](#check_process_history_escape-html)       | 1)] (=0                                   | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_process_history_escape-html)       | false                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_process_history_list-separator) | ,                                         | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                    | N/A                                       | Show help screen (this screen)                                                                                            |
 | help-pb                                                 | N/A                                       | Show help screen as a protocol buffer payload                                                                             |
@@ -8586,13 +8586,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_process_history_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_process_history_empty-state">empty-state:</h5>
 
@@ -8611,7 +8611,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_process_history_list-separator">list-separator:</h5>
 
@@ -8727,11 +8727,11 @@ This is the syntax for the base names of the performance data.
 | [critical](#check_process_history_new_critical)             |                                    | Filter which marks items which generates a critical state.                                                                |
 | crit                                                        |                                    | Short alias for critical.                                                                                                 |
 | [ok](#check_process_history_new_ok)                         |                                    | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_process_history_new_debug)                   | 1)] (=0                            | Show debugging information in the log                                                                                     |
-| [show-all](#check_process_history_new_show-all)             | 1)] (=0                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_process_history_new_debug)                   | false                              | Show debugging information in the log                                                                                     |
+| [show-all](#check_process_history_new_show-all)             | false                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_process_history_new_empty-state)       | ok                                 | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_process_history_new_perf-config)       |                                    | Performance data generation configuration                                                                                 |
-| [escape-html](#check_process_history_new_escape-html)       | 1)] (=0                            | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_process_history_new_escape-html)       | false                              | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_process_history_new_list-separator) | ,                                  | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                        | N/A                                | Show help screen (this screen)                                                                                            |
 | help-pb                                                     | N/A                                | Show help screen as a protocol buffer payload                                                                             |
@@ -8777,13 +8777,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_process_history_new_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_process_history_new_empty-state">empty-state:</h5>
 
@@ -8802,7 +8802,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_process_history_new_list-separator">list-separator:</h5>
 
@@ -9002,11 +9002,11 @@ OK: All 1 registry key(s) are ok.
 | [critical](#check_registry_key_critical)             | not exists                                                                | Filter which marks items which generates a critical state.                                                                |
 | crit                                                 |                                                                           | Short alias for critical.                                                                                                 |
 | [ok](#check_registry_key_ok)                         |                                                                           | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_registry_key_debug)                   | 1)] (=0                                                                   | Show debugging information in the log                                                                                     |
-| [show-all](#check_registry_key_show-all)             | 1)] (=0                                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_registry_key_debug)                   | false                                                                     | Show debugging information in the log                                                                                     |
+| [show-all](#check_registry_key_show-all)             | false                                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_registry_key_empty-state)       | unknown                                                                   | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_registry_key_perf-config)       |                                                                           | Performance data generation configuration                                                                                 |
-| [escape-html](#check_registry_key_escape-html)       | 1)] (=0                                                                   | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_registry_key_escape-html)       | false                                                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_registry_key_list-separator) | ,                                                                         | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                 | N/A                                                                       | Show help screen (this screen)                                                                                            |
 | help-pb                                              | N/A                                                                       | Show help screen as a protocol buffer payload                                                                             |
@@ -9021,7 +9021,7 @@ OK: All 1 registry key(s) are ok.
 | exclude                                              |                                                                           | Registry key names to exclude from enumeration                                                                            |
 | computer                                             |                                                                           | Remote computer to connect to (empty = local)                                                                             |
 | [view](#check_registry_key_view)                     | default                                                                   | Registry view: 'default', '32' (KEY_WOW64_32KEY), or '64' (KEY_WOW64_64KEY)                                               |
-| [recursive](#check_registry_key_recursive)           | 1)] (=0                                                                   | Recursively enumerate all sub-keys below each starting key                                                                |
+| [recursive](#check_registry_key_recursive)           | false                                                                     | Recursively enumerate all sub-keys below each starting key                                                                |
 | max-depth                                            |                                                                           | Maximum recursion depth (requires --recursive; -1 = unlimited)                                                            |
 
 
@@ -9058,13 +9058,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_registry_key_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_registry_key_empty-state">empty-state:</h5>
 
@@ -9083,7 +9083,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_registry_key_list-separator">list-separator:</h5>
 
@@ -9143,7 +9143,7 @@ Registry view: 'default', '32' (KEY_WOW64_32KEY), or '64' (KEY_WOW64_64KEY)
 
 Recursively enumerate all sub-keys below each starting key
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 
 <a id="check_registry_key_filter_keys"></a>
@@ -9315,11 +9315,11 @@ OK: HKLM\Software\NSClient\InstallVersion: 0.6.0 (type=REG_SZ)
 | [critical](#check_registry_value_critical)             | not exists                              | Filter which marks items which generates a critical state.                                                                |
 | crit                                                   |                                         | Short alias for critical.                                                                                                 |
 | [ok](#check_registry_value_ok)                         |                                         | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_registry_value_debug)                   | 1)] (=0                                 | Show debugging information in the log                                                                                     |
-| [show-all](#check_registry_value_show-all)             | 1)] (=0                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_registry_value_debug)                   | false                                   | Show debugging information in the log                                                                                     |
+| [show-all](#check_registry_value_show-all)             | false                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_registry_value_empty-state)       | unknown                                 | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_registry_value_perf-config)       |                                         | Performance data generation configuration                                                                                 |
-| [escape-html](#check_registry_value_escape-html)       | 1)] (=0                                 | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_registry_value_escape-html)       | false                                   | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_registry_value_list-separator) | ,                                       | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                   | N/A                                     | Show help screen (this screen)                                                                                            |
 | help-pb                                                | N/A                                     | Show help screen as a protocol buffer payload                                                                             |
@@ -9335,7 +9335,7 @@ OK: HKLM\Software\NSClient\InstallVersion: 0.6.0 (type=REG_SZ)
 | exclude                                                |                                         | Value names to exclude from enumeration                                                                                   |
 | computer                                               |                                         | Remote computer to connect to (empty = local)                                                                             |
 | [view](#check_registry_value_view)                     | default                                 | Registry view: 'default', '32' (KEY_WOW64_32KEY), or '64' (KEY_WOW64_64KEY)                                               |
-| [recursive](#check_registry_value_recursive)           | 1)] (=0                                 | Recursively enumerate values in all sub-keys                                                                              |
+| [recursive](#check_registry_value_recursive)           | false                                   | Recursively enumerate values in all sub-keys                                                                              |
 | max-depth                                              |                                         | Maximum recursion depth for --recursive (-1 = unlimited)                                                                  |
 
 
@@ -9372,13 +9372,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_registry_value_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_registry_value_empty-state">empty-state:</h5>
 
@@ -9397,7 +9397,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_registry_value_list-separator">list-separator:</h5>
 
@@ -9457,7 +9457,7 @@ Registry view: 'default', '32' (KEY_WOW64_32KEY), or '64' (KEY_WOW64_64KEY)
 
 Recursively enumerate values in all sub-keys
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 
 <a id="check_registry_value_filter_keys"></a>
@@ -9643,11 +9643,11 @@ filter, so the rollup is stable even when the check itself is OK.
     | [critical](#check_service_critical)               | not state_is_ok()                                       | Filter which marks items which generates a critical state.                                                                                                                            |
     | crit                                              |                                                         | Short alias for critical.                                                                                                                                                             |
     | [ok](#check_service_ok)                           |                                                         | Filter which marks items which generates an ok state.                                                                                                                                 |
-    | [debug](#check_service_debug)                     | 1)] (=0                                                 | Show debugging information in the log                                                                                                                                                 |
-    | [show-all](#check_service_show-all)               | 1)] (=0                                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                      |
+    | [debug](#check_service_debug)                     | false                                                   | Show debugging information in the log                                                                                                                                                 |
+    | [show-all](#check_service_show-all)               | false                                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                      |
     | [empty-state](#check_service_empty-state)         | unknown                                                 | Return status to use when nothing matched filter.                                                                                                                                     |
     | [perf-config](#check_service_perf-config)         |                                                         | Performance data generation configuration                                                                                                                                             |
-    | [escape-html](#check_service_escape-html)         | 1)] (=0                                                 | Escape any < and > characters to prevent HTML encoding                                                                                                                                |
+    | [escape-html](#check_service_escape-html)         | false                                                   | Escape any < and > characters to prevent HTML encoding                                                                                                                                |
     | [list-separator](#check_service_list-separator)   | ,                                                       | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                             |
     | help                                              | N/A                                                     | Show help screen (this screen)                                                                                                                                                        |
     | help-pb                                           | N/A                                                     | Show help screen as a protocol buffer payload                                                                                                                                         |
@@ -9663,13 +9663,13 @@ filter, so the rollup is stable even when the check itself is OK.
     | exclude                                           |                                                         | A list of services to ignore (mainly useful in combination with service=*)                                                                                                            |
     | [type](#check_service_type)                       | service                                                 | The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process                                 |
     | [state](#check_service_state)                     | all                                                     | The types of services to enumerate available states are active, inactive or all                                                                                                       |
-    | [only-essential](#check_service_only-essential)   | 1)] (=0                                                 | Set filter to classification = 'essential'                                                                                                                                            |
-    | [only-ignored](#check_service_only-ignored)       | 1)] (=0                                                 | Set filter to classification = 'ignored'                                                                                                                                              |
-    | [only-role](#check_service_only-role)             | 1)] (=0                                                 | Set filter to classification = 'role'                                                                                                                                                 |
-    | [only-supporting](#check_service_only-supporting) | 1)] (=0                                                 | Set filter to classification = 'supporting'                                                                                                                                           |
-    | [only-system](#check_service_only-system)         | 1)] (=0                                                 | Set filter to classification = 'system'                                                                                                                                               |
-    | [only-user](#check_service_only-user)             | 1)] (=0                                                 | Set filter to classification = 'user'                                                                                                                                                 |
-    | [summary](#check_service_summary)                 | 1)] (=0                                                 | Emit aggregate state-count performance data (running_services/stopped_services/paused_services/pending_services/service_count) across all enumerated services, for dashboard rollups. |
+    | [only-essential](#check_service_only-essential)   | false                                                   | Set filter to classification = 'essential'                                                                                                                                            |
+    | [only-ignored](#check_service_only-ignored)       | false                                                   | Set filter to classification = 'ignored'                                                                                                                                              |
+    | [only-role](#check_service_only-role)             | false                                                   | Set filter to classification = 'role'                                                                                                                                                 |
+    | [only-supporting](#check_service_only-supporting) | false                                                   | Set filter to classification = 'supporting'                                                                                                                                           |
+    | [only-system](#check_service_only-system)         | false                                                   | Set filter to classification = 'system'                                                                                                                                               |
+    | [only-user](#check_service_only-user)             | false                                                   | Set filter to classification = 'user'                                                                                                                                                 |
+    | [summary](#check_service_summary)                 | false                                                   | Emit aggregate state-count performance data (running_services/stopped_services/paused_services/pending_services/service_count) across all enumerated services, for dashboard rollups. |
 
 
 
@@ -9706,13 +9706,13 @@ filter, so the rollup is stable even when the check itself is OK.
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_empty-state">empty-state:</h5>
 
@@ -9731,7 +9731,7 @@ filter, so the rollup is stable even when the check itself is OK.
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_list-separator">list-separator:</h5>
 
@@ -9797,43 +9797,43 @@ filter, so the rollup is stable even when the check itself is OK.
 
     Set filter to classification = 'essential'
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_only-ignored">only-ignored:</h5>
 
     Set filter to classification = 'ignored'
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_only-role">only-role:</h5>
 
     Set filter to classification = 'role'
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_only-supporting">only-supporting:</h5>
 
     Set filter to classification = 'supporting'
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_only-system">only-system:</h5>
 
     Set filter to classification = 'system'
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_only-user">only-user:</h5>
 
     Set filter to classification = 'user'
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_summary">summary:</h5>
 
     Emit aggregate state-count performance data (running_services/stopped_services/paused_services/pending_services/service_count) across all enumerated services, for dashboard rollups.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
 === "Linux"
 
@@ -9854,11 +9854,11 @@ filter, so the rollup is stable even when the check itself is OK.
     | [critical](#check_service_critical)             | ( state not in ('running', 'oneshot', 'static') or active = 'failed' ) and preset != 'disabled' | Filter which marks items which generates a critical state.                                                                |
     | crit                                            |                                                                                                 | Short alias for critical.                                                                                                 |
     | [ok](#check_service_ok)                         |                                                                                                 | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_service_debug)                   | 1)] (=0                                                                                         | Show debugging information in the log                                                                                     |
-    | [show-all](#check_service_show-all)             | 1)] (=0                                                                                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_service_debug)                   | false                                                                                           | Show debugging information in the log                                                                                     |
+    | [show-all](#check_service_show-all)             | false                                                                                           | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_service_empty-state)       | unknown                                                                                         | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_service_perf-config)       |                                                                                                 | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_service_escape-html)       | 1)] (=0                                                                                         | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_service_escape-html)       | false                                                                                           | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_service_list-separator) | ,                                                                                               | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                            | N/A                                                                                             | Show help screen (this screen)                                                                                            |
     | help-pb                                         | N/A                                                                                             | Show help screen as a protocol buffer payload                                                                             |
@@ -9908,13 +9908,13 @@ filter, so the rollup is stable even when the check itself is OK.
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_empty-state">empty-state:</h5>
 
@@ -9933,7 +9933,7 @@ filter, so the rollup is stable even when the check itself is OK.
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_service_list-separator">list-separator:</h5>
 
@@ -10191,11 +10191,11 @@ OK: in 172032B/s, out 28672B/s
     | [critical](#check_swap_io_critical)             |                                                                            | Filter which marks items which generates a critical state.                                                                |
     | crit                                            |                                                                            | Short alias for critical.                                                                                                 |
     | [ok](#check_swap_io_ok)                         |                                                                            | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_swap_io_debug)                   | 1)] (=0                                                                    | Show debugging information in the log                                                                                     |
-    | [show-all](#check_swap_io_show-all)             | 1)] (=0                                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_swap_io_debug)                   | false                                                                      | Show debugging information in the log                                                                                     |
+    | [show-all](#check_swap_io_show-all)             | false                                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_swap_io_empty-state)       | ignored                                                                    | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_swap_io_perf-config)       |                                                                            | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_swap_io_escape-html)       | 1)] (=0                                                                    | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_swap_io_escape-html)       | false                                                                      | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_swap_io_list-separator) | ,                                                                          | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                            | N/A                                                                        | Show help screen (this screen)                                                                                            |
     | help-pb                                         | N/A                                                                        | Show help screen as a protocol buffer payload                                                                             |
@@ -10240,13 +10240,13 @@ OK: in 172032B/s, out 28672B/s
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_swap_io_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_swap_io_empty-state">empty-state:</h5>
 
@@ -10265,7 +10265,7 @@ OK: in 172032B/s, out 28672B/s
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_swap_io_list-separator">list-separator:</h5>
 
@@ -10330,11 +10330,11 @@ OK: in 172032B/s, out 28672B/s
     | [critical](#check_swap_io_critical)             |                                                                             | Filter which marks items which generates a critical state.                                                                |
     | crit                                            |                                                                             | Short alias for critical.                                                                                                 |
     | [ok](#check_swap_io_ok)                         |                                                                             | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_swap_io_debug)                   | 1)] (=0                                                                     | Show debugging information in the log                                                                                     |
-    | [show-all](#check_swap_io_show-all)             | 1)] (=0                                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_swap_io_debug)                   | false                                                                       | Show debugging information in the log                                                                                     |
+    | [show-all](#check_swap_io_show-all)             | false                                                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_swap_io_empty-state)       | ignored                                                                     | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_swap_io_perf-config)       |                                                                             | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_swap_io_escape-html)       | 1)] (=0                                                                     | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_swap_io_escape-html)       | false                                                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_swap_io_list-separator) | ,                                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                            | N/A                                                                         | Show help screen (this screen)                                                                                            |
     | help-pb                                         | N/A                                                                         | Show help screen as a protocol buffer payload                                                                             |
@@ -10379,13 +10379,13 @@ OK: in 172032B/s, out 28672B/s
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_swap_io_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_swap_io_empty-state">empty-state:</h5>
 
@@ -10404,7 +10404,7 @@ OK: in 172032B/s, out 28672B/s
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_swap_io_list-separator">list-separator:</h5>
 
@@ -10553,11 +10553,11 @@ OK: in 172032B/s, out 28672B/s
     | [critical](#check_temperature_critical)             | temperature > 90                      | Filter which marks items which generates a critical state.                                                                |
     | crit                                                |                                       | Short alias for critical.                                                                                                 |
     | [ok](#check_temperature_ok)                         |                                       | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_temperature_debug)                   | 1)] (=0                               | Show debugging information in the log                                                                                     |
-    | [show-all](#check_temperature_show-all)             | 1)] (=0                               | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_temperature_debug)                   | false                                 | Show debugging information in the log                                                                                     |
+    | [show-all](#check_temperature_show-all)             | false                                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_temperature_empty-state)       | critical                              | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_temperature_perf-config)       |                                       | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_temperature_escape-html)       | 1)] (=0                               | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_temperature_escape-html)       | false                                 | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_temperature_list-separator) | ,                                     | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                | N/A                                   | Show help screen (this screen)                                                                                            |
     | help-pb                                             | N/A                                   | Show help screen as a protocol buffer payload                                                                             |
@@ -10604,13 +10604,13 @@ OK: in 172032B/s, out 28672B/s
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_temperature_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_temperature_empty-state">empty-state:</h5>
 
@@ -10629,7 +10629,7 @@ OK: in 172032B/s, out 28672B/s
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_temperature_list-separator">list-separator:</h5>
 
@@ -10695,11 +10695,11 @@ OK: in 172032B/s, out 28672B/s
     | [critical](#check_temperature_critical)             | temperature > 90              | Filter which marks items which generates a critical state.                                                                |
     | crit                                                |                               | Short alias for critical.                                                                                                 |
     | [ok](#check_temperature_ok)                         |                               | Filter which marks items which generates an ok state.                                                                     |
-    | [debug](#check_temperature_debug)                   | 1)] (=0                       | Show debugging information in the log                                                                                     |
-    | [show-all](#check_temperature_show-all)             | 1)] (=0                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+    | [debug](#check_temperature_debug)                   | false                         | Show debugging information in the log                                                                                     |
+    | [show-all](#check_temperature_show-all)             | false                         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
     | [empty-state](#check_temperature_empty-state)       | critical                      | Return status to use when nothing matched filter.                                                                         |
     | [perf-config](#check_temperature_perf-config)       |                               | Performance data generation configuration                                                                                 |
-    | [escape-html](#check_temperature_escape-html)       | 1)] (=0                       | Escape any < and > characters to prevent HTML encoding                                                                    |
+    | [escape-html](#check_temperature_escape-html)       | false                         | Escape any < and > characters to prevent HTML encoding                                                                    |
     | [list-separator](#check_temperature_list-separator) | ,                             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
     | help                                                | N/A                           | Show help screen (this screen)                                                                                            |
     | help-pb                                             | N/A                           | Show help screen as a protocol buffer payload                                                                             |
@@ -10746,13 +10746,13 @@ OK: in 172032B/s, out 28672B/s
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_temperature_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_temperature_empty-state">empty-state:</h5>
 
@@ -10771,7 +10771,7 @@ OK: in 172032B/s, out 28672B/s
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_temperature_list-separator">list-separator:</h5>
 
@@ -10954,11 +10954,11 @@ check_uptime max-unit=d "detail-syntax=uptime: ${uptime}, boot: ${boot} (${tz})"
 | [critical](#check_uptime_critical)             | uptime < 1d                               | Filter which marks items which generates a critical state.                                                                               |
 | crit                                           |                                           | Short alias for critical.                                                                                                                |
 | [ok](#check_uptime_ok)                         |                                           | Filter which marks items which generates an ok state.                                                                                    |
-| [debug](#check_uptime_debug)                   | 1)] (=0                                   | Show debugging information in the log                                                                                                    |
-| [show-all](#check_uptime_show-all)             | 1)] (=0                                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                         |
+| [debug](#check_uptime_debug)                   | false                                     | Show debugging information in the log                                                                                                    |
+| [show-all](#check_uptime_show-all)             | false                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                         |
 | [empty-state](#check_uptime_empty-state)       | ignored                                   | Return status to use when nothing matched filter.                                                                                        |
 | [perf-config](#check_uptime_perf-config)       |                                           | Performance data generation configuration                                                                                                |
-| [escape-html](#check_uptime_escape-html)       | 1)] (=0                                   | Escape any < and > characters to prevent HTML encoding                                                                                   |
+| [escape-html](#check_uptime_escape-html)       | false                                     | Escape any < and > characters to prevent HTML encoding                                                                                   |
 | [list-separator](#check_uptime_list-separator) | ,                                         | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                |
 | help                                           | N/A                                       | Show help screen (this screen)                                                                                                           |
 | help-pb                                        | N/A                                       | Show help screen as a protocol buffer payload                                                                                            |
@@ -11006,13 +11006,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_uptime_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_uptime_empty-state">empty-state:</h5>
 
@@ -11031,7 +11031,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_uptime_list-separator">list-separator:</h5>
 
@@ -11316,11 +11316,11 @@ L        cli OK: the Windows Time service is stopped (start type demand)|'w32tim
 | [critical](#check_w32time_critical)             | synchronized = 0 or offset > 30000 | Filter which marks items which generates a critical state.                                                                |
 | crit                                            |                                    | Short alias for critical.                                                                                                 |
 | [ok](#check_w32time_ok)                         |                                    | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_w32time_debug)                   | 1)] (=0                            | Show debugging information in the log                                                                                     |
-| [show-all](#check_w32time_show-all)             | 1)] (=0                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_w32time_debug)                   | false                              | Show debugging information in the log                                                                                     |
+| [show-all](#check_w32time_show-all)             | false                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_w32time_empty-state)       | ignored                            | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_w32time_perf-config)       |                                    | Performance data generation configuration                                                                                 |
-| [escape-html](#check_w32time_escape-html)       | 1)] (=0                            | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_w32time_escape-html)       | false                              | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_w32time_list-separator) | ,                                  | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                            | N/A                                | Show help screen (this screen)                                                                                            |
 | help-pb                                         | N/A                                | Show help screen as a protocol buffer payload                                                                             |
@@ -11367,13 +11367,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_w32time_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_w32time_empty-state">empty-state:</h5>
 
@@ -11392,7 +11392,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_w32time_list-separator">list-separator:</h5>
 

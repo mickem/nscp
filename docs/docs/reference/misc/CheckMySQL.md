@@ -175,11 +175,11 @@ OK: mysql 8.4.11, uptime 1011s, connections 1/151 (0%)
 | [critical](#check_mysql_critical)             |                                                                                                                    | Filter which marks items which generates a critical state.                                                                                 |
 | crit                                          |                                                                                                                    | Short alias for critical.                                                                                                                  |
 | [ok](#check_mysql_ok)                         |                                                                                                                    | Filter which marks items which generates an ok state.                                                                                      |
-| [debug](#check_mysql_debug)                   | 1)] (=0                                                                                                            | Show debugging information in the log                                                                                                      |
-| [show-all](#check_mysql_show-all)             | 1)] (=0                                                                                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                           |
+| [debug](#check_mysql_debug)                   | false                                                                                                              | Show debugging information in the log                                                                                                      |
+| [show-all](#check_mysql_show-all)             | false                                                                                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                           |
 | [empty-state](#check_mysql_empty-state)       | unknown                                                                                                            | Return status to use when nothing matched filter.                                                                                          |
 | [perf-config](#check_mysql_perf-config)       |                                                                                                                    | Performance data generation configuration                                                                                                  |
-| [escape-html](#check_mysql_escape-html)       | 1)] (=0                                                                                                            | Escape any < and > characters to prevent HTML encoding                                                                                     |
+| [escape-html](#check_mysql_escape-html)       | false                                                                                                              | Escape any < and > characters to prevent HTML encoding                                                                                     |
 | [list-separator](#check_mysql_list-separator) | ,                                                                                                                  | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                  |
 | help                                          | N/A                                                                                                                | Show help screen (this screen)                                                                                                             |
 | help-pb                                       | N/A                                                                                                                | Show help screen as a protocol buffer payload                                                                                              |
@@ -198,7 +198,7 @@ OK: mysql 8.4.11, uptime 1011s, connections 1/151 (0%)
 | password                                      |                                                                                                                    | Password to authenticate with.                                                                                                             |
 | defaults-file                                 |                                                                                                                    | my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.                               |
 | plugin-dir                                    |                                                                                                                    | Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong). |
-| [tls](#check_mysql_tls)                       | 1)] (=0                                                                                                            | Require TLS on the connection.                                                                                                             |
+| [tls](#check_mysql_tls)                       | false                                                                                                              | Require TLS on the connection.                                                                                                             |
 | [timeout](#check_mysql_timeout)               | 10                                                                                                                 | Connection timeout in seconds.                                                                                                             |
 | [query-timeout](#check_mysql_query-timeout)   | 30                                                                                                                 | Query (read/write) timeout in seconds.                                                                                                     |
 
@@ -235,13 +235,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mysql_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mysql_empty-state">empty-state:</h5>
 
@@ -260,7 +260,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mysql_list-separator">list-separator:</h5>
 
@@ -325,7 +325,7 @@ TCP port of the server.
 
 Require TLS on the connection.
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mysql_timeout">timeout:</h5>
 
@@ -473,11 +473,11 @@ No query specified (use query=<SQL>)
 | [critical](#check_mysql_query_critical)             |               | Filter which marks items which generates a critical state.                                                                                 |
 | crit                                                |               | Short alias for critical.                                                                                                                  |
 | [ok](#check_mysql_query_ok)                         |               | Filter which marks items which generates an ok state.                                                                                      |
-| [debug](#check_mysql_query_debug)                   | 1)] (=0       | Show debugging information in the log                                                                                                      |
-| [show-all](#check_mysql_query_show-all)             | 1)] (=0       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                           |
+| [debug](#check_mysql_query_debug)                   | false         | Show debugging information in the log                                                                                                      |
+| [show-all](#check_mysql_query_show-all)             | false         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                           |
 | [empty-state](#check_mysql_query_empty-state)       | ignored       | Return status to use when nothing matched filter.                                                                                          |
 | [perf-config](#check_mysql_query_perf-config)       |               | Performance data generation configuration                                                                                                  |
-| [escape-html](#check_mysql_query_escape-html)       | 1)] (=0       | Escape any < and > characters to prevent HTML encoding                                                                                     |
+| [escape-html](#check_mysql_query_escape-html)       | false         | Escape any < and > characters to prevent HTML encoding                                                                                     |
 | [list-separator](#check_mysql_query_list-separator) | ,             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                  |
 | help                                                | N/A           | Show help screen (this screen)                                                                                                             |
 | help-pb                                             | N/A           | Show help screen as a protocol buffer payload                                                                                              |
@@ -497,7 +497,7 @@ No query specified (use query=<SQL>)
 | password                                            |               | Password to authenticate with.                                                                                                             |
 | defaults-file                                       |               | my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.                               |
 | plugin-dir                                          |               | Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong). |
-| [tls](#check_mysql_query_tls)                       | 1)] (=0       | Require TLS on the connection.                                                                                                             |
+| [tls](#check_mysql_query_tls)                       | false         | Require TLS on the connection.                                                                                                             |
 | [timeout](#check_mysql_query_timeout)               | 10            | Connection timeout in seconds.                                                                                                             |
 | [query-timeout](#check_mysql_query_query-timeout)   | 30            | Query (read/write) timeout in seconds.                                                                                                     |
 
@@ -534,13 +534,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mysql_query_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mysql_query_empty-state">empty-state:</h5>
 
@@ -559,7 +559,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mysql_query_list-separator">list-separator:</h5>
 
@@ -622,7 +622,7 @@ TCP port of the server.
 
 Require TLS on the connection.
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mysql_query_timeout">timeout:</h5>
 

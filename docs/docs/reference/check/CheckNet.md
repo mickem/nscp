@@ -205,11 +205,11 @@ OK: total/all: 231|'total_all_close_wait'=0;0;0 'total_all_closing'=0;0;0 'total
 | [critical](#check_connections_critical)             | total > 2000                   | Filter which marks items which generates a critical state.                                                                |
 | crit                                                |                                | Short alias for critical.                                                                                                 |
 | [ok](#check_connections_ok)                         |                                | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_connections_debug)                   | 1)] (=0                        | Show debugging information in the log                                                                                     |
-| [show-all](#check_connections_show-all)             | 1)] (=0                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_connections_debug)                   | false                          | Show debugging information in the log                                                                                     |
+| [show-all](#check_connections_show-all)             | false                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_connections_empty-state)       | ignored                        | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_connections_perf-config)       |                                | Performance data generation configuration                                                                                 |
-| [escape-html](#check_connections_escape-html)       | 1)] (=0                        | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_connections_escape-html)       | false                          | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_connections_list-separator) | ,                              | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                | N/A                            | Show help screen (this screen)                                                                                            |
 | help-pb                                             | N/A                            | Show help screen as a protocol buffer payload                                                                             |
@@ -257,13 +257,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_connections_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_connections_empty-state">empty-state:</h5>
 
@@ -282,7 +282,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_connections_list-separator">list-separator:</h5>
 
@@ -490,11 +490,11 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 | [critical](#check_dns_critical)             | result != 'ok'                                              | Filter which marks items which generates a critical state.                                                                                                                                                                                   |
 | crit                                        |                                                             | Short alias for critical.                                                                                                                                                                                                                    |
 | [ok](#check_dns_ok)                         |                                                             | Filter which marks items which generates an ok state.                                                                                                                                                                                        |
-| [debug](#check_dns_debug)                   | 1)] (=0                                                     | Show debugging information in the log                                                                                                                                                                                                        |
-| [show-all](#check_dns_show-all)             | 1)] (=0                                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                             |
+| [debug](#check_dns_debug)                   | false                                                       | Show debugging information in the log                                                                                                                                                                                                        |
+| [show-all](#check_dns_show-all)             | false                                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                             |
 | [empty-state](#check_dns_empty-state)       | ignored                                                     | Return status to use when nothing matched filter.                                                                                                                                                                                            |
 | [perf-config](#check_dns_perf-config)       |                                                             | Performance data generation configuration                                                                                                                                                                                                    |
-| [escape-html](#check_dns_escape-html)       | 1)] (=0                                                     | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                       |
+| [escape-html](#check_dns_escape-html)       | false                                                       | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                       |
 | [list-separator](#check_dns_list-separator) | ,                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                    |
 | help                                        | N/A                                                         | Show help screen (this screen)                                                                                                                                                                                                               |
 | help-pb                                     | N/A                                                         | Show help screen as a protocol buffer payload                                                                                                                                                                                                |
@@ -510,7 +510,7 @@ OK: example.com -> 93.184.216.34 (1) in 3ms [ok]
 | [type](#check_dns_type)                     | A                                                           | DNS record type to query: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR.                                                                                                                                                                             |
 | server                                      |                                                             | DNS server to query (default: the system resolver for A/AAAA, /etc/resolv.conf otherwise).                                                                                                                                                   |
 | [port](#check_dns_port)                     | 53                                                          | UDP port of the DNS server.                                                                                                                                                                                                                  |
-| [norecursion](#check_dns_norecursion)       | 1)] (=0                                                     | Do not request recursion (RD=0).                                                                                                                                                                                                             |
+| [norecursion](#check_dns_norecursion)       | false                                                       | Do not request recursion (RD=0).                                                                                                                                                                                                             |
 | [timeout](#check_dns_timeout)               | 5000                                                        | Timeout in milliseconds.                                                                                                                                                                                                                     |
 | expected-address                            |                                                             | Record that must be present in the answer (may be given multiple times).                                                                                                                                                                     |
 | expected                                    |                                                             | Comma separated list of records that must all be present in the answer.                                                                                                                                                                      |
@@ -551,13 +551,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_dns_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_dns_empty-state">empty-state:</h5>
 
@@ -576,7 +576,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_dns_list-separator">list-separator:</h5>
 
@@ -642,7 +642,7 @@ UDP port of the DNS server.
 
 Do not request recursion (RD=0).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_dns_timeout">timeout:</h5>
 
@@ -848,11 +848,11 @@ OK: cert expires in 58 days
 | [critical](#check_http_critical)             | code < 200 or code >= 400 or result != 'ok'         | Filter which marks items which generates a critical state.                                                                                                                                                                                |
 | crit                                         |                                                     | Short alias for critical.                                                                                                                                                                                                                 |
 | [ok](#check_http_ok)                         |                                                     | Filter which marks items which generates an ok state.                                                                                                                                                                                     |
-| [debug](#check_http_debug)                   | 1)] (=0                                             | Show debugging information in the log                                                                                                                                                                                                     |
-| [show-all](#check_http_show-all)             | 1)] (=0                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                          |
+| [debug](#check_http_debug)                   | false                                               | Show debugging information in the log                                                                                                                                                                                                     |
+| [show-all](#check_http_show-all)             | false                                               | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                          |
 | [empty-state](#check_http_empty-state)       | ignored                                             | Return status to use when nothing matched filter.                                                                                                                                                                                         |
 | [perf-config](#check_http_perf-config)       |                                                     | Performance data generation configuration                                                                                                                                                                                                 |
-| [escape-html](#check_http_escape-html)       | 1)] (=0                                             | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                    |
+| [escape-html](#check_http_escape-html)       | false                                               | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                    |
 | [list-separator](#check_http_list-separator) | ,                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                 |
 | help                                         | N/A                                                 | Show help screen (this screen)                                                                                                                                                                                                            |
 | help-pb                                      | N/A                                                 | Show help screen as a protocol buffer payload                                                                                                                                                                                             |
@@ -868,7 +868,7 @@ OK: cert expires in 58 days
 | port                                         |                                                     | TCP port (defaults to 80 or 443).                                                                                                                                                                                                         |
 | [path](#check_http_path)                     | /                                                   | Path component of the URL.                                                                                                                                                                                                                |
 | [protocol](#check_http_protocol)             | http                                                | Protocol to use: http or https.                                                                                                                                                                                                           |
-| [ssl](#check_http_ssl)                       | 1)] (=0                                             | Force https, alias for --protocol https (ssl=true).                                                                                                                                                                                       |
+| [ssl](#check_http_ssl)                       | false                                               | Force https, alias for --protocol https (ssl=true).                                                                                                                                                                                       |
 | [timeout](#check_http_timeout)               | 30000                                               | Timeout in milliseconds.                                                                                                                                                                                                                  |
 | [method](#check_http_method)                 | GET                                                 | HTTP method to use (GET, HEAD, POST, PUT, DELETE, ...).                                                                                                                                                                                   |
 | post-data                                    |                                                     | Request body to send; implies POST unless --method is given.                                                                                                                                                                              |
@@ -922,13 +922,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_http_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_http_empty-state">empty-state:</h5>
 
@@ -947,7 +947,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_http_list-separator">list-separator:</h5>
 
@@ -1013,7 +1013,7 @@ Protocol to use: http or https.
 
 Force https, alias for --protocol https (ssl=true).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_http_timeout">timeout:</h5>
 
@@ -1385,11 +1385,11 @@ OK: ntp.example.com root_delay=11ms root_dispersion=33ms stratum=2
 | [critical](#check_ntp_offset_critical)             | offset > 100 or stratum >= 16 or result != 'ok'        | Filter which marks items which generates a critical state.                                                                                                                                                                              |
 | crit                                               |                                                        | Short alias for critical.                                                                                                                                                                                                               |
 | [ok](#check_ntp_offset_ok)                         |                                                        | Filter which marks items which generates an ok state.                                                                                                                                                                                   |
-| [debug](#check_ntp_offset_debug)                   | 1)] (=0                                                | Show debugging information in the log                                                                                                                                                                                                   |
-| [show-all](#check_ntp_offset_show-all)             | 1)] (=0                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                        |
+| [debug](#check_ntp_offset_debug)                   | false                                                  | Show debugging information in the log                                                                                                                                                                                                   |
+| [show-all](#check_ntp_offset_show-all)             | false                                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                        |
 | [empty-state](#check_ntp_offset_empty-state)       | ignored                                                | Return status to use when nothing matched filter.                                                                                                                                                                                       |
 | [perf-config](#check_ntp_offset_perf-config)       |                                                        | Performance data generation configuration                                                                                                                                                                                               |
-| [escape-html](#check_ntp_offset_escape-html)       | 1)] (=0                                                | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                  |
+| [escape-html](#check_ntp_offset_escape-html)       | false                                                  | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                  |
 | [list-separator](#check_ntp_offset_list-separator) | ,                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                               |
 | help                                               | N/A                                                    | Show help screen (this screen)                                                                                                                                                                                                          |
 | help-pb                                            | N/A                                                    | Show help screen as a protocol buffer payload                                                                                                                                                                                           |
@@ -1442,13 +1442,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ntp_offset_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ntp_offset_empty-state">empty-state:</h5>
 
@@ -1467,7 +1467,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ntp_offset_list-separator">list-separator:</h5>
 
@@ -1796,11 +1796,11 @@ Invalid size: 99999 (expected 0-65507)
 | [critical](#check_ping_critical)             | time > 100 or loss > 10%                          | Filter which marks items which generates a critical state.                                                                                                                                                                                                            |
 | crit                                         |                                                   | Short alias for critical.                                                                                                                                                                                                                                             |
 | [ok](#check_ping_ok)                         |                                                   | Filter which marks items which generates an ok state.                                                                                                                                                                                                                 |
-| [debug](#check_ping_debug)                   | 1)] (=0                                           | Show debugging information in the log                                                                                                                                                                                                                                 |
-| [show-all](#check_ping_show-all)             | 1)] (=0                                           | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                      |
+| [debug](#check_ping_debug)                   | false                                             | Show debugging information in the log                                                                                                                                                                                                                                 |
+| [show-all](#check_ping_show-all)             | false                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                      |
 | [empty-state](#check_ping_empty-state)       | unknown                                           | Return status to use when nothing matched filter.                                                                                                                                                                                                                     |
 | [perf-config](#check_ping_perf-config)       |                                                   | Performance data generation configuration                                                                                                                                                                                                                             |
-| [escape-html](#check_ping_escape-html)       | 1)] (=0                                           | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                |
+| [escape-html](#check_ping_escape-html)       | false                                             | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                |
 | [list-separator](#check_ping_list-separator) | ,                                                 | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                             |
 | help                                         | N/A                                               | Show help screen (this screen)                                                                                                                                                                                                                                        |
 | help-pb                                      | N/A                                               | Show help screen as a protocol buffer payload                                                                                                                                                                                                                         |
@@ -1812,7 +1812,7 @@ Invalid size: 99999 (expected 0-65507)
 | [detail-syntax](#check_ping_detail-syntax)   | ${ip} Packet loss = ${loss}%, RTA = ${time}ms     | Detail level syntax.                                                                                                                                                                                                                                                  |
 | [perf-syntax](#check_ping_perf-syntax)       | ${host}                                           | Performance alias syntax.                                                                                                                                                                                                                                             |
 | host                                         |                                                   | The host to check (or multiple hosts).                                                                                                                                                                                                                                |
-| [total](#check_ping_total)                   | 1)] (=0                                           | Include the total of all matching hosts                                                                                                                                                                                                                               |
+| [total](#check_ping_total)                   | false                                             | Include the total of all matching hosts                                                                                                                                                                                                                               |
 | hosts                                        |                                                   | The host to check (or multiple hosts).                                                                                                                                                                                                                                |
 | [count](#check_ping_count)                   | 1                                                 | Number of packets to send.                                                                                                                                                                                                                                            |
 | [timeout](#check_ping_timeout)               | 500                                               | Timeout in milliseconds.                                                                                                                                                                                                                                              |
@@ -1856,13 +1856,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ping_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ping_empty-state">empty-state:</h5>
 
@@ -1881,7 +1881,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ping_list-separator">list-separator:</h5>
 
@@ -1935,7 +1935,7 @@ This is the syntax for the base names of the performance data.
 
 Include the total of all matching hosts
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ping_count">count:</h5>
 
@@ -2180,11 +2180,11 @@ OK: 192.168.56.10:22 ok in 2ms
 | [critical](#check_ssh_critical)             | time > 5000 or result != 'ok'          | Filter which marks items which generates a critical state.                                                                |
 | crit                                        |                                        | Short alias for critical.                                                                                                 |
 | [ok](#check_ssh_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_ssh_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                     |
-| [show-all](#check_ssh_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_ssh_debug)                   | false                                  | Show debugging information in the log                                                                                     |
+| [show-all](#check_ssh_show-all)             | false                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_ssh_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_ssh_perf-config)       |                                        | Performance data generation configuration                                                                                 |
-| [escape-html](#check_ssh_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_ssh_escape-html)       | false                                  | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_ssh_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                        | N/A                                    | Show help screen (this screen)                                                                                            |
 | help-pb                                     | N/A                                    | Show help screen as a protocol buffer payload                                                                             |
@@ -2201,7 +2201,7 @@ OK: 192.168.56.10:22 ok in 2ms
 | [timeout](#check_ssh_timeout)               | 5000                                   | Connection / read timeout in milliseconds.                                                                                |
 | send                                        |                                        | Optional payload to send after the connection is established.                                                             |
 | expect                                      |                                        | Optional substring expected in the response.                                                                              |
-| [ssl](#check_ssh_ssl)                       | 1)] (=0                                | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                               |
+| [ssl](#check_ssh_ssl)                       | false                                  | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                               |
 | [tls-version](#check_ssh_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                     |
 | [verify](#check_ssh_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                               |
 | ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                         |
@@ -2242,13 +2242,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ssh_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ssh_empty-state">empty-state:</h5>
 
@@ -2267,7 +2267,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ssh_list-separator">list-separator:</h5>
 
@@ -2327,7 +2327,7 @@ Connection / read timeout in milliseconds.
 
 Wrap the connection in TLS/SSL after connecting (ssl=true).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_ssh_tls-version">tls-version:</h5>
 
@@ -2598,11 +2598,11 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 | [critical](#check_tcp_critical)             | time > 5000 or result != 'ok'          | Filter which marks items which generates a critical state.                                                                                                           |
 | crit                                        |                                        | Short alias for critical.                                                                                                                                            |
 | [ok](#check_tcp_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                                                                |
-| [debug](#check_tcp_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                                                                |
-| [show-all](#check_tcp_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                     |
+| [debug](#check_tcp_debug)                   | false                                  | Show debugging information in the log                                                                                                                                |
+| [show-all](#check_tcp_show-all)             | false                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                     |
 | [empty-state](#check_tcp_empty-state)       | ignored                                | Return status to use when nothing matched filter.                                                                                                                    |
 | [perf-config](#check_tcp_perf-config)       |                                        | Performance data generation configuration                                                                                                                            |
-| [escape-html](#check_tcp_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                                                               |
+| [escape-html](#check_tcp_escape-html)       | false                                  | Escape any < and > characters to prevent HTML encoding                                                                                                               |
 | [list-separator](#check_tcp_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                            |
 | help                                        | N/A                                    | Show help screen (this screen)                                                                                                                                       |
 | help-pb                                     | N/A                                    | Show help screen as a protocol buffer payload                                                                                                                        |
@@ -2619,7 +2619,7 @@ OK: All 1 hosts are ok|'192.168.56.1_22 time'=2ms;1000;5000
 | [timeout](#check_tcp_timeout)               | 5000                                   | Connection / read timeout in milliseconds.                                                                                                                           |
 | send                                        |                                        | Optional payload to send after the connection is established.                                                                                                        |
 | expect                                      |                                        | Optional substring expected in the response.                                                                                                                         |
-| [ssl](#check_tcp_ssl)                       | 1)] (=0                                | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                                                                          |
+| [ssl](#check_tcp_ssl)                       | false                                  | Wrap the connection in TLS/SSL after connecting (ssl=true).                                                                                                          |
 | [tls-version](#check_tcp_tls-version)       | tlsv1.2+                               | TLS version when --ssl is used (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                                                                |
 | [verify](#check_tcp_verify)                 | none                                   | Certificate verify mode when --ssl is used: none (default), peer, ... (peer requires --ca).                                                                          |
 | ca                                          |                                        | CA bundle used to verify the server certificate when --ssl --verify peer is used.                                                                                    |
@@ -2661,13 +2661,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_tcp_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_tcp_empty-state">empty-state:</h5>
 
@@ -2686,7 +2686,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_tcp_list-separator">list-separator:</h5>
 
@@ -2746,7 +2746,7 @@ Connection / read timeout in milliseconds.
 
 Wrap the connection in TLS/SSL after connecting (ssl=true).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_tcp_tls-version">tls-version:</h5>
 

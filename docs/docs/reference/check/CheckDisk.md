@@ -159,11 +159,11 @@ Device-state keywords (populated on `has_device = 1` rows): `friendly_name`,
 | [critical](#check_disk_health_critical)             | (has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1 and (health_status = 'Unhealthy' or is_offline = 1)) | Filter which marks items which generates a critical state.                                                                |
 | crit                                                |                                                                                                                                     | Short alias for critical.                                                                                                 |
 | [ok](#check_disk_health_ok)                         |                                                                                                                                     | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_disk_health_debug)                   | 1)] (=0                                                                                                                             | Show debugging information in the log                                                                                     |
-| [show-all](#check_disk_health_show-all)             | 1)] (=0                                                                                                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_disk_health_debug)                   | false                                                                                                                               | Show debugging information in the log                                                                                     |
+| [show-all](#check_disk_health_show-all)             | false                                                                                                                               | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_disk_health_empty-state)       | critical                                                                                                                            | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_disk_health_perf-config)       |                                                                                                                                     | Performance data generation configuration                                                                                 |
-| [escape-html](#check_disk_health_escape-html)       | 1)] (=0                                                                                                                             | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_disk_health_escape-html)       | false                                                                                                                               | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_disk_health_list-separator) | ,                                                                                                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                | N/A                                                                                                                                 | Show help screen (this screen)                                                                                            |
 | help-pb                                             | N/A                                                                                                                                 | Show help screen as a protocol buffer payload                                                                             |
@@ -211,13 +211,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_disk_health_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_disk_health_empty-state">empty-state:</h5>
 
@@ -236,7 +236,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_disk_health_list-separator">list-separator:</h5>
 
@@ -496,11 +496,11 @@ OK: All disk I/O seems ok.
 | [critical](#check_disk_io_critical)             | percent_disk_time > 95                                                                                               | Filter which marks items which generates a critical state.                                                                |
 | crit                                            |                                                                                                                      | Short alias for critical.                                                                                                 |
 | [ok](#check_disk_io_ok)                         |                                                                                                                      | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_disk_io_debug)                   | 1)] (=0                                                                                                              | Show debugging information in the log                                                                                     |
-| [show-all](#check_disk_io_show-all)             | 1)] (=0                                                                                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_disk_io_debug)                   | false                                                                                                                | Show debugging information in the log                                                                                     |
+| [show-all](#check_disk_io_show-all)             | false                                                                                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_disk_io_empty-state)       | critical                                                                                                             | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_disk_io_perf-config)       |                                                                                                                      | Performance data generation configuration                                                                                 |
-| [escape-html](#check_disk_io_escape-html)       | 1)] (=0                                                                                                              | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_disk_io_escape-html)       | false                                                                                                                | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_disk_io_list-separator) | ,                                                                                                                    | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                            | N/A                                                                                                                  | Show help screen (this screen)                                                                                            |
 | help-pb                                         | N/A                                                                                                                  | Show help screen as a protocol buffer payload                                                                             |
@@ -548,13 +548,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_disk_io_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_disk_io_empty-state">empty-state:</h5>
 
@@ -573,7 +573,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_disk_io_list-separator">list-separator:</h5>
 
@@ -792,11 +792,11 @@ OK: /data/nscp-write-test.dat: wrote and read back 1048576 bytes in 9ms
 | [critical](#check_disk_write_critical)             | has_issues = 1          | Filter which marks items which generates a critical state.                                                                |
 | crit                                               |                         | Short alias for critical.                                                                                                 |
 | [ok](#check_disk_write_ok)                         |                         | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_disk_write_debug)                   | 1)] (=0                 | Show debugging information in the log                                                                                     |
-| [show-all](#check_disk_write_show-all)             | 1)] (=0                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_disk_write_debug)                   | false                   | Show debugging information in the log                                                                                     |
+| [show-all](#check_disk_write_show-all)             | false                   | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_disk_write_empty-state)       | unknown                 | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_disk_write_perf-config)       |                         | Performance data generation configuration                                                                                 |
-| [escape-html](#check_disk_write_escape-html)       | 1)] (=0                 | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_disk_write_escape-html)       | false                   | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_disk_write_list-separator) | ,                       | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                               | N/A                     | Show help screen (this screen)                                                                                            |
 | help-pb                                            | N/A                     | Show help screen as a protocol buffer payload                                                                             |
@@ -845,13 +845,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_disk_write_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_disk_write_empty-state">empty-state:</h5>
 
@@ -870,7 +870,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_disk_write_list-separator">list-separator:</h5>
 
@@ -1289,11 +1289,11 @@ check_drivesize "filter=full_in = 'never'"
     | [critical](#check_drivesize_critical)                   | used > 90%                             | Filter which marks items which generates a critical state.                                                                                                                                                                                                                                                                                                                                    |
     | crit                                                    |                                        | Short alias for critical.                                                                                                                                                                                                                                                                                                                                                                     |
     | [ok](#check_drivesize_ok)                               |                                        | Filter which marks items which generates an ok state.                                                                                                                                                                                                                                                                                                                                         |
-    | [debug](#check_drivesize_debug)                         | 1)] (=0                                | Show debugging information in the log                                                                                                                                                                                                                                                                                                                                                         |
-    | [show-all](#check_drivesize_show-all)                   | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                                                                                                                                              |
+    | [debug](#check_drivesize_debug)                         | false                                  | Show debugging information in the log                                                                                                                                                                                                                                                                                                                                                         |
+    | [show-all](#check_drivesize_show-all)                   | false                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                                                                                                                                              |
     | [empty-state](#check_drivesize_empty-state)             | unknown                                | Return status to use when nothing matched filter.                                                                                                                                                                                                                                                                                                                                             |
     | [perf-config](#check_drivesize_perf-config)             |                                        | Performance data generation configuration                                                                                                                                                                                                                                                                                                                                                     |
-    | [escape-html](#check_drivesize_escape-html)             | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                                                                                                                                        |
+    | [escape-html](#check_drivesize_escape-html)             | false                                  | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                                                                                                                                        |
     | [list-separator](#check_drivesize_list-separator)       | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                                                                                                                                                     |
     | help                                                    | N/A                                    | Show help screen (this screen)                                                                                                                                                                                                                                                                                                                                                                |
     | help-pb                                                 | N/A                                    | Show help screen as a protocol buffer payload                                                                                                                                                                                                                                                                                                                                                 |
@@ -1305,14 +1305,14 @@ check_drivesize "filter=full_in = 'never'"
     | [detail-syntax](#check_drivesize_detail-syntax)         | ${drive_or_name}: ${used}/${size} used | Detail level syntax.                                                                                                                                                                                                                                                                                                                                                                          |
     | [perf-syntax](#check_drivesize_perf-syntax)             | ${drive_or_id}                         | Performance alias syntax.                                                                                                                                                                                                                                                                                                                                                                     |
     | [drive](#check_drivesize_drive)                         |                                        | The drives to check.                                                                                                                                                                                                                                                                                                                                                                          |
-    | [ignore-unreadable](#check_drivesize_ignore-unreadable) | 1)] (=0                                | DEPRECATED (manually set filter instead) Ignore drives which are not reachable by the current user.                                                                                                                                                                                                                                                                                           |
-    | [mounted](#check_drivesize_mounted)                     | 1)] (=0                                | DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.                                                                                                                                                                                                                                                                                                |
+    | [ignore-unreadable](#check_drivesize_ignore-unreadable) | false                                  | DEPRECATED (manually set filter instead) Ignore drives which are not reachable by the current user.                                                                                                                                                                                                                                                                                           |
+    | [mounted](#check_drivesize_mounted)                     | false                                  | DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.                                                                                                                                                                                                                                                                                                |
     | magic                                                   |                                        | Magic number for use with scaling drive sizes.                                                                                                                                                                                                                                                                                                                                                |
     | exclude                                                 |                                        | A list of drives not to check                                                                                                                                                                                                                                                                                                                                                                 |
     | require                                                 |                                        | Drives that MUST be present: the check goes CRITICAL if any listed drive is not found, even when scanning wildcards. Alias: mandatory-drives.                                                                                                                                                                                                                                                 |
     | mandatory-drives                                        |                                        | Alias for require.                                                                                                                                                                                                                                                                                                                                                                            |
-    | [total](#check_drivesize_total)                         | 1)] (=0                                | Include the total of all matching drives                                                                                                                                                                                                                                                                                                                                                      |
-    | [ignore-missing](#check_drivesize_ignore-missing)       | 1)] (=0                                | Silently skip drives named with drive= that do not exist, instead of failing the whole check. Intended for optional mounts. Implies empty-state=ok, so a check whose drives are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one). Drives listed in require= are unaffected: those are still CRITICAL when absent, which is the point of listing them. |
+    | [total](#check_drivesize_total)                         | false                                  | Include the total of all matching drives                                                                                                                                                                                                                                                                                                                                                      |
+    | [ignore-missing](#check_drivesize_ignore-missing)       | false                                  | Silently skip drives named with drive= that do not exist, instead of failing the whole check. Intended for optional mounts. Implies empty-state=ok, so a check whose drives are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one). Drives listed in require= are unaffected: those are still CRITICAL when absent, which is the point of listing them. |
     | [trend-window](#check_drivesize_trend-window)           | 24h                                    | Lookback window for the full_in/rate trend keywords (e.g. 2h, 24h, 7d). A long window measures the net growth across cleanup cycles; a short one catches something filling the disk right now. Bounded by the collector's trend retention (default 7d).                                                                                                                                       |
 
 
@@ -1351,13 +1351,13 @@ check_drivesize "filter=full_in = 'never'"
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_empty-state">empty-state:</h5>
 
@@ -1376,7 +1376,7 @@ check_drivesize "filter=full_in = 'never'"
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_list-separator">list-separator:</h5>
 
@@ -1437,25 +1437,25 @@ check_drivesize "filter=full_in = 'never'"
     DEPRECATED (manually set filter instead) Ignore drives which are not reachable by the current user.
     For instance Microsoft Office creates a drive which cannot be read by normal users.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_mounted">mounted:</h5>
 
     DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_total">total:</h5>
 
     Include the total of all matching drives
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_ignore-missing">ignore-missing:</h5>
 
     Silently skip drives named with drive= that do not exist, instead of failing the whole check. Intended for optional mounts. Implies empty-state=ok, so a check whose drives are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one). Drives listed in require= are unaffected: those are still CRITICAL when absent, which is the point of listing them.
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_trend-window">trend-window:</h5>
 
@@ -1481,11 +1481,11 @@ check_drivesize "filter=full_in = 'never'"
     | [critical](#check_drivesize_critical)             | used > 90%                             | Filter which marks items which generates a critical state.                                                                                                                                                                                                                |
     | crit                                              |                                        | Short alias for critical.                                                                                                                                                                                                                                                 |
     | [ok](#check_drivesize_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                                                                                                                                                                     |
-    | [debug](#check_drivesize_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                                                                                                                                                                     |
-    | [show-all](#check_drivesize_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                          |
+    | [debug](#check_drivesize_debug)                   | false                                  | Show debugging information in the log                                                                                                                                                                                                                                     |
+    | [show-all](#check_drivesize_show-all)             | false                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                          |
     | [empty-state](#check_drivesize_empty-state)       | unknown                                | Return status to use when nothing matched filter.                                                                                                                                                                                                                         |
     | [perf-config](#check_drivesize_perf-config)       |                                        | Performance data generation configuration                                                                                                                                                                                                                                 |
-    | [escape-html](#check_drivesize_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                    |
+    | [escape-html](#check_drivesize_escape-html)       | false                                  | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                    |
     | [list-separator](#check_drivesize_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                                 |
     | help                                              | N/A                                    | Show help screen (this screen)                                                                                                                                                                                                                                            |
     | help-pb                                           | N/A                                    | Show help screen as a protocol buffer payload                                                                                                                                                                                                                             |
@@ -1498,8 +1498,8 @@ check_drivesize "filter=full_in = 'never'"
     | [perf-syntax](#check_drivesize_perf-syntax)       | ${drive_or_id}                         | Performance alias syntax.                                                                                                                                                                                                                                                 |
     | [drive](#check_drivesize_drive)                   |                                        | The drives to check.                                                                                                                                                                                                                                                      |
     | exclude                                           |                                        | A list of drives (mount points) not to check                                                                                                                                                                                                                              |
-    | [total](#check_drivesize_total)                   | 1)] (=0                                | Include the total of all matching drives                                                                                                                                                                                                                                  |
-    | [ignore-missing](#check_drivesize_ignore-missing) | 1)] (=0                                | Silently skip drives named with drive= that do not exist, instead of failing the whole check. Intended for optional mounts. Implies empty-state=ok, so a check whose drives are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one). |
+    | [total](#check_drivesize_total)                   | false                                  | Include the total of all matching drives                                                                                                                                                                                                                                  |
+    | [ignore-missing](#check_drivesize_ignore-missing) | false                                  | Silently skip drives named with drive= that do not exist, instead of failing the whole check. Intended for optional mounts. Implies empty-state=ok, so a check whose drives are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one). |
     | [trend-window](#check_drivesize_trend-window)     | 24h                                    | Lookback window for the full_in/rate trend keywords (e.g. 2h, 24h, 7d). A long window measures the net growth across cleanup cycles; a short one catches something filling the disk right now. Bounded by the collector's trend retention (default 7d).                   |
 
 
@@ -1538,13 +1538,13 @@ check_drivesize "filter=full_in = 'never'"
 
     Show debugging information in the log
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_show-all">show-all:</h5>
 
     Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_empty-state">empty-state:</h5>
 
@@ -1563,7 +1563,7 @@ check_drivesize "filter=full_in = 'never'"
 
     Escape any < and > characters to prevent HTML encoding
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_list-separator">list-separator:</h5>
 
@@ -1623,13 +1623,13 @@ check_drivesize "filter=full_in = 'never'"
 
     Include the total of all matching drives
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_ignore-missing">ignore-missing:</h5>
 
     Silently skip drives named with drive= that do not exist, instead of failing the whole check. Intended for optional mounts. Implies empty-state=ok, so a check whose drives are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one).
 
-    *Default Value:* `1)] (=0`
+    *Default Value:* `false`
 
     <h5 id="check_drivesize_trend-window">trend-window:</h5>
 
@@ -1914,11 +1914,11 @@ No files found
 | [critical](#check_files_critical)             |                                                              | Filter which marks items which generates a critical state.                                                                                                                                                                                                                                               |
 | crit                                          |                                                              | Short alias for critical.                                                                                                                                                                                                                                                                                |
 | [ok](#check_files_ok)                         |                                                              | Filter which marks items which generates an ok state.                                                                                                                                                                                                                                                    |
-| [debug](#check_files_debug)                   | 1)] (=0                                                      | Show debugging information in the log                                                                                                                                                                                                                                                                    |
-| [show-all](#check_files_show-all)             | 1)] (=0                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                                                         |
+| [debug](#check_files_debug)                   | false                                                        | Show debugging information in the log                                                                                                                                                                                                                                                                    |
+| [show-all](#check_files_show-all)             | false                                                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                                                                                                                         |
 | [empty-state](#check_files_empty-state)       | unknown                                                      | Return status to use when nothing matched filter.                                                                                                                                                                                                                                                        |
 | [perf-config](#check_files_perf-config)       |                                                              | Performance data generation configuration                                                                                                                                                                                                                                                                |
-| [escape-html](#check_files_escape-html)       | 1)] (=0                                                      | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                                                   |
+| [escape-html](#check_files_escape-html)       | false                                                        | Escape any < and > characters to prevent HTML encoding                                                                                                                                                                                                                                                   |
 | [list-separator](#check_files_list-separator) | ,                                                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                                                                                                                                |
 | help                                          | N/A                                                          | Show help screen (this screen)                                                                                                                                                                                                                                                                           |
 | help-pb                                       | N/A                                                          | Show help screen as a protocol buffer payload                                                                                                                                                                                                                                                            |
@@ -1935,7 +1935,7 @@ No files found
 | [pattern](#check_files_pattern)               | *.*                                                          | The pattern of files to search for (works like a filter but is faster and can be combined with a filter).                                                                                                                                                                                                |
 | max-depth                                     |                                                              | Maximum depth to recurse                                                                                                                                                                                                                                                                                 |
 | [total](#check_files_total)                   | filter                                                       | Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter                                                                                                                                                                                           |
-| [ignore-missing](#check_files_ignore-missing) | 1)] (=0                                                      | Silently skip top-level paths that do not exist, instead of failing the whole check. Intended for directories that are legitimately absent some of the time. Implies empty-state=ok, so a scan whose paths are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one). |
+| [ignore-missing](#check_files_ignore-missing) | false                                                        | Silently skip top-level paths that do not exist, instead of failing the whole check. Intended for directories that are legitimately absent some of the time. Implies empty-state=ok, so a scan whose paths are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one). |
 
 
 
@@ -1970,13 +1970,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_files_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_files_empty-state">empty-state:</h5>
 
@@ -1995,7 +1995,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_files_list-separator">list-separator:</h5>
 
@@ -2067,7 +2067,7 @@ Include the total of either (filter) all files matching the filter or (all) all 
 
 Silently skip top-level paths that do not exist, instead of failing the whole check. Intended for directories that are legitimately absent some of the time. Implies empty-state=ok, so a scan whose paths are all missing reports OK rather than UNKNOWN (pass empty-state= to choose a different one).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 
 <a id="check_files_filter_keys"></a>
@@ -2238,11 +2238,11 @@ OK: mounts are as expected
 | [critical](#check_mount_critical)             | issues like 'not mounted'                      | Filter which marks items which generates a critical state.                                                                |
 | crit                                          |                                                | Short alias for critical.                                                                                                 |
 | [ok](#check_mount_ok)                         |                                                | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_mount_debug)                   | 1)] (=0                                        | Show debugging information in the log                                                                                     |
-| [show-all](#check_mount_show-all)             | 1)] (=0                                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_mount_debug)                   | false                                          | Show debugging information in the log                                                                                     |
+| [show-all](#check_mount_show-all)             | false                                          | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_mount_empty-state)       | unknown                                        | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_mount_perf-config)       |                                                | Performance data generation configuration                                                                                 |
-| [escape-html](#check_mount_escape-html)       | 1)] (=0                                        | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_mount_escape-html)       | false                                          | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_mount_list-separator) | ,                                              | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                          | N/A                                            | Show help screen (this screen)                                                                                            |
 | help-pb                                       | N/A                                            | Show help screen as a protocol buffer payload                                                                             |
@@ -2292,13 +2292,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mount_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mount_empty-state">empty-state:</h5>
 
@@ -2317,7 +2317,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_mount_list-separator">list-separator:</h5>
 
@@ -2529,11 +2529,11 @@ OK: \\?\Volume{4c2b...}\: 12 copies, newest 2026-07-11 07:00:03 UTC
 | [critical](#check_shadowcopy_critical)             | newest > 50h                                                 | Filter which marks items which generates a critical state.                                                                |
 | crit                                               |                                                              | Short alias for critical.                                                                                                 |
 | [ok](#check_shadowcopy_ok)                         |                                                              | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_shadowcopy_debug)                   | 1)] (=0                                                      | Show debugging information in the log                                                                                     |
-| [show-all](#check_shadowcopy_show-all)             | 1)] (=0                                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_shadowcopy_debug)                   | false                                                        | Show debugging information in the log                                                                                     |
+| [show-all](#check_shadowcopy_show-all)             | false                                                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_shadowcopy_empty-state)       | ok                                                           | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_shadowcopy_perf-config)       |                                                              | Performance data generation configuration                                                                                 |
-| [escape-html](#check_shadowcopy_escape-html)       | 1)] (=0                                                      | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_shadowcopy_escape-html)       | false                                                        | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_shadowcopy_list-separator) | ,                                                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                               | N/A                                                          | Show help screen (this screen)                                                                                            |
 | help-pb                                            | N/A                                                          | Show help screen as a protocol buffer payload                                                                             |
@@ -2580,13 +2580,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_shadowcopy_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_shadowcopy_empty-state">empty-state:</h5>
 
@@ -2605,7 +2605,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_shadowcopy_list-separator">list-separator:</h5>
 
@@ -2808,11 +2808,11 @@ OK: All 2 share(s) ok.
 | [critical](#check_share_critical)             | not exists                                             | Filter which marks items which generates a critical state.                                                                                            |
 | crit                                          |                                                        | Short alias for critical.                                                                                                                             |
 | [ok](#check_share_ok)                         |                                                        | Filter which marks items which generates an ok state.                                                                                                 |
-| [debug](#check_share_debug)                   | 1)] (=0                                                | Show debugging information in the log                                                                                                                 |
-| [show-all](#check_share_show-all)             | 1)] (=0                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                      |
+| [debug](#check_share_debug)                   | false                                                  | Show debugging information in the log                                                                                                                 |
+| [show-all](#check_share_show-all)             | false                                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                      |
 | [empty-state](#check_share_empty-state)       | ok                                                     | Return status to use when nothing matched filter.                                                                                                     |
 | [perf-config](#check_share_perf-config)       |                                                        | Performance data generation configuration                                                                                                             |
-| [escape-html](#check_share_escape-html)       | 1)] (=0                                                | Escape any < and > characters to prevent HTML encoding                                                                                                |
+| [escape-html](#check_share_escape-html)       | false                                                  | Escape any < and > characters to prevent HTML encoding                                                                                                |
 | [list-separator](#check_share_list-separator) | ,                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                             |
 | help                                          | N/A                                                    | Show help screen (this screen)                                                                                                                        |
 | help-pb                                       | N/A                                                    | Show help screen as a protocol buffer payload                                                                                                         |
@@ -2859,13 +2859,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_share_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_share_empty-state">empty-state:</h5>
 
@@ -2884,7 +2884,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_share_list-separator">list-separator:</h5>
 
@@ -3102,11 +3102,11 @@ File not found (ignored): /tmp/no-such-report.csv
 | [critical](#check_single_file_critical)             |                                        | Filter which marks items which generates a critical state.                                                                                                                                     |
 | crit                                                |                                        | Short alias for critical.                                                                                                                                                                      |
 | [ok](#check_single_file_ok)                         |                                        | Filter which marks items which generates an ok state.                                                                                                                                          |
-| [debug](#check_single_file_debug)                   | 1)] (=0                                | Show debugging information in the log                                                                                                                                                          |
-| [show-all](#check_single_file_show-all)             | 1)] (=0                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                               |
+| [debug](#check_single_file_debug)                   | false                                  | Show debugging information in the log                                                                                                                                                          |
+| [show-all](#check_single_file_show-all)             | false                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                               |
 | [empty-state](#check_single_file_empty-state)       | ok                                     | Return status to use when nothing matched filter.                                                                                                                                              |
 | [perf-config](#check_single_file_perf-config)       |                                        | Performance data generation configuration                                                                                                                                                      |
-| [escape-html](#check_single_file_escape-html)       | 1)] (=0                                | Escape any < and > characters to prevent HTML encoding                                                                                                                                         |
+| [escape-html](#check_single_file_escape-html)       | false                                  | Escape any < and > characters to prevent HTML encoding                                                                                                                                         |
 | [list-separator](#check_single_file_list-separator) | ,                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                      |
 | help                                                | N/A                                    | Show help screen (this screen)                                                                                                                                                                 |
 | help-pb                                             | N/A                                    | Show help screen as a protocol buffer payload                                                                                                                                                  |
@@ -3119,7 +3119,7 @@ File not found (ignored): /tmp/no-such-report.csv
 | [perf-syntax](#check_single_file_perf-syntax)       | %(filename)                            | Performance alias syntax.                                                                                                                                                                      |
 | file                                                |                                        | The file to check.                                                                                                                                                                             |
 | path                                                |                                        | Alias for file.                                                                                                                                                                                |
-| [ignore-missing](#check_single_file_ignore-missing) | 1)] (=0                                | Return OK instead of failing when the file does not exist. Intended for files that are legitimately absent some of the time, such as a lock file or a report that is only written after a run. |
+| [ignore-missing](#check_single_file_ignore-missing) | false                                  | Return OK instead of failing when the file does not exist. Intended for files that are legitimately absent some of the time, such as a lock file or a report that is only written after a run. |
 
 
 
@@ -3154,13 +3154,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_single_file_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_single_file_empty-state">empty-state:</h5>
 
@@ -3179,7 +3179,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_single_file_list-separator">list-separator:</h5>
 
@@ -3233,7 +3233,7 @@ This is the syntax for the base names of the performance data.
 
 Return OK instead of failing when the file does not exist. Intended for files that are legitimately absent some of the time, such as a lock file or a report that is only written after a run.
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 
 <a id="check_single_file_filter_keys"></a>
@@ -3371,11 +3371,11 @@ Keywords: `name`, `health_status` (Healthy/Warning/Unhealthy/Unknown),
 | [critical](#check_storagepool_critical)             | health_status = 'Unhealthy' or free_pct < 10        | Filter which marks items which generates a critical state.                                                                |
 | crit                                                |                                                     | Short alias for critical.                                                                                                 |
 | [ok](#check_storagepool_ok)                         |                                                     | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_storagepool_debug)                   | 1)] (=0                                             | Show debugging information in the log                                                                                     |
-| [show-all](#check_storagepool_show-all)             | 1)] (=0                                             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_storagepool_debug)                   | false                                               | Show debugging information in the log                                                                                     |
+| [show-all](#check_storagepool_show-all)             | false                                               | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_storagepool_empty-state)       | ok                                                  | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_storagepool_perf-config)       |                                                     | Performance data generation configuration                                                                                 |
-| [escape-html](#check_storagepool_escape-html)       | 1)] (=0                                             | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_storagepool_escape-html)       | false                                               | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_storagepool_list-separator) | ,                                                   | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                                | N/A                                                 | Show help screen (this screen)                                                                                            |
 | help-pb                                             | N/A                                                 | Show help screen as a protocol buffer payload                                                                             |
@@ -3422,13 +3422,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_storagepool_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_storagepool_empty-state">empty-state:</h5>
 
@@ -3447,7 +3447,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_storagepool_list-separator">list-separator:</h5>
 
@@ -3621,11 +3621,11 @@ check_uncpath path=\\a\share path=\\b\share "crit=free_pct < 10" "top-syntax=${s
 | [critical](#check_uncpath_critical)             | used_pct > 90                                | Filter which marks items which generates a critical state.                                                                |
 | crit                                            |                                              | Short alias for critical.                                                                                                 |
 | [ok](#check_uncpath_ok)                         |                                              | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_uncpath_debug)                   | 1)] (=0                                      | Show debugging information in the log                                                                                     |
-| [show-all](#check_uncpath_show-all)             | 1)] (=0                                      | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
+| [debug](#check_uncpath_debug)                   | false                                        | Show debugging information in the log                                                                                     |
+| [show-all](#check_uncpath_show-all)             | false                                        | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
 | [empty-state](#check_uncpath_empty-state)       | unknown                                      | Return status to use when nothing matched filter.                                                                         |
 | [perf-config](#check_uncpath_perf-config)       |                                              | Performance data generation configuration                                                                                 |
-| [escape-html](#check_uncpath_escape-html)       | 1)] (=0                                      | Escape any < and > characters to prevent HTML encoding                                                                    |
+| [escape-html](#check_uncpath_escape-html)       | false                                        | Escape any < and > characters to prevent HTML encoding                                                                    |
 | [list-separator](#check_uncpath_list-separator) | ,                                            | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
 | help                                            | N/A                                          | Show help screen (this screen)                                                                                            |
 | help-pb                                         | N/A                                          | Show help screen as a protocol buffer payload                                                                             |
@@ -3675,13 +3675,13 @@ If anything matches this any previous state for this item will be reset to ok.
 
 Show debugging information in the log
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_uncpath_show-all">show-all:</h5>
 
 Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_uncpath_empty-state">empty-state:</h5>
 
@@ -3700,7 +3700,7 @@ TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 Escape any < and > characters to prevent HTML encoding
 
-*Default Value:* `1)] (=0`
+*Default Value:* `false`
 
 <h5 id="check_uncpath_list-separator">list-separator:</h5>
 

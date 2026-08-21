@@ -77,8 +77,10 @@ NSCP_CREATE_TEST(
     ${TARGET}_test
     SOURCES
         nscapi_helper_test.cpp
+        nscapi_program_options_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper_test.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper_test.cpp
     LIBRARIES
@@ -87,6 +89,7 @@ NSCP_CREATE_TEST(
         ${NSCP_DEF_PLUGIN_LIB}
         ${EXTRA_LIBS}
         ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
