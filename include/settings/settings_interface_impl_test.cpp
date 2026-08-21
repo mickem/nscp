@@ -498,3 +498,153 @@ TEST(settings_interface_impl, to_string_includes_info) {
   memory_backend b(&core, "test", "memory://");
   EXPECT_NE(b.to_string().find("memory backend"), std::string::npos);
 }
+
+// ============================================================================
+// get_changes: the pending change-set an operator sees before saving
+// ============================================================================
+
+namespace {
+using kind = settings::settings_interface::change_entry::change_kind;
+
+// A core that hands out real backends, so the child-store recursion in
+// get_changes() can be exercised (production uses this for included files).
+class chaining_core : public mock_settings_core {
+ public:
+  // Kept alive here because add_child() stores a raw-pointer-like handle.
+  std::list<std::shared_ptr<memory_backend>> children;
+
+  settings::instance_raw_ptr create_instance(std::string alias, std::string context) override {
+    auto child = std::make_shared<memory_backend>(this, alias, context);
+    children.push_back(child);
+    return child;
+  }
+};
+}  // namespace
+
+TEST(settings_interface_impl, get_changes_is_empty_for_a_clean_store) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_values[{"/section", "key"}] = "value";
+  b.persisted_paths.insert("/section");
+
+  // Reading must not manufacture a pending change.
+  EXPECT_TRUE(b.get_string("/section", "key").has_value());
+  EXPECT_TRUE(b.get_changes().empty());
+}
+
+TEST(settings_interface_impl, get_changes_reports_an_unknown_key_as_added) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/section", "key", "value");
+
+  const auto changes = b.get_changes();
+  const auto *c = find_change(changes, "/section", "key", kind::added);
+  ASSERT_NE(nullptr, c);
+  EXPECT_EQ("value", c->new_value);
+  EXPECT_EQ("", c->old_value) << "there is no previous value to report";
+}
+
+TEST(settings_interface_impl, get_changes_reports_an_overwritten_key_as_modified) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_values[{"/section", "key"}] = "before";
+  b.persisted_paths.insert("/section");
+  b.set_string("/section", "key", "after");
+
+  const auto changes = b.get_changes();
+  const auto *c = find_change(changes, "/section", "key", kind::modified);
+  ASSERT_NE(nullptr, c);
+  EXPECT_EQ("before", c->old_value);
+  EXPECT_EQ("after", c->new_value);
+  EXPECT_EQ(nullptr, find_change(changes, "/section", "key", kind::added)) << "an overwrite is not also an addition";
+}
+
+TEST(settings_interface_impl, get_changes_reports_a_removed_key_with_its_old_value) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_values[{"/section", "key"}] = "doomed";
+  b.persisted_paths.insert("/section");
+  b.remove_key("/section", "key");
+
+  const auto changes = b.get_changes();
+  const auto *c = find_change(changes, "/section", "key", kind::removed);
+  ASSERT_NE(nullptr, c);
+  EXPECT_EQ("doomed", c->old_value) << "an operator needs to see what is about to be lost";
+}
+
+TEST(settings_interface_impl, get_changes_reports_a_removed_path) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_paths.insert("/dead");
+  b.remove_path("/dead");
+
+  const auto *c = find_change(b.get_changes(), "/dead", "", kind::path_removed);
+  ASSERT_NE(nullptr, c);
+}
+
+TEST(settings_interface_impl, get_changes_reports_a_new_path_as_added) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.add_path("/brand-new");
+
+  const auto *c = find_change(b.get_changes(), "/brand-new", "", kind::path_added);
+  ASSERT_NE(nullptr, c);
+}
+
+TEST(settings_interface_impl, get_changes_ignores_a_path_that_already_exists) {
+  // add_path on an existing section is a no-op as far as the operator is
+  // concerned; reporting it would make every save look like a change.
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_paths.insert("/already-there");
+  b.add_path("/already-there");
+
+  EXPECT_EQ(nullptr, find_change(b.get_changes(), "/already-there", "", kind::path_added));
+}
+
+TEST(settings_interface_impl, get_changes_still_reports_a_saved_change_as_pending) {
+  // CHARACTERIZATION TEST - this pins current behaviour, which is wrong.
+  //
+  // save() writes the cache out to the backend and clears the *core* dirty
+  // flag, but it never clears the per-entry dirty flags, the delete caches or
+  // the path cache. get_changes() keys off those per-entry flags, so a change
+  // stays "pending" for the lifetime of the store even after it was written.
+  //
+  // Worse, the entry changes shape: before the save it is reported as `added`
+  // (no such key in the backend), afterwards the key does exist, so it is
+  // reported as `modified` with old_value == new_value - a change that claims
+  // to alter nothing. Anything driving an operator-facing diff off
+  // get_changes() shows already-saved edits as outstanding.
+  //
+  // The fix belongs in save() (mark entries clean and drop the delete/path
+  // caches once written). When that lands, this test should be replaced with
+  // the obvious one: get_changes() is empty after a save.
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/section", "key", "value");
+  ASSERT_NE(nullptr, find_change(b.get_changes(), "/section", "key", kind::added));
+
+  b.save(false);
+  ASSERT_EQ("value", b.persisted_values[pk("/section", "key")]) << "the value really was written";
+
+  const auto after = b.get_changes();
+  const auto *c = find_change(after, "/section", "key", kind::modified);
+  ASSERT_NE(nullptr, c) << "documenting the defect: the saved change is still reported";
+  EXPECT_EQ(c->old_value, c->new_value) << "and it reports a no-op modification";
+}
+
+TEST(settings_interface_impl, get_changes_includes_child_store_changes) {
+  // Included config files are child stores; their pending edits belong in the
+  // same change-set or an operator saves without seeing them.
+  chaining_core core;
+  memory_backend parent(&core, "parent", "memory://parent");
+  auto child = std::static_pointer_cast<memory_backend>(parent.add_child("child", "memory://child"));
+  ASSERT_TRUE(static_cast<bool>(child));
+
+  parent.set_string("/parent-section", "key", "parent-value");
+  child->set_string("/child-section", "key", "child-value");
+
+  const auto changes = parent.get_changes();
+  EXPECT_NE(nullptr, find_change(changes, "/parent-section", "key", kind::added));
+  EXPECT_NE(nullptr, find_change(changes, "/child-section", "key", kind::added)) << "child changes must not be invisible";
+}

@@ -77,6 +77,20 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 NSCP_CREATE_TEST(
+    nscapi_program_options_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+NSCP_CREATE_TEST(
     str_test
     SOURCES
         ${NSCP_INCLUDEDIR}/str/format_test.cpp
@@ -490,7 +504,7 @@ if(WIN32)
 endif()
 
 NSCP_CREATE_TEST(
-    test_settings
+    settings_test
     SOURCES
         ${NSCP_INCLUDEDIR}/settings/settings_value_test.cpp
         ${NSCP_INCLUDEDIR}/settings/settings_interface_impl_test.cpp
