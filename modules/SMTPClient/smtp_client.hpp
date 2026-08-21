@@ -49,9 +49,12 @@ struct connection_data : socket_helpers::connection_info {
     subject_template = arguments.get_string_data("subject");
     template_string = arguments.get_string_data("template");
 
-    if (sender_container.has_data("host")) {
-      sender_hostname = sender_container.get_string_data("host");
-    }
+    // get_host(), not the data map: destination_container routes the
+    // well-known "host" key into a typed field, so the map lookup never found
+    // it - which left the EHLO name below falling back to "localhost" instead
+    // of naming this agent.
+    sender_hostname = sender_container.get_host();
+    if (sender_hostname.empty()) sender_hostname = sender_container.get_string_data("host");
     canonical_name = arguments.get_string_data("ehlo-hostname");
   }
 

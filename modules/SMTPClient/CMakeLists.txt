@@ -82,3 +82,22 @@ NSCP_CREATE_TEST(
     INCLUDES
         ${NSCP_INCLUDEDIR}
 )
+
+# The connection settings, separately from smtp.cpp's protocol suite.
+NSCP_CREATE_TEST(
+    smtp_client_test
+    SOURCES
+        smtp_client_test.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

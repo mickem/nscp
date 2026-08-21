@@ -56,3 +56,23 @@ target_link_libraries(
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
 source_group("Socket" REGULAR_EXPRESSION .*include/socket/.*)
+
+# Where a forwarded check goes, and whether that link is encrypted.
+NSCP_CREATE_TEST(
+    nscp_client_test
+    SOURCES
+        nscp_client_test.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
