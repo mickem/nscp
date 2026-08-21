@@ -414,11 +414,56 @@ export class NscpInstance {
   }
 
   /** Wait for a TCP port on localhost to start accepting connections. */
+  /**
+   * Wait until nothing is listening on `port` - i.e. until it can be bound.
+   *
+   * Every REST suite starts its agent on the same fixed port, and they run
+   * back to back. Without this a suite can start while the previous one's
+   * agent is still shutting down: the new agent logs "Failed to bind ...:
+   * Address already in use" and dies quietly, waitForPort() below is happy
+   * because *something* is accepting, and the suite then talks to the
+   * previous agent - which answers UNKNOWN for every command it has no module
+   * for, and then starts refusing connections when it finally exits. Call this
+   * before start() so the port is known to be ours.
+   */
+  async waitForPortFree(port: number, opts: { host?: string; timeoutMs?: number } = {}): Promise<void> {
+    // 0.0.0.0, the address nscp itself binds: a listener there also blocks a
+    // 127.0.0.1 bind, so checking the loopback alone would miss it.
+    const host = opts.host ?? "0.0.0.0";
+    const timeoutMs = opts.timeoutMs ?? 30_000;
+    const deadline = Date.now() + timeoutMs;
+    let lastErr: unknown;
+    for (;;) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const probe = net.createServer();
+          probe.once("error", reject);
+          probe.listen(port, host, () => probe.close(() => resolve()));
+        });
+        return;
+      } catch (e) {
+        lastErr = e;
+        if (Date.now() >= deadline) break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+    throw new Error(
+      `Port ${host}:${port} was still in use after ${timeoutMs}ms - something else is listening ` +
+        `(a leftover nscp from an earlier run?): ${(lastErr as Error)?.message}`,
+    );
+  }
+
   async waitForPort(port: number, opts: { host?: string; timeoutMs?: number } = {}): Promise<void> {
     const host = opts.host ?? "127.0.0.1";
     const deadline = Date.now() + (opts.timeoutMs ?? 30_000);
     let lastErr: unknown;
     while (Date.now() < deadline) {
+      // A listener that could not bind never will, and waiting the full
+      // timeout only to report "did not start accepting" hides the reason.
+      const bindError = this.stdoutBuf
+        .split(/\r?\n/)
+        .find((l) => /Failed to (bind|listen)/i.test(l));
+      if (bindError) throw new Error(`nscp could not open its listener: ${bindError.trim()}`);
       try {
         await new Promise<void>((resolve, reject) => {
           const s = new net.Socket();

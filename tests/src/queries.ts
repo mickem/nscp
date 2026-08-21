@@ -88,6 +88,10 @@ export async function setupQueryNscp(
     ...extraSettings,
   });
 
+  // Every REST suite uses this one port and they run back to back, so make
+  // sure the previous suite's agent has let go of it before starting ours -
+  // otherwise we bind nothing and talk to a stranger.
+  await nscp.waitForPortFree(8443, { timeoutMs: 30_000 });
   nscp.start();
   await nscp.waitForPort(8443, { timeoutMs: 30_000 });
 
