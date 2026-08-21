@@ -7,10 +7,18 @@
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 
+#include "check_mssql_availability_groups.hpp"
 #include "check_mssql_backup.hpp"
+#include "check_mssql_blocking.hpp"
+#include "check_mssql_counters.hpp"
 #include "check_mssql_databases.hpp"
+#include "check_mssql_integrity.hpp"
 #include "check_mssql_jobs.hpp"
 #include "check_mssql_query.hpp"
+#include "check_mssql_sessions.hpp"
+#include "check_mssql_tempdb.hpp"
+#include "check_mssql_transactions.hpp"
+#include "check_mssql_waits.hpp"
 #include "mssql_filter_helpers.hpp"
 #include "odbc_query.hpp"
 
@@ -98,13 +106,167 @@ TEST(PickDriver, DefaultsToLegacyNameWhenNothingMatches) { EXPECT_EQ(mssql_odbc:
 
 // --- pure builders ---------------------------------------------------------------
 
+namespace {
+// A growable, uncapped 10MB data file in filegroup 1 of database 5, on volume
+// "/data" with `available` bytes free. Tests override only what they are about.
+check_mssql_databases_command::file_row make_file(long long available = 100 * 1024 * 1024) {
+  check_mssql_databases_command::file_row file;
+  file.database_id = 5;
+  file.file_id = 1;
+  file.type = 0;
+  file.data_space_id = 1;
+  file.growth = 1024;
+  file.size_bytes = 10 * 1024 * 1024;
+  file.max_size_bytes = -1;
+  file.volume = "/data";
+  file.available_bytes = available;
+  return file;
+}
+
+long long data_headroom(const std::vector<check_mssql_databases_command::file_row> &files) {
+  const auto out = check_mssql_databases_command::compute_headroom(files);
+  const auto it = out.find(5);
+  return it == out.end() ? -99 : it->second.data;
+}
+}  // namespace
+
+TEST(ComputeHeadroom, AutogrowthOffOrPinnedCannotGrow) {
+  auto file = make_file();
+  file.growth = 0;
+  EXPECT_EQ(data_headroom({file}), 0);
+
+  file = make_file();
+  file.max_size_bytes = 0;
+  EXPECT_EQ(data_headroom({file}), 0);
+}
+
+TEST(ComputeHeadroom, UncappedFileIsBoundedByItsVolume) { EXPECT_EQ(data_headroom({make_file(64 * 1024 * 1024)}), 64 * 1024 * 1024); }
+
+TEST(ComputeHeadroom, CappedFileIsBoundedByTheVolumeNotTheCap) {
+  // The case a plain cap-distance calculation gets wrong: a log file carrying
+  // the engine's default 2TB cap on a volume with 1GB left has 1GB of room.
+  auto file = make_file(1024 * 1024 * 1024);
+  file.type = 1;
+  file.data_space_id = 0;
+  file.max_size_bytes = 2199023255552LL;  // 268435456 pages
+  const auto out = check_mssql_databases_command::compute_headroom({file});
+  EXPECT_EQ(out.at(5).log, 1024 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, CappedFileIsBoundedByTheCapWhenTheVolumeIsRoomier) {
+  auto file = make_file(500LL * 1024 * 1024 * 1024);
+  file.max_size_bytes = 30 * 1024 * 1024;  // 20MB left of a 30MB cap
+  EXPECT_EQ(data_headroom({file}), 20 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, CapLoweredUnderTheFileReportsZeroNotNegative) {
+  auto file = make_file();
+  file.size_bytes = 30 * 1024 * 1024;
+  file.max_size_bytes = 20 * 1024 * 1024;
+  EXPECT_EQ(data_headroom({file}), 0);
+}
+
+TEST(ComputeHeadroom, UnknownVolumeIsUnknownNotZero) {
+  auto file = make_file(-1);  // no dm_os_volume_stats row: denied, or offline
+  file.volume.clear();
+  EXPECT_EQ(data_headroom({file}), -1);
+
+  file.max_size_bytes = 30 * 1024 * 1024;  // capped, but the volume is still unknown
+  EXPECT_EQ(data_headroom({file}), -1);
+
+  file.growth = 0;  // cannot grow at all, so the volume does not matter
+  EXPECT_EQ(data_headroom({file}), 0);
+}
+
+TEST(ComputeHeadroom, FilesSharingAVolumeCountItOnce) {
+  // A default tempdb has one file per core in a single filegroup on a single
+  // volume: summing per file reported eight times the free space on disk.
+  std::vector<check_mssql_databases_command::file_row> files;
+  for (int i = 0; i < 8; i++) {
+    auto file = make_file(50 * 1024 * 1024);
+    file.file_id = 1 + i;
+    files.push_back(file);
+  }
+  EXPECT_EQ(data_headroom(files), 50 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, FilesOnSeparateVolumesAddUp) {
+  auto first = make_file(50 * 1024 * 1024);
+  auto second = make_file(30 * 1024 * 1024);
+  second.file_id = 2;
+  second.volume = "/data2";
+  EXPECT_EQ(data_headroom({first, second}), 80 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, FixedFileDoesNotPinItsFilegroupButAFullFilegroupPinsTheDatabase) {
+  // Proportional fill keeps allocating in sibling files until the whole
+  // filegroup is full, so a fixed-size file must not pin its filegroup - but a
+  // constrained *filegroup* does limit the database.
+  std::vector<check_mssql_databases_command::file_row> files;
+  auto fixed = make_file();  // filegroup 1: no room of its own ...
+  fixed.growth = 0;
+  files.push_back(fixed);
+  auto growable = make_file(70 * 1024 * 1024);  // ... but 70MB via its sibling
+  growable.file_id = 2;
+  growable.volume = "/data2";
+  files.push_back(growable);
+  auto other_fg = make_file(9 * 1024 * 1024);  // filegroup 2: only 9MB
+  other_fg.file_id = 3;
+  other_fg.data_space_id = 2;
+  other_fg.volume = "/data3";
+  files.push_back(other_fg);
+
+  const auto out = check_mssql_databases_command::compute_headroom(files);
+  ASSERT_EQ(out.count(5), 1u);
+  EXPECT_EQ(out.at(5).data, 9 * 1024 * 1024);
+  EXPECT_EQ(out.at(5).log, -1);  // no log files in the input
+}
+
+TEST(ComputeHeadroom, CappedSiblingsShareTheVolumeBudget) {
+  // Two capped files on one volume: their caps allow 60MB but the disk has 50.
+  auto first = make_file(50 * 1024 * 1024);
+  first.max_size_bytes = 40 * 1024 * 1024;  // 30MB to the cap
+  auto second = first;
+  second.file_id = 2;  // another 30MB to its own cap
+  EXPECT_EQ(data_headroom({first, second}), 50 * 1024 * 1024);
+
+  // Same pair on a roomier disk: now the caps are what bind.
+  first.available_bytes = 500 * 1024 * 1024;
+  second.available_bytes = 500 * 1024 * 1024;
+  EXPECT_EQ(data_headroom({first, second}), 60 * 1024 * 1024);
+}
+
+TEST(ComputeHeadroom, UnknownFilePoisonsItsFilegroupAndDatabase) {
+  auto known = make_file(20 * 1024 * 1024);
+  auto unknown = make_file(-1);
+  unknown.file_id = 2;
+  unknown.volume.clear();
+  EXPECT_EQ(data_headroom({known, unknown}), -1);
+}
+
+TEST(ComputeHeadroom, LogFilesRollUpAsOneGroup) {
+  std::vector<check_mssql_databases_command::file_row> files;
+  for (int i = 0; i < 2; i++) {
+    auto log = make_file(8 * 1024 * 1024);
+    log.file_id = 2 + i;
+    log.type = 1;
+    log.data_space_id = 0;                        // every log file reports 0
+    log.volume = i == 0 ? "/log1" : "/log2";      // separate volumes, so they add
+    files.push_back(log);
+  }
+
+  const auto out = check_mssql_databases_command::compute_headroom(files);
+  EXPECT_EQ(out.at(5).log, 16 * 1024 * 1024);
+  EXPECT_EQ(out.at(5).data, -1);
+}
+
 TEST(BuildDatabases, MergesLogspaceByNameAndDefaultsToUnknown) {
   std::vector<check_mssql_databases_command::database_row> databases(2);
+  databases[0].database_id = 1;
   databases[0].name = "master";
   databases[0].state = "ONLINE";
   databases[0].recovery_model = "SIMPLE";
-  databases[0].data_bytes = 8 * 1024 * 1024;
-  databases[0].log_bytes = 2 * 1024 * 1024;
+  databases[1].database_id = 2;
   databases[1].name = "orphan";
   databases[1].state = "OFFLINE";
 
@@ -112,11 +274,43 @@ TEST(BuildDatabases, MergesLogspaceByNameAndDefaultsToUnknown) {
   logspace[0].name = "master";
   logspace[0].used_pct = 42;
 
-  const auto out = check_mssql_databases_command::build_databases(databases, logspace);
+  const auto out = check_mssql_databases_command::build_databases(databases, logspace, {});
   ASSERT_EQ(out.size(), 2u);
   EXPECT_EQ(out[0].log_used_pct, 42);
-  EXPECT_EQ(out[0].data_size, 8 * 1024 * 1024);
-  EXPECT_EQ(out[1].log_used_pct, -1);  // not present in LOGSPACE output
+  EXPECT_EQ(out[1].log_used_pct, -1);   // not present in LOGSPACE output
+  EXPECT_EQ(out[0].data_headroom, -1);  // no file rows: unknown
+  EXPECT_EQ(out[0].log_headroom, -1);
+}
+
+TEST(BuildDatabases, SumsFileSizesAndHeadroomByDatabaseId) {
+  std::vector<check_mssql_databases_command::database_row> databases(2);
+  databases[0].database_id = 5;
+  databases[0].name = "appdb";
+  databases[1].database_id = 6;
+  databases[1].name = "restricted";  // no file rows of its own: stays unknown
+
+  std::vector<check_mssql_databases_command::file_row> files;
+  files.push_back(make_file(64 * 1024 * 1024));  // 10MB data file
+  auto second_data = make_file(64 * 1024 * 1024);
+  second_data.file_id = 2;
+  files.push_back(second_data);  // sibling on the same volume: 64MB, not 128MB
+  auto log = make_file(64 * 1024 * 1024);
+  log.file_id = 3;
+  log.type = 1;
+  log.data_space_id = 0;
+  log.size_bytes = 4 * 1024 * 1024;
+  log.volume = "/log";
+  files.push_back(log);
+
+  const auto out = check_mssql_databases_command::build_databases(databases, {}, files);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].data_size, 20 * 1024 * 1024);  // both data files
+  EXPECT_EQ(out[0].log_size, 4 * 1024 * 1024);
+  EXPECT_EQ(out[0].data_headroom, 64 * 1024 * 1024);
+  EXPECT_EQ(out[0].log_headroom, 64 * 1024 * 1024);
+  EXPECT_EQ(out[1].data_size, 0);
+  EXPECT_EQ(out[1].data_headroom, -1);
+  EXPECT_EQ(out[1].log_headroom, -1);
 }
 
 TEST(BuildBackups, NeverBackedUpMapsToMinusOne) {
@@ -204,6 +398,379 @@ TEST(BuildJobs, NeverRanJob) {
   EXPECT_EQ(out[0].last_run_age, -1);
 }
 
+namespace {
+check_mssql_blocking_command::request_row make_request(long long session_id, long long blocking_session_id) {
+  check_mssql_blocking_command::request_row row;
+  row.session_id = session_id;
+  row.blocking_session_id = blocking_session_id;
+  return row;
+}
+}  // namespace
+
+TEST(BuildBlocking, ResolvesChainsToTheRootBlocker) {
+  // 70 -> 60 -> 50, where 50 runs unblocked: 50 is the root for both.
+  const std::vector<check_mssql_blocking_command::request_row> requests = {make_request(60, 50), make_request(70, 60), make_request(50, 0)};
+
+  const auto out = check_mssql_blocking_command::build_blocking(requests, {});
+  ASSERT_EQ(out.size(), 2u);  // 50 is not blocked, so it is not reported
+  EXPECT_EQ(out[0].root_blocker, 50);
+  EXPECT_EQ(out[1].root_blocker, 50);
+}
+
+TEST(BuildBlocking, CycleTerminatesInsteadOfLooping) {
+  // 60 -> 70 -> 60: a deadlock in flight must not hang the chain walk.
+  const std::vector<check_mssql_blocking_command::request_row> requests = {make_request(60, 70), make_request(70, 60)};
+
+  const auto out = check_mssql_blocking_command::build_blocking(requests, {});
+  ASSERT_EQ(out.size(), 2u);
+  // The walk stops at the first revisited session; both roots stay in the cycle.
+  EXPECT_TRUE(out[0].root_blocker == 60 || out[0].root_blocker == 70);
+  EXPECT_TRUE(out[1].root_blocker == 60 || out[1].root_blocker == 70);
+}
+
+TEST(BuildBlocking, SelfBlockingParallelQueryIsNotBlocking) {
+  // A parallel query waiting on its own threads reports itself as its blocker
+  // (CXPACKET/CXCONSUMER). It is one session, so nothing is blocked.
+  auto parallel = make_request(61, 61);
+  parallel.wait_type = "CXCONSUMER";
+  parallel.wait_time = 600;
+  EXPECT_TRUE(check_mssql_blocking_command::build_blocking({parallel}, {}).empty());
+}
+
+TEST(BuildBlocking, NegativeBlockerSentinelsAreNotBlocking) {
+  // -2 orphaned distributed transaction, -3 deferred recovery, -4 latch state
+  // undetermined: real trouble, but none of them names a session to report.
+  for (long long sentinel : {-2LL, -3LL, -4LL}) {
+    auto row = make_request(61, sentinel);
+    row.wait_time = 600;
+    EXPECT_TRUE(check_mssql_blocking_command::build_blocking({row}, {}).empty()) << "sentinel " << sentinel;
+  }
+}
+
+TEST(BuildBlocking, MarsSessionBlockedTwiceIsOneRowWithTheLongestWait) {
+  auto first = make_request(61, 52);
+  first.wait_time = 12;
+  auto second = make_request(61, 52);  // same session, second concurrent request
+  second.wait_time = 47;
+
+  const auto out = check_mssql_blocking_command::build_blocking({first, second}, {});
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].wait_time, 47);
+}
+
+TEST(BuildBlocking, BlockerIdleWhenTheBlockerHasNoRequestOfItsOwn) {
+  const auto blocked = make_request(61, 52);
+  EXPECT_EQ(check_mssql_blocking_command::build_blocking({blocked}, {})[0].get_blocker_idle(), 1);
+
+  // 52 shows up with a request of its own: actively working, not idle.
+  const auto out = check_mssql_blocking_command::build_blocking({blocked, make_request(52, 0)}, {});
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].get_blocker_idle(), 0);
+}
+
+TEST(BuildBlocking, LoginsComeFromTheSessionRows) {
+  auto blocked = make_request(61, 52);
+  blocked.database = "appdb";
+  blocked.wait_time = 42;
+  blocked.wait_type = "LCK_M_X";
+  blocked.command = "UPDATE";
+  std::vector<check_mssql_blocking_command::session_row> sessions(2);
+  sessions[0].session_id = 61;
+  sessions[0].login = "app";
+  sessions[1].session_id = 52;
+  sessions[1].login = "batch";
+
+  const auto out = check_mssql_blocking_command::build_blocking({blocked}, sessions);
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].login, "app");
+  EXPECT_EQ(out[0].blocking_login, "batch");
+  EXPECT_EQ(out[0].root_blocker, 52);  // blocker not itself blocked
+  EXPECT_EQ(out[0].show(), "61");
+}
+
+TEST(BuildTransactions, KeepsTheOldestTransactionPerSessionOldestFirst) {
+  // A MARS/DTC session with two open transactions must not report twice: the
+  // oldest is what pins log truncation, and one row keeps the perf key unique.
+  std::vector<check_mssql_transactions_command::transaction_row> rows(3);
+  rows[0].session_id = 61;
+  rows[0].transaction_age = 120;
+  rows[1].session_id = 61;
+  rows[1].transaction_age = 900;
+  rows[2].session_id = 55;
+  rows[2].transaction_age = 300;
+
+  const auto out = check_mssql_transactions_command::build_transactions(rows);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].session_id, 61);
+  EXPECT_EQ(out[0].transaction_age, 900);
+  EXPECT_EQ(out[1].session_id, 55);
+  EXPECT_EQ(out[1].transaction_age, 300);
+}
+
+TEST(BuildTransactions, PassesTheIdleAndRequestFieldsThrough) {
+  std::vector<check_mssql_transactions_command::transaction_row> rows(1);
+  rows[0].session_id = 61;
+  rows[0].login = "app";
+  rows[0].database = "appdb";
+  rows[0].transaction_name = "user_transaction";
+  rows[0].transaction_age = 3600;
+  rows[0].request_age = -1;
+  rows[0].is_idle = 1;
+
+  const auto out = check_mssql_transactions_command::build_transactions(rows);
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].get_is_idle(), 1);
+  EXPECT_EQ(out[0].get_request_age(), -1);
+  EXPECT_EQ(out[0].get_login(), "app");
+  EXPECT_EQ(out[0].show(), "61");
+}
+
+TEST(BuildReplicas, DatabaseRowsUseDatabaseHealthAndComposeTheName) {
+  std::vector<check_mssql_availability_groups_command::replica_row> rows(2);
+  rows[0].group = "ag1";
+  rows[0].replica = "sql1";
+  rows[0].role = "PRIMARY";
+  rows[0].replica_health = "HEALTHY";
+  rows[0].database = "appdb";
+  rows[0].db_health = "NOT_HEALTHY";
+  rows[0].sync_state = "NOT SYNCHRONIZING";
+  rows[1].group = "ag1";
+  rows[1].replica = "sql2";
+  rows[1].role = "SECONDARY";
+  rows[1].replica_health = "PARTIALLY_HEALTHY";  // replica-level row, no database
+
+  const auto out = check_mssql_availability_groups_command::build_replicas(rows);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].name, "ag1/sql1/appdb");
+  EXPECT_EQ(out[0].health, "NOT_HEALTHY");  // database health wins on database rows
+  EXPECT_EQ(out[1].name, "ag1/sql2");
+  EXPECT_EQ(out[1].health, "PARTIALLY_HEALTHY");  // replica health on replica rows
+}
+
+namespace {
+
+check_mssql_counters_command::counter_row make_counter(const std::string &name, long long value, long long prev, long long elapsed_ms = 1000) {
+  check_mssql_counters_command::counter_row row;
+  row.name = name;
+  row.value = value;
+  row.has_prev = true;
+  row.prev_value = prev;
+  row.elapsed_ms = elapsed_ms;
+  return row;
+}
+
+}  // namespace
+
+TEST(BuildCounters, RatesUseTheMeasuredWindowNotTheNominalSecond) {
+  // 250 batches in a 2000ms window is 125/s, not 250/s.
+  std::vector<check_mssql_counters_command::counter_row> rows;
+  rows.push_back(make_counter("Batch Requests/sec", 10250, 10000, 2000));
+  rows.push_back(make_counter("Page life expectancy", 4211, 4210));
+
+  const auto out = check_mssql_counters_command::build_counters(rows);
+  EXPECT_DOUBLE_EQ(out.batch_requests, 125.0);
+  EXPECT_EQ(out.page_life_expectancy, 4211);  // point-in-time, no delta
+}
+
+TEST(BuildCounters, HitRatioIsComputedOverTheWindow) {
+  // Lifetime ratio is ~99.99% but the window saw 90/100: report 90%.
+  std::vector<check_mssql_counters_command::counter_row> rows;
+  rows.push_back(make_counter("Buffer cache hit ratio", 1000090, 1000000));
+  rows.push_back(make_counter("Buffer cache hit ratio base", 1000200, 1000100));
+
+  const auto out = check_mssql_counters_command::build_counters(rows);
+  EXPECT_DOUBLE_EQ(out.hit_ratio, 90.0);
+}
+
+TEST(BuildCounters, HitRatioFallsBackToLifetimeWhenTheBaseDidNotMove) {
+  std::vector<check_mssql_counters_command::counter_row> rows;
+  rows.push_back(make_counter("Buffer cache hit ratio", 999, 999));
+  rows.push_back(make_counter("Buffer cache hit ratio base", 1000, 1000));
+
+  const auto out = check_mssql_counters_command::build_counters(rows);
+  EXPECT_DOUBLE_EQ(out.hit_ratio, 99.9);
+}
+
+TEST(BuildCounters, MissingCountersReportMinusOne) {
+  const auto out = check_mssql_counters_command::build_counters({});
+  EXPECT_DOUBLE_EQ(out.hit_ratio, -1);
+  EXPECT_EQ(out.page_life_expectancy, -1);
+  EXPECT_DOUBLE_EQ(out.batch_requests, -1);
+  EXPECT_DOUBLE_EQ(out.deadlocks, -1);
+  EXPECT_DOUBLE_EQ(out.lock_waits, -1);
+}
+
+TEST(BuildCounters, MissingFirstSnapshotYieldsMinusOneRate) {
+  // A counter present only in the second snapshot has no delta to rate.
+  check_mssql_counters_command::counter_row row;
+  row.name = "SQL Compilations/sec";
+  row.value = 500;
+  row.has_prev = false;
+  row.elapsed_ms = 1000;
+
+  const auto out = check_mssql_counters_command::build_counters({row});
+  EXPECT_DOUBLE_EQ(out.compilations, -1);
+}
+
+TEST(BuildSessions, UnknownIdleAgeMapsToMinusOne) {
+  std::vector<check_mssql_sessions_command::session_row> rows(2);
+  rows[0].database = "appdb";
+  rows[0].login = "app";
+  rows[0].sessions = 12;
+  rows[0].running = 3;
+  rows[0].idle = 9;
+  rows[0].connections = 12;
+  rows[0].has_max_idle = true;
+  rows[0].max_idle = 3600;
+  rows[1].database = "master";
+  rows[1].login = "monitor";  // just connected: no completed request yet
+  rows[1].sessions = 1;
+
+  const auto out = check_mssql_sessions_command::build_sessions(rows);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].max_idle, 3600);
+  EXPECT_EQ(out[0].show(), "appdb/app");
+  EXPECT_EQ(out[1].max_idle, -1);  // unknown-idle contract
+  EXPECT_EQ(out[1].show(), "master/monitor");
+}
+
+TEST(BuildSessions, MissingDatabaseShowsLoginOnly) {
+  std::vector<check_mssql_sessions_command::session_row> rows(1);
+  rows[0].login = "app";
+  const auto out = check_mssql_sessions_command::build_sessions(rows);
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].show(), "app");
+}
+
+TEST(CategorizeWait, MapsTheDiagnosticCategories) {
+  using check_mssql_waits_command::categorize_wait;
+  EXPECT_EQ(categorize_wait("SOS_SCHEDULER_YIELD"), "cpu");
+  EXPECT_EQ(categorize_wait("THREADPOOL"), "cpu");
+  EXPECT_EQ(categorize_wait("CXPACKET"), "cpu");
+  EXPECT_EQ(categorize_wait("PAGEIOLATCH_SH"), "io");
+  EXPECT_EQ(categorize_wait("WRITELOG"), "log");
+  EXPECT_EQ(categorize_wait("LCK_M_X"), "lock");
+  EXPECT_EQ(categorize_wait("PAGELATCH_EX"), "latch");
+  EXPECT_EQ(categorize_wait("RESOURCE_SEMAPHORE"), "memory");
+  EXPECT_EQ(categorize_wait("ASYNC_NETWORK_IO"), "network");
+  EXPECT_EQ(categorize_wait("SOME_FUTURE_WAIT"), "other");
+}
+
+TEST(CategorizeWait, IdleHousekeepingWaitsAreBenign) {
+  using check_mssql_waits_command::categorize_wait;
+  EXPECT_EQ(categorize_wait("LAZYWRITER_SLEEP"), "benign");
+  EXPECT_EQ(categorize_wait("SOS_WORK_DISPATCHER"), "benign");
+  EXPECT_EQ(categorize_wait("HADR_TIMER_TASK"), "benign");
+  EXPECT_EQ(categorize_wait("HADR_WORK_QUEUE"), "benign");
+  EXPECT_EQ(categorize_wait("HADR_FILESTREAM_IOMGR_IOCOMPLETION"), "benign");
+  EXPECT_EQ(categorize_wait("XE_TIMER_EVENT"), "benign");
+  EXPECT_EQ(categorize_wait("WAITFOR"), "benign");  // includes this check's own sampling delay
+  EXPECT_EQ(categorize_wait("CHECKPOINT_QUEUE"), "benign");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_XE_GETTARGETSTATE"), "benign");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_OS_LIBRARYOPS"), "benign");
+}
+
+TEST(CategorizeWait, PreemptiveStallsAreNotBenign) {
+  // These are the external calls the check exists to surface: autogrow on slow
+  // storage, a backup hanging on a URL, a stalled domain lookup. Suppressing
+  // the whole PREEMPTIVE_ prefix reported every category as zero during them.
+  using check_mssql_waits_command::categorize_wait;
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_OS_WRITEFILEGATHER"), "io");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_OS_FLUSHFILEBUFFERS"), "io");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_HTTP_REQUEST"), "other");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_OS_AUTHENTICATIONOPS"), "other");
+  EXPECT_EQ(categorize_wait("PREEMPTIVE_ODBCOPS"), "other");
+}
+
+TEST(CategorizeWait, HadrSyncCommitIsNotBenign) {
+  // The primary synchronous-AG commit-latency signal: a blanket HADR_ prefix
+  // exclusion would report a quiet wait profile during an AG latency incident.
+  EXPECT_EQ(check_mssql_waits_command::categorize_wait("HADR_SYNC_COMMIT"), "other");
+}
+
+namespace {
+
+check_mssql_waits_command::wait_row make_wait(const std::string &type, long long wait_ms, long long signal_ms, long long elapsed_ms = 1000) {
+  check_mssql_waits_command::wait_row row;
+  row.wait_type = type;
+  row.wait_ms = wait_ms;
+  row.signal_ms = signal_ms;
+  row.elapsed_ms = elapsed_ms;
+  return row;
+}
+
+}  // namespace
+
+TEST(BuildWaits, RatesAndSignalPctExcludeBenignWaits) {
+  std::vector<check_mssql_waits_command::wait_row> rows;
+  rows.push_back(make_wait("PAGEIOLATCH_SH", 500, 50, 2000));  // io: 250 ms/s over a 2s window
+  rows.push_back(make_wait("LCK_M_X", 300, 30, 2000));         // lock: 150 ms/s
+  rows.push_back(make_wait("LAZYWRITER_SLEEP", 100000, 0, 2000));  // benign: excluded everywhere
+
+  const auto out = check_mssql_waits_command::build_waits(rows);
+  EXPECT_DOUBLE_EQ(out.io_waits, 250.0);
+  EXPECT_DOUBLE_EQ(out.lock_waits, 150.0);
+  EXPECT_DOUBLE_EQ(out.total_waits, 400.0);
+  EXPECT_DOUBLE_EQ(out.other_waits, 0.0);
+  EXPECT_DOUBLE_EQ(out.signal_wait_pct, 10.0);  // (50 + 30) / (500 + 300)
+}
+
+TEST(BuildWaits, QuietWindowReportsMinusOneSignalPct) {
+  const auto out = check_mssql_waits_command::build_waits({});
+  EXPECT_DOUBLE_EQ(out.signal_wait_pct, -1);
+  EXPECT_DOUBLE_EQ(out.total_waits, 0.0);
+}
+
+TEST(ParseSqlDatetime, ParsesAndDiffsWithoutTimezone) {
+  using check_mssql_integrity_command::parse_sql_datetime;
+  const long long a = parse_sql_datetime("2026-08-12 10:00:00.000");
+  const long long b = parse_sql_datetime("2026-08-11 10:00:00.000");
+  ASSERT_GT(a, 0);
+  EXPECT_EQ(a - b, 86400);
+  EXPECT_EQ(parse_sql_datetime("not a date"), -1);
+  EXPECT_EQ(parse_sql_datetime(""), -1);
+  EXPECT_EQ(parse_sql_datetime("2026-13-40 10:00:00"), -1);
+}
+
+TEST(BuildIntegrity, MapsNeverUnknownAndAge) {
+  std::vector<check_mssql_integrity_command::integrity_row> rows(3);
+  rows[0].name = "appdb";
+  rows[0].last_checkdb = "2026-08-10 03:00:00.000";
+  rows[0].suspect_pages = 2;
+  rows[1].name = "newdb";
+  rows[1].last_checkdb = "1900-01-01 00:00:00.000";  // never checked
+  rows[2].name = "nodbcc";
+  rows[2].last_checkdb = "";  // DBCC DBINFO unavailable
+
+  const auto out = check_mssql_integrity_command::build_integrity(rows, "2026-08-12 03:00:00.000");
+  ASSERT_EQ(out.size(), 3u);
+  EXPECT_EQ(out[0].checkdb_age, 2 * 86400);
+  EXPECT_EQ(out[0].suspect_pages, 2);
+  EXPECT_EQ(out[1].checkdb_age, -1);
+  EXPECT_EQ(out[2].checkdb_age, -2);
+}
+
+TEST(BuildTempdb, DerivesUsedAndPercent) {
+  check_mssql_tempdb_command::tempdb_row row;
+  row.size = 1000 * 8192;
+  row.free = 250 * 8192;
+  row.version_store = 100 * 8192;
+  row.user_objects = 400 * 8192;
+  row.internal_objects = 200 * 8192;
+  row.volume_free = 5LL * 1024 * 1024 * 1024;
+
+  const auto out = check_mssql_tempdb_command::build_tempdb(row);
+  EXPECT_EQ(out.used, 750 * 8192);
+  EXPECT_EQ(out.used_pct, 75);
+  EXPECT_EQ(out.volume_free, 5LL * 1024 * 1024 * 1024);
+}
+
+TEST(BuildTempdb, EmptyTempdbDoesNotDivideByZero) {
+  const auto out = check_mssql_tempdb_command::build_tempdb({});
+  EXPECT_EQ(out.used_pct, 0);
+  EXPECT_EQ(out.volume_free, -1);  // default: unknown
+}
+
 // --- result helpers --------------------------------------------------------------
 
 TEST(Result, GetIntParsesIntegersAndRoundsDecimals) {
@@ -233,6 +800,17 @@ TEST(ParseTime, PlainIntegersIncludingNegativesAreRecognized) {
   EXPECT_TRUE(mssql_filter::is_plain_integer("259200"));
 }
 
+TEST(ApplySizeUnit, MatchesTheBuiltinSizeLiterals) {
+  using mssql_filter::apply_size_unit;
+  EXPECT_EQ(apply_size_unit(5, ""), 5);
+  EXPECT_EQ(apply_size_unit(5, "B"), 5);
+  EXPECT_EQ(apply_size_unit(5, "K"), 5 * 1024);
+  EXPECT_EQ(apply_size_unit(5, "m"), 5 * 1024 * 1024);
+  EXPECT_EQ(apply_size_unit(5, "G"), 5LL * 1024 * 1024 * 1024);
+  EXPECT_EQ(apply_size_unit(5, "t"), 5LL * 1024 * 1024 * 1024 * 1024);
+  EXPECT_EQ(apply_size_unit(-1, ""), -1);  // the unknown sentinel passes through
+}
+
 TEST(ParseTime, DurationSpecsAreNotTreatedAsPlainIntegers) {
   EXPECT_FALSE(mssql_filter::is_plain_integer("7d"));
   EXPECT_FALSE(mssql_filter::is_plain_integer("30m"));
@@ -257,6 +835,24 @@ TEST(CheckMssqlQuery, NoQuerySpecifiedReturnsUnknown) {
 }
 
 #ifdef WIN32
+// The default thresholds mix or/and ("transaction_age > 1800 or is_idle = 1
+// and transaction_age > 300"): guard that the expression builds. A precedence
+// regression would surface here as an UNKNOWN parse error instead of the
+// connect-failure contract.
+TEST(CheckMssqlTransactions, DefaultThresholdExpressionParses) {
+  PB::Commands::QueryRequestMessage::Request request;
+  PB::Commands::QueryResponseMessage::Response response;
+  request.set_command("check_mssql_transactions");
+  request.add_arguments("server=localhost");
+  request.add_arguments("driver=No Such Driver 99");
+
+  const mssql_odbc::connection_info defaults;
+  check_mssql_transactions_command::check(defaults, request, &response);
+
+  EXPECT_EQ(response.result(), PB::Common::ResultCode::UNKNOWN);
+  EXPECT_NE(join_lines(response).find("Failed to connect to SQL Server 'localhost'"), std::string::npos) << join_lines(response);
+}
+
 // The bogus driver makes SQLDriverConnectW fail immediately (IM002) with no
 // network involved, pinning the connect-failure contract on every machine.
 TEST(CheckMssql, ConnectFailureReturnsUnknownWithContractMessage) {

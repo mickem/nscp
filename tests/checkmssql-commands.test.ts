@@ -101,6 +101,85 @@ const STATUS_OR_CONNECT_FAILED = /(^|\n)(OK|WARNING|CRITICAL)|Failed to connect 
     expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
     expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
   });
+
+  it("check_mssql_blocking parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_blocking", [
+      "timeout=5",
+      "warning=wait_time > 30s",
+      "critical=wait_time > 5m",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
+  it("check_mssql_transactions parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_transactions", [
+      "timeout=5",
+      "warning=transaction_age > 30m",
+      "critical=is_idle = 1 and transaction_age > 1h",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
+  it("check_mssql_integrity parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_integrity", [
+      "timeout=5",
+      "warning=checkdb_age > 14d or checkdb_age = -1",
+      "critical=suspect_pages > 0",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
+  it("check_mssql_tempdb parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_tempdb", [
+      "timeout=5",
+      "warning=used_pct > 80",
+      "critical=volume_free < 1G and volume_free >= 0",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
+  it("check_mssql_waits parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_waits", [
+      "timeout=5",
+      "warning=work_queue > 0",
+      "critical=signal_wait_pct > 50",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
+  it("check_mssql_availability_groups parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_availability_groups", [
+      "timeout=5",
+      "warning=redo_queue > 500M",
+      "critical=log_send_queue > 1G",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
+  it("check_mssql_counters parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_counters", [
+      "timeout=5",
+      "warning=hit_ratio < 90 or page_life_expectancy < 300",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
+
+  it("check_mssql_sessions parses its options and hits a server or the contract", async () => {
+    const out = await query("check_mssql_sessions", [
+      "timeout=5",
+      "warning=sessions > 500",
+      "critical=max_idle > 2h",
+    ]);
+    expect(out).not.toMatch(/does not take any arguments|invalid expression/i);
+    expect(out).toMatch(STATUS_OR_CONNECT_FAILED);
+  });
 });
 
 const dockerDescribe = onWindows ? dockerOrSkip() : describe.skip;
@@ -226,6 +305,57 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     expect(out).toMatch(/All \d+ databases are ONLINE/);
   });
 
+  it("check_mssql_databases reports growth headroom with size units", async () => {
+    // The container's files are uncapped with autogrowth on, so headroom is
+    // the (large, positive) volume free space and never trips these. The
+    // `>= 0` guard excludes the -1 unknown sentinel: plain integers only
+    // parse against headroom keywords thanks to the custom size converter.
+    const out = await query("check_mssql_databases", [
+      "warning=data_headroom < 1K and data_headroom >= 0",
+      "critical=log_headroom < 1K and log_headroom >= 0",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression|is not valid/i);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/master_data_headroom'?=\d+B/); // real volume-derived value
+  });
+
+  it("check_mssql_databases matches the -1 headroom sentinel exactly", async () => {
+    // Volume stats work in the container, so nothing reports unknown: the
+    // expression must parse and not fire.
+    const out = await query("check_mssql_databases", [
+      "warning=data_headroom = -1",
+      "critical=none",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression|is not valid/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_databases bounds headroom by the volume, counting it once", async () => {
+    // Two regressions in one assertion, both about headroom that ignores the
+    // disk. tempdb has one data file per core in a single filegroup on a single
+    // volume, so counting each file's volume free space reported 8x the disk;
+    // and a log file with unlimited growth still carries the engine's 2TB cap,
+    // so reporting distance-to-cap claimed ~2.2TB of room on a ~924GB volume.
+    // Both now report the volume's free space, so all three values agree.
+    const out = await query("check_mssql_databases", [
+      "warning=data_headroom < 1K and log_headroom < 1K",
+      "critical=none",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    const value = (key: string): number => {
+      const m = out.match(new RegExp(`'?${key}'?=(\\d+)B`));
+      expect(m).not.toBeNull();
+      return Number(m![1]);
+    };
+    const masterData = value("master_data_headroom");
+    expect(masterData).toBeGreaterThan(0);
+    // Same volume, so within rounding of each other rather than 8x / 2.2x off.
+    expect(value("tempdb_data_headroom") / masterData).toBeCloseTo(1, 2);
+    expect(value("master_log_headroom") / masterData).toBeCloseTo(1, 2);
+  });
+
   it("check_mssql_databases emits size perfdata when size keywords are referenced", async () => {
     // Perfdata is emitted for variables referenced in expressions; type_size
     // keywords accept unit suffixes like 100G.
@@ -309,6 +439,224 @@ dockerDescribe("CheckMSSQL live (SQL Server 2022 container)", () => {
     if (!live) return expect(out).toMatch(CONNECT_FAILED);
     expect(out).toMatch(/^OK/m);
     expect(out).toMatch(/No enabled SQL Agent jobs/);
+  });
+
+  it("check_mssql_sessions reports the monitoring session itself", async () => {
+    // The check's own connection is a user session, so at least one
+    // (database, login) group always exists on a live server.
+    const out = await query("check_mssql_sessions");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/\/sa: \d+ sessions \(\d+ running\)/);
+  });
+
+  it("check_mssql_sessions emits session perfdata when referenced", async () => {
+    const out = await query("check_mssql_sessions", ["warning=sessions > 500"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/_sessions'?=\d+/);
+  });
+
+  it("check_mssql_sessions accepts time units on max_idle (REST-style token)", async () => {
+    const out = await query("check_mssql_sessions", ["critical=max_idle > 12h"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/Invalid time specification|invalid expression/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_blocking reports OK with no blocked sessions", async () => {
+    const out = await query("check_mssql_blocking");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/No blocked sessions/);
+  });
+
+  it("check_mssql_blocking accepts time units and the blocker keywords", async () => {
+    const out = await query("check_mssql_blocking", [
+      "warning=wait_time > 30s and blocker_idle = 1",
+      "critical=wait_time > 5m",
+      "detail-syntax=${session_id} blocked by ${root_blocker}",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/Invalid time specification|invalid expression/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_counters reports rates and emits perfdata by default", async () => {
+    const out = await query("check_mssql_counters");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/hit ratio/);
+    // Default perf-config emits all counters without any threshold.
+    expect(out).toMatch(/mssql_page_life_expectancy'?=\d+s/);
+    expect(out).toMatch(/mssql_batch_requests'?=/);
+    // The 1s sampling window ran: batch rate is a finite number, not -1.
+    expect(out).not.toMatch(/mssql_batch_requests'?=-1/);
+  });
+
+  it("check_mssql_counters thresholds on the health keywords", async () => {
+    // A fresh container serves everything from memory: hit_ratio ~100, PLE > 0.
+    const out = await query("check_mssql_counters", [
+      "warning=hit_ratio < 0",
+      "critical=page_life_expectancy < 0 or deadlocks > 1000",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_availability_groups reports the documented no-AG contract", async () => {
+    // The test container has no availability groups: the check must report
+    // the documented OK + message, not an error or a skip.
+    const out = await query("check_mssql_availability_groups");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/No availability groups found/);
+  });
+
+  it("check_mssql_availability_groups honors empty-state for must-have-AG hosts", async () => {
+    const out = await query("check_mssql_availability_groups", ["empty-state=critical"]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^CRITICAL/m);
+    expect(out).toMatch(/No availability groups found/);
+  });
+
+  it("check_mssql_waits reports scheduler pressure and the wait profile", async () => {
+    const out = await query("check_mssql_waits");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/runnable tasks on \d+ schedulers/);
+    // Default perf-config emits the whole wait profile without thresholds.
+    expect(out).toMatch(/mssql_total_waits'?=/);
+    expect(out).toMatch(/mssql_runnable_tasks'?=\d+/);
+  });
+
+  it("check_mssql_waits thresholds on scheduler pressure deterministically", async () => {
+    // An idle container has no THREADPOOL starvation: work_queue is 0.
+    const out = await query("check_mssql_waits", [
+      "warning=work_queue > 0",
+      "critical=runnable_tasks > 10000",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_tempdb reports the space split and emits perfdata by default", async () => {
+    const out = await query("check_mssql_tempdb");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/tempdb \d+% used/);
+    expect(out).toMatch(/tempdb_size'?=\d+B/);
+    expect(out).toMatch(/tempdb_version_store'?=\d+B/);
+    // The Linux container exposes volume stats: headroom is a real number.
+    expect(out).toMatch(/tempdb_volume_free'?=\d+B/);
+  });
+
+  it("check_mssql_tempdb thresholds with size units deterministically", async () => {
+    const out = await query("check_mssql_tempdb", [
+      "warning=used_pct > 100",
+      "critical=size > 10T",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_tempdb matches the -1 volume_free sentinel exactly", async () => {
+    // volume_free carries the -1 unknown sentinel, so it uses the custom size
+    // converter: plain integers must parse, and the container's working
+    // volume stats mean the sentinel expression must not fire. With plain
+    // type_size this expression would fail to parse - and worse,
+    // `volume_free < 1G` would silently match -1.
+    const out = await query("check_mssql_tempdb", [
+      "warning=volume_free = -1",
+      "critical=volume_free < 1G and volume_free >= 0",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/invalid expression|is not valid/i);
+    expect(out).toMatch(/^OK/m);
+  });
+
+  it("check_mssql_integrity warns on never-checked databases by default", async () => {
+    // A fresh container has never run CHECKDB: checkdb_age = -1 must warn.
+    const out = await query("check_mssql_integrity");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^WARNING/m);
+    expect(out).not.toMatch(/^CRITICAL/m); // no suspect pages on a fresh instance
+  });
+
+  it("check_mssql_integrity reports a fresh CHECKDB age after one runs", async () => {
+    await query("check_mssql_query", [
+      "query=DBCC CHECKDB('master') WITH NO_INFOMSGS; SELECT 1 AS done;",
+      "top-syntax=${status}",
+    ]);
+    const out = await query("check_mssql_integrity", [
+      "filter=name = 'master'",
+      "warning=checkdb_age > 1h or checkdb_age < 0",
+      "critical=suspect_pages > 0",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).toMatch(/master_checkdb_age'?=\d+s/); // a real, recent timestamp
+  });
+
+  it("check_mssql_integrity degrades per keyword without msdb or sysadmin", async () => {
+    // The suspect_pages half used to live in the same query as the database
+    // list, so a login that cannot reach msdb turned the whole check UNKNOWN.
+    // Each half now degrades to its own sentinel and the check still answers.
+    // The check has to run as the low-privilege login itself - sa bypasses the
+    // DENY - and msdb's guest user grants access by default, hence the DENY.
+    const setup = [
+      "IF SUSER_ID('lowpriv') IS NULL CREATE LOGIN lowpriv WITH PASSWORD = 'L0wPriv!Pass', CHECK_POLICY = OFF;",
+      "GRANT VIEW ANY DEFINITION TO lowpriv;",
+      "USE msdb; DENY SELECT ON dbo.suspect_pages TO guest;",
+      "SELECT 1 AS done;",
+    ].join(" ");
+    await query("check_mssql_query", [`query=${setup}`, "top-syntax=${status}"]);
+    try {
+      const r = await nscp.run(
+        [
+          "client", "--module", "CheckMSSQL", "--boot", "--query", "check_mssql_integrity",
+          `server=${server}`, "user=lowpriv", "password=L0wPriv!Pass",
+          "warning=none", "critical=none",
+          "detail-syntax=${name}=${checkdb_age}/${suspect_pages}",
+          "top-syntax=${status}: ${list}",
+          "show-all",
+        ],
+        { allowFailure: true, timeout: 120_000 },
+      );
+      const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+      if (!live) return expect(out).toMatch(CONNECT_FAILED);
+      expect(out).toMatch(/^OK/m); // not UNKNOWN: the check still answers
+      expect(out).toMatch(/master=-?\d+\/-1/); // suspect_pages unknown, not a reassuring 0
+      expect(out).toMatch(/=-2\//); // at least one database's CHECKDB age is unreadable
+    } finally {
+      await query("check_mssql_query", [
+        "query=USE msdb; REVOKE SELECT ON dbo.suspect_pages TO guest; SELECT 1 AS done;",
+        "top-syntax=${status}",
+      ]);
+    }
+  });
+
+  it("check_mssql_transactions reports OK when nothing is open", async () => {
+    // The check excludes its own session, so an idle server reports the
+    // empty-state contract.
+    const out = await query("check_mssql_transactions");
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).toMatch(/^OK/m);
+    expect(out).not.toMatch(/invalid expression/i);
+  });
+
+  it("check_mssql_transactions accepts time units and the idle keyword", async () => {
+    const out = await query("check_mssql_transactions", [
+      "warning=is_idle = 1 and transaction_age > 5m",
+      "critical=transaction_age > 2h",
+      "detail-syntax=${session_id}: ${transaction_name} ${request_age}",
+    ]);
+    if (!live) return expect(out).toMatch(CONNECT_FAILED);
+    expect(out).not.toMatch(/Invalid time specification|invalid expression/i);
+    expect(out).toMatch(/^OK/m);
   });
 
   it("rejects a wrong SA password with the connect contract (SQL auth path)", async () => {
