@@ -433,6 +433,13 @@ class settings_interface_impl : public settings_interface {
   virtual bool has_key(std::string path, std::string key) {
     MUTEX_GUARD();
     settings_core::key_path_type lookup(path, key);
+    // Honor staged deletions, the same way getter() and get_keys() do. Without
+    // this, a key removed but not yet saved still reads as present here while
+    // every read path says it is gone - and a caller that checks before
+    // reading (settings_handler_impl::update_defaults does) takes the
+    // key-exists branch only to get nothing back from get_string().
+    if (settings_delete_cache_.find(cache_key_type(path, key)) != settings_delete_cache_.end()) return false;
+    if (settings_delete_path_cache_.find(path) != settings_delete_path_cache_.end()) return false;
     cache_type::const_iterator cit = settings_cache_.find(lookup);
     if (cit != settings_cache_.end()) return true;
     if (has_real_key(lookup)) {

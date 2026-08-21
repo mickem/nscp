@@ -697,3 +697,39 @@ TEST(settings_interface_impl, get_changes_includes_child_store_changes) {
   EXPECT_NE(nullptr, find_change(changes, "/parent-section", "key", kind::added));
   EXPECT_NE(nullptr, find_change(changes, "/child-section", "key", kind::added)) << "child changes must not be invisible";
 }
+
+TEST(settings_interface_impl, has_key_honors_a_staged_deletion) {
+  // getter() and get_keys() both mask a key that has been removed but not yet
+  // saved. has_key() has to agree with them, or a caller that checks before
+  // reading (update_defaults does exactly that) sees a key it cannot read.
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_values[pk("/section", "key")] = "doomed";
+  b.remove_key("/section", "key");
+
+  EXPECT_FALSE(b.has_key("/section", "key"));
+  EXPECT_FALSE(b.get_string("/section", "key").has_value()) << "and the read path agrees";
+}
+
+TEST(settings_interface_impl, has_key_honors_a_staged_path_deletion) {
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_values[pk("/section", "key")] = "doomed";
+  b.persisted_paths.insert("/section");
+  b.remove_path("/section");
+
+  EXPECT_FALSE(b.has_key("/section", "key"));
+  EXPECT_FALSE(b.get_string("/section", "key").has_value());
+}
+
+TEST(settings_interface_impl, has_key_finds_a_key_set_again_after_a_deletion) {
+  // The un-delete path: setting the key again clears the pending delete, so
+  // it must read as present once more.
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_values[pk("/section", "key")] = "doomed";
+  b.remove_key("/section", "key");
+  b.set_string("/section", "key", "reborn");
+
+  EXPECT_TRUE(b.has_key("/section", "key"));
+}
