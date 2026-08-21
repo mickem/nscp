@@ -478,10 +478,22 @@ NSCP_CREATE_TEST(
     icinga_client_test
     SOURCES
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga_test.cpp
+        # icinga_client.hpp is the other half: the connection settings and the
+        # API call itself, which needs the client machinery and a TLS-capable
+        # http transport even when the test drives it over plain http.
+        ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga_client_test.cpp
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga.cpp
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_CLIENT_CPP}
     LIBRARIES
         GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient
