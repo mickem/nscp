@@ -46,6 +46,7 @@ class settings_interface_impl : public settings_interface {
     conainer() : is_dirty_(false) {}
 
     void make_dirty() { is_dirty_ = true; }
+    void make_clean() { is_dirty_ = false; }
 
     bool is_dirty() const { return is_dirty_; }
     std::string get_string() const {
@@ -551,6 +552,22 @@ class settings_interface_impl : public settings_interface {
         set_real_path(path);
       }
     }
+    // Everything above is now in the backend, so nothing here is pending any
+    // more. Without this the entries stay dirty for the lifetime of the store
+    // and get_changes() keeps reporting edits that were already written - as a
+    // `modified` entry whose old_value equals its new_value, since the key now
+    // exists in the backend and no longer reads as an addition.
+    //
+    // Only the pending markers are dropped. settings_cache_ keeps its values
+    // because it is also the read cache; the delete and path caches exist
+    // purely to mask/augment backend reads until a save, and the backend now
+    // agrees with them.
+    for (cache_type::iterator it = settings_cache_.begin(); it != settings_cache_.end(); ++it) {
+      it->second.make_clean();
+    }
+    settings_delete_cache_.clear();
+    settings_delete_path_cache_.clear();
+    path_cache_.clear();
     for (instance_raw_ptr &child : children_) {
       child->save(re_save_all);
     }

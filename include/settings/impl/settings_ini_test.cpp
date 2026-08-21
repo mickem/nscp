@@ -642,3 +642,44 @@ TEST(settings_ini, get_local_sections_includes_values_set_but_not_yet_saved) {
   const auto sections = s.get_local_sections("");
   EXPECT_NE(std::find(sections.begin(), sections.end(), "/pending"), sections.end());
 }
+
+// The pending-change bookkeeping lives in settings_interface_impl, but it is
+// only correct if the backend really did take the write. These two run the
+// same scenarios as settings_interface_impl_test through the ini backend and
+// an actual file on disk.
+TEST(settings_ini, get_changes_is_empty_after_a_save) {
+  temp_dir dir;
+  auto file = dir.file("changes.ini");
+  write_file(file, "; nothing here\n");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  s.set_string("/section", "key", "value");
+  ASSERT_FALSE(s.get_changes().empty()) << "the edit is pending before the save";
+
+  s.save(false);
+
+  EXPECT_TRUE(s.get_changes().empty()) << "and settled once written";
+  EXPECT_NE(settings_test::read_file(file).find("value"), std::string::npos);
+  // The cleanup must not cost us the section or the value.
+  auto v = s.get_string("/section", "key");
+  ASSERT_TRUE(v.has_value());
+  EXPECT_EQ(*v, "value");
+  const auto sections = s.get_local_sections("");
+  EXPECT_NE(std::find(sections.begin(), sections.end(), "/section"), sections.end());
+}
+
+TEST(settings_ini, get_changes_is_empty_after_a_deletion_is_saved) {
+  temp_dir dir;
+  auto file = dir.file("changes_del.ini");
+  write_file(file, "[/section]\nkey = doomed\n");
+  mock_settings_core core;
+  settings::INISettings s(&core, "test", ini_context(file));
+  s.remove_key("/section", "key");
+  ASSERT_FALSE(s.get_changes().empty());
+
+  s.save(false);
+
+  EXPECT_TRUE(s.get_changes().empty());
+  EXPECT_EQ(settings_test::read_file(file).find("doomed"), std::string::npos);
+  EXPECT_FALSE(s.get_string("/section", "key").has_value()) << "and it stays gone for readers";
+}

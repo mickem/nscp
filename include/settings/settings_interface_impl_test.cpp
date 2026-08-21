@@ -602,35 +602,84 @@ TEST(settings_interface_impl, get_changes_ignores_a_path_that_already_exists) {
   EXPECT_EQ(nullptr, find_change(b.get_changes(), "/already-there", "", kind::path_added));
 }
 
-TEST(settings_interface_impl, get_changes_still_reports_a_saved_change_as_pending) {
-  // CHARACTERIZATION TEST - this pins current behaviour, which is wrong.
-  //
-  // save() writes the cache out to the backend and clears the *core* dirty
-  // flag, but it never clears the per-entry dirty flags, the delete caches or
-  // the path cache. get_changes() keys off those per-entry flags, so a change
-  // stays "pending" for the lifetime of the store even after it was written.
-  //
-  // Worse, the entry changes shape: before the save it is reported as `added`
-  // (no such key in the backend), afterwards the key does exist, so it is
-  // reported as `modified` with old_value == new_value - a change that claims
-  // to alter nothing. Anything driving an operator-facing diff off
-  // get_changes() shows already-saved edits as outstanding.
-  //
-  // The fix belongs in save() (mark entries clean and drop the delete/path
-  // caches once written). When that lands, this test should be replaced with
-  // the obvious one: get_changes() is empty after a save.
+TEST(settings_interface_impl, get_changes_is_empty_once_saved) {
+  // save() must drop the pending markers, not just write the values. When it
+  // did not, the entry stayed dirty for the lifetime of the store and was
+  // re-reported on every call - as a `modified` entry whose old_value equalled
+  // its new_value, because the key now existed in the backend and no longer
+  // read as an addition. Anything driving an operator-facing diff off
+  // get_changes() showed already-saved edits as outstanding.
   mock_settings_core core;
   memory_backend b(&core, "test", "memory://");
   b.set_string("/section", "key", "value");
   ASSERT_NE(nullptr, find_change(b.get_changes(), "/section", "key", kind::added));
 
   b.save(false);
-  ASSERT_EQ("value", b.persisted_values[pk("/section", "key")]) << "the value really was written";
 
-  const auto after = b.get_changes();
-  const auto *c = find_change(after, "/section", "key", kind::modified);
-  ASSERT_NE(nullptr, c) << "documenting the defect: the saved change is still reported";
-  EXPECT_EQ(c->old_value, c->new_value) << "and it reports a no-op modification";
+  ASSERT_EQ("value", b.persisted_values[pk("/section", "key")]) << "the value really was written";
+  EXPECT_TRUE(b.get_changes().empty()) << "a saved change is no longer pending";
+}
+
+TEST(settings_interface_impl, get_changes_is_empty_once_a_deletion_is_saved) {
+  // Same for the delete caches: a removal that has been applied to the backend
+  // is no longer a pending change.
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_values[pk("/section", "key")] = "doomed";
+  b.persisted_paths.insert("/section");
+  b.persisted_paths.insert("/dead");
+  b.remove_key("/section", "key");
+  b.remove_path("/dead");
+  ASSERT_EQ(2u, b.get_changes().size());
+
+  b.save(false);
+
+  EXPECT_TRUE(b.get_changes().empty());
+  EXPECT_EQ(0u, b.persisted_values.count(pk("/section", "key")));
+  EXPECT_EQ(0u, b.persisted_paths.count("/dead"));
+}
+
+TEST(settings_interface_impl, a_saved_value_is_still_readable) {
+  // Guards the narrow scope of the cleanup above: clearing the pending markers
+  // must not clear the cached values with them, or every save would push reads
+  // back to the backend (and reads of never-persisted defaults would break).
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/section", "key", "value");
+  b.add_path("/section");
+  b.save(false);
+
+  auto v = b.get_string("/section", "key");
+  ASSERT_TRUE(v.has_value());
+  EXPECT_EQ("value", *v);
+  EXPECT_TRUE(b.has_section("/section"));
+}
+
+TEST(settings_interface_impl, a_saved_deletion_stays_deleted_for_readers) {
+  // The delete caches mask backend reads until a save; once cleared, the
+  // backend itself must be the thing that says the key is gone.
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.persisted_values[pk("/section", "key")] = "doomed";
+  b.persisted_paths.insert("/section");
+  b.remove_key("/section", "key");
+  b.save(false);
+
+  EXPECT_FALSE(b.get_string("/section", "key").has_value());
+}
+
+TEST(settings_interface_impl, save_after_save_is_a_no_op) {
+  // A second save with nothing changed in between must not rewrite anything;
+  // the backends skip non-dirty values, which only works if save() cleaned up.
+  mock_settings_core core;
+  memory_backend b(&core, "test", "memory://");
+  b.set_string("/section", "key", "value");
+  b.save(false);
+
+  b.persisted_values.erase(pk("/section", "key"));
+  b.save(false);
+
+  EXPECT_EQ(0u, b.persisted_values.count(pk("/section", "key"))) << "nothing was pending, so nothing should have been written";
 }
 
 TEST(settings_interface_impl, get_changes_includes_child_store_changes) {
