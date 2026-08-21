@@ -21,6 +21,12 @@ page tracks those in one place. Full per-release detail lives in each
   Broken since 0.4.3 (2015). If you have a syslog target configured, check it
   still points where you want before upgrading - it has not been delivering,
   and it will now. `CheckMKClient` had the same defect on its query path.
+- **SMTP notifications now announce this host in EHLO instead of
+  `localhost`.** The sender's host name was read from the wrong place, so it
+  was always empty and the EHLO fell back to `localhost`. If your mail server
+  applies HELO/EHLO policy (SPF checks, or a rule that rejects `localhost`),
+  the agent will now identify itself properly - set `ehlo-hostname` on the
+  target if you need a specific name.
 - **`nscp settings --show` now says so when `--key` is missing.** `--show
   --path /some/path` without a `--key` used to print nothing and exit 0; it
   now reports `Invalid command line please use --path and --key with show`
