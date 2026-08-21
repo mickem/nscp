@@ -75,3 +75,6 @@ _build
 .fleet-machines.json
 
 rotate-signing-secret.ps1
+# Coverage reports written by tools/coverage/run.sh (build-coverage/ itself
+# is already covered by the build-* rule above).
+/coverage/

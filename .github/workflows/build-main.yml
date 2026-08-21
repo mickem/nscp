@@ -18,6 +18,11 @@ jobs:
     uses: ./.github/workflows/tests-sanitizers.yml
     with:
       version: ${{ needs.get-version.outputs.version }}
+  coverage:
+    needs: get-version
+    uses: ./.github/workflows/tests-coverage.yml
+    with:
+      version: ${{ needs.get-version.outputs.version }}
   build-server-x64:
     needs: [get-version, create-test-bundle]
     uses: ./.github/workflows/build-windows.yml

@@ -687,6 +687,46 @@ if(
     )
 endif()
 
+# ##############################################################################
+# Coverage (gcc/clang on Linux). NSCP_COVERAGE instruments every target with
+# gcov counters so `ctest` and the tests/ integration suite can be turned into
+# an lcov/gcovr report. Off by default; the instrumentation slows the build and
+# every binary down and must never leak into a package build.
+#
+# -fprofile-update=atomic is mandatory rather than nice-to-have: nscp is
+# heavily threaded (asio io_contexts, the 1 Hz metrics collectors), and
+# non-atomic counter updates race, producing both wrong numbers and the
+# occasional corrupt .gcda.
+#
+# -O0 keeps line/branch mapping honest - with optimisation on, inlining
+# attributes coverage to whatever function the inlinee landed in.
+#
+# See tools/coverage/run.sh for the full configure -> run -> report cycle.
+# ##############################################################################
+option(NSCP_COVERAGE "Instrument the build for gcov/gcovr coverage" OFF)
+if(
+    NSCP_COVERAGE
+    AND (
+        CMAKE_COMPILER_IS_GNUCXX
+        OR CMAKE_CXX_COMPILER_ID
+            MATCHES
+            "Clang"
+    )
+)
+    message(STATUS "Enabling coverage instrumentation (gcov)")
+    set(_nscp_cov_cflags "--coverage -fprofile-update=atomic -O0 -g")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_nscp_cov_cflags}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${_nscp_cov_cflags}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} --coverage")
+    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} --coverage")
+elseif(NSCP_COVERAGE)
+    message(
+        WARNING
+        "NSCP_COVERAGE requires gcc or clang; ignoring it for this compiler"
+    )
+endif()
+
 if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
     message(STATUS "Added parallel build arguments")

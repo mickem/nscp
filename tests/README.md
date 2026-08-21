@@ -53,6 +53,22 @@ set NSCP_BIN=C:\path\to\nscp.exe
 npm test
 ```
 
+## Coverage
+
+Because the harness spawns a real `nscp` and lets it `dlopen` the real modules,
+pointing `NSCP_BIN` at a gcov-instrumented build turns these scenarios into a
+coverage report of actual command dispatch and REST argument parsing:
+
+```sh
+SUITES=integration tools/coverage/run.sh     # from the repo root
+```
+
+That builds `build-coverage/` with `-DNSCP_COVERAGE=ON`, runs this suite against
+it and writes `coverage/integration.html`. It works because `NscpInstance.stop()`
+stops the daemon with SIGTERM rather than SIGKILL — gcov only flushes its
+counters from an `atexit` handler. See the *Coverage reports* section of
+`build.md` for the details and the caveats.
+
 ## What runs
 
 Docker-using scenarios (skipped when `NSCP_SKIP_DOCKER=1`):
