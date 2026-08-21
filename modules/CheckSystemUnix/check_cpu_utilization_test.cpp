@@ -90,7 +90,7 @@ TEST(CheckCpuUtilization, CounterResetIsClamped) {
 }
 
 TEST(CheckCpuUtilization, DefaultThresholdTripsAboveNinety) {
-  // 95% busy (idle 5) -> above the default warn total>90.
+  // 95% busy (idle 5) -> above the default warn usage>90.
   cpu_jiffies a;
   a.valid = true;
   cpu_jiffies b;
@@ -99,6 +99,21 @@ TEST(CheckCpuUtilization, DefaultThresholdTripsAboveNinety) {
   b.valid = true;
   PB::Commands::QueryResponseMessage::Response response;
   EXPECT_EQ(run_util(a, b, {}, response), PB::Common::ResultCode::WARNING) << join_lines(response);
+}
+
+TEST(CheckCpuUtilization, UsageKeywordAndDeprecatedTotalAliasBothParse) {
+  // "total" is a deprecated alias for "usage" (renamed to avoid clashing with
+  // the generic total summary keyword); both must parse and threshold alike.
+  cpu_jiffies a;
+  a.valid = true;
+  cpu_jiffies b;
+  b.user = 50;
+  b.idle = 50;
+  b.valid = true;
+  for (const std::string &keyword : {std::string("usage"), std::string("total")}) {
+    PB::Commands::QueryResponseMessage::Response response;
+    EXPECT_EQ(run_util(a, b, {"warning=" + keyword + " > 30"}, response), PB::Common::ResultCode::WARNING) << keyword << ": " << join_lines(response);
+  }
 }
 
 TEST(CheckCpuUtilization, StealIsVisible) {

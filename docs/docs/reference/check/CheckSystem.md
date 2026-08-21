@@ -92,25 +92,25 @@ A list of all short hand aliases for queries (check commands)
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                         | Default Value                                    |
-|------------------------------------------------------------------------------------------------|--------------------------------------------------|
-| <a id="check_battery_filter"></a>[filter](../common-options.md#filter)                         | battery_present = 'true'                         |
-| <a id="check_battery_warning"></a>[warning](../common-options.md#warning)                      | charge < 20                                      |
-| <a id="check_battery_warn"></a>[warn](../common-options.md#warn)                               |                                                  |
-| <a id="check_battery_critical"></a>[critical](../common-options.md#critical)                   | charge < 10                                      |
-| <a id="check_battery_crit"></a>[crit](../common-options.md#crit)                               |                                                  |
-| <a id="check_battery_ok"></a>[ok](../common-options.md#ok)                                     |                                                  |
-| <a id="check_battery_debug"></a>[debug](../common-options.md#debug)                            | false                                            |
-| <a id="check_battery_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                            |
-| <a id="check_battery_empty-state"></a>[empty-state](../common-options.md#empty-state)          | warning                                          |
-| <a id="check_battery_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                  |
-| <a id="check_battery_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                            |
-| <a id="check_battery_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                |
-| <a id="check_battery_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                               |
-| <a id="check_battery_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No battery found or all batteries ok. |
-| <a id="check_battery_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No battery found                                 |
-| <a id="check_battery_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${charge}% (${power_source}, ${status}) |
-| <a id="check_battery_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                          |
+| Option                                                                                         | Default Value                                            |
+|------------------------------------------------------------------------------------------------|----------------------------------------------------------|
+| <a id="check_battery_filter"></a>[filter](../common-options.md#filter)                         | battery_present = 'true'                                 |
+| <a id="check_battery_warning"></a>[warning](../common-options.md#warning)                      | charge < 20                                              |
+| <a id="check_battery_warn"></a>[warn](../common-options.md#warn)                               |                                                          |
+| <a id="check_battery_critical"></a>[critical](../common-options.md#critical)                   | charge < 10                                              |
+| <a id="check_battery_crit"></a>[crit](../common-options.md#crit)                               |                                                          |
+| <a id="check_battery_ok"></a>[ok](../common-options.md#ok)                                     |                                                          |
+| <a id="check_battery_debug"></a>[debug](../common-options.md#debug)                            | false                                                    |
+| <a id="check_battery_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                    |
+| <a id="check_battery_empty-state"></a>[empty-state](../common-options.md#empty-state)          | warning                                                  |
+| <a id="check_battery_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                          |
+| <a id="check_battery_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                    |
+| <a id="check_battery_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                        |
+| <a id="check_battery_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                       |
+| <a id="check_battery_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No battery found or all batteries ok.         |
+| <a id="check_battery_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No battery found                                         |
+| <a id="check_battery_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${charge}% (${power_source}, ${battery_status}) |
+| <a id="check_battery_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                  |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -121,19 +121,20 @@ This command also accepts the standard [help options](../common-options.md#stand
 
 === "Windows"
 
-    | Option             | Description                                                       |
-    |--------------------|-------------------------------------------------------------------|
-    | battery_present    | Whether a battery is present: 'true' or 'false'                   |
-    | charge             | Battery charge level in percent (0-100)                           |
-    | charge_rate        | Current charge rate in mW (when charging)                         |
-    | design_capacity    | Design capacity in mWh                                            |
-    | discharge_rate     | Current discharge rate in mW (when discharging)                   |
-    | full_capacity      | Current full charge capacity in mWh                               |
-    | health             | Battery health in percent (full_capacity / design_capacity * 100) |
-    | name               | Battery name/identifier                                           |
-    | power_source       | Power source: 'ac', 'battery', or 'unknown'                       |
-    | remaining_capacity | Current remaining capacity in mWh                                 |
-    | time_remaining     | Estimated time remaining in seconds (-1 if unknown or on AC)      |
+    | Option             | Description                                                                                      |
+    |--------------------|--------------------------------------------------------------------------------------------------|
+    | battery_present    | Whether a battery is present: 'true' or 'false'                                                  |
+    | battery_status     | Battery status: 'charging', 'discharging', 'high', 'low', 'critical', 'no_battery', or 'unknown' |
+    | charge             | Battery charge level in percent (0-100)                                                          |
+    | charge_rate        | Current charge rate in mW (when charging)                                                        |
+    | design_capacity    | Design capacity in mWh                                                                           |
+    | discharge_rate     | Current discharge rate in mW (when discharging)                                                  |
+    | full_capacity      | Current full charge capacity in mWh                                                              |
+    | health             | Battery health in percent (full_capacity / design_capacity * 100)                                |
+    | name               | Battery name/identifier                                                                          |
+    | power_source       | Power source: 'ac', 'battery', or 'unknown'                                                      |
+    | remaining_capacity | Current remaining capacity in mWh                                                                |
+    | time_remaining     | Estimated time remaining in seconds (-1 if unknown or on AC)                                     |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -142,6 +143,7 @@ This command also accepts the standard [help options](../common-options.md#stand
     | Option             | Description                                                  |
     |--------------------|--------------------------------------------------------------|
     | battery_present    | Whether a battery is present: 'true' or 'false'              |
+    | battery_status     | Charge status                                                |
     | charge             | Battery charge percent                                       |
     | charge_rate        | Current charge rate in mW (when charging)                    |
     | design_capacity    | Design capacity in mWh                                       |
@@ -348,9 +350,10 @@ L        cli OK: OK: Cpu usage is 26 %
 
 **Full user/system/idle breakdown as perfdata (parity with the Linux `check_cpu_utilization` graph):**
 
-`idle` and `system` now emit perfdata (previously only `total`/`user` did), so the
+`idle` and `system` now emit perfdata (previously only `usage`/`user` did), so the
 full breakdown graphs without a custom `top-syntax`. `kernel` is a deprecated alias
-of `system` and intentionally emits no separate perf column.
+of `system` and intentionally emits no separate perf column; `total` is a deprecated
+alias of `usage` (the name clashes with the generic `total` summary keyword).
 
 ```
 check_cpu "warn=idle < 5"
@@ -457,9 +460,10 @@ CPU Load ok
     | core_id | The core to check (total or core_##)         |
     | idle    | The current idle load for a given core       |
     | kernel  | deprecated (use system instead)              |
-    | load    | deprecated (use total instead)               |
+    | load    | deprecated (use usage instead)               |
     | system  | The current load used by the system (kernel) |
     | time    | The time frame to check                      |
+    | usage   | The current load used by user and system     |
     | user    | The current load used by user applications   |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
@@ -472,9 +476,10 @@ CPU Load ok
     | core_id | The core to check (total or core_##)                      |
     | idle    | The current idle load for a given core                    |
     | kernel  | deprecated (use system instead)                           |
-    | load    | The current load for a given core (deprecated, use total) |
+    | load    | The current load for a given core (deprecated, use usage) |
     | system  | The current load used by the system (kernel)              |
     | time    | The time frame to check                                   |
+    | usage   | The current load used by user and system                  |
     | user    | The current load used by user applications                |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
@@ -631,9 +636,9 @@ These options are shared by all filter based commands and are described on the [
 | Option                                                                                                 | Default Value                                                                        |
 |--------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
 | <a id="check_cpu_utilization_filter"></a>[filter](../common-options.md#filter)                         |                                                                                      |
-| <a id="check_cpu_utilization_warning"></a>[warning](../common-options.md#warning)                      | total > 90                                                                           |
+| <a id="check_cpu_utilization_warning"></a>[warning](../common-options.md#warning)                      | usage > 90                                                                           |
 | <a id="check_cpu_utilization_warn"></a>[warn](../common-options.md#warn)                               |                                                                                      |
-| <a id="check_cpu_utilization_critical"></a>[critical](../common-options.md#critical)                   | total > 95                                                                           |
+| <a id="check_cpu_utilization_critical"></a>[critical](../common-options.md#critical)                   | usage > 95                                                                           |
 | <a id="check_cpu_utilization_crit"></a>[crit](../common-options.md#crit)                               |                                                                                      |
 | <a id="check_cpu_utilization_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                      |
 | <a id="check_cpu_utilization_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                |
@@ -655,17 +660,18 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_cpu_utilization_filter_keys"></a>
 #### Filter keywords
 
-| Option  | Description                                         |
-|---------|-----------------------------------------------------|
-| guest   | Guest (incl. guest_nice) CPU utilization in percent |
-| idle    | Idle CPU in percent                                 |
-| iowait  | I/O-wait CPU utilization in percent                 |
-| irq     | Hardware-interrupt CPU utilization in percent       |
-| name    | Always 'total' (single aggregate row)               |
-| softirq | Soft-interrupt CPU utilization in percent           |
-| steal   | Stolen (hypervisor) CPU utilization in percent      |
-| system  | System/kernel CPU utilization in percent            |
-| user    | User (incl. nice) CPU utilization in percent        |
+| Option  | Description                                               |
+|---------|-----------------------------------------------------------|
+| guest   | Guest (incl. guest_nice) CPU utilization in percent       |
+| idle    | Idle CPU in percent                                       |
+| iowait  | I/O-wait CPU utilization in percent                       |
+| irq     | Hardware-interrupt CPU utilization in percent             |
+| name    | Always 'total' (single aggregate row)                     |
+| softirq | Soft-interrupt CPU utilization in percent                 |
+| steal   | Stolen (hypervisor) CPU utilization in percent            |
+| system  | System/kernel CPU utilization in percent                  |
+| usage   | Non-idle CPU utilization in percent (100 - idle - iowait) |
+| user    | User (incl. nice) CPU utilization in percent              |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -1291,6 +1297,7 @@ OK: 101 software packages installed.
     | install_date_s | Install date as YYYY-MM-DD; empty when unknown                                                                     |
     | manager        | Package manager the entry came from (dpkg, rpm, pacman)                                                            |
     | name           | Package name                                                                                                       |
+    | package_status | Package state; always 'installed' for listed packages                                                              |
     | publisher      | Maintainer (dpkg) / vendor (rpm); may be empty                                                                     |
     | size           | Installed size in bytes; 0 when not recorded                                                                       |
     | version        | Version string (comparisons are lexical, not version-aware)                                                        |
@@ -2171,7 +2178,7 @@ page = 8.05G, physical = 7.85G
 
     A `source` filter keyword is available in every mode (its value is the literal
     string `interface` or `adapter`), so you can write expressions such as
-    `source = 'adapter' and total > 100000000` to scope thresholds to a particular
+    `source = 'adapter' and throughput > 100000000` to scope thresholds to a particular
     source.
 
     ##### Identifying teamed adapters
@@ -2218,7 +2225,7 @@ page = 8.05G, physical = 7.85G
     | `usage_out`   | Reads as `0` - indistinguishable from a genuinely idle link |
     | `usage_total` | Reads as `0` - indistinguishable from a genuinely idle link |
 
-    The byte-rate variables (`received`, `sent`, `total`) and their
+    The byte-rate variables (`received`, `sent`, `throughput`) and their
     `*_human` companions are **not** derived from `Speed` and are unaffected
     by these caveats. They come straight from
     `Win32_PerfRawData_Tcpip_NetworkInterface` / `NetworkAdapter` cumulative
@@ -2240,13 +2247,13 @@ page = 8.05G, physical = 7.85G
 
     For environments where percent thresholds are not viable (mixed wireless,
     heavy NIC-team use, lots of virtual adapters), prefer absolute byte-rate
-    thresholds against `received`/`sent`/`total`, scoped to specific
+    thresholds against `received`/`sent`/`throughput`, scoped to specific
     interfaces by name:
 
     ```
     check_network "filter=name = 'Ethernet 1'" \
-                  "warning=total > 800000000" \
-                  "critical=total > 950000000"
+                  "warning=throughput > 800000000" \
+                  "critical=throughput > 950000000"
     ```
 
     Both styles can be combined in a single check by using `filter` to scope
@@ -2322,7 +2329,7 @@ page = 8.05G, physical = 7.85G
 
     A `source` filter keyword is available in every mode (its value is the literal
     string `interface` or `adapter`), so you can write expressions such as
-    `source = 'adapter' and total > 100000000` to scope thresholds to a particular
+    `source = 'adapter' and throughput > 100000000` to scope thresholds to a particular
     source.
 
     ##### Identifying teamed adapters
@@ -2369,7 +2376,7 @@ page = 8.05G, physical = 7.85G
     | `usage_out`   | Reads as `0` - indistinguishable from a genuinely idle link |
     | `usage_total` | Reads as `0` - indistinguishable from a genuinely idle link |
 
-    The byte-rate variables (`received`, `sent`, `total`) and their
+    The byte-rate variables (`received`, `sent`, `throughput`) and their
     `*_human` companions are **not** derived from `Speed` and are unaffected
     by these caveats. They come straight from
     `Win32_PerfRawData_Tcpip_NetworkInterface` / `NetworkAdapter` cumulative
@@ -2391,13 +2398,13 @@ page = 8.05G, physical = 7.85G
 
     For environments where percent thresholds are not viable (mixed wireless,
     heavy NIC-team use, lots of virtual adapters), prefer absolute byte-rate
-    thresholds against `received`/`sent`/`total`, scoped to specific
+    thresholds against `received`/`sent`/`throughput`, scoped to specific
     interfaces by name:
 
     ```
     check_network "filter=name = 'Ethernet 1'" \
-                  "warning=total > 800000000" \
-                  "critical=total > 950000000"
+                  "warning=throughput > 800000000" \
+                  "critical=throughput > 950000000"
     ```
 
     Both styles can be combined in a single check by using `filter` to scope
@@ -2474,9 +2481,9 @@ page = 8.05G, physical = 7.85G
     | Option                                                                                         | Default Value                                 |
     |------------------------------------------------------------------------------------------------|-----------------------------------------------|
     | <a id="check_network_filter"></a>[filter](../common-options.md#filter)                         |                                               |
-    | <a id="check_network_warning"></a>[warning](../common-options.md#warning)                      | total > 10000                                 |
+    | <a id="check_network_warning"></a>[warning](../common-options.md#warning)                      | throughput > 10000                            |
     | <a id="check_network_warn"></a>[warn](../common-options.md#warn)                               |                                               |
-    | <a id="check_network_critical"></a>[critical](../common-options.md#critical)                   | total > 100000                                |
+    | <a id="check_network_critical"></a>[critical](../common-options.md#critical)                   | throughput > 100000                           |
     | <a id="check_network_crit"></a>[crit](../common-options.md#crit)                               |                                               |
     | <a id="check_network_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
     | <a id="check_network_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
@@ -2504,9 +2511,9 @@ page = 8.05G, physical = 7.85G
     | Option                                                                                         | Default Value                                 |
     |------------------------------------------------------------------------------------------------|-----------------------------------------------|
     | <a id="check_network_filter"></a>[filter](../common-options.md#filter)                         |                                               |
-    | <a id="check_network_warning"></a>[warning](../common-options.md#warning)                      | total > 10000                                 |
+    | <a id="check_network_warning"></a>[warning](../common-options.md#warning)                      | throughput > 10000                            |
     | <a id="check_network_warn"></a>[warn](../common-options.md#warn)                               |                                               |
-    | <a id="check_network_critical"></a>[critical](../common-options.md#critical)                   | total > 100000                                |
+    | <a id="check_network_critical"></a>[critical](../common-options.md#critical)                   | throughput > 100000                           |
     | <a id="check_network_crit"></a>[crit](../common-options.md#crit)                               |                                               |
     | <a id="check_network_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
     | <a id="check_network_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
@@ -2540,6 +2547,7 @@ page = 8.05G, physical = 7.85G
     | errors_in         | Inbound packet errors per second                                                                                                                                                                                    |
     | errors_out        | Outbound packet errors per second                                                                                                                                                                                   |
     | format_bytes()    | Format a number as a human-readable byte string.                                                                                                                                                                    |
+    | link_status       | Network connection status                                                                                                                                                                                           |
     | name              | Network interface name                                                                                                                                                                                              |
     | net_connection_id | Network connection id                                                                                                                                                                                               |
     | packets_in        | Packets received per second                                                                                                                                                                                         |
@@ -2554,6 +2562,7 @@ page = 8.05G, physical = 7.85G
     | speed_bps         | Negotiated link speed in bits/sec, parsed from the WMI Speed property. BEST-EFFORT: 0 when the speed is Unknown/empty (virtual adapters, some teams). Filter on speed_bps > 0 before relying on usage_in/out/total. |
     | team              | NIC team this adapter belongs to (empty if not a team member / LBFO unavailable)                                                                                                                                    |
     | team_status       | Raw MSFT_NetLbfoTeamMember.OperationalStatus of this team member (empty if not a team member)                                                                                                                       |
+    | throughput        | Bytes total per second                                                                                                                                                                                              |
     | total_human       | Bytes total per second, formatted as a human-readable string (auto-scaled).                                                                                                                                         |
     | usage_in          | Percent of negotiated link speed used by received traffic. BEST-EFFORT: reads as 0 when speed is unknown - filter on speed_bps > 0 to distinguish idle from unknown.                                                |
     | usage_out         | Percent of negotiated link speed used by sent traffic. BEST-EFFORT: reads as 0 when speed is unknown - filter on speed_bps > 0 to distinguish idle from unknown.                                                    |
@@ -2569,6 +2578,7 @@ page = 8.05G, physical = 7.85G
     | convert_bytes()  | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
     | enabled          | True if the interface link is up                                                                                   |
     | format_bytes()   | Format a number as a human-readable byte string.                                                                   |
+    | link_status      | Link operational state (up/down/unknown)                                                                           |
     | name             | Network interface name                                                                                             |
     | received         | Bytes received per second                                                                                          |
     | received_human   | Bytes received per second (human readable, auto-scaled)                                                            |
@@ -2579,6 +2589,7 @@ page = 8.05G, physical = 7.85G
     | sent_human       | Bytes sent per second (human readable, auto-scaled)                                                                |
     | sent_packets     | Packets sent per second                                                                                            |
     | speed_bps        | Link speed in bits/sec (0 when unknown, e.g. virtual interfaces)                                                   |
+    | throughput       | Bytes total (received + sent) per second                                                                           |
     | total_human      | Bytes total per second (human readable, auto-scaled)                                                               |
     | tx_errors        | Cumulative transmit errors since boot                                                                              |
     | usage_in         | Percent of link speed used by received traffic (0 when speed unknown)                                              |
@@ -2605,7 +2616,7 @@ page = 8.05G, physical = 7.85G
     check_os_updates
     ```
 
-    If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `count > 0`).
+    If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `updates > 0`).
 
     **Checking for critical updates**
 
@@ -2643,17 +2654,17 @@ page = 8.05G, physical = 7.85G
     counts monthly `Update Rollup` updates:
 
     ```
-    check_os_updates "warning=count - defender > 0" "detail-syntax=${count} total, ${defender} defender, ${rollups} rollups"
+    check_os_updates "warning=updates - defender > 0" "detail-syntax=${updates} total, ${defender} defender, ${rollups} rollups"
     ```
 
     **Filtering by title**
 
     `update-filter=<substring>` restricts the check to updates whose title contains
-    the (case-insensitive) substring; all counters (`count`, `security`, …) are then
+    the (case-insensitive) substring; all counters (`updates`, `security`, …) are then
     recomputed over just the matching subset:
 
     ```
-    check_os_updates update-filter=".NET" "detail-syntax=${count} .NET updates: ${titles}"
+    check_os_updates update-filter=".NET" "detail-syntax=${updates} .NET updates: ${titles}"
     ```
 
     > **Note:** the WUA search criteria is `Type='Software'`, so **driver updates are
@@ -2664,8 +2675,12 @@ page = 8.05G, physical = 7.85G
     You can use the syntax options to format the output string:
 
     ```
-    check_os_updates "top-syntax=${status}: Found ${count} missing updates. Security: ${security}, Critical: ${critical}" "detail-syntax=${titles}" show-all
+    check_os_updates "top-syntax=${status}: ${list}" "detail-syntax=Found ${updates} missing updates. Security: ${security}, Critical: ${critical} - ${titles}"
     ```
+
+    Note that the update counters (`updates`, `security`, …) are record keywords: reference
+    them from `detail-syntax` (rendered per record and included in `${list}`), not from
+    `top-syntax`, where they read as 0.
 
 === "Linux"
 
@@ -2683,7 +2698,7 @@ page = 8.05G, physical = 7.85G
     check_os_updates
     ```
 
-    If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `count > 0`).
+    If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `updates > 0`).
 
     **Checking for critical updates**
 
@@ -2721,17 +2736,17 @@ page = 8.05G, physical = 7.85G
     counts monthly `Update Rollup` updates:
 
     ```
-    check_os_updates "warning=count - defender > 0" "detail-syntax=${count} total, ${defender} defender, ${rollups} rollups"
+    check_os_updates "warning=updates - defender > 0" "detail-syntax=${updates} total, ${defender} defender, ${rollups} rollups"
     ```
 
     **Filtering by title**
 
     `update-filter=<substring>` restricts the check to updates whose title contains
-    the (case-insensitive) substring; all counters (`count`, `security`, …) are then
+    the (case-insensitive) substring; all counters (`updates`, `security`, …) are then
     recomputed over just the matching subset:
 
     ```
-    check_os_updates update-filter=".NET" "detail-syntax=${count} .NET updates: ${titles}"
+    check_os_updates update-filter=".NET" "detail-syntax=${updates} .NET updates: ${titles}"
     ```
 
     > **Note:** the WUA search criteria is `Type='Software'`, so **driver updates are
@@ -2742,8 +2757,12 @@ page = 8.05G, physical = 7.85G
     You can use the syntax options to format the output string:
 
     ```
-    check_os_updates "top-syntax=${status}: Found ${count} missing updates. Security: ${security}, Critical: ${critical}" "detail-syntax=${titles}" show-all
+    check_os_updates "top-syntax=${status}: ${list}" "detail-syntax=Found ${updates} missing updates. Security: ${security}, Critical: ${critical} - ${titles}"
     ```
+
+    Note that the update counters (`updates`, `security`, …) are record keywords: reference
+    them from `detail-syntax` (rendered per record and included in `${list}`), not from
+    `top-syntax`, where they read as 0.
 
 **Jump to section:**
 
@@ -2771,25 +2790,25 @@ page = 8.05G, physical = 7.85G
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                            | Default Value                                                                      |
-    |---------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
-    | <a id="check_os_updates_filter"></a>[filter](../common-options.md#filter)                         |                                                                                    |
-    | <a id="check_os_updates_warning"></a>[warning](../common-options.md#warning)                      | count > 0                                                                          |
-    | <a id="check_os_updates_warn"></a>[warn](../common-options.md#warn)                               |                                                                                    |
-    | <a id="check_os_updates_critical"></a>[critical](../common-options.md#critical)                   | security > 0 or critical > 0                                                       |
-    | <a id="check_os_updates_crit"></a>[crit](../common-options.md#crit)                               |                                                                                    |
-    | <a id="check_os_updates_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                    |
-    | <a id="check_os_updates_debug"></a>[debug](../common-options.md#debug)                            | false                                                                              |
-    | <a id="check_os_updates_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                              |
-    | <a id="check_os_updates_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                                                 |
-    | <a id="check_os_updates_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                    |
-    | <a id="check_os_updates_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                              |
-    | <a id="check_os_updates_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                  |
-    | <a id="check_os_updates_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${count} updates available (${security} security, ${critical} critical) |
-    | <a id="check_os_updates_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No updates available.                                                   |
-    | <a id="check_os_updates_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                                    |
-    | <a id="check_os_updates_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${count} updates (${security} security, ${critical} critical)                      |
-    | <a id="check_os_updates_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | updates                                                                            |
+    | Option                                                                                            | Default Value                                                             |
+    |---------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+    | <a id="check_os_updates_filter"></a>[filter](../common-options.md#filter)                         |                                                                           |
+    | <a id="check_os_updates_warning"></a>[warning](../common-options.md#warning)                      | updates > 0                                                               |
+    | <a id="check_os_updates_warn"></a>[warn](../common-options.md#warn)                               |                                                                           |
+    | <a id="check_os_updates_critical"></a>[critical](../common-options.md#critical)                   | security > 0 or critical > 0                                              |
+    | <a id="check_os_updates_crit"></a>[crit](../common-options.md#crit)                               |                                                                           |
+    | <a id="check_os_updates_ok"></a>[ok](../common-options.md#ok)                                     |                                                                           |
+    | <a id="check_os_updates_debug"></a>[debug](../common-options.md#debug)                            | false                                                                     |
+    | <a id="check_os_updates_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                     |
+    | <a id="check_os_updates_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                                        |
+    | <a id="check_os_updates_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                           |
+    | <a id="check_os_updates_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                     |
+    | <a id="check_os_updates_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                         |
+    | <a id="check_os_updates_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                        |
+    | <a id="check_os_updates_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No updates available.                                          |
+    | <a id="check_os_updates_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                           |
+    | <a id="check_os_updates_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${updates} updates available (${security} security, ${critical} critical) |
+    | <a id="check_os_updates_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | updates                                                                   |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2801,25 +2820,25 @@ page = 8.05G, physical = 7.85G
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                            | Default Value                                                               |
-    |---------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
-    | <a id="check_os_updates_filter"></a>[filter](../common-options.md#filter)                         |                                                                             |
-    | <a id="check_os_updates_warning"></a>[warning](../common-options.md#warning)                      | count > 0                                                                   |
-    | <a id="check_os_updates_warn"></a>[warn](../common-options.md#warn)                               |                                                                             |
-    | <a id="check_os_updates_critical"></a>[critical](../common-options.md#critical)                   | security > 0                                                                |
-    | <a id="check_os_updates_crit"></a>[crit](../common-options.md#crit)                               |                                                                             |
-    | <a id="check_os_updates_ok"></a>[ok](../common-options.md#ok)                                     |                                                                             |
-    | <a id="check_os_updates_debug"></a>[debug](../common-options.md#debug)                            | false                                                                       |
-    | <a id="check_os_updates_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                       |
-    | <a id="check_os_updates_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                                          |
-    | <a id="check_os_updates_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                             |
-    | <a id="check_os_updates_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                       |
-    | <a id="check_os_updates_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                           |
-    | <a id="check_os_updates_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${count} updates available (${security} security) via ${manager} |
-    | <a id="check_os_updates_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No updates available.                                            |
-    | <a id="check_os_updates_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                             |
-    | <a id="check_os_updates_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${count} updates (${security} security) via ${manager}                      |
-    | <a id="check_os_updates_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | updates                                                                     |
+    | Option                                                                                            | Default Value                                                      |
+    |---------------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+    | <a id="check_os_updates_filter"></a>[filter](../common-options.md#filter)                         |                                                                    |
+    | <a id="check_os_updates_warning"></a>[warning](../common-options.md#warning)                      | updates > 0                                                        |
+    | <a id="check_os_updates_warn"></a>[warn](../common-options.md#warn)                               |                                                                    |
+    | <a id="check_os_updates_critical"></a>[critical](../common-options.md#critical)                   | security > 0                                                       |
+    | <a id="check_os_updates_crit"></a>[crit](../common-options.md#crit)                               |                                                                    |
+    | <a id="check_os_updates_ok"></a>[ok](../common-options.md#ok)                                     |                                                                    |
+    | <a id="check_os_updates_debug"></a>[debug](../common-options.md#debug)                            | false                                                              |
+    | <a id="check_os_updates_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                              |
+    | <a id="check_os_updates_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                                 |
+    | <a id="check_os_updates_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                    |
+    | <a id="check_os_updates_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                              |
+    | <a id="check_os_updates_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                  |
+    | <a id="check_os_updates_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                 |
+    | <a id="check_os_updates_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No updates available.                                   |
+    | <a id="check_os_updates_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                    |
+    | <a id="check_os_updates_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${updates} updates available (${security} security) via ${manager} |
+    | <a id="check_os_updates_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | updates                                                            |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2842,6 +2861,7 @@ page = 8.05G, physical = 7.85G
     | security        | Number of security updates                                                                                 |
     | titles          | Semicolon separated list of available update titles                                                        |
     | update_status   | Aggregated status: ok, warning, critical, pending, error                                                   |
+    | updates         | Total number of available updates                                                                          |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -2852,6 +2872,7 @@ page = 8.05G, physical = 7.85G
     | manager  | Package manager used to query updates             |
     | packages | Comma separated list of available package updates |
     | security | Number of available security updates              |
+    | updates  | Total number of available updates                 |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -3245,7 +3266,7 @@ OK: 42 hotfixes installed, newest KB5034441 on 3/12/2024 (18d ago)
 **Custom output listing the newest hotfix only:**
 
 ```
-check_patch_age "top-syntax=%(status): %(list)" "detail-syntax=newest %(newest_id) (%(age)d ago), %(count) installed"
+check_patch_age "top-syntax=%(status): %(list)" "detail-syntax=newest %(newest_id) (%(age)d ago), %(patches) installed"
 OK: newest KB5034441 (18d ago), 42 installed
 ```
 
@@ -3311,6 +3332,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 | missing_ids      | Semicolon-separated list of the requested hotfixes that are missing                             |
 | newest_id        | HotFixID of the most recently installed hotfix                                                  |
 | newest_installed | Install date of the newest hotfix (as reported by Windows)                                      |
+| patches          | Total number of installed hotfixes                                                              |
 | required         | Number of hotfixes requested via the hotfix= option                                             |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
@@ -3580,7 +3602,7 @@ OK: No reboot pending
 **Custom output showing the number of signals and the reasons:**
 
 ```
-check_pending_reboot "top-syntax=%(status): %(list)" "detail-syntax=%(count) signal(s): %(reasons)"
+check_pending_reboot "top-syntax=%(status): %(list)" "detail-syntax=%(signals) signal(s): %(reasons)"
 WARNING: 1 signal(s): pending file rename
 ```
 
@@ -3637,6 +3659,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 | pending         | 1 if any pending-reboot signal is set (the aggregate flag most checks threshold on)                                 |
 | reasons         | Comma-separated human-readable list of pending-reboot causes ('none' if clear)                                      |
 | servicing       | 1 if Component Based Servicing (CBS) has queued a reboot (the 'Component Based Servicing\RebootPending' key exists) |
+| signals         | Number of distinct pending-reboot signals currently set                                                             |
 | windows_update  | 1 if Windows Update has queued a reboot (WindowsUpdate\Auto Update\RebootRequired)                                  |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
@@ -3713,7 +3736,7 @@ WARNING: OneNote (Desktop): 'document' by micha (queued, 23s)|'OneNote (Desktop)
 **Full per-job detail:**
 
 ```
-check_printjobs warning=none critical=none "top-syntax=${list}" "detail-syntax=printer=${printer} id=${id} doc='${document}' owner=${owner} status=${status} size=${size} pages=${pages}/${pages_printed} prio=${priority} age=${age} sub=${submitted}"
+check_printjobs warning=none critical=none "top-syntax=${list}" "detail-syntax=printer=${printer} id=${id} doc='${document}' owner=${owner} status=${job_status} size=${size} pages=${pages}/${pages_printed} prio=${priority} age=${age} sub=${submitted}"
 printer=OneNote (Desktop) id=2 doc='document' owner=micha status=queued size=53620 pages=1/0 prio=1 age=18 sub=2026-08-16 12:10:02|'count'=1;0;0
 ```
 
@@ -3761,25 +3784,25 @@ OK: All 2 job(s) ok.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                           | Default Value                                              |
-|--------------------------------------------------------------------------------------------------|------------------------------------------------------------|
-| <a id="check_printjobs_filter"></a>[filter](../common-options.md#filter)                         |                                                            |
-| <a id="check_printjobs_warning"></a>[warning](../common-options.md#warning)                      | age > 600                                                  |
-| <a id="check_printjobs_warn"></a>[warn](../common-options.md#warn)                               |                                                            |
-| <a id="check_printjobs_critical"></a>[critical](../common-options.md#critical)                   | error = 1 or blocked = 1 or user_intervention = 1          |
-| <a id="check_printjobs_crit"></a>[crit](../common-options.md#crit)                               |                                                            |
-| <a id="check_printjobs_ok"></a>[ok](../common-options.md#ok)                                     |                                                            |
-| <a id="check_printjobs_debug"></a>[debug](../common-options.md#debug)                            | false                                                      |
-| <a id="check_printjobs_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                      |
-| <a id="check_printjobs_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                         |
-| <a id="check_printjobs_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                            |
-| <a id="check_printjobs_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                      |
-| <a id="check_printjobs_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                          |
-| <a id="check_printjobs_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                         |
-| <a id="check_printjobs_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) job(s) ok.                         |
-| <a id="check_printjobs_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No print jobs queued                            |
-| <a id="check_printjobs_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${printer}: '${document}' by ${owner} (${status}, ${age}s) |
-| <a id="check_printjobs_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${printer}_${id}                                           |
+| Option                                                                                           | Default Value                                                  |
+|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------|
+| <a id="check_printjobs_filter"></a>[filter](../common-options.md#filter)                         |                                                                |
+| <a id="check_printjobs_warning"></a>[warning](../common-options.md#warning)                      | age > 600                                                      |
+| <a id="check_printjobs_warn"></a>[warn](../common-options.md#warn)                               |                                                                |
+| <a id="check_printjobs_critical"></a>[critical](../common-options.md#critical)                   | error = 1 or blocked = 1 or user_intervention = 1              |
+| <a id="check_printjobs_crit"></a>[crit](../common-options.md#crit)                               |                                                                |
+| <a id="check_printjobs_ok"></a>[ok](../common-options.md#ok)                                     |                                                                |
+| <a id="check_printjobs_debug"></a>[debug](../common-options.md#debug)                            | false                                                          |
+| <a id="check_printjobs_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                          |
+| <a id="check_printjobs_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                             |
+| <a id="check_printjobs_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                |
+| <a id="check_printjobs_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                          |
+| <a id="check_printjobs_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                              |
+| <a id="check_printjobs_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                             |
+| <a id="check_printjobs_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) job(s) ok.                             |
+| <a id="check_printjobs_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No print jobs queued                                |
+| <a id="check_printjobs_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${printer}: '${document}' by ${owner} (${job_status}, ${age}s) |
+| <a id="check_printjobs_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${printer}_${id}                                               |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -3795,6 +3818,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 | document          | Document name as the application submitted it                                                                                    |
 | error             | 1 when the job is in an error state                                                                                              |
 | id                | Spooler job id                                                                                                                   |
+| job_status        | Job status words from the spooler: queued, printing, spooling, error, paused, blocked, ...                                       |
 | offline           | 1 when the job's printer is offline                                                                                              |
 | owner             | User who submitted the job                                                                                                       |
 | pages             | Total pages in the job (0 when the driver does not report it)                                                                    |
@@ -3894,7 +3918,7 @@ OK: All 1 printer(s) ok.
 **Custom output with full per-printer detail:**
 
 ```
-check_printqueue "top-syntax=%(status): %(list)" "detail-syntax=%(printer): %(status)/%(error_state) jobs=%(jobs) oldest=%(oldest_job_age)s offline=%(offline)"
+check_printqueue "top-syntax=%(status): %(list)" "detail-syntax=%(printer): %(printer_status)/%(error_state) jobs=%(jobs) oldest=%(oldest_job_age)s offline=%(offline)"
 OK: HP LaserJet: idle/no_error jobs=0 oldest=-1s offline=0, Microsoft Print to PDF: idle/no_error jobs=0 oldest=-1s offline=0
 ```
 
@@ -3936,25 +3960,25 @@ OK: All 4 printer(s) ok.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                            | Default Value                          |
-|---------------------------------------------------------------------------------------------------|----------------------------------------|
-| <a id="check_printqueue_filter"></a>[filter](../common-options.md#filter)                         |                                        |
-| <a id="check_printqueue_warning"></a>[warning](../common-options.md#warning)                      | jobs > 10                              |
-| <a id="check_printqueue_warn"></a>[warn](../common-options.md#warn)                               |                                        |
-| <a id="check_printqueue_critical"></a>[critical](../common-options.md#critical)                   | error = 1                              |
-| <a id="check_printqueue_crit"></a>[crit](../common-options.md#crit)                               |                                        |
-| <a id="check_printqueue_ok"></a>[ok](../common-options.md#ok)                                     |                                        |
-| <a id="check_printqueue_debug"></a>[debug](../common-options.md#debug)                            | false                                  |
-| <a id="check_printqueue_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                  |
-| <a id="check_printqueue_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                     |
-| <a id="check_printqueue_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                        |
-| <a id="check_printqueue_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                  |
-| <a id="check_printqueue_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                      |
-| <a id="check_printqueue_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                     |
-| <a id="check_printqueue_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) printer(s) ok. |
-| <a id="check_printqueue_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No printers found           |
-| <a id="check_printqueue_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${printer}: ${status}, ${jobs} job(s)  |
-| <a id="check_printqueue_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${printer}                             |
+| Option                                                                                            | Default Value                                 |
+|---------------------------------------------------------------------------------------------------|-----------------------------------------------|
+| <a id="check_printqueue_filter"></a>[filter](../common-options.md#filter)                         |                                               |
+| <a id="check_printqueue_warning"></a>[warning](../common-options.md#warning)                      | jobs > 10                                     |
+| <a id="check_printqueue_warn"></a>[warn](../common-options.md#warn)                               |                                               |
+| <a id="check_printqueue_critical"></a>[critical](../common-options.md#critical)                   | error = 1                                     |
+| <a id="check_printqueue_crit"></a>[crit](../common-options.md#crit)                               |                                               |
+| <a id="check_printqueue_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
+| <a id="check_printqueue_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
+| <a id="check_printqueue_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                         |
+| <a id="check_printqueue_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                            |
+| <a id="check_printqueue_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                               |
+| <a id="check_printqueue_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                         |
+| <a id="check_printqueue_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                             |
+| <a id="check_printqueue_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                            |
+| <a id="check_printqueue_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) printer(s) ok.        |
+| <a id="check_printqueue_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No printers found                  |
+| <a id="check_printqueue_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${printer}: ${printer_status}, ${jobs} job(s) |
+| <a id="check_printqueue_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${printer}                                    |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -3977,6 +4001,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 | oldest_job_age | Seconds since the oldest queued job (-1 if the queue is empty); threshold with durations, e.g. oldest_job_age > 30m |
 | port           | Port the queue prints through (IP_x.x.x.x, USB001, PORTPROMPT:, ...)                                                |
 | printer        | Printer / queue name                                                                                                |
+| printer_status | Printer status: idle, printing, offline, stopped_printing, warmup, ...                                              |
 | server         | Print server hosting the queue (empty for a local queue)                                                            |
 | share          | Share name (empty when the queue is not shared)                                                                     |
 | shared         | 1 if the queue is shared                                                                                            |

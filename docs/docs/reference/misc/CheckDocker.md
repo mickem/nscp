@@ -95,7 +95,7 @@ CRITICAL: old-job=exited
 **Use the container keywords in the output:**
 
 ```
-check_docker container=web-frontend "detail-syntax=%(names): %(image) %(status) ports=%(ports)" "top-syntax=${status}: ${list}"
+check_docker container=web-frontend "detail-syntax=%(names): %(image) %(container_status) ports=%(ports)" "top-syntax=${status}: ${list}"
 OK: web-frontend: nginx:alpine Up 2 hours ports=0.0.0.0:18080->80/tcp,:::18080->80/tcp
 ```
 
@@ -246,6 +246,7 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
 |------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | command          | Command the container runs                                                                                                                      |
 | container_state  | Container state: created, restarting, running, removing, paused, exited, dead or missing (a requested container the daemon does not know about) |
+| container_status | Human readable status, e.g. 'Up 3 hours (healthy)'                                                                                              |
 | created          | When the container was created (date)                                                                                                           |
 | has_health_check | 1 when the container defines a health check, else 0                                                                                             |
 | health           | Health-check state: healthy, unhealthy, starting or empty when the container has no health check                                                |

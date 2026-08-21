@@ -143,7 +143,7 @@ L        cli  Performance data: 'total_all_close_wait'=0;0;0 'total_all_closing'
 **Per-protocol breakdown (disable the default total filter):**
 
 ```
-check_connections "filter=state = 'all'" "top-syntax=%(status): %(list)" "detail-syntax=%(protocol)/%(family)=%(count)"
+check_connections "filter=state = 'all'" "top-syntax=%(status): %(list)" "detail-syntax=%(protocol)/%(family)=%(connections)"
 L        cli OK: OK: tcp/ipv4=157, tcp6/ipv6=15, udp/ipv4=40, udp6/ipv6=21, total/any=233
 L        cli  Performance data: 'tcp_all_close_wait'=0;0;0 'tcp_all_closing'=0;0;0 'tcp_all_established'=0;0;0 'tcp_all_fin_wait'=0;0;0 'tcp_all_last_ack'=0;0;0 'tcp_all_listen'=0;0;0 'tcp_all_syn_recv'=0;0;0 'tcp_all_syn_sent'=0;0;0 'tcp_all_time_wait'=0;0;0 'tcp_all_total'=0;0;0 'tcp_all_udp'=0;0;0 'tcp6_all_close_wait'=0;0;0 'tcp6_all_closing'=0;0;0 'tcp6_all_established'=0;0;0 'tcp6_all_fin_wait'=0;0;0 'tcp6_all_last_ack'=0;0;0 'tcp6_all_listen'=0;0;0 'tcp6_all_syn_recv'=0;0;0 'tcp6_all_syn_sent'=0;0;0 'tcp6_all_time_wait'=0;0;0 'tcp6_all_total'=0;0;0 'tcp6_all_udp'=0;0;0 'udp_all_close_wait'=0;0;0 'udp_all_closing'=0;0;0 'udp_all_established'=0;0;0 'udp_all_fin_wait'=0;0;0 'udp_all_last_ack'=0;0;0 'udp_all_listen'=0;0;0 'udp_all_syn_recv'=0;0;0 'udp_all_syn_sent'=0;0;0 'udp_all_time_wait'=0;0;0 'udp_all_total'=0;0;0 'udp_all_udp'=0;0;0 'udp6_all_close_wait'=0;0;0 'udp6_all_closing'=0;0;0 'udp6_all_established'=0;0;0 'udp6_all_fin_wait'=0;0;0 'udp6_all_last_ack'=0;0;0 'udp6_all_listen'=0;0;0 'udp6_all_syn_recv'=0;0;0 'udp6_all_syn_sent'=0;0;0 'udp6_all_time_wait'=0;0;0 'udp6_all_total'=0;0;0 'udp6_all_udp'=0;0;0 'total_all_close_wait'=1;0;0 'total_all_closing'=0;0;0 'total_all_established'=93;0;0 'total_all_fin_wait'=0;0;0 'total_all_last_ack'=0;0;0 'total_all_listen'=69;0;0 'total_all_syn_recv'=0;0;0 'total_all_syn_sent'=0;0;0 'total_all_time_wait'=9;0;0 'total_all_total'=233;0;0 'total_all_udp'=61;0;0
 ```
@@ -151,29 +151,29 @@ L        cli  Performance data: 'tcp_all_close_wait'=0;0;0 'tcp_all_closing'=0;0
 **Show only TCP states:**
 
 ```
-check_connections "filter=protocol = 'tcp' and state != 'all'" "top-syntax=%(status): %(list)" "detail-syntax=%(state)=%(count)"
-check_connections "filter=protocol = 'tcp' and state != 'all'" "top-syntax=%(status): %(list)" "detail-syntax=%(state)=%(count)"
+check_connections "filter=protocol = 'tcp' and state != 'all'" "top-syntax=%(status): %(list)" "detail-syntax=%(state)=%(connections)"
+check_connections "filter=protocol = 'tcp' and state != 'all'" "top-syntax=%(status): %(list)" "detail-syntax=%(state)=%(connections)"
 L        cli OK: OK: ESTABLISHED=92, LISTEN=69, TIME_WAIT=9
 ```
 
 **Warn/critical based on total connections:**
 
 ```
-check_connections "warn=total > 500" "crit=total > 1000"
+check_connections "warn=total_connections > 500" "crit=total_connections > 1000"
 L        cli OK: OK: total/all: 231
 ```
 
 **Warn when many sockets are stuck in TIME_WAIT:**
 
 ```
-check_connections "filter=protocol = 'tcp' and state = 'TIME_WAIT'" "warn=count > 200" "crit=count > 1000"
+check_connections "filter=protocol = 'tcp' and state = 'TIME_WAIT'" "warn=connections > 200" "crit=connections > 1000"
 L        cli OK: OK: tcp/TIME_WAIT: 14
 ```
 
 **Alert on growing CLOSE_WAIT (often indicates leaks):**
 
 ```
-check_connections "filter=state = 'CLOSE_WAIT'" "warn=count > 50" "crit=count > 200"
+check_connections "filter=state = 'CLOSE_WAIT'" "warn=connections > 50" "crit=connections > 200"
 L        cli OK: No connection data
 ```
 
@@ -195,25 +195,25 @@ OK: total/all: 231|'total_all_close_wait'=0;0;0 'total_all_closing'=0;0;0 'total
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                             | Default Value                  |
-|----------------------------------------------------------------------------------------------------|--------------------------------|
-| <a id="check_connections_filter"></a>[filter](../common-options.md#filter)                         | protocol = 'total'             |
-| <a id="check_connections_warning"></a>[warning](../common-options.md#warning)                      | total > 1000                   |
-| <a id="check_connections_warn"></a>[warn](../common-options.md#warn)                               |                                |
-| <a id="check_connections_critical"></a>[critical](../common-options.md#critical)                   | total > 2000                   |
-| <a id="check_connections_crit"></a>[crit](../common-options.md#crit)                               |                                |
-| <a id="check_connections_ok"></a>[ok](../common-options.md#ok)                                     |                                |
-| <a id="check_connections_debug"></a>[debug](../common-options.md#debug)                            | false                          |
-| <a id="check_connections_show-all"></a>[show-all](../common-options.md#show-all)                   | false                          |
-| <a id="check_connections_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                        |
-| <a id="check_connections_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                |
-| <a id="check_connections_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                          |
-| <a id="check_connections_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                              |
-| <a id="check_connections_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}             |
-| <a id="check_connections_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)             |
-| <a id="check_connections_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No connection data             |
-| <a id="check_connections_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${protocol}/${state}: ${count} |
-| <a id="check_connections_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${protocol}_${state}           |
+| Option                                                                                             | Default Value                        |
+|----------------------------------------------------------------------------------------------------|--------------------------------------|
+| <a id="check_connections_filter"></a>[filter](../common-options.md#filter)                         | protocol = 'total'                   |
+| <a id="check_connections_warning"></a>[warning](../common-options.md#warning)                      | total_connections > 1000             |
+| <a id="check_connections_warn"></a>[warn](../common-options.md#warn)                               |                                      |
+| <a id="check_connections_critical"></a>[critical](../common-options.md#critical)                   | total_connections > 2000             |
+| <a id="check_connections_crit"></a>[crit](../common-options.md#crit)                               |                                      |
+| <a id="check_connections_ok"></a>[ok](../common-options.md#ok)                                     |                                      |
+| <a id="check_connections_debug"></a>[debug](../common-options.md#debug)                            | false                                |
+| <a id="check_connections_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                |
+| <a id="check_connections_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                              |
+| <a id="check_connections_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                      |
+| <a id="check_connections_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                |
+| <a id="check_connections_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                    |
+| <a id="check_connections_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                   |
+| <a id="check_connections_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)                   |
+| <a id="check_connections_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No connection data                   |
+| <a id="check_connections_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${protocol}/${state}: ${connections} |
+| <a id="check_connections_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${protocol}_${state}                 |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -222,21 +222,23 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_connections_filter_keys"></a>
 #### Filter keywords
 
-| Option      | Description                                                   |
-|-------------|---------------------------------------------------------------|
-| close_wait  | Number of TCP connections in CLOSE_WAIT state (total bucket)  |
-| closing     | Number of TCP connections in CLOSING state (total bucket)     |
-| established | Number of TCP connections in ESTABLISHED state (total bucket) |
-| family      | Address family (ipv4, ipv6, any)                              |
-| fin_wait    | Number of TCP connections in FIN_WAIT* state (total bucket)   |
-| last_ack    | Number of TCP connections in LAST_ACK state (total bucket)    |
-| listen      | Number of TCP sockets in LISTEN state (total bucket)          |
-| protocol    | Protocol of this bucket (tcp, tcp6, udp, udp6, total)         |
-| state       | TCP state name (ESTABLISHED, LISTEN, ...) or 'all'            |
-| syn_recv    | Number of TCP connections in SYN_RECV state (total bucket)    |
-| syn_sent    | Number of TCP connections in SYN_SENT state (total bucket)    |
-| time_wait   | Number of TCP connections in TIME_WAIT state (total bucket)   |
-| udp         | Number of UDP sockets (total bucket)                          |
+| Option            | Description                                                   |
+|-------------------|---------------------------------------------------------------|
+| close_wait        | Number of TCP connections in CLOSE_WAIT state (total bucket)  |
+| closing           | Number of TCP connections in CLOSING state (total bucket)     |
+| connections       | Number of connections matching this bucket                    |
+| established       | Number of TCP connections in ESTABLISHED state (total bucket) |
+| family            | Address family (ipv4, ipv6, any)                              |
+| fin_wait          | Number of TCP connections in FIN_WAIT* state (total bucket)   |
+| last_ack          | Number of TCP connections in LAST_ACK state (total bucket)    |
+| listen            | Number of TCP sockets in LISTEN state (total bucket)          |
+| protocol          | Protocol of this bucket (tcp, tcp6, udp, udp6, total)         |
+| state             | TCP state name (ESTABLISHED, LISTEN, ...) or 'all'            |
+| syn_recv          | Number of TCP connections in SYN_RECV state (total bucket)    |
+| syn_sent          | Number of TCP connections in SYN_SENT state (total bucket)    |
+| time_wait         | Number of TCP connections in TIME_WAIT state (total bucket)   |
+| total_connections | Total number of connections (only on the 'total' bucket)      |
+| udp               | Number of UDP sockets (total bucket)                          |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -390,25 +392,25 @@ Timeout in milliseconds.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                     | Default Value                                               |
-|--------------------------------------------------------------------------------------------|-------------------------------------------------------------|
-| <a id="check_dns_filter"></a>[filter](../common-options.md#filter)                         |                                                             |
-| <a id="check_dns_warning"></a>[warning](../common-options.md#warning)                      | time > 1000                                                 |
-| <a id="check_dns_warn"></a>[warn](../common-options.md#warn)                               |                                                             |
-| <a id="check_dns_critical"></a>[critical](../common-options.md#critical)                   | result != 'ok'                                              |
-| <a id="check_dns_crit"></a>[crit](../common-options.md#crit)                               |                                                             |
-| <a id="check_dns_ok"></a>[ok](../common-options.md#ok)                                     |                                                             |
-| <a id="check_dns_debug"></a>[debug](../common-options.md#debug)                            | false                                                       |
-| <a id="check_dns_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                       |
-| <a id="check_dns_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                     |
-| <a id="check_dns_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                             |
-| <a id="check_dns_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                       |
-| <a id="check_dns_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                           |
-| <a id="check_dns_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                                  |
-| <a id="check_dns_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)                                          |
-| <a id="check_dns_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No DNS lookup performed                                     |
-| <a id="check_dns_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${host} -> ${addresses} (${count}) in ${time}ms [${result}] |
-| <a id="check_dns_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${host}                                                     |
+| Option                                                                                     | Default Value                                                 |
+|--------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| <a id="check_dns_filter"></a>[filter](../common-options.md#filter)                         |                                                               |
+| <a id="check_dns_warning"></a>[warning](../common-options.md#warning)                      | time > 1000                                                   |
+| <a id="check_dns_warn"></a>[warn](../common-options.md#warn)                               |                                                               |
+| <a id="check_dns_critical"></a>[critical](../common-options.md#critical)                   | result != 'ok'                                                |
+| <a id="check_dns_crit"></a>[crit](../common-options.md#crit)                               |                                                               |
+| <a id="check_dns_ok"></a>[ok](../common-options.md#ok)                                     |                                                               |
+| <a id="check_dns_debug"></a>[debug](../common-options.md#debug)                            | false                                                         |
+| <a id="check_dns_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                         |
+| <a id="check_dns_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                       |
+| <a id="check_dns_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                               |
+| <a id="check_dns_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                         |
+| <a id="check_dns_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                             |
+| <a id="check_dns_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                                    |
+| <a id="check_dns_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)                                            |
+| <a id="check_dns_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No DNS lookup performed                                       |
+| <a id="check_dns_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${host} -> ${addresses} (${records}) in ${time}ms [${result}] |
+| <a id="check_dns_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${host}                                                       |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -421,6 +423,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 |-----------|--------------------------------------------------------------------|
 | addresses | Comma separated list of resolved records                           |
 | host      | Hostname that was looked up                                        |
+| records   | Number of records returned by the resolver                         |
 | result    | Textual result of the lookup (ok, not_found, mismatch, error, ...) |
 | server    | DNS server used (empty for the system resolver)                    |
 | time      | Time taken by the lookup in milliseconds                           |
@@ -724,6 +727,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 | result          | Textual result of the check (ok, error, ...)                                                                                                                                                                                                                                |
 | size            | Size of the response body in bytes                                                                                                                                                                                                                                          |
 | ssl_expiry_days | Days until the server's TLS certificate expires; negative if already expired. Renders as 'no certificate' (and compares false against every number) for plain http, so `ssl_expiry_days < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests for that state. |
+| status_message  | HTTP status message                                                                                                                                                                                                                                                         |
 | time            | Time taken by the request in milliseconds                                                                                                                                                                                                                                   |
 | url             | Full URL that was requested                                                                                                                                                                                                                                                 |
 

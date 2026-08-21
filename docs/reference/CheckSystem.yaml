@@ -662,7 +662,7 @@ unix:
         crit: ''
         critical: charge < 10
         debug: 'false'
-        detail-syntax: '${name}: ${charge}% (${power_source}, ${status})'
+        detail-syntax: '${name}: ${charge}% (${power_source}, ${battery_status})'
         empty-state: warning
         empty-syntax: No battery found
         escape-html: 'false'
@@ -684,6 +684,10 @@ unix:
       - generic: false
         long_description: 'Whether a battery is present: ''true'' or ''false'''
         name: battery_present
+        short_description: ''
+      - generic: false
+        long_description: Charge status
+        name: battery_status
         short_description: ''
       - generic: false
         long_description: Battery charge percent
@@ -787,7 +791,7 @@ unix:
         name: kernel
         short_description: ''
       - generic: false
-        long_description: The current load for a given core (deprecated, use total)
+        long_description: The current load for a given core (deprecated, use usage)
         name: load
         short_description: ''
       - generic: false
@@ -797,6 +801,10 @@ unix:
       - generic: false
         long_description: The time frame to check
         name: time
+        short_description: ''
+      - generic: false
+        long_description: The current load used by user and system
+        name: usage
         short_description: ''
       - generic: false
         long_description: The current load used by user applications
@@ -844,7 +852,7 @@ unix:
       - warn_list
       common_options:
         crit: ''
-        critical: total > 95
+        critical: usage > 95
         debug: 'false'
         detail-syntax: 'user: ${user}% system: ${system}% iowait: ${iowait}% steal: ${steal}% idle: ${idle}%'
         empty-state: ignored
@@ -863,7 +871,7 @@ unix:
         show-default: ''
         top-syntax: '${status}: ${list}'
         warn: ''
-        warning: total > 90
+        warning: usage > 90
       fields:
       - generic: false
         long_description: Guest (incl. guest_nice) CPU utilization in percent
@@ -896,6 +904,10 @@ unix:
       - generic: false
         long_description: System/kernel CPU utilization in percent
         name: system
+        short_description: ''
+      - generic: false
+        long_description: Non-idle CPU utilization in percent (100 - idle - iowait)
+        name: usage
         short_description: ''
       - generic: false
         long_description: User (incl. nice) CPU utilization in percent
@@ -1021,6 +1033,10 @@ unix:
       - generic: false
         long_description: Package name
         name: name
+        short_description: ''
+      - generic: false
+        long_description: Package state; always 'installed' for listed packages
+        name: package_status
         short_description: ''
       - generic: false
         long_description: Maintainer (dpkg) / vendor (rpm); may be empty
@@ -1345,7 +1361,7 @@ unix:
       - warn_list
       common_options:
         crit: ''
-        critical: total > 100000
+        critical: throughput > 100000
         debug: 'false'
         detail-syntax: ${name} >${sent_human}/s <${received_human}/s
         empty-state: critical
@@ -1364,7 +1380,7 @@ unix:
         show-default: ''
         top-syntax: '${status}: ${list}'
         warn: ''
-        warning: total > 10000
+        warning: throughput > 10000
       fields:
       - generic: false
         long_description: The hardware (MAC) address
@@ -1386,6 +1402,10 @@ unix:
           \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
           \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: Link operational state (up/down/unknown)
+        name: link_status
         short_description: ''
       - generic: false
         long_description: Network interface name
@@ -1431,6 +1451,10 @@ unix:
         name: speed_bps
         short_description: ''
       - generic: false
+        long_description: Bytes total (received + sent) per second
+        name: throughput
+        short_description: ''
+      - generic: false
         long_description: Bytes total per second (human readable, auto-scaled)
         name: total_human
         short_description: ''
@@ -1472,7 +1496,7 @@ unix:
         crit: ''
         critical: security > 0
         debug: 'false'
-        detail-syntax: ${count} updates (${security} security) via ${manager}
+        detail-syntax: ${updates} updates available (${security} security) via ${manager}
         empty-state: ok
         empty-syntax: ''
         escape-html: 'false'
@@ -1487,9 +1511,9 @@ unix:
         perf-syntax: updates
         show-all: 'false'
         show-default: ''
-        top-syntax: '${status}: ${count} updates available (${security} security) via ${manager}'
+        top-syntax: '${status}: ${list}'
         warn: ''
-        warning: count > 0
+        warning: updates > 0
       fields:
       - generic: false
         long_description: Package manager used to query updates
@@ -1502,6 +1526,10 @@ unix:
       - generic: false
         long_description: Number of available security updates
         name: security
+        short_description: ''
+      - generic: false
+        long_description: Total number of available updates
+        name: updates
         short_description: ''
       info:
         description: Check for available OS package updates via the system package manager (apt/dnf/yum/zypper/pacman).
@@ -3026,7 +3054,7 @@ windows:
         crit: ''
         critical: charge < 10
         debug: 'false'
-        detail-syntax: '${name}: ${charge}% (${power_source}, ${status})'
+        detail-syntax: '${name}: ${charge}% (${power_source}, ${battery_status})'
         empty-state: warning
         empty-syntax: No battery found
         escape-html: 'false'
@@ -3048,6 +3076,11 @@ windows:
       - generic: false
         long_description: 'Whether a battery is present: ''true'' or ''false'''
         name: battery_present
+        short_description: ''
+      - generic: false
+        long_description: 'Battery status: ''charging'', ''discharging'', ''high'', ''low'', ''critical'',
+          ''no_battery'', or ''unknown'''
+        name: battery_status
         short_description: ''
       - generic: false
         long_description: Battery charge level in percent (0-100)
@@ -3147,7 +3180,7 @@ windows:
         name: kernel
         short_description: ''
       - generic: false
-        long_description: deprecated (use total instead)
+        long_description: deprecated (use usage instead)
         name: load
         short_description: ''
       - generic: false
@@ -3157,6 +3190,10 @@ windows:
       - generic: false
         long_description: The time frame to check
         name: time
+        short_description: ''
+      - generic: false
+        long_description: The current load used by user and system
+        name: usage
         short_description: ''
       - generic: false
         long_description: The current load used by user applications
@@ -3800,7 +3837,7 @@ windows:
       - warn_list
       common_options:
         crit: ''
-        critical: total > 100000
+        critical: throughput > 100000
         debug: 'false'
         detail-syntax: ${name} >${sent_human}/s <${received_human}/s
         empty-state: critical
@@ -3819,7 +3856,7 @@ windows:
         show-default: ''
         top-syntax: '${status}: ${list}'
         warn: ''
-        warning: total > 10000
+        warning: throughput > 10000
       fields:
       - generic: false
         long_description: The MAC address
@@ -3857,6 +3894,10 @@ windows:
           \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
           \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: Network connection status
+        name: link_status
         short_description: ''
       - generic: false
         long_description: Network interface name
@@ -3921,6 +3962,10 @@ windows:
         name: team_status
         short_description: ''
       - generic: false
+        long_description: Bytes total per second
+        name: throughput
+        short_description: ''
+      - generic: false
         long_description: Bytes total per second, formatted as a human-readable string (auto-scaled).
         name: total_human
         short_description: ''
@@ -3974,7 +4019,7 @@ windows:
         crit: ''
         critical: security > 0 or critical > 0
         debug: 'false'
-        detail-syntax: ${count} updates (${security} security, ${critical} critical)
+        detail-syntax: ${updates} updates available (${security} security, ${critical} critical)
         empty-state: ok
         empty-syntax: ''
         escape-html: 'false'
@@ -3989,9 +4034,9 @@ windows:
         perf-syntax: updates
         show-all: 'false'
         show-default: ''
-        top-syntax: '${status}: ${count} updates available (${security} security, ${critical} critical)'
+        top-syntax: '${status}: ${list}'
         warn: ''
-        warning: count > 0
+        warning: updates > 0
       fields:
       - generic: false
         long_description: Number of critical updates
@@ -4033,6 +4078,10 @@ windows:
       - generic: false
         long_description: 'Aggregated status: ok, warning, critical, pending, error'
         name: update_status
+        short_description: ''
+      - generic: false
+        long_description: Total number of available updates
+        name: updates
         short_description: ''
       info:
         description: Check for available Windows updates via the Windows Update Agent (WUA) API.
@@ -4281,6 +4330,10 @@ windows:
       - generic: false
         long_description: Install date of the newest hotfix (as reported by Windows)
         name: newest_installed
+        short_description: ''
+      - generic: false
+        long_description: Total number of installed hotfixes
+        name: patches
         short_description: ''
       - generic: false
         long_description: Number of hotfixes requested via the hotfix= option
@@ -4567,6 +4620,10 @@ windows:
         name: servicing
         short_description: ''
       - generic: false
+        long_description: Number of distinct pending-reboot signals currently set
+        name: signals
+        short_description: ''
+      - generic: false
         long_description: 1 if Windows Update has queued a reboot (WindowsUpdate\Auto Update\RebootRequired)
         name: windows_update
         short_description: ''
@@ -4593,7 +4650,7 @@ windows:
         crit: ''
         critical: error = 1 or blocked = 1 or user_intervention = 1
         debug: 'false'
-        detail-syntax: '${printer}: ''${document}'' by ${owner} (${status}, ${age}s)'
+        detail-syntax: '${printer}: ''${document}'' by ${owner} (${job_status}, ${age}s)'
         empty-state: ok
         empty-syntax: '%(status): No print jobs queued'
         escape-html: 'false'
@@ -4632,6 +4689,11 @@ windows:
       - generic: false
         long_description: Spooler job id
         name: id
+        short_description: ''
+      - generic: false
+        long_description: 'Job status words from the spooler: queued, printing, spooling, error, paused,
+          blocked, ...'
+        name: job_status
         short_description: ''
       - generic: false
         long_description: 1 when the job's printer is offline
@@ -4712,7 +4774,7 @@ windows:
         crit: ''
         critical: error = 1
         debug: 'false'
-        detail-syntax: '${printer}: ${status}, ${jobs} job(s)'
+        detail-syntax: '${printer}: ${printer_status}, ${jobs} job(s)'
         empty-state: ok
         empty-syntax: '%(status): No printers found'
         escape-html: 'false'
@@ -4779,6 +4841,10 @@ windows:
       - generic: false
         long_description: Printer / queue name
         name: printer
+        short_description: ''
+      - generic: false
+        long_description: 'Printer status: idle, printing, offline, stopped_printing, warmup, ...'
+        name: printer_status
         short_description: ''
       - generic: false
         long_description: Print server hosting the queue (empty for a local queue)

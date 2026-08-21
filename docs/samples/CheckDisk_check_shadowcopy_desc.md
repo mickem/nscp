@@ -19,6 +19,6 @@ and not inherently a problem. If snapshots are *required*, pass
 `empty-state=critical` so their absence is alerted.
 
 **Caveats:** shadow copies are transient (VSS deletes the oldest when storage
-fills), so a shrinking `count` or rising `used_pct` is an early warning that
+fills), so a shrinking `copies` or rising `used_pct` is an early warning that
 older restore points are being aged out. `max_size` is 0 when shadow storage is
 configured as "unbounded", which makes `used_pct` inert by design.

@@ -38,7 +38,8 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &filter_obj::get_name, "Network interface name")
-      .add_string_var("status", &filter_obj::get_status, "Link operational state (up/down/unknown)")
+      .add_string_var("link_status", &filter_obj::get_status, "Link operational state (up/down/unknown)")
+      .add_string_var("status", &filter_obj::get_status, "Deprecated alias for link_status (the name clashes with the generic status summary keyword).")
       .add_string_var("enabled", &filter_obj::get_enabled, "True if the interface link is up")
       .add_string_var("MAC", &filter_obj::get_mac, "The hardware (MAC) address");
 
@@ -46,7 +47,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("Bps", "", "_received")
       .add_int_var("sent", &filter_obj::get_sent, "Bytes sent per second")
       .add_int_perf("Bps", "", "_sent")
-      .add_int_var("total", &filter_obj::get_total, "Bytes total (received + sent) per second")
+      .add_int_var("throughput", &filter_obj::get_total, "Bytes total (received + sent) per second")
+      .add_int_perf("Bps")
+      .add_int_var("total", &filter_obj::get_total, "Deprecated alias for throughput (the name clashes with the generic total summary keyword).")
       .add_int_perf("Bps")
       .add_int_var("received_packets", &filter_obj::get_received_packets, "Packets received per second")
       .add_int_var("sent_packets", &filter_obj::get_sent_packets, "Packets sent per second")
@@ -69,7 +72,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("total_human", &filter_obj::get_total_human, "Bytes total per second (human readable, auto-scaled)");
 
   // The *_human strings above auto-scale; these let a template or a threshold
-  // pick the unit, e.g. `convert_bytes(total, 'MB') > 100` (#1392).
+  // pick the unit, e.g. `convert_bytes(throughput, 'MB') > 100` (#1392).
   parsers::where::format_functions::register_format_functions(registry_);
 }
 
@@ -79,7 +82,7 @@ void check_network(std::shared_ptr<pdh_thread> collector, const PB::Commands::Qu
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
   filter_type filter;
-  filter_helper.add_options("total > 10000", "total > 100000", "", filter.get_filter_syntax(), "critical");
+  filter_helper.add_options("throughput > 10000", "throughput > 100000", "", filter.get_filter_syntax(), "critical");
   filter_helper.add_syntax("${status}: ${list}", "${name} >${sent_human}/s <${received_human}/s", "${name}", "",
                            "%(status): Network interfaces seem ok.");
 

@@ -22,9 +22,9 @@ common:
       - warn_list
       common_options:
         crit: ''
-        critical: total > 2000
+        critical: total_connections > 2000
         debug: 'false'
-        detail-syntax: '${protocol}/${state}: ${count}'
+        detail-syntax: '${protocol}/${state}: ${connections}'
         empty-state: ignored
         empty-syntax: No connection data
         escape-html: 'false'
@@ -41,7 +41,7 @@ common:
         show-default: ''
         top-syntax: '${status}: ${list}'
         warn: ''
-        warning: total > 1000
+        warning: total_connections > 1000
       fields:
       - generic: false
         long_description: Number of TCP connections in CLOSE_WAIT state (total bucket)
@@ -50,6 +50,10 @@ common:
       - generic: false
         long_description: Number of TCP connections in CLOSING state (total bucket)
         name: closing
+        short_description: ''
+      - generic: false
+        long_description: Number of connections matching this bucket
+        name: connections
         short_description: ''
       - generic: false
         long_description: Number of TCP connections in ESTABLISHED state (total bucket)
@@ -92,6 +96,10 @@ common:
         name: time_wait
         short_description: ''
       - generic: false
+        long_description: Total number of connections (only on the 'total' bucket)
+        name: total_connections
+        short_description: ''
+      - generic: false
         long_description: Number of UDP sockets (total bucket)
         name: udp
         short_description: ''
@@ -117,7 +125,7 @@ common:
         crit: ''
         critical: result != 'ok'
         debug: 'false'
-        detail-syntax: ${host} -> ${addresses} (${count}) in ${time}ms [${result}]
+        detail-syntax: ${host} -> ${addresses} (${records}) in ${time}ms [${result}]
         empty-state: ignored
         empty-syntax: No DNS lookup performed
         escape-html: 'false'
@@ -143,6 +151,10 @@ common:
       - generic: false
         long_description: Hostname that was looked up
         name: host
+        short_description: ''
+      - generic: false
+        long_description: Number of records returned by the resolver
+        name: records
         short_description: ''
       - generic: false
         long_description: Textual result of the lookup (ok, not_found, mismatch, error, ...)
@@ -325,6 +337,10 @@ common:
           Renders as 'no certificate' (and compares false against every number) for plain http, so `ssl_expiry_days
           < 30` cannot fire there; `ssl_expiry_days = 'no certificate'` tests for that state.
         name: ssl_expiry_days
+        short_description: ''
+      - generic: false
+        long_description: HTTP status message
+        name: status_message
         short_description: ''
       - generic: false
         long_description: Time taken by the request in milliseconds

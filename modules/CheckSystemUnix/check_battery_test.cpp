@@ -333,6 +333,25 @@ TEST(CheckBattery, default_critical_threshold_is_10_percent) {
   EXPECT_EQ(run_check(sysfs, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
 
+TEST(CheckBattery, battery_status_keyword_and_deprecated_status_alias_both_parse) {
+  FakeSysfs sysfs;
+  sysfs.add_attr("BAT0", "type", "Battery");
+  sysfs.add_attr("BAT0", "status", "Charging");
+  sysfs.add_attr("BAT0", "capacity", "80");
+
+  // "status" is a deprecated alias for "battery_status" (which was renamed to
+  // avoid clashing with the generic status summary keyword); both must parse.
+  for (const std::string &keyword : {std::string("battery_status"), std::string("status")}) {
+    PB::Commands::QueryRequestMessage::Request request;
+    PB::Commands::QueryResponseMessage::Response response;
+    request.set_command("check_battery");
+    request.add_arguments("filter=" + keyword + " = 'charging'");
+    battery_check::check_battery(request, &response, battery_check::read_battery_from(sysfs.root()));
+    EXPECT_EQ(response.result(), PB::Common::ResultCode::OK) << keyword << ": " << join_lines(response);
+    EXPECT_NE(join_lines(response).find("80%"), std::string::npos) << keyword << ": " << join_lines(response);
+  }
+}
+
 TEST(CheckBattery, battery_present_keyword_and_present_alias_both_parse) {
   FakeSysfs sysfs;
   sysfs.add_attr("BAT0", "type", "Battery");

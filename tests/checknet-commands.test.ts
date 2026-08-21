@@ -677,6 +677,29 @@ describe("CheckNet commands", () => {
     expect(bare.result).toBe(OK);
   });
 
+  it("check_http exposes the HTTP status message as status_message (status stays a deprecated alias)", async () => {
+    // The record keyword was renamed from `status`, which clashed with the
+    // generic status summary keyword (and shadowed it in filters); the old name
+    // stays registered as a deprecated alias so existing filters keep working.
+    const s = await startHttp((_req, res) => {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("ok");
+    });
+    const q = await executeQuery(key, "check_http", {
+      url: `http://127.0.0.1:${s.port}/`,
+      "top-syntax": "${list}",
+      "detail-syntax": "msg=[${status_message}] alias=[${status}]",
+    });
+    expect(q.result).toBe(OK);
+    // The status-line reason phrase is passed through verbatim (including the
+    // separator whitespace around it), so compare the two renderings to each
+    // other and only pin the trimmed value.
+    const m = messageOf(q).match(/msg=\[([\s\S]*?)\] alias=\[([\s\S]*?)\]/);
+    expect(m).not.toBeNull();
+    expect(m?.[1].trim()).toBe("OK");
+    expect(m?.[2]).toBe(m?.[1]);
+  });
+
   it("check_http emits response-time, status-code and size perfdata", async () => {
     const s = await startHttp((_req, res) => {
       res.writeHead(200, { "Content-Type": "text/plain" });
@@ -779,6 +802,48 @@ describe("CheckNet commands", () => {
     });
     expect(messageOf(q)).not.toMatch(/does not take any arguments/);
     expect(q.result).toBe(OK);
+  });
+
+  it("check_dns exposes the record count as records (count stays a deprecated alias)", async () => {
+    // Renamed from `count`, which clashed with the generic count summary
+    // keyword; the old name stays registered as a deprecated alias.
+    const s = await startDnsResponder([93, 184, 216, 34]);
+    const q = await executeQuery(key, "check_dns", {
+      host: "example.com",
+      type: "A",
+      server: "127.0.0.1",
+      port: String(s.port),
+      critical: "records < 1",
+      "top-syntax": "${list}",
+      "detail-syntax": "records=${records} alias=${count}",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toBe("records=1 alias=1");
+  });
+
+  // --- check_connections ------------------------------------------------------
+
+  it("check_connections reports the total bucket via connections/total_connections", async () => {
+    // `count`/`total` clashed with the generic summary keywords, so the record
+    // keywords are `connections`/`total_connections`; the old names remain as
+    // deprecated aliases. Thresholds are pinned so live host state cannot flip
+    // the result: the nscp REST connection itself guarantees at least one
+    // connection exists.
+    const q = await executeQuery(key, "check_connections", {
+      warning: "none",
+      critical: "total_connections < 1",
+      "top-syntax": "${list}",
+      "detail-syntax": "c=${connections} t=${total_connections} ac=${count} at=${total}",
+    });
+    expect(q.result).toBe(OK);
+    const m = messageOf(q).match(/^c=(\d+) t=(\d+) ac=(\d+) at=(\d+)$/);
+    expect(m).not.toBeNull();
+    // On the default 'total' bucket the per-bucket count equals the total, and
+    // each deprecated alias must render the same value as its new name.
+    expect(Number(m?.[1])).toBeGreaterThan(0);
+    expect(m?.[2]).toBe(m?.[1]);
+    expect(m?.[3]).toBe(m?.[1]);
+    expect(m?.[4]).toBe(m?.[1]);
   });
 
   // --- check_ntp_offset -----------------------------------------------------

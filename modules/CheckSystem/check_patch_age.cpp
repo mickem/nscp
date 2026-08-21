@@ -126,7 +126,8 @@ patch_obj build_patch_obj(const std::vector<hotfix_entry> &entries, const std::v
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
-  registry_.add_int_var("count", &patch_obj::get_count, "Total number of installed hotfixes")
+  registry_.add_int_var("patches", &patch_obj::get_count, "Total number of installed hotfixes")
+      .add_int_var("count", &patch_obj::get_count, "Deprecated alias for patches (the name clashes with the generic count summary keyword).")
       .add_int_var("age", &patch_obj::get_age, "Days since the newest hotfix was installed (-1 if the install date is unknown)")
       .add_int_var("required", &patch_obj::get_required, "Number of hotfixes requested via the hotfix= option")
       .add_int_var("missing", &patch_obj::get_missing, "Number of requested hotfixes that are not installed");
@@ -151,7 +152,7 @@ void check_patch_age_from(const PB::Commands::QueryRequestMessage::Request &requ
   // opt-in via warn=/crit=. There is always exactly one row.
   filter_helper.add_options("", "missing > 0", "", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${list}", "${message}", "patch", "", "");
-  filter_helper.set_default_perf_config("extra(age;count;missing)");
+  filter_helper.set_default_perf_config("extra(age;patches;missing)");
 
   // clang-format off
   filter_helper.get_desc().add_options()

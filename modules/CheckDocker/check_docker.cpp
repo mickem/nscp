@@ -134,7 +134,9 @@ struct container_obj_handler : public container_context {
         .add_string_var("container_state", &container_obj::get_state,
                         "Container state: created, restarting, running, removing, paused, exited, dead or missing (a requested container the daemon does not "
                         "know about)")
-        .add_string_var("status", &container_obj::get_status, "Human readable status, e.g. 'Up 3 hours (healthy)'")
+        .add_string_var("container_status", &container_obj::get_status, "Human readable status, e.g. 'Up 3 hours (healthy)'")
+        .add_string_var("status", &container_obj::get_status,
+                        "Deprecated alias for container_status (the name clashes with the generic status summary keyword)")
         .add_string_var("health", &container_obj::get_health, "Health-check state: healthy, unhealthy, starting or empty when the container has no health check")
         .add_string_var("ip", &container_obj::get_ip, "First IP address on any network the container is attached to")
         .add_string_var("ports", &container_obj::get_ports, "Published/exposed ports, e.g. 0.0.0.0:8080->80/tcp")

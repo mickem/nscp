@@ -29,7 +29,7 @@ OK: No reboot pending
 **Custom output showing the number of signals and the reasons:**
 
 ```
-check_pending_reboot "top-syntax=%(status): %(list)" "detail-syntax=%(count) signal(s): %(reasons)"
+check_pending_reboot "top-syntax=%(status): %(list)" "detail-syntax=%(signals) signal(s): %(reasons)"
 WARNING: 1 signal(s): pending file rename
 ```
 

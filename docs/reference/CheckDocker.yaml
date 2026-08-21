@@ -79,6 +79,10 @@ unix:
         name: container_state
         short_description: ''
       - generic: false
+        long_description: Human readable status, e.g. 'Up 3 hours (healthy)'
+        name: container_status
+        short_description: ''
+      - generic: false
         long_description: When the container was created (date)
         name: created
         short_description: ''
@@ -640,6 +644,10 @@ windows:
         long_description: 'Container state: created, restarting, running, removing, paused, exited, dead
           or missing (a requested container the daemon does not know about)'
         name: container_state
+        short_description: ''
+      - generic: false
+        long_description: Human readable status, e.g. 'Up 3 hours (healthy)'
+        name: container_status
         short_description: ''
       - generic: false
         long_description: When the container was created (date)

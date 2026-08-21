@@ -10,22 +10,22 @@ To simply check if there are any pending updates:
 check_os_updates
 ```
 
-If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `count > 0`).
+If there are any pending updates, this will return a warning state by default (because the default `warning` filter is `updates > 0`; `count` remains a deprecated alias for `updates`).
 
-**Checking for critical updates**
+**Checking for security updates only**
 
-Often, you only want to be alerted if there are *security* or *critical* updates missing. You can configure this using the `warning` and `critical` filters:
+Often, you only want to be alerted for *security* updates. You can configure this using the `warning` and `critical` filters:
 
 ```
-check_os_updates "warning=important > 0" "critical=security > 0 or critical > 0"
+check_os_updates "warning=none" "critical=security > 0"
 ```
 
-This will return `WARNING` if there are updates with the 'Important' severity, and `CRITICAL` if there are any security updates or updates explicitly marked 'Critical'.
+This will return `CRITICAL` if any security updates are pending and otherwise `OK` regardless of the number of ordinary updates.
 
 **Customizing the output**
 
-You can use the syntax options to format the output string. For example, to list out the update titles:
+You can use the syntax options to format the output string. For example, to list the pending package names (note that `updates`/`security` are record keywords, so reference them in `detail-syntax` — in `top-syntax` they render as 0):
 
 ```
-check_os_updates "top-syntax=${status}: Found ${count} missing updates. Security: ${security}, Critical: ${critical}" "detail-syntax=${titles}" show-all
+check_os_updates "detail-syntax=${updates} updates via ${manager}: ${packages}" show-all
 ```

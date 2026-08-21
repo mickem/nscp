@@ -102,7 +102,8 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("printer", &job_info::get_printer, "Printer / queue the job is waiting on")
       .add_string_var("document", &job_info::get_document, "Document name as the application submitted it")
       .add_string_var("owner", &job_info::get_owner, "User who submitted the job")
-      .add_string_var("status", &job_info::get_status, "Job status words from the spooler: queued, printing, spooling, error, paused, blocked, ...")
+      .add_string_var("job_status", &job_info::get_status, "Job status words from the spooler: queued, printing, spooling, error, paused, blocked, ...")
+      .add_string_var("status", &job_info::get_status, "Deprecated alias for job_status (the name clashes with the generic status summary keyword).")
       .add_string_var("submitted", &job_info::get_submitted, "When the job was submitted, in UTC, or 'unknown'; threshold on age instead");
   registry_.add_int_var("id", type_int, &job_info::get_id, "Spooler job id")
       .no_perf()
@@ -150,7 +151,7 @@ void check_printjobs_from(const PB::Commands::QueryRequestMessage::Request &requ
   // and WARNING on a job that has been waiting more than ten minutes. An empty
   // queue is the normal state, so empty_state is ok.
   filter_helper.add_options("age > 600", "error = 1 or blocked = 1 or user_intervention = 1", "", filter.get_filter_syntax(), "ok");
-  filter_helper.add_syntax("${status}: ${list}", "${printer}: '${document}' by ${owner} (${status}, ${age}s)", "${printer}_${id}",
+  filter_helper.add_syntax("${status}: ${list}", "${printer}: '${document}' by ${owner} (${job_status}, ${age}s)", "${printer}_${id}",
                            "%(status): No print jobs queued", "%(status): All %(count) job(s) ok.");
   filter_helper.set_default_perf_config("extra(count)");
 

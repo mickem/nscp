@@ -76,8 +76,9 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &util_obj::get_name, "Always 'total' (single aggregate row)");
 
   // Perf is emitted via the extra() perf-config; the default perf generator
-  // names each metric "cpu_<keyword>" (e.g. cpu_total, cpu_iowait).
-  registry_.add_float("total", &util_obj::get_total, "Non-idle CPU utilization in percent (100 - idle - iowait)");
+  // names each metric "cpu_<keyword>" (e.g. cpu_usage, cpu_iowait).
+  registry_.add_float("usage", &util_obj::get_total, "Non-idle CPU utilization in percent (100 - idle - iowait)");
+  registry_.add_float("total", &util_obj::get_total, "Deprecated alias for usage (the name clashes with the generic total summary keyword).");
   registry_.add_float("user", &util_obj::get_user, "User (incl. nice) CPU utilization in percent");
   registry_.add_float("system", &util_obj::get_system, "System/kernel CPU utilization in percent");
   registry_.add_float("iowait", &util_obj::get_iowait, "I/O-wait CPU utilization in percent");
@@ -94,10 +95,10 @@ void check_cpu_utilization_from(const PB::Commands::QueryRequestMessage::Request
   modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
   filter_type filter;
-  filter_helper.add_options("total > 90", "total > 95", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_options("usage > 90", "usage > 95", "", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${list}", "user: ${user}% system: ${system}% iowait: ${iowait}% steal: ${steal}% idle: ${idle}%", "cpu", "", "");
-  // Emit the full breakdown as perf data (not just the thresholded 'total').
-  filter_helper.set_default_perf_config("extra(total;user;system;iowait;irq;softirq;steal;guest;idle)");
+  // Emit the full breakdown as perf data (not just the thresholded 'usage').
+  filter_helper.set_default_perf_config("extra(usage;user;system;iowait;irq;softirq;steal;guest;idle)");
 
   if (!filter_helper.parse_options()) return;
 

@@ -57,10 +57,9 @@ same class where it is exposed and otherwise from `SLIsGenuineLocal` in
 By default only Windows itself is reported. `all-products=true` adds every other
 licensed product with an installed key (Office, for instance).
 
-The `status` keyword renders the licensing status as a word: `licensed`,
-`unlicensed`, `initial_grace`, `additional_grace`, `non_genuine_grace`,
-`notification` or `extended_grace` (the raw number is available as
-`license_status`).
+The `activation_status` keyword renders the licensing status as a word (the raw
+number is available as `license_status`). The old name `status` still works as a
+deprecated alias, but clashes with the generic status summary keyword.
 
 Options:
 
@@ -110,7 +109,7 @@ L        cli CRITICAL: Windows(R), Professional edition: initial_grace (genuine,
 **Show the channel, genuine state and remaining grace period**
 
 ```
-check_activation "top-syntax=${status}: ${list}" "detail-syntax=${name} [${channel}] status=${status} genuine=${genuine_state} grace=${grace_days}d"
+check_activation "top-syntax=${status}: ${list}" "detail-syntax=${name} [${channel}] status=${activation_status} genuine=${genuine_state} grace=${grace_days}d"
 L        cli OK: Windows(R), Professional edition [Volume:GVLK] status=licensed genuine=genuine grace=178d|'license_grace'=178d;0;0
 ```
 
@@ -129,7 +128,7 @@ L        cli WARNING: Windows(R), Professional edition: licensed (genuine, grace
 Give each product its own perfdata label when you do.
 
 ```
-check_activation all-products=true "detail-syntax=${name}: ${status}" "perf-syntax=${key}"
+check_activation all-products=true "detail-syntax=${name}: ${activation_status}" "perf-syntax=${key}"
 L        cli OK: Windows(R), Professional edition: licensed, Office 16, Office16ProPlus edition: licensed|'W269N_grace'=0d;0;0 '6MWKP_grace'=0d;0;0
 ```
 
@@ -204,7 +203,7 @@ These options are shared by all filter based commands and are described on the [
 | <a id="check_activation_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                  |
 | <a id="check_activation_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): ${list}                                                                  |
 | <a id="check_activation_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No licensing information found (Software Licensing service unavailable?) |
-| <a id="check_activation_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${status} (${genuine_state}, grace ${grace_days}d)                         |
+| <a id="check_activation_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${activation_status} (${genuine_state}, grace ${grace_days}d)              |
 | <a id="check_activation_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | license                                                                             |
 
 
@@ -216,6 +215,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 
 | Option                | Description                                                                                                                             |
 |-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| activation_status     | Licensing status as a word: licensed, unlicensed, initial_grace, additional_grace, non_genuine_grace, notification, extended_grace      |
 | channel               | Product key channel: Retail, Volume:MAK, Volume:GVLK, OEM, ...                                                                          |
 | description           | Product description including the licensing channel                                                                                     |
 | genuine               | True when Windows reports itself as genuine (false also when it could not be determined)                                                |

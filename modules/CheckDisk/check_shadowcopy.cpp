@@ -135,7 +135,7 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("volume", &filter_obj::get_volume, "Volume the shadow copies belong to (VolumeName device path)")
       .add_string_var("newest_date", &filter_obj::get_newest_date, "Timestamp of the newest shadow copy on this volume (UTC)");
   // Distinct perf suffixes so co-referenced metrics each get their own series.
-  registry_.add_int_var("count", &filter_obj::get_count, "Number of shadow copies on this volume")
+  registry_.add_int_var("copies", &filter_obj::get_count, "Number of shadow copies on this volume")
       .add_int_perf("", "", "_count")
       .add_int_var("newest", type_int, &filter_obj::get_newest,
                    "Seconds since the newest shadow copy (-1 if unknown); threshold with durations, e.g. newest > 26h")
@@ -148,6 +148,13 @@ filter_obj_handler::filter_obj_handler() {
       .no_perf()
       .add_int_var("used_pct", &filter_obj::get_used_pct, "Percentage of the shadow-storage maximum in use (0 when max_size is unbounded)")
       .add_int_perf("%", "", "_used_pct");
+
+  // Deprecated alias: `count` predates the rename to `copies` (the name clashes
+  // with the generic `count` summary keyword, which shadows it in top-syntax and
+  // in the generated docs). Kept so existing filters keep working; same perf
+  // spec so existing graphs keep their series.
+  registry_.add_int_var("count", &filter_obj::get_count, "Deprecated alias for copies (the name clashes with the generic count summary keyword).")
+      .add_int_perf("", "", "_count");
 
   // Shadow storage is reported in raw bytes and the filter grammar has no
   // arithmetic, so without these a template can only print the raw count.
@@ -164,7 +171,7 @@ void check_shadowcopy(const PB::Commands::QueryRequestMessage::Request &request,
   // no shadow copies is common and not inherently a problem; require snapshots
   // explicitly with empty-state=critical.
   filter_helper.add_options("newest > 26h", "newest > 50h", "", filter.get_filter_syntax(), "ok");
-  filter_helper.add_syntax("${status}: ${list}", "${volume}: ${count} copies, newest ${newest_date}", "${volume}", "%(status): No shadow copies found",
+  filter_helper.add_syntax("${status}: ${list}", "${volume}: ${copies} copies, newest ${newest_date}", "${volume}", "%(status): No shadow copies found",
                            "%(status): All %(count) volume(s) have recent shadow copies.");
 
   if (!filter_helper.parse_options()) return;

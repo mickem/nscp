@@ -16,7 +16,7 @@ L        cli CRITICAL: Windows(R), Professional edition: initial_grace (genuine,
 **Show the channel, genuine state and remaining grace period**
 
 ```
-check_activation "top-syntax=${status}: ${list}" "detail-syntax=${name} [${channel}] status=${status} genuine=${genuine_state} grace=${grace_days}d"
+check_activation "top-syntax=${status}: ${list}" "detail-syntax=${name} [${channel}] status=${activation_status} genuine=${genuine_state} grace=${grace_days}d"
 L        cli OK: Windows(R), Professional edition [Volume:GVLK] status=licensed genuine=genuine grace=178d|'license_grace'=178d;0;0
 ```
 
@@ -35,7 +35,7 @@ L        cli WARNING: Windows(R), Professional edition: licensed (genuine, grace
 Give each product its own perfdata label when you do.
 
 ```
-check_activation all-products=true "detail-syntax=${name}: ${status}" "perf-syntax=${key}"
+check_activation all-products=true "detail-syntax=${name}: ${activation_status}" "perf-syntax=${key}"
 L        cli OK: Windows(R), Professional edition: licensed, Office 16, Office16ProPlus edition: licensed|'W269N_grace'=0d;0;0 '6MWKP_grace'=0d;0;0
 ```
 

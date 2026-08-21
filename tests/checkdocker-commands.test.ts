@@ -72,10 +72,11 @@ maybeDescribe("CheckDocker commands", () => {
   it("check_docker exposes image/health/ip/created keywords", async () => {
     const out = await query("check_docker", [
       `filter=names = '${probeName}'`,
-      "detail-syntax=%(names) image=%(image) state=%(container_state)",
+      "detail-syntax=%(names) image=%(image) state=%(container_state) status=[%(container_status)]",
       "top-syntax=${list}",
     ]);
-    expect(out).toMatch(new RegExp(`${probeName} image=alpine:3 state=running`));
+    // container_status is the human readable status, e.g. "Up 3 hours (healthy)".
+    expect(out).toMatch(new RegExp(`${probeName} image=alpine:3 state=running status=\\[Up [^\\]]+\\]`));
   });
 
   it("check_docker_info reports daemon version and counts with perf data", async () => {

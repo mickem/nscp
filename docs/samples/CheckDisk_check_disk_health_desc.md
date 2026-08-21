@@ -2,8 +2,8 @@
 of row, each judged only on the data that is real for it:
 
 * **Space rows** (`has_space = 1`) — one per mounted filesystem, with
-  `free`/`used`/`free_pct`/`used_pct`/`user_free` and the I/O of the backing
-  device.
+  `size`/`free`/`used`/`free_pct`/`used_pct`/`user_free` and the I/O of the
+  backing device.
 * **I/O rows** (`has_space = 0`, `has_device = 0`) — devices/totals with no
   mounted filesystem (e.g. `_Total`), judged on `percent_disk_time` and queue.
 * **Device rows** (`has_device = 1`) — one per physical disk (Windows only,

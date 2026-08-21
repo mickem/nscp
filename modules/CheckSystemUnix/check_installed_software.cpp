@@ -27,7 +27,8 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("publisher", &software_entry::get_publisher, "Maintainer (dpkg, email stripped) / vendor (rpm); empty for pacman")
       .add_string_var("architecture", &software_entry::get_architecture, "Package architecture (amd64, x86_64, noarch, ...)")
       .add_string_var("manager", &software_entry::get_manager, "Package manager the entry came from (dpkg, rpm, pacman)")
-      .add_string_var("status", &software_entry::get_status, "Package state; always 'installed' for listed packages")
+      .add_string_var("package_status", &software_entry::get_status, "Package state; always 'installed' for listed packages")
+      .add_string_var("status", &software_entry::get_status, "Deprecated alias for package_status (the name clashes with the generic status summary keyword).")
       .add_string_var("install_date_s", &software_entry::get_install_date_str, "Install date as YYYY-MM-DD; empty when unknown");
   registry_.add_int_var("install_date", type_date, &software_entry::get_install_date,
                         "Install date (supports date expressions such as 'install_date > -30d'); unset when the manager does not record one")

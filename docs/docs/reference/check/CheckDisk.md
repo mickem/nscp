@@ -51,8 +51,8 @@ Combined per-drive health check (free space + I/O metrics).
 of row, each judged only on the data that is real for it:
 
 * **Space rows** (`has_space = 1`) — one per mounted filesystem, with
-  `free`/`used`/`free_pct`/`used_pct`/`user_free` and the I/O of the backing
-  device.
+  `size`/`free`/`used`/`free_pct`/`used_pct`/`user_free` and the I/O of the
+  backing device.
 * **I/O rows** (`has_space = 0`, `has_device = 0`) — devices/totals with no
   mounted filesystem (e.g. `_Total`), judged on `percent_disk_time` and queue.
 * **Device rows** (`has_device = 1`) — one per physical disk (Windows only,
@@ -189,6 +189,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 | reads_per_sec       | Read IOPS                                                                                                          |
 | scale()             | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
 | serial              | Physical disk serial number (device rows)                                                                          |
+| size                | Total disk size in bytes (I/O-only rows have none)                                                                 |
 | split_io_per_sec    | Split I/O operations per second                                                                                    |
 | total_bytes_per_sec | Total bytes per second (read + write)                                                                              |
 | total_latency       | Average latency per I/O (read + write) in milliseconds (over the collection interval)                              |
@@ -1503,7 +1504,7 @@ and not inherently a problem. If snapshots are *required*, pass
 `empty-state=critical` so their absence is alerted.
 
 **Caveats:** shadow copies are transient (VSS deletes the oldest when storage
-fills), so a shrinking `count` or rising `used_pct` is an early warning that
+fills), so a shrinking `copies` or rising `used_pct` is an early warning that
 older restore points are being aged out. `max_size` is 0 when shadow storage is
 configured as "unbounded", which makes `used_pct` inert by design.
 
@@ -1555,14 +1556,14 @@ WARNING: \\?\Volume{4c2b...}\: 20 copies, newest 2026-07-11 07:00:03 UTC
 **Require at least a minimum number of restore points per volume:**
 
 ```
-check_shadowcopy "critical=count < 3"
+check_shadowcopy "critical=copies < 3"
 OK: \\?\Volume{4c2b...}\: 12 copies, newest 2026-07-11 07:00:03 UTC
 ```
 
 **Custom output with counts and storage usage:**
 
 ```
-check_shadowcopy "top-syntax=%(status): %(list)" "detail-syntax=%(volume): %(count) copies, %(used) of %(max_size) used (%(used_pct)%)"
+check_shadowcopy "top-syntax=%(status): %(list)" "detail-syntax=%(volume): %(copies) copies, %(used) of %(max_size) used (%(used_pct)%)"
 OK: \\?\Volume{4c2b...}\: 12 copies, 1610612736 of 10737418240 used (15%)
 ```
 
@@ -1600,7 +1601,7 @@ These options are shared by all filter based commands and are described on the [
 | <a id="check_shadowcopy_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                           |
 | <a id="check_shadowcopy_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) volume(s) have recent shadow copies. |
 | <a id="check_shadowcopy_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No shadow copies found                            |
-| <a id="check_shadowcopy_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${volume}: ${count} copies, newest ${newest_date}            |
+| <a id="check_shadowcopy_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${volume}: ${copies} copies, newest ${newest_date}           |
 | <a id="check_shadowcopy_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${volume}                                                    |
 
 
@@ -1614,6 +1615,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 |-----------------|--------------------------------------------------------------------------------------------------------------------|
 | allocated       | Shadow storage currently allocated in bytes                                                                        |
 | convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
+| copies          | Number of shadow copies on this volume                                                                             |
 | format_bytes()  | Format a number as a human-readable byte string.                                                                   |
 | max_size        | Shadow storage maximum in bytes (0 if unbounded/unresolved)                                                        |
 | newest          | Seconds since the newest shadow copy (-1 if unknown); threshold with durations, e.g. newest > 26h                  |

@@ -65,6 +65,17 @@
   perfdata), driven by `modern_filter::cli_helper` (`add_options(warn, crit,
   filter, syntax, empty_state)` + `add_syntax(top, detail, perf, empty, ok)`).
   See `CheckDisk/check_single_file.cpp` for a minimal template.
+- **Never name a check keyword after a generic summary keyword.** These names
+  are reserved by the filter engine (`generic_summary` in
+  `parsers/where/filter_handler_impl.hpp`): `count`, `total`, `ok_count`,
+  `warn_count`, `crit_count`, `problem_count`, `list`, `ok_list`, `warn_list`,
+  `crit_list`, `problem_list`, `detail_list`, `sep`, `status`. A check keyword
+  with one of these names half-works: it wins in `filter`/`warning`/`critical`
+  and `detail-syntax`, but `top-syntax` resolves the generic summary value and
+  the reference docs show the generic description instead of yours (the docs
+  pipeline folds it into the common keywords). Pick a distinct name
+  (`battery_status`, `updates`, `usage`, …); qualify with the check's noun when
+  in doubt.
 - Unit-test binaries have no generated module glue, so they must define the
   plugin singleton themselves (normally provided by `NSC_WRAP_DLL()`):
   `nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();`

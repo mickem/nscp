@@ -30,7 +30,9 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("host", &filter_obj::get_host, "Host part of the URL");
   registry_.add_string_var("path", &filter_obj::get_path, "Path part of the URL");
   registry_.add_string_var("protocol", &filter_obj::get_protocol, "Protocol used (http or https)");
-  registry_.add_string_var("status", &filter_obj::get_status, "HTTP status message");
+  registry_.add_string_var("status_message", &filter_obj::get_status, "HTTP status message");
+  registry_.add_string_var("status", &filter_obj::get_status,
+                           "Deprecated alias for status_message (the name clashes with the generic status summary keyword).");
   registry_.add_string_var("body", &filter_obj::get_body, "Body of the response (use with substr/regex matching)");
   registry_.add_string_var("result", &filter_obj::get_result, "Textual result of the check (ok, error, ...)");
   registry_.add_int_var("port", parsers::where::type_int, &filter_obj::get_port, "TCP port that was used");

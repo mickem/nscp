@@ -14,10 +14,9 @@ same class where it is exposed and otherwise from `SLIsGenuineLocal` in
 By default only Windows itself is reported. `all-products=true` adds every other
 licensed product with an installed key (Office, for instance).
 
-The `status` keyword renders the licensing status as a word: `licensed`,
-`unlicensed`, `initial_grace`, `additional_grace`, `non_genuine_grace`,
-`notification` or `extended_grace` (the raw number is available as
-`license_status`).
+The `activation_status` keyword renders the licensing status as a word (the raw
+number is available as `license_status`). The old name `status` still works as a
+deprecated alias, but clashes with the generic status summary keyword.
 
 Options:
 

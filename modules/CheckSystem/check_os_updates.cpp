@@ -303,7 +303,9 @@ filter_obj_handler::filter_obj_handler() {
   // Distinct perf suffixes so each counter renders as its own series
   // ('updates_count', 'updates_security', ...) rather than collapsing onto the
   // shared 'updates' perf-syntax alias.
-  registry_.add_int_var("count", &filter_obj::get_count, "Total number of available updates")
+  registry_.add_int_var("updates", &filter_obj::get_count, "Total number of available updates")
+      .add_int_perf("", "", "_count")
+      .add_int_var("count", &filter_obj::get_count, "Deprecated alias for updates (the name clashes with the generic count summary keyword).")
       .add_int_perf("", "", "_count")
       .add_int_var("security", &filter_obj::get_security, "Number of security updates")
       .add_int_perf("", "", "_security")
@@ -332,9 +334,13 @@ void check_os_updates(const PB::Commands::QueryRequestMessage::Request &request,
 
   filter_type filter;
   std::string update_filter;
-  filter_helper.add_options("count > 0", "security > 0 or critical > 0", "", filter.get_filter_syntax(), "ok");
-  filter_helper.add_syntax("${status}: ${count} updates available (${security} security, ${critical} critical)",
-                           "${count} updates (${security} security, ${critical} critical)", "updates", "", "%(status): No updates available.");
+  filter_helper.add_options("updates > 0", "security > 0 or critical > 0", "", filter.get_filter_syntax(), "ok");
+  // Top-syntax renders with no record attached (record variables read as 0
+  // there), so the update counts are rendered via ${list} from the
+  // detail-syntax. The old top-syntax referenced ${count}, which resolved to
+  // the generic matched-row count (always 1) rather than the number of updates.
+  filter_helper.add_syntax("${status}: ${list}", "${updates} updates available (${security} security, ${critical} critical)", "updates", "",
+                           "%(status): No updates available.");
   // clang-format off
   filter_helper.get_desc().add_options()
     ("update-filter", boost::program_options::value<std::string>(&update_filter),

@@ -397,10 +397,24 @@ onWindows("CheckSecurity (Windows posture)", () => {
     const out = await query("check_activation", [
       "warning=none",
       "critical=none",
-      "detail-syntax=status=${status} licensed=${licensed} windows=${is_windows} key=${key} grace=${grace_days}",
+      "detail-syntax=status=${activation_status} licensed=${licensed} windows=${is_windows} key=${key} grace=${grace_days}",
       "top-syntax=${list}",
     ]);
     expect(out).toMatch(/status=\w+ licensed=[01] windows=1 key=\S+ grace=\d+/);
+  });
+
+  it("check_activation still accepts the deprecated status alias", async () => {
+    // `status` used to be the word-form keyword before it was renamed to
+    // activation_status (it clashes with the generic status summary keyword);
+    // existing filters and detail-syntax templates must keep working.
+    const out = await query("check_activation", [
+      "warning=none",
+      "critical=none",
+      "filter=status != 'no_such_status'",
+      "detail-syntax=old=${status} new=${activation_status}",
+      "top-syntax=${list}",
+    ]);
+    expect(out).toMatch(/old=(\w+) new=\1/);
   });
 
   it("check_activation accepts its boolean options as valued flags", async () => {

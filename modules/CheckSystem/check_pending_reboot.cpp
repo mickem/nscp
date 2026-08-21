@@ -36,7 +36,8 @@ filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_int_var("pending", parsers::where::type_bool, &reboot_obj::get_pending,
                         "1 if any pending-reboot signal is set (the aggregate flag most checks threshold on)")
-      .add_int_var("count", &reboot_obj::get_count, "Number of distinct pending-reboot signals currently set")
+      .add_int_var("signals", &reboot_obj::get_count, "Number of distinct pending-reboot signals currently set")
+      .add_int_var("count", &reboot_obj::get_count, "Deprecated alias for signals (the name clashes with the generic count summary keyword).")
       .add_int_var("servicing", parsers::where::type_bool, &reboot_obj::get_servicing,
                    "1 if Component Based Servicing (CBS) has queued a reboot (the 'Component Based Servicing\\RebootPending' key exists)")
       .add_int_var("windows_update", parsers::where::type_bool, &reboot_obj::get_windows_update,
@@ -118,7 +119,7 @@ void check_pending_reboot_from(const PB::Commands::QueryRequestMessage::Request 
   // exactly one row, so the empty-state never applies.
   filter_helper.add_options("pending = 1", "", "", filter.get_filter_syntax(), "ignored");
   filter_helper.add_syntax("${status}: ${list}", "${message}", "reboot", "", "%(status): No reboot pending");
-  filter_helper.set_default_perf_config("extra(pending;count)");
+  filter_helper.set_default_perf_config("extra(pending;signals)");
 
   if (!filter_helper.parse_options()) return;
 

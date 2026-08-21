@@ -36,14 +36,14 @@ WARNING: \\?\Volume{4c2b...}\: 20 copies, newest 2026-07-11 07:00:03 UTC
 **Require at least a minimum number of restore points per volume:**
 
 ```
-check_shadowcopy "critical=count < 3"
+check_shadowcopy "critical=copies < 3"
 OK: \\?\Volume{4c2b...}\: 12 copies, newest 2026-07-11 07:00:03 UTC
 ```
 
 **Custom output with counts and storage usage:**
 
 ```
-check_shadowcopy "top-syntax=%(status): %(list)" "detail-syntax=%(volume): %(count) copies, %(used) of %(max_size) used (%(used_pct)%)"
+check_shadowcopy "top-syntax=%(status): %(list)" "detail-syntax=%(volume): %(copies) copies, %(used) of %(max_size) used (%(used_pct)%)"
 OK: \\?\Volume{4c2b...}\: 12 copies, 1610612736 of 10737418240 used (15%)
 ```
 

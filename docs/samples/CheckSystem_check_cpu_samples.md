@@ -46,9 +46,10 @@ L        cli OK: OK: Cpu usage is 26 %
 
 **Full user/system/idle breakdown as perfdata (parity with the Linux `check_cpu_utilization` graph):**
 
-`idle` and `system` now emit perfdata (previously only `total`/`user` did), so the
+`idle` and `system` now emit perfdata (previously only `usage`/`user` did), so the
 full breakdown graphs without a custom `top-syntax`. `kernel` is a deprecated alias
-of `system` and intentionally emits no separate perf column.
+of `system` and intentionally emits no separate perf column; `total` is a deprecated
+alias of `usage` (the name clashes with the generic `total` summary keyword).
 
 ```
 check_cpu "warn=idle < 5"

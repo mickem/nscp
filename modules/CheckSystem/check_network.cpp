@@ -354,7 +354,9 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &filter_obj::get_name, "Network interface name")
       .add_string_var("net_connection_id", &filter_obj::get_NetConnectionID, "Network connection id")
       .add_string_var("MAC", &filter_obj::get_MACAddress, "The MAC address")
-      .add_string_var("status", &filter_obj::get_NetConnectionStatus, "Network connection status")
+      .add_string_var("link_status", &filter_obj::get_NetConnectionStatus, "Network connection status")
+      .add_string_var("status", &filter_obj::get_NetConnectionStatus,
+                      "Deprecated alias for link_status (the name clashes with the generic status summary keyword).")
       .add_string_var("enabled", &filter_obj::get_NetEnabled, "True if the network interface is enabled")
       .add_string_var("speed", &filter_obj::get_Speed, "The network interface speed (raw WMI value, e.g. \"1000000000\" or \"Unknown\")")
       .add_string_var("source", &filter_obj::get_source, "WMI source: 'interface' or 'adapter'")
@@ -370,16 +372,18 @@ filter_obj_handler::filter_obj_handler() {
   // single combined value. Unit "Bps" (bytes/sec) matches the underlying
   // counter; consumers that prefer bits-per-sec can multiply by 8.
   //
-  // `total` is this check's primary metric and keeps the bare interface name,
-  // which is the label it has always been graphed under; the other directions
-  // carry their own suffix ('<iface>_received', ...). They all used to share
-  // the bare name, which put several metrics in one series as soon as two of
-  // them were referenced (#1392).
+  // `throughput` is this check's primary metric and keeps the bare interface
+  // name, which is the label it has always been graphed under; the other
+  // directions carry their own suffix ('<iface>_received', ...). They all used
+  // to share the bare name, which put several metrics in one series as soon as
+  // two of them were referenced (#1392).
   registry_.add_int_var("received", &filter_obj::getBytesReceivedPersec, "Bytes received per second")
       .add_int_perf("Bps", "", "_received")
       .add_int_var("sent", &filter_obj::getBytesSentPersec, "Bytes sent per second")
       .add_int_perf("Bps", "", "_sent")
-      .add_int_var("total", &filter_obj::getBytesTotalPersec, "Bytes total per second")
+      .add_int_var("throughput", &filter_obj::getBytesTotalPersec, "Bytes total per second")
+      .add_int_perf("Bps")
+      .add_int_var("total", &filter_obj::getBytesTotalPersec, "Deprecated alias for throughput (the name clashes with the generic total summary keyword).")
       .add_int_perf("Bps");
 
   // Packet-rate, error-rate and discard-rate counters. All are per-second rates
@@ -463,11 +467,11 @@ void check_network(const PB::Commands::QueryRequestMessage::Request &request, PB
   std::string mode = "interface";
 
   filter_type filter;
-  filter_helper.add_options("total > 10000", "total > 100000", "", filter.get_filter_syntax(), "critical");
+  filter_helper.add_options("throughput > 10000", "throughput > 100000", "", filter.get_filter_syntax(), "critical");
   // Default top-syntax now uses the human-readable byte-rate strings
   // (issue #329 #3) so operators see ">1.2 MB/s" instead of ">1234567 bps".
   // The raw byte-rate values are still available via `sent` / `received`
-  // / `total` for filter expressions, and they're emitted as perfdata
+  // / `throughput` for filter expressions, and they're emitted as perfdata
   // automatically (issue #329 #1). For percent-of-link thresholds use
   // `usage_in` / `usage_out` / `usage_total` after gating on
   // `speed_bps > 0` (issue #329 #2).
