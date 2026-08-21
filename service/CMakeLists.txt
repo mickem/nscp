@@ -325,6 +325,7 @@ NSCP_CREATE_TEST(
         plugins/dll_plugin_test.cpp
         plugins/plugin_list_test.cpp
         plugins/zip_plugin.cpp
+        plugins/zip_plugin_test.cpp
         commands_test.cpp
         commands.hpp
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp
