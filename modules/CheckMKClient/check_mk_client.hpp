@@ -55,7 +55,9 @@ struct check_mk_client_handler : public client::handler_interface {
   bool query(client::destination_container sender, client::destination_container target, const PB::Commands::QueryRequestMessage &request_message,
              PB::Commands::QueryResponseMessage &response_message) {
     const ::PB::Common::Header &request_header = request_message.header();
-    check_mk_client::connection_data con(sender, target);
+    // (target, sender), matching the ctor: the target's settings decide
+    // where to connect, not the sender's.
+    check_mk_client::connection_data con(target, sender);
 
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
