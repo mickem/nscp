@@ -126,23 +126,27 @@ gcovr_common=(
     --gcov-ignore-parse-errors
 )
 
-# gcov writes its .gcov output into the *current* directory, named after the
-# source file. Two objects that include the same header therefore produce the
-# same file name, so gcovr's parallel workers race: one deletes the file
-# another is still reading. The visible failure is a FileNotFoundError on some
-# .gcov half way through a run - but the quiet failure is worse, because
-# --gcov-ignore-parse-errors turns a lost file into silently missing coverage,
-# and the report still looks complete. Hence no -j here (the build and the
-# test runs above still use it), and a scratch cwd below so the temporary
-# .gcov files never land in the working tree.
-run_gcovr() {
-    local workdir rc=0
-    workdir="$(mktemp -d)"
-    # `|| rc=$?` so set -e does not abort before the scratch dir is removed.
-    ( cd "$workdir" && gcovr "$@" ) || rc=$?
-    rm -rf "$workdir"
-    return $rc
-}
+# gcov names its output after the source file and writes it into gcovr's
+# --root (not the current directory), so two objects that include the same
+# header produce the same path there. gcovr serialises its own workers on that
+# directory, but the guard is an in-process lock: a second gcovr over the same
+# tree knows nothing about the first, and they delete each other's files. The
+# loud failure is a FileNotFoundError part way through; the quiet one is worse,
+# because --gcov-ignore-parse-errors turns a lost file into missing coverage in
+# a report that still looks complete.
+#
+# So: hold a lock for the whole run, and read the gcov data serially. Since
+# every .gcda resolves against --root first, gcovr's own workers queue up on
+# that one directory anyway - -j buys nothing here and costs memory. The build
+# and the test runs above still use it.
+exec 9> "$OUT_DIR/.gcovr.lock"
+flock 9
+
+# A run that dies part way leaves those temporary .gcov files behind in the
+# repo (the crash that prompted the lock above left ~100 of them). gcovr
+# removes them as it goes when it finishes normally; sweep whatever is left.
+cleanup_gcov() { find "$ROOT" -maxdepth 1 -name '*.gcov' -delete 2> /dev/null || true; }
+trap cleanup_gcov EXIT
 
 # Applied when *rendering*, not when reading gcov, so the .json tracefiles
 # keep the generated glue and the one-liner above stays a cheap tracefile
@@ -158,8 +162,8 @@ if [ "$run_unit" = 1 ]; then
     ctest --test-dir "$BUILD_DIR" -R '_test$' --output-on-failure ${CTEST_ARGS:-} \
         || { test_status=1; echo "!!! unit tests failed - collecting coverage anyway"; }
     echo "==> Collecting unit coverage"
-    run_gcovr "${gcovr_common[@]}" --json "$ROOT/$OUT_DIR/unit.json"
-    run_gcovr --root "$ROOT" --add-tracefile "$ROOT/$OUT_DIR/unit.json" \
+    gcovr "${gcovr_common[@]}" --json "$ROOT/$OUT_DIR/unit.json"
+    gcovr --root "$ROOT" --add-tracefile "$ROOT/$OUT_DIR/unit.json" \
         "${gcovr_report_excludes[@]}" \
         --html "$ROOT/$OUT_DIR/unit.html" \
         --print-summary
@@ -187,8 +191,8 @@ if [ "$run_integration" = 1 ]; then
             npx jest --runInBand ${JEST_ARGS:-}
     ) || { test_status=1; echo "!!! integration tests failed - collecting coverage anyway"; }
     echo "==> Collecting integration coverage"
-    run_gcovr "${gcovr_common[@]}" --json "$ROOT/$OUT_DIR/integration.json"
-    run_gcovr --root "$ROOT" --add-tracefile "$ROOT/$OUT_DIR/integration.json" \
+    gcovr "${gcovr_common[@]}" --json "$ROOT/$OUT_DIR/integration.json"
+    gcovr --root "$ROOT" --add-tracefile "$ROOT/$OUT_DIR/integration.json" \
         "${gcovr_report_excludes[@]}" \
         --html "$ROOT/$OUT_DIR/integration.html" \
         --print-summary
@@ -200,7 +204,7 @@ for f in "$OUT_DIR/unit.json" "$OUT_DIR/integration.json"; do
     [ -f "$f" ] && merge_args+=(--add-tracefile "$ROOT/$f")
 done
 mkdir -p "$OUT_DIR/html"
-run_gcovr --root "$ROOT" "${merge_args[@]}" \
+gcovr --root "$ROOT" "${merge_args[@]}" \
     "${gcovr_report_excludes[@]}" \
     --html-details "$ROOT/$OUT_DIR/html/index.html" \
     --cobertura "$ROOT/$OUT_DIR/cobertura.xml" \
