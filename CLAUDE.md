@@ -85,6 +85,11 @@ Every new check command needs, under `docs/samples/`:
 - `<Module>_<command>_samples.md` — usage examples with real captured output.
 - `<Module>_<command>_desc.md` — clarifying prose (suffix is `_desc`, not `_docs`).
 
+Headings inside these files must be `####` or deeper: the content is merged
+into the generated reference page below a `### <command>` heading, so anything
+shallower escapes its command in the page hierarchy. Don't add keyword tables
+here — the generated "Filter keywords" section is the single source for those.
+
 These are merged into the reference docs by the downstream `nscp-docs` build.
 Scenario walkthroughs live in `docs/docs/scenarios/` and must be registered in
 both `docs/mkdocs.yml` (nav) and `docs/docs/scenarios/index.md`.
