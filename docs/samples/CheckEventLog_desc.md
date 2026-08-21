@@ -84,16 +84,7 @@ Regardless of version of API and version of NSClient++ the proper way to find er
 check_eventlog "filter=level = 'error'"
 ```
 
-While we have never been able to find an official list of the meaning of the level this is how NSClient++ interprets the values:
-
-| Level | Keyword in NSClient++                                   |
-|-------|---------------------------------------------------------|
-| 1     | critical                                                |
-| 2     | error                                                   |
-| 3     | warning, warn                                           |
-| 4     | informational, info, information, success, auditSuccess |
-| 5     | debug, verbose                                          |
-| #     | Specify any number for other values                     |
+While we have never been able to find an official list of the meaning of the levels, the mapping NSClient++ uses between the numeric values and the keywords (critical, error, warning, ...) is documented on the `level` keyword in the filter keywords table below.
 
 Thus if you run into a non standard level you can check this like so:
 

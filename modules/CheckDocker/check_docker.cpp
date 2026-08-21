@@ -139,7 +139,7 @@ struct container_obj_handler : public container_context {
         .add_string_var("ip", &container_obj::get_ip, "First IP address on any network the container is attached to")
         .add_string_var("ports", &container_obj::get_ports, "Published/exposed ports, e.g. 0.0.0.0:8080->80/tcp")
         .add_string_var("labels", &container_obj::get_labels, "Container labels as key=value, comma separated");
-    registry_.add_int_var("created", parsers::where::type_date, &container_obj::get_created, "When the container was created").no_perf();
+    registry_.add_int_var("created", parsers::where::type_date, &container_obj::get_created, "When the container was created (date)").no_perf();
     // The where-parser has no empty-string literal, so "has a health check at
     // all" needs its own keyword (filter=has_health_check = 1).
     registry_.add_int_var("has_health_check", &container_obj::get_has_health_check, "1 when the container defines a health check, else 0").no_perf();

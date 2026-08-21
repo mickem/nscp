@@ -55,14 +55,18 @@ filter_obj_handler::filter_obj_handler() {
 
   registry_.add_int_var("pid", &filter_obj::get_pid, "Process id")
       .add_int_var("ppid", &filter_obj::get_ppid, "Parent process id")
-      .add_int_var("uid", &filter_obj::get_uid, "Process owner uid (-1 when not known)")
+      .add_int_var("uid", &filter_obj::get_uid,
+                   "Real uid of the process owner from /proc/<pid>/status; -1 when not known (the synthetic 'not found' and total rows)")
       .add_int_var("started", &filter_obj::get_started, "Process is started")
       .add_int_var("stopped", &filter_obj::get_stopped, "Process is stopped")
-      .add_int_var("state", type_custom_state, &filter_obj::get_state_i, "The current state (started, stopped, hung)")
+      .add_int_var("state", type_custom_state, &filter_obj::get_state_i,
+                   "Cross-platform state verdict: started or stopped ('running' is accepted as a synonym for started in expressions; the rendered value "
+                   "stays 'started')")
       .add_int_var("proc_state", type_custom_proc_state, &filter_obj::get_proc_state_i,
-                   "Raw Linux process state: running, sleeping, disk_sleep, zombie, stopped, tracing_stop, dead, idle, parked");
+                   "Raw Linux scheduler state (the letter ps prints in its STAT column): running, sleeping, disk_sleep, zombie, stopped, tracing_stop, "
+                   "dead, idle, parked or unknown");
 
-  registry_.add_human_string("state", &filter_obj::get_state_s, "The current state (started, stopped, hung)");
+  registry_.add_human_string("state", &filter_obj::get_state_s, "The current state (started, stopped)");
   registry_.add_human_string("proc_state", &filter_obj::get_proc_state_s, "The raw Linux process state");
 
   // Memory counters. Perfdata mirrors the Windows check_process: working set and
@@ -85,7 +89,7 @@ filter_obj_handler::filter_obj_handler() {
   // `rss` is a straight alias for `working_set`, matching the Windows
   // check_process keyword set so the same expression works on both platforms.
   registry_.add_int_legacy()("rss", parsers::where::type_size, [](auto obj, auto context) { return obj->get_working_set(); },
-                             "Resident set size; alias for working_set (g,m,k,b)")
+                             "Resident set size in bytes; alias for working_set, matching the Windows keyword set (g,m,k,b)")
       .add_scaled_byte(std::string(""), " rss");
 
   registry_.add_human_string("virtual", &filter_obj::get_virtual_size_human, "").add_human_string("working_set", &filter_obj::get_working_set_human, "");

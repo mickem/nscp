@@ -12,9 +12,9 @@ namespace users_filter {
 
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("user", &filter_obj::get_user, "The account name of the logged-on user")
-      .add_string_var("session_state", &filter_obj::get_session_state, "Session state (active, disconnected, ...)")
-      .add_string_var("session_type", &filter_obj::get_session_type, "Session type (console, rdp, remote, ...)")
-      .add_string_var("client", &filter_obj::get_client, "Client name or remote host (may be empty)");
+      .add_string_var("session_state", &filter_obj::get_session_state, "Session state: active, disconnected, connected, ... (Linux logins are always active)")
+      .add_string_var("session_type", &filter_obj::get_session_type, "Session type: console, rdp, remote, ica, ...")
+      .add_string_var("client", &filter_obj::get_client, "Client name (Windows) or remote host (Linux); empty for the local console");
 }
 
 }  // namespace users_filter

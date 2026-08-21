@@ -49,17 +49,9 @@ The same option exists on [`check_files`](#check_files) (for scan paths) and
 
 Percent thresholds answer "how full is the disk", but a capacity alert is
 really asking "how long until it *is* full" — a 4 TB volume at 91% may have
-months left while a 10 GB volume at 70% has hours. The trend keywords answer
-that question directly:
-
-| Keyword         | Meaning |
-|-----------------|---------|
-| `full_in`       | Estimated time until the drive is full at the current growth rate, projected from the current free space. Renders as a duration (`3d 04:00`) or `never`. |
-| `rate`          | Growth of used space in bytes/day over the trend window, signed (negative = emptying). Renders auto-scaled (`12.3MB/day`) or `unknown`. |
-| `trend_span`    | Seconds of history behind the estimate (0 = no data). |
-| `trend_samples` | Number of samples behind the estimate. |
-
-Thresholds on `full_in` take duration literals:
+months left while a 10 GB volume at 70% has hours. The trend keywords
+(`full_in`, `rate`, `trend_span`, `trend_samples`) answer that question
+directly. Thresholds on `full_in` take duration literals:
 
 ```
 check_drivesize "warn=full_in < 5d" "crit=full_in < 12h"

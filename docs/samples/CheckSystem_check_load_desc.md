@@ -24,20 +24,8 @@ running + runnable tasks — so a fully-busy 8-core box reads ~8.0 and a
 saturated one reads above it, and the familiar threshold conventions
 (`warn=load > <cores>`, or `percpu=true` with `warn=load > 1`) transfer as-is.
 
-Keywords (a single aggregate row, matching the Linux `check_load`):
-
-| Keyword         | Description                                                                     |
-|-----------------|---------------------------------------------------------------------------------|
-| `load1`         | Load average over the last 1 minute                                             |
-| `load5`         | Load average over the last 5 minutes                                            |
-| `load15`        | Load average over the last 15 minutes                                           |
-| `load`          | The largest of the three (threshold "any window")                               |
-| `type`          | `total`, or `scaled` with `percpu=true` (averages divided by the core count)    |
-| `queue`         | Smoothed (1-minute) processor queue length alone — the pure saturation signal   |
-| `procs_running` | Last tick's instantaneous runnable + running estimate                           |
-| `procs_total`   | Total threads on the system (scheduling entities)                               |
-| `cores`         | Logical processor count                                                         |
-| `samples`       | Collector ticks folded into the averages                                        |
+The keyword vocabulary matches the Linux `check_load` (a single aggregate row),
+so warning/critical expressions and detail-syntax port between platforms.
 
 There are no default thresholds; the three averages are always emitted as perf
 data (`total_load1` etc., `scaled_*` with `percpu=true`). `queue` is never

@@ -143,18 +143,18 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("socket_id", &filter_obj::get_socket_id, "Socket device id (e.g. CPU0), for per-socket filtering")
       .add_string_var("socket", &filter_obj::get_socket, "Socket designation (e.g. \"CPU 1\"), for per-socket filtering");
 
-  registry_.add_int_var("current_mhz", &filter_obj::get_current_mhz, "Current clock speed in MHz")
+  registry_.add_int_var("current_mhz", &filter_obj::get_current_mhz, "Current clock speed in MHz (perfdata)")
       .add_int_perf("MHz")
-      .add_int_var("max_mhz", &filter_obj::get_max_mhz, "Maximum clock speed in MHz")
+      .add_int_var("max_mhz", &filter_obj::get_max_mhz, "Maximum clock speed in MHz (perfdata)")
       .add_int_perf("MHz", "", "_max_mhz")
-      .add_int_var("frequency_pct", &filter_obj::get_frequency_pct, "Current frequency as percentage of maximum")
+      .add_int_var("frequency_pct", &filter_obj::get_frequency_pct, "Current frequency as percentage of maximum (perfdata)")
       .add_int_perf("%", "", "_frequency_pct")
-      .add_int_var("load_pct", &filter_obj::get_load_pct, "Per-socket CPU load as reported by Win32_Processor.LoadPercentage")
+      .add_int_var("load_pct", &filter_obj::get_load_pct, "Per-socket CPU load as reported by Win32_Processor.LoadPercentage (perfdata)")
       .add_int_perf("%", "", "_load_pct")
       .add_int_var("cores", &filter_obj::get_number_of_cores, "Number of physical cores")
       .add_int_var("logical_processors", &filter_obj::get_number_of_logical_processors, "Number of logical processors (threads)")
       .add_int_var("l2_cache", parsers::where::type_size, &filter_obj::get_l2_cache,
-                   "L2 cache size (size units work, e.g. 'l2_cache < 1M'); 0 when not reported")
+                   "L2 cache size (size units work, e.g. 'l2_cache < 1M'); renders human-readable; 0 when not reported")
       .add_int_var("l3_cache", parsers::where::type_size, &filter_obj::get_l3_cache, "L3 cache size; 0 when not reported (common on VMs)");
 
   registry_.add_string_var("architecture", &filter_obj::get_architecture, "Processor architecture (x86, x64, ARM64, ...)");

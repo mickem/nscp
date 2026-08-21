@@ -1,10 +1,5 @@
 #### Process owner (`username` / `uid`)
 
-| Keyword    | Type   | Description                                                              |
-|------------|--------|--------------------------------------------------------------------------|
-| `uid`      | int    | Real uid of the process owner, from `/proc/<pid>/status`. `-1` when not known (the synthetic "not found" and `total` rows). |
-| `username` | string | The owner's user name. Empty unless `resolve-owner=true`.                |
-
 `uid` is **always** populated — it is read out of a file the check already
 opens, so it costs nothing — and it is numeric, so it can be thresholded
 directly:
@@ -30,12 +25,9 @@ check_process process=postgres resolve-owner=true "crit=username != 'postgres'" 
 
 #### Process state: `state` vs `proc_state`
 
-Two different questions, two keywords.
-
-| Keyword      | Values                                                                                       |
-|--------------|-----------------------------------------------------------------------------------------------|
-| `state`      | `started`, `stopped` — the cross-platform verdict, also available on Windows. `running` is accepted as a synonym for `started` in expressions; the rendered value stays `started`. |
-| `proc_state` | `running`, `sleeping`, `disk_sleep`, `zombie`, `stopped`, `tracing_stop`, `dead`, `idle`, `parked`, `unknown` — the raw Linux scheduler state, i.e. the letter `ps` prints in its `STAT` column. |
+Two different questions, two keywords: `state` is the cross-platform
+started/stopped verdict (also available on Windows), `proc_state` the raw Linux
+scheduler state.
 
 `state` answers "is this process there and alive"; a zombie reports `stopped`
 there. `proc_state` answers "what is it *doing*", which is what the two classic
@@ -78,11 +70,6 @@ runtimes — do not run a `kthreadd` at pid 2, so check what pid 2 is on the hos
 before relying on this.)
 
 #### `elapsed` and `rss`
-
-| Keyword   | Description                                                                                        |
-|-----------|-----------------------------------------------------------------------------------------------------|
-| `elapsed` | Wall-clock seconds since the process started (`0` when the start time could not be established). Emitted as perfdata with unit `s`. |
-| `rss`     | Resident set size — a straight alias for `working_set`, matching the Windows keyword set so the same expression works on both platforms. |
 
 `elapsed` is the "has this been running long enough / too long" check, which
 `creation` (an absolute timestamp) makes awkward:

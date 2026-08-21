@@ -17,21 +17,7 @@ It answers three operator questions:
 - **"What is installed at all?"** — a bare call is an OK inventory with the
   package count as perf data.
 
-Keywords (one row per installed package):
-
-| Keyword          | Description                                                                         |
-|------------------|-------------------------------------------------------------------------------------|
-| `name`           | Package name                                                                        |
-| `version`        | Version string (rpm: `version-release`); comparisons are lexical, not version-aware |
-| `publisher`      | Maintainer (dpkg, email stripped) / vendor (rpm); empty for pacman                  |
-| `install_date`   | Install date; supports date expressions (`install_date > -30d`). Unset when unknown |
-| `install_date_s` | Install date as `YYYY-MM-DD`; empty when unknown                                    |
-| `size`           | Installed size in bytes; 0 when not recorded                                        |
-| `architecture`   | Package architecture (`amd64`, `x86_64`, `noarch`, ...)                             |
-| `manager`        | Package manager the entry came from (`dpkg`, `rpm`, `pacman`)                       |
-| `status`         | Package state; always `installed` for listed packages                               |
-
-There are no default thresholds (a bare call is an inventory), an empty match
+Each installed package is one row. There are no default thresholds (a bare call is an inventory), an empty match
 set returns OK, and the matched package count is emitted as `count` perf data.
 Only packages whose dpkg state is exactly `installed` are listed: removed
 (`not-installed`), `config-files` leftovers and broken (`half-installed`,

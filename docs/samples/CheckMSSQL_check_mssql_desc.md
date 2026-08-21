@@ -7,16 +7,6 @@ A reachable server is OK by default; a failed connection is UNKNOWN with the
 stable message prefix `Failed to connect to SQL Server '<server>':` followed by
 the ODBC diagnostic (SQLSTATE and native error included).
 
-Keywords (one row per connected instance):
-
-| Keyword         | Description                                                        |
-|-----------------|--------------------------------------------------------------------|
-| `server_name`   | Instance name (`SERVERPROPERTY('ServerName')`)                     |
-| `version`       | Product version, e.g. `16.0.4265.3`                                |
-| `product_level` | Patch level: `RTM`, `SPn` or `CUn`                                 |
-| `edition`       | Edition, e.g. `Express Edition (64-bit)`                           |
-| `uptime`        | Seconds since the server started (accepts units: `uptime < 1h`)    |
-
 Defaults: no warning/critical expressions — being able to connect is the health
 signal. Add thresholds when needed, e.g. alert after a restart
 (`warning=uptime < 1h`) or pin the expected major version

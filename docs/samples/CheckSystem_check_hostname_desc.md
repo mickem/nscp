@@ -17,19 +17,6 @@ The useful alerts are **pinned expectations**:
 - **"Is this the host I think it is?"** — `crit=hostname != 'WEB01'` on
   cloned/re-imaged machines.
 
-Keywords (a single aggregate row):
-
-| Keyword               | Description                                                               |
-|-----------------------|---------------------------------------------------------------------------|
-| `hostname`            | NetBIOS computer name (max 15 characters)                                 |
-| `dns_hostname`        | DNS hostname (the local label)                                            |
-| `domain`              | Primary DNS suffix (empty when none is configured)                        |
-| `fqdn`                | Fully qualified DNS name                                                  |
-| `join`                | Join state: `domain`, `workgroup`, `standalone` or `unknown`              |
-| `join_name`           | The joined domain or workgroup name                                       |
-| `fqdn_consistent`     | True when `fqdn == dns_hostname[.domain]` (case-insensitive)              |
-| `netbios_matches_dns` | True when the NetBIOS name matches the first 15 chars of the DNS hostname |
-
 There are no default thresholds — whether `workgroup` is wrong is site policy —
 and no perf data (there is no meaningful number here). A host with no DNS
 suffix reports `fqdn == hostname` as consistent, not as drift, and the NetBIOS

@@ -53,7 +53,7 @@ typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj>> native_
 struct filter_obj_handler : public native_context {
   filter_obj_handler() {
     registry_.add_string_var("path", &filter_obj::get_path, "Path of the test file")
-        .add_string_var("issues", &filter_obj::get_issues, "Problems encountered (empty when the write test succeeded)")
+        .add_string_var("issues", &filter_obj::get_issues, "Human-readable description of any problems found (empty when the write test succeeded)")
         .add_string_var("message", &filter_obj::get_message, "Human readable outcome of the write test");
     // Each keyword gets its own perf suffix so thresholds on several of them
     // produce distinct perf-data labels ("<file> write_time", "<file> size", ...).

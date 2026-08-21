@@ -36,10 +36,6 @@ Submit information to the remote NRDP Server.
 <a id="submit_nrdp_options"></a>
 #### Command-line Arguments
 
-<a id="submit_nrdp_help"></a>
-<a id="submit_nrdp_help-pb"></a>
-<a id="submit_nrdp_show-default"></a>
-<a id="submit_nrdp_help-short"></a>
 <a id="submit_nrdp_host"></a>
 <a id="submit_nrdp_port"></a>
 <a id="submit_nrdp_address"></a>
@@ -69,40 +65,41 @@ Submit information to the remote NRDP Server.
 <a id="submit_nrdp_proxy"></a>
 <a id="submit_nrdp_no-proxy"></a>
 
-| Option       | Default Value | Description                                                                                                                                                            |
-|--------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| help         | N/A           | Show help screen (this screen)                                                                                                                                         |
-| help-pb      | N/A           | Show help screen as a protocol buffer payload                                                                                                                          |
-| show-default | N/A           | Show default values for a given command                                                                                                                                |
-| help-short   | N/A           | Show help screen (short format).                                                                                                                                       |
-| host         |               | The host of the host running the server                                                                                                                                |
-| port         |               | The port of the host running the server                                                                                                                                |
-| address      |               | The address (host:port) of the host running the server                                                                                                                 |
-| timeout      |               | Number of seconds before connection times out (default=10)                                                                                                             |
-| target       |               | Target to use (lookup connection info from config)                                                                                                                     |
-| retry        |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                       |
-| retries      |               | legacy version of retry                                                                                                                                                |
-| source-host  |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                  |
-| sender-host  |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                  |
-| command      |               | The name of the command that the remote daemon should run                                                                                                              |
-| alias        |               | Same as command                                                                                                                                                        |
-| message      |               | Message                                                                                                                                                                |
-| result       |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                 |
-| separator    |               | Separator to use for the batch command (default is |)                                                                                                                  |
-| batch        |               | Add multiple records using the separator format is: command|result|message                                                                                             |
-| key          |               | The security token                                                                                                                                                     |
-| password     |               | The security token                                                                                                                                                     |
-| source-host  |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                  |
-| sender-host  |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                  |
-| token        |               | The security token                                                                                                                                                     |
-| tls-version  |               | The tls version to use 1.0, 1.1, 1.2, 1.3                                                                                                                              |
-| tls version  |               | Legacy alias for --tls-version (kept for backwards compatibility).                                                                                                     |
-| verify       |               | Coma separated list of option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. In general use peer-cert or none for self signed certificates. |
-| verify-mode  |               | Alias for --verify.                                                                                                                                                    |
-| verify mode  |               | Legacy alias for --verify (kept for backwards compatibility).                                                                                                          |
-| ca           |               | Certificate authority to use when verifying certificates.                                                                                                              |
-| proxy        |               | HTTP proxy URL to route requests through (e.g. http://user:pass@proxy:3128/).                                                                                          |
-| no-proxy     |               | Comma-separated list of hostnames that bypass the proxy.                                                                                                               |
+| Option      | Default Value | Description                                                                                                                                                            |
+|-------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| host        |               | The host of the host running the server                                                                                                                                |
+| port        |               | The port of the host running the server                                                                                                                                |
+| address     |               | The address (host:port) of the host running the server                                                                                                                 |
+| timeout     |               | Number of seconds before connection times out (default=10)                                                                                                             |
+| target      |               | Target to use (lookup connection info from config)                                                                                                                     |
+| retry       |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                       |
+| retries     |               | legacy version of retry                                                                                                                                                |
+| source-host |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                  |
+| sender-host |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                  |
+| command     |               | The name of the command that the remote daemon should run                                                                                                              |
+| alias       |               | Same as command                                                                                                                                                        |
+| message     |               | Message                                                                                                                                                                |
+| result      |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                 |
+| separator   |               | Separator to use for the batch command (default is |)                                                                                                                  |
+| batch       |               | Add multiple records using the separator format is: command|result|message                                                                                             |
+| key         |               | The security token                                                                                                                                                     |
+| password    |               | The security token                                                                                                                                                     |
+| source-host |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                  |
+| sender-host |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                  |
+| token       |               | The security token                                                                                                                                                     |
+| tls-version |               | The tls version to use 1.0, 1.1, 1.2, 1.3                                                                                                                              |
+| tls version |               | Legacy alias for --tls-version (kept for backwards compatibility).                                                                                                     |
+| verify      |               | Coma separated list of option none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. In general use peer-cert or none for self signed certificates. |
+| verify-mode |               | Alias for --verify.                                                                                                                                                    |
+| verify mode |               | Legacy alias for --verify (kept for backwards compatibility).                                                                                                          |
+| ca          |               | Certificate authority to use when verifying certificates.                                                                                                              |
+| proxy       |               | HTTP proxy URL to route requests through (e.g. http://user:pass@proxy:3128/).                                                                                          |
+| no-proxy    |               | Comma-separated list of hostnames that bypass the proxy.                                                                                                               |
+
+
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ## Configuration

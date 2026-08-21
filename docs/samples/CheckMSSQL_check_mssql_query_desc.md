@@ -5,12 +5,9 @@ returned column into a filter keyword, so warning/critical expressions and
 perfdata can be built from any query result — the SQL Server counterpart of
 `check_wmi`. Each returned row is matched against the filter separately.
 
-Keywords (dynamic, one row per result-set row):
-
-| Keyword    | Description                                                  |
-|------------|--------------------------------------------------------------|
-| `line`     | All columns of the row rendered as `column=value` pairs      |
-| *(column)* | Every column of the result set, by name, usable as string or number |
+Every column of the result set is available as a keyword under its own name,
+usable as string or number, and the whole row is available as the `line`
+keyword, rendered as `column=value` pairs.
 
 Numeric columns can be thresholded directly (`warning=sessions > 50`) and are
 emitted as perfdata when referenced. Alias columns in SQL (`SELECT COUNT(*) AS

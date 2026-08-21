@@ -6,16 +6,6 @@ history in `msdb.dbo.backupset`. `tempdb` is excluded (it is never backed up).
 A backup type that has never been taken is reported as age **-1**, so
 "never backed up" can be caught explicitly (`full_age < 0`).
 
-Keywords (one row per database):
-
-| Keyword          | Description                                                       |
-|------------------|-------------------------------------------------------------------|
-| `name`           | Database name                                                     |
-| `recovery_model` | `SIMPLE`, `FULL` or `BULK_LOGGED`                                 |
-| `full_age`       | Seconds since the last full backup finished, `-1` = never (accepts units) |
-| `diff_age`       | Seconds since the last differential backup finished, `-1` = never |
-| `log_age`        | Seconds since the last log backup finished, `-1` = never          |
-
 Defaults: **CRITICAL** when a database has never had a full backup or the last
 one is older than 7 days (`full_age < 0 or full_age > 7d`), **WARNING** after
 3 days (`full_age > 3d`). Log ages are not thresholded by default because they

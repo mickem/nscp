@@ -57,18 +57,6 @@ The check works identically against MySQL, MariaDB and Percona; the `flavor`
 keyword tells them apart when you need to (e.g. `warning=flavor != 'mariadb'`
 to catch an unplanned migration).
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword             | Description                                                        |
-|---------------------|--------------------------------------------------------------------|
-| `version`           | Server version, e.g. `10.11.14-MariaDB-ubu2404` or `8.4.3`         |
-| `version_comment`   | Server version comment (distribution/build description)            |
-| `flavor`            | `mysql`, `mariadb` or `percona`, derived from the version           |
-| `uptime`            | Seconds since the server started; supports units (`uptime < 1h`)    |
-| `threads_connected` | Currently open connections (`Threads_connected`)                    |
-| `max_connections`   | Configured connection limit (`max_connections`)                     |
-| `connections_pct`   | Open connections as a percentage of `max_connections`               |
-
 Common connection options that can be passed per request (shared by all
 CheckMySQL commands, defaults come from `/settings/mysql`): `host=`, `port=`,
 `user=`, `password=`, `database=`, `tls=true`, `timeout=`, `query-timeout=`.
@@ -154,12 +142,6 @@ OK: mysql 8.4.11, uptime 1011s, connections 1/151 (0%)
 <a id="check_mysql_options"></a>
 #### Command-line Arguments
 
-<a id="check_mysql_warn"></a>
-<a id="check_mysql_crit"></a>
-<a id="check_mysql_help"></a>
-<a id="check_mysql_help-pb"></a>
-<a id="check_mysql_show-default"></a>
-<a id="check_mysql_help-short"></a>
 <a id="check_mysql_socket"></a>
 <a id="check_mysql_database"></a>
 <a id="check_mysql_user"></a>
@@ -167,147 +149,21 @@ OK: mysql 8.4.11, uptime 1011s, connections 1/151 (0%)
 <a id="check_mysql_defaults-file"></a>
 <a id="check_mysql_plugin-dir"></a>
 
-| Option                                        | Default Value                                                                                                      | Description                                                                                                                                |
-|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_mysql_filter)                 |                                                                                                                    | Filter which marks interesting items.                                                                                                      |
-| [warning](#check_mysql_warning)               |                                                                                                                    | Filter which marks items which generates a warning state.                                                                                  |
-| warn                                          |                                                                                                                    | Short alias for warning                                                                                                                    |
-| [critical](#check_mysql_critical)             |                                                                                                                    | Filter which marks items which generates a critical state.                                                                                 |
-| crit                                          |                                                                                                                    | Short alias for critical.                                                                                                                  |
-| [ok](#check_mysql_ok)                         |                                                                                                                    | Filter which marks items which generates an ok state.                                                                                      |
-| [debug](#check_mysql_debug)                   | false                                                                                                              | Show debugging information in the log                                                                                                      |
-| [show-all](#check_mysql_show-all)             | false                                                                                                              | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                           |
-| [empty-state](#check_mysql_empty-state)       | unknown                                                                                                            | Return status to use when nothing matched filter.                                                                                          |
-| [perf-config](#check_mysql_perf-config)       |                                                                                                                    | Performance data generation configuration                                                                                                  |
-| [escape-html](#check_mysql_escape-html)       | false                                                                                                              | Escape any < and > characters to prevent HTML encoding                                                                                     |
-| [list-separator](#check_mysql_list-separator) | ,                                                                                                                  | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                  |
-| help                                          | N/A                                                                                                                | Show help screen (this screen)                                                                                                             |
-| help-pb                                       | N/A                                                                                                                | Show help screen as a protocol buffer payload                                                                                              |
-| show-default                                  | N/A                                                                                                                | Show default values for a given command                                                                                                    |
-| help-short                                    | N/A                                                                                                                | Show help screen (short format).                                                                                                           |
-| [top-syntax](#check_mysql_top-syntax)         | ${status}: ${list}                                                                                                 | Top level syntax.                                                                                                                          |
-| [ok-syntax](#check_mysql_ok-syntax)           |                                                                                                                    | ok syntax.                                                                                                                                 |
-| [empty-syntax](#check_mysql_empty-syntax)     | %(status): No server information returned                                                                          | Empty syntax.                                                                                                                              |
-| [detail-syntax](#check_mysql_detail-syntax)   | ${flavor} ${version}, uptime ${uptime}s, connections ${threads_connected}/${max_connections} (${connections_pct}%) | Detail level syntax.                                                                                                                       |
-| [perf-syntax](#check_mysql_perf-syntax)       | ${flavor}                                                                                                          | Performance alias syntax.                                                                                                                  |
-| [host](#check_mysql_host)                     | localhost                                                                                                          | MySQL/MariaDB server to connect to.                                                                                                        |
-| [port](#check_mysql_port)                     | 3306                                                                                                               | TCP port of the server.                                                                                                                    |
-| socket                                        |                                                                                                                    | Unix socket path (or Windows named pipe) to connect through instead of TCP.                                                                |
-| database                                      |                                                                                                                    | Default database (schema) to connect to.                                                                                                   |
-| user                                          |                                                                                                                    | User to authenticate with.                                                                                                                 |
-| password                                      |                                                                                                                    | Password to authenticate with.                                                                                                             |
-| defaults-file                                 |                                                                                                                    | my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.                               |
-| plugin-dir                                    |                                                                                                                    | Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong). |
-| [tls](#check_mysql_tls)                       | false                                                                                                              | Require TLS on the connection.                                                                                                             |
-| [timeout](#check_mysql_timeout)               | 10                                                                                                                 | Connection timeout in seconds.                                                                                                             |
-| [query-timeout](#check_mysql_query-timeout)   | 30                                                                                                                 | Query (read/write) timeout in seconds.                                                                                                     |
+| Option                                      | Default Value | Description                                                                                                                                |
+|---------------------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| [host](#check_mysql_host)                   | localhost     | MySQL/MariaDB server to connect to.                                                                                                        |
+| [port](#check_mysql_port)                   | 3306          | TCP port of the server.                                                                                                                    |
+| socket                                      |               | Unix socket path (or Windows named pipe) to connect through instead of TCP.                                                                |
+| database                                    |               | Default database (schema) to connect to.                                                                                                   |
+| user                                        |               | User to authenticate with.                                                                                                                 |
+| password                                    |               | Password to authenticate with.                                                                                                             |
+| defaults-file                               |               | my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.                               |
+| plugin-dir                                  |               | Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong). |
+| [tls](#check_mysql_tls)                     | false         | Require TLS on the connection.                                                                                                             |
+| [timeout](#check_mysql_timeout)             | 10            | Connection timeout in seconds.                                                                                                             |
+| [query-timeout](#check_mysql_query-timeout) | 30            | Query (read/write) timeout in seconds.                                                                                                     |
 
 
-
-<h5 id="check_mysql_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_mysql_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
-
-
-
-<h5 id="check_mysql_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-
-<h5 id="check_mysql_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
-
-
-<h5 id="check_mysql_debug">debug:</h5>
-
-Show debugging information in the log
-
-*Default Value:* `false`
-
-<h5 id="check_mysql_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `false`
-
-<h5 id="check_mysql_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="check_mysql_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-<h5 id="check_mysql_escape-html">escape-html:</h5>
-
-Escape any < and > characters to prevent HTML encoding
-
-*Default Value:* `false`
-
-<h5 id="check_mysql_list-separator">list-separator:</h5>
-
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-*Default Value:* `, `
-
-<h5 id="check_mysql_top-syntax">top-syntax:</h5>
-
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${status}: ${list}`
-
-<h5 id="check_mysql_ok-syntax">ok-syntax:</h5>
-
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
-
-
-<h5 id="check_mysql_empty-syntax">empty-syntax:</h5>
-
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
-
-*Default Value:* `%(status): No server information returned`
-
-<h5 id="check_mysql_detail-syntax">detail-syntax:</h5>
-
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${flavor} ${version}, uptime ${uptime}s, connections ${threads_connected}/${max_connections} (${connections_pct}%)`
-
-<h5 id="check_mysql_perf-syntax">perf-syntax:</h5>
-
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
-
-*Default Value:* `${flavor}`
 
 <h5 id="check_mysql_host">host:</h5>
 
@@ -340,6 +196,35 @@ Query (read/write) timeout in seconds.
 *Default Value:* `30`
 
 
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                       | Default Value                                                                                                      |
+|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| <a id="check_mysql_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                                    |
+| <a id="check_mysql_warning"></a>[warning](../common-options.md#warning)                      |                                                                                                                    |
+| <a id="check_mysql_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                    |
+| <a id="check_mysql_critical"></a>[critical](../common-options.md#critical)                   |                                                                                                                    |
+| <a id="check_mysql_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                    |
+| <a id="check_mysql_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                    |
+| <a id="check_mysql_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                              |
+| <a id="check_mysql_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                              |
+| <a id="check_mysql_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                                                            |
+| <a id="check_mysql_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                    |
+| <a id="check_mysql_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                              |
+| <a id="check_mysql_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                                  |
+| <a id="check_mysql_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                                 |
+| <a id="check_mysql_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                                                    |
+| <a id="check_mysql_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No server information returned                                                                          |
+| <a id="check_mysql_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${flavor} ${version}, uptime ${uptime}s, connections ${threads_connected}/${max_connections} (${connections_pct}%) |
+| <a id="check_mysql_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${flavor}                                                                                                          |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_mysql_filter_keys"></a>
 #### Filter keywords
 
@@ -353,24 +238,7 @@ Query (read/write) timeout in seconds.
 | version           | Server version, e.g. 10.11.14-MariaDB-ubu2404 or 8.4.3              |
 | version_comment   | Server version comment (distribution/build description)             |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_mysql_query
 
@@ -451,12 +319,6 @@ No query specified (use query=<SQL>)
 <a id="check_mysql_query_options"></a>
 #### Command-line Arguments
 
-<a id="check_mysql_query_warn"></a>
-<a id="check_mysql_query_crit"></a>
-<a id="check_mysql_query_help"></a>
-<a id="check_mysql_query_help-pb"></a>
-<a id="check_mysql_query_show-default"></a>
-<a id="check_mysql_query_help-short"></a>
 <a id="check_mysql_query_query"></a>
 <a id="check_mysql_query_socket"></a>
 <a id="check_mysql_query_database"></a>
@@ -465,145 +327,21 @@ No query specified (use query=<SQL>)
 <a id="check_mysql_query_defaults-file"></a>
 <a id="check_mysql_query_plugin-dir"></a>
 
-| Option                                              | Default Value | Description                                                                                                                                |
-|-----------------------------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_mysql_query_filter)                 |               | Filter which marks interesting items.                                                                                                      |
-| [warning](#check_mysql_query_warning)               |               | Filter which marks items which generates a warning state.                                                                                  |
-| warn                                                |               | Short alias for warning                                                                                                                    |
-| [critical](#check_mysql_query_critical)             |               | Filter which marks items which generates a critical state.                                                                                 |
-| crit                                                |               | Short alias for critical.                                                                                                                  |
-| [ok](#check_mysql_query_ok)                         |               | Filter which marks items which generates an ok state.                                                                                      |
-| [debug](#check_mysql_query_debug)                   | false         | Show debugging information in the log                                                                                                      |
-| [show-all](#check_mysql_query_show-all)             | false         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                           |
-| [empty-state](#check_mysql_query_empty-state)       | ignored       | Return status to use when nothing matched filter.                                                                                          |
-| [perf-config](#check_mysql_query_perf-config)       |               | Performance data generation configuration                                                                                                  |
-| [escape-html](#check_mysql_query_escape-html)       | false         | Escape any < and > characters to prevent HTML encoding                                                                                     |
-| [list-separator](#check_mysql_query_list-separator) | ,             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                  |
-| help                                                | N/A           | Show help screen (this screen)                                                                                                             |
-| help-pb                                             | N/A           | Show help screen as a protocol buffer payload                                                                                              |
-| show-default                                        | N/A           | Show default values for a given command                                                                                                    |
-| help-short                                          | N/A           | Show help screen (short format).                                                                                                           |
-| [top-syntax](#check_mysql_query_top-syntax)         | ${list}       | Top level syntax.                                                                                                                          |
-| [ok-syntax](#check_mysql_query_ok-syntax)           |               | ok syntax.                                                                                                                                 |
-| [empty-syntax](#check_mysql_query_empty-syntax)     |               | Empty syntax.                                                                                                                              |
-| [detail-syntax](#check_mysql_query_detail-syntax)   | %(line)       | Detail level syntax.                                                                                                                       |
-| [perf-syntax](#check_mysql_query_perf-syntax)       |               | Performance alias syntax.                                                                                                                  |
-| query                                               |               | The SQL query to execute.                                                                                                                  |
-| [host](#check_mysql_query_host)                     | localhost     | MySQL/MariaDB server to connect to.                                                                                                        |
-| [port](#check_mysql_query_port)                     | 3306          | TCP port of the server.                                                                                                                    |
-| socket                                              |               | Unix socket path (or Windows named pipe) to connect through instead of TCP.                                                                |
-| database                                            |               | Default database (schema) to connect to.                                                                                                   |
-| user                                                |               | User to authenticate with.                                                                                                                 |
-| password                                            |               | Password to authenticate with.                                                                                                             |
-| defaults-file                                       |               | my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.                               |
-| plugin-dir                                          |               | Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong). |
-| [tls](#check_mysql_query_tls)                       | false         | Require TLS on the connection.                                                                                                             |
-| [timeout](#check_mysql_query_timeout)               | 10            | Connection timeout in seconds.                                                                                                             |
-| [query-timeout](#check_mysql_query_query-timeout)   | 30            | Query (read/write) timeout in seconds.                                                                                                     |
+| Option                                            | Default Value | Description                                                                                                                                |
+|---------------------------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| query                                             |               | The SQL query to execute.                                                                                                                  |
+| [host](#check_mysql_query_host)                   | localhost     | MySQL/MariaDB server to connect to.                                                                                                        |
+| [port](#check_mysql_query_port)                   | 3306          | TCP port of the server.                                                                                                                    |
+| socket                                            |               | Unix socket path (or Windows named pipe) to connect through instead of TCP.                                                                |
+| database                                          |               | Default database (schema) to connect to.                                                                                                   |
+| user                                              |               | User to authenticate with.                                                                                                                 |
+| password                                          |               | Password to authenticate with.                                                                                                             |
+| defaults-file                                     |               | my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.                               |
+| plugin-dir                                        |               | Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong). |
+| [tls](#check_mysql_query_tls)                     | false         | Require TLS on the connection.                                                                                                             |
+| [timeout](#check_mysql_query_timeout)             | 10            | Connection timeout in seconds.                                                                                                             |
+| [query-timeout](#check_mysql_query_query-timeout) | 30            | Query (read/write) timeout in seconds.                                                                                                     |
 
-
-
-<h5 id="check_mysql_query_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_mysql_query_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
-
-
-
-<h5 id="check_mysql_query_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-
-<h5 id="check_mysql_query_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
-
-
-<h5 id="check_mysql_query_debug">debug:</h5>
-
-Show debugging information in the log
-
-*Default Value:* `false`
-
-<h5 id="check_mysql_query_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `false`
-
-<h5 id="check_mysql_query_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ignored`
-
-<h5 id="check_mysql_query_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-<h5 id="check_mysql_query_escape-html">escape-html:</h5>
-
-Escape any < and > characters to prevent HTML encoding
-
-*Default Value:* `false`
-
-<h5 id="check_mysql_query_list-separator">list-separator:</h5>
-
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-*Default Value:* `, `
-
-<h5 id="check_mysql_query_top-syntax">top-syntax:</h5>
-
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${list}`
-
-<h5 id="check_mysql_query_ok-syntax">ok-syntax:</h5>
-
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
-
-
-<h5 id="check_mysql_query_empty-syntax">empty-syntax:</h5>
-
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
-
-
-<h5 id="check_mysql_query_detail-syntax">detail-syntax:</h5>
-
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `%(line)`
-
-<h5 id="check_mysql_query_perf-syntax">perf-syntax:</h5>
-
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
 
 
 <h5 id="check_mysql_query_host">host:</h5>
@@ -637,27 +375,39 @@ Query (read/write) timeout in seconds.
 *Default Value:* `30`
 
 
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                             | Default Value |
+|----------------------------------------------------------------------------------------------------|---------------|
+| <a id="check_mysql_query_filter"></a>[filter](../common-options.md#filter)                         |               |
+| <a id="check_mysql_query_warning"></a>[warning](../common-options.md#warning)                      |               |
+| <a id="check_mysql_query_warn"></a>[warn](../common-options.md#warn)                               |               |
+| <a id="check_mysql_query_critical"></a>[critical](../common-options.md#critical)                   |               |
+| <a id="check_mysql_query_crit"></a>[crit](../common-options.md#crit)                               |               |
+| <a id="check_mysql_query_ok"></a>[ok](../common-options.md#ok)                                     |               |
+| <a id="check_mysql_query_debug"></a>[debug](../common-options.md#debug)                            | false         |
+| <a id="check_mysql_query_show-all"></a>[show-all](../common-options.md#show-all)                   | false         |
+| <a id="check_mysql_query_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored       |
+| <a id="check_mysql_query_perf-config"></a>[perf-config](../common-options.md#perf-config)          |               |
+| <a id="check_mysql_query_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false         |
+| <a id="check_mysql_query_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,             |
+| <a id="check_mysql_query_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${list}       |
+| <a id="check_mysql_query_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |               |
+| <a id="check_mysql_query_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |               |
+| <a id="check_mysql_query_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | %(line)       |
+| <a id="check_mysql_query_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          |               |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_mysql_query_filter_keys"></a>
 #### Filter keywords
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ## Configuration
 

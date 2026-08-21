@@ -7,18 +7,7 @@ complements `check_memory` (used/free/size of physical/committed/virtual) —
 modes that free-RAM thresholds do not catch.** The fault counters are rates,
 so the check samples a 1-second window (like `check_swap_io`).
 
-Keywords (a single aggregate row):
-
-| Keyword                     | Counter                  | Description                                                              |
-|-----------------------------|--------------------------|--------------------------------------------------------------------------|
-| `pool_paged`                | Pool Paged Bytes         | Paged pool; size units work (`pool_paged > 2G`), renders human-readable  |
-| `pool_nonpaged`             | Pool Nonpaged Bytes      | Nonpaged pool — steady growth is the classic driver-leak signal          |
-| `cache`                     | Cache Bytes              | System file-cache working set                                            |
-| `page_faults_per_sec`       | Page Faults/sec          | Total faults (soft + hard)                                               |
-| `transition_faults_per_sec` | Transition Faults/sec    | The dominant soft-fault kind (resolved without disk I/O)                 |
-| `hard_faults_per_sec`       | Page Reads/sec           | Faults that had to read from disk — the fault-storm signal               |
-
-All six are always emitted as perf data (`kernel_pool_paged`,
+All six keywords are always emitted as perf data (`kernel_pool_paged`,
 `kernel_hard_faults_per_sec`, ...), which is what makes the slow nonpaged-pool
 leak visible: it is inherently a trend signal, so let the backend graph it.
 

@@ -11,15 +11,10 @@ The keywords fall into two groups:
   healthy datastore may sustain thousands of IOPS while a saturated one
   struggles at hundreds.
 * **Saturation** — `percent_disk_time`, `percent_idle_time`, `queue_length`,
-  and the latency keywords: whether the storage is keeping up.
+  and the latency keywords (`read_latency`, `write_latency`, `total_latency`,
+  in milliseconds): whether the storage is keeping up.
 
 ### Latency keywords
-
-| Keyword         | Description                                                        |
-|-----------------|--------------------------------------------------------------------|
-| `read_latency`  | Average time per read in **milliseconds** over the interval.       |
-| `write_latency` | Average time per write in **milliseconds** over the interval.      |
-| `total_latency` | Average time per I/O (read + write) in milliseconds.               |
 
 Average latency per I/O is the most portable saturation signal: it is
 independent of the workload shape and comparable across machines. As a rule of

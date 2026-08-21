@@ -15,16 +15,7 @@ This matches
 `Get-NetFirewallProfile` (and `INetFwPolicy2` alone) shows only the local,
 pre-policy configuration.
 
-Each profile is one row with these keywords:
-
-| Keyword    | Type   | Meaning                                                                |
-|------------|--------|------------------------------------------------------------------------|
-| `profile`  | string | Profile name: `Domain`, `Private` or `Public`.                         |
-| `enabled`  | bool   | True if the firewall is enabled for that profile. Emitted as perfdata. |
-| `active`   | bool   | True if the profile is currently applied to a connected network. Emitted as perfdata (`<profile> active`). |
-| `inbound`  | string | Default inbound action (`allow`/`block`).                              |
-| `outbound` | string | Default outbound action (`allow`/`block`).                             |
-| `policy`   | string | Where the profile's settings come from: `group policy` if any of the reported settings is enforced through group policy, otherwise `local`. |
+Each profile is reported as one row.
 
 Default threshold: **critical** if any profile has `enabled = 0`.
 

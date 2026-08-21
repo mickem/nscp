@@ -167,7 +167,7 @@ filter_obj_handler::filter_obj_handler() {
   using parsers::where::type_bool;
   using parsers::where::type_int;
   registry_.add_string_var("printer", &filter_obj::get_printer, "Printer / queue name")
-      .add_string_var("status", &filter_obj::get_status, "Printer status: idle, printing, offline, stopped_printing, ...")
+      .add_string_var("status", &filter_obj::get_status, "Printer status: idle, printing, offline, stopped_printing, warmup, ...")
       .add_string_var("error_state", &filter_obj::get_error_state, "Detected error state: no_error, no_paper, jammed, door_open, ...")
       .add_string_var("driver", &filter_obj::get_driver, "Print driver the queue uses")
       .add_string_var("port", &filter_obj::get_port, "Port the queue prints through (IP_x.x.x.x, USB001, PORTPROMPT:, ...)")

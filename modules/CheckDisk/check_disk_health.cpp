@@ -202,13 +202,14 @@ filter_obj_handler::filter_obj_handler() {
   // populate only on device rows (has_device = 1). has_device is a guard, not a
   // metric, so it emits no perfdata.
   registry_
-      .add_int_var("has_device", &filter_obj::get_has_device, "1 if the row carries physical-disk device state (a per-disk row), 0 otherwise")
+      .add_int_var("has_device", &filter_obj::get_has_device, "1 if the row carries physical-disk device state (a per-disk row), 0 otherwise (guard; no perfdata)")
       .no_perf();
   registry_.add_string_var("friendly_name", &filter_obj::get_friendly_name, "Physical disk friendly name (device rows)")
       .add_string_var("serial", &filter_obj::get_serial, "Physical disk serial number (device rows)")
       .add_string_var("media_type", &filter_obj::get_media_type, "Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)")
       .add_string_var("health_status", &filter_obj::get_health_status, "Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)")
-      .add_string_var("operational_status", &filter_obj::get_operational_status, "Physical disk operational status: OK, Offline, ... (device rows)");
+      .add_string_var("operational_status", &filter_obj::get_operational_status,
+                      "Physical disk operational status, synthesised single value: Offline, OK, or the health string (device rows)");
   registry_.add_int_var("disk_number", &filter_obj::get_disk_number, "Physical disk number/index (device rows)")
       .no_perf()
       .add_int_var("is_offline", &filter_obj::get_is_offline, "1 if the physical disk is offline (device rows)")

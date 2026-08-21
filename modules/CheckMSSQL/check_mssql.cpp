@@ -34,7 +34,7 @@ typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_typ
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("server_name", &filter_obj::get_server_name, "Instance name (SERVERPROPERTY('ServerName'))")
       .add_string_var("version", &filter_obj::get_version, "Product version, e.g. 16.0.1000.6")
-      .add_string_var("product_level", &filter_obj::get_product_level, "Product level: RTM, SPn or CUn")
+      .add_string_var("product_level", &filter_obj::get_product_level, "Patch level: RTM, SPn or CUn")
       .add_string_var("edition", &filter_obj::get_edition, "Edition, e.g. Express Edition (64-bit)");
 
   static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;

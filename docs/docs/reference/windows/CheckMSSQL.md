@@ -42,16 +42,6 @@ A reachable server is OK by default; a failed connection is UNKNOWN with the
 stable message prefix `Failed to connect to SQL Server '<server>':` followed by
 the ODBC diagnostic (SQLSTATE and native error included).
 
-Keywords (one row per connected instance):
-
-| Keyword         | Description                                                        |
-|-----------------|--------------------------------------------------------------------|
-| `server_name`   | Instance name (`SERVERPROPERTY('ServerName')`)                     |
-| `version`       | Product version, e.g. `16.0.4265.3`                                |
-| `product_level` | Patch level: `RTM`, `SPn` or `CUn`                                 |
-| `edition`       | Edition, e.g. `Express Edition (64-bit)`                           |
-| `uptime`        | Seconds since the server started (accepts units: `uptime < 1h`)    |
-
 Defaults: no warning/critical expressions — being able to connect is the health
 signal. Add thresholds when needed, e.g. alert after a restart
 (`warning=uptime < 1h`) or pin the expected major version
@@ -129,12 +119,6 @@ OK: DBSRV01: SQL Server 16.0.4265.3 RTM Developer Edition (64-bit), uptime 144s
 <a id="check_mssql_options"></a>
 #### Command-line Arguments
 
-<a id="check_mssql_warn"></a>
-<a id="check_mssql_crit"></a>
-<a id="check_mssql_help"></a>
-<a id="check_mssql_help-pb"></a>
-<a id="check_mssql_show-default"></a>
-<a id="check_mssql_help-short"></a>
 <a id="check_mssql_database"></a>
 <a id="check_mssql_user"></a>
 <a id="check_mssql_password"></a>
@@ -142,146 +126,20 @@ OK: DBSRV01: SQL Server 16.0.4265.3 RTM Developer Edition (64-bit), uptime 144s
 <a id="check_mssql_connection-string"></a>
 <a id="check_mssql_encrypt"></a>
 
-| Option                                        | Default Value                                                                        | Description                                                                                                               |
-|-----------------------------------------------|--------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_mssql_filter)                 |                                                                                      | Filter which marks interesting items.                                                                                     |
-| [warning](#check_mssql_warning)               |                                                                                      | Filter which marks items which generates a warning state.                                                                 |
-| warn                                          |                                                                                      | Short alias for warning                                                                                                   |
-| [critical](#check_mssql_critical)             |                                                                                      | Filter which marks items which generates a critical state.                                                                |
-| crit                                          |                                                                                      | Short alias for critical.                                                                                                 |
-| [ok](#check_mssql_ok)                         |                                                                                      | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_mssql_debug)                   | false                                                                                | Show debugging information in the log                                                                                     |
-| [show-all](#check_mssql_show-all)             | false                                                                                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_mssql_empty-state)       | unknown                                                                              | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_mssql_perf-config)       |                                                                                      | Performance data generation configuration                                                                                 |
-| [escape-html](#check_mssql_escape-html)       | false                                                                                | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_mssql_list-separator) | ,                                                                                    | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                          | N/A                                                                                  | Show help screen (this screen)                                                                                            |
-| help-pb                                       | N/A                                                                                  | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                  | N/A                                                                                  | Show default values for a given command                                                                                   |
-| help-short                                    | N/A                                                                                  | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_mssql_top-syntax)         | ${status}: ${list}                                                                   | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_mssql_ok-syntax)           |                                                                                      | ok syntax.                                                                                                                |
-| [empty-syntax](#check_mssql_empty-syntax)     | %(status): No server information returned                                            | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_mssql_detail-syntax)   | ${server_name}: SQL Server ${version} ${product_level} ${edition}, uptime ${uptime}s | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_mssql_perf-syntax)       | ${server_name}                                                                       | Performance alias syntax.                                                                                                 |
-| [server](#check_mssql_server)                 | localhost                                                                            | SQL Server to connect to: host, host\INSTANCE or host,port.                                                               |
-| database                                      |                                                                                      | Database (initial catalog) to connect to (default: the login's default database).                                         |
-| user                                          |                                                                                      | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication.            |
-| password                                      |                                                                                      | Password for the SQL login.                                                                                               |
-| driver                                        |                                                                                      | ODBC driver to use (default: newest installed SQL Server driver).                                                         |
-| connection-string                             |                                                                                      | Raw ODBC connection string; overrides all other connection options.                                                       |
-| [timeout](#check_mssql_timeout)               | 10                                                                                   | Connection (login) timeout in seconds.                                                                                    |
-| [query-timeout](#check_mssql_query-timeout)   | 30                                                                                   | Query timeout in seconds.                                                                                                 |
-| [trust-cert](#check_mssql_trust-cert)         | true                                                                                 | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
-| encrypt                                       |                                                                                      | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                              |
+| Option                                      | Default Value | Description                                                                                                    |
+|---------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------|
+| [server](#check_mssql_server)               | localhost     | SQL Server to connect to: host, host\INSTANCE or host,port.                                                    |
+| database                                    |               | Database (initial catalog) to connect to (default: the login's default database).                              |
+| user                                        |               | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication. |
+| password                                    |               | Password for the SQL login.                                                                                    |
+| driver                                      |               | ODBC driver to use (default: newest installed SQL Server driver).                                              |
+| connection-string                           |               | Raw ODBC connection string; overrides all other connection options.                                            |
+| [timeout](#check_mssql_timeout)             | 10            | Connection (login) timeout in seconds.                                                                         |
+| [query-timeout](#check_mssql_query-timeout) | 30            | Query timeout in seconds.                                                                                      |
+| [trust-cert](#check_mssql_trust-cert)       | true          | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                           |
+| encrypt                                     |               | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                   |
 
 
-
-<h5 id="check_mssql_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_mssql_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
-
-
-
-<h5 id="check_mssql_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-
-<h5 id="check_mssql_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
-
-
-<h5 id="check_mssql_debug">debug:</h5>
-
-Show debugging information in the log
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="check_mssql_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-<h5 id="check_mssql_escape-html">escape-html:</h5>
-
-Escape any < and > characters to prevent HTML encoding
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_list-separator">list-separator:</h5>
-
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-*Default Value:* `, `
-
-<h5 id="check_mssql_top-syntax">top-syntax:</h5>
-
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${status}: ${list}`
-
-<h5 id="check_mssql_ok-syntax">ok-syntax:</h5>
-
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
-
-
-<h5 id="check_mssql_empty-syntax">empty-syntax:</h5>
-
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
-
-*Default Value:* `%(status): No server information returned`
-
-<h5 id="check_mssql_detail-syntax">detail-syntax:</h5>
-
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${server_name}: SQL Server ${version} ${product_level} ${edition}, uptime ${uptime}s`
-
-<h5 id="check_mssql_perf-syntax">perf-syntax:</h5>
-
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
-
-*Default Value:* `${server_name}`
 
 <h5 id="check_mssql_server">server:</h5>
 
@@ -308,35 +166,47 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 *Default Value:* `true`
 
 
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                       | Default Value                                                                        |
+|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| <a id="check_mssql_filter"></a>[filter](../common-options.md#filter)                         |                                                                                      |
+| <a id="check_mssql_warning"></a>[warning](../common-options.md#warning)                      |                                                                                      |
+| <a id="check_mssql_warn"></a>[warn](../common-options.md#warn)                               |                                                                                      |
+| <a id="check_mssql_critical"></a>[critical](../common-options.md#critical)                   |                                                                                      |
+| <a id="check_mssql_crit"></a>[crit](../common-options.md#crit)                               |                                                                                      |
+| <a id="check_mssql_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                      |
+| <a id="check_mssql_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                |
+| <a id="check_mssql_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                |
+| <a id="check_mssql_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                              |
+| <a id="check_mssql_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                      |
+| <a id="check_mssql_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                |
+| <a id="check_mssql_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                    |
+| <a id="check_mssql_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                   |
+| <a id="check_mssql_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                      |
+| <a id="check_mssql_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No server information returned                                            |
+| <a id="check_mssql_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${server_name}: SQL Server ${version} ${product_level} ${edition}, uptime ${uptime}s |
+| <a id="check_mssql_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${server_name}                                                                       |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_mssql_filter_keys"></a>
 #### Filter keywords
 
 | Option        | Description                                                         |
 |---------------|---------------------------------------------------------------------|
 | edition       | Edition, e.g. Express Edition (64-bit)                              |
-| product_level | Product level: RTM, SPn or CUn                                      |
+| product_level | Patch level: RTM, SPn or CUn                                        |
 | server_name   | Instance name (SERVERPROPERTY('ServerName'))                        |
 | uptime        | Seconds since the server started (supports units, e.g. uptime < 1h) |
 | version       | Product version, e.g. 16.0.1000.6                                   |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_mssql_backup
 
@@ -349,16 +219,6 @@ and log backup** for every database, joining `sys.databases` with the backup
 history in `msdb.dbo.backupset`. `tempdb` is excluded (it is never backed up).
 A backup type that has never been taken is reported as age **-1**, so
 "never backed up" can be caught explicitly (`full_age < 0`).
-
-Keywords (one row per database):
-
-| Keyword          | Description                                                       |
-|------------------|-------------------------------------------------------------------|
-| `name`           | Database name                                                     |
-| `recovery_model` | `SIMPLE`, `FULL` or `BULK_LOGGED`                                 |
-| `full_age`       | Seconds since the last full backup finished, `-1` = never (accepts units) |
-| `diff_age`       | Seconds since the last differential backup finished, `-1` = never |
-| `log_age`        | Seconds since the last log backup finished, `-1` = never          |
 
 Defaults: **CRITICAL** when a database has never had a full backup or the last
 one is older than 7 days (`full_age < 0 or full_age > 7d`), **WARNING** after
@@ -454,12 +314,6 @@ OK: All 2 databases have recent backups|'master_full_age'=248s;259200;0 'msdb_fu
 <a id="check_mssql_backup_options"></a>
 #### Command-line Arguments
 
-<a id="check_mssql_backup_warn"></a>
-<a id="check_mssql_backup_crit"></a>
-<a id="check_mssql_backup_help"></a>
-<a id="check_mssql_backup_help-pb"></a>
-<a id="check_mssql_backup_show-default"></a>
-<a id="check_mssql_backup_help-short"></a>
 <a id="check_mssql_backup_database"></a>
 <a id="check_mssql_backup_user"></a>
 <a id="check_mssql_backup_password"></a>
@@ -467,151 +321,22 @@ OK: All 2 databases have recent backups|'master_full_age'=248s;259200;0 'msdb_fu
 <a id="check_mssql_backup_connection-string"></a>
 <a id="check_mssql_backup_encrypt"></a>
 
-| Option                                                     | Default Value                                                    | Description                                                                                                                                                                                      |
-|------------------------------------------------------------|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_mssql_backup_filter)                       |                                                                  | Filter which marks interesting items.                                                                                                                                                            |
-| [warning](#check_mssql_backup_warning)                     | full_age > 3d                                                    | Filter which marks items which generates a warning state.                                                                                                                                        |
-| warn                                                       |                                                                  | Short alias for warning                                                                                                                                                                          |
-| [critical](#check_mssql_backup_critical)                   | full_age < 0 or full_age > 7d                                    | Filter which marks items which generates a critical state.                                                                                                                                       |
-| crit                                                       |                                                                  | Short alias for critical.                                                                                                                                                                        |
-| [ok](#check_mssql_backup_ok)                               |                                                                  | Filter which marks items which generates an ok state.                                                                                                                                            |
-| [debug](#check_mssql_backup_debug)                         | false                                                            | Show debugging information in the log                                                                                                                                                            |
-| [show-all](#check_mssql_backup_show-all)                   | false                                                            | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                                 |
-| [empty-state](#check_mssql_backup_empty-state)             | unknown                                                          | Return status to use when nothing matched filter.                                                                                                                                                |
-| [perf-config](#check_mssql_backup_perf-config)             |                                                                  | Performance data generation configuration                                                                                                                                                        |
-| [escape-html](#check_mssql_backup_escape-html)             | false                                                            | Escape any < and > characters to prevent HTML encoding                                                                                                                                           |
-| [list-separator](#check_mssql_backup_list-separator)       | ,                                                                | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                                        |
-| help                                                       | N/A                                                              | Show help screen (this screen)                                                                                                                                                                   |
-| help-pb                                                    | N/A                                                              | Show help screen as a protocol buffer payload                                                                                                                                                    |
-| show-default                                               | N/A                                                              | Show default values for a given command                                                                                                                                                          |
-| help-short                                                 | N/A                                                              | Show help screen (short format).                                                                                                                                                                 |
-| [top-syntax](#check_mssql_backup_top-syntax)               | ${status}: ${problem_count}/${count} databases (${problem_list}) | Top level syntax.                                                                                                                                                                                |
-| [ok-syntax](#check_mssql_backup_ok-syntax)                 | %(status): All %(count) databases have recent backups            | ok syntax.                                                                                                                                                                                       |
-| [empty-syntax](#check_mssql_backup_empty-syntax)           | %(status): No databases found                                    | Empty syntax.                                                                                                                                                                                    |
-| [detail-syntax](#check_mssql_backup_detail-syntax)         | ${name}: last full backup ${full_age}s ago                       | Detail level syntax.                                                                                                                                                                             |
-| [perf-syntax](#check_mssql_backup_perf-syntax)             | ${name}                                                          | Performance alias syntax.                                                                                                                                                                        |
-| [include-copy-only](#check_mssql_backup_include-copy-only) | false                                                            | Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc copy-only backup does not belong to the scheduled restore chain, so counting it would hide a failing backup job. |
-| [include-snapshot](#check_mssql_backup_include-snapshot)   | false                                                            | Count snapshot (VSS/third-party agent) backups when computing the ages. Excluded by default for the same reason.                                                                                 |
-| [server](#check_mssql_backup_server)                       | localhost                                                        | SQL Server to connect to: host, host\INSTANCE or host,port.                                                                                                                                      |
-| database                                                   |                                                                  | Database (initial catalog) to connect to (default: the login's default database).                                                                                                                |
-| user                                                       |                                                                  | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication.                                                                                   |
-| password                                                   |                                                                  | Password for the SQL login.                                                                                                                                                                      |
-| driver                                                     |                                                                  | ODBC driver to use (default: newest installed SQL Server driver).                                                                                                                                |
-| connection-string                                          |                                                                  | Raw ODBC connection string; overrides all other connection options.                                                                                                                              |
-| [timeout](#check_mssql_backup_timeout)                     | 10                                                               | Connection (login) timeout in seconds.                                                                                                                                                           |
-| [query-timeout](#check_mssql_backup_query-timeout)         | 30                                                               | Query timeout in seconds.                                                                                                                                                                        |
-| [trust-cert](#check_mssql_backup_trust-cert)               | true                                                             | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                                                                                             |
-| encrypt                                                    |                                                                  | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                                                                                                     |
+| Option                                                     | Default Value | Description                                                                                                                                                                                      |
+|------------------------------------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [include-copy-only](#check_mssql_backup_include-copy-only) | false         | Count COPY_ONLY backups when computing the ages. Excluded by default: an ad-hoc copy-only backup does not belong to the scheduled restore chain, so counting it would hide a failing backup job. |
+| [include-snapshot](#check_mssql_backup_include-snapshot)   | false         | Count snapshot (VSS/third-party agent) backups when computing the ages. Excluded by default for the same reason.                                                                                 |
+| [server](#check_mssql_backup_server)                       | localhost     | SQL Server to connect to: host, host\INSTANCE or host,port.                                                                                                                                      |
+| database                                                   |               | Database (initial catalog) to connect to (default: the login's default database).                                                                                                                |
+| user                                                       |               | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication.                                                                                   |
+| password                                                   |               | Password for the SQL login.                                                                                                                                                                      |
+| driver                                                     |               | ODBC driver to use (default: newest installed SQL Server driver).                                                                                                                                |
+| connection-string                                          |               | Raw ODBC connection string; overrides all other connection options.                                                                                                                              |
+| [timeout](#check_mssql_backup_timeout)                     | 10            | Connection (login) timeout in seconds.                                                                                                                                                           |
+| [query-timeout](#check_mssql_backup_query-timeout)         | 30            | Query timeout in seconds.                                                                                                                                                                        |
+| [trust-cert](#check_mssql_backup_trust-cert)               | true          | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                                                                                             |
+| encrypt                                                    |               | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                                                                                                     |
 
 
-
-<h5 id="check_mssql_backup_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_mssql_backup_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
-
-
-*Default Value:* `full_age > 3d`
-
-<h5 id="check_mssql_backup_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-*Default Value:* `full_age < 0 or full_age > 7d`
-
-<h5 id="check_mssql_backup_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
-
-
-<h5 id="check_mssql_backup_debug">debug:</h5>
-
-Show debugging information in the log
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_backup_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_backup_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="check_mssql_backup_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-<h5 id="check_mssql_backup_escape-html">escape-html:</h5>
-
-Escape any < and > characters to prevent HTML encoding
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_backup_list-separator">list-separator:</h5>
-
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-*Default Value:* `, `
-
-<h5 id="check_mssql_backup_top-syntax">top-syntax:</h5>
-
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${status}: ${problem_count}/${count} databases (${problem_list})`
-
-<h5 id="check_mssql_backup_ok-syntax">ok-syntax:</h5>
-
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
-
-*Default Value:* `%(status): All %(count) databases have recent backups`
-
-<h5 id="check_mssql_backup_empty-syntax">empty-syntax:</h5>
-
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
-
-*Default Value:* `%(status): No databases found`
-
-<h5 id="check_mssql_backup_detail-syntax">detail-syntax:</h5>
-
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${name}: last full backup ${full_age}s ago`
-
-<h5 id="check_mssql_backup_perf-syntax">perf-syntax:</h5>
-
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
-
-*Default Value:* `${name}`
 
 <h5 id="check_mssql_backup_include-copy-only">include-copy-only:</h5>
 
@@ -650,35 +375,47 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 *Default Value:* `true`
 
 
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                              | Default Value                                                    |
+|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| <a id="check_mssql_backup_filter"></a>[filter](../common-options.md#filter)                         |                                                                  |
+| <a id="check_mssql_backup_warning"></a>[warning](../common-options.md#warning)                      | full_age > 3d                                                    |
+| <a id="check_mssql_backup_warn"></a>[warn](../common-options.md#warn)                               |                                                                  |
+| <a id="check_mssql_backup_critical"></a>[critical](../common-options.md#critical)                   | full_age < 0 or full_age > 7d                                    |
+| <a id="check_mssql_backup_crit"></a>[crit](../common-options.md#crit)                               |                                                                  |
+| <a id="check_mssql_backup_ok"></a>[ok](../common-options.md#ok)                                     |                                                                  |
+| <a id="check_mssql_backup_debug"></a>[debug](../common-options.md#debug)                            | false                                                            |
+| <a id="check_mssql_backup_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                            |
+| <a id="check_mssql_backup_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                          |
+| <a id="check_mssql_backup_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                  |
+| <a id="check_mssql_backup_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                            |
+| <a id="check_mssql_backup_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                |
+| <a id="check_mssql_backup_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_count}/${count} databases (${problem_list}) |
+| <a id="check_mssql_backup_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) databases have recent backups            |
+| <a id="check_mssql_backup_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No databases found                                    |
+| <a id="check_mssql_backup_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: last full backup ${full_age}s ago                       |
+| <a id="check_mssql_backup_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                          |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_mssql_backup_filter_keys"></a>
 #### Filter keywords
 
-| Option         | Description                                                                         |
-|----------------|-------------------------------------------------------------------------------------|
-| diff_age       | Seconds since the last differential backup, -1 = never (supports units)             |
-| full_age       | Seconds since the last full backup, -1 = never (supports units, e.g. full_age > 7d) |
-| log_age        | Seconds since the last log backup, -1 = never (supports units, e.g. log_age > 1h)   |
-| name           | Database name                                                                       |
-| recovery_model | Recovery model: SIMPLE, FULL or BULK_LOGGED                                         |
+| Option         | Description                                                                                  |
+|----------------|----------------------------------------------------------------------------------------------|
+| diff_age       | Seconds since the last differential backup finished, -1 = never (supports units)             |
+| full_age       | Seconds since the last full backup finished, -1 = never (supports units, e.g. full_age > 7d) |
+| log_age        | Seconds since the last log backup finished, -1 = never (supports units, e.g. log_age > 1h)   |
+| name           | Database name                                                                                |
+| recovery_model | Recovery model: SIMPLE, FULL or BULK_LOGGED                                                  |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_mssql_databases
 
@@ -690,18 +427,6 @@ Check database state, recovery model and data/log size.
 `sys.databases` (sizes from `sys.master_files`, log usage from
 `DBCC SQLPERF(LOGSPACE)`) and produces one row per database, so availability
 and capacity policies can be expressed with filter expressions.
-
-Keywords (one row per database):
-
-| Keyword          | Description                                                                     |
-|------------------|---------------------------------------------------------------------------------|
-| `name`           | Database name                                                                   |
-| `state`          | `ONLINE`, `RESTORING`, `RECOVERING`, `RECOVERY_PENDING`, `SUSPECT`, `EMERGENCY` or `OFFLINE` |
-| `recovery_model` | `SIMPLE`, `FULL` or `BULK_LOGGED`                                               |
-| `is_read_only`   | `1` if the database is read-only                                                |
-| `data_size`      | Total data-file size in bytes (accepts units: `data_size > 10G`)                |
-| `log_size`       | Total log-file size in bytes (accepts units)                                    |
-| `log_used_pct`   | Percentage of the log in use, `-1` if unavailable                               |
 
 Defaults: **CRITICAL** on broken states
 (`state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING'`),
@@ -766,12 +491,6 @@ OK: All 5 databases are ONLINE
 <a id="check_mssql_databases_options"></a>
 #### Command-line Arguments
 
-<a id="check_mssql_databases_warn"></a>
-<a id="check_mssql_databases_crit"></a>
-<a id="check_mssql_databases_help"></a>
-<a id="check_mssql_databases_help-pb"></a>
-<a id="check_mssql_databases_show-default"></a>
-<a id="check_mssql_databases_help-short"></a>
 <a id="check_mssql_databases_database"></a>
 <a id="check_mssql_databases_user"></a>
 <a id="check_mssql_databases_password"></a>
@@ -779,149 +498,20 @@ OK: All 5 databases are ONLINE
 <a id="check_mssql_databases_connection-string"></a>
 <a id="check_mssql_databases_encrypt"></a>
 
-| Option                                                  | Default Value                                                          | Description                                                                                                               |
-|---------------------------------------------------------|------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_mssql_databases_filter)                 |                                                                        | Filter which marks interesting items.                                                                                     |
-| [warning](#check_mssql_databases_warning)               | state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE'       | Filter which marks items which generates a warning state.                                                                 |
-| warn                                                    |                                                                        | Short alias for warning                                                                                                   |
-| [critical](#check_mssql_databases_critical)             | state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING' | Filter which marks items which generates a critical state.                                                                |
-| crit                                                    |                                                                        | Short alias for critical.                                                                                                 |
-| [ok](#check_mssql_databases_ok)                         |                                                                        | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_mssql_databases_debug)                   | false                                                                  | Show debugging information in the log                                                                                     |
-| [show-all](#check_mssql_databases_show-all)             | false                                                                  | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_mssql_databases_empty-state)       | unknown                                                                | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_mssql_databases_perf-config)       |                                                                        | Performance data generation configuration                                                                                 |
-| [escape-html](#check_mssql_databases_escape-html)       | false                                                                  | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_mssql_databases_list-separator) | ,                                                                      | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                                    | N/A                                                                    | Show help screen (this screen)                                                                                            |
-| help-pb                                                 | N/A                                                                    | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                            | N/A                                                                    | Show default values for a given command                                                                                   |
-| help-short                                              | N/A                                                                    | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_mssql_databases_top-syntax)         | ${status}: ${problem_count}/${count} databases (${problem_list})       | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_mssql_databases_ok-syntax)           | %(status): All %(count) databases are ONLINE                           | ok syntax.                                                                                                                |
-| [empty-syntax](#check_mssql_databases_empty-syntax)     | %(status): No databases found                                          | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_mssql_databases_detail-syntax)   | ${name}: ${state}                                                      | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_mssql_databases_perf-syntax)       | ${name}                                                                | Performance alias syntax.                                                                                                 |
-| [server](#check_mssql_databases_server)                 | localhost                                                              | SQL Server to connect to: host, host\INSTANCE or host,port.                                                               |
-| database                                                |                                                                        | Database (initial catalog) to connect to (default: the login's default database).                                         |
-| user                                                    |                                                                        | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication.            |
-| password                                                |                                                                        | Password for the SQL login.                                                                                               |
-| driver                                                  |                                                                        | ODBC driver to use (default: newest installed SQL Server driver).                                                         |
-| connection-string                                       |                                                                        | Raw ODBC connection string; overrides all other connection options.                                                       |
-| [timeout](#check_mssql_databases_timeout)               | 10                                                                     | Connection (login) timeout in seconds.                                                                                    |
-| [query-timeout](#check_mssql_databases_query-timeout)   | 30                                                                     | Query timeout in seconds.                                                                                                 |
-| [trust-cert](#check_mssql_databases_trust-cert)         | true                                                                   | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
-| encrypt                                                 |                                                                        | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                              |
+| Option                                                | Default Value | Description                                                                                                    |
+|-------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------|
+| [server](#check_mssql_databases_server)               | localhost     | SQL Server to connect to: host, host\INSTANCE or host,port.                                                    |
+| database                                              |               | Database (initial catalog) to connect to (default: the login's default database).                              |
+| user                                                  |               | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication. |
+| password                                              |               | Password for the SQL login.                                                                                    |
+| driver                                                |               | ODBC driver to use (default: newest installed SQL Server driver).                                              |
+| connection-string                                     |               | Raw ODBC connection string; overrides all other connection options.                                            |
+| [timeout](#check_mssql_databases_timeout)             | 10            | Connection (login) timeout in seconds.                                                                         |
+| [query-timeout](#check_mssql_databases_query-timeout) | 30            | Query timeout in seconds.                                                                                      |
+| [trust-cert](#check_mssql_databases_trust-cert)       | true          | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                           |
+| encrypt                                               |               | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                   |
 
 
-
-<h5 id="check_mssql_databases_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_mssql_databases_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
-
-
-*Default Value:* `state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE'`
-
-<h5 id="check_mssql_databases_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-*Default Value:* `state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING'`
-
-<h5 id="check_mssql_databases_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
-
-
-<h5 id="check_mssql_databases_debug">debug:</h5>
-
-Show debugging information in the log
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_databases_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_databases_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `unknown`
-
-<h5 id="check_mssql_databases_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-<h5 id="check_mssql_databases_escape-html">escape-html:</h5>
-
-Escape any < and > characters to prevent HTML encoding
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_databases_list-separator">list-separator:</h5>
-
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-*Default Value:* `, `
-
-<h5 id="check_mssql_databases_top-syntax">top-syntax:</h5>
-
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${status}: ${problem_count}/${count} databases (${problem_list})`
-
-<h5 id="check_mssql_databases_ok-syntax">ok-syntax:</h5>
-
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
-
-*Default Value:* `%(status): All %(count) databases are ONLINE`
-
-<h5 id="check_mssql_databases_empty-syntax">empty-syntax:</h5>
-
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
-
-*Default Value:* `%(status): No databases found`
-
-<h5 id="check_mssql_databases_detail-syntax">detail-syntax:</h5>
-
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${name}: ${state}`
-
-<h5 id="check_mssql_databases_perf-syntax">perf-syntax:</h5>
-
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
-
-*Default Value:* `${name}`
 
 <h5 id="check_mssql_databases_server">server:</h5>
 
@@ -948,6 +538,35 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 *Default Value:* `true`
 
 
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                 | Default Value                                                          |
+|--------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
+| <a id="check_mssql_databases_filter"></a>[filter](../common-options.md#filter)                         |                                                                        |
+| <a id="check_mssql_databases_warning"></a>[warning](../common-options.md#warning)                      | state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE'       |
+| <a id="check_mssql_databases_warn"></a>[warn](../common-options.md#warn)                               |                                                                        |
+| <a id="check_mssql_databases_critical"></a>[critical](../common-options.md#critical)                   | state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING' |
+| <a id="check_mssql_databases_crit"></a>[crit](../common-options.md#crit)                               |                                                                        |
+| <a id="check_mssql_databases_ok"></a>[ok](../common-options.md#ok)                                     |                                                                        |
+| <a id="check_mssql_databases_debug"></a>[debug](../common-options.md#debug)                            | false                                                                  |
+| <a id="check_mssql_databases_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                  |
+| <a id="check_mssql_databases_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                |
+| <a id="check_mssql_databases_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                        |
+| <a id="check_mssql_databases_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                  |
+| <a id="check_mssql_databases_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                      |
+| <a id="check_mssql_databases_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_count}/${count} databases (${problem_list})       |
+| <a id="check_mssql_databases_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) databases are ONLINE                           |
+| <a id="check_mssql_databases_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No databases found                                          |
+| <a id="check_mssql_databases_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${state}                                                      |
+| <a id="check_mssql_databases_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_mssql_databases_filter_keys"></a>
 #### Filter keywords
 
@@ -961,24 +580,7 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 | recovery_model | Recovery model: SIMPLE, FULL or BULK_LOGGED                                                    |
 | state          | Database state: ONLINE, RESTORING, RECOVERING, RECOVERY_PENDING, SUSPECT, EMERGENCY or OFFLINE |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_mssql_jobs
 
@@ -990,17 +592,6 @@ Check SQL Server Agent job status.
 Agent job** from `msdb.dbo.sysjobs` and the job-outcome rows of
 `msdb.dbo.sysjobhistory`, producing one row per job. Disabled jobs are
 excluded by the default filter (`enabled = 1`).
-
-Keywords (one row per job):
-
-| Keyword            | Description                                                                    |
-|--------------------|--------------------------------------------------------------------------------|
-| `name`             | Job name                                                                       |
-| `enabled`          | `1` if the job is enabled                                                      |
-| `is_running`       | `1` if the job is executing right now                                          |
-| `last_run_status`  | Outcome of the last **completed** run: `failed`, `succeeded`, `retry`, `canceled` or `never` |
-| `last_run_outcome` | Raw msdb `run_status` code of the last completed run (`-1` = never ran)        |
-| `last_run_age`     | Seconds since the last run **finished**, `-1` = never ran (accepts units)      |
 
 Defaults: **CRITICAL** on `last_run_status = 'failed'`, **WARNING** on
 `canceled` or `retry`. empty-state is **OK**: an instance without Agent jobs —
@@ -1089,12 +680,6 @@ OK: No enabled SQL Agent jobs found
 <a id="check_mssql_jobs_options"></a>
 #### Command-line Arguments
 
-<a id="check_mssql_jobs_warn"></a>
-<a id="check_mssql_jobs_crit"></a>
-<a id="check_mssql_jobs_help"></a>
-<a id="check_mssql_jobs_help-pb"></a>
-<a id="check_mssql_jobs_show-default"></a>
-<a id="check_mssql_jobs_help-short"></a>
 <a id="check_mssql_jobs_database"></a>
 <a id="check_mssql_jobs_user"></a>
 <a id="check_mssql_jobs_password"></a>
@@ -1102,150 +687,20 @@ OK: No enabled SQL Agent jobs found
 <a id="check_mssql_jobs_connection-string"></a>
 <a id="check_mssql_jobs_encrypt"></a>
 
-| Option                                             | Default Value                                               | Description                                                                                                               |
-|----------------------------------------------------|-------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_mssql_jobs_filter)                 | enabled = 1                                                 | Filter which marks interesting items.                                                                                     |
-| [warning](#check_mssql_jobs_warning)               | last_run_status = 'canceled' or last_run_status = 'retry'   | Filter which marks items which generates a warning state.                                                                 |
-| warn                                               |                                                             | Short alias for warning                                                                                                   |
-| [critical](#check_mssql_jobs_critical)             | last_run_status = 'failed'                                  | Filter which marks items which generates a critical state.                                                                |
-| crit                                               |                                                             | Short alias for critical.                                                                                                 |
-| [ok](#check_mssql_jobs_ok)                         |                                                             | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_mssql_jobs_debug)                   | false                                                       | Show debugging information in the log                                                                                     |
-| [show-all](#check_mssql_jobs_show-all)             | false                                                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_mssql_jobs_empty-state)       | ok                                                          | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_mssql_jobs_perf-config)       |                                                             | Performance data generation configuration                                                                                 |
-| [escape-html](#check_mssql_jobs_escape-html)       | false                                                       | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_mssql_jobs_list-separator) | ,                                                           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                               | N/A                                                         | Show help screen (this screen)                                                                                            |
-| help-pb                                            | N/A                                                         | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                       | N/A                                                         | Show default values for a given command                                                                                   |
-| help-short                                         | N/A                                                         | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_mssql_jobs_top-syntax)         | ${status}: ${problem_count}/${count} jobs (${problem_list}) | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_mssql_jobs_ok-syntax)           | %(status): All %(count) jobs succeeded                      | ok syntax.                                                                                                                |
-| [empty-syntax](#check_mssql_jobs_empty-syntax)     | %(status): No enabled SQL Agent jobs found                  | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_mssql_jobs_detail-syntax)   | ${name}: ${last_run_status}                                 | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_mssql_jobs_perf-syntax)       | ${name}                                                     | Performance alias syntax.                                                                                                 |
-| [server](#check_mssql_jobs_server)                 | localhost                                                   | SQL Server to connect to: host, host\INSTANCE or host,port.                                                               |
-| database                                           |                                                             | Database (initial catalog) to connect to (default: the login's default database).                                         |
-| user                                               |                                                             | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication.            |
-| password                                           |                                                             | Password for the SQL login.                                                                                               |
-| driver                                             |                                                             | ODBC driver to use (default: newest installed SQL Server driver).                                                         |
-| connection-string                                  |                                                             | Raw ODBC connection string; overrides all other connection options.                                                       |
-| [timeout](#check_mssql_jobs_timeout)               | 10                                                          | Connection (login) timeout in seconds.                                                                                    |
-| [query-timeout](#check_mssql_jobs_query-timeout)   | 30                                                          | Query timeout in seconds.                                                                                                 |
-| [trust-cert](#check_mssql_jobs_trust-cert)         | true                                                        | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
-| encrypt                                            |                                                             | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                              |
+| Option                                           | Default Value | Description                                                                                                    |
+|--------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------|
+| [server](#check_mssql_jobs_server)               | localhost     | SQL Server to connect to: host, host\INSTANCE or host,port.                                                    |
+| database                                         |               | Database (initial catalog) to connect to (default: the login's default database).                              |
+| user                                             |               | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication. |
+| password                                         |               | Password for the SQL login.                                                                                    |
+| driver                                           |               | ODBC driver to use (default: newest installed SQL Server driver).                                              |
+| connection-string                                |               | Raw ODBC connection string; overrides all other connection options.                                            |
+| [timeout](#check_mssql_jobs_timeout)             | 10            | Connection (login) timeout in seconds.                                                                         |
+| [query-timeout](#check_mssql_jobs_query-timeout) | 30            | Query timeout in seconds.                                                                                      |
+| [trust-cert](#check_mssql_jobs_trust-cert)       | true          | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                           |
+| encrypt                                          |               | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                   |
 
 
-
-<h5 id="check_mssql_jobs_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-*Default Value:* `enabled = 1`
-
-<h5 id="check_mssql_jobs_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
-
-
-*Default Value:* `last_run_status = 'canceled' or last_run_status = 'retry'`
-
-<h5 id="check_mssql_jobs_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-*Default Value:* `last_run_status = 'failed'`
-
-<h5 id="check_mssql_jobs_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
-
-
-<h5 id="check_mssql_jobs_debug">debug:</h5>
-
-Show debugging information in the log
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_jobs_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_jobs_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ok`
-
-<h5 id="check_mssql_jobs_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-<h5 id="check_mssql_jobs_escape-html">escape-html:</h5>
-
-Escape any < and > characters to prevent HTML encoding
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_jobs_list-separator">list-separator:</h5>
-
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-*Default Value:* `, `
-
-<h5 id="check_mssql_jobs_top-syntax">top-syntax:</h5>
-
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${status}: ${problem_count}/${count} jobs (${problem_list})`
-
-<h5 id="check_mssql_jobs_ok-syntax">ok-syntax:</h5>
-
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
-
-*Default Value:* `%(status): All %(count) jobs succeeded`
-
-<h5 id="check_mssql_jobs_empty-syntax">empty-syntax:</h5>
-
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
-
-*Default Value:* `%(status): No enabled SQL Agent jobs found`
-
-<h5 id="check_mssql_jobs_detail-syntax">detail-syntax:</h5>
-
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${name}: ${last_run_status}`
-
-<h5 id="check_mssql_jobs_perf-syntax">perf-syntax:</h5>
-
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
-
-*Default Value:* `${name}`
 
 <h5 id="check_mssql_jobs_server">server:</h5>
 
@@ -1272,6 +727,35 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 *Default Value:* `true`
 
 
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                            | Default Value                                               |
+|---------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+| <a id="check_mssql_jobs_filter"></a>[filter](../common-options.md#filter)                         | enabled = 1                                                 |
+| <a id="check_mssql_jobs_warning"></a>[warning](../common-options.md#warning)                      | last_run_status = 'canceled' or last_run_status = 'retry'   |
+| <a id="check_mssql_jobs_warn"></a>[warn](../common-options.md#warn)                               |                                                             |
+| <a id="check_mssql_jobs_critical"></a>[critical](../common-options.md#critical)                   | last_run_status = 'failed'                                  |
+| <a id="check_mssql_jobs_crit"></a>[crit](../common-options.md#crit)                               |                                                             |
+| <a id="check_mssql_jobs_ok"></a>[ok](../common-options.md#ok)                                     |                                                             |
+| <a id="check_mssql_jobs_debug"></a>[debug](../common-options.md#debug)                            | false                                                       |
+| <a id="check_mssql_jobs_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                       |
+| <a id="check_mssql_jobs_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                          |
+| <a id="check_mssql_jobs_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                             |
+| <a id="check_mssql_jobs_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                       |
+| <a id="check_mssql_jobs_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                           |
+| <a id="check_mssql_jobs_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_count}/${count} jobs (${problem_list}) |
+| <a id="check_mssql_jobs_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) jobs succeeded                      |
+| <a id="check_mssql_jobs_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No enabled SQL Agent jobs found                  |
+| <a id="check_mssql_jobs_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${last_run_status}                                 |
+| <a id="check_mssql_jobs_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                     |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_mssql_jobs_filter_keys"></a>
 #### Filter keywords
 
@@ -1284,24 +768,7 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 | last_run_status  | Outcome of the last completed run: failed, succeeded, retry, canceled or never                |
 | name             | Job name                                                                                      |
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_mssql_query
 
@@ -1314,12 +781,9 @@ returned column into a filter keyword, so warning/critical expressions and
 perfdata can be built from any query result — the SQL Server counterpart of
 `check_wmi`. Each returned row is matched against the filter separately.
 
-Keywords (dynamic, one row per result-set row):
-
-| Keyword    | Description                                                  |
-|------------|--------------------------------------------------------------|
-| `line`     | All columns of the row rendered as `column=value` pairs      |
-| *(column)* | Every column of the result set, by name, usable as string or number |
+Every column of the result set is available as a keyword under its own name,
+usable as string or number, and the whole row is available as the `line`
+keyword, rendered as `column=value` pairs.
 
 Numeric columns can be thresholded directly (`warning=sessions > 50`) and are
 emitted as perfdata when referenced. Alias columns in SQL (`SELECT COUNT(*) AS
@@ -1401,12 +865,6 @@ UNKNOWN: Query returned no result set (the statement produced no columns)
 <a id="check_mssql_query_options"></a>
 #### Command-line Arguments
 
-<a id="check_mssql_query_warn"></a>
-<a id="check_mssql_query_crit"></a>
-<a id="check_mssql_query_help"></a>
-<a id="check_mssql_query_help-pb"></a>
-<a id="check_mssql_query_show-default"></a>
-<a id="check_mssql_query_help-short"></a>
 <a id="check_mssql_query_query"></a>
 <a id="check_mssql_query_database"></a>
 <a id="check_mssql_query_user"></a>
@@ -1415,144 +873,20 @@ UNKNOWN: Query returned no result set (the statement produced no columns)
 <a id="check_mssql_query_connection-string"></a>
 <a id="check_mssql_query_encrypt"></a>
 
-| Option                                              | Default Value | Description                                                                                                               |
-|-----------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_mssql_query_filter)                 |               | Filter which marks interesting items.                                                                                     |
-| [warning](#check_mssql_query_warning)               |               | Filter which marks items which generates a warning state.                                                                 |
-| warn                                                |               | Short alias for warning                                                                                                   |
-| [critical](#check_mssql_query_critical)             |               | Filter which marks items which generates a critical state.                                                                |
-| crit                                                |               | Short alias for critical.                                                                                                 |
-| [ok](#check_mssql_query_ok)                         |               | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_mssql_query_debug)                   | false         | Show debugging information in the log                                                                                     |
-| [show-all](#check_mssql_query_show-all)             | false         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_mssql_query_empty-state)       | ignored       | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_mssql_query_perf-config)       |               | Performance data generation configuration                                                                                 |
-| [escape-html](#check_mssql_query_escape-html)       | false         | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_mssql_query_list-separator) | ,             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                                | N/A           | Show help screen (this screen)                                                                                            |
-| help-pb                                             | N/A           | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                        | N/A           | Show default values for a given command                                                                                   |
-| help-short                                          | N/A           | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_mssql_query_top-syntax)         | ${list}       | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_mssql_query_ok-syntax)           |               | ok syntax.                                                                                                                |
-| [empty-syntax](#check_mssql_query_empty-syntax)     |               | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_mssql_query_detail-syntax)   | %(line)       | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_mssql_query_perf-syntax)       |               | Performance alias syntax.                                                                                                 |
-| query                                               |               | The T-SQL query to execute.                                                                                               |
-| [server](#check_mssql_query_server)                 | localhost     | SQL Server to connect to: host, host\INSTANCE or host,port.                                                               |
-| database                                            |               | Database (initial catalog) to connect to (default: the login's default database).                                         |
-| user                                                |               | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication.            |
-| password                                            |               | Password for the SQL login.                                                                                               |
-| driver                                              |               | ODBC driver to use (default: newest installed SQL Server driver).                                                         |
-| connection-string                                   |               | Raw ODBC connection string; overrides all other connection options.                                                       |
-| [timeout](#check_mssql_query_timeout)               | 10            | Connection (login) timeout in seconds.                                                                                    |
-| [query-timeout](#check_mssql_query_query-timeout)   | 30            | Query timeout in seconds.                                                                                                 |
-| [trust-cert](#check_mssql_query_trust-cert)         | true          | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                                      |
-| encrypt                                             |               | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                              |
+| Option                                            | Default Value | Description                                                                                                    |
+|---------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------|
+| query                                             |               | The T-SQL query to execute.                                                                                    |
+| [server](#check_mssql_query_server)               | localhost     | SQL Server to connect to: host, host\INSTANCE or host,port.                                                    |
+| database                                          |               | Database (initial catalog) to connect to (default: the login's default database).                              |
+| user                                              |               | SQL login to authenticate with; leave empty (together with password) to use Windows integrated authentication. |
+| password                                          |               | Password for the SQL login.                                                                                    |
+| driver                                            |               | ODBC driver to use (default: newest installed SQL Server driver).                                              |
+| connection-string                                 |               | Raw ODBC connection string; overrides all other connection options.                                            |
+| [timeout](#check_mssql_query_timeout)             | 10            | Connection (login) timeout in seconds.                                                                         |
+| [query-timeout](#check_mssql_query_query-timeout) | 30            | Query timeout in seconds.                                                                                      |
+| [trust-cert](#check_mssql_query_trust-cert)       | true          | Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers only).                           |
+| encrypt                                           |               | Force connection encryption on or off: yes or no (modern ODBC drivers only).                                   |
 
-
-
-<h5 id="check_mssql_query_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_mssql_query_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
-
-
-
-<h5 id="check_mssql_query_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-
-<h5 id="check_mssql_query_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
-
-
-<h5 id="check_mssql_query_debug">debug:</h5>
-
-Show debugging information in the log
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_query_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_query_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ignored`
-
-<h5 id="check_mssql_query_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-<h5 id="check_mssql_query_escape-html">escape-html:</h5>
-
-Escape any < and > characters to prevent HTML encoding
-
-*Default Value:* `false`
-
-<h5 id="check_mssql_query_list-separator">list-separator:</h5>
-
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-*Default Value:* `, `
-
-<h5 id="check_mssql_query_top-syntax">top-syntax:</h5>
-
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${list}`
-
-<h5 id="check_mssql_query_ok-syntax">ok-syntax:</h5>
-
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
-
-
-<h5 id="check_mssql_query_empty-syntax">empty-syntax:</h5>
-
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
-
-
-<h5 id="check_mssql_query_detail-syntax">detail-syntax:</h5>
-
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `%(line)`
-
-<h5 id="check_mssql_query_perf-syntax">perf-syntax:</h5>
-
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
 
 
 <h5 id="check_mssql_query_server">server:</h5>
@@ -1580,27 +914,39 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 *Default Value:* `true`
 
 
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                             | Default Value |
+|----------------------------------------------------------------------------------------------------|---------------|
+| <a id="check_mssql_query_filter"></a>[filter](../common-options.md#filter)                         |               |
+| <a id="check_mssql_query_warning"></a>[warning](../common-options.md#warning)                      |               |
+| <a id="check_mssql_query_warn"></a>[warn](../common-options.md#warn)                               |               |
+| <a id="check_mssql_query_critical"></a>[critical](../common-options.md#critical)                   |               |
+| <a id="check_mssql_query_crit"></a>[crit](../common-options.md#crit)                               |               |
+| <a id="check_mssql_query_ok"></a>[ok](../common-options.md#ok)                                     |               |
+| <a id="check_mssql_query_debug"></a>[debug](../common-options.md#debug)                            | false         |
+| <a id="check_mssql_query_show-all"></a>[show-all](../common-options.md#show-all)                   | false         |
+| <a id="check_mssql_query_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored       |
+| <a id="check_mssql_query_perf-config"></a>[perf-config](../common-options.md#perf-config)          |               |
+| <a id="check_mssql_query_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false         |
+| <a id="check_mssql_query_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,             |
+| <a id="check_mssql_query_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${list}       |
+| <a id="check_mssql_query_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |               |
+| <a id="check_mssql_query_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |               |
+| <a id="check_mssql_query_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | %(line)       |
+| <a id="check_mssql_query_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          |               |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_mssql_query_filter_keys"></a>
 #### Filter keywords
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ## Configuration
 

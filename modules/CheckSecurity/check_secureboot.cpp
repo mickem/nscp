@@ -12,7 +12,7 @@ namespace secureboot_filter {
 using parsers::where::type_bool;
 filter_obj_handler::filter_obj_handler() {
   registry_.add_int_var("enabled", type_bool, &filter_obj::get_enabled, "True if UEFI Secure Boot is enabled")
-      .add_int_var("supported", type_bool, &filter_obj::get_supported, "True if the platform reports a Secure Boot state (UEFI)");
+      .add_int_var("supported", type_bool, &filter_obj::get_supported, "True if the platform reports a Secure Boot state (UEFI); false on legacy BIOS boots");
 }
 }  // namespace secureboot_filter
 

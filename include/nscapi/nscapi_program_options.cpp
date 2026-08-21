@@ -365,12 +365,16 @@ void nscapi::program_options::add_standard_filter(po::options_description &desc,
 }
 
 void nscapi::program_options::add_help(po::options_description &desc) {
+  // The marker line makes docs_extract.py fold these options out of every
+  // command's reference page and onto the shared common-options page -- keep
+  // the exact text in sync with docs_extract.py (see also the
+  // "Common option for all filter checks." marker in modern_filter::cli_helper).
   // clang-format off
   desc.add_options()
-          ("help",		"Show help screen (this screen)")
-          ("help-pb",		"Show help screen as a protocol buffer payload")
-          ("show-default","Show default values for a given command")
-          ("help-short",	"Show help screen (short format).")
+          ("help",		"Show help screen (this screen)\nCommon option for all commands.")
+          ("help-pb",		"Show help screen as a protocol buffer payload\nCommon option for all commands.")
+          ("show-default","Show default values for a given command\nCommon option for all commands.")
+          ("help-short",	"Show help screen (short format).\nCommon option for all commands.")
           ;
   // clang-format on
 }

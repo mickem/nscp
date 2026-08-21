@@ -83,8 +83,8 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_float("iowait", &util_obj::get_iowait, "I/O-wait CPU utilization in percent");
   registry_.add_float("irq", &util_obj::get_irq, "Hardware-interrupt CPU utilization in percent");
   registry_.add_float("softirq", &util_obj::get_softirq, "Soft-interrupt CPU utilization in percent");
-  registry_.add_float("steal", &util_obj::get_steal, "Stolen (hypervisor) CPU utilization in percent");
-  registry_.add_float("guest", &util_obj::get_guest, "Guest (incl. guest_nice) CPU utilization in percent");
+  registry_.add_float("steal", &util_obj::get_steal, "CPU time stolen by the hypervisor in percent (VM guests)");
+  registry_.add_float("guest", &util_obj::get_guest, "CPU time spent running a guest under this kernel, in percent (incl. guest_nice)");
   registry_.add_float("idle", &util_obj::get_idle, "Idle CPU in percent");
 }
 

@@ -10,19 +10,6 @@ It reads `Win32_ShadowCopy` (one row per snapshot) and groups it by volume, then
 joins per-volume usage from `Win32_ShadowStorage`. One row is produced per volume
 that has at least one shadow copy.
 
-Keywords:
-
-| Keyword       | Description                                                                        |
-|---------------|------------------------------------------------------------------------------------|
-| `volume`      | The volume the shadow copies belong to (VolumeName device path)                    |
-| `count`       | Number of shadow copies on this volume                                             |
-| `newest`      | **Seconds** since the newest shadow copy (-1 if the date is unknown)               |
-| `newest_date` | Timestamp of the newest shadow copy (UTC)                                          |
-| `used`        | Shadow storage currently used on this volume, in bytes                             |
-| `allocated`   | Shadow storage currently allocated, in bytes                                       |
-| `max_size`    | Shadow storage maximum, in bytes (0 when unbounded / not resolved)                 |
-| `used_pct`    | Percentage of the shadow-storage maximum in use (0 when `max_size` is unbounded)   |
-
 `newest` is seconds, so threshold it with durations: `newest > 26h`, `newest > 2d`.
 
 Defaults: **WARNING** when `newest > 26h`, **CRITICAL** when `newest > 50h` — i.e.

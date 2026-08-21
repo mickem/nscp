@@ -6,17 +6,7 @@ allow-list — alerts on **membership drift**: any member that is not on the lis
 This is the standard "who is in the local Administrators group, and did that
 change?" check.
 
-Keywords (one row per member):
-
-| Keyword    | Description                                                          |
-|------------|---------------------------------------------------------------------|
-| `group`    | The local group being checked                                       |
-| `member`   | Member as `DOMAIN\name`                                             |
-| `name`     | Member name component                                               |
-| `domain`   | Member domain component (`BUILTIN`, machine name, AD domain, …)     |
-| `sid`      | Member SID                                                          |
-| `type`     | Member type: `user`, `group`, `wellknown`, `alias`, `deleted`, …    |
-| `expected` | `1` if the member is on the `expected=` allow-list (or none given)  |
+The check reports one row per member.
 
 Options:
 

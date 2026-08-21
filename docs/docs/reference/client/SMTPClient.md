@@ -36,10 +36,6 @@ Submit information to the remote SMTP server.
 <a id="submit_smtp_options"></a>
 #### Command-line Arguments
 
-<a id="submit_smtp_help"></a>
-<a id="submit_smtp_help-pb"></a>
-<a id="submit_smtp_show-default"></a>
-<a id="submit_smtp_help-short"></a>
 <a id="submit_smtp_host"></a>
 <a id="submit_smtp_port"></a>
 <a id="submit_smtp_address"></a>
@@ -69,10 +65,6 @@ Submit information to the remote SMTP server.
 
 | Option               | Default Value | Description                                                                            |
 |----------------------|---------------|----------------------------------------------------------------------------------------|
-| help                 | N/A           | Show help screen (this screen)                                                         |
-| help-pb              | N/A           | Show help screen as a protocol buffer payload                                          |
-| show-default         | N/A           | Show default values for a given command                                                |
-| help-short           | N/A           | Show help screen (short format).                                                       |
 | host                 |               | The host of the host running the server                                                |
 | port                 |               | The port of the host running the server                                                |
 | address              |               | The address (host:port) of the host running the server                                 |
@@ -99,6 +91,11 @@ Submit information to the remote SMTP server.
 | insecure-skip-verify | N/A           | Skip TLS certificate validation (test environments only).                              |
 | source-host          |               | Source/sender host name (default is auto which means use the name of the actual host). |
 | sender-host          |               | Source/sender host name (alias for --source-host).                                     |
+
+
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ## Configuration

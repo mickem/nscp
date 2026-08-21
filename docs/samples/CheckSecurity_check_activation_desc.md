@@ -14,24 +14,10 @@ same class where it is exposed and otherwise from `SLIsGenuineLocal` in
 By default only Windows itself is reported. `all-products=true` adds every other
 licensed product with an installed key (Office, for instance).
 
-Keywords:
-
-| Keyword | Type | Meaning |
-|---|---|---|
-| `name` | string | Product name, e.g. `Windows(R), Professional edition`. |
-| `description` | string | Product description, including the licensing channel. |
-| `id` | string | Product SKU id (GUID). |
-| `key` | string | Partial product key: the last five characters of the installed key. |
-| `channel` | string | Product key channel: `Retail`, `Volume:MAK`, `Volume:GVLK`, `OEM`, … |
-| `status` | string | Licensing status as a word: `licensed`, `unlicensed`, `initial_grace`, `additional_grace`, `non_genuine_grace`, `notification`, `extended_grace`. |
-| `genuine_state` | string | `genuine`, `invalid_license`, `tampered`, `offline` or `unknown`. |
-| `licensed` | bool | True when the product is fully licensed (activated). |
-| `genuine` | bool | True only when `genuine_state` is `genuine`; an undetermined state is **not** genuine. |
-| `is_windows` | bool | True for Windows itself, false for other licensed products. |
-| `license_status` | int | Raw `LicenseStatus`: 0 unlicensed, 1 licensed, 2 initial grace, 3 additional grace, 4 non-genuine grace, 5 notification, 6 extended grace. |
-| `license_status_reason` | int | Raw `LicenseStatusReason` code explaining the status. |
-| `grace_days` | int | Remaining grace/renewal period in whole days (perfdata, unit `d`). |
-| `grace_minutes` | int | The same period in minutes, as Windows reports it. |
+The `status` keyword renders the licensing status as a word: `licensed`,
+`unlicensed`, `initial_grace`, `additional_grace`, `non_genuine_grace`,
+`notification` or `extended_grace` (the raw number is available as
+`license_status`).
 
 Options:
 

@@ -101,16 +101,18 @@ kernel_memory_obj compute_kernel_memory(const meminfo_kernel &mem, const vmstat_
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
-  registry_.add_int_var("slab", type_size, &kernel_memory_obj::get_slab, "Total kernel slab allocator bytes (supports size units, e.g. 'slab > 2G')")
-      .add_int_var("slab_reclaimable", type_size, &kernel_memory_obj::get_slab_reclaimable, "Reclaimable slab bytes (caches the kernel can drop)")
+  registry_.add_int_var("slab", type_size, &kernel_memory_obj::get_slab,
+                        "Total kernel slab allocator bytes (Slab in /proc/meminfo; supports size units, e.g. 'slab > 2G')")
+      .add_int_var("slab_reclaimable", type_size, &kernel_memory_obj::get_slab_reclaimable,
+                   "Reclaimable slab bytes the kernel can drop under pressure, e.g. dentry/inode caches (SReclaimable in /proc/meminfo)")
       .add_int_var("slab_unreclaimable", type_size, &kernel_memory_obj::get_slab_unreclaimable,
-                   "Unreclaimable slab bytes — steady growth here is the classic kernel/driver leak signal")
+                   "Unreclaimable (pinned) slab bytes (SUnreclaim in /proc/meminfo) — steady growth here is the classic kernel/driver leak signal")
       .add_int_var("cache", type_size, &kernel_memory_obj::get_cache, "Page-cache bytes (Cached in /proc/meminfo)");
   registry_.add_float("page_faults_per_sec", &kernel_memory_obj::get_page_faults,
-                      "Total page faults per second (soft + hard). Dominated by cheap soft faults and routinely very large on a healthy host — "
-                      "alert on major_faults_per_sec instead")
+                      "Total page faults per second, soft + hard (pgfault in /proc/vmstat). Dominated by cheap soft faults and routinely very large on a "
+                      "healthy host — alert on major_faults_per_sec instead")
       .add_float("major_faults_per_sec", &kernel_memory_obj::get_major_faults,
-                 "Major (hard) faults per second: faults that had to read from disk — the fault-storm signal");
+                 "Major (hard) faults per second (pgmajfault in /proc/vmstat): faults that had to read from disk — the fault-storm signal");
   // Render the byte gauges human-readable; expressions keep comparing bytes.
   registry_.add_human_string("slab", &kernel_memory_obj::get_slab_human, "Total slab as a human-readable size")
       .add_human_string("slab_unreclaimable", &kernel_memory_obj::get_slab_unreclaimable_human, "Unreclaimable slab as a human-readable size")

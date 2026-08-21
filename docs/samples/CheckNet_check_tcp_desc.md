@@ -2,12 +2,9 @@
 
 When the connection is wrapped in TLS — `ssl=true`, or one of the implicit-TLS
 service presets (`spop`, `simap`, `ssmtp`) — `check_tcp` reads the certificate
-the peer serves and exposes it as two keywords:
-
-| Keyword           | Type | Description                                                                     |
-|-------------------|------|---------------------------------------------------------------------------------|
-| `ssl_expiry_days` | int  | Whole days until the peer's certificate expires; **negative** once it has expired. Renders as **`no certificate`** when the connection is not TLS or the peer presented none. Emitted as perfdata (only when a certificate exists). |
-| `has_certificate` | int  | `1` when the peer presented a certificate, `0` otherwise.                       |
+the peer serves and exposes it as two keywords: `ssl_expiry_days`, the whole
+days until the certificate expires (**negative** once it has expired), and
+`has_certificate`, `1` when the peer presented one.
 
 This makes certificate monitoring work for any TLS service, not just HTTPS —
 LDAPS, IMAPS, SMTPS, RDP, a database listener, or anything else that speaks TLS

@@ -11,18 +11,6 @@ The check works identically against MySQL, MariaDB and Percona; the `flavor`
 keyword tells them apart when you need to (e.g. `warning=flavor != 'mariadb'`
 to catch an unplanned migration).
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword             | Description                                                        |
-|---------------------|--------------------------------------------------------------------|
-| `version`           | Server version, e.g. `10.11.14-MariaDB-ubu2404` or `8.4.3`         |
-| `version_comment`   | Server version comment (distribution/build description)            |
-| `flavor`            | `mysql`, `mariadb` or `percona`, derived from the version           |
-| `uptime`            | Seconds since the server started; supports units (`uptime < 1h`)    |
-| `threads_connected` | Currently open connections (`Threads_connected`)                    |
-| `max_connections`   | Configured connection limit (`max_connections`)                     |
-| `connections_pct`   | Open connections as a percentage of `max_connections`               |
-
 Common connection options that can be passed per request (shared by all
 CheckMySQL commands, defaults come from `/settings/mysql`): `host=`, `port=`,
 `user=`, `password=`, `database=`, `tls=true`, `timeout=`, `query-timeout=`.

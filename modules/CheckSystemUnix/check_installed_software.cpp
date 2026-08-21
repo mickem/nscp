@@ -23,8 +23,8 @@ using parsers::where::type_size;
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
   registry_.add_string_var("name", &software_entry::get_name, "Package name")
-      .add_string_var("version", &software_entry::get_version, "Version string (comparisons are lexical, not version-aware)")
-      .add_string_var("publisher", &software_entry::get_publisher, "Maintainer (dpkg) / vendor (rpm); may be empty")
+      .add_string_var("version", &software_entry::get_version, "Version string (rpm: version-release); comparisons are lexical, not version-aware")
+      .add_string_var("publisher", &software_entry::get_publisher, "Maintainer (dpkg, email stripped) / vendor (rpm); empty for pacman")
       .add_string_var("architecture", &software_entry::get_architecture, "Package architecture (amd64, x86_64, noarch, ...)")
       .add_string_var("manager", &software_entry::get_manager, "Package manager the entry came from (dpkg, rpm, pacman)")
       .add_string_var("status", &software_entry::get_status, "Package state; always 'installed' for listed packages")

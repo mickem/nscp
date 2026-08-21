@@ -146,7 +146,7 @@ filter_obj_handler::filter_obj_handler() {
       .no_perf()
       .add_int_var("max_size", &filter_obj::get_max_size, "Shadow storage maximum in bytes (0 if unbounded/unresolved)")
       .no_perf()
-      .add_int_var("used_pct", &filter_obj::get_used_pct, "Percentage of the shadow-storage maximum in use")
+      .add_int_var("used_pct", &filter_obj::get_used_pct, "Percentage of the shadow-storage maximum in use (0 when max_size is unbounded)")
       .add_int_perf("%", "", "_used_pct");
 
   // Shadow storage is reported in raw bytes and the filter grammar has no

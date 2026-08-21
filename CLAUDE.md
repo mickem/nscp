@@ -78,6 +78,16 @@ These are merged into the reference docs by the downstream `nscp-docs` build.
 Scenario walkthroughs live in `docs/docs/scenarios/` and must be registered in
 both `docs/mkdocs.yml` (nav) and `docs/docs/scenarios/index.md`.
 
+Options shared by all filter checks (`filter`, `warning`, `top-syntax`, …, from
+`modern_filter::cli_helper` / `add_help`) are folded out of the per-command
+reference automatically: a marker line appended to their description in C++
+("Common option for all filter checks." / "Common option for all commands.")
+makes `docs_extract.py` store only `common_options: {name: default}` per query
+and the full text once in `docs/reference/common-options.yaml`, rendered as the
+shared `reference/common-options.md` page (generic filter keywords fold the same
+way via `common_fields`). A check-specific option must NOT carry the marker —
+its description then stays inline on the command's page.
+
 ## Integration tests
 **Every new check command must have at least one test under `tests/` that
 actually runs it and asserts on its output** — wherever it is at all possible to

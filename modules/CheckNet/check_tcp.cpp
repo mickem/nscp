@@ -34,9 +34,9 @@ filter_obj_handler::filter_obj_handler() {
   // keyword that can never be populated.
   registry_
       .add_optional_int_var("ssl_expiry_days", [](auto obj) { return obj->get_ssl_expiry_days_opt(); }, "no certificate",
-                            "Days until the peer's TLS certificate expires; negative once it has expired. Renders as 'no certificate' (and compares false "
-                            "against every number) when the connection is not TLS or the peer presented none, so `ssl_expiry_days < 30` cannot fire on a "
-                            "plain connection; `ssl_expiry_days = 'no certificate'` tests for that state.")
+                            "Whole days until the peer's TLS certificate expires; negative once it has expired. Renders as 'no certificate' (and compares "
+                            "false against every number) when the connection is not TLS or the peer presented none, so `ssl_expiry_days < 30` cannot fire "
+                            "on a plain connection; `ssl_expiry_days = 'no certificate'` tests for that state.")
       .add_int_perf("", "", "_ssl_expiry_days");
   registry_
       .add_int_var("has_certificate", parsers::where::type_int, &filter_obj::get_has_certificate,
@@ -59,12 +59,14 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("protocol", &filter_obj::get_protocol, "SSH protocol version the server announced, e.g. 2.0 or 1.99");
   registry_.add_string_var("version", &filter_obj::get_version, "Software version the server announced, e.g. OpenSSH_9.6p1");
   registry_.add_string_var("software", &filter_obj::get_software, "Software name from the version string, e.g. OpenSSH or dropbear");
-  registry_.add_string_var("software_version", &filter_obj::get_software_version, "Software version number from the version string, e.g. 9.6p1");
+  registry_.add_string_var("software_version", &filter_obj::get_software_version, "Software version number from the version string, e.g. 9.6p1 or 2022.83");
   registry_.add_string_var("comments", &filter_obj::get_comments, "Trailing comments of the identification string, e.g. the distribution patch level");
   registry_.add_int_var("protocol_major", parsers::where::type_int, &filter_obj::get_protocol_major,
                         "Major SSH protocol version as a number (2 for 2.0); use protocol_major < 2 to catch an SSHv1-only server")
       .no_perf();
-  registry_.add_int_var("protocol_minor", parsers::where::type_int, &filter_obj::get_protocol_minor, "Minor SSH protocol version as a number (0 for 2.0)")
+  registry_
+      .add_int_var("protocol_minor", parsers::where::type_int, &filter_obj::get_protocol_minor,
+                   "Minor SSH protocol version as a number (0 for 2.0, 99 for 1.99)")
       .no_perf();
 }
 

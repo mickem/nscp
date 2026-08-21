@@ -175,7 +175,7 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("owner_sid", &filter_obj::get_owner_sid, "Owner SID")
       .add_string_var("writable", &filter_obj::get_writable, "Comma separated trustees holding write access")
       .add_string_var("unexpected", &filter_obj::get_unexpected, "The trustees with write access that are not allow-listed")
-      .add_string_var("dacl", &filter_obj::get_dacl, "The DACL rendered as 'trustee(rights)'; deny entries are prefixed with '!' and inherited ones with '~'")
+      .add_string_var("dacl", &filter_obj::get_dacl, "The DACL rendered as 'trustee(rights)'; deny entries are prefixed with '!' and inherited ones with '~'; rights are F (full) or a subset of R (read), W (write), X (execute), D (delete), P (permissions)")
       .add_string_var("error", &filter_obj::get_error, "Why the security descriptor could not be read (empty when it could)")
       .add_string_var("state", &filter_obj::get_state, "One-line verdict: missing, unreadable, unexpected owner, world writable or ok");
   registry_.add_int_var("exists", type_bool, &filter_obj::get_exists, "True when the path exists")

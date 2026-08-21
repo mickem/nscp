@@ -24,19 +24,7 @@ records nothing rather than a fabricated 0%. Test for it with
 Byte-valued keywords can be formatted and scaled with `format_bytes`,
 `convert_bytes` and `scale`; see the same section under `check_disk_io`.
 
-### Device-state keywords (Windows)
-
-| Keyword              | Description                                                      |
-|----------------------|------------------------------------------------------------------|
-| `has_device`         | `1` on a physical-disk row, `0` otherwise (guard; no perfdata).  |
-| `friendly_name`      | Physical disk friendly name.                                     |
-| `serial`             | Physical disk serial number.                                     |
-| `media_type`         | `HDD`, `SSD`, `SCM`, or `Unspecified`.                           |
-| `health_status`      | `Healthy`, `Warning`, `Unhealthy`, or `Unknown`.                 |
-| `operational_status` | Synthesised single value: `Offline`, `OK`, or the health string. |
-| `is_offline`         | `1` if the disk is offline.                                      |
-| `is_readonly`        | `1` if the disk is read-only.                                    |
-| `disk_number`        | Physical disk number/index.                                      |
+### Device-state rows (Windows)
 
 Device rows are best-effort: if the `MSFT_PhysicalDisk` / `MSFT_Disk` WMI classes
 are unavailable (very old Windows, or a system with no Storage provider), no

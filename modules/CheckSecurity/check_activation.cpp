@@ -86,7 +86,7 @@ filter_obj_handler::filter_obj_handler() {
       .no_perf()
       .add_int_var("grace_days", type_int, &filter_obj::get_grace_days, "Remaining grace/renewal period in whole days (0 when no grace period applies)")
       .add_int_perf("d", "", "_grace")
-      .add_int_var("grace_minutes", type_int, &filter_obj::get_grace_minutes, "Remaining grace/renewal period in minutes (0 when no grace period applies)")
+      .add_int_var("grace_minutes", type_int, &filter_obj::get_grace_minutes, "Remaining grace/renewal period in minutes, as Windows reports it (0 when no grace period applies)")
       .no_perf();
   // clang-format on
 }

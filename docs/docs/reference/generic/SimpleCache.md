@@ -45,10 +45,6 @@ Fetch results from the cache.
 <a id="check_cache_options"></a>
 #### Command-line Arguments
 
-<a id="check_cache_help"></a>
-<a id="check_cache_help-pb"></a>
-<a id="check_cache_show-default"></a>
-<a id="check_cache_help-short"></a>
 <a id="check_cache_key"></a>
 <a id="check_cache_host"></a>
 <a id="check_cache_command"></a>
@@ -57,10 +53,6 @@ Fetch results from the cache.
 
 | Option                                        | Default Value   | Description                                             |
 |-----------------------------------------------|-----------------|---------------------------------------------------------|
-| help                                          | N/A             | Show help screen (this screen)                          |
-| help-pb                                       | N/A             | Show help screen as a protocol buffer payload           |
-| show-default                                  | N/A             | Show default values for a given command                 |
-| help-short                                    | N/A             | Show help screen (short format).                        |
 | key                                           |                 | The key (will not be parsed)                            |
 | host                                          |                 | The host to look for (translates into the key)          |
 | command                                       |                 | The command to look for (translates into the key)       |
@@ -84,6 +76,9 @@ The return status to return when a message is not found
 *Default Value:* `unknown`
 
 
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 ### list_cache
 
 List all keys in the cache.
@@ -97,17 +92,7 @@ List all keys in the cache.
 <a id="list_cache_options"></a>
 #### Command-line Arguments
 
-<a id="list_cache_help"></a>
-<a id="list_cache_help-pb"></a>
-<a id="list_cache_show-default"></a>
-<a id="list_cache_help-short"></a>
-
-| Option       | Default Value | Description                                   |
-|--------------|---------------|-----------------------------------------------|
-| help         | N/A           | Show help screen (this screen)                |
-| help-pb      | N/A           | Show help screen as a protocol buffer payload |
-| show-default | N/A           | Show default values for a given command       |
-| help-short   | N/A           | Show help screen (short format).              |
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ## Configuration

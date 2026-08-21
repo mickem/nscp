@@ -98,149 +98,19 @@ L        cli  Performance data: 'BuildNumber'=10240;9600;8000
 <a id="check_wmi_options"></a>
 #### Command-line Arguments
 
-<a id="check_wmi_warn"></a>
-<a id="check_wmi_crit"></a>
-<a id="check_wmi_help"></a>
-<a id="check_wmi_help-pb"></a>
-<a id="check_wmi_show-default"></a>
-<a id="check_wmi_help-short"></a>
 <a id="check_wmi_target"></a>
 <a id="check_wmi_user"></a>
 <a id="check_wmi_password"></a>
 <a id="check_wmi_query"></a>
 
-| Option                                      | Default Value | Description                                                                                                               |
-|---------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_wmi_filter)                 |               | Filter which marks interesting items.                                                                                     |
-| [warning](#check_wmi_warning)               |               | Filter which marks items which generates a warning state.                                                                 |
-| warn                                        |               | Short alias for warning                                                                                                   |
-| [critical](#check_wmi_critical)             |               | Filter which marks items which generates a critical state.                                                                |
-| crit                                        |               | Short alias for critical.                                                                                                 |
-| [ok](#check_wmi_ok)                         |               | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#check_wmi_debug)                   | false         | Show debugging information in the log                                                                                     |
-| [show-all](#check_wmi_show-all)             | false         | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#check_wmi_empty-state)       | ignored       | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#check_wmi_perf-config)       |               | Performance data generation configuration                                                                                 |
-| [escape-html](#check_wmi_escape-html)       | false         | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#check_wmi_list-separator) | ,             | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| help                                        | N/A           | Show help screen (this screen)                                                                                            |
-| help-pb                                     | N/A           | Show help screen as a protocol buffer payload                                                                             |
-| show-default                                | N/A           | Show default values for a given command                                                                                   |
-| help-short                                  | N/A           | Show help screen (short format).                                                                                          |
-| [top-syntax](#check_wmi_top-syntax)         | ${list}       | Top level syntax.                                                                                                         |
-| [ok-syntax](#check_wmi_ok-syntax)           |               | ok syntax.                                                                                                                |
-| [empty-syntax](#check_wmi_empty-syntax)     |               | Empty syntax.                                                                                                             |
-| [detail-syntax](#check_wmi_detail-syntax)   | %(line)       | Detail level syntax.                                                                                                      |
-| [perf-syntax](#check_wmi_perf-syntax)       |               | Performance alias syntax.                                                                                                 |
-| target                                      |               | The target to check (for checking remote machines).                                                                       |
-| user                                        |               | Remote username when checking remote machines.                                                                            |
-| password                                    |               | Remote password when checking remote machines.                                                                            |
-| [namespace](#check_wmi_namespace)           | root\cimv2    | The WMI root namespace to bind to.                                                                                        |
-| query                                       |               | The WMI query to execute.                                                                                                 |
+| Option                            | Default Value | Description                                         |
+|-----------------------------------|---------------|-----------------------------------------------------|
+| target                            |               | The target to check (for checking remote machines). |
+| user                              |               | Remote username when checking remote machines.      |
+| password                          |               | Remote password when checking remote machines.      |
+| [namespace](#check_wmi_namespace) | root\cimv2    | The WMI root namespace to bind to.                  |
+| query                             |               | The WMI query to execute.                           |
 
-
-
-<h5 id="check_wmi_filter">filter:</h5>
-
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-
-
-<h5 id="check_wmi_warning">warning:</h5>
-
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
-
-
-
-<h5 id="check_wmi_critical">critical:</h5>
-
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-
-
-
-<h5 id="check_wmi_ok">ok:</h5>
-
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
-
-
-<h5 id="check_wmi_debug">debug:</h5>
-
-Show debugging information in the log
-
-*Default Value:* `false`
-
-<h5 id="check_wmi_show-all">show-all:</h5>
-
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
-
-*Default Value:* `false`
-
-<h5 id="check_wmi_empty-state">empty-state:</h5>
-
-Return status to use when nothing matched filter.
-If no filter is specified this will never happen unless the file is empty.
-
-*Default Value:* `ignored`
-
-<h5 id="check_wmi_perf-config">perf-config:</h5>
-
-Performance data generation configuration
-TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
-
-
-<h5 id="check_wmi_escape-html">escape-html:</h5>
-
-Escape any < and > characters to prevent HTML encoding
-
-*Default Value:* `false`
-
-<h5 id="check_wmi_list-separator">list-separator:</h5>
-
-String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).
-Accepts the escapes \n, \r, \t and \\ (a configuration file value is a single line, so a real newline cannot be written).
-Set to \n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.
-The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break before it too: --top-syntax "%(status): %(count) items:%(sep)%(list)".
-
-*Default Value:* `, `
-
-<h5 id="check_wmi_top-syntax">top-syntax:</h5>
-
-Top level syntax.
-Used to format the message to return can include text as well as special keywords which will include information from the checks.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `${list}`
-
-<h5 id="check_wmi_ok-syntax">ok-syntax:</h5>
-
-ok syntax.
-DEPRECATED! This is the syntax for when an ok result is returned.
-This value will not be used if your syntax contains %(list) or %(count).
-
-
-<h5 id="check_wmi_empty-syntax">empty-syntax:</h5>
-
-Empty syntax.
-DEPRECATED! This is the syntax for when nothing matches the filter.
-
-
-<h5 id="check_wmi_detail-syntax">detail-syntax:</h5>
-
-Detail level syntax.
-Used to format each resulting item in the message.
-%(list) will be replaced with all the items formatted by this syntax string in the top-syntax.
-To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to escape on linux).
-
-*Default Value:* `%(line)`
-
-<h5 id="check_wmi_perf-syntax">perf-syntax:</h5>
-
-Performance alias syntax.
-This is the syntax for the base names of the performance data.
 
 
 <h5 id="check_wmi_namespace">namespace:</h5>
@@ -250,27 +120,39 @@ The WMI root namespace to bind to.
 *Default Value:* `root\cimv2`
 
 
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                     | Default Value |
+|--------------------------------------------------------------------------------------------|---------------|
+| <a id="check_wmi_filter"></a>[filter](../common-options.md#filter)                         |               |
+| <a id="check_wmi_warning"></a>[warning](../common-options.md#warning)                      |               |
+| <a id="check_wmi_warn"></a>[warn](../common-options.md#warn)                               |               |
+| <a id="check_wmi_critical"></a>[critical](../common-options.md#critical)                   |               |
+| <a id="check_wmi_crit"></a>[crit](../common-options.md#crit)                               |               |
+| <a id="check_wmi_ok"></a>[ok](../common-options.md#ok)                                     |               |
+| <a id="check_wmi_debug"></a>[debug](../common-options.md#debug)                            | false         |
+| <a id="check_wmi_show-all"></a>[show-all](../common-options.md#show-all)                   | false         |
+| <a id="check_wmi_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored       |
+| <a id="check_wmi_perf-config"></a>[perf-config](../common-options.md#perf-config)          |               |
+| <a id="check_wmi_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false         |
+| <a id="check_wmi_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,             |
+| <a id="check_wmi_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${list}       |
+| <a id="check_wmi_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |               |
+| <a id="check_wmi_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |               |
+| <a id="check_wmi_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | %(line)       |
+| <a id="check_wmi_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          |               |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
 <a id="check_wmi_filter_keys"></a>
 #### Filter keywords
 
-**Common options for all checks:**
-
-| Option        | Description                                                                                                                                                                                                                                                           |
-|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter.                                                                                                                                                                                                                                  |
-| crit_count    | Number of items matched the critical criteria.                                                                                                                                                                                                                        |
-| crit_list     | A list of all items which matched the critical criteria.                                                                                                                                                                                                              |
-| detail_list   | A special list with critical, then warning and finally ok.                                                                                                                                                                                                            |
-| list          | A list of all items which matched the filter.                                                                                                                                                                                                                         |
-| ok_count      | Number of items matched the ok criteria.                                                                                                                                                                                                                              |
-| ok_list       | A list of all items which matched the ok criteria.                                                                                                                                                                                                                    |
-| problem_count | Number of items matched either warning or critical criteria.                                                                                                                                                                                                          |
-| problem_list  | A list of all items which matched either the critical or the warning criteria.                                                                                                                                                                                        |
-| sep           | The decoded list-separator, for use in the top-syntax: templates are never escape-decoded (a literal C:\temp must stay a literal C:\temp), so reference %(sep) to break the line before the first list item, e.g. top-syntax=%(status): %(count) items:%(sep)%(list). |
-| status        | The returned status (OK/WARN/CRIT/UNKNOWN).                                                                                                                                                                                                                           |
-| total         | Total number of items.                                                                                                                                                                                                                                                |
-| warn_count    | Number of items matched the warning criteria.                                                                                                                                                                                                                         |
-| warn_list     | A list of all items which matched the warning criteria.                                                                                                                                                                                                               |
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ## Configuration
 

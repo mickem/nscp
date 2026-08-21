@@ -27,27 +27,6 @@ Write access held by `Everyone`, `Authenticated Users`, `BUILTIN\Users`,
 unexpected. All matching is done on the SID first, so it works on a localized
 Windows where these groups have translated names.
 
-Keywords:
-
-| Keyword | Type | Meaning |
-|---|---|---|
-| `path` | string | The inspected file or directory. |
-| `service` | string | Service the path was resolved from (empty for a `path=` entry). |
-| `owner` | string | Owner as `DOMAIN\name`, or the SID when it cannot be resolved. |
-| `owner_sid` | string | Owner SID. |
-| `writable` | string | Comma separated trustees holding write access. |
-| `unexpected` | string | The subset of `writable` that is not allow-listed. |
-| `dacl` | string | The whole DACL as `trustee(rights)`; `!` prefixes a deny entry, `~` an inherited one. Rights are `F` or a subset of `R`ead, `W`rite, e`X`ecute, `D`elete, `P`ermissions. |
-| `error` | string | Why the security descriptor could not be read (empty when it could). |
-| `state` | string | One-line verdict used by the default detail syntax. |
-| `exists` | bool | True when the path exists. |
-| `readable` | bool | True when the security descriptor could be read. |
-| `is_dir` | bool | True when the path is a directory. |
-| `owner_expected` | bool | True when the owner is on the `expected-owner` list (or no list was given). |
-| `unexpected_write` | bool | True when a trustee outside the allow-list holds write access. |
-| `world_writable` | bool | True when an untrusted group (see above) holds write access. |
-| `ace_count` | int | Number of entries in the DACL (perfdata). |
-
 Options:
 
 | Option | Repeatable | Meaning |

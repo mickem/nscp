@@ -124,11 +124,13 @@ filter_obj_handler::filter_obj_handler() {
       .add_string_var("chassis", &hardware_info::get_chassis, "Chassis type name (Desktop, Laptop, Rack Mount Chassis, ...)")
       .add_string_var("chassis_serial", &hardware_info::get_chassis_serial, "Enclosure serial number")
       .add_string_var("asset_tag", &hardware_info::get_asset_tag, "SMBIOS asset tag")
-      .add_string_var("module_list", &hardware_info::get_module_list, "Semicolon-separated per-DIMM inventory (slot: size@speed)");
+      .add_string_var("module_list", &hardware_info::get_module_list,
+                      "Semicolon-separated per-DIMM inventory (slot: size@speed, e.g. 'DIMM_A1: 32GB@4800MHz')");
   registry_.add_int_var("chassis_type", &hardware_info::get_chassis_type, "Raw SMBIOS chassis type number (0 when unknown)")
       .add_int_var("slots", &hardware_info::get_slots, "Total memory sockets on the board (0 when not reported)")
       .add_int_var("modules", &hardware_info::get_modules, "Number of populated memory modules")
-      .add_int_var("memory", type_size, &hardware_info::get_memory, "Total installed memory (supports size units, e.g. 'memory < 64G')")
+      .add_int_var("memory", type_size, &hardware_info::get_memory,
+                   "Total installed memory (supports size units, e.g. 'memory < 64G'); renders human-readable")
       .add_int_var("memory_speed", &hardware_info::get_memory_speed, "Slowest populated module's configured clock in MHz (0 when unknown)");
   // Render ${memory} human-readable (64GB) while expressions keep comparing bytes.
   registry_.add_human_string("memory", &hardware_info::get_memory_human, "Total installed memory as a human-readable size");
