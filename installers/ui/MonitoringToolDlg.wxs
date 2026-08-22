@@ -3,7 +3,7 @@
   <Fragment>
     <UI>
       <Dialog Id="MonitoringToolDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
-        <Control Type="RadioButtonGroup" Property="MONITORING_TOOL" Id="setNRPEMode" Width="252" Height="100" X="45" Y="60">
+        <Control Type="RadioButtonGroup" Property="MONITORING_TOOL" Id="setMonitoringTool" Width="252" Height="100" X="45" Y="60">
           <RadioButtonGroup Property="MONITORING_TOOL">
             <RadioButton Text="{\WixUI_Font_Title}Generic" Height="15" Value="GENERIC" Width="100" X="0" Y="0" />
             <RadioButton Text="{\WixUI_Font_Title}op5" Height="15" Value="OP5" Width="100" X="0" Y="70" />
