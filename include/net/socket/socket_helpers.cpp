@@ -29,11 +29,11 @@ namespace ip = boost::asio::ip;
 
 std::list<std::string> socket_helpers::connection_info::validate() const { return validate_ssl(); }
 
-std::string socket_helpers::expand_hostname(std::string spec) {
+std::string socket_helpers::expand_hostname_placeholders(std::string spec) {
+  // Nothing to resolve, and asking the OS for its host name is not free: a
+  // settings context or an attachment path usually has no placeholder at all.
+  if (spec.find("${") == std::string::npos) return spec;
   std::string host_name = ip::host_name();
-  if (spec == "auto") return host_name;
-  if (spec == "auto-lc") return boost::algorithm::to_lower_copy(host_name);
-  if (spec == "auto-uc") return boost::algorithm::to_upper_copy(host_name);
 
   // The full name exactly as the system reports it. ${host} stops at the first
   // '.', so without this there is no way to get the fqdn from inside a template
@@ -50,6 +50,16 @@ std::string socket_helpers::expand_hostname(std::string spec) {
   str::utils::replace(spec, "${host_lc}", boost::algorithm::to_lower_copy(dn.first));
   str::utils::replace(spec, "${domain_lc}", boost::algorithm::to_lower_copy(dn.second));
   return spec;
+}
+
+std::string socket_helpers::expand_hostname(std::string spec) {
+  // The "auto" shorthands reinterpret the whole spec, so they only apply where
+  // the string *is* a host name - not to the strings which merely contain a
+  // placeholder (a settings context, an attachment target).
+  if (spec == "auto") return ip::host_name();
+  if (spec == "auto-lc") return boost::algorithm::to_lower_copy(ip::host_name());
+  if (spec == "auto-uc") return boost::algorithm::to_upper_copy(ip::host_name());
+  return expand_hostname_placeholders(std::move(spec));
 }
 void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
 #ifdef USE_SSL

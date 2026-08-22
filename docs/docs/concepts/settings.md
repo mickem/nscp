@@ -29,6 +29,14 @@ You can include any number of files registry or other stores. and they will be i
 parent child relationship.
 Important to note here is that the first found key will be used. So parents will override children.
 
+An included file may be named with a [host name placeholder](#host-name-placeholders), which is how
+one configuration rolled out to many machines pulls in a per-host file:
+
+```ini
+[/includes]
+client = ${host}-nsclient.ini
+```
+
 And example of this:
 
 * nsclient.ini:
@@ -144,6 +152,15 @@ Adding a script:
 scripts/myscript.bat = http://www.myserver.com/myscript.bat
 ```
 
+The key is where the file is written and the value is where it is fetched from. Both sides take
+the [host name placeholders](#host-name-placeholders) below, and the key additionally takes the
+usual path tokens, so one configuration can give every agent in a fleet its own file:
+
+```ini
+[/attachments]
+${shared-path}/${host}-nsclient.ini = https://nsclient.mydom.local/nsclient/hosts/${host}-nsclient.ini
+```
+
 #### Query parameters
 
 The url may carry a query string, which is passed on to the server unchanged.
@@ -166,9 +183,9 @@ yourself is not encoded twice.
 
 #### Host name placeholders
 
-The url may contain the same host name placeholders the submit clients (NRDP, Graphite, Syslog and
-friends) accept, so a single `boot.ini` can be rolled out to an entire fleet and each agent asks for
-its own configuration:
+A settings url may contain the same host name placeholders the submit clients (NRDP, Graphite,
+Syslog and friends) accept, so a single `boot.ini` can be rolled out to an entire fleet and each
+agent asks for its own configuration:
 
 ```ini
 [settings]
@@ -190,8 +207,29 @@ expanded before percent-encoding, so a host name containing a character that nee
 escaped rather than corrupting the request. The cache file name is derived from the expanded url,
 so each host caches its own configuration.
 
-> **New in 0.17:** `${hostname}`, `${hostname_lc}` and `${hostname_uc}`. The other placeholders
-> already existed for the submit clients; this makes them available in settings urls too.
+The same placeholders are resolved in three more places, so a per-host configuration does not stop
+at the settings url:
+
+| Where | Example |
+|---|---|
+| A settings url | `[settings] 1 = http://cfgsrv/hosts/${host}.ini` |
+| An attachment's source url | `[/attachments] scripts/local.bat = https://cfgsrv/${host}.bat` |
+| An attachment's target path | `[/attachments] ${shared-path}/${host}.ini = https://cfgsrv/${host}.ini` |
+| An included file | `[/includes] client = ${host}-nsclient.ini` |
+
+An attachment target and an included file are paths, so they take path tokens (`${shared-path}`,
+`${exe-path}`, ...) as well. The two kinds of placeholder share a syntax but not a vocabulary: the
+host name placeholders in this table are resolved first, and everything else is left to the path
+tokens. Only the copy being opened is expanded - the placeholder stays in the configuration file,
+which is the point.
+
+> **New in 0.17:** `${hostname}`, `${hostname_lc}` and `${hostname_uc}`, and host name placeholders
+> in attachment targets and in `[/includes]` (issue
+> [#458](https://github.com/mickem/nscp/issues/458)). The other placeholders already existed for the
+> submit clients; this makes them available across the settings subsystem too. Note that an unknown
+> `${...}` token in a path is not an error: it resolves to the installation directory. A `${host}`
+> written in one of these places before this release therefore did not fail, it silently produced a
+> path with the installation directory embedded in it.
 
 If the query carries a credential (`?token=...`), note that it is still sent in clear text unless
 the url is `https://`. NSClient++ keeps query parameters out of its own log and out of the settings

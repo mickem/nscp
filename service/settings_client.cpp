@@ -241,7 +241,11 @@ int nsclient_core::settings_client::generate(std::string target) {
   }
 }
 
-void nsclient_core::settings_client::switch_context(std::string context) { get_core()->set_primary(expand_context(context)); }
+// The context is handed over unexpanded: set_primary writes it to boot.ini, and
+// a host name placeholder the operator typed is a template for the whole fleet,
+// not a request to store this host's name (issue #458). set_primary resolves
+// the protocol aliases itself.
+void nsclient_core::settings_client::switch_context(std::string context) { get_core()->set_primary(context); }
 
 int nsclient_core::settings_client::set(std::string path, std::string key, std::string val) {
   get_core()->get()->set_string(path, key, val);

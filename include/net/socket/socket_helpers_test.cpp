@@ -7,6 +7,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <str/utils.hpp>
 #include <string>
 
 // =============================================================================
@@ -320,6 +321,46 @@ TEST(ExpandHostname, CasePlaceholdersAreExpanded) {
   // placeholders are substituted away.
   std::string out = socket_helpers::expand_hostname("${host_lc}|${host_uc}|${domain_lc}|${domain_uc}|${domain}");
   EXPECT_EQ(out.find("${"), std::string::npos);
+}
+
+// =============================================================================
+// expand_hostname_placeholders
+//
+// The half of expand_hostname which is applied to strings that are not host
+// name specs - settings contexts and attachment paths (issue #458). It must
+// substitute exactly what expand_hostname substitutes and nothing more.
+// =============================================================================
+
+TEST(ExpandHostnamePlaceholders, SubstitutesTheSamePlaceholders) {
+  const std::string spec = "${hostname}|${host}|${domain}|${hostname_lc}|${host_uc}|${domain_lc}";
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders(spec), socket_helpers::expand_hostname(spec));
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders(spec).find("${"), std::string::npos);
+}
+
+TEST(ExpandHostnamePlaceholders, LeavesTheAutoShorthandsAlone) {
+  // The whole reason this is a separate entry point: a settings context or an
+  // attachment path named "auto" is a name, not a request for the host name.
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("auto"), "auto");
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("auto-lc"), "auto-lc");
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("auto-uc"), "auto-uc");
+  // ...while expand_hostname still resolves them for the submit clients.
+  EXPECT_EQ(socket_helpers::expand_hostname("auto"), boost::asio::ip::host_name());
+}
+
+TEST(ExpandHostnamePlaceholders, PassesThroughWhatHasNoPlaceholder) {
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders(""), "");
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("ini:///etc/nsclient/nsclient.ini"), "ini:///etc/nsclient/nsclient.ini");
+  // A path token is not ours to resolve - it belongs to the path manager, and
+  // has to survive this pass untouched.
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("${shared-path}/nsclient.ini"), "${shared-path}/nsclient.ini");
+}
+
+TEST(ExpandHostnamePlaceholders, MixedWithAPathToken) {
+  // The #458 case: the two kinds of placeholder share a syntax and a string,
+  // and each pass must leave the other's tokens for it.
+  const std::string out = socket_helpers::expand_hostname_placeholders("${shared-path}/${host}-nsclient.ini");
+  const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
+  EXPECT_EQ(out, "${shared-path}/" + host + "-nsclient.ini");
 }
 
 #ifdef USE_SSL
