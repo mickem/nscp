@@ -559,22 +559,42 @@ class settings_interface_impl : public settings_interface {
         set_real_path(path);
       }
     }
-    // Everything above is now in the backend, so nothing here is pending any
-    // more. Without this the entries stay dirty for the lifetime of the store
-    // and get_changes() keeps reporting edits that were already written - as a
-    // `modified` entry whose old_value equals its new_value, since the key now
-    // exists in the backend and no longer reads as an addition.
+    // Everything above was handed to the backend, so drop the pending markers
+    // the backend now agrees with. Without this the entries stay dirty for the
+    // lifetime of the store and get_changes() keeps reporting edits that were
+    // already written - as a `modified` entry whose old_value equals its
+    // new_value, since the key now exists in the backend and no longer reads
+    // as an addition.
     //
-    // Only the pending markers are dropped. settings_cache_ keeps its values
-    // because it is also the read cache; the delete and path caches exist
-    // purely to mask/augment backend reads until a save, and the backend now
-    // agrees with them.
+    // Only the pending markers are dropped, and each one is verified against
+    // the backend rather than assumed persisted: a store that discards writes
+    // (settings_dummy backs `nscp unit` and one-shot client runs) answers
+    // has_real_path() with false, and for it path_cache_ IS the section store
+    // - clearing it unconditionally made every section written before save()
+    // vanish from get_sections(), which silently dropped all of the
+    // Scheduler's enumerated schedules in the python unit tests.
+    // settings_cache_ keeps its values because it is also the read cache.
     for (cache_type::iterator it = settings_cache_.begin(); it != settings_cache_.end(); ++it) {
-      it->second.make_clean();
+      if (has_real_key(it->first)) it->second.make_clean();
     }
-    settings_delete_cache_.clear();
-    settings_delete_path_cache_.clear();
-    path_cache_.clear();
+    for (path_delete_cache_type::iterator it = settings_delete_cache_.begin(); it != settings_delete_cache_.end();) {
+      if (!has_real_key(*it))
+        it = settings_delete_cache_.erase(it);
+      else
+        ++it;
+    }
+    for (path_cache_type::iterator it = settings_delete_path_cache_.begin(); it != settings_delete_path_cache_.end();) {
+      if (!has_real_path(*it))
+        it = settings_delete_path_cache_.erase(it);
+      else
+        ++it;
+    }
+    for (path_cache_type::iterator it = path_cache_.begin(); it != path_cache_.end();) {
+      if (has_real_path(*it))
+        it = path_cache_.erase(it);
+      else
+        ++it;
+    }
     for (instance_raw_ptr &child : children_) {
       child->save(re_save_all);
     }
