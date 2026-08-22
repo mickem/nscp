@@ -179,7 +179,7 @@ void nscapi::program_options::format_description(std::ostream &os, const std::st
   }  // paragraphs
 }
 
-std::string nscapi::program_options::strip_default_value(const std::string &arg) {
+std::string nscapi::program_options::extract_default_value(const std::string &arg) {
   // boost's format_parameter() renders the value slot as one of:
   //   "arg"               plain value
   //   "arg (=D)"          with default D
@@ -199,7 +199,7 @@ namespace {
 // "0"/"1"; translate to "false"/"true" so help texts and the generated docs
 // show the value the user would actually pass (x=true).
 std::string format_default_value(const po::option_description &op) {
-  std::string value = nscapi::program_options::strip_default_value(op.format_parameter());
+  std::string value = nscapi::program_options::extract_default_value(op.format_parameter());
   if (dynamic_cast<const po::typed_value<bool> *>(op.semantic().get()) != nullptr) {
     if (value == "0") return "false";
     if (value == "1") return "true";

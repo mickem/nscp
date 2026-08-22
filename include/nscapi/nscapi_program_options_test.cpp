@@ -114,7 +114,7 @@ TEST(program_options_kvp, handles_no_arguments) {
 }
 
 //////////////////////////////////////////////////////////////////////////
-// strip_default_value
+// extract_default_value
 //
 // Turns boost's format_parameter() rendering back into a bare default, for
 // the help/CSV/show-default output.
@@ -125,14 +125,14 @@ TEST(program_options_default_value, a_value_without_a_default_has_none) {
   desc.add_options()("plain", po::value<std::string>(), "d");
 
   EXPECT_EQ("arg", desc.options()[0]->format_parameter()) << "guards the assumption the code below strips";
-  EXPECT_EQ("", npo::strip_default_value(desc.options()[0]->format_parameter()));
+  EXPECT_EQ("", npo::extract_default_value(desc.options()[0]->format_parameter()));
 }
 
 TEST(program_options_default_value, strips_the_boost_decoration) {
   po::options_description desc;
   desc.add_options()("with-default", po::value<std::string>()->default_value("ok"), "d");
 
-  EXPECT_EQ("ok", npo::strip_default_value(desc.options()[0]->format_parameter()));
+  EXPECT_EQ("ok", npo::extract_default_value(desc.options()[0]->format_parameter()));
 }
 
 TEST(program_options_default_value, strips_an_implicit_value) {
@@ -141,15 +141,15 @@ TEST(program_options_default_value, strips_an_implicit_value) {
   po::options_description desc;
   desc.add_options()("flag", po::value<bool>()->implicit_value(true)->default_value(false), "d");
 
-  const std::string stripped = npo::strip_default_value(desc.options()[0]->format_parameter());
+  const std::string stripped = npo::extract_default_value(desc.options()[0]->format_parameter());
   EXPECT_EQ(std::string::npos, stripped.find("arg")) << "no boost decoration may survive, got: " << stripped;
   EXPECT_EQ(std::string::npos, stripped.find('[')) << "no boost decoration may survive, got: " << stripped;
 }
 
 TEST(program_options_default_value, input_without_a_default_has_none) {
-  EXPECT_EQ("", npo::strip_default_value("arg"));
-  EXPECT_EQ("", npo::strip_default_value("x"));
-  EXPECT_EQ("", npo::strip_default_value(""));
+  EXPECT_EQ("", npo::extract_default_value("arg"));
+  EXPECT_EQ("", npo::extract_default_value("x"));
+  EXPECT_EQ("", npo::extract_default_value(""));
 }
 
 //////////////////////////////////////////////////////////////////////////
