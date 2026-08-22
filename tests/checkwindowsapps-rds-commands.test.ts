@@ -46,7 +46,7 @@ const onWindows = process.platform === "win32";
     // CALs the host has - OK when the role is present, the documented message
     // when it is not. Also proves `warning=...`/`critical=...` parse as single
     // k=v tokens (the REST transport's argument shape).
-    const out = await query("check_rds_licenses", ["warning=total < 0", "critical=total < 0"]);
+    const out = await query("check_rds_licenses", ["warning=total_licenses < 0", "critical=total_licenses < 0"]);
     expect(out).toMatch(/licensing role is not installed|OK/);
     expect(out).not.toMatch(/(^|\s)(WARNING|CRITICAL)\b/);
   });
@@ -72,9 +72,9 @@ const onWindows = process.platform === "win32";
   });
 
   it("check_rds_sessions applies pinned thresholds deterministically", async () => {
-    // total >= 0 is always true -> WARNING regardless of how many sessions
+    // total_sessions >= 0 is always true -> WARNING regardless of how many sessions
     // the host happens to have.
-    const out = await query("check_rds_sessions", ["warning=total >= 0"]);
+    const out = await query("check_rds_sessions", ["warning=total_sessions >= 0"]);
     expect(out).toMatch(/counters \(Terminal Services\) not available|WARNING/);
   });
 

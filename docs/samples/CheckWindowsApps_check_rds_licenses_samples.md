@@ -15,7 +15,7 @@ CRITICAL: RDS Per User CAL: 50/50 issued, 0 available|'RDS Per User CAL_total'=5
 **Custom thresholds, e.g. warn when more than 80% of a pack is issued:**
 
 ```
-check_rds_licenses "warning=issued > 40 and total > 0" "critical=available = 0 and total > 0"
+check_rds_licenses "warning=issued > 40 and total_licenses > 0" "critical=available = 0 and total_licenses > 0"
 OK: RDS Per User CAL: 25/50 issued, 25 available|'RDS Per User CAL_issued'=25;40;0 'RDS Per User CAL_total'=50;0;0 'RDS Per User CAL_available'=25;0;0
 ```
 

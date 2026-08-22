@@ -11,15 +11,5 @@ turns it into an alert for pools that must always be warm). The check goes
 UNKNOWN with a clear message when the IIS role (and with it the counter set)
 is missing.
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword           | Description                                              |
-|-------------------|----------------------------------------------------------|
-| `pool`            | Application pool the worker serves                       |
-| `pid`             | Process id of the w3wp worker                            |
-| `instance`        | Raw counter instance name (`<pid>_<pool>`)               |
-| `active_requests` | Requests currently executing in the worker               |
-| `total_requests`  | HTTP requests served since the worker started            |
-
 There are no default thresholds — a sensible starting point is
 `warning=active_requests > 50` scaled to your pools' concurrency.

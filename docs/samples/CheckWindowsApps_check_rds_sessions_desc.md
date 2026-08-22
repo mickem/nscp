@@ -9,14 +9,6 @@ plain servers — the numbers only become interesting on session hosts.
 There are no default thresholds; all three values are emitted as perfdata so
 capacity can be graphed even on an all-OK check.
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword    | Description                                                     |
-|------------|-----------------------------------------------------------------|
-| `active`   | Sessions with a connected user                                  |
-| `inactive` | Disconnected sessions still resident on the host                |
-| `total`    | Total sessions                                                  |
-
 Disconnected (`inactive`) sessions still hold memory, licenses and (for
 per-device CALs) a seat, so `warning=inactive > <n>` is a useful signal that
 idle-session limits are not configured or not working. For per-session

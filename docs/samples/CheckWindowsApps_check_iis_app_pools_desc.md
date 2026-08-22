@@ -13,17 +13,6 @@ running alerts, a pool an administrator stopped on purpose (`auto_start` = 0)
 stays quiet. Without the WMI provider `auto_start` is `-1` for every pool, so
 every non-running pool alerts.
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword      | Description                                                          |
-|--------------|----------------------------------------------------------------------|
-| `pool`       | Name of the application pool                                         |
-| `state`      | `running`, `disabled`, `disabling`, `shutdown_pending`, `delete_pending`, `initialized`, `uninitialized` or `unknown` |
-| `state_id`   | Raw `APP_POOL_WAS` state value (3 = running)                         |
-| `uptime`     | Seconds since the pool last started                                  |
-| `recycles`   | Pool recycles since WAS started (cumulative — alert on growth)       |
-| `auto_start` | `1`/`0` from the pool configuration, `-1` when WMI is unavailable    |
-
 `recycles` counts since WAS started, so a recycle *storm* shows as a high and
 climbing value combined with a low `uptime`; `warning=recycles > 10 and
 uptime < 600` is a useful storm signature.

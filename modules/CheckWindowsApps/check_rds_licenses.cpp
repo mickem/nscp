@@ -77,7 +77,7 @@ struct filter_obj_handler : public native_context {
                              "Key pack type: unknown, retail, volume, concurrent, temporary, open or built-in");
     registry_.add_int_var("id", parsers::where::type_int, [](auto obj) { return obj->pack.id; }, "Key pack id");
     registry_.add_int_var("keypack_type", parsers::where::type_int, [](auto obj) { return obj->pack.keypack_type; }, "Raw KeyPackType value");
-    registry_.add_int_var("total", parsers::where::type_int, [](auto obj) { return obj->pack.total; }, "Total licenses in the key pack")
+    registry_.add_int_var("total_licenses", parsers::where::type_int, [](auto obj) { return obj->pack.total; }, "Total licenses in the key pack")
         .add_int_perf("", "", "_total");
     registry_.add_int_var("issued", parsers::where::type_int, [](auto obj) { return obj->pack.issued; }, "Licenses issued to clients")
         .add_int_perf("", "", "_issued");
@@ -97,10 +97,10 @@ void check_rds_licenses(const PB::Commands::QueryRequestMessage::Request &reques
   modern_filter::cli_helper<filter> filter_helper(request, response, data);
 
   filter f;
-  // The `total > 0` guard keeps the built-in/unlimited packs (which report no
+  // The `total_licenses > 0` guard keeps the built-in/unlimited packs (which report no
   // meaningful counts) from tripping the exhaustion thresholds.
-  filter_helper.add_options("available < 10 and total > 0", "available = 0 and total > 0", "", f.get_filter_syntax(), "unknown");
-  filter_helper.add_syntax("${status}: ${list}", "${description}: ${issued}/${total} issued, ${available} available", "${description}",
+  filter_helper.add_options("available < 10 and total_licenses > 0", "available = 0 and total_licenses > 0", "", f.get_filter_syntax(), "unknown");
+  filter_helper.add_syntax("${status}: ${list}", "${description}: ${issued}/${total_licenses} issued, ${available} available", "${description}",
                            "No license key packs found", "");
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(f)) return;

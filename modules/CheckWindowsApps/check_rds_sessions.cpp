@@ -61,7 +61,7 @@ struct filter_obj_handler : public native_context {
         .add_int_perf("", "", "_active");
     registry_.add_int_var("inactive", parsers::where::type_int, [](auto obj) { return obj->inactive; }, "Disconnected (idle) sessions still holding resources")
         .add_int_perf("", "", "_inactive");
-    registry_.add_int_var("total", parsers::where::type_int, [](auto obj) { return obj->total; }, "Total sessions on the host")
+    registry_.add_int_var("total_sessions", parsers::where::type_int, [](auto obj) { return obj->total; }, "Total sessions on the host")
         .add_int_perf("", "", "_total");
   }
 };
@@ -78,12 +78,12 @@ void check_rds_sessions(const PB::Commands::QueryRequestMessage::Request &reques
 
   filter f;
   filter_helper.add_options("", "", "", f.get_filter_syntax(), "unknown");
-  filter_helper.add_syntax("${status}: ${list}", "${active} active, ${inactive} inactive (${total} total)", "sessions", "No session counters found", "");
+  filter_helper.add_syntax("${status}: ${list}", "${active} active, ${inactive} inactive (${total_sessions} total)", "sessions", "No session counters found", "");
   if (!filter_helper.parse_options()) return;
   if (!filter_helper.build_filter(f)) return;
   f.add_manual_perf("active");
   f.add_manual_perf("inactive");
-  f.add_manual_perf("total");
+  f.add_manual_perf("total_sessions");
 
   std::map<std::string, double> values;
   try {

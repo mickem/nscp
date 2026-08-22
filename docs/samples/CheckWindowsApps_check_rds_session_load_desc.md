@@ -11,15 +11,6 @@ not a user session), and `averages=true` to sample CPU over a full second
 (the check then takes about a second longer; without it the first PDH sample
 is used, which can be noisy).
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword       | Description                                                       |
-|---------------|-------------------------------------------------------------------|
-| `session`     | Counter instance name (`Console`, `Services`, `RDP-Tcp <n>`, ...) |
-| `cpu`         | % processor time of everything running in the session             |
-| `working_set` | Working set of the session in bytes                               |
-| `total_bytes` | RDP protocol bytes in+out since connect (session hosts only; 0 where the protocol counters do not exist) |
-
 Counter instances are named after the connection, not the user; correlate the
 `RDP-Tcp <n>` number with `quser`/`qwinsta` output to find who it is. The
 protocol counters (`total_bytes`) only exist on hosts with the RD Session Host

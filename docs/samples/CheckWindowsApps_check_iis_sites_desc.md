@@ -16,15 +16,3 @@ Without the WMI provider `auto_start` is `-1`, so every stopped site alerts.
 The rate keywords need two counter samples: pass `averages=true` to collect a
 second sample after one second (the check then takes a second longer);
 without it `requests_per_sec`/`bytes_per_sec` read 0.
-
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword            | Description                                                    |
-|--------------------|----------------------------------------------------------------|
-| `site`             | Name of the web site                                           |
-| `state`            | `running` or `stopped` (no counter instance)                   |
-| `connections`      | Current connections to the site                                |
-| `uptime`           | Seconds the site has been up (0 when stopped)                  |
-| `requests_per_sec` | Requests/second (`averages=true` required)                     |
-| `bytes_per_sec`    | Bytes sent+received/second (`averages=true` required)          |
-| `auto_start`       | `1`/`0` from the site configuration, `-1` when WMI is unavailable |

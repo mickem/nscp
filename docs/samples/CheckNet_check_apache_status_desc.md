@@ -12,23 +12,6 @@ The check emits a single record. By default it goes **critical** when the
 endpoint cannot be fetched or does not look like a mod_status page
 (`result != 'ok'`); worker/traffic thresholds are opt-in.
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword            | Description                                                          |
-|--------------------|----------------------------------------------------------------------|
-| `result`           | `ok`, `parse_error`, `http_<code>` or `error: <message>`             |
-| `busy_workers`     | Workers currently serving requests                                   |
-| `idle_workers`     | Idle (spare) workers                                                 |
-| `total_workers`    | Busy plus idle workers (the currently running pool)                  |
-| `requests_per_sec` | Average requests/second since start (needs `ExtendedStatus`)         |
-| `bytes_per_sec`    | Average bytes/second since start (needs `ExtendedStatus`)            |
-| `total_accesses`   | Requests served since start                                          |
-| `total_kbytes`     | kBytes served since start                                            |
-| `uptime`           | Server uptime in seconds                                             |
-| `scoreboard`       | Raw scoreboard string                                                |
-| `code`             | HTTP status code of the response                                     |
-| `url`, `host`, `port` | The requested endpoint                                            |
-
 Connection options match `check_http` where applicable: `timeout`, `username`
 / `password` (Basic auth), and for https `tls-version`, `verify` and `ca`.
 

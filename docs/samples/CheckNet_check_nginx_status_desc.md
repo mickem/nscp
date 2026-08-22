@@ -18,22 +18,6 @@ The check emits a single record. By default it goes **critical** when the
 endpoint cannot be fetched or does not look like a stub_status page
 (`result != 'ok'`); connection thresholds are opt-in.
 
-Available keywords (for `filter=` / `warning=` / `critical=` / syntax):
-
-| Keyword    | Description                                                            |
-|------------|------------------------------------------------------------------------|
-| `result`   | `ok`, `parse_error`, `http_<code>` or `error: <message>`               |
-| `active`   | Active client connections (including waiting)                          |
-| `reading`  | Connections where NGINX is reading the request                         |
-| `writing`  | Connections where NGINX is writing the response                        |
-| `waiting`  | Idle keep-alive connections                                            |
-| `accepts`  | Accepted connections since start                                       |
-| `handled`  | Handled connections since start                                        |
-| `requests` | Requests served since start                                            |
-| `dropped`  | `accepts - handled`: connections dropped for lack of resources         |
-| `code`     | HTTP status code of the response                                       |
-| `url`, `host`, `port` | The requested endpoint                                      |
-
 `accepts`, `handled`, `requests` and `dropped` are cumulative since NGINX
 started, so `dropped > 0` stays raised until the next restart once a drop has
 ever happened; treat it as a "worker_connections is too low" indicator rather
