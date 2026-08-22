@@ -5,6 +5,7 @@
 #include <boost/filesystem.hpp>
 #include <nscp/layout_migration.hpp>
 #include <nscp/path_defaults.hpp>
+#include <win/acl.hpp>
 
 namespace fs = boost::filesystem;
 
@@ -56,6 +57,32 @@ bool is_regenerated_security_file(const std::string &name) { return name == "win
 // agent-state.json never moved.
 bool unreadable(const fs::file_status &status) { return status.type() == fs::status_error; }
 
+// A same-volume rename keeps the entry's old security descriptor, so a file
+// moved into the locked-down shared folder arrives still carrying the
+// `Users: Read & Execute` it inherited in Program Files - readable by every
+// account on the machine while the folder around it claims otherwise. Reset it
+// to inherit from its new parent instead (propagated through a renamed
+// directory's contents by TreeResetNamedSecurityInfo). The cross-volume copy paths
+// need none of this: copies are new files and inherit where they are created.
+//
+// Returns a detail for the step: empty on success, a warning when the reset
+// failed. A failed reset does not fail the migration - the entry *is* at the
+// destination (a retry would only report it blocked), and the service's boot
+// re-protection of the folder re-propagates the inherited ACEs at the next
+// start.
+std::string reset_acl_after_rename(const fs::path &moved) {
+#ifdef WIN32
+  std::list<std::string> errors;
+  if (nsclient::windows_acl::reset_to_inherited(moved.string(), errors)) return "";
+  std::string joined;
+  for (const std::string &e : errors) joined += (joined.empty() ? "" : "; ") + e;
+  return "moved, but its permissions could not be reset to the destination's (" + joined + "); it keeps the access it had at the source until the next service start";
+#else
+  static_cast<void>(moved);
+  return "";
+#endif
+}
+
 migration_step make(const std::string &name, const migration_action action, const std::string &detail = "", const bool essential = true) {
   migration_step step;
   step.name = name;
@@ -96,8 +123,9 @@ migration_step move_file(const fs::path &source, const fs::path &target, const s
     if (remove_ec) {
       return make(name, migration_action::moved, "copied, but the original could not be removed: " + remove_ec.message(), essential);
     }
+    return make(name, migration_action::moved, "", essential);
   }
-  return make(name, migration_action::moved, "", essential);
+  return make(name, migration_action::moved, reset_acl_after_rename(target), essential);
 }
 
 // Move a directory the hard way, for when rename() cannot: copy every file
@@ -247,7 +275,7 @@ void migrate_tree(const fs::path &from, const fs::path &to, const std::string &n
     }
     return report.steps.push_back(make(name + "/", migration_action::moved, "copied across volumes", essential));
   }
-  report.steps.push_back(make(name + "/", migration_action::moved, "", essential));
+  report.steps.push_back(make(name + "/", migration_action::moved, reset_acl_after_rename(target_dir), essential));
 }
 
 // The destination must be empty for a first switch. List what is in the way, so

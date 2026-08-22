@@ -108,5 +108,23 @@ inline layout resolve_requested_layout(const layout current, const std::string &
   return wanted;
 }
 
+// Where ${shared-path} points for `current`, given the resolved %ProgramData%
+// (`common_appdata`, empty when the platform lookup failed). Legacy is the
+// install folder.
+//
+// Modern with no %ProgramData% is an *empty* answer on purpose, and the caller
+// must treat it as an error rather than substitute something: every fallback
+// is wrong in its own way. Using the install folder means locking down
+// Program Files and stamping a layout whose files are not where the service
+// will look; guessing a path means writing state somewhere the service never
+// reads; silently staying legacy contradicts what the operator asked for.
+// Kept apart from the installer, like resolve_requested_layout above, so the
+// rule can be tested.
+inline std::string shared_folder_for_layout(const layout current, const std::string &install_folder, const std::string &common_appdata) {
+  if (current != layout::modern) return install_folder;
+  if (common_appdata.empty()) return std::string();
+  return common_appdata + "\\" + shared_folder_name();
+}
+
 }  // namespace paths
 }  // namespace nscp

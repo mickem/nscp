@@ -218,6 +218,47 @@ TEST_F(AclTest, InspectionAgreesWithIsProtected) {
   EXPECT_TRUE(nsclient::windows_acl::is_protected(dir_.string(), errors));
 }
 
+TEST_F(AclTest, ResettingMakesARenamedTreeInheritTheDestination) {
+  // The layout migration moves state with a same-volume rename, which keeps
+  // each entry's old security descriptor: a file that was world-readable in
+  // Program Files is still world-readable inside the locked-down folder, while
+  // the folder itself claims otherwise. reset_to_inherited() on the renamed
+  // entry has to fix that - including everything *inside* a renamed directory,
+  // which is how fleet\ (the private key's neighbourhood) arrives.
+  std::list<std::string> errors;
+  ASSERT_TRUE(nsclient::windows_acl::protect_directory(dir_.string(), errors)) << (errors.empty() ? "" : errors.front());
+  protected_ = true;
+
+  const boost::filesystem::path outside = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("nscp-acl-src-%%%%-%%%%");
+  boost::filesystem::create_directories(outside);
+  const boost::filesystem::path secret_source = outside / "secret.txt";
+  std::ofstream(secret_source.string().c_str()) << "password";
+  // An explicit grant to BUILTIN\Users (S-1-5-32-545, by SID so any locale
+  // works), so the "before" state is deterministic whatever profile the test's
+  // temp directory happens to inherit from.
+  const std::string grant = "icacls \"" + secret_source.string() + "\" /grant *S-1-5-32-545:R /q > nul 2>&1";
+  ASSERT_EQ(std::system(grant.c_str()), 0);
+
+  const boost::filesystem::path moved = dir_ / "moved";
+  boost::system::error_code ec;
+  boost::filesystem::rename(outside, moved, ec);
+  ASSERT_FALSE(ec) << ec.message();
+  const boost::filesystem::path secret = moved / "secret.txt";
+
+  // The rename must have carried the grant along, or the reset below would be
+  // asserting nothing.
+  errors.clear();
+  ASSERT_FALSE(nsclient::windows_acl::is_protected(secret.string(), errors)) << "the renamed file lost its old ACEs on its own";
+
+  errors.clear();
+  ASSERT_TRUE(nsclient::windows_acl::reset_to_inherited(moved.string(), errors)) << (errors.empty() ? "" : errors.front());
+  errors.clear();
+  EXPECT_TRUE(nsclient::windows_acl::is_protected(moved.string(), errors)) << (errors.empty() ? "" : errors.front());
+  errors.clear();
+  EXPECT_TRUE(nsclient::windows_acl::is_protected(secret.string(), errors))
+      << "the file inside the renamed directory still carries its old access: " << (errors.empty() ? "" : errors.front());
+}
+
 TEST_F(AclTest, ReportsRatherThanThrowsForAMissingDirectory) {
   std::list<std::string> errors;
   const std::string missing = (dir_ / "no-such-folder").string();

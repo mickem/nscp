@@ -1,6 +1,6 @@
 from difflib import unified_diff
 from subprocess import run, CalledProcessError, CREATE_NEW_PROCESS_GROUP
-from os import path, makedirs, environ
+from os import path, makedirs, environ, walk
 from shutil import rmtree
 from configparser import ConfigParser
 import yaml
@@ -167,7 +167,7 @@ def compare_file(target_folder, file_name, test_case):
     replace_password = test_case.get("replace_password", True)
     config_file = path.join(target_folder, file_name)
     if not path.exists(config_file):
-        print(f"! {file_name} does not exist in the installation folder:", flush=True)
+        print(f"! {file_name} does not exist: {config_file}", flush=True)
         return False
     actual = reorder_config(read_and_remove_bom(config_file))
     # Replace any line starting with 'password =' with 'password = $$PASSWORD$$'
@@ -179,9 +179,9 @@ def compare_file(target_folder, file_name, test_case):
     expected = reorder_config('\n'.join(test_case[file_name].splitlines()))
 
     if expected == actual:
-        print(f"- {file_name} matches expected configuration.", flush=True)
+        print(f"- {config_file} matches expected configuration.", flush=True)
         return True
-    print(f"! {file_name} does not match expected configuration:", flush=True)
+    print(f"! {config_file} does not match expected configuration:", flush=True)
     print(f"! Differences:", flush=True)
     for line in compare_config(expected, actual):
         print(line, flush=True)
@@ -249,6 +249,16 @@ def create_upgrade_config(upgrade_config, target_folder):
         with open(nsclient_ini_path, 'w') as file:
             file.write(upgrade_config['nsclient.ini'])
         print("- nsclient.ini file created successfully.", flush=True)
+    # Anything else an existing installation would have on disk, keyed by path
+    # relative to the install folder - e.g. an enrolled host's fleet\fleet.ini.
+    # %VAR% is expanded and an absolute result wins over the install folder, so
+    # a case can seed the modern layout's %ProgramData%\NSClient++ as well.
+    for relative, content in upgrade_config.get('files', {}).items():
+        file_path = path.join(target_folder, path.expandvars(relative))
+        makedirs(path.dirname(file_path), exist_ok=True)
+        print(f"- Creating file: {file_path}", flush=True)
+        with open(file_path, 'w') as file:
+            file.write(content)
 
 
 def validate_files(target_folder, required_files):
@@ -256,11 +266,11 @@ def validate_files(target_folder, required_files):
     all_exist = True
     for file_group in required_files.keys():
         missing_files = []
-        print(f"- Validating required files in block: {file_group}", flush=True)
+        print(f"- Validating required files in block: {file_group} (in {target_folder})", flush=True)
         for req_file in required_files[file_group]:
             file_path = path.join(target_folder, req_file.replace('/', path.sep))
             if not path.exists(file_path):
-                missing_files.append(req_file)
+                missing_files.append(file_path)
                 all_exist = False
         if missing_files:
             missing_files_str = ", ".join(missing_files)
@@ -279,11 +289,11 @@ def validate_files_absent(target_folder, forbidden_files):
     none_exist = True
     for file_group in forbidden_files.keys():
         present_files = []
-        print(f"- Validating absent files in block: {file_group}", flush=True)
+        print(f"- Validating absent files in block: {file_group} (in {target_folder})", flush=True)
         for bad_file in forbidden_files[file_group]:
             file_path = path.join(target_folder, bad_file.replace('/', path.sep))
             if path.exists(file_path):
-                present_files.append(bad_file)
+                present_files.append(file_path)
                 none_exist = False
         if present_files:
             present_files_str = ", ".join(present_files)
@@ -318,26 +328,38 @@ def validate_secured(folder):
     if not path.exists(folder):
         print(f"! Cannot check permissions, folder does not exist: {folder}", flush=True)
         return False
-    result = run(['icacls', folder], capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"! icacls failed for {folder}: {result.stderr.strip()}", flush=True)
-        return False
 
-    allowed = (r'NT AUTHORITY\SYSTEM', r'BUILTIN\Administrators')
-    offenders = []
-    for line in result.stdout.splitlines():
-        # "<path> PRINCIPAL:(perms)" on the first line, then "  PRINCIPAL:(perms)".
-        entry = line.replace(folder, '', 1).strip()
-        if not entry or ':' not in entry or entry.startswith('Successfully processed'):
+    # Every entry, not just the folder: a migrated file arrives by rename and
+    # keeps the security descriptor it had at the source, so the folder can be
+    # perfectly restricted around world-readable secrets. Checking one path at
+    # a time keeps the icacls output unambiguous (paths can contain spaces).
+    ok = True
+    items = [folder]
+    for root, dirs, files in walk(folder):
+        items.extend(path.join(root, name) for name in dirs + files)
+    for item in items:
+        result = run(['icacls', item], capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"! icacls failed for {item}: {result.stderr.strip()}", flush=True)
+            ok = False
             continue
-        principal = entry.rsplit(':', 1)[0].strip()
-        if principal not in allowed:
-            offenders.append(principal)
 
-    if offenders:
-        print(f"! {folder} grants access to: {', '.join(sorted(set(offenders)))}", flush=True)
-        print(f"! Only {' and '.join(allowed)} may have access.", flush=True)
-        print(result.stdout, flush=True)
-        return False
-    print(f"- {folder} is restricted to SYSTEM and administrators.", flush=True)
-    return True
+        allowed = (r'NT AUTHORITY\SYSTEM', r'BUILTIN\Administrators')
+        offenders = []
+        for line in result.stdout.splitlines():
+            # "<path> PRINCIPAL:(perms)" on the first line, then "  PRINCIPAL:(perms)".
+            entry = line.replace(item, '', 1).strip()
+            if not entry or ':' not in entry or entry.startswith('Successfully processed'):
+                continue
+            principal = entry.rsplit(':', 1)[0].strip()
+            if principal not in allowed:
+                offenders.append(principal)
+
+        if offenders:
+            print(f"! {item} grants access to: {', '.join(sorted(set(offenders)))}", flush=True)
+            print(f"! Only {' and '.join(allowed)} may have access.", flush=True)
+            print(result.stdout, flush=True)
+            ok = False
+    if ok:
+        print(f"- {folder} and its contents are restricted to SYSTEM and administrators.", flush=True)
+    return ok

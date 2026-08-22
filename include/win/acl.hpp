@@ -61,6 +61,20 @@ protection inspect_protection(const std::string &path, std::list<std::string> &e
 // `restricted` is false.
 bool is_protected(const std::string &path, std::list<std::string> &errors);
 
+// Make a file or directory inherit its security from its parent, discarding
+// whatever descriptor it carried, and propagate that through any subtree
+// below it.
+//
+// This exists for the layout migration: a same-volume rename keeps the file's
+// old security descriptor, so nsclient.ini and the fleet identity's private
+// key arrive inside the locked-down shared folder still carrying the
+// `Users: Read & Execute` ACEs they inherited in Program Files - readable by
+// every account on the machine while the folder around them claims otherwise.
+// Resetting to inherit-only makes the entry pick up exactly the folder's
+// SYSTEM + Administrators ACEs. (A cross-volume move is a copy and needs no
+// help: new files inherit from where they are created.)
+bool reset_to_inherited(const std::string &path, std::list<std::string> &errors);
+
 }  // namespace windows_acl
 }  // namespace nsclient
 

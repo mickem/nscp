@@ -1,0 +1,93 @@
+# Upgrading a host that is ALREADY on the modern layout, with no properties.
+#
+# The trap this pins down: on a modern host INSTALLLOCATION\nsclient.ini is
+# absent, which is the NSClientConfig component's key file - so NeverOverwrite
+# suppressed nothing and every upgrade or repair laid a fresh default
+# configuration into Program Files, where the migration reported it blocked,
+# nothing removed it, and an admin would edit the wrong file. ReadLayout +
+# the CURRENT_LAYOUT component condition keep it out; `absent_files` below is
+# the assertion that actually catches a regression.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL"]
+replace_password: true
+
+# The starting point: what layout-modern-install leaves behind (minus the
+# harness cleanup) - boot.ini records the layout, the configuration lives in
+# the shared folder, the install folder has no nsclient.ini.
+upgrade:
+  boot.ini: |
+    [settings]
+    1 = ini://${shared-path}/nsclient.ini
+
+    [layout]
+    mode = modern
+
+  files:
+    "%ProgramData%\\NSClient++\\nsclient.ini": |
+      [/modules]
+      checkdisk = enabled
+      checkeventlog = enabled
+      checkexternalscripts = enabled
+      checkhelpers = enabled
+      checknscp = enabled
+      checksystem = enabled
+      nrpeserver = enabled
+      webserver = enabled
+
+      [/settings/NRPE/server]
+      insecure = false
+      tls version = tlsv1.2+
+      verify mode = peer-cert
+
+      [/settings/default]
+      allowed hosts = 127.0.0.1
+      password = $$PASSWORD$$
+
+      [foo]
+      bar = baz
+
+config_folder: "%ProgramData%\\NSClient++"
+secured_folder: "%ProgramData%\\NSClient++"
+
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+  [layout]
+  mode = modern
+
+# The operator's configuration, untouched by the second upgrade. Note the two
+# nsclient.ini assertions in this file check *different folders*: this one is
+# the live configuration in the shared folder (config_folder above,
+# %ProgramData%\NSClient++\nsclient.ini), while `absent_files` at the bottom
+# checks the install folder (c:\Program Files\NSClient++). On the modern
+# layout the only pointer left beside nscp.exe is boot.ini.
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  insecure = false
+  tls version = tlsv1.2+
+  verify mode = peer-cert
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$
+
+  [foo]
+  bar = baz
+
+# The whole point: no fresh default configuration in Program Files. Before the
+# component condition this file reappeared on every upgrade of a modern host.
+# Checked in the *install folder* (c:\Program Files\NSClient++) - the same file
+# name as the content assertion above, deliberately a different folder.
+absent_files:
+  never-recreated:
+    - nsclient.ini

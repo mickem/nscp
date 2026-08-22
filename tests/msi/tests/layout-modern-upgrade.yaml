@@ -76,6 +76,8 @@ nsclient.ini: |
 # Moved, not copied. A configuration left behind in the install folder is the
 # failure mode that looks like success: the agent reads the new one, the admin
 # edits the old one, and nothing ever says why the change had no effect.
+# Checked in the *install folder* (c:\Program Files\NSClient++) - unlike the
+# content assertion above, which checks the shared copy in config_folder.
 absent_files:
   migrated:
     - nsclient.ini

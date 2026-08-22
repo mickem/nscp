@@ -60,8 +60,12 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
 
       settings.add_options()
         ("migrate-to", po::value<std::string>(), "Migrate (copy) settings from current store to given target store")
-        ("migrate-layout", po::value<std::string>()->implicit_value("modern"),
-         "Move this installation's writable state (configuration, certificates, logs, cache) to the folder the given layout uses "
+        // No implicit value on purpose: with one, Boost only consumes an
+        // adjacent =value, so `--migrate-layout legacy` would drop 'legacy' as
+        // an unregistered positional and run the *implicit* migration instead
+        // - a destructive move in the opposite direction to the one asked for.
+        ("migrate-layout", po::value<std::string>(),
+         "Move this installation's writable state (configuration, certificates, logs, cache) to the folder the given layout ('modern' or 'legacy') uses "
          "and record the choice in boot.ini. 'modern' keeps it under %ProgramData% with access restricted to SYSTEM and "
          "administrators; 'legacy' keeps it beside the executable. Needs an elevated prompt, and a service restart to take effect.")
         ("dry-run", "Show what --migrate-layout would do, without changing anything.")
@@ -324,7 +328,15 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
       } else if (vm.count("migrate-to")) {
         ret = settings_cli.migrate_to(vm["migrate-to"].as<std::string>());
       } else if (vm.count("migrate-layout")) {
-        ret = settings_cli.migrate_layout(vm["migrate-layout"].as<std::string>(), vm.count("dry-run") == 1);
+        if (!unknown_options.empty()) {
+          // A stray token beside a destructive option is exactly the shape of
+          // a mis-typed direction; refusing beats guessing.
+          std::cerr << "Unrecognised argument '" << utf8::cvt<std::string>(unknown_options.front())
+                    << "' next to --migrate-layout; use --migrate-layout modern or --migrate-layout legacy." << std::endl;
+          ret = -1;
+        } else {
+          ret = settings_cli.migrate_layout(vm["migrate-layout"].as<std::string>(), vm.count("dry-run") == 1);
+        }
       } else if (vm.count("migrate-from")) {
         ret = settings_cli.migrate_from(vm["migrate-from"].as<std::string>());
       } else if (vm.count("set")) {

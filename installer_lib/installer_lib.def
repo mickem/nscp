@@ -6,6 +6,7 @@ EXPORTS
 	ApplyTool
 	DetectTool
 	BackupConfig
+	ReadLayout
 	SchedulePrepareLayout
 	ExecPrepareLayout
 	ScheduleRemoveSecrets
