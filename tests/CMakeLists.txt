@@ -639,6 +639,10 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/client/command_line_parser_test.cpp
         ${NSCP_CLIENT_CPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        # Compiled in rather than taken from plugin_api: the Windows plugin_api
+        # DLL does not export the settings_helper symbols (modules compile this
+        # file into themselves via NSCP_DEF_PLUGIN_CPP for the same reason).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     LIBRARIES
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
