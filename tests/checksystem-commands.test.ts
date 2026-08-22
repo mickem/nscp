@@ -519,6 +519,32 @@ describe("CheckSystem commands", () => {
     expect(msg).toMatch(/l2=\S+ l3=\S+/);
   });
 
+  it("check_cpu_frequency load_pct is a sample or explicitly absent (Windows, #1391)", async () => {
+    if (!onWindows) return; // load_pct comes from Win32_Processor.LoadPercentage.
+    const q = await pollQuery(
+      key,
+      "check_cpu_frequency",
+      {
+        // LoadPercentage is 0-100 and a missing sample compares sure-false,
+        // so these never trip: deterministic OK whenever there is data at all.
+        warning: "load_pct > 100",
+        critical: "load_pct > 100",
+        "detail-syntax": "load=${load_pct}",
+      },
+      (r) => r.result !== UNKNOWN,
+      20_000,
+    );
+    if (q.result === UNKNOWN) {
+      expect(messageOf(q)).toMatch(/no cpu frequency/i);
+      return; // Same no-WMI-clock-data contract as the base test above.
+    }
+    expect(q.result).toBe(OK);
+    // A cycle where WMI has no LoadPercentage sample renders the explicit
+    // no-value marker; it must never become a fabricated 0 or discard the
+    // whole collection (#1391).
+    expect(messageOf(q)).toMatch(/load=(\d{1,3}\b|no load sample)/);
+  });
+
   // --- check_network ----------------------------------------------------------
 
   it("check_network lists at least one interface with throughput perf", async () => {

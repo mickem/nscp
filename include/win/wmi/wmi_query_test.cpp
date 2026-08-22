@@ -316,6 +316,58 @@ TEST_F(WmiQueryTest, RowGetInt) {
   }
 }
 
+TEST_F(WmiQueryTest, RowGetIntOptReturnsValue) {
+  if (!com_initialized_) {
+    GTEST_SKIP() << "COM not initialized";
+  }
+
+  try {
+    wmi_impl::query q("SELECT ProcessId FROM Win32_Process", "root\\cimv2", "", "");
+    auto enumerator = q.execute();
+
+    if (enumerator.has_next()) {
+      auto& row = enumerator.get_next();
+      const boost::optional<long long> pid = row.get_int_opt("ProcessId");
+      ASSERT_TRUE(pid);
+      EXPECT_GE(*pid, 0);
+    }
+  } catch (const wmi_impl::wmi_exception& ex) {
+    GTEST_SKIP() << "WMI access failed: " << ex.what();
+  }
+}
+
+// A NULL WMI value must read as "no value", not throw away the row (#1391).
+// SpawnInstance gives a deterministic NULL: every property of a freshly
+// spawned instance is VT_NULL until assigned.
+TEST_F(WmiQueryTest, NullValueIsNoneForGetIntOptAndThrowsForGetInt) {
+  if (!com_initialized_) {
+    GTEST_SKIP() << "COM not initialized";
+  }
+
+  try {
+    wmi_impl::wmi_service svc("root\\cimv2", "", "");
+    CComPtr<IWbemClassObject> cls;
+    HRESULT hr = svc.get()->GetObject(CComBSTR(L"Win32_Processor"), 0, nullptr, &cls, nullptr);
+    if (FAILED(hr)) {
+      GTEST_SKIP() << "Failed to fetch the Win32_Processor class object";
+    }
+
+    const std::list<std::string> columns;
+    wmi_impl::row row(columns);
+    ASSERT_TRUE(SUCCEEDED(cls->SpawnInstance(0, &row.row_obj)));
+
+    EXPECT_FALSE(row.get_int_opt("LoadPercentage"));
+    EXPECT_THROW(row.get_int("LoadPercentage"), wmi_impl::wmi_exception);
+    // get_string keeps its long-standing NULL contract.
+    EXPECT_EQ(row.get_string("LoadPercentage"), "<NULL>");
+    // A property that does not exist is still an error, not a none: typos in
+    // mandatory column names must keep surfacing loudly.
+    EXPECT_THROW(row.get_int_opt("NonExistentColumn12345"), wmi_impl::wmi_exception);
+  } catch (const wmi_impl::wmi_exception& ex) {
+    GTEST_SKIP() << "WMI access failed: " << ex.what();
+  }
+}
+
 TEST_F(WmiQueryTest, RowToString) {
   if (!com_initialized_) {
     GTEST_SKIP() << "COM not initialized";

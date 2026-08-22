@@ -7,6 +7,7 @@
 #include <atlbase.h>
 
 #include <boost/lexical_cast.hpp>
+#include <boost/optional.hpp>
 #include <error/error.hpp>
 #include <list>
 #include <string>
@@ -68,7 +69,12 @@ struct row {
 
   std::string get_string(const std::string& col) const;
   std::string to_string() const;
+  // For mandatory fields: throws when the property is NULL (WMI returns NULL
+  // for optional properties it has no sample for, e.g. Win32_Processor.LoadPercentage).
   long long get_int(const std::string& col) const;
+  // For optional fields: boost::none when the property is NULL or unset; still
+  // throws for a property that does not exist or a value that is not numeric.
+  boost::optional<long long> get_int_opt(const std::string& col) const;
 };
 
 struct row_enumerator {
