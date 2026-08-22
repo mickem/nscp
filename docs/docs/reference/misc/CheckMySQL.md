@@ -201,25 +201,29 @@ Query (read/write) timeout in seconds.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                       | Default Value                                                                                                      |
-|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
-| <a id="check_mysql_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                                    |
-| <a id="check_mysql_warning"></a>[warning](../common-options.md#warning)                      |                                                                                                                    |
-| <a id="check_mysql_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                    |
-| <a id="check_mysql_critical"></a>[critical](../common-options.md#critical)                   |                                                                                                                    |
-| <a id="check_mysql_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                    |
-| <a id="check_mysql_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                    |
-| <a id="check_mysql_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                              |
-| <a id="check_mysql_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                              |
-| <a id="check_mysql_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                                                            |
-| <a id="check_mysql_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                    |
-| <a id="check_mysql_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                              |
-| <a id="check_mysql_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                                  |
-| <a id="check_mysql_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                                 |
-| <a id="check_mysql_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                                                    |
-| <a id="check_mysql_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No server information returned                                                                          |
-| <a id="check_mysql_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${flavor} ${version}, uptime ${uptime}s, connections ${threads_connected}/${max_connections} (${connections_pct}%) |
-| <a id="check_mysql_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${flavor}                                                                                                          |
+| Option                                                                                                      | Default Value                                                                                                      |
+|-------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| <a id="check_mysql_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                                    |
+| <a id="check_mysql_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                                                    |
+| <a id="check_mysql_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                                    |
+| <a id="check_mysql_critical"></a>[critical](../common-options.md#critical)                                  |                                                                                                                    |
+| <a id="check_mysql_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                                    |
+| <a id="check_mysql_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                                    |
+| <a id="check_mysql_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                              |
+| <a id="check_mysql_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                              |
+| <a id="check_mysql_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                                            |
+| <a id="check_mysql_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                                    |
+| <a id="check_mysql_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                              |
+| <a id="check_mysql_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                                  |
+| <a id="check_mysql_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                                 |
+| <a id="check_mysql_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                                    |
+| <a id="check_mysql_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No server information returned                                                                          |
+| <a id="check_mysql_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${flavor} ${version}, uptime ${uptime}s, connections ${threads_connected}/${max_connections} (${connections_pct}%) |
+| <a id="check_mysql_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${flavor}                                                                                                          |
+| <a id="check_mysql_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                                    |
+| <a id="check_mysql_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                                    |
+| <a id="check_mysql_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                                 |
+| <a id="check_mysql_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                                    |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -380,25 +384,29 @@ Query (read/write) timeout in seconds.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                             | Default Value |
-|----------------------------------------------------------------------------------------------------|---------------|
-| <a id="check_mysql_query_filter"></a>[filter](../common-options.md#filter)                         |               |
-| <a id="check_mysql_query_warning"></a>[warning](../common-options.md#warning)                      |               |
-| <a id="check_mysql_query_warn"></a>[warn](../common-options.md#warn)                               |               |
-| <a id="check_mysql_query_critical"></a>[critical](../common-options.md#critical)                   |               |
-| <a id="check_mysql_query_crit"></a>[crit](../common-options.md#crit)                               |               |
-| <a id="check_mysql_query_ok"></a>[ok](../common-options.md#ok)                                     |               |
-| <a id="check_mysql_query_debug"></a>[debug](../common-options.md#debug)                            | false         |
-| <a id="check_mysql_query_show-all"></a>[show-all](../common-options.md#show-all)                   | false         |
-| <a id="check_mysql_query_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored       |
-| <a id="check_mysql_query_perf-config"></a>[perf-config](../common-options.md#perf-config)          |               |
-| <a id="check_mysql_query_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false         |
-| <a id="check_mysql_query_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,             |
-| <a id="check_mysql_query_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${list}       |
-| <a id="check_mysql_query_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |               |
-| <a id="check_mysql_query_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |               |
-| <a id="check_mysql_query_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | %(line)       |
-| <a id="check_mysql_query_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          |               |
+| Option                                                                                                            | Default Value |
+|-------------------------------------------------------------------------------------------------------------------|---------------|
+| <a id="check_mysql_query_filter"></a>[filter](../common-options.md#filter)                                        |               |
+| <a id="check_mysql_query_warning"></a>[warning](../common-options.md#warning)                                     |               |
+| <a id="check_mysql_query_warn"></a>[warn](../common-options.md#warn)                                              |               |
+| <a id="check_mysql_query_critical"></a>[critical](../common-options.md#critical)                                  |               |
+| <a id="check_mysql_query_crit"></a>[crit](../common-options.md#crit)                                              |               |
+| <a id="check_mysql_query_ok"></a>[ok](../common-options.md#ok)                                                    |               |
+| <a id="check_mysql_query_debug"></a>[debug](../common-options.md#debug)                                           | false         |
+| <a id="check_mysql_query_show-all"></a>[show-all](../common-options.md#show-all)                                  | false         |
+| <a id="check_mysql_query_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored       |
+| <a id="check_mysql_query_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |               |
+| <a id="check_mysql_query_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false         |
+| <a id="check_mysql_query_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,             |
+| <a id="check_mysql_query_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${list}       |
+| <a id="check_mysql_query_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |               |
+| <a id="check_mysql_query_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |               |
+| <a id="check_mysql_query_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | %(line)       |
+| <a id="check_mysql_query_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         |               |
+| <a id="check_mysql_query_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |               |
+| <a id="check_mysql_query_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |               |
+| <a id="check_mysql_query_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1            |
+| <a id="check_mysql_query_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |               |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

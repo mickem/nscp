@@ -201,10 +201,18 @@ struct filter_obj {
   long long get_peak_working_set() const { return peak_working_set; }
   long long get_page_faults() const { return page_faults; }
 
-  std::string get_virtual_size_human() const { return str::format::format_byte_units(virtual_size); }
-  std::string get_peak_virtual_size_human() const { return str::format::format_byte_units(peak_virtual_size); }
-  std::string get_working_set_human() const { return str::format::format_byte_units(working_set); }
-  std::string get_peak_working_set_human() const { return str::format::format_byte_units(peak_working_set); }
+  std::string get_virtual_size_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(virtual_size, context->get_number_format());
+  }
+  std::string get_peak_virtual_size_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(peak_virtual_size, context->get_number_format());
+  }
+  std::string get_working_set_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(working_set, context->get_number_format());
+  }
+  std::string get_peak_working_set_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(peak_working_set, context->get_number_format());
+  }
 
   // Time getters
   long long get_user_time() const { return user_time; }

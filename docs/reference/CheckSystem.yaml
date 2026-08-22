@@ -91,9 +91,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: uptime < 1d
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: 'uptime: ${uptime}h, boot: ${boot} (${tz})'
         empty-state: ignored
         empty-syntax: ''
@@ -109,6 +112,7 @@ common:
         perf-syntax: uptime
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: uptime < 2d
@@ -659,9 +663,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: charge < 10
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${charge}% (${power_source}, ${battery_status})'
         empty-state: warning
         empty-syntax: No battery found
@@ -677,6 +684,7 @@ unix:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: charge < 20
@@ -752,9 +760,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: load > 90
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${time}: ${load}%'
         empty-state: ignored
         empty-syntax: ''
@@ -770,6 +781,7 @@ unix:
         perf-syntax: ${core} ${time}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: load > 80
@@ -851,9 +863,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: usage > 95
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: 'user: ${user}% system: ${system}% iowait: ${iowait}% steal: ${steal}% idle: ${idle}%'
         empty-state: ignored
         empty-syntax: ''
@@ -869,6 +884,7 @@ unix:
         perf-syntax: cpu
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: usage > 90
@@ -932,9 +948,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${hostname} (${fqdn}), domain=${domain}
         empty-state: ignored
         empty-syntax: ''
@@ -950,6 +969,7 @@ unix:
         perf-syntax: hostname
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -991,9 +1011,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name} ${version} (${publisher})
         empty-state: ok
         empty-syntax: '%(status): No installed software found'
@@ -1009,6 +1032,7 @@ unix:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: ''
@@ -1070,9 +1094,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: slab ${slab} (${slab_unreclaimable} unreclaimable), cache ${cache}, ${major_faults_per_sec}
           major faults/s
         empty-state: ignored
@@ -1089,6 +1116,7 @@ unix:
         perf-syntax: kernel
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -1140,9 +1168,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: name = 'threads' and current > 10000
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${label} ${human}
         empty-state: ignored
         empty-syntax: ''
@@ -1158,6 +1189,7 @@ unix:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: ${status} - ${list}
         warn: ''
         warning: name = 'threads' and current > 8000
@@ -1212,9 +1244,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${type} load average: ${load1}, ${load5}, ${load15}'
         empty-state: ignored
         empty-syntax: ''
@@ -1230,6 +1265,7 @@ unix:
         perf-syntax: ${type}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -1292,9 +1328,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: used > 90%
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${type} = ${used}
         empty-state: ignored
         empty-syntax: ''
@@ -1310,6 +1349,7 @@ unix:
         perf-syntax: ${type}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: used > 80%
@@ -1360,9 +1400,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: throughput > 100000
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name} >${sent_human}/s <${received_human}/s
         empty-state: critical
         empty-syntax: ''
@@ -1378,6 +1421,7 @@ unix:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: throughput > 10000
@@ -1493,9 +1537,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: security > 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${updates} updates available (${security} security) via ${manager}
         empty-state: ok
         empty-syntax: ''
@@ -1511,6 +1558,7 @@ unix:
         perf-syntax: updates
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: updates > 0
@@ -1550,9 +1598,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${os} (kernel ${kernel_release})
         empty-state: ignored
         empty-syntax: ''
@@ -1568,6 +1619,7 @@ unix:
         perf-syntax: kernel_release
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -1635,9 +1687,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: used > 80%
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name} ${used} (${size})
         empty-state: ignored
         empty-syntax: ''
@@ -1653,6 +1708,7 @@ unix:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: used > 60%
@@ -1692,9 +1748,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: state = 'stopped', count = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${exe}=${state}
         empty-state: unknown
         empty-syntax: 'UNKNOWN: No processes found'
@@ -1710,6 +1769,7 @@ unix:
         perf-syntax: ${exe}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: state not in ('started')
@@ -1871,9 +1931,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${exe} (${running})
         empty-state: ok
         empty-syntax: ''
@@ -1889,6 +1952,7 @@ unix:
         perf-syntax: ${exe}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: ''
@@ -1948,9 +2012,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${exe} (first seen: ${first_seen})'
         empty-state: ok
         empty-syntax: ''
@@ -1966,6 +2033,7 @@ unix:
         perf-syntax: ${exe}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -2025,10 +2093,13 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ( state not in ('running', 'oneshot', 'static') or active = 'failed' ) and preset !=
           'disabled'
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name}=${state}
         empty-state: unknown
         empty-syntax: '%(status): No services found'
@@ -2044,6 +2115,7 @@ unix:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${crit_list}'
         warn: ''
         warning: ''
@@ -2169,9 +2241,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${swap_count} swap device(s) in ${swap_in} pages/s, out ${swap_out} pages/s
         empty-state: ignored
         empty-syntax: ''
@@ -2187,6 +2262,7 @@ unix:
         perf-syntax: io
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -2234,9 +2310,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: temperature > 90
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${temperature}C'
         empty-state: critical
         empty-syntax: ''
@@ -2252,6 +2331,7 @@ unix:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: temperature > 70
@@ -3051,9 +3131,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: charge < 10
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${charge}% (${power_source}, ${battery_status})'
         empty-state: warning
         empty-syntax: No battery found
@@ -3069,6 +3152,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: charge < 20
@@ -3141,9 +3225,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: load > 90
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${time}: ${load}%'
         empty-state: ignored
         empty-syntax: ''
@@ -3159,6 +3246,7 @@ windows:
         perf-syntax: ${core} ${time}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: load > 80
@@ -3247,9 +3335,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${current_mhz}/${max_mhz} MHz (${frequency_pct}%)'
         empty-state: ignored
         empty-syntax: ''
@@ -3265,6 +3356,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -3337,9 +3429,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${vendor} ${model} (${chassis}), serial=${serial}, ${modules} memory module(s),
           ${memory}
         empty-state: ignored
@@ -3356,6 +3451,7 @@ windows:
         perf-syntax: hardware
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -3432,9 +3528,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${hostname} (${fqdn}), ${join}=${join_name}
         empty-state: ignored
         empty-syntax: ''
@@ -3450,6 +3549,7 @@ windows:
         perf-syntax: hostname
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -3508,9 +3608,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name} ${version} (${publisher})
         empty-state: ok
         empty-syntax: '%(status): No installed software found'
@@ -3526,6 +3629,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: ''
@@ -3608,9 +3712,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: paged pool ${pool_paged}, nonpaged pool ${pool_nonpaged}, cache ${cache}, ${hard_faults_per_sec}
           hard faults/s
         empty-state: ignored
@@ -3627,6 +3734,7 @@ windows:
         perf-syntax: kernel
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -3682,9 +3790,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: name = 'threads' and current > 10000
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${label} ${human}
         empty-state: ignored
         empty-syntax: ''
@@ -3700,6 +3811,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: ${status} - ${list}
         warn: ''
         warning: name = 'threads' and current > 8000
@@ -3760,9 +3872,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: used > 90%
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${type}: ${used}/${size}'
         empty-state: ignored
         empty-syntax: ''
@@ -3778,6 +3893,7 @@ windows:
         perf-syntax: ${type}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: used > 80%
@@ -3836,9 +3952,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: throughput > 100000
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name} >${sent_human}/s <${received_human}/s
         empty-state: critical
         empty-syntax: ''
@@ -3854,6 +3973,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: throughput > 10000
@@ -4016,9 +4136,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: security > 0 or critical > 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${updates} updates available (${security} security, ${critical} critical)
         empty-state: ok
         empty-syntax: ''
@@ -4034,6 +4157,7 @@ windows:
         perf-syntax: updates
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: updates > 0
@@ -4113,9 +4237,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: version <= 50
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${version} (${kernel_version}) ${arch}
         empty-state: ignored
         empty-syntax: ''
@@ -4131,6 +4258,7 @@ windows:
         perf-syntax: version
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: version <= 50
@@ -4207,9 +4335,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: used > 80%
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name} ${used} (${size})
         empty-state: ignored
         empty-syntax: ''
@@ -4225,6 +4356,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: used > 60%
@@ -4280,9 +4412,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: missing > 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${message}
         empty-state: ignored
         empty-syntax: ''
@@ -4298,6 +4433,7 @@ windows:
         perf-syntax: patch
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -4370,9 +4506,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${alias} = ${value}
         empty-state: unknown
         empty-syntax: ''
@@ -4388,6 +4527,7 @@ windows:
         perf-syntax: ${alias}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -4564,9 +4704,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${message}
         empty-state: ignored
         empty-syntax: ''
@@ -4582,6 +4725,7 @@ windows:
         perf-syntax: reboot
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: pending = 1
@@ -4647,9 +4791,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: error = 1 or blocked = 1 or user_intervention = 1
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${printer}: ''${document}'' by ${owner} (${job_status}, ${age}s)'
         empty-state: ok
         empty-syntax: '%(status): No print jobs queued'
@@ -4665,6 +4812,7 @@ windows:
         perf-syntax: ${printer}_${id}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: age > 600
@@ -4771,9 +4919,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: error = 1
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${printer}: ${printer_status}, ${jobs} job(s)'
         empty-state: ok
         empty-syntax: '%(status): No printers found'
@@ -4789,6 +4940,7 @@ windows:
         perf-syntax: ${printer}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: jobs > 10
@@ -4878,9 +5030,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: state = 'stopped', count = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${exe}=${state}
         empty-state: unknown
         empty-syntax: 'UNKNOWN: No processes found'
@@ -4896,6 +5051,7 @@ windows:
         perf-syntax: ${exe}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: state not in ('started')
@@ -5109,9 +5265,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${exe} (${running})
         empty-state: ok
         empty-syntax: ''
@@ -5127,6 +5286,7 @@ windows:
         perf-syntax: ${exe}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: ''
@@ -5186,9 +5346,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${exe} (first seen: ${first_seen})'
         empty-state: ok
         empty-syntax: ''
@@ -5204,6 +5367,7 @@ windows:
         perf-syntax: ${exe}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -5263,9 +5427,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: not exists
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${path}: exists=${exists}, subkeys=${subkey_count}, values=${value_count}'
         empty-state: unknown
         empty-syntax: '${status}: No registry keys found'
@@ -5281,6 +5448,7 @@ windows:
         perf-syntax: ${path}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: ''
@@ -5402,9 +5570,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: not exists
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${path}: ${string_value} (type=${type})'
         empty-state: unknown
         empty-syntax: '${status}: No registry values found'
@@ -5420,6 +5591,7 @@ windows:
         perf-syntax: ${path}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: ''
@@ -5551,9 +5723,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: not state_is_ok()
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name}=${state}, exit=%(exit_code), type=%(start_type)
         empty-state: unknown
         empty-syntax: '%(status): No services found'
@@ -5569,6 +5744,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${crit_list}, delayed (${warn_list})'
         warn: ''
         warning: not state_is_perfect()
@@ -5748,9 +5924,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${swap_count} page file(s), in ${swap_in} pages/s, out ${swap_out} pages/s
         empty-state: ignored
         empty-syntax: ''
@@ -5766,6 +5945,7 @@ windows:
         perf-syntax: io
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -5814,9 +5994,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: temperature > 90
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${temperature} C'
         empty-state: critical
         empty-syntax: ''
@@ -5832,6 +6015,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: temperature > 70
@@ -5871,9 +6055,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: synchronized = 0 or offset > 30000
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${state}
         empty-state: ignored
         empty-syntax: ''
@@ -5889,6 +6076,7 @@ windows:
         perf-syntax: w32time
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: offset > 1000

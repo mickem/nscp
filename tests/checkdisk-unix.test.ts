@@ -422,4 +422,84 @@ onLinux("CheckDisk (Unix)", () => {
     const out = await query("check_disk_write", []);
     expect(out).toMatch(/No file specified/);
   });
+
+  // --- number formatting (issue #1428) -------------------------------------
+  //
+  // These go over the one-shot client-query path, which passes each option as
+  // the single token `key=value` exactly as REST does.
+
+  const formatArgs = (extra: string[]) => [
+    "drive=/",
+    "warning=used>99%",
+    "critical=used>99%",
+    "show-all=true",
+    "detail-syntax=%(used)/%(size)",
+    "top-syntax=${list}",
+    ...extra,
+  ];
+
+  it("renders byte values with up to three decimals by default", async () => {
+    const out = await query("check_drivesize", formatArgs([]));
+    expect(out).toMatch(/^-?[\d.]+(B|KB|MB|GB|TB)\/-?[\d.]+(B|KB|MB|GB|TB)/m);
+  });
+
+  it("honours decimals", async () => {
+    const out = await query("check_drivesize", formatArgs(["decimals=1"]));
+    // Exactly one decimal on both values, trailing zero kept.
+    expect(out).toMatch(/^\d+\.\d(B|KB|MB|GB|TB)\/\d+\.\d(B|KB|MB|GB|TB)/m);
+  });
+
+  it("honours byte-unit, so both values land in the same unit", async () => {
+    const out = await query("check_drivesize", formatArgs(["decimals=2", "byte-unit=GB"]));
+    expect(out).toMatch(/^\d+\.\d\dGB\/\d+\.\d\dGB/m);
+  });
+
+  it("honours the decimal and thousands separators", async () => {
+    const out = await query("check_drivesize", formatArgs(["decimals=2", "byte-unit=MB", "decimal-separator=,", "thousands-separator=."]));
+    expect(out).toMatch(/^\d{1,3}(\.\d{3})*,\d\dMB/m);
+  });
+
+  // The whole point of keeping the number format on the message side: whatever
+  // the operator does to the message, the metrics stay machine readable.
+  it("leaves performance data locale neutral", async () => {
+    const out = await query("check_drivesize", [
+      "drive=/",
+      "warning=used>99%",
+      "critical=used>99%",
+      "decimals=2",
+      "byte-unit=GB",
+      "decimal-separator=,",
+      "thousands-separator=.",
+    ]);
+    const perf = out.slice(out.indexOf("|") + 1);
+    expect(perf).toMatch(/'\/ used'=[\d.]+GB/);
+    expect(perf).not.toMatch(/,/);
+  });
+
+  it("rejects a byte-unit it does not know", async () => {
+    const out = await query("check_drivesize", ["drive=/", "byte-unit=ZB"]);
+    expect(out).toMatch(/Invalid byte-unit: ZB/);
+  });
+
+  it("exposes format_bytes and format_number to check_drivesize templates", async () => {
+    const out = await query("check_drivesize", [
+      "drive=/",
+      "warning=used>99%",
+      "critical=used>99%",
+      "show-all=true",
+      "detail-syntax=%(format_bytes(used,'GB',1)) of %(format_bytes(size,'GB',1)) GB (%(format_number(used_pct,1))%)",
+      "top-syntax=${list}",
+    ]);
+    expect(out).toMatch(/^\d+\.\d of \d+\.\d GB \(\d+\.\d%\)/m);
+  });
+
+  it("reports an unknown unit in format_bytes rather than rendering nonsense", async () => {
+    const out = await query("check_drivesize", [
+      "drive=/",
+      "show-all=true",
+      "detail-syntax=%(format_bytes(used,'ZB'))",
+      "top-syntax=${list}",
+    ]);
+    expect(out).toMatch(/Unknown byte unit: ZB/);
+  });
 });

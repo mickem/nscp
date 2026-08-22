@@ -92,25 +92,29 @@ A list of all short hand aliases for queries (check commands)
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                         | Default Value                                            |
-|------------------------------------------------------------------------------------------------|----------------------------------------------------------|
-| <a id="check_battery_filter"></a>[filter](../common-options.md#filter)                         | battery_present = 'true'                                 |
-| <a id="check_battery_warning"></a>[warning](../common-options.md#warning)                      | charge < 20                                              |
-| <a id="check_battery_warn"></a>[warn](../common-options.md#warn)                               |                                                          |
-| <a id="check_battery_critical"></a>[critical](../common-options.md#critical)                   | charge < 10                                              |
-| <a id="check_battery_crit"></a>[crit](../common-options.md#crit)                               |                                                          |
-| <a id="check_battery_ok"></a>[ok](../common-options.md#ok)                                     |                                                          |
-| <a id="check_battery_debug"></a>[debug](../common-options.md#debug)                            | false                                                    |
-| <a id="check_battery_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                    |
-| <a id="check_battery_empty-state"></a>[empty-state](../common-options.md#empty-state)          | warning                                                  |
-| <a id="check_battery_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                          |
-| <a id="check_battery_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                    |
-| <a id="check_battery_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                        |
-| <a id="check_battery_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                       |
-| <a id="check_battery_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No battery found or all batteries ok.         |
-| <a id="check_battery_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No battery found                                         |
-| <a id="check_battery_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${charge}% (${power_source}, ${battery_status}) |
-| <a id="check_battery_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                  |
+| Option                                                                                                        | Default Value                                            |
+|---------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
+| <a id="check_battery_filter"></a>[filter](../common-options.md#filter)                                        | battery_present = 'true'                                 |
+| <a id="check_battery_warning"></a>[warning](../common-options.md#warning)                                     | charge < 20                                              |
+| <a id="check_battery_warn"></a>[warn](../common-options.md#warn)                                              |                                                          |
+| <a id="check_battery_critical"></a>[critical](../common-options.md#critical)                                  | charge < 10                                              |
+| <a id="check_battery_crit"></a>[crit](../common-options.md#crit)                                              |                                                          |
+| <a id="check_battery_ok"></a>[ok](../common-options.md#ok)                                                    |                                                          |
+| <a id="check_battery_debug"></a>[debug](../common-options.md#debug)                                           | false                                                    |
+| <a id="check_battery_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                    |
+| <a id="check_battery_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | warning                                                  |
+| <a id="check_battery_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                          |
+| <a id="check_battery_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                    |
+| <a id="check_battery_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                        |
+| <a id="check_battery_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                       |
+| <a id="check_battery_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): No battery found or all batteries ok.         |
+| <a id="check_battery_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No battery found                                         |
+| <a id="check_battery_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${charge}% (${power_source}, ${battery_status}) |
+| <a id="check_battery_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                  |
+| <a id="check_battery_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                          |
+| <a id="check_battery_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                          |
+| <a id="check_battery_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                       |
+| <a id="check_battery_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                          |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -384,25 +388,29 @@ CPU Load ok
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                     | Default Value              |
-    |--------------------------------------------------------------------------------------------|----------------------------|
-    | <a id="check_cpu_filter"></a>[filter](../common-options.md#filter)                         | core = 'total'             |
-    | <a id="check_cpu_warning"></a>[warning](../common-options.md#warning)                      | load > 80                  |
-    | <a id="check_cpu_warn"></a>[warn](../common-options.md#warn)                               |                            |
-    | <a id="check_cpu_critical"></a>[critical](../common-options.md#critical)                   | load > 90                  |
-    | <a id="check_cpu_crit"></a>[crit](../common-options.md#crit)                               |                            |
-    | <a id="check_cpu_ok"></a>[ok](../common-options.md#ok)                                     |                            |
-    | <a id="check_cpu_debug"></a>[debug](../common-options.md#debug)                            | false                      |
-    | <a id="check_cpu_show-all"></a>[show-all](../common-options.md#show-all)                   | false                      |
-    | <a id="check_cpu_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                    |
-    | <a id="check_cpu_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                            |
-    | <a id="check_cpu_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                      |
-    | <a id="check_cpu_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                          |
-    | <a id="check_cpu_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list} |
-    | <a id="check_cpu_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): CPU load is ok. |
-    | <a id="check_cpu_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                            |
-    | <a id="check_cpu_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${time}: ${load}%          |
-    | <a id="check_cpu_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${core} ${time}            |
+    | Option                                                                                                    | Default Value              |
+    |-----------------------------------------------------------------------------------------------------------|----------------------------|
+    | <a id="check_cpu_filter"></a>[filter](../common-options.md#filter)                                        | core = 'total'             |
+    | <a id="check_cpu_warning"></a>[warning](../common-options.md#warning)                                     | load > 80                  |
+    | <a id="check_cpu_warn"></a>[warn](../common-options.md#warn)                                              |                            |
+    | <a id="check_cpu_critical"></a>[critical](../common-options.md#critical)                                  | load > 90                  |
+    | <a id="check_cpu_crit"></a>[crit](../common-options.md#crit)                                              |                            |
+    | <a id="check_cpu_ok"></a>[ok](../common-options.md#ok)                                                    |                            |
+    | <a id="check_cpu_debug"></a>[debug](../common-options.md#debug)                                           | false                      |
+    | <a id="check_cpu_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                      |
+    | <a id="check_cpu_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                    |
+    | <a id="check_cpu_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                            |
+    | <a id="check_cpu_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                      |
+    | <a id="check_cpu_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                          |
+    | <a id="check_cpu_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list} |
+    | <a id="check_cpu_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): CPU load is ok. |
+    | <a id="check_cpu_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                            |
+    | <a id="check_cpu_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${time}: ${load}%          |
+    | <a id="check_cpu_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${core} ${time}            |
+    | <a id="check_cpu_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                            |
+    | <a id="check_cpu_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                            |
+    | <a id="check_cpu_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                         |
+    | <a id="check_cpu_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                            |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -425,25 +433,29 @@ CPU Load ok
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                     | Default Value              |
-    |--------------------------------------------------------------------------------------------|----------------------------|
-    | <a id="check_cpu_filter"></a>[filter](../common-options.md#filter)                         | core = 'total'             |
-    | <a id="check_cpu_warning"></a>[warning](../common-options.md#warning)                      | load > 80                  |
-    | <a id="check_cpu_warn"></a>[warn](../common-options.md#warn)                               |                            |
-    | <a id="check_cpu_critical"></a>[critical](../common-options.md#critical)                   | load > 90                  |
-    | <a id="check_cpu_crit"></a>[crit](../common-options.md#crit)                               |                            |
-    | <a id="check_cpu_ok"></a>[ok](../common-options.md#ok)                                     |                            |
-    | <a id="check_cpu_debug"></a>[debug](../common-options.md#debug)                            | false                      |
-    | <a id="check_cpu_show-all"></a>[show-all](../common-options.md#show-all)                   | false                      |
-    | <a id="check_cpu_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                    |
-    | <a id="check_cpu_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                            |
-    | <a id="check_cpu_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                      |
-    | <a id="check_cpu_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                          |
-    | <a id="check_cpu_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list} |
-    | <a id="check_cpu_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): CPU load is ok. |
-    | <a id="check_cpu_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                            |
-    | <a id="check_cpu_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${time}: ${load}%          |
-    | <a id="check_cpu_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${core} ${time}            |
+    | Option                                                                                                    | Default Value              |
+    |-----------------------------------------------------------------------------------------------------------|----------------------------|
+    | <a id="check_cpu_filter"></a>[filter](../common-options.md#filter)                                        | core = 'total'             |
+    | <a id="check_cpu_warning"></a>[warning](../common-options.md#warning)                                     | load > 80                  |
+    | <a id="check_cpu_warn"></a>[warn](../common-options.md#warn)                                              |                            |
+    | <a id="check_cpu_critical"></a>[critical](../common-options.md#critical)                                  | load > 90                  |
+    | <a id="check_cpu_crit"></a>[crit](../common-options.md#crit)                                              |                            |
+    | <a id="check_cpu_ok"></a>[ok](../common-options.md#ok)                                                    |                            |
+    | <a id="check_cpu_debug"></a>[debug](../common-options.md#debug)                                           | false                      |
+    | <a id="check_cpu_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                      |
+    | <a id="check_cpu_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                    |
+    | <a id="check_cpu_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                            |
+    | <a id="check_cpu_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                      |
+    | <a id="check_cpu_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                          |
+    | <a id="check_cpu_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list} |
+    | <a id="check_cpu_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): CPU load is ok. |
+    | <a id="check_cpu_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                            |
+    | <a id="check_cpu_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${time}: ${load}%          |
+    | <a id="check_cpu_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${core} ${time}            |
+    | <a id="check_cpu_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                            |
+    | <a id="check_cpu_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                            |
+    | <a id="check_cpu_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                         |
+    | <a id="check_cpu_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                            |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -568,25 +580,29 @@ OK: Intel(R) Core(TM) Ultra 7 265H: 2200/2200 MHz (100%)
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                               | Default Value                                              |
-|------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
-| <a id="check_cpu_frequency_filter"></a>[filter](../common-options.md#filter)                         |                                                            |
-| <a id="check_cpu_frequency_warning"></a>[warning](../common-options.md#warning)                      |                                                            |
-| <a id="check_cpu_frequency_warn"></a>[warn](../common-options.md#warn)                               |                                                            |
-| <a id="check_cpu_frequency_critical"></a>[critical](../common-options.md#critical)                   |                                                            |
-| <a id="check_cpu_frequency_crit"></a>[crit](../common-options.md#crit)                               |                                                            |
-| <a id="check_cpu_frequency_ok"></a>[ok](../common-options.md#ok)                                     |                                                            |
-| <a id="check_cpu_frequency_debug"></a>[debug](../common-options.md#debug)                            | false                                                      |
-| <a id="check_cpu_frequency_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                      |
-| <a id="check_cpu_frequency_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                    |
-| <a id="check_cpu_frequency_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                            |
-| <a id="check_cpu_frequency_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                      |
-| <a id="check_cpu_frequency_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                          |
-| <a id="check_cpu_frequency_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                         |
-| <a id="check_cpu_frequency_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All CPU frequencies seem ok.                    |
-| <a id="check_cpu_frequency_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                            |
-| <a id="check_cpu_frequency_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${current_mhz}/${max_mhz} MHz (${frequency_pct}%) |
-| <a id="check_cpu_frequency_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                    |
+| Option                                                                                                              | Default Value                                              |
+|---------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
+| <a id="check_cpu_frequency_filter"></a>[filter](../common-options.md#filter)                                        |                                                            |
+| <a id="check_cpu_frequency_warning"></a>[warning](../common-options.md#warning)                                     |                                                            |
+| <a id="check_cpu_frequency_warn"></a>[warn](../common-options.md#warn)                                              |                                                            |
+| <a id="check_cpu_frequency_critical"></a>[critical](../common-options.md#critical)                                  |                                                            |
+| <a id="check_cpu_frequency_crit"></a>[crit](../common-options.md#crit)                                              |                                                            |
+| <a id="check_cpu_frequency_ok"></a>[ok](../common-options.md#ok)                                                    |                                                            |
+| <a id="check_cpu_frequency_debug"></a>[debug](../common-options.md#debug)                                           | false                                                      |
+| <a id="check_cpu_frequency_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                      |
+| <a id="check_cpu_frequency_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                    |
+| <a id="check_cpu_frequency_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                            |
+| <a id="check_cpu_frequency_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                      |
+| <a id="check_cpu_frequency_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                          |
+| <a id="check_cpu_frequency_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                         |
+| <a id="check_cpu_frequency_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All CPU frequencies seem ok.                    |
+| <a id="check_cpu_frequency_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                            |
+| <a id="check_cpu_frequency_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${current_mhz}/${max_mhz} MHz (${frequency_pct}%) |
+| <a id="check_cpu_frequency_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                    |
+| <a id="check_cpu_frequency_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                            |
+| <a id="check_cpu_frequency_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                            |
+| <a id="check_cpu_frequency_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                         |
+| <a id="check_cpu_frequency_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                            |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -633,25 +649,29 @@ Check CPU utilization broken down by user/system/iowait/steal/guest.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                                 | Default Value                                                                        |
-|--------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
-| <a id="check_cpu_utilization_filter"></a>[filter](../common-options.md#filter)                         |                                                                                      |
-| <a id="check_cpu_utilization_warning"></a>[warning](../common-options.md#warning)                      | usage > 90                                                                           |
-| <a id="check_cpu_utilization_warn"></a>[warn](../common-options.md#warn)                               |                                                                                      |
-| <a id="check_cpu_utilization_critical"></a>[critical](../common-options.md#critical)                   | usage > 95                                                                           |
-| <a id="check_cpu_utilization_crit"></a>[crit](../common-options.md#crit)                               |                                                                                      |
-| <a id="check_cpu_utilization_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                      |
-| <a id="check_cpu_utilization_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                |
-| <a id="check_cpu_utilization_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                |
-| <a id="check_cpu_utilization_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                                              |
-| <a id="check_cpu_utilization_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                      |
-| <a id="check_cpu_utilization_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                |
-| <a id="check_cpu_utilization_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                    |
-| <a id="check_cpu_utilization_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                   |
-| <a id="check_cpu_utilization_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                      |
-| <a id="check_cpu_utilization_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                                      |
-| <a id="check_cpu_utilization_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | user: ${user}% system: ${system}% iowait: ${iowait}% steal: ${steal}% idle: ${idle}% |
-| <a id="check_cpu_utilization_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | cpu                                                                                  |
+| Option                                                                                                                | Default Value                                                                        |
+|-----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| <a id="check_cpu_utilization_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                      |
+| <a id="check_cpu_utilization_warning"></a>[warning](../common-options.md#warning)                                     | usage > 90                                                                           |
+| <a id="check_cpu_utilization_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                      |
+| <a id="check_cpu_utilization_critical"></a>[critical](../common-options.md#critical)                                  | usage > 95                                                                           |
+| <a id="check_cpu_utilization_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                      |
+| <a id="check_cpu_utilization_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                      |
+| <a id="check_cpu_utilization_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                |
+| <a id="check_cpu_utilization_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                |
+| <a id="check_cpu_utilization_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                                              |
+| <a id="check_cpu_utilization_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                      |
+| <a id="check_cpu_utilization_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                |
+| <a id="check_cpu_utilization_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                    |
+| <a id="check_cpu_utilization_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                   |
+| <a id="check_cpu_utilization_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                      |
+| <a id="check_cpu_utilization_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                                      |
+| <a id="check_cpu_utilization_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | user: ${user}% system: ${system}% iowait: ${iowait}% steal: ${steal}% idle: ${idle}% |
+| <a id="check_cpu_utilization_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | cpu                                                                                  |
+| <a id="check_cpu_utilization_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                      |
+| <a id="check_cpu_utilization_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                      |
+| <a id="check_cpu_utilization_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                   |
+| <a id="check_cpu_utilization_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                      |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -779,25 +799,29 @@ OK: Dell Inc. Dell Pro Max 16 MC16250 (Notebook), serial=ABC1234, 2 memory modul
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                          | Default Value                                                                             |
-|-------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
-| <a id="check_hardware_filter"></a>[filter](../common-options.md#filter)                         |                                                                                           |
-| <a id="check_hardware_warning"></a>[warning](../common-options.md#warning)                      |                                                                                           |
-| <a id="check_hardware_warn"></a>[warn](../common-options.md#warn)                               |                                                                                           |
-| <a id="check_hardware_critical"></a>[critical](../common-options.md#critical)                   |                                                                                           |
-| <a id="check_hardware_crit"></a>[crit](../common-options.md#crit)                               |                                                                                           |
-| <a id="check_hardware_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                           |
-| <a id="check_hardware_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                     |
-| <a id="check_hardware_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                     |
-| <a id="check_hardware_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                                                   |
-| <a id="check_hardware_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                           |
-| <a id="check_hardware_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                     |
-| <a id="check_hardware_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                         |
-| <a id="check_hardware_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                        |
-| <a id="check_hardware_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                           |
-| <a id="check_hardware_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                                           |
-| <a id="check_hardware_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${vendor} ${model} (${chassis}), serial=${serial}, ${modules} memory module(s), ${memory} |
-| <a id="check_hardware_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | hardware                                                                                  |
+| Option                                                                                                         | Default Value                                                                             |
+|----------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| <a id="check_hardware_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                           |
+| <a id="check_hardware_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                           |
+| <a id="check_hardware_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                           |
+| <a id="check_hardware_critical"></a>[critical](../common-options.md#critical)                                  |                                                                                           |
+| <a id="check_hardware_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                           |
+| <a id="check_hardware_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                           |
+| <a id="check_hardware_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                     |
+| <a id="check_hardware_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                     |
+| <a id="check_hardware_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                                                   |
+| <a id="check_hardware_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                           |
+| <a id="check_hardware_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                     |
+| <a id="check_hardware_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                         |
+| <a id="check_hardware_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                        |
+| <a id="check_hardware_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                           |
+| <a id="check_hardware_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                                           |
+| <a id="check_hardware_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${vendor} ${model} (${chassis}), serial=${serial}, ${modules} memory module(s), ${memory} |
+| <a id="check_hardware_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | hardware                                                                                  |
+| <a id="check_hardware_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                           |
+| <a id="check_hardware_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                           |
+| <a id="check_hardware_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                        |
+| <a id="check_hardware_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                           |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -968,25 +992,29 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                          | Default Value                               |
-    |-------------------------------------------------------------------------------------------------|---------------------------------------------|
-    | <a id="check_hostname_filter"></a>[filter](../common-options.md#filter)                         |                                             |
-    | <a id="check_hostname_warning"></a>[warning](../common-options.md#warning)                      |                                             |
-    | <a id="check_hostname_warn"></a>[warn](../common-options.md#warn)                               |                                             |
-    | <a id="check_hostname_critical"></a>[critical](../common-options.md#critical)                   |                                             |
-    | <a id="check_hostname_crit"></a>[crit](../common-options.md#crit)                               |                                             |
-    | <a id="check_hostname_ok"></a>[ok](../common-options.md#ok)                                     |                                             |
-    | <a id="check_hostname_debug"></a>[debug](../common-options.md#debug)                            | false                                       |
-    | <a id="check_hostname_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                       |
-    | <a id="check_hostname_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                     |
-    | <a id="check_hostname_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                             |
-    | <a id="check_hostname_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                       |
-    | <a id="check_hostname_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                           |
-    | <a id="check_hostname_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                          |
-    | <a id="check_hostname_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                             |
-    | <a id="check_hostname_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                             |
-    | <a id="check_hostname_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${hostname} (${fqdn}), ${join}=${join_name} |
-    | <a id="check_hostname_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | hostname                                    |
+    | Option                                                                                                         | Default Value                               |
+    |----------------------------------------------------------------------------------------------------------------|---------------------------------------------|
+    | <a id="check_hostname_filter"></a>[filter](../common-options.md#filter)                                        |                                             |
+    | <a id="check_hostname_warning"></a>[warning](../common-options.md#warning)                                     |                                             |
+    | <a id="check_hostname_warn"></a>[warn](../common-options.md#warn)                                              |                                             |
+    | <a id="check_hostname_critical"></a>[critical](../common-options.md#critical)                                  |                                             |
+    | <a id="check_hostname_crit"></a>[crit](../common-options.md#crit)                                              |                                             |
+    | <a id="check_hostname_ok"></a>[ok](../common-options.md#ok)                                                    |                                             |
+    | <a id="check_hostname_debug"></a>[debug](../common-options.md#debug)                                           | false                                       |
+    | <a id="check_hostname_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                       |
+    | <a id="check_hostname_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                     |
+    | <a id="check_hostname_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                             |
+    | <a id="check_hostname_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                       |
+    | <a id="check_hostname_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                           |
+    | <a id="check_hostname_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                          |
+    | <a id="check_hostname_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                             |
+    | <a id="check_hostname_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                             |
+    | <a id="check_hostname_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${hostname} (${fqdn}), ${join}=${join_name} |
+    | <a id="check_hostname_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | hostname                                    |
+    | <a id="check_hostname_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                             |
+    | <a id="check_hostname_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                             |
+    | <a id="check_hostname_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                          |
+    | <a id="check_hostname_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                             |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -998,25 +1026,29 @@ OK: WEB01 (web01.corp.example.com), domain=corp.example.com
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                          | Default Value                           |
-    |-------------------------------------------------------------------------------------------------|-----------------------------------------|
-    | <a id="check_hostname_filter"></a>[filter](../common-options.md#filter)                         |                                         |
-    | <a id="check_hostname_warning"></a>[warning](../common-options.md#warning)                      |                                         |
-    | <a id="check_hostname_warn"></a>[warn](../common-options.md#warn)                               |                                         |
-    | <a id="check_hostname_critical"></a>[critical](../common-options.md#critical)                   |                                         |
-    | <a id="check_hostname_crit"></a>[crit](../common-options.md#crit)                               |                                         |
-    | <a id="check_hostname_ok"></a>[ok](../common-options.md#ok)                                     |                                         |
-    | <a id="check_hostname_debug"></a>[debug](../common-options.md#debug)                            | false                                   |
-    | <a id="check_hostname_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                   |
-    | <a id="check_hostname_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                 |
-    | <a id="check_hostname_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                         |
-    | <a id="check_hostname_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                   |
-    | <a id="check_hostname_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                       |
-    | <a id="check_hostname_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                      |
-    | <a id="check_hostname_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                         |
-    | <a id="check_hostname_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                         |
-    | <a id="check_hostname_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${hostname} (${fqdn}), domain=${domain} |
-    | <a id="check_hostname_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | hostname                                |
+    | Option                                                                                                         | Default Value                           |
+    |----------------------------------------------------------------------------------------------------------------|-----------------------------------------|
+    | <a id="check_hostname_filter"></a>[filter](../common-options.md#filter)                                        |                                         |
+    | <a id="check_hostname_warning"></a>[warning](../common-options.md#warning)                                     |                                         |
+    | <a id="check_hostname_warn"></a>[warn](../common-options.md#warn)                                              |                                         |
+    | <a id="check_hostname_critical"></a>[critical](../common-options.md#critical)                                  |                                         |
+    | <a id="check_hostname_crit"></a>[crit](../common-options.md#crit)                                              |                                         |
+    | <a id="check_hostname_ok"></a>[ok](../common-options.md#ok)                                                    |                                         |
+    | <a id="check_hostname_debug"></a>[debug](../common-options.md#debug)                                           | false                                   |
+    | <a id="check_hostname_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                   |
+    | <a id="check_hostname_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                 |
+    | <a id="check_hostname_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                         |
+    | <a id="check_hostname_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                   |
+    | <a id="check_hostname_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                       |
+    | <a id="check_hostname_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                      |
+    | <a id="check_hostname_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                         |
+    | <a id="check_hostname_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                         |
+    | <a id="check_hostname_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${hostname} (${fqdn}), domain=${domain} |
+    | <a id="check_hostname_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | hostname                                |
+    | <a id="check_hostname_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                         |
+    | <a id="check_hostname_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                         |
+    | <a id="check_hostname_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                      |
+    | <a id="check_hostname_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                         |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1210,25 +1242,29 @@ OK: 101 software packages installed.
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                                    | Default Value                                    |
-    |-----------------------------------------------------------------------------------------------------------|--------------------------------------------------|
-    | <a id="check_installed_software_filter"></a>[filter](../common-options.md#filter)                         | system_component = 0                             |
-    | <a id="check_installed_software_warning"></a>[warning](../common-options.md#warning)                      |                                                  |
-    | <a id="check_installed_software_warn"></a>[warn](../common-options.md#warn)                               |                                                  |
-    | <a id="check_installed_software_critical"></a>[critical](../common-options.md#critical)                   |                                                  |
-    | <a id="check_installed_software_crit"></a>[crit](../common-options.md#crit)                               |                                                  |
-    | <a id="check_installed_software_ok"></a>[ok](../common-options.md#ok)                                     |                                                  |
-    | <a id="check_installed_software_debug"></a>[debug](../common-options.md#debug)                            | false                                            |
-    | <a id="check_installed_software_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                            |
-    | <a id="check_installed_software_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                               |
-    | <a id="check_installed_software_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                  |
-    | <a id="check_installed_software_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                            |
-    | <a id="check_installed_software_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                |
-    | <a id="check_installed_software_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                       |
-    | <a id="check_installed_software_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(count) software packages installed. |
-    | <a id="check_installed_software_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No installed software found           |
-    | <a id="check_installed_software_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name} ${version} (${publisher})                |
-    | <a id="check_installed_software_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                          |
+    | Option                                                                                                                   | Default Value                                    |
+    |--------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+    | <a id="check_installed_software_filter"></a>[filter](../common-options.md#filter)                                        | system_component = 0                             |
+    | <a id="check_installed_software_warning"></a>[warning](../common-options.md#warning)                                     |                                                  |
+    | <a id="check_installed_software_warn"></a>[warn](../common-options.md#warn)                                              |                                                  |
+    | <a id="check_installed_software_critical"></a>[critical](../common-options.md#critical)                                  |                                                  |
+    | <a id="check_installed_software_crit"></a>[crit](../common-options.md#crit)                                              |                                                  |
+    | <a id="check_installed_software_ok"></a>[ok](../common-options.md#ok)                                                    |                                                  |
+    | <a id="check_installed_software_debug"></a>[debug](../common-options.md#debug)                                           | false                                            |
+    | <a id="check_installed_software_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                            |
+    | <a id="check_installed_software_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                               |
+    | <a id="check_installed_software_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                  |
+    | <a id="check_installed_software_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                            |
+    | <a id="check_installed_software_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                |
+    | <a id="check_installed_software_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                       |
+    | <a id="check_installed_software_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(count) software packages installed. |
+    | <a id="check_installed_software_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No installed software found           |
+    | <a id="check_installed_software_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} ${version} (${publisher})                |
+    | <a id="check_installed_software_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                          |
+    | <a id="check_installed_software_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                  |
+    | <a id="check_installed_software_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                  |
+    | <a id="check_installed_software_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                               |
+    | <a id="check_installed_software_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                  |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1240,25 +1276,29 @@ OK: 101 software packages installed.
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                                    | Default Value                                    |
-    |-----------------------------------------------------------------------------------------------------------|--------------------------------------------------|
-    | <a id="check_installed_software_filter"></a>[filter](../common-options.md#filter)                         |                                                  |
-    | <a id="check_installed_software_warning"></a>[warning](../common-options.md#warning)                      |                                                  |
-    | <a id="check_installed_software_warn"></a>[warn](../common-options.md#warn)                               |                                                  |
-    | <a id="check_installed_software_critical"></a>[critical](../common-options.md#critical)                   |                                                  |
-    | <a id="check_installed_software_crit"></a>[crit](../common-options.md#crit)                               |                                                  |
-    | <a id="check_installed_software_ok"></a>[ok](../common-options.md#ok)                                     |                                                  |
-    | <a id="check_installed_software_debug"></a>[debug](../common-options.md#debug)                            | false                                            |
-    | <a id="check_installed_software_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                            |
-    | <a id="check_installed_software_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                               |
-    | <a id="check_installed_software_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                  |
-    | <a id="check_installed_software_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                            |
-    | <a id="check_installed_software_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                |
-    | <a id="check_installed_software_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                       |
-    | <a id="check_installed_software_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(count) software packages installed. |
-    | <a id="check_installed_software_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No installed software found           |
-    | <a id="check_installed_software_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name} ${version} (${publisher})                |
-    | <a id="check_installed_software_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                          |
+    | Option                                                                                                                   | Default Value                                    |
+    |--------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+    | <a id="check_installed_software_filter"></a>[filter](../common-options.md#filter)                                        |                                                  |
+    | <a id="check_installed_software_warning"></a>[warning](../common-options.md#warning)                                     |                                                  |
+    | <a id="check_installed_software_warn"></a>[warn](../common-options.md#warn)                                              |                                                  |
+    | <a id="check_installed_software_critical"></a>[critical](../common-options.md#critical)                                  |                                                  |
+    | <a id="check_installed_software_crit"></a>[crit](../common-options.md#crit)                                              |                                                  |
+    | <a id="check_installed_software_ok"></a>[ok](../common-options.md#ok)                                                    |                                                  |
+    | <a id="check_installed_software_debug"></a>[debug](../common-options.md#debug)                                           | false                                            |
+    | <a id="check_installed_software_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                            |
+    | <a id="check_installed_software_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                               |
+    | <a id="check_installed_software_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                  |
+    | <a id="check_installed_software_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                            |
+    | <a id="check_installed_software_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                |
+    | <a id="check_installed_software_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                       |
+    | <a id="check_installed_software_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(count) software packages installed. |
+    | <a id="check_installed_software_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No installed software found           |
+    | <a id="check_installed_software_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} ${version} (${publisher})                |
+    | <a id="check_installed_software_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                          |
+    | <a id="check_installed_software_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                  |
+    | <a id="check_installed_software_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                  |
+    | <a id="check_installed_software_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                               |
+    | <a id="check_installed_software_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                  |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1425,25 +1465,29 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                               | Default Value                                                                                                  |
-    |------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
-    | <a id="check_kernel_memory_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                                |
-    | <a id="check_kernel_memory_warning"></a>[warning](../common-options.md#warning)                      |                                                                                                                |
-    | <a id="check_kernel_memory_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                |
-    | <a id="check_kernel_memory_critical"></a>[critical](../common-options.md#critical)                   |                                                                                                                |
-    | <a id="check_kernel_memory_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                |
-    | <a id="check_kernel_memory_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                |
-    | <a id="check_kernel_memory_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                          |
-    | <a id="check_kernel_memory_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                          |
-    | <a id="check_kernel_memory_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                                                                        |
-    | <a id="check_kernel_memory_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                |
-    | <a id="check_kernel_memory_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                          |
-    | <a id="check_kernel_memory_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                              |
-    | <a id="check_kernel_memory_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                             |
-    | <a id="check_kernel_memory_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                                                |
-    | <a id="check_kernel_memory_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                                                                |
-    | <a id="check_kernel_memory_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | paged pool ${pool_paged}, nonpaged pool ${pool_nonpaged}, cache ${cache}, ${hard_faults_per_sec} hard faults/s |
-    | <a id="check_kernel_memory_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | kernel                                                                                                         |
+    | Option                                                                                                              | Default Value                                                                                                  |
+    |---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+    | <a id="check_kernel_memory_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                                |
+    | <a id="check_kernel_memory_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                                                |
+    | <a id="check_kernel_memory_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                                |
+    | <a id="check_kernel_memory_critical"></a>[critical](../common-options.md#critical)                                  |                                                                                                                |
+    | <a id="check_kernel_memory_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                                |
+    | <a id="check_kernel_memory_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                                |
+    | <a id="check_kernel_memory_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                          |
+    | <a id="check_kernel_memory_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                          |
+    | <a id="check_kernel_memory_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                                                                        |
+    | <a id="check_kernel_memory_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                                |
+    | <a id="check_kernel_memory_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                          |
+    | <a id="check_kernel_memory_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                              |
+    | <a id="check_kernel_memory_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                             |
+    | <a id="check_kernel_memory_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                                |
+    | <a id="check_kernel_memory_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                                                                |
+    | <a id="check_kernel_memory_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | paged pool ${pool_paged}, nonpaged pool ${pool_nonpaged}, cache ${cache}, ${hard_faults_per_sec} hard faults/s |
+    | <a id="check_kernel_memory_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | kernel                                                                                                         |
+    | <a id="check_kernel_memory_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                                |
+    | <a id="check_kernel_memory_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                                |
+    | <a id="check_kernel_memory_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                             |
+    | <a id="check_kernel_memory_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                                |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1455,25 +1499,29 @@ OK: paged pool 1.685GB, nonpaged pool 2.571GB, cache 284.676MB, 57.2 hard faults
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                               | Default Value                                                                                              |
-    |------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-    | <a id="check_kernel_memory_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                            |
-    | <a id="check_kernel_memory_warning"></a>[warning](../common-options.md#warning)                      |                                                                                                            |
-    | <a id="check_kernel_memory_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                            |
-    | <a id="check_kernel_memory_critical"></a>[critical](../common-options.md#critical)                   |                                                                                                            |
-    | <a id="check_kernel_memory_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                            |
-    | <a id="check_kernel_memory_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                            |
-    | <a id="check_kernel_memory_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                      |
-    | <a id="check_kernel_memory_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                      |
-    | <a id="check_kernel_memory_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                                                                    |
-    | <a id="check_kernel_memory_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                            |
-    | <a id="check_kernel_memory_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                      |
-    | <a id="check_kernel_memory_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                          |
-    | <a id="check_kernel_memory_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                         |
-    | <a id="check_kernel_memory_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                                            |
-    | <a id="check_kernel_memory_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                                                            |
-    | <a id="check_kernel_memory_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | slab ${slab} (${slab_unreclaimable} unreclaimable), cache ${cache}, ${major_faults_per_sec} major faults/s |
-    | <a id="check_kernel_memory_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | kernel                                                                                                     |
+    | Option                                                                                                              | Default Value                                                                                              |
+    |---------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+    | <a id="check_kernel_memory_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                            |
+    | <a id="check_kernel_memory_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                                            |
+    | <a id="check_kernel_memory_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                            |
+    | <a id="check_kernel_memory_critical"></a>[critical](../common-options.md#critical)                                  |                                                                                                            |
+    | <a id="check_kernel_memory_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                            |
+    | <a id="check_kernel_memory_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                            |
+    | <a id="check_kernel_memory_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                      |
+    | <a id="check_kernel_memory_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                      |
+    | <a id="check_kernel_memory_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                                                                    |
+    | <a id="check_kernel_memory_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                            |
+    | <a id="check_kernel_memory_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                      |
+    | <a id="check_kernel_memory_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                          |
+    | <a id="check_kernel_memory_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                         |
+    | <a id="check_kernel_memory_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                            |
+    | <a id="check_kernel_memory_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                                                            |
+    | <a id="check_kernel_memory_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | slab ${slab} (${slab_unreclaimable} unreclaimable), cache ${cache}, ${major_faults_per_sec} major faults/s |
+    | <a id="check_kernel_memory_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | kernel                                                                                                     |
+    | <a id="check_kernel_memory_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                            |
+    | <a id="check_kernel_memory_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                            |
+    | <a id="check_kernel_memory_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                         |
+    | <a id="check_kernel_memory_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                            |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1648,25 +1696,29 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                              | Default Value                        |
-    |-----------------------------------------------------------------------------------------------------|--------------------------------------|
-    | <a id="check_kernel_stats_filter"></a>[filter](../common-options.md#filter)                         |                                      |
-    | <a id="check_kernel_stats_warning"></a>[warning](../common-options.md#warning)                      | name = 'threads' and current > 8000  |
-    | <a id="check_kernel_stats_warn"></a>[warn](../common-options.md#warn)                               |                                      |
-    | <a id="check_kernel_stats_critical"></a>[critical](../common-options.md#critical)                   | name = 'threads' and current > 10000 |
-    | <a id="check_kernel_stats_crit"></a>[crit](../common-options.md#crit)                               |                                      |
-    | <a id="check_kernel_stats_ok"></a>[ok](../common-options.md#ok)                                     |                                      |
-    | <a id="check_kernel_stats_debug"></a>[debug](../common-options.md#debug)                            | false                                |
-    | <a id="check_kernel_stats_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                |
-    | <a id="check_kernel_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                              |
-    | <a id="check_kernel_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                      |
-    | <a id="check_kernel_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                |
-    | <a id="check_kernel_stats_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                    |
-    | <a id="check_kernel_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status} - ${list}                  |
-    | <a id="check_kernel_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                      |
-    | <a id="check_kernel_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                      |
-    | <a id="check_kernel_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${label} ${human}                    |
-    | <a id="check_kernel_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                              |
+    | Option                                                                                                             | Default Value                        |
+    |--------------------------------------------------------------------------------------------------------------------|--------------------------------------|
+    | <a id="check_kernel_stats_filter"></a>[filter](../common-options.md#filter)                                        |                                      |
+    | <a id="check_kernel_stats_warning"></a>[warning](../common-options.md#warning)                                     | name = 'threads' and current > 8000  |
+    | <a id="check_kernel_stats_warn"></a>[warn](../common-options.md#warn)                                              |                                      |
+    | <a id="check_kernel_stats_critical"></a>[critical](../common-options.md#critical)                                  | name = 'threads' and current > 10000 |
+    | <a id="check_kernel_stats_crit"></a>[crit](../common-options.md#crit)                                              |                                      |
+    | <a id="check_kernel_stats_ok"></a>[ok](../common-options.md#ok)                                                    |                                      |
+    | <a id="check_kernel_stats_debug"></a>[debug](../common-options.md#debug)                                           | false                                |
+    | <a id="check_kernel_stats_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                |
+    | <a id="check_kernel_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                              |
+    | <a id="check_kernel_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                      |
+    | <a id="check_kernel_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                |
+    | <a id="check_kernel_stats_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                    |
+    | <a id="check_kernel_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status} - ${list}                  |
+    | <a id="check_kernel_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                      |
+    | <a id="check_kernel_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                      |
+    | <a id="check_kernel_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${label} ${human}                    |
+    | <a id="check_kernel_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                              |
+    | <a id="check_kernel_stats_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                      |
+    | <a id="check_kernel_stats_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                      |
+    | <a id="check_kernel_stats_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                   |
+    | <a id="check_kernel_stats_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                      |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1687,25 +1739,29 @@ OK - Context Switches 119058.5/s, System Calls 268702.6/s, Processes 628, Thread
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                              | Default Value                        |
-    |-----------------------------------------------------------------------------------------------------|--------------------------------------|
-    | <a id="check_kernel_stats_filter"></a>[filter](../common-options.md#filter)                         |                                      |
-    | <a id="check_kernel_stats_warning"></a>[warning](../common-options.md#warning)                      | name = 'threads' and current > 8000  |
-    | <a id="check_kernel_stats_warn"></a>[warn](../common-options.md#warn)                               |                                      |
-    | <a id="check_kernel_stats_critical"></a>[critical](../common-options.md#critical)                   | name = 'threads' and current > 10000 |
-    | <a id="check_kernel_stats_crit"></a>[crit](../common-options.md#crit)                               |                                      |
-    | <a id="check_kernel_stats_ok"></a>[ok](../common-options.md#ok)                                     |                                      |
-    | <a id="check_kernel_stats_debug"></a>[debug](../common-options.md#debug)                            | false                                |
-    | <a id="check_kernel_stats_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                |
-    | <a id="check_kernel_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                              |
-    | <a id="check_kernel_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                      |
-    | <a id="check_kernel_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                |
-    | <a id="check_kernel_stats_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                    |
-    | <a id="check_kernel_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status} - ${list}                  |
-    | <a id="check_kernel_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                      |
-    | <a id="check_kernel_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                      |
-    | <a id="check_kernel_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${label} ${human}                    |
-    | <a id="check_kernel_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                              |
+    | Option                                                                                                             | Default Value                        |
+    |--------------------------------------------------------------------------------------------------------------------|--------------------------------------|
+    | <a id="check_kernel_stats_filter"></a>[filter](../common-options.md#filter)                                        |                                      |
+    | <a id="check_kernel_stats_warning"></a>[warning](../common-options.md#warning)                                     | name = 'threads' and current > 8000  |
+    | <a id="check_kernel_stats_warn"></a>[warn](../common-options.md#warn)                                              |                                      |
+    | <a id="check_kernel_stats_critical"></a>[critical](../common-options.md#critical)                                  | name = 'threads' and current > 10000 |
+    | <a id="check_kernel_stats_crit"></a>[crit](../common-options.md#crit)                                              |                                      |
+    | <a id="check_kernel_stats_ok"></a>[ok](../common-options.md#ok)                                                    |                                      |
+    | <a id="check_kernel_stats_debug"></a>[debug](../common-options.md#debug)                                           | false                                |
+    | <a id="check_kernel_stats_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                |
+    | <a id="check_kernel_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                              |
+    | <a id="check_kernel_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                      |
+    | <a id="check_kernel_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                |
+    | <a id="check_kernel_stats_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                    |
+    | <a id="check_kernel_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status} - ${list}                  |
+    | <a id="check_kernel_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                      |
+    | <a id="check_kernel_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                      |
+    | <a id="check_kernel_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${label} ${human}                    |
+    | <a id="check_kernel_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                              |
+    | <a id="check_kernel_stats_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                      |
+    | <a id="check_kernel_stats_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                      |
+    | <a id="check_kernel_stats_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                   |
+    | <a id="check_kernel_stats_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                      |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1916,25 +1972,29 @@ Divide the load averages by the number of CPUs (reports the 'scaled' per-core lo
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                      | Default Value                                       |
-|---------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| <a id="check_load_filter"></a>[filter](../common-options.md#filter)                         |                                                     |
-| <a id="check_load_warning"></a>[warning](../common-options.md#warning)                      |                                                     |
-| <a id="check_load_warn"></a>[warn](../common-options.md#warn)                               |                                                     |
-| <a id="check_load_critical"></a>[critical](../common-options.md#critical)                   |                                                     |
-| <a id="check_load_crit"></a>[crit](../common-options.md#crit)                               |                                                     |
-| <a id="check_load_ok"></a>[ok](../common-options.md#ok)                                     |                                                     |
-| <a id="check_load_debug"></a>[debug](../common-options.md#debug)                            | false                                               |
-| <a id="check_load_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                               |
-| <a id="check_load_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                             |
-| <a id="check_load_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                     |
-| <a id="check_load_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                               |
-| <a id="check_load_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                   |
-| <a id="check_load_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                  |
-| <a id="check_load_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                     |
-| <a id="check_load_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                     |
-| <a id="check_load_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${type} load average: ${load1}, ${load5}, ${load15} |
-| <a id="check_load_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${type}                                             |
+| Option                                                                                                     | Default Value                                       |
+|------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| <a id="check_load_filter"></a>[filter](../common-options.md#filter)                                        |                                                     |
+| <a id="check_load_warning"></a>[warning](../common-options.md#warning)                                     |                                                     |
+| <a id="check_load_warn"></a>[warn](../common-options.md#warn)                                              |                                                     |
+| <a id="check_load_critical"></a>[critical](../common-options.md#critical)                                  |                                                     |
+| <a id="check_load_crit"></a>[crit](../common-options.md#crit)                                              |                                                     |
+| <a id="check_load_ok"></a>[ok](../common-options.md#ok)                                                    |                                                     |
+| <a id="check_load_debug"></a>[debug](../common-options.md#debug)                                           | false                                               |
+| <a id="check_load_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                               |
+| <a id="check_load_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                             |
+| <a id="check_load_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                     |
+| <a id="check_load_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                               |
+| <a id="check_load_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                   |
+| <a id="check_load_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                  |
+| <a id="check_load_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                     |
+| <a id="check_load_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                     |
+| <a id="check_load_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${type} load average: ${load1}, ${load5}, ${load15} |
+| <a id="check_load_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${type}                                             |
+| <a id="check_load_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                     |
+| <a id="check_load_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                     |
+| <a id="check_load_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                  |
+| <a id="check_load_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                     |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2054,25 +2114,29 @@ page = 8.05G, physical = 7.85G
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                        | Default Value            |
-    |-----------------------------------------------------------------------------------------------|--------------------------|
-    | <a id="check_memory_filter"></a>[filter](../common-options.md#filter)                         |                          |
-    | <a id="check_memory_warning"></a>[warning](../common-options.md#warning)                      | used > 80%               |
-    | <a id="check_memory_warn"></a>[warn](../common-options.md#warn)                               |                          |
-    | <a id="check_memory_critical"></a>[critical](../common-options.md#critical)                   | used > 90%               |
-    | <a id="check_memory_crit"></a>[crit](../common-options.md#crit)                               |                          |
-    | <a id="check_memory_ok"></a>[ok](../common-options.md#ok)                                     |                          |
-    | <a id="check_memory_debug"></a>[debug](../common-options.md#debug)                            | false                    |
-    | <a id="check_memory_show-all"></a>[show-all](../common-options.md#show-all)                   | false                    |
-    | <a id="check_memory_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                  |
-    | <a id="check_memory_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                          |
-    | <a id="check_memory_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                    |
-    | <a id="check_memory_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                        |
-    | <a id="check_memory_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}       |
-    | <a id="check_memory_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                          |
-    | <a id="check_memory_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                          |
-    | <a id="check_memory_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${type}: ${used}/${size} |
-    | <a id="check_memory_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${type}                  |
+    | Option                                                                                                       | Default Value            |
+    |--------------------------------------------------------------------------------------------------------------|--------------------------|
+    | <a id="check_memory_filter"></a>[filter](../common-options.md#filter)                                        |                          |
+    | <a id="check_memory_warning"></a>[warning](../common-options.md#warning)                                     | used > 80%               |
+    | <a id="check_memory_warn"></a>[warn](../common-options.md#warn)                                              |                          |
+    | <a id="check_memory_critical"></a>[critical](../common-options.md#critical)                                  | used > 90%               |
+    | <a id="check_memory_crit"></a>[crit](../common-options.md#crit)                                              |                          |
+    | <a id="check_memory_ok"></a>[ok](../common-options.md#ok)                                                    |                          |
+    | <a id="check_memory_debug"></a>[debug](../common-options.md#debug)                                           | false                    |
+    | <a id="check_memory_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                    |
+    | <a id="check_memory_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                  |
+    | <a id="check_memory_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                          |
+    | <a id="check_memory_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                    |
+    | <a id="check_memory_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                        |
+    | <a id="check_memory_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}       |
+    | <a id="check_memory_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                          |
+    | <a id="check_memory_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                          |
+    | <a id="check_memory_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${type}: ${used}/${size} |
+    | <a id="check_memory_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${type}                  |
+    | <a id="check_memory_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                          |
+    | <a id="check_memory_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                          |
+    | <a id="check_memory_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                       |
+    | <a id="check_memory_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                          |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2093,25 +2157,29 @@ page = 8.05G, physical = 7.85G
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                        | Default Value      |
-    |-----------------------------------------------------------------------------------------------|--------------------|
-    | <a id="check_memory_filter"></a>[filter](../common-options.md#filter)                         |                    |
-    | <a id="check_memory_warning"></a>[warning](../common-options.md#warning)                      | used > 80%         |
-    | <a id="check_memory_warn"></a>[warn](../common-options.md#warn)                               |                    |
-    | <a id="check_memory_critical"></a>[critical](../common-options.md#critical)                   | used > 90%         |
-    | <a id="check_memory_crit"></a>[crit](../common-options.md#crit)                               |                    |
-    | <a id="check_memory_ok"></a>[ok](../common-options.md#ok)                                     |                    |
-    | <a id="check_memory_debug"></a>[debug](../common-options.md#debug)                            | false              |
-    | <a id="check_memory_show-all"></a>[show-all](../common-options.md#show-all)                   | false              |
-    | <a id="check_memory_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored            |
-    | <a id="check_memory_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                    |
-    | <a id="check_memory_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false              |
-    | <a id="check_memory_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                  |
-    | <a id="check_memory_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list} |
-    | <a id="check_memory_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                    |
-    | <a id="check_memory_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                    |
-    | <a id="check_memory_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${type} = ${used}  |
-    | <a id="check_memory_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${type}            |
+    | Option                                                                                                       | Default Value      |
+    |--------------------------------------------------------------------------------------------------------------|--------------------|
+    | <a id="check_memory_filter"></a>[filter](../common-options.md#filter)                                        |                    |
+    | <a id="check_memory_warning"></a>[warning](../common-options.md#warning)                                     | used > 80%         |
+    | <a id="check_memory_warn"></a>[warn](../common-options.md#warn)                                              |                    |
+    | <a id="check_memory_critical"></a>[critical](../common-options.md#critical)                                  | used > 90%         |
+    | <a id="check_memory_crit"></a>[crit](../common-options.md#crit)                                              |                    |
+    | <a id="check_memory_ok"></a>[ok](../common-options.md#ok)                                                    |                    |
+    | <a id="check_memory_debug"></a>[debug](../common-options.md#debug)                                           | false              |
+    | <a id="check_memory_show-all"></a>[show-all](../common-options.md#show-all)                                  | false              |
+    | <a id="check_memory_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored            |
+    | <a id="check_memory_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                    |
+    | <a id="check_memory_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false              |
+    | <a id="check_memory_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                  |
+    | <a id="check_memory_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list} |
+    | <a id="check_memory_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                    |
+    | <a id="check_memory_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                    |
+    | <a id="check_memory_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${type} = ${used}  |
+    | <a id="check_memory_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${type}            |
+    | <a id="check_memory_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                    |
+    | <a id="check_memory_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                    |
+    | <a id="check_memory_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                 |
+    | <a id="check_memory_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                    |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2478,25 +2546,29 @@ page = 8.05G, physical = 7.85G
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                         | Default Value                                 |
-    |------------------------------------------------------------------------------------------------|-----------------------------------------------|
-    | <a id="check_network_filter"></a>[filter](../common-options.md#filter)                         |                                               |
-    | <a id="check_network_warning"></a>[warning](../common-options.md#warning)                      | throughput > 10000                            |
-    | <a id="check_network_warn"></a>[warn](../common-options.md#warn)                               |                                               |
-    | <a id="check_network_critical"></a>[critical](../common-options.md#critical)                   | throughput > 100000                           |
-    | <a id="check_network_crit"></a>[crit](../common-options.md#crit)                               |                                               |
-    | <a id="check_network_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
-    | <a id="check_network_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
-    | <a id="check_network_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                         |
-    | <a id="check_network_empty-state"></a>[empty-state](../common-options.md#empty-state)          | critical                                      |
-    | <a id="check_network_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                               |
-    | <a id="check_network_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                         |
-    | <a id="check_network_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                             |
-    | <a id="check_network_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                            |
-    | <a id="check_network_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): Network interfaces seem ok.        |
-    | <a id="check_network_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                               |
-    | <a id="check_network_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name} >${sent_human}/s <${received_human}/s |
-    | <a id="check_network_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                       |
+    | Option                                                                                                        | Default Value                                 |
+    |---------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+    | <a id="check_network_filter"></a>[filter](../common-options.md#filter)                                        |                                               |
+    | <a id="check_network_warning"></a>[warning](../common-options.md#warning)                                     | throughput > 10000                            |
+    | <a id="check_network_warn"></a>[warn](../common-options.md#warn)                                              |                                               |
+    | <a id="check_network_critical"></a>[critical](../common-options.md#critical)                                  | throughput > 100000                           |
+    | <a id="check_network_crit"></a>[crit](../common-options.md#crit)                                              |                                               |
+    | <a id="check_network_ok"></a>[ok](../common-options.md#ok)                                                    |                                               |
+    | <a id="check_network_debug"></a>[debug](../common-options.md#debug)                                           | false                                         |
+    | <a id="check_network_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                         |
+    | <a id="check_network_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | critical                                      |
+    | <a id="check_network_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                               |
+    | <a id="check_network_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                         |
+    | <a id="check_network_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                             |
+    | <a id="check_network_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                            |
+    | <a id="check_network_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): Network interfaces seem ok.        |
+    | <a id="check_network_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                               |
+    | <a id="check_network_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} >${sent_human}/s <${received_human}/s |
+    | <a id="check_network_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                       |
+    | <a id="check_network_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                               |
+    | <a id="check_network_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                               |
+    | <a id="check_network_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                            |
+    | <a id="check_network_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                               |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2508,25 +2580,29 @@ page = 8.05G, physical = 7.85G
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                         | Default Value                                 |
-    |------------------------------------------------------------------------------------------------|-----------------------------------------------|
-    | <a id="check_network_filter"></a>[filter](../common-options.md#filter)                         |                                               |
-    | <a id="check_network_warning"></a>[warning](../common-options.md#warning)                      | throughput > 10000                            |
-    | <a id="check_network_warn"></a>[warn](../common-options.md#warn)                               |                                               |
-    | <a id="check_network_critical"></a>[critical](../common-options.md#critical)                   | throughput > 100000                           |
-    | <a id="check_network_crit"></a>[crit](../common-options.md#crit)                               |                                               |
-    | <a id="check_network_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
-    | <a id="check_network_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
-    | <a id="check_network_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                         |
-    | <a id="check_network_empty-state"></a>[empty-state](../common-options.md#empty-state)          | critical                                      |
-    | <a id="check_network_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                               |
-    | <a id="check_network_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                         |
-    | <a id="check_network_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                             |
-    | <a id="check_network_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                            |
-    | <a id="check_network_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): Network interfaces seem ok.        |
-    | <a id="check_network_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                               |
-    | <a id="check_network_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name} >${sent_human}/s <${received_human}/s |
-    | <a id="check_network_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                       |
+    | Option                                                                                                        | Default Value                                 |
+    |---------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+    | <a id="check_network_filter"></a>[filter](../common-options.md#filter)                                        |                                               |
+    | <a id="check_network_warning"></a>[warning](../common-options.md#warning)                                     | throughput > 10000                            |
+    | <a id="check_network_warn"></a>[warn](../common-options.md#warn)                                              |                                               |
+    | <a id="check_network_critical"></a>[critical](../common-options.md#critical)                                  | throughput > 100000                           |
+    | <a id="check_network_crit"></a>[crit](../common-options.md#crit)                                              |                                               |
+    | <a id="check_network_ok"></a>[ok](../common-options.md#ok)                                                    |                                               |
+    | <a id="check_network_debug"></a>[debug](../common-options.md#debug)                                           | false                                         |
+    | <a id="check_network_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                         |
+    | <a id="check_network_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | critical                                      |
+    | <a id="check_network_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                               |
+    | <a id="check_network_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                         |
+    | <a id="check_network_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                             |
+    | <a id="check_network_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                            |
+    | <a id="check_network_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): Network interfaces seem ok.        |
+    | <a id="check_network_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                               |
+    | <a id="check_network_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} >${sent_human}/s <${received_human}/s |
+    | <a id="check_network_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                       |
+    | <a id="check_network_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                               |
+    | <a id="check_network_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                               |
+    | <a id="check_network_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                            |
+    | <a id="check_network_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                               |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2790,25 +2866,29 @@ page = 8.05G, physical = 7.85G
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                            | Default Value                                                             |
-    |---------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-    | <a id="check_os_updates_filter"></a>[filter](../common-options.md#filter)                         |                                                                           |
-    | <a id="check_os_updates_warning"></a>[warning](../common-options.md#warning)                      | updates > 0                                                               |
-    | <a id="check_os_updates_warn"></a>[warn](../common-options.md#warn)                               |                                                                           |
-    | <a id="check_os_updates_critical"></a>[critical](../common-options.md#critical)                   | security > 0 or critical > 0                                              |
-    | <a id="check_os_updates_crit"></a>[crit](../common-options.md#crit)                               |                                                                           |
-    | <a id="check_os_updates_ok"></a>[ok](../common-options.md#ok)                                     |                                                                           |
-    | <a id="check_os_updates_debug"></a>[debug](../common-options.md#debug)                            | false                                                                     |
-    | <a id="check_os_updates_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                     |
-    | <a id="check_os_updates_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                                        |
-    | <a id="check_os_updates_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                           |
-    | <a id="check_os_updates_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                     |
-    | <a id="check_os_updates_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                         |
-    | <a id="check_os_updates_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                        |
-    | <a id="check_os_updates_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No updates available.                                          |
-    | <a id="check_os_updates_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                           |
-    | <a id="check_os_updates_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${updates} updates available (${security} security, ${critical} critical) |
-    | <a id="check_os_updates_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | updates                                                                   |
+    | Option                                                                                                           | Default Value                                                             |
+    |------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+    | <a id="check_os_updates_filter"></a>[filter](../common-options.md#filter)                                        |                                                                           |
+    | <a id="check_os_updates_warning"></a>[warning](../common-options.md#warning)                                     | updates > 0                                                               |
+    | <a id="check_os_updates_warn"></a>[warn](../common-options.md#warn)                                              |                                                                           |
+    | <a id="check_os_updates_critical"></a>[critical](../common-options.md#critical)                                  | security > 0 or critical > 0                                              |
+    | <a id="check_os_updates_crit"></a>[crit](../common-options.md#crit)                                              |                                                                           |
+    | <a id="check_os_updates_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                           |
+    | <a id="check_os_updates_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                     |
+    | <a id="check_os_updates_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                     |
+    | <a id="check_os_updates_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                                        |
+    | <a id="check_os_updates_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                           |
+    | <a id="check_os_updates_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                     |
+    | <a id="check_os_updates_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                         |
+    | <a id="check_os_updates_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                        |
+    | <a id="check_os_updates_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): No updates available.                                          |
+    | <a id="check_os_updates_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                           |
+    | <a id="check_os_updates_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${updates} updates available (${security} security, ${critical} critical) |
+    | <a id="check_os_updates_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | updates                                                                   |
+    | <a id="check_os_updates_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                           |
+    | <a id="check_os_updates_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                           |
+    | <a id="check_os_updates_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                        |
+    | <a id="check_os_updates_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                           |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2820,25 +2900,29 @@ page = 8.05G, physical = 7.85G
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                            | Default Value                                                      |
-    |---------------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
-    | <a id="check_os_updates_filter"></a>[filter](../common-options.md#filter)                         |                                                                    |
-    | <a id="check_os_updates_warning"></a>[warning](../common-options.md#warning)                      | updates > 0                                                        |
-    | <a id="check_os_updates_warn"></a>[warn](../common-options.md#warn)                               |                                                                    |
-    | <a id="check_os_updates_critical"></a>[critical](../common-options.md#critical)                   | security > 0                                                       |
-    | <a id="check_os_updates_crit"></a>[crit](../common-options.md#crit)                               |                                                                    |
-    | <a id="check_os_updates_ok"></a>[ok](../common-options.md#ok)                                     |                                                                    |
-    | <a id="check_os_updates_debug"></a>[debug](../common-options.md#debug)                            | false                                                              |
-    | <a id="check_os_updates_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                              |
-    | <a id="check_os_updates_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                                 |
-    | <a id="check_os_updates_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                    |
-    | <a id="check_os_updates_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                              |
-    | <a id="check_os_updates_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                  |
-    | <a id="check_os_updates_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                 |
-    | <a id="check_os_updates_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No updates available.                                   |
-    | <a id="check_os_updates_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                    |
-    | <a id="check_os_updates_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${updates} updates available (${security} security) via ${manager} |
-    | <a id="check_os_updates_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | updates                                                            |
+    | Option                                                                                                           | Default Value                                                      |
+    |------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+    | <a id="check_os_updates_filter"></a>[filter](../common-options.md#filter)                                        |                                                                    |
+    | <a id="check_os_updates_warning"></a>[warning](../common-options.md#warning)                                     | updates > 0                                                        |
+    | <a id="check_os_updates_warn"></a>[warn](../common-options.md#warn)                                              |                                                                    |
+    | <a id="check_os_updates_critical"></a>[critical](../common-options.md#critical)                                  | security > 0                                                       |
+    | <a id="check_os_updates_crit"></a>[crit](../common-options.md#crit)                                              |                                                                    |
+    | <a id="check_os_updates_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                    |
+    | <a id="check_os_updates_debug"></a>[debug](../common-options.md#debug)                                           | false                                                              |
+    | <a id="check_os_updates_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                              |
+    | <a id="check_os_updates_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                                 |
+    | <a id="check_os_updates_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                    |
+    | <a id="check_os_updates_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                              |
+    | <a id="check_os_updates_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                  |
+    | <a id="check_os_updates_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                 |
+    | <a id="check_os_updates_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): No updates available.                                   |
+    | <a id="check_os_updates_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                    |
+    | <a id="check_os_updates_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${updates} updates available (${security} security) via ${manager} |
+    | <a id="check_os_updates_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | updates                                                            |
+    | <a id="check_os_updates_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                    |
+    | <a id="check_os_updates_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                    |
+    | <a id="check_os_updates_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                 |
+    | <a id="check_os_updates_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                    |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2964,25 +3048,29 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                            | Default Value                          |
-    |---------------------------------------------------------------------------------------------------|----------------------------------------|
-    | <a id="check_os_version_filter"></a>[filter](../common-options.md#filter)                         |                                        |
-    | <a id="check_os_version_warning"></a>[warning](../common-options.md#warning)                      | version <= 50                          |
-    | <a id="check_os_version_warn"></a>[warn](../common-options.md#warn)                               |                                        |
-    | <a id="check_os_version_critical"></a>[critical](../common-options.md#critical)                   | version <= 50                          |
-    | <a id="check_os_version_crit"></a>[crit](../common-options.md#crit)                               |                                        |
-    | <a id="check_os_version_ok"></a>[ok](../common-options.md#ok)                                     |                                        |
-    | <a id="check_os_version_debug"></a>[debug](../common-options.md#debug)                            | false                                  |
-    | <a id="check_os_version_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                  |
-    | <a id="check_os_version_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                |
-    | <a id="check_os_version_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                        |
-    | <a id="check_os_version_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                  |
-    | <a id="check_os_version_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                      |
-    | <a id="check_os_version_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                     |
-    | <a id="check_os_version_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                        |
-    | <a id="check_os_version_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                        |
-    | <a id="check_os_version_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${version} (${kernel_version}) ${arch} |
-    | <a id="check_os_version_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | version                                |
+    | Option                                                                                                           | Default Value                          |
+    |------------------------------------------------------------------------------------------------------------------|----------------------------------------|
+    | <a id="check_os_version_filter"></a>[filter](../common-options.md#filter)                                        |                                        |
+    | <a id="check_os_version_warning"></a>[warning](../common-options.md#warning)                                     | version <= 50                          |
+    | <a id="check_os_version_warn"></a>[warn](../common-options.md#warn)                                              |                                        |
+    | <a id="check_os_version_critical"></a>[critical](../common-options.md#critical)                                  | version <= 50                          |
+    | <a id="check_os_version_crit"></a>[crit](../common-options.md#crit)                                              |                                        |
+    | <a id="check_os_version_ok"></a>[ok](../common-options.md#ok)                                                    |                                        |
+    | <a id="check_os_version_debug"></a>[debug](../common-options.md#debug)                                           | false                                  |
+    | <a id="check_os_version_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                  |
+    | <a id="check_os_version_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                |
+    | <a id="check_os_version_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                        |
+    | <a id="check_os_version_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                  |
+    | <a id="check_os_version_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                      |
+    | <a id="check_os_version_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                     |
+    | <a id="check_os_version_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                        |
+    | <a id="check_os_version_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                        |
+    | <a id="check_os_version_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${version} (${kernel_version}) ${arch} |
+    | <a id="check_os_version_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | version                                |
+    | <a id="check_os_version_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                        |
+    | <a id="check_os_version_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                        |
+    | <a id="check_os_version_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                     |
+    | <a id="check_os_version_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                        |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2994,25 +3082,29 @@ OK: 5CG1234ABC / American Megatrends Inc. BIOS 1.7.0 / 10.0.22631.3810 x64|'vers
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                            | Default Value                    |
-    |---------------------------------------------------------------------------------------------------|----------------------------------|
-    | <a id="check_os_version_filter"></a>[filter](../common-options.md#filter)                         |                                  |
-    | <a id="check_os_version_warning"></a>[warning](../common-options.md#warning)                      |                                  |
-    | <a id="check_os_version_warn"></a>[warn](../common-options.md#warn)                               |                                  |
-    | <a id="check_os_version_critical"></a>[critical](../common-options.md#critical)                   |                                  |
-    | <a id="check_os_version_crit"></a>[crit](../common-options.md#crit)                               |                                  |
-    | <a id="check_os_version_ok"></a>[ok](../common-options.md#ok)                                     |                                  |
-    | <a id="check_os_version_debug"></a>[debug](../common-options.md#debug)                            | false                            |
-    | <a id="check_os_version_show-all"></a>[show-all](../common-options.md#show-all)                   | false                            |
-    | <a id="check_os_version_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                          |
-    | <a id="check_os_version_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                  |
-    | <a id="check_os_version_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                            |
-    | <a id="check_os_version_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                |
-    | <a id="check_os_version_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}               |
-    | <a id="check_os_version_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                  |
-    | <a id="check_os_version_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                  |
-    | <a id="check_os_version_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${os} (kernel ${kernel_release}) |
-    | <a id="check_os_version_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | kernel_release                   |
+    | Option                                                                                                           | Default Value                    |
+    |------------------------------------------------------------------------------------------------------------------|----------------------------------|
+    | <a id="check_os_version_filter"></a>[filter](../common-options.md#filter)                                        |                                  |
+    | <a id="check_os_version_warning"></a>[warning](../common-options.md#warning)                                     |                                  |
+    | <a id="check_os_version_warn"></a>[warn](../common-options.md#warn)                                              |                                  |
+    | <a id="check_os_version_critical"></a>[critical](../common-options.md#critical)                                  |                                  |
+    | <a id="check_os_version_crit"></a>[crit](../common-options.md#crit)                                              |                                  |
+    | <a id="check_os_version_ok"></a>[ok](../common-options.md#ok)                                                    |                                  |
+    | <a id="check_os_version_debug"></a>[debug](../common-options.md#debug)                                           | false                            |
+    | <a id="check_os_version_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                            |
+    | <a id="check_os_version_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                          |
+    | <a id="check_os_version_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                  |
+    | <a id="check_os_version_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                            |
+    | <a id="check_os_version_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                |
+    | <a id="check_os_version_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}               |
+    | <a id="check_os_version_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                  |
+    | <a id="check_os_version_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                  |
+    | <a id="check_os_version_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${os} (kernel ${kernel_release}) |
+    | <a id="check_os_version_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | kernel_release                   |
+    | <a id="check_os_version_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                  |
+    | <a id="check_os_version_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                  |
+    | <a id="check_os_version_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                               |
+    | <a id="check_os_version_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                  |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -3134,25 +3226,29 @@ check_pagefile help
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                          | Default Value             |
-|-------------------------------------------------------------------------------------------------|---------------------------|
-| <a id="check_pagefile_filter"></a>[filter](../common-options.md#filter)                         |                           |
-| <a id="check_pagefile_warning"></a>[warning](../common-options.md#warning)                      | used > 60%                |
-| <a id="check_pagefile_warn"></a>[warn](../common-options.md#warn)                               |                           |
-| <a id="check_pagefile_critical"></a>[critical](../common-options.md#critical)                   | used > 80%                |
-| <a id="check_pagefile_crit"></a>[crit](../common-options.md#crit)                               |                           |
-| <a id="check_pagefile_ok"></a>[ok](../common-options.md#ok)                                     |                           |
-| <a id="check_pagefile_debug"></a>[debug](../common-options.md#debug)                            | false                     |
-| <a id="check_pagefile_show-all"></a>[show-all](../common-options.md#show-all)                   | false                     |
-| <a id="check_pagefile_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                   |
-| <a id="check_pagefile_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                           |
-| <a id="check_pagefile_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                     |
-| <a id="check_pagefile_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                         |
-| <a id="check_pagefile_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}        |
-| <a id="check_pagefile_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                           |
-| <a id="check_pagefile_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                           |
-| <a id="check_pagefile_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name} ${used} (${size}) |
-| <a id="check_pagefile_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                   |
+| Option                                                                                                         | Default Value             |
+|----------------------------------------------------------------------------------------------------------------|---------------------------|
+| <a id="check_pagefile_filter"></a>[filter](../common-options.md#filter)                                        |                           |
+| <a id="check_pagefile_warning"></a>[warning](../common-options.md#warning)                                     | used > 60%                |
+| <a id="check_pagefile_warn"></a>[warn](../common-options.md#warn)                                              |                           |
+| <a id="check_pagefile_critical"></a>[critical](../common-options.md#critical)                                  | used > 80%                |
+| <a id="check_pagefile_crit"></a>[crit](../common-options.md#crit)                                              |                           |
+| <a id="check_pagefile_ok"></a>[ok](../common-options.md#ok)                                                    |                           |
+| <a id="check_pagefile_debug"></a>[debug](../common-options.md#debug)                                           | false                     |
+| <a id="check_pagefile_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                     |
+| <a id="check_pagefile_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                   |
+| <a id="check_pagefile_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                           |
+| <a id="check_pagefile_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                     |
+| <a id="check_pagefile_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                         |
+| <a id="check_pagefile_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}        |
+| <a id="check_pagefile_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                           |
+| <a id="check_pagefile_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                           |
+| <a id="check_pagefile_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} ${used} (${size}) |
+| <a id="check_pagefile_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                   |
+| <a id="check_pagefile_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                           |
+| <a id="check_pagefile_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                           |
+| <a id="check_pagefile_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                        |
+| <a id="check_pagefile_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                           |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -3296,25 +3392,29 @@ OK: 42 hotfixes installed, newest KB5034441 on 3/12/2024 (18d ago)
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                           | Default Value      |
-|--------------------------------------------------------------------------------------------------|--------------------|
-| <a id="check_patch_age_filter"></a>[filter](../common-options.md#filter)                         |                    |
-| <a id="check_patch_age_warning"></a>[warning](../common-options.md#warning)                      |                    |
-| <a id="check_patch_age_warn"></a>[warn](../common-options.md#warn)                               |                    |
-| <a id="check_patch_age_critical"></a>[critical](../common-options.md#critical)                   | missing > 0        |
-| <a id="check_patch_age_crit"></a>[crit](../common-options.md#crit)                               |                    |
-| <a id="check_patch_age_ok"></a>[ok](../common-options.md#ok)                                     |                    |
-| <a id="check_patch_age_debug"></a>[debug](../common-options.md#debug)                            | false              |
-| <a id="check_patch_age_show-all"></a>[show-all](../common-options.md#show-all)                   | false              |
-| <a id="check_patch_age_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored            |
-| <a id="check_patch_age_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                    |
-| <a id="check_patch_age_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false              |
-| <a id="check_patch_age_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                  |
-| <a id="check_patch_age_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list} |
-| <a id="check_patch_age_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                    |
-| <a id="check_patch_age_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                    |
-| <a id="check_patch_age_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${message}         |
-| <a id="check_patch_age_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | patch              |
+| Option                                                                                                          | Default Value      |
+|-----------------------------------------------------------------------------------------------------------------|--------------------|
+| <a id="check_patch_age_filter"></a>[filter](../common-options.md#filter)                                        |                    |
+| <a id="check_patch_age_warning"></a>[warning](../common-options.md#warning)                                     |                    |
+| <a id="check_patch_age_warn"></a>[warn](../common-options.md#warn)                                              |                    |
+| <a id="check_patch_age_critical"></a>[critical](../common-options.md#critical)                                  | missing > 0        |
+| <a id="check_patch_age_crit"></a>[crit](../common-options.md#crit)                                              |                    |
+| <a id="check_patch_age_ok"></a>[ok](../common-options.md#ok)                                                    |                    |
+| <a id="check_patch_age_debug"></a>[debug](../common-options.md#debug)                                           | false              |
+| <a id="check_patch_age_show-all"></a>[show-all](../common-options.md#show-all)                                  | false              |
+| <a id="check_patch_age_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored            |
+| <a id="check_patch_age_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                    |
+| <a id="check_patch_age_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false              |
+| <a id="check_patch_age_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                  |
+| <a id="check_patch_age_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list} |
+| <a id="check_patch_age_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                    |
+| <a id="check_patch_age_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                    |
+| <a id="check_patch_age_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${message}         |
+| <a id="check_patch_age_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | patch              |
+| <a id="check_patch_age_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                    |
+| <a id="check_patch_age_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                    |
+| <a id="check_patch_age_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                 |
+| <a id="check_patch_age_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                    |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -3494,25 +3594,29 @@ If we should ignore errors when checking counters, for instance missing counters
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                     | Default Value       |
-|--------------------------------------------------------------------------------------------|---------------------|
-| <a id="check_pdh_filter"></a>[filter](../common-options.md#filter)                         |                     |
-| <a id="check_pdh_warning"></a>[warning](../common-options.md#warning)                      |                     |
-| <a id="check_pdh_warn"></a>[warn](../common-options.md#warn)                               |                     |
-| <a id="check_pdh_critical"></a>[critical](../common-options.md#critical)                   |                     |
-| <a id="check_pdh_crit"></a>[crit](../common-options.md#crit)                               |                     |
-| <a id="check_pdh_ok"></a>[ok](../common-options.md#ok)                                     |                     |
-| <a id="check_pdh_debug"></a>[debug](../common-options.md#debug)                            | false               |
-| <a id="check_pdh_show-all"></a>[show-all](../common-options.md#show-all)                   | false               |
-| <a id="check_pdh_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown             |
-| <a id="check_pdh_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                     |
-| <a id="check_pdh_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false               |
-| <a id="check_pdh_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                   |
-| <a id="check_pdh_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}  |
-| <a id="check_pdh_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                     |
-| <a id="check_pdh_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                     |
-| <a id="check_pdh_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${alias} = ${value} |
-| <a id="check_pdh_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${alias}            |
+| Option                                                                                                    | Default Value       |
+|-----------------------------------------------------------------------------------------------------------|---------------------|
+| <a id="check_pdh_filter"></a>[filter](../common-options.md#filter)                                        |                     |
+| <a id="check_pdh_warning"></a>[warning](../common-options.md#warning)                                     |                     |
+| <a id="check_pdh_warn"></a>[warn](../common-options.md#warn)                                              |                     |
+| <a id="check_pdh_critical"></a>[critical](../common-options.md#critical)                                  |                     |
+| <a id="check_pdh_crit"></a>[crit](../common-options.md#crit)                                              |                     |
+| <a id="check_pdh_ok"></a>[ok](../common-options.md#ok)                                                    |                     |
+| <a id="check_pdh_debug"></a>[debug](../common-options.md#debug)                                           | false               |
+| <a id="check_pdh_show-all"></a>[show-all](../common-options.md#show-all)                                  | false               |
+| <a id="check_pdh_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown             |
+| <a id="check_pdh_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                     |
+| <a id="check_pdh_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false               |
+| <a id="check_pdh_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                   |
+| <a id="check_pdh_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}  |
+| <a id="check_pdh_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                     |
+| <a id="check_pdh_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                     |
+| <a id="check_pdh_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${alias} = ${value} |
+| <a id="check_pdh_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${alias}            |
+| <a id="check_pdh_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                     |
+| <a id="check_pdh_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                     |
+| <a id="check_pdh_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                  |
+| <a id="check_pdh_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                     |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -3623,25 +3727,29 @@ OK: No reboot pending
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                                | Default Value                |
-|-------------------------------------------------------------------------------------------------------|------------------------------|
-| <a id="check_pending_reboot_filter"></a>[filter](../common-options.md#filter)                         |                              |
-| <a id="check_pending_reboot_warning"></a>[warning](../common-options.md#warning)                      | pending = 1                  |
-| <a id="check_pending_reboot_warn"></a>[warn](../common-options.md#warn)                               |                              |
-| <a id="check_pending_reboot_critical"></a>[critical](../common-options.md#critical)                   |                              |
-| <a id="check_pending_reboot_crit"></a>[crit](../common-options.md#crit)                               |                              |
-| <a id="check_pending_reboot_ok"></a>[ok](../common-options.md#ok)                                     |                              |
-| <a id="check_pending_reboot_debug"></a>[debug](../common-options.md#debug)                            | false                        |
-| <a id="check_pending_reboot_show-all"></a>[show-all](../common-options.md#show-all)                   | false                        |
-| <a id="check_pending_reboot_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                      |
-| <a id="check_pending_reboot_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                              |
-| <a id="check_pending_reboot_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                        |
-| <a id="check_pending_reboot_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                            |
-| <a id="check_pending_reboot_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}           |
-| <a id="check_pending_reboot_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No reboot pending |
-| <a id="check_pending_reboot_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                              |
-| <a id="check_pending_reboot_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${message}                   |
-| <a id="check_pending_reboot_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | reboot                       |
+| Option                                                                                                               | Default Value                |
+|----------------------------------------------------------------------------------------------------------------------|------------------------------|
+| <a id="check_pending_reboot_filter"></a>[filter](../common-options.md#filter)                                        |                              |
+| <a id="check_pending_reboot_warning"></a>[warning](../common-options.md#warning)                                     | pending = 1                  |
+| <a id="check_pending_reboot_warn"></a>[warn](../common-options.md#warn)                                              |                              |
+| <a id="check_pending_reboot_critical"></a>[critical](../common-options.md#critical)                                  |                              |
+| <a id="check_pending_reboot_crit"></a>[crit](../common-options.md#crit)                                              |                              |
+| <a id="check_pending_reboot_ok"></a>[ok](../common-options.md#ok)                                                    |                              |
+| <a id="check_pending_reboot_debug"></a>[debug](../common-options.md#debug)                                           | false                        |
+| <a id="check_pending_reboot_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                        |
+| <a id="check_pending_reboot_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                      |
+| <a id="check_pending_reboot_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                              |
+| <a id="check_pending_reboot_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                        |
+| <a id="check_pending_reboot_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                            |
+| <a id="check_pending_reboot_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}           |
+| <a id="check_pending_reboot_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): No reboot pending |
+| <a id="check_pending_reboot_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                              |
+| <a id="check_pending_reboot_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${message}                   |
+| <a id="check_pending_reboot_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | reboot                       |
+| <a id="check_pending_reboot_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                              |
+| <a id="check_pending_reboot_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                              |
+| <a id="check_pending_reboot_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                           |
+| <a id="check_pending_reboot_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                              |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -3784,25 +3892,29 @@ OK: All 2 job(s) ok.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                           | Default Value                                                  |
-|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------|
-| <a id="check_printjobs_filter"></a>[filter](../common-options.md#filter)                         |                                                                |
-| <a id="check_printjobs_warning"></a>[warning](../common-options.md#warning)                      | age > 600                                                      |
-| <a id="check_printjobs_warn"></a>[warn](../common-options.md#warn)                               |                                                                |
-| <a id="check_printjobs_critical"></a>[critical](../common-options.md#critical)                   | error = 1 or blocked = 1 or user_intervention = 1              |
-| <a id="check_printjobs_crit"></a>[crit](../common-options.md#crit)                               |                                                                |
-| <a id="check_printjobs_ok"></a>[ok](../common-options.md#ok)                                     |                                                                |
-| <a id="check_printjobs_debug"></a>[debug](../common-options.md#debug)                            | false                                                          |
-| <a id="check_printjobs_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                          |
-| <a id="check_printjobs_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                             |
-| <a id="check_printjobs_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                |
-| <a id="check_printjobs_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                          |
-| <a id="check_printjobs_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                              |
-| <a id="check_printjobs_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                             |
-| <a id="check_printjobs_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) job(s) ok.                             |
-| <a id="check_printjobs_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No print jobs queued                                |
-| <a id="check_printjobs_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${printer}: '${document}' by ${owner} (${job_status}, ${age}s) |
-| <a id="check_printjobs_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${printer}_${id}                                               |
+| Option                                                                                                          | Default Value                                                  |
+|-----------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------|
+| <a id="check_printjobs_filter"></a>[filter](../common-options.md#filter)                                        |                                                                |
+| <a id="check_printjobs_warning"></a>[warning](../common-options.md#warning)                                     | age > 600                                                      |
+| <a id="check_printjobs_warn"></a>[warn](../common-options.md#warn)                                              |                                                                |
+| <a id="check_printjobs_critical"></a>[critical](../common-options.md#critical)                                  | error = 1 or blocked = 1 or user_intervention = 1              |
+| <a id="check_printjobs_crit"></a>[crit](../common-options.md#crit)                                              |                                                                |
+| <a id="check_printjobs_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                |
+| <a id="check_printjobs_debug"></a>[debug](../common-options.md#debug)                                           | false                                                          |
+| <a id="check_printjobs_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                          |
+| <a id="check_printjobs_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                             |
+| <a id="check_printjobs_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                |
+| <a id="check_printjobs_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                          |
+| <a id="check_printjobs_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                              |
+| <a id="check_printjobs_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                             |
+| <a id="check_printjobs_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) job(s) ok.                             |
+| <a id="check_printjobs_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No print jobs queued                                |
+| <a id="check_printjobs_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${printer}: '${document}' by ${owner} (${job_status}, ${age}s) |
+| <a id="check_printjobs_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${printer}_${id}                                               |
+| <a id="check_printjobs_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                |
+| <a id="check_printjobs_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                |
+| <a id="check_printjobs_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                             |
+| <a id="check_printjobs_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -3960,25 +4072,29 @@ OK: All 4 printer(s) ok.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                            | Default Value                                 |
-|---------------------------------------------------------------------------------------------------|-----------------------------------------------|
-| <a id="check_printqueue_filter"></a>[filter](../common-options.md#filter)                         |                                               |
-| <a id="check_printqueue_warning"></a>[warning](../common-options.md#warning)                      | jobs > 10                                     |
-| <a id="check_printqueue_warn"></a>[warn](../common-options.md#warn)                               |                                               |
-| <a id="check_printqueue_critical"></a>[critical](../common-options.md#critical)                   | error = 1                                     |
-| <a id="check_printqueue_crit"></a>[crit](../common-options.md#crit)                               |                                               |
-| <a id="check_printqueue_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
-| <a id="check_printqueue_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
-| <a id="check_printqueue_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                         |
-| <a id="check_printqueue_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                            |
-| <a id="check_printqueue_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                               |
-| <a id="check_printqueue_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                         |
-| <a id="check_printqueue_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                             |
-| <a id="check_printqueue_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                            |
-| <a id="check_printqueue_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) printer(s) ok.        |
-| <a id="check_printqueue_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No printers found                  |
-| <a id="check_printqueue_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${printer}: ${printer_status}, ${jobs} job(s) |
-| <a id="check_printqueue_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${printer}                                    |
+| Option                                                                                                           | Default Value                                 |
+|------------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+| <a id="check_printqueue_filter"></a>[filter](../common-options.md#filter)                                        |                                               |
+| <a id="check_printqueue_warning"></a>[warning](../common-options.md#warning)                                     | jobs > 10                                     |
+| <a id="check_printqueue_warn"></a>[warn](../common-options.md#warn)                                              |                                               |
+| <a id="check_printqueue_critical"></a>[critical](../common-options.md#critical)                                  | error = 1                                     |
+| <a id="check_printqueue_crit"></a>[crit](../common-options.md#crit)                                              |                                               |
+| <a id="check_printqueue_ok"></a>[ok](../common-options.md#ok)                                                    |                                               |
+| <a id="check_printqueue_debug"></a>[debug](../common-options.md#debug)                                           | false                                         |
+| <a id="check_printqueue_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                         |
+| <a id="check_printqueue_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                            |
+| <a id="check_printqueue_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                               |
+| <a id="check_printqueue_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                         |
+| <a id="check_printqueue_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                             |
+| <a id="check_printqueue_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                            |
+| <a id="check_printqueue_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) printer(s) ok.        |
+| <a id="check_printqueue_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No printers found                  |
+| <a id="check_printqueue_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${printer}: ${printer_status}, ${jobs} job(s) |
+| <a id="check_printqueue_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${printer}                                    |
+| <a id="check_printqueue_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                               |
+| <a id="check_printqueue_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                               |
+| <a id="check_printqueue_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                            |
+| <a id="check_printqueue_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                               |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -4206,25 +4322,29 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                         | Default Value                    |
-    |------------------------------------------------------------------------------------------------|----------------------------------|
-    | <a id="check_process_filter"></a>[filter](../common-options.md#filter)                         | state != 'unreadable'            |
-    | <a id="check_process_warning"></a>[warning](../common-options.md#warning)                      | state not in ('started')         |
-    | <a id="check_process_warn"></a>[warn](../common-options.md#warn)                               |                                  |
-    | <a id="check_process_critical"></a>[critical](../common-options.md#critical)                   | state = 'stopped', count = 0     |
-    | <a id="check_process_crit"></a>[crit](../common-options.md#crit)                               |                                  |
-    | <a id="check_process_ok"></a>[ok](../common-options.md#ok)                                     |                                  |
-    | <a id="check_process_debug"></a>[debug](../common-options.md#debug)                            | false                            |
-    | <a id="check_process_show-all"></a>[show-all](../common-options.md#show-all)                   | false                            |
-    | <a id="check_process_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                          |
-    | <a id="check_process_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                  |
-    | <a id="check_process_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                            |
-    | <a id="check_process_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                |
-    | <a id="check_process_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}       |
-    | <a id="check_process_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): all processes are ok. |
-    | <a id="check_process_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | UNKNOWN: No processes found      |
-    | <a id="check_process_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${exe}=${state}                  |
-    | <a id="check_process_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${exe}                           |
+    | Option                                                                                                        | Default Value                    |
+    |---------------------------------------------------------------------------------------------------------------|----------------------------------|
+    | <a id="check_process_filter"></a>[filter](../common-options.md#filter)                                        | state != 'unreadable'            |
+    | <a id="check_process_warning"></a>[warning](../common-options.md#warning)                                     | state not in ('started')         |
+    | <a id="check_process_warn"></a>[warn](../common-options.md#warn)                                              |                                  |
+    | <a id="check_process_critical"></a>[critical](../common-options.md#critical)                                  | state = 'stopped', count = 0     |
+    | <a id="check_process_crit"></a>[crit](../common-options.md#crit)                                              |                                  |
+    | <a id="check_process_ok"></a>[ok](../common-options.md#ok)                                                    |                                  |
+    | <a id="check_process_debug"></a>[debug](../common-options.md#debug)                                           | false                            |
+    | <a id="check_process_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                            |
+    | <a id="check_process_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                          |
+    | <a id="check_process_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                  |
+    | <a id="check_process_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                            |
+    | <a id="check_process_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                |
+    | <a id="check_process_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}       |
+    | <a id="check_process_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): all processes are ok. |
+    | <a id="check_process_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | UNKNOWN: No processes found      |
+    | <a id="check_process_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${exe}=${state}                  |
+    | <a id="check_process_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${exe}                           |
+    | <a id="check_process_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                  |
+    | <a id="check_process_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                  |
+    | <a id="check_process_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                               |
+    | <a id="check_process_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                  |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -4266,25 +4386,29 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                         | Default Value                    |
-    |------------------------------------------------------------------------------------------------|----------------------------------|
-    | <a id="check_process_filter"></a>[filter](../common-options.md#filter)                         | state != 'unreadable'            |
-    | <a id="check_process_warning"></a>[warning](../common-options.md#warning)                      | state not in ('started')         |
-    | <a id="check_process_warn"></a>[warn](../common-options.md#warn)                               |                                  |
-    | <a id="check_process_critical"></a>[critical](../common-options.md#critical)                   | state = 'stopped', count = 0     |
-    | <a id="check_process_crit"></a>[crit](../common-options.md#crit)                               |                                  |
-    | <a id="check_process_ok"></a>[ok](../common-options.md#ok)                                     |                                  |
-    | <a id="check_process_debug"></a>[debug](../common-options.md#debug)                            | false                            |
-    | <a id="check_process_show-all"></a>[show-all](../common-options.md#show-all)                   | false                            |
-    | <a id="check_process_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                          |
-    | <a id="check_process_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                  |
-    | <a id="check_process_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                            |
-    | <a id="check_process_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                |
-    | <a id="check_process_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}       |
-    | <a id="check_process_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): all processes are ok. |
-    | <a id="check_process_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | UNKNOWN: No processes found      |
-    | <a id="check_process_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${exe}=${state}                  |
-    | <a id="check_process_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${exe}                           |
+    | Option                                                                                                        | Default Value                    |
+    |---------------------------------------------------------------------------------------------------------------|----------------------------------|
+    | <a id="check_process_filter"></a>[filter](../common-options.md#filter)                                        | state != 'unreadable'            |
+    | <a id="check_process_warning"></a>[warning](../common-options.md#warning)                                     | state not in ('started')         |
+    | <a id="check_process_warn"></a>[warn](../common-options.md#warn)                                              |                                  |
+    | <a id="check_process_critical"></a>[critical](../common-options.md#critical)                                  | state = 'stopped', count = 0     |
+    | <a id="check_process_crit"></a>[crit](../common-options.md#crit)                                              |                                  |
+    | <a id="check_process_ok"></a>[ok](../common-options.md#ok)                                                    |                                  |
+    | <a id="check_process_debug"></a>[debug](../common-options.md#debug)                                           | false                            |
+    | <a id="check_process_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                            |
+    | <a id="check_process_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                          |
+    | <a id="check_process_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                  |
+    | <a id="check_process_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                            |
+    | <a id="check_process_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                |
+    | <a id="check_process_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}       |
+    | <a id="check_process_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): all processes are ok. |
+    | <a id="check_process_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | UNKNOWN: No processes found      |
+    | <a id="check_process_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${exe}=${state}                  |
+    | <a id="check_process_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${exe}                           |
+    | <a id="check_process_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                  |
+    | <a id="check_process_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                  |
+    | <a id="check_process_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                               |
+    | <a id="check_process_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                  |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -4396,25 +4520,29 @@ commit limit (RAM + pagefile). Both work with `total=true` aggregation.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                                 | Default Value                             |
-|--------------------------------------------------------------------------------------------------------|-------------------------------------------|
-| <a id="check_process_history_filter"></a>[filter](../common-options.md#filter)                         |                                           |
-| <a id="check_process_history_warning"></a>[warning](../common-options.md#warning)                      |                                           |
-| <a id="check_process_history_warn"></a>[warn](../common-options.md#warn)                               |                                           |
-| <a id="check_process_history_critical"></a>[critical](../common-options.md#critical)                   |                                           |
-| <a id="check_process_history_crit"></a>[crit](../common-options.md#crit)                               |                                           |
-| <a id="check_process_history_ok"></a>[ok](../common-options.md#ok)                                     |                                           |
-| <a id="check_process_history_debug"></a>[debug](../common-options.md#debug)                            | false                                     |
-| <a id="check_process_history_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                     |
-| <a id="check_process_history_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                        |
-| <a id="check_process_history_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                           |
-| <a id="check_process_history_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                     |
-| <a id="check_process_history_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                         |
-| <a id="check_process_history_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                |
-| <a id="check_process_history_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): ${count} processes in history. |
-| <a id="check_process_history_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                           |
-| <a id="check_process_history_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${exe} (${running})                       |
-| <a id="check_process_history_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${exe}                                    |
+| Option                                                                                                                | Default Value                             |
+|-----------------------------------------------------------------------------------------------------------------------|-------------------------------------------|
+| <a id="check_process_history_filter"></a>[filter](../common-options.md#filter)                                        |                                           |
+| <a id="check_process_history_warning"></a>[warning](../common-options.md#warning)                                     |                                           |
+| <a id="check_process_history_warn"></a>[warn](../common-options.md#warn)                                              |                                           |
+| <a id="check_process_history_critical"></a>[critical](../common-options.md#critical)                                  |                                           |
+| <a id="check_process_history_crit"></a>[crit](../common-options.md#crit)                                              |                                           |
+| <a id="check_process_history_ok"></a>[ok](../common-options.md#ok)                                                    |                                           |
+| <a id="check_process_history_debug"></a>[debug](../common-options.md#debug)                                           | false                                     |
+| <a id="check_process_history_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                     |
+| <a id="check_process_history_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                        |
+| <a id="check_process_history_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                           |
+| <a id="check_process_history_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                     |
+| <a id="check_process_history_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                         |
+| <a id="check_process_history_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                |
+| <a id="check_process_history_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): ${count} processes in history. |
+| <a id="check_process_history_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                           |
+| <a id="check_process_history_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${exe} (${running})                       |
+| <a id="check_process_history_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${exe}                                    |
+| <a id="check_process_history_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                           |
+| <a id="check_process_history_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                           |
+| <a id="check_process_history_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                        |
+| <a id="check_process_history_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                           |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -4472,25 +4600,29 @@ Time window to check for new processes (e.g., 5m, 1h, 30s). Processes first seen
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                                     | Default Value                      |
-|------------------------------------------------------------------------------------------------------------|------------------------------------|
-| <a id="check_process_history_new_filter"></a>[filter](../common-options.md#filter)                         |                                    |
-| <a id="check_process_history_new_warning"></a>[warning](../common-options.md#warning)                      |                                    |
-| <a id="check_process_history_new_warn"></a>[warn](../common-options.md#warn)                               |                                    |
-| <a id="check_process_history_new_critical"></a>[critical](../common-options.md#critical)                   |                                    |
-| <a id="check_process_history_new_crit"></a>[crit](../common-options.md#crit)                               |                                    |
-| <a id="check_process_history_new_ok"></a>[ok](../common-options.md#ok)                                     |                                    |
-| <a id="check_process_history_new_debug"></a>[debug](../common-options.md#debug)                            | false                              |
-| <a id="check_process_history_new_show-all"></a>[show-all](../common-options.md#show-all)                   | false                              |
-| <a id="check_process_history_new_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                 |
-| <a id="check_process_history_new_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                    |
-| <a id="check_process_history_new_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                              |
-| <a id="check_process_history_new_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                  |
-| <a id="check_process_history_new_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                 |
-| <a id="check_process_history_new_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): No new processes found. |
-| <a id="check_process_history_new_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                    |
-| <a id="check_process_history_new_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${exe} (first seen: ${first_seen}) |
-| <a id="check_process_history_new_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${exe}                             |
+| Option                                                                                                                    | Default Value                      |
+|---------------------------------------------------------------------------------------------------------------------------|------------------------------------|
+| <a id="check_process_history_new_filter"></a>[filter](../common-options.md#filter)                                        |                                    |
+| <a id="check_process_history_new_warning"></a>[warning](../common-options.md#warning)                                     |                                    |
+| <a id="check_process_history_new_warn"></a>[warn](../common-options.md#warn)                                              |                                    |
+| <a id="check_process_history_new_critical"></a>[critical](../common-options.md#critical)                                  |                                    |
+| <a id="check_process_history_new_crit"></a>[crit](../common-options.md#crit)                                              |                                    |
+| <a id="check_process_history_new_ok"></a>[ok](../common-options.md#ok)                                                    |                                    |
+| <a id="check_process_history_new_debug"></a>[debug](../common-options.md#debug)                                           | false                              |
+| <a id="check_process_history_new_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                              |
+| <a id="check_process_history_new_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                 |
+| <a id="check_process_history_new_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                    |
+| <a id="check_process_history_new_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                              |
+| <a id="check_process_history_new_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                  |
+| <a id="check_process_history_new_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                 |
+| <a id="check_process_history_new_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): No new processes found. |
+| <a id="check_process_history_new_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                    |
+| <a id="check_process_history_new_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${exe} (first seen: ${first_seen}) |
+| <a id="check_process_history_new_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${exe}                             |
+| <a id="check_process_history_new_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                    |
+| <a id="check_process_history_new_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                    |
+| <a id="check_process_history_new_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                 |
+| <a id="check_process_history_new_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                    |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -4638,25 +4770,29 @@ Recursively enumerate all sub-keys below each starting key
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                              | Default Value                                                             |
-|-----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| <a id="check_registry_key_filter"></a>[filter](../common-options.md#filter)                         |                                                                           |
-| <a id="check_registry_key_warning"></a>[warning](../common-options.md#warning)                      |                                                                           |
-| <a id="check_registry_key_warn"></a>[warn](../common-options.md#warn)                               |                                                                           |
-| <a id="check_registry_key_critical"></a>[critical](../common-options.md#critical)                   | not exists                                                                |
-| <a id="check_registry_key_crit"></a>[crit](../common-options.md#crit)                               |                                                                           |
-| <a id="check_registry_key_ok"></a>[ok](../common-options.md#ok)                                     |                                                                           |
-| <a id="check_registry_key_debug"></a>[debug](../common-options.md#debug)                            | false                                                                     |
-| <a id="check_registry_key_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                     |
-| <a id="check_registry_key_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                   |
-| <a id="check_registry_key_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                           |
-| <a id="check_registry_key_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                     |
-| <a id="check_registry_key_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                         |
-| <a id="check_registry_key_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                                                |
-| <a id="check_registry_key_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | ${status}: All %(count) registry key(s) are ok.                           |
-| <a id="check_registry_key_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | ${status}: No registry keys found                                         |
-| <a id="check_registry_key_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${path}: exists=${exists}, subkeys=${subkey_count}, values=${value_count} |
-| <a id="check_registry_key_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${path}                                                                   |
+| Option                                                                                                             | Default Value                                                             |
+|--------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| <a id="check_registry_key_filter"></a>[filter](../common-options.md#filter)                                        |                                                                           |
+| <a id="check_registry_key_warning"></a>[warning](../common-options.md#warning)                                     |                                                                           |
+| <a id="check_registry_key_warn"></a>[warn](../common-options.md#warn)                                              |                                                                           |
+| <a id="check_registry_key_critical"></a>[critical](../common-options.md#critical)                                  | not exists                                                                |
+| <a id="check_registry_key_crit"></a>[crit](../common-options.md#crit)                                              |                                                                           |
+| <a id="check_registry_key_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                           |
+| <a id="check_registry_key_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                     |
+| <a id="check_registry_key_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                     |
+| <a id="check_registry_key_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                   |
+| <a id="check_registry_key_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                           |
+| <a id="check_registry_key_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                     |
+| <a id="check_registry_key_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                         |
+| <a id="check_registry_key_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                                                |
+| <a id="check_registry_key_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | ${status}: All %(count) registry key(s) are ok.                           |
+| <a id="check_registry_key_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | ${status}: No registry keys found                                         |
+| <a id="check_registry_key_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${path}: exists=${exists}, subkeys=${subkey_count}, values=${value_count} |
+| <a id="check_registry_key_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${path}                                                                   |
+| <a id="check_registry_key_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                           |
+| <a id="check_registry_key_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                           |
+| <a id="check_registry_key_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                        |
+| <a id="check_registry_key_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                           |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -4830,25 +4966,29 @@ Recursively enumerate values in all sub-keys
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                                | Default Value                           |
-|-------------------------------------------------------------------------------------------------------|-----------------------------------------|
-| <a id="check_registry_value_filter"></a>[filter](../common-options.md#filter)                         |                                         |
-| <a id="check_registry_value_warning"></a>[warning](../common-options.md#warning)                      |                                         |
-| <a id="check_registry_value_warn"></a>[warn](../common-options.md#warn)                               |                                         |
-| <a id="check_registry_value_critical"></a>[critical](../common-options.md#critical)                   | not exists                              |
-| <a id="check_registry_value_crit"></a>[crit](../common-options.md#crit)                               |                                         |
-| <a id="check_registry_value_ok"></a>[ok](../common-options.md#ok)                                     |                                         |
-| <a id="check_registry_value_debug"></a>[debug](../common-options.md#debug)                            | false                                   |
-| <a id="check_registry_value_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                   |
-| <a id="check_registry_value_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                 |
-| <a id="check_registry_value_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                         |
-| <a id="check_registry_value_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                   |
-| <a id="check_registry_value_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                       |
-| <a id="check_registry_value_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}              |
-| <a id="check_registry_value_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | ${status}: %(list).                     |
-| <a id="check_registry_value_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | ${status}: No registry values found     |
-| <a id="check_registry_value_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${path}: ${string_value} (type=${type}) |
-| <a id="check_registry_value_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${path}                                 |
+| Option                                                                                                               | Default Value                           |
+|----------------------------------------------------------------------------------------------------------------------|-----------------------------------------|
+| <a id="check_registry_value_filter"></a>[filter](../common-options.md#filter)                                        |                                         |
+| <a id="check_registry_value_warning"></a>[warning](../common-options.md#warning)                                     |                                         |
+| <a id="check_registry_value_warn"></a>[warn](../common-options.md#warn)                                              |                                         |
+| <a id="check_registry_value_critical"></a>[critical](../common-options.md#critical)                                  | not exists                              |
+| <a id="check_registry_value_crit"></a>[crit](../common-options.md#crit)                                              |                                         |
+| <a id="check_registry_value_ok"></a>[ok](../common-options.md#ok)                                                    |                                         |
+| <a id="check_registry_value_debug"></a>[debug](../common-options.md#debug)                                           | false                                   |
+| <a id="check_registry_value_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                   |
+| <a id="check_registry_value_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                 |
+| <a id="check_registry_value_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                         |
+| <a id="check_registry_value_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                   |
+| <a id="check_registry_value_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                       |
+| <a id="check_registry_value_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}              |
+| <a id="check_registry_value_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | ${status}: %(list).                     |
+| <a id="check_registry_value_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | ${status}: No registry values found     |
+| <a id="check_registry_value_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${path}: ${string_value} (type=${type}) |
+| <a id="check_registry_value_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${path}                                 |
+| <a id="check_registry_value_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                         |
+| <a id="check_registry_value_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                         |
+| <a id="check_registry_value_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                      |
+| <a id="check_registry_value_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                         |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -5083,25 +5223,29 @@ filter, so the rollup is stable even when the check itself is OK.
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                         | Default Value                                           |
-    |------------------------------------------------------------------------------------------------|---------------------------------------------------------|
-    | <a id="check_service_filter"></a>[filter](../common-options.md#filter)                         |                                                         |
-    | <a id="check_service_warning"></a>[warning](../common-options.md#warning)                      | not state_is_perfect()                                  |
-    | <a id="check_service_warn"></a>[warn](../common-options.md#warn)                               |                                                         |
-    | <a id="check_service_critical"></a>[critical](../common-options.md#critical)                   | not state_is_ok()                                       |
-    | <a id="check_service_crit"></a>[crit](../common-options.md#crit)                               |                                                         |
-    | <a id="check_service_ok"></a>[ok](../common-options.md#ok)                                     |                                                         |
-    | <a id="check_service_debug"></a>[debug](../common-options.md#debug)                            | false                                                   |
-    | <a id="check_service_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                   |
-    | <a id="check_service_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                 |
-    | <a id="check_service_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                         |
-    | <a id="check_service_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                   |
-    | <a id="check_service_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                       |
-    | <a id="check_service_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${crit_list}, delayed (${warn_list})         |
-    | <a id="check_service_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) service(s) are ok.              |
-    | <a id="check_service_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No services found                            |
-    | <a id="check_service_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}=${state}, exit=%(exit_code), type=%(start_type) |
-    | <a id="check_service_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                 |
+    | Option                                                                                                        | Default Value                                           |
+    |---------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
+    | <a id="check_service_filter"></a>[filter](../common-options.md#filter)                                        |                                                         |
+    | <a id="check_service_warning"></a>[warning](../common-options.md#warning)                                     | not state_is_perfect()                                  |
+    | <a id="check_service_warn"></a>[warn](../common-options.md#warn)                                              |                                                         |
+    | <a id="check_service_critical"></a>[critical](../common-options.md#critical)                                  | not state_is_ok()                                       |
+    | <a id="check_service_crit"></a>[crit](../common-options.md#crit)                                              |                                                         |
+    | <a id="check_service_ok"></a>[ok](../common-options.md#ok)                                                    |                                                         |
+    | <a id="check_service_debug"></a>[debug](../common-options.md#debug)                                           | false                                                   |
+    | <a id="check_service_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                   |
+    | <a id="check_service_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                 |
+    | <a id="check_service_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                         |
+    | <a id="check_service_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                   |
+    | <a id="check_service_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                       |
+    | <a id="check_service_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${crit_list}, delayed (${warn_list})         |
+    | <a id="check_service_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) service(s) are ok.              |
+    | <a id="check_service_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No services found                            |
+    | <a id="check_service_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}=${state}, exit=%(exit_code), type=%(start_type) |
+    | <a id="check_service_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                 |
+    | <a id="check_service_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                         |
+    | <a id="check_service_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                         |
+    | <a id="check_service_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                      |
+    | <a id="check_service_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                         |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -5131,25 +5275,29 @@ filter, so the rollup is stable even when the check itself is OK.
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                         | Default Value                                                                                   |
-    |------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
-    | <a id="check_service_filter"></a>[filter](../common-options.md#filter)                         | active != 'inactive'                                                                            |
-    | <a id="check_service_warning"></a>[warning](../common-options.md#warning)                      |                                                                                                 |
-    | <a id="check_service_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                 |
-    | <a id="check_service_critical"></a>[critical](../common-options.md#critical)                   | ( state not in ('running', 'oneshot', 'static') or active = 'failed' ) and preset != 'disabled' |
-    | <a id="check_service_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                 |
-    | <a id="check_service_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                 |
-    | <a id="check_service_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                           |
-    | <a id="check_service_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                           |
-    | <a id="check_service_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                                         |
-    | <a id="check_service_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                 |
-    | <a id="check_service_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                           |
-    | <a id="check_service_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                               |
-    | <a id="check_service_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${crit_list}                                                                         |
-    | <a id="check_service_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) service(s) are ok.                                                      |
-    | <a id="check_service_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No services found                                                                    |
-    | <a id="check_service_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}=${state}                                                                                |
-    | <a id="check_service_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                                         |
+    | Option                                                                                                        | Default Value                                                                                   |
+    |---------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+    | <a id="check_service_filter"></a>[filter](../common-options.md#filter)                                        | active != 'inactive'                                                                            |
+    | <a id="check_service_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                                 |
+    | <a id="check_service_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                 |
+    | <a id="check_service_critical"></a>[critical](../common-options.md#critical)                                  | ( state not in ('running', 'oneshot', 'static') or active = 'failed' ) and preset != 'disabled' |
+    | <a id="check_service_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                 |
+    | <a id="check_service_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                 |
+    | <a id="check_service_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                           |
+    | <a id="check_service_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                           |
+    | <a id="check_service_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                         |
+    | <a id="check_service_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                 |
+    | <a id="check_service_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                           |
+    | <a id="check_service_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                               |
+    | <a id="check_service_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${crit_list}                                                                         |
+    | <a id="check_service_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) service(s) are ok.                                                      |
+    | <a id="check_service_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No services found                                                                    |
+    | <a id="check_service_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}=${state}                                                                                |
+    | <a id="check_service_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                                                         |
+    | <a id="check_service_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                 |
+    | <a id="check_service_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                 |
+    | <a id="check_service_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                              |
+    | <a id="check_service_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                 |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -5294,25 +5442,29 @@ OK: in 172032B/s, out 28672B/s
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                         | Default Value                                                              |
-    |------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
-    | <a id="check_swap_io_filter"></a>[filter](../common-options.md#filter)                         |                                                                            |
-    | <a id="check_swap_io_warning"></a>[warning](../common-options.md#warning)                      |                                                                            |
-    | <a id="check_swap_io_warn"></a>[warn](../common-options.md#warn)                               |                                                                            |
-    | <a id="check_swap_io_critical"></a>[critical](../common-options.md#critical)                   |                                                                            |
-    | <a id="check_swap_io_crit"></a>[crit](../common-options.md#crit)                               |                                                                            |
-    | <a id="check_swap_io_ok"></a>[ok](../common-options.md#ok)                                     |                                                                            |
-    | <a id="check_swap_io_debug"></a>[debug](../common-options.md#debug)                            | false                                                                      |
-    | <a id="check_swap_io_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                      |
-    | <a id="check_swap_io_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                                    |
-    | <a id="check_swap_io_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                            |
-    | <a id="check_swap_io_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                      |
-    | <a id="check_swap_io_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                          |
-    | <a id="check_swap_io_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                         |
-    | <a id="check_swap_io_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                            |
-    | <a id="check_swap_io_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                            |
-    | <a id="check_swap_io_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${swap_count} page file(s), in ${swap_in} pages/s, out ${swap_out} pages/s |
-    | <a id="check_swap_io_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | io                                                                         |
+    | Option                                                                                                        | Default Value                                                              |
+    |---------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+    | <a id="check_swap_io_filter"></a>[filter](../common-options.md#filter)                                        |                                                                            |
+    | <a id="check_swap_io_warning"></a>[warning](../common-options.md#warning)                                     |                                                                            |
+    | <a id="check_swap_io_warn"></a>[warn](../common-options.md#warn)                                              |                                                                            |
+    | <a id="check_swap_io_critical"></a>[critical](../common-options.md#critical)                                  |                                                                            |
+    | <a id="check_swap_io_crit"></a>[crit](../common-options.md#crit)                                              |                                                                            |
+    | <a id="check_swap_io_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                            |
+    | <a id="check_swap_io_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                      |
+    | <a id="check_swap_io_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                      |
+    | <a id="check_swap_io_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                                    |
+    | <a id="check_swap_io_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                            |
+    | <a id="check_swap_io_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                      |
+    | <a id="check_swap_io_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                          |
+    | <a id="check_swap_io_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                         |
+    | <a id="check_swap_io_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                            |
+    | <a id="check_swap_io_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                            |
+    | <a id="check_swap_io_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${swap_count} page file(s), in ${swap_in} pages/s, out ${swap_out} pages/s |
+    | <a id="check_swap_io_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | io                                                                         |
+    | <a id="check_swap_io_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                            |
+    | <a id="check_swap_io_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                            |
+    | <a id="check_swap_io_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                         |
+    | <a id="check_swap_io_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                            |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -5324,25 +5476,29 @@ OK: in 172032B/s, out 28672B/s
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                         | Default Value                                                               |
-    |------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
-    | <a id="check_swap_io_filter"></a>[filter](../common-options.md#filter)                         |                                                                             |
-    | <a id="check_swap_io_warning"></a>[warning](../common-options.md#warning)                      |                                                                             |
-    | <a id="check_swap_io_warn"></a>[warn](../common-options.md#warn)                               |                                                                             |
-    | <a id="check_swap_io_critical"></a>[critical](../common-options.md#critical)                   |                                                                             |
-    | <a id="check_swap_io_crit"></a>[crit](../common-options.md#crit)                               |                                                                             |
-    | <a id="check_swap_io_ok"></a>[ok](../common-options.md#ok)                                     |                                                                             |
-    | <a id="check_swap_io_debug"></a>[debug](../common-options.md#debug)                            | false                                                                       |
-    | <a id="check_swap_io_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                       |
-    | <a id="check_swap_io_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                                     |
-    | <a id="check_swap_io_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                             |
-    | <a id="check_swap_io_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                       |
-    | <a id="check_swap_io_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                           |
-    | <a id="check_swap_io_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                          |
-    | <a id="check_swap_io_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                             |
-    | <a id="check_swap_io_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                             |
-    | <a id="check_swap_io_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${swap_count} swap device(s) in ${swap_in} pages/s, out ${swap_out} pages/s |
-    | <a id="check_swap_io_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | io                                                                          |
+    | Option                                                                                                        | Default Value                                                               |
+    |---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+    | <a id="check_swap_io_filter"></a>[filter](../common-options.md#filter)                                        |                                                                             |
+    | <a id="check_swap_io_warning"></a>[warning](../common-options.md#warning)                                     |                                                                             |
+    | <a id="check_swap_io_warn"></a>[warn](../common-options.md#warn)                                              |                                                                             |
+    | <a id="check_swap_io_critical"></a>[critical](../common-options.md#critical)                                  |                                                                             |
+    | <a id="check_swap_io_crit"></a>[crit](../common-options.md#crit)                                              |                                                                             |
+    | <a id="check_swap_io_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                             |
+    | <a id="check_swap_io_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                       |
+    | <a id="check_swap_io_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                       |
+    | <a id="check_swap_io_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                                     |
+    | <a id="check_swap_io_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                             |
+    | <a id="check_swap_io_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                       |
+    | <a id="check_swap_io_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                           |
+    | <a id="check_swap_io_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                          |
+    | <a id="check_swap_io_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                             |
+    | <a id="check_swap_io_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                             |
+    | <a id="check_swap_io_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${swap_count} swap device(s) in ${swap_in} pages/s, out ${swap_out} pages/s |
+    | <a id="check_swap_io_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | io                                                                          |
+    | <a id="check_swap_io_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                             |
+    | <a id="check_swap_io_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                             |
+    | <a id="check_swap_io_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                          |
+    | <a id="check_swap_io_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                             |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -5404,25 +5560,29 @@ OK: in 172032B/s, out 28672B/s
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                             | Default Value                         |
-    |----------------------------------------------------------------------------------------------------|---------------------------------------|
-    | <a id="check_temperature_filter"></a>[filter](../common-options.md#filter)                         |                                       |
-    | <a id="check_temperature_warning"></a>[warning](../common-options.md#warning)                      | temperature > 70                      |
-    | <a id="check_temperature_warn"></a>[warn](../common-options.md#warn)                               |                                       |
-    | <a id="check_temperature_critical"></a>[critical](../common-options.md#critical)                   | temperature > 90                      |
-    | <a id="check_temperature_crit"></a>[crit](../common-options.md#crit)                               |                                       |
-    | <a id="check_temperature_ok"></a>[ok](../common-options.md#ok)                                     |                                       |
-    | <a id="check_temperature_debug"></a>[debug](../common-options.md#debug)                            | false                                 |
-    | <a id="check_temperature_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                 |
-    | <a id="check_temperature_empty-state"></a>[empty-state](../common-options.md#empty-state)          | critical                              |
-    | <a id="check_temperature_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                       |
-    | <a id="check_temperature_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                 |
-    | <a id="check_temperature_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                     |
-    | <a id="check_temperature_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                    |
-    | <a id="check_temperature_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All thermal zones seem ok. |
-    | <a id="check_temperature_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                       |
-    | <a id="check_temperature_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${temperature} C             |
-    | <a id="check_temperature_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                               |
+    | Option                                                                                                            | Default Value                         |
+    |-------------------------------------------------------------------------------------------------------------------|---------------------------------------|
+    | <a id="check_temperature_filter"></a>[filter](../common-options.md#filter)                                        |                                       |
+    | <a id="check_temperature_warning"></a>[warning](../common-options.md#warning)                                     | temperature > 70                      |
+    | <a id="check_temperature_warn"></a>[warn](../common-options.md#warn)                                              |                                       |
+    | <a id="check_temperature_critical"></a>[critical](../common-options.md#critical)                                  | temperature > 90                      |
+    | <a id="check_temperature_crit"></a>[crit](../common-options.md#crit)                                              |                                       |
+    | <a id="check_temperature_ok"></a>[ok](../common-options.md#ok)                                                    |                                       |
+    | <a id="check_temperature_debug"></a>[debug](../common-options.md#debug)                                           | false                                 |
+    | <a id="check_temperature_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                 |
+    | <a id="check_temperature_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | critical                              |
+    | <a id="check_temperature_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                       |
+    | <a id="check_temperature_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                 |
+    | <a id="check_temperature_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                     |
+    | <a id="check_temperature_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                    |
+    | <a id="check_temperature_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All thermal zones seem ok. |
+    | <a id="check_temperature_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                       |
+    | <a id="check_temperature_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${temperature} C             |
+    | <a id="check_temperature_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                               |
+    | <a id="check_temperature_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                       |
+    | <a id="check_temperature_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                       |
+    | <a id="check_temperature_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                    |
+    | <a id="check_temperature_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                       |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -5434,25 +5594,29 @@ OK: in 172032B/s, out 28672B/s
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                             | Default Value                 |
-    |----------------------------------------------------------------------------------------------------|-------------------------------|
-    | <a id="check_temperature_filter"></a>[filter](../common-options.md#filter)                         |                               |
-    | <a id="check_temperature_warning"></a>[warning](../common-options.md#warning)                      | temperature > 70              |
-    | <a id="check_temperature_warn"></a>[warn](../common-options.md#warn)                               |                               |
-    | <a id="check_temperature_critical"></a>[critical](../common-options.md#critical)                   | temperature > 90              |
-    | <a id="check_temperature_crit"></a>[crit](../common-options.md#crit)                               |                               |
-    | <a id="check_temperature_ok"></a>[ok](../common-options.md#ok)                                     |                               |
-    | <a id="check_temperature_debug"></a>[debug](../common-options.md#debug)                            | false                         |
-    | <a id="check_temperature_show-all"></a>[show-all](../common-options.md#show-all)                   | false                         |
-    | <a id="check_temperature_empty-state"></a>[empty-state](../common-options.md#empty-state)          | critical                      |
-    | <a id="check_temperature_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                               |
-    | <a id="check_temperature_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                         |
-    | <a id="check_temperature_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                             |
-    | <a id="check_temperature_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}            |
-    | <a id="check_temperature_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): Temperature is ok. |
-    | <a id="check_temperature_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                               |
-    | <a id="check_temperature_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${temperature}C      |
-    | <a id="check_temperature_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                       |
+    | Option                                                                                                            | Default Value                 |
+    |-------------------------------------------------------------------------------------------------------------------|-------------------------------|
+    | <a id="check_temperature_filter"></a>[filter](../common-options.md#filter)                                        |                               |
+    | <a id="check_temperature_warning"></a>[warning](../common-options.md#warning)                                     | temperature > 70              |
+    | <a id="check_temperature_warn"></a>[warn](../common-options.md#warn)                                              |                               |
+    | <a id="check_temperature_critical"></a>[critical](../common-options.md#critical)                                  | temperature > 90              |
+    | <a id="check_temperature_crit"></a>[crit](../common-options.md#crit)                                              |                               |
+    | <a id="check_temperature_ok"></a>[ok](../common-options.md#ok)                                                    |                               |
+    | <a id="check_temperature_debug"></a>[debug](../common-options.md#debug)                                           | false                         |
+    | <a id="check_temperature_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                         |
+    | <a id="check_temperature_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | critical                      |
+    | <a id="check_temperature_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                               |
+    | <a id="check_temperature_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                         |
+    | <a id="check_temperature_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                             |
+    | <a id="check_temperature_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}            |
+    | <a id="check_temperature_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): Temperature is ok. |
+    | <a id="check_temperature_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                               |
+    | <a id="check_temperature_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${temperature}C      |
+    | <a id="check_temperature_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                       |
+    | <a id="check_temperature_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                               |
+    | <a id="check_temperature_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                               |
+    | <a id="check_temperature_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                            |
+    | <a id="check_temperature_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                               |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -5560,25 +5724,29 @@ Largest time unit used to render ${uptime}: s|m|h|d|w (default: w). For a 6-week
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                        | Default Value                             |
-|-----------------------------------------------------------------------------------------------|-------------------------------------------|
-| <a id="check_uptime_filter"></a>[filter](../common-options.md#filter)                         |                                           |
-| <a id="check_uptime_warning"></a>[warning](../common-options.md#warning)                      | uptime < 2d                               |
-| <a id="check_uptime_warn"></a>[warn](../common-options.md#warn)                               |                                           |
-| <a id="check_uptime_critical"></a>[critical](../common-options.md#critical)                   | uptime < 1d                               |
-| <a id="check_uptime_crit"></a>[crit](../common-options.md#crit)                               |                                           |
-| <a id="check_uptime_ok"></a>[ok](../common-options.md#ok)                                     |                                           |
-| <a id="check_uptime_debug"></a>[debug](../common-options.md#debug)                            | false                                     |
-| <a id="check_uptime_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                     |
-| <a id="check_uptime_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                   |
-| <a id="check_uptime_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                           |
-| <a id="check_uptime_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                     |
-| <a id="check_uptime_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                         |
-| <a id="check_uptime_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                        |
-| <a id="check_uptime_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                           |
-| <a id="check_uptime_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                           |
-| <a id="check_uptime_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | uptime: ${uptime}h, boot: ${boot} (${tz}) |
-| <a id="check_uptime_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | uptime                                    |
+| Option                                                                                                       | Default Value                             |
+|--------------------------------------------------------------------------------------------------------------|-------------------------------------------|
+| <a id="check_uptime_filter"></a>[filter](../common-options.md#filter)                                        |                                           |
+| <a id="check_uptime_warning"></a>[warning](../common-options.md#warning)                                     | uptime < 2d                               |
+| <a id="check_uptime_warn"></a>[warn](../common-options.md#warn)                                              |                                           |
+| <a id="check_uptime_critical"></a>[critical](../common-options.md#critical)                                  | uptime < 1d                               |
+| <a id="check_uptime_crit"></a>[crit](../common-options.md#crit)                                              |                                           |
+| <a id="check_uptime_ok"></a>[ok](../common-options.md#ok)                                                    |                                           |
+| <a id="check_uptime_debug"></a>[debug](../common-options.md#debug)                                           | false                                     |
+| <a id="check_uptime_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                     |
+| <a id="check_uptime_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                   |
+| <a id="check_uptime_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                           |
+| <a id="check_uptime_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                     |
+| <a id="check_uptime_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                         |
+| <a id="check_uptime_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                        |
+| <a id="check_uptime_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                           |
+| <a id="check_uptime_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                           |
+| <a id="check_uptime_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | uptime: ${uptime}h, boot: ${boot} (${tz}) |
+| <a id="check_uptime_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | uptime                                    |
+| <a id="check_uptime_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                           |
+| <a id="check_uptime_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                           |
+| <a id="check_uptime_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                        |
+| <a id="check_uptime_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                           |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -5766,25 +5934,29 @@ L        cli OK: the Windows Time service is stopped (start type demand)|'w32tim
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                         | Default Value                      |
-|------------------------------------------------------------------------------------------------|------------------------------------|
-| <a id="check_w32time_filter"></a>[filter](../common-options.md#filter)                         |                                    |
-| <a id="check_w32time_warning"></a>[warning](../common-options.md#warning)                      | offset > 1000                      |
-| <a id="check_w32time_warn"></a>[warn](../common-options.md#warn)                               |                                    |
-| <a id="check_w32time_critical"></a>[critical](../common-options.md#critical)                   | synchronized = 0 or offset > 30000 |
-| <a id="check_w32time_crit"></a>[crit](../common-options.md#crit)                               |                                    |
-| <a id="check_w32time_ok"></a>[ok](../common-options.md#ok)                                     |                                    |
-| <a id="check_w32time_debug"></a>[debug](../common-options.md#debug)                            | false                              |
-| <a id="check_w32time_show-all"></a>[show-all](../common-options.md#show-all)                   | false                              |
-| <a id="check_w32time_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                            |
-| <a id="check_w32time_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                    |
-| <a id="check_w32time_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                              |
-| <a id="check_w32time_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                  |
-| <a id="check_w32time_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                 |
-| <a id="check_w32time_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                    |
-| <a id="check_w32time_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                    |
-| <a id="check_w32time_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${state}                           |
-| <a id="check_w32time_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | w32time                            |
+| Option                                                                                                        | Default Value                      |
+|---------------------------------------------------------------------------------------------------------------|------------------------------------|
+| <a id="check_w32time_filter"></a>[filter](../common-options.md#filter)                                        |                                    |
+| <a id="check_w32time_warning"></a>[warning](../common-options.md#warning)                                     | offset > 1000                      |
+| <a id="check_w32time_warn"></a>[warn](../common-options.md#warn)                                              |                                    |
+| <a id="check_w32time_critical"></a>[critical](../common-options.md#critical)                                  | synchronized = 0 or offset > 30000 |
+| <a id="check_w32time_crit"></a>[crit](../common-options.md#crit)                                              |                                    |
+| <a id="check_w32time_ok"></a>[ok](../common-options.md#ok)                                                    |                                    |
+| <a id="check_w32time_debug"></a>[debug](../common-options.md#debug)                                           | false                              |
+| <a id="check_w32time_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                              |
+| <a id="check_w32time_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                            |
+| <a id="check_w32time_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                    |
+| <a id="check_w32time_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                              |
+| <a id="check_w32time_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                  |
+| <a id="check_w32time_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                 |
+| <a id="check_w32time_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                    |
+| <a id="check_w32time_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                    |
+| <a id="check_w32time_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${state}                           |
+| <a id="check_w32time_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | w32time                            |
+| <a id="check_w32time_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                    |
+| <a id="check_w32time_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                    |
+| <a id="check_w32time_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                 |
+| <a id="check_w32time_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                    |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

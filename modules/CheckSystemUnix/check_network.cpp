@@ -24,9 +24,15 @@ namespace po = boost::program_options;
 
 namespace network_check {
 
-std::string network_interface::get_received_human() const { return str::format::format_byte_units(rx_bytes_per_sec); }
-std::string network_interface::get_sent_human() const { return str::format::format_byte_units(tx_bytes_per_sec); }
-std::string network_interface::get_total_human() const { return str::format::format_byte_units(get_total()); }
+std::string network_interface::get_received_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(rx_bytes_per_sec, context->get_number_format());
+}
+std::string network_interface::get_sent_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(tx_bytes_per_sec, context->get_number_format());
+}
+std::string network_interface::get_total_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(get_total(), context->get_number_format());
+}
 
 typedef network_interface filter_obj;
 
@@ -67,9 +73,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("usage_total", &filter_obj::get_usage_total, "Percent of link speed used by total traffic (0 when speed unknown)")
       .add_int_perf("%", "", "_usage_total");
 
-  registry_.add_string_var("received_human", &filter_obj::get_received_human, "Bytes received per second (human readable, auto-scaled)")
-      .add_string_var("sent_human", &filter_obj::get_sent_human, "Bytes sent per second (human readable, auto-scaled)")
-      .add_string_var("total_human", &filter_obj::get_total_human, "Bytes total per second (human readable, auto-scaled)");
+  registry_.add_string_var_w_context("received_human", &filter_obj::get_received_human, "Bytes received per second (human readable, auto-scaled)")
+      .add_string_var_w_context("sent_human", &filter_obj::get_sent_human, "Bytes sent per second (human readable, auto-scaled)")
+      .add_string_var_w_context("total_human", &filter_obj::get_total_human, "Bytes total per second (human readable, auto-scaled)");
 
   // The *_human strings above auto-scale; these let a template or a threshold
   // pick the unit, e.g. `convert_bytes(throughput, 'MB') > 100` (#1392).

@@ -31,9 +31,9 @@ struct kernel_memory_obj {
   long long get_slab_reclaimable() const { return slab_reclaimable; }
   long long get_slab_unreclaimable() const { return slab_unreclaimable; }
   long long get_cache() const { return cache; }
-  std::string get_slab_human() const;
-  std::string get_slab_unreclaimable_human() const;
-  std::string get_cache_human() const;
+  std::string get_slab_human(parsers::where::evaluation_context context) const;
+  std::string get_slab_unreclaimable_human(parsers::where::evaluation_context context) const;
+  std::string get_cache_human(parsers::where::evaluation_context context) const;
   double get_page_faults() const { return page_faults; }
   double get_major_faults() const { return major_faults; }
 

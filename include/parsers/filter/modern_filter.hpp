@@ -52,8 +52,14 @@ struct filter_text_renderer {
 
   typedef std::list<my_entry> entry_list;
   entry_list entries;
-  filter_text_renderer() {}
+  // True for the renderers whose output a human reads (top/detail/ok/empty),
+  // which is where the check's number format applies. The perf, unique and
+  // hash renderers keep the plain rendering: their output is a label or a key,
+  // and a decimal comma in either would travel straight into a metric store.
+  bool human_numbers;
+  filter_text_renderer() : human_numbers(false) {}
 
+  void set_human_numbers(const bool human) { human_numbers = human; }
   bool empty() const { return entries.empty(); }
   bool parse(std::shared_ptr<TFactory> context, const std::string &str, const error_handler &error) {
     if (str.empty() || str == "none") return true;
@@ -107,9 +113,10 @@ struct filter_text_renderer {
         ret += e.origin.name;
       else if (e.node->is_int())
         ret += str::xtos_non_sci(e.node->get_int_value(context));
-      else if (e.node->is_float())
-        ret += str::xtos(e.node->get_float_value(context));
-      else
+      else if (e.node->is_float()) {
+        const double value = e.node->get_float_value(context);
+        ret += human_numbers ? str::render_number(value, context->get_number_format()) : str::xtos(value);
+      } else
         ret += e.node->get_string_value(context);
     }
     return ret;
@@ -328,6 +335,16 @@ struct modern_filters {
 
   modern_filters() : has_matched(false), context(new TFactory()), fetch_hash_(false), has_unique_index(false) { context->set_summary(&summary); }
 
+  // Route the floats of the human readable templates through the number format
+  // set on the context. Off by default so an unconfigured check renders byte
+  // for byte what it always did.
+  void set_human_number_format(const bool human) {
+    renderer_top.set_human_numbers(human);
+    renderer_detail.set_human_numbers(human);
+    renderer_ok.set_human_numbers(human);
+    renderer_empty.set_human_numbers(human);
+  }
+
   std::map<std::string, std::string> get_filter_syntax() const {
     std::map<std::string, std::string> ret;
     std::map<std::string, std::string> m1 = summary.get_filter_syntax();
@@ -387,6 +404,18 @@ struct modern_filters {
     std::vector<std::string> crit_;
     if (!crit.empty()) crit_.push_back(crit);
     return build_engines(debug, filter_, ok_, warn_, crit_);
+  }
+
+  // A function that fails while a template is rendered - a misspelled unit in
+  // format_bytes, say - reports through the evaluation context, and nothing
+  // used to read that on the rendering path: the placeholder simply came out
+  // empty and left the operator guessing. Drain it into the error handler the
+  // checks already report through (#1428). The engines clear the context after
+  // logging their own errors, so nothing is reported twice.
+  void drain_render_errors() {
+    if (!context->has_error()) return;
+    if (error_handler_) error_handler_->log_error(context->get_error());
+    context->clear();
   }
 
   error_type get_error_handler(bool debug) {
@@ -521,6 +550,7 @@ struct modern_filters {
       }
       std::string current = renderer_detail.render(context);
       std::string perf_alias = renderer_perf.render(context);
+      drain_render_errors();
       bool second_unique_match = false;
       if (has_unique_index) {
         std::string tmp = renderer_unique.render(context);
@@ -686,9 +716,15 @@ struct modern_filters {
     }
   }
   std::string get_message() {
-    if (!summary.has_matched() && !renderer_empty.empty()) return renderer_empty.render(context);
-    if (summary.returnCode == NSCAPI::query_return_codes::returnOK && !renderer_ok.empty()) return renderer_ok.render(context);
-    return renderer_top.render(context);
+    std::string message;
+    if (!summary.has_matched() && !renderer_empty.empty())
+      message = renderer_empty.render(context);
+    else if (summary.returnCode == NSCAPI::query_return_codes::returnOK && !renderer_ok.empty())
+      message = renderer_ok.render(context);
+    else
+      message = renderer_top.render(context);
+    drain_render_errors();
+    return message;
   }
 };
 }  // namespace modern_filter

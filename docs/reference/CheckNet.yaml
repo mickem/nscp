@@ -21,9 +21,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: total_connections > 2000
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${protocol}/${state}: ${connections}'
         empty-state: ignored
         empty-syntax: No connection data
@@ -39,6 +42,7 @@ common:
         perf-syntax: ${protocol}_${state}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: total_connections > 1000
@@ -122,9 +126,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: result != 'ok'
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${host} -> ${addresses} (${records}) in ${time}ms [${result}]
         empty-state: ignored
         empty-syntax: No DNS lookup performed
@@ -140,6 +147,7 @@ common:
         perf-syntax: ${host}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: time > 1000
@@ -278,9 +286,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: code < 200 or code >= 400 or result != 'ok'
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${url} -> ${code} ${result} (${size}B in ${time}ms)
         empty-state: ignored
         empty-syntax: No URL checked
@@ -296,6 +307,7 @@ common:
         perf-syntax: ${url}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: time > 5000
@@ -571,9 +583,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: offset > 100 or stratum >= 16 or result != 'ok'
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${server} offset=${offset_signed}ms stratum=${stratum}
         empty-state: ignored
         empty-syntax: No NTP server checked
@@ -589,6 +604,7 @@ common:
         perf-syntax: ${server}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: offset > 50 or stratum >= 16
@@ -714,9 +730,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: time > 100 or loss > 10%
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${ip} Packet loss = ${loss}%, RTA = ${time}ms
         empty-state: unknown
         empty-syntax: No hosts found
@@ -732,6 +751,7 @@ common:
         perf-syntax: ${host}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${ok_count}/${count} (${problem_list})'
         warn: ''
         warning: time > 60 or loss > 5%
@@ -876,9 +896,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: time > 5000 or result != 'ok'
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${host}:${port} ${result} in ${time}ms
         empty-state: ignored
         empty-syntax: No hosts checked
@@ -894,6 +917,7 @@ common:
         perf-syntax: ${host}_${port}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: time > 1000
@@ -1073,9 +1097,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: time > 5000 or result != 'ok'
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${host}:${port} ${result} in ${time}ms
         empty-state: ignored
         empty-syntax: No hosts checked
@@ -1091,6 +1118,7 @@ common:
         perf-syntax: ${host}_${port}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: time > 1000
