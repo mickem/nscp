@@ -146,9 +146,9 @@ TEST(program_options_default_value, strips_an_implicit_value) {
   EXPECT_EQ(std::string::npos, stripped.find('[')) << "no boost decoration may survive, got: " << stripped;
 }
 
-TEST(program_options_default_value, passes_short_input_through) {
+TEST(program_options_default_value, input_without_a_default_has_none) {
   EXPECT_EQ("", npo::strip_default_value("arg"));
-  EXPECT_EQ("x", npo::strip_default_value("x"));
+  EXPECT_EQ("", npo::strip_default_value("x"));
   EXPECT_EQ("", npo::strip_default_value(""));
 }
 
