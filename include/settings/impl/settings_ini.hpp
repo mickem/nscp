@@ -74,6 +74,15 @@ class INISettings : public settings_interface_impl {
     return ini.GetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str()) != nullptr;
   }
 
+  // FIXME: this treats an existing but empty section as missing.
+  // CSimpleIni::GetSectionSize returns -1 when the section is not there and 0
+  // when it is there without any keys, so the test should be `>= 0`. As it
+  // stands, a section that exists in the file with no keys under it reads as
+  // absent: has_section() says false and get_changes() keeps reporting it as
+  // path_added even after a save. Not changed here because has_section() has
+  // no production callers today and the correction widens what
+  // get_real_sections()/get_changes() consider real - it wants its own change
+  // with coverage for the empty-section case.
   bool has_real_path(std::string path) override { return ini.GetSectionSize(utf8::cvt<std::wstring>(path).c_str()) > 0; }
 
   static std::string render_comment(const boost::optional<settings_core::key_description> &desc) {
@@ -311,6 +320,14 @@ class INISettings : public settings_interface_impl {
       ini.GetAllKeys(ePath.pItem, keys);
       for (const CSimpleIni::Entry &eKey : keys) {
         std::string key = utf8::cvt<std::string>(eKey.pItem);
+        // FIXME: this never reports anything against the production core.
+        // get_registered_key returns boost::none for an unknown key
+        // (settings_handler_impl) and only throws when it cannot take the
+        // registry lock, so the catch below is dead and `nscp settings
+        // --validate` cannot flag a mistyped key. Testing the optional
+        // instead is the fix, but it also starts reporting every key of
+        // every module that is not currently loaded, so it needs its own
+        // change with a decision about that output.
         try {
           get_core()->get_registered_key(path, key);
         } catch (const settings_exception &) {

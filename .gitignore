@@ -75,3 +75,10 @@ _build
 .fleet-machines.json
 
 rotate-signing-secret.ps1
+# Coverage reports written by tools/coverage/run.sh (build-coverage/ itself
+# is already covered by the build-* rule above).
+/coverage/
+# gcov scratch output: named <source>##<hash>.gcov and written into the
+# repo root while a coverage report is generated. run.sh sweeps them, but
+# a hard-killed run cannot.
+*.gcov

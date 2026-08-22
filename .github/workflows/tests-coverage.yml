@@ -1,0 +1,151 @@
+name: Coverage (unit + integration)
+
+# Builds NSClient++ on Linux with gcov instrumentation (NSCP_COVERAGE=ON), runs
+# both the C++ unit tests (ctest) and the tests/ jest integration suite against
+# the same instrumented tree, and publishes an HTML + Cobertura coverage report
+# as a build artifact.
+#
+# The integration numbers are the interesting half: the jest harness spawns the
+# instrumented `nscp` and lets it dlopen the instrumented modules, so the report
+# covers real command dispatch and REST argument handling, not just the pure
+# logic the unit tests reach.
+#
+# Local reproduction (one command):
+#   tools/coverage/run.sh
+# or a single suite:
+#   SUITES=unit tools/coverage/run.sh
+#
+# This job is informational - it does not gate the build. Add
+# `--fail-under-line N` to the final gcovr call in tools/coverage/run.sh if you
+# ever want it to.
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        description: 'Version to build'
+        required: true
+        default: '0.0.0'
+  # Also runnable on its own, so a coverage report can be pulled for a branch
+  # without waiting for a full main build.
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: 'Version to build'
+        required: false
+        default: '0.0.0'
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+
+    steps:
+    - name: Install dependencies
+      run: |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          git curl unzip cmake build-essential python3-pip pkg-config \
+          libboost-all-dev libgtest-dev libgmock-dev \
+          protobuf-compiler libprotobuf-dev \
+          openssl libssl-dev libcrypto++-dev \
+          liblua5.4-dev libdbus-1-dev \
+          libzip-dev libtinyxml2-dev libmariadb-dev \
+          ccache zstd gcovr
+
+    - uses: actions/checkout@v6
+
+    - name: Configure ccache
+      shell: bash
+      run: |
+        # Same rationale as build-debian.yml / tests-sanitizers.yml: the
+        # instrumented -O0 build is cheap to compile but there is a lot of it.
+        if command -v ccache > /dev/null; then
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=500M" >> "$GITHUB_ENV"
+          echo "CCACHE_LAUNCHER=ccache" >> "$GITHUB_ENV"
+        else
+          echo "::warning::ccache not available - building without a compiler cache"
+        fi
+
+    - name: Restore ccache
+      uses: actions/cache@v4
+      with:
+        path: .ccache
+        key: ccache-coverage-ubuntu-24.04-x64-${{ github.sha }}
+        restore-keys: |
+          ccache-coverage-ubuntu-24.04-x64-
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: 20
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+
+    - name: Make build dir
+      run: mkdir -p tmp/nscp
+
+    - name: Setup python dependencies
+      run: |
+        pip3 install --break-system-packages -r build/python/requirements.txt 2>/dev/null || pip3 install -r build/python/requirements.txt
+
+    - name: Build web
+      working-directory: web
+      run: |
+        npm install
+        npm run build
+
+    - name: CMake configure (coverage)
+      working-directory: tmp/nscp
+      run: |
+        cmake ../.. \
+          ${CCACHE_LAUNCHER:+-DCMAKE_C_COMPILER_LAUNCHER=$CCACHE_LAUNCHER -DCMAKE_CXX_COMPILER_LAUNCHER=$CCACHE_LAUNCHER} \
+          -DBUILD_VERSION=${{ inputs.version }} \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DNSCP_COVERAGE=ON \
+          -DBUILD_MODULE_CauseCrashes=OFF \
+          -DNSCP_WEB_BACKEND=beast \
+          -DNSCP_BOOST_PYTHON_VERSION=python312 \
+          -DLIBRARY_ROOT_FOLDER="$GITHUB_WORKSPACE" \
+          -DCHECK_NSCLIENT_MISSING=ON \
+          -DUSE_STATIC_RUNTIME=OFF
+
+    - name: Build
+      working-directory: tmp/nscp
+      run: |
+        if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --zero-stats; fi
+        cmake --build . -j$(nproc)
+
+    - name: ccache statistics
+      if: always()
+      shell: bash
+      run: |
+        if [ -n "${CCACHE_LAUNCHER:-}" ]; then ccache --show-stats; fi
+
+    - name: Run unit tests and collect coverage
+      shell: bash
+      run: SKIP_BUILD=1 BUILD_DIR=tmp/nscp SUITES=unit tools/coverage/run.sh
+
+    - name: Install integration harness deps
+      working-directory: tests
+      run: npm install
+
+    - name: Run integration tests and collect coverage
+      shell: bash
+      # NSCP_SKIP_DOCKER=1: no docker daemon inside this container, so the
+      # container-backed scenarios (mysql, docker, ...) skip themselves.
+      run: SKIP_BUILD=1 BUILD_DIR=tmp/nscp SUITES=integration tools/coverage/run.sh
+
+    - name: Upload coverage report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage/
+        if-no-files-found: warn

@@ -92,7 +92,7 @@ void format_paragraph(std::ostream &os, std::string par, std::size_t indent, std
 
 void format_description(std::ostream &os, const std::string &desc, std::size_t first_column_width, unsigned line_length);
 
-std::string strip_default_value(const std::string &arg);
+std::string extract_default_value(const std::string &arg);
 
 std::string help(const po::options_description &desc, const std::string &extra_info = "");
 

@@ -50,7 +50,11 @@ struct connection_data : socket_helpers::connection_info {
     proxy_url = arguments.get_string_data("proxy");
     no_proxy_str = arguments.get_string_data("no proxy");
 
-    if (sender.has_data("host")) sender_hostname = sender.get_string_data("host");
+    // get_host(), not get_string_data("host"): destination_container routes
+    // the well-known "host" key into a typed field rather than the free-form
+    // data map, so the map lookup never found it and the trace line below
+    // always named an empty sender.
+    sender_hostname = sender.get_host();
   }
 
   /// Build proxy_config from the URL and no-proxy string stored in this object.

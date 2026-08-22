@@ -412,21 +412,29 @@ describe("CheckSystem commands", () => {
     // (default "warning"); pin it to OK so battery-less CI hosts are
     // deterministic AND the user-configurable empty-state is exercised.
     const q = await executeQuery(key, "check_battery", { "empty-state": "ok" });
+    // Which contract applies is decided by the empty-syntax message, not by
+    // hunting for a perf label: the perf counter is named after the battery
+    // (${name} - "BAT1", "BAT0", ...), so a machine that *has* one has no perf
+    // key containing "charge" and used to be mistaken for a machine without.
     if (/no battery found/i.test(messageOf(q))) {
       // No (usable) battery on this machine (typical CI/VM): zero rows match,
       // so the pinned empty-state decides the result and the empty-syntax
       // renders the informative message.
       expect(q.result).toBe(OK);
+      expect(Object.keys(perfOf(q))).toHaveLength(0);
       return;
     }
-    // A battery matched: the default thresholds reference `charge`, whose perf
-    // entry is keyed by the battery name (perf-syntax ${name}, e.g. 'system')
-    // with unit %.
+    // A battery is present: one perf counter per battery carrying its charge
+    // percent, and the detail-syntax renders "<name>: <n>% (<source>, <status>)".
     expect(q.result).toBeLessThanOrEqual(CRITICAL);
-    const charge = Object.values(perfOf(q)).find((p) => String(p.unit ?? "") === "%");
-    expect(charge).toBeDefined();
-    expect(charge!.value).toBeGreaterThanOrEqual(0);
-    expect(charge!.value).toBeLessThanOrEqual(100);
+    const perf = Object.entries(perfOf(q));
+    expect(perf.length).toBeGreaterThan(0);
+    for (const [label, entry] of perf) {
+      expect(label).not.toEqual("");
+      expect(entry.value).toBeGreaterThanOrEqual(0);
+      expect(entry.value).toBeLessThanOrEqual(100);
+    }
+    expect(messageOf(q)).toMatch(/\d+% \(/);
   });
 
   it("check_temperature reports sensors or UNKNOWN without hardware", async () => {

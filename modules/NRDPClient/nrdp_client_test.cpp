@@ -1,0 +1,284 @@
+// SPDX-FileCopyrightText: 2004-2026 Michael Medin
+// SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
+
+// Tests for the NRDP client's connection settings and what it posts.
+//
+// nrdp.cpp (the XML rendering) already has a suite; this covers the half that
+// did not: connection_data, which turns a target's settings into a URL, and
+// submit(), which decides whether a result is a host check or a service check
+// and posts the form NRDP expects. A mistake in either is invisible until a
+// monitoring server quietly stops seeing results.
+//
+// The POST is captured from a loopback HTTP server rather than asserted
+// against an internal builder, because the form fields are the contract.
+
+#include <client/command_line_parser.hpp>
+
+#include "nrdp_client.hpp"
+
+#include <gtest/gtest.h>
+
+#include <boost/asio.hpp>
+#include <cstdlib>
+#include <future>
+#include <map>
+#include <string>
+#include <thread>
+
+nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
+
+namespace {
+
+using boost::asio::ip::tcp;
+
+client::destination_container target_with(const std::map<std::string, std::string> &options) {
+  client::destination_container d;
+  for (const auto &o : options) d.set_string_data(o.first, o.second);
+  return d;
+}
+
+// Accepts one connection, keeps the request, answers with a canned NRDP
+// response. Single-accept because a submit makes exactly one request, and a
+// server waiting for a second would hang the suite on teardown.
+class loopback_nrdp_server {
+ public:
+  loopback_nrdp_server() {
+    std::promise<unsigned short> p;
+    std::future<unsigned short> f = p.get_future();
+    thread_ = std::thread([this, prom = std::move(p)]() mutable {
+      try {
+        boost::asio::io_context io;
+        tcp::acceptor acceptor(io, {tcp::v4(), 0});
+        prom.set_value(acceptor.local_endpoint().port());
+        tcp::socket socket(io);
+        acceptor.accept(socket);
+
+        boost::asio::streambuf buffer;
+        boost::system::error_code ec;
+        boost::asio::read_until(socket, buffer, "\r\n\r\n", ec);
+        const std::string received((std::istreambuf_iterator<char>(&buffer)), std::istreambuf_iterator<char>());
+
+        const std::string::size_type split = received.find("\r\n\r\n");
+        headers_ = split == std::string::npos ? received : received.substr(0, split);
+        std::string body = split == std::string::npos ? std::string() : received.substr(split + 4);
+
+        // The rest of the body, if the headers arrived without it.
+        std::size_t expected = 0;
+        const std::string::size_type cl = headers_.find("Content-Length:");
+        if (cl != std::string::npos) expected = std::strtoul(headers_.c_str() + cl + 15, nullptr, 10);
+        while (body.size() < expected && !ec) {
+          char chunk[4096];
+          const std::size_t n = socket.read_some(boost::asio::buffer(chunk), ec);
+          if (!ec) body.append(chunk, n);
+        }
+        body_ = body;
+
+        const std::string payload = "<result><status>0</status><message>OK</message></result>";
+        const std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/xml\r\nContent-Length: " + std::to_string(payload.size()) + "\r\n\r\n" + payload;
+        boost::asio::write(socket, boost::asio::buffer(response), ec);
+      } catch (...) {
+      }
+    });
+    port_ = f.get();
+  }
+
+  ~loopback_nrdp_server() {
+    if (thread_.joinable()) thread_.join();
+  }
+
+  unsigned short port() const { return port_; }
+
+  // Both join the server thread, so call them after the submit returns.
+  std::string body() {
+    if (thread_.joinable()) thread_.join();
+    return body_;
+  }
+  std::string headers() {
+    if (thread_.joinable()) thread_.join();
+    return headers_;
+  }
+
+ private:
+  unsigned short port_ = 0;
+  std::string headers_;
+  std::string body_;
+  std::thread thread_;
+};
+
+// Submit one result to the loopback server and return the POST body.
+std::string submit_one(loopback_nrdp_server &server, const std::string &alias, const PB::Common::ResultCode result, const std::string &message,
+                       const std::string &token = "s3cret") {
+  PB::Commands::SubmitRequestMessage request;
+  PB::Commands::QueryResponseMessage::Response *payload = request.add_payload();
+  payload->set_command("check_something");
+  if (!alias.empty()) payload->set_alias(alias);
+  payload->set_result(result);
+  payload->add_lines()->set_message(message);
+
+  client::destination_container sender;
+  sender.set_string_data("host", "monitored-host");
+
+  PB::Commands::SubmitResponseMessage response;
+  nrdp_client::nrdp_client_handler handler;
+  handler.submit(sender, target_with({{"address", "http://127.0.0.1:" + std::to_string(server.port()) + "/nrdp/server/"}, {"token", token}}), request, response);
+  return server.body();
+}
+
+}  // namespace
+
+// ---------------------------------------------------------------------------
+// connection_data - a target's settings become a URL.
+// ---------------------------------------------------------------------------
+
+TEST(NrdpConnectionData, DefaultsToHttpOnPortEightyAtTheNrdpPath) {
+  const nrdp_client::connection_data con(target_with({{"address", "nagios.example.com"}}), client::destination_container());
+
+  EXPECT_EQ(con.protocol, "http");
+  EXPECT_EQ(con.get_port(), "80");
+  EXPECT_EQ(con.path, "/nrdp/server/") << "the default NRDP endpoint path";
+}
+
+TEST(NrdpConnectionData, HttpsDefaultsToPort443) {
+  const nrdp_client::connection_data con(target_with({{"address", "https://nagios.example.com"}}), client::destination_container());
+
+  EXPECT_EQ(con.protocol, "https");
+  EXPECT_EQ(con.get_port(), "443");
+}
+
+TEST(NrdpConnectionData, AnExplicitPortAndPathWin) {
+  const nrdp_client::connection_data con(target_with({{"address", "https://nagios.example.com:8443/custom/nrdp/"}}), client::destination_container());
+
+  EXPECT_EQ(con.get_port(), "8443");
+  EXPECT_EQ(con.path, "/custom/nrdp/");
+}
+
+TEST(NrdpConnectionData, AnUnknownProtocolIsTreatedAsPlainHttp) {
+  // Anything that is not https falls back to http rather than being passed to
+  // the http client as a scheme it cannot use.
+  const nrdp_client::connection_data con(target_with({{"address", "gopher://nagios.example.com"}}), client::destination_container());
+
+  EXPECT_EQ(con.protocol, "http");
+  EXPECT_EQ(con.get_port(), "80");
+}
+
+TEST(NrdpConnectionData, CarriesTheTokenAndTlsSettings) {
+  const nrdp_client::connection_data con(
+      target_with({{"address", "https://h"}, {"token", "s3cret"}, {"tls version", "1.3"}, {"verify mode", "none"}, {"ca", "/etc/ca.pem"}}),
+      client::destination_container());
+
+  EXPECT_EQ(con.token, "s3cret");
+  EXPECT_EQ(con.tls_version, "1.3");
+  EXPECT_EQ(con.verify_mode, "none");
+  EXPECT_EQ(con.ca, "/etc/ca.pem");
+}
+
+TEST(NrdpConnectionData, TlsVersionDefaultsToTwelveOrLater) {
+  // Not a cosmetic default: it is what keeps the client off TLS 1.0/1.1 when
+  // the target says nothing.
+  const nrdp_client::connection_data con(target_with({{"address", "https://h"}}), client::destination_container());
+
+  EXPECT_EQ(con.tls_version, "1.2+");
+}
+
+TEST(NrdpConnectionData, TakesTheSenderHostnameFromTheSender) {
+  // Only used in the trace line, but an empty one there is worse than useless
+  // when a submit has gone to the wrong place.
+  client::destination_container sender;
+  sender.set_string_data("host", "reporting-host");
+
+  const nrdp_client::connection_data con(target_with({{"address", "h"}}), sender);
+
+  EXPECT_EQ(con.sender_hostname, "reporting-host");
+  EXPECT_NE(con.to_string().find("reporting-host"), std::string::npos) << con.to_string();
+}
+
+// ---------------------------------------------------------------------------
+// build_proxy_config - the no-proxy list is operator-typed, so it is parsed
+// leniently.
+// ---------------------------------------------------------------------------
+
+TEST(NrdpProxyConfig, SplitsAndTrimsTheNoProxyList) {
+  const nrdp_client::connection_data con(target_with({{"address", "h"}, {"proxy", "http://proxy:3128"}, {"no proxy", "localhost, .internal ,10.0.0.1"}}),
+                                         client::destination_container());
+
+  const http::proxy_config proxy = con.build_proxy_config();
+
+  ASSERT_EQ(proxy.no_proxy.size(), 3u);
+  EXPECT_EQ(proxy.no_proxy[0], "localhost");
+  EXPECT_EQ(proxy.no_proxy[1], ".internal") << "surrounding spaces are not part of the host";
+  EXPECT_EQ(proxy.no_proxy[2], "10.0.0.1");
+}
+
+TEST(NrdpProxyConfig, AnEmptyNoProxyListIsNoEntries) {
+  const nrdp_client::connection_data con(target_with({{"address", "h"}, {"proxy", "http://proxy:3128"}}), client::destination_container());
+
+  EXPECT_TRUE(con.build_proxy_config().no_proxy.empty());
+}
+
+// ---------------------------------------------------------------------------
+// submit - the form NRDP expects.
+// ---------------------------------------------------------------------------
+
+TEST(NrdpSubmit, PostsTheSubmitcheckCommandWithTheToken) {
+  loopback_nrdp_server server;
+
+  const std::string body = submit_one(server, "disk", PB::Common::ResultCode::OK, "all good");
+
+  EXPECT_NE(body.find("cmd=submitcheck"), std::string::npos) << body;
+  EXPECT_NE(body.find("token=s3cret"), std::string::npos) << body;
+  EXPECT_NE(body.find("XMLDATA="), std::string::npos) << body;
+}
+
+TEST(NrdpSubmit, PostsToTheConfiguredPath) {
+  loopback_nrdp_server server;
+
+  submit_one(server, "disk", PB::Common::ResultCode::OK, "all good");
+
+  EXPECT_NE(server.headers().find("POST /nrdp/server/"), std::string::npos) << server.headers();
+}
+
+TEST(NrdpSubmit, ARegularResultIsReportedAsAServiceCheck) {
+  loopback_nrdp_server server;
+
+  const std::string body = submit_one(server, "disk", PB::Common::ResultCode::WARNING, "running low");
+
+  // The XML is form-encoded, so look for the encoded markers.
+  EXPECT_NE(body.find("servicename"), std::string::npos) << body;
+  EXPECT_NE(body.find("disk"), std::string::npos) << body;
+}
+
+TEST(NrdpSubmit, TheAliasHostCheckIsReportedAsAHostCheck) {
+  // "host_check" is the documented alias that turns a result into a host
+  // check; NRDP tells the two apart by whether servicename is present.
+  loopback_nrdp_server server;
+
+  const std::string body = submit_one(server, "host_check", PB::Common::ResultCode::CRITICAL, "host is down");
+
+  EXPECT_EQ(body.find("servicename"), std::string::npos) << body;
+  EXPECT_NE(body.find("checkresult"), std::string::npos) << body;
+}
+
+TEST(NrdpSubmit, ACommandWithoutAnAliasIsNamedAfterTheCommand) {
+  loopback_nrdp_server server;
+
+  const std::string body = submit_one(server, "", PB::Common::ResultCode::OK, "fine");
+
+  EXPECT_NE(body.find("check_something"), std::string::npos) << body;
+}
+
+TEST(NrdpSubmit, OnlySubmitIsSupported) {
+  // NRDP is a one-way result feed: there is nothing to query or execute.
+  nrdp_client::nrdp_client_handler handler;
+  const client::destination_container empty;
+
+  PB::Commands::QueryRequestMessage query_request;
+  PB::Commands::QueryResponseMessage query_response;
+  EXPECT_FALSE(handler.query(empty, empty, query_request, query_response));
+
+  PB::Commands::ExecuteRequestMessage exec_request;
+  PB::Commands::ExecuteResponseMessage exec_response;
+  EXPECT_FALSE(handler.exec(empty, empty, exec_request, exec_response));
+
+  PB::Metrics::MetricsMessage metrics;
+  EXPECT_FALSE(handler.metrics(empty, empty, metrics));
+}

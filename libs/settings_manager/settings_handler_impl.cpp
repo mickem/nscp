@@ -73,7 +73,12 @@ void settings::settings_handler_impl::destroy_all_instances() {
 
 void settings::settings_handler_impl::house_keeping() {
   boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-  if (!mutex.owns_lock()) throw settings_exception(__FILE__, __LINE__, "destroy_all_instances Failed to get mutex, cant get access settings");
+  if (!mutex.owns_lock()) throw settings_exception(__FILE__, __LINE__, "house_keeping Failed to get mutex, cant get access settings");
+  // The scheduler calls this on a timer (scheduler::handle_settings), so it
+  // can fire before boot() installs an instance or after shutdown destroyed
+  // it. Dereferencing then is a null crash; the scheduler thread catches
+  // exceptions, so report it the way every sibling here does.
+  if (!instance_) throw settings_exception(__FILE__, __LINE__, "Failed initialize settings instance");
   instance_->house_keeping();
 }
 

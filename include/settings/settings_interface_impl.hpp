@@ -46,6 +46,7 @@ class settings_interface_impl : public settings_interface {
     conainer() : is_dirty_(false) {}
 
     void make_dirty() { is_dirty_ = true; }
+    void make_clean() { is_dirty_ = false; }
 
     bool is_dirty() const { return is_dirty_; }
     std::string get_string() const {
@@ -432,6 +433,13 @@ class settings_interface_impl : public settings_interface {
   virtual bool has_key(std::string path, std::string key) {
     MUTEX_GUARD();
     settings_core::key_path_type lookup(path, key);
+    // Honor staged deletions, the same way getter() and get_keys() do. Without
+    // this, a key removed but not yet saved still reads as present here while
+    // every read path says it is gone - and a caller that checks before
+    // reading (settings_handler_impl::update_defaults does) takes the
+    // key-exists branch only to get nothing back from get_string().
+    if (settings_delete_cache_.find(cache_key_type(path, key)) != settings_delete_cache_.end()) return false;
+    if (settings_delete_path_cache_.find(path) != settings_delete_path_cache_.end()) return false;
     cache_type::const_iterator cit = settings_cache_.find(lookup);
     if (cit != settings_cache_.end()) return true;
     if (has_real_key(lookup)) {
@@ -550,6 +558,42 @@ class settings_interface_impl : public settings_interface {
       for (const auto &path : paths) {
         set_real_path(path);
       }
+    }
+    // Everything above was handed to the backend, so drop the pending markers
+    // the backend now agrees with. Without this the entries stay dirty for the
+    // lifetime of the store and get_changes() keeps reporting edits that were
+    // already written - as a `modified` entry whose old_value equals its
+    // new_value, since the key now exists in the backend and no longer reads
+    // as an addition.
+    //
+    // Only the pending markers are dropped, and each one is verified against
+    // the backend rather than assumed persisted: a store that discards writes
+    // (settings_dummy backs `nscp unit` and one-shot client runs) answers
+    // has_real_path() with false, and for it path_cache_ IS the section store
+    // - clearing it unconditionally made every section written before save()
+    // vanish from get_sections(), which silently dropped all of the
+    // Scheduler's enumerated schedules in the python unit tests.
+    // settings_cache_ keeps its values because it is also the read cache.
+    for (cache_type::iterator it = settings_cache_.begin(); it != settings_cache_.end(); ++it) {
+      if (has_real_key(it->first)) it->second.make_clean();
+    }
+    for (path_delete_cache_type::iterator it = settings_delete_cache_.begin(); it != settings_delete_cache_.end();) {
+      if (!has_real_key(*it))
+        it = settings_delete_cache_.erase(it);
+      else
+        ++it;
+    }
+    for (path_cache_type::iterator it = settings_delete_path_cache_.begin(); it != settings_delete_path_cache_.end();) {
+      if (!has_real_path(*it))
+        it = settings_delete_path_cache_.erase(it);
+      else
+        ++it;
+    }
+    for (path_cache_type::iterator it = path_cache_.begin(); it != path_cache_.end();) {
+      if (has_real_path(*it))
+        it = path_cache_.erase(it);
+      else
+        ++it;
     }
     for (instance_raw_ptr &child : children_) {
       child->save(re_save_all);

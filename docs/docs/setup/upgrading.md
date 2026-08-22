@@ -12,6 +12,41 @@ page tracks those in one place. Full per-release detail lives in each
 
 ---
 
+## next
+
+- **Syslog submission works again, so a configured syslog server will start
+  receiving traffic.** `SyslogClient` read its connection settings from the
+  wrong place, so the target's address, port, facility, severity and templates
+  were all ignored: the agent logged `Undefined facility:` and sent nothing.
+  Broken since 0.4.3 (2015). If you have a syslog target configured, check it
+  still points where you want before upgrading - it has not been delivering,
+  and it will now. `CheckMKClient` had the same defect on its query path.
+- **SMTP notifications now announce this host in EHLO instead of
+  `localhost`.** The sender's host name was read from the wrong place, so it
+  was always empty and the EHLO fell back to `localhost`. If your mail server
+  applies HELO/EHLO policy (SPF checks, or a rule that rejects `localhost`),
+  the agent will now identify itself properly - set `ehlo-hostname` on the
+  target if you need a specific name.
+- **`nscp settings --show` now says so when `--key` is missing.** `--show
+  --path /some/path` without a `--key` used to print nothing and exit 0; it
+  now reports `Invalid command line please use --path and --key with show`
+  and exits non-zero. A bare `--show` still describes the active
+  settings store, and `--show --path … --key …` is unchanged. Scripts that
+  relied on the silent success need the missing `--key` added.
+- **Client commands shorter than eight characters work again.** A command
+  such as `cpu` or `run` answered `Exception processing command line:
+  basic_string::substr …` instead of running, in every module built on the
+  shared client machinery (NRPE, NSCA, NRDP, Graphite, …). Remove any
+  workaround that renamed such commands to a longer alias; no configuration
+  change is needed.
+- **The settings diff no longer reports changes that were already saved.**
+  `get_changes()` — behind the REST settings `diff` endpoint and any
+  operator-facing "what am I about to save?" view — kept listing an edit for
+  the lifetime of the process after it had been written, reporting it as a
+  `modified` entry whose old value equalled its new one. Tooling that treated
+  a non-empty diff as "unsaved work pending" no longer needs to special-case
+  that; no configuration change is needed.
+
 ## 0.16.4
 
 - **Check-specific filter keywords that clashed with the generic summary

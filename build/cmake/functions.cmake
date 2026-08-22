@@ -591,6 +591,16 @@ function(NSCP_ADD_LUA_TEST _NAME _SCRIPT)
             --language lua
             --script ${_SCRIPT}
             --path-override scripts=${BUILD_TARGET_ROOT_PATH}/scripts
+            # Keep everything a module writes inside the build tree. Without
+            # this ${certificate-path} is the install location
+            # (/usr/local/lib/nsclient/security), which a developer running
+            # ctest cannot create: NRPEServer generates or validates a
+            # certificate as it loads - even with insecure=true, because the
+            # certificate setting still has its default value - so the whole
+            # module refuses to load and any test that talks to it fails.
+            # ${data-path} is the same story for writable per-machine state.
+            --path-override certificate-path=${BUILD_TARGET_ROOT_PATH}/security
+            --path-override data-path=${BUILD_TARGET_ROOT_PATH}
         # Run from the build root so ${base-path} (the external-scripts working
         # dir) makes relative script paths like "scripts/check_test.sh" resolve.
         WORKING_DIRECTORY ${BUILD_TARGET_ROOT_PATH}

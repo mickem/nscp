@@ -282,6 +282,35 @@ if(WIN32)
     )
 endif()
 
+# settings_query_handler drives the process-wide settings manager, so the test
+# needs the same pieces the service links for it: the settings manager itself,
+# the plugin cache (plugin id -> name), boost::json for template registration
+# and the protobuf helpers.
+NSCP_CREATE_TEST(
+    settings_query_handler_test
+    SOURCES
+        settings_query_handler.cpp
+        settings_query_handler_test.cpp
+        plugins/plugin_cache.cpp
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_query.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/protobuf/functions_response.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
+        ${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${EXTRA_LIBS}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        settings_manager
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 NSCP_CREATE_TEST(
     plugins_test
     SOURCES
@@ -296,6 +325,7 @@ NSCP_CREATE_TEST(
         plugins/dll_plugin_test.cpp
         plugins/plugin_list_test.cpp
         plugins/zip_plugin.cpp
+        plugins/zip_plugin_test.cpp
         commands_test.cpp
         commands.hpp
         ${NSCP_INCLUDEDIR}/bytes/unzip.cpp

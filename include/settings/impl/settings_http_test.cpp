@@ -84,6 +84,25 @@ class loopback_http {
 
 std::string http_url(unsigned short port, const std::string &path = "/settings.ini") { return "http://127.0.0.1:" + std::to_string(port) + path; }
 
+// A port on 127.0.0.1 that nothing listens on, obtained by binding an
+// ephemeral port and closing it again. The tests below need a download to
+// *fail*, and the obvious way to spell that - some low fixed port such as 1 -
+// is not portable: on WSL2 a connect to an arbitrary unbound fixed port is
+// swallowed rather than refused, and the three tests using it each sat in the
+// TCP connect timeout for over two minutes. A port the kernel has just handed
+// out and taken back is known-free to the local stack, so the connect is
+// refused immediately.
+unsigned short closed_port() {
+  boost::asio::io_context io;
+  tcp::acceptor probe(io, {tcp::v4(), 0});
+  const unsigned short port = probe.local_endpoint().port();
+  probe.close();
+  return port;
+}
+
+std::string unreachable_url(const std::string &path) { return "http://127.0.0.1:" + std::to_string(closed_port()) + path; }
+
+
 }  // namespace
 
 TEST(settings_http, type_is_http) {
@@ -310,9 +329,9 @@ TEST(settings_http, migrates_the_pre_460_cache_file_to_the_new_name) {
   settings_test::write_file(cache.path() / "nsclient.php", cached_ini);
 
   http_test_core core(cache.path());
-  // Port 1 has no listener, so the download fails and only the migrated file
+  // Nothing listens on that port, so the download fails and only the migrated file
   // can satisfy cache_remote_file's fallback.
-  settings::settings_http s(&core, "test", "http://127.0.0.1:1/nsclient.php?RootFolder=myhost");
+  settings::settings_http s(&core, "test", unreachable_url("/nsclient.php?RootFolder=myhost"));
 
   net::url u;
   u.path = "/nsclient.php";
@@ -327,7 +346,7 @@ TEST(settings_http, migrates_the_pre_460_cache_file_to_the_new_name) {
 TEST(settings_http, migration_does_not_clobber_an_existing_cache_file) {
   temp_dir cache;
   http_test_core core(cache.path());
-  settings::settings_http s(&core, "test", "http://127.0.0.1:1/nsclient.php?RootFolder=myhost");
+  settings::settings_http s(&core, "test", unreachable_url("/nsclient.php?RootFolder=myhost"));
 
   net::url u;
   u.path = "/nsclient.php";
@@ -345,7 +364,7 @@ TEST(settings_http, migration_does_not_clobber_an_existing_cache_file) {
 TEST(settings_http, no_migration_for_a_url_without_a_query) {
   temp_dir cache;
   http_test_core core(cache.path());
-  settings::settings_http s(&core, "test", "http://127.0.0.1:1/nsclient.php");
+  settings::settings_http s(&core, "test", unreachable_url("/nsclient.php"));
 
   net::url u;
   u.path = "/nsclient.php";

@@ -77,6 +77,20 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
 )
 NSCP_CREATE_TEST(
+    nscapi_program_options_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options_test.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+NSCP_CREATE_TEST(
     str_test
     SOURCES
         ${NSCP_INCLUDEDIR}/str/format_test.cpp
@@ -464,10 +478,22 @@ NSCP_CREATE_TEST(
     icinga_client_test
     SOURCES
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga_test.cpp
+        # icinga_client.hpp is the other half: the connection settings and the
+        # API call itself, which needs the client machinery and a TLS-capable
+        # http transport even when the test drives it over plain http.
+        ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga_client_test.cpp
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient/icinga.cpp
         ${NSCP_INCLUDEDIR}/json/use_json.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_CLIENT_CPP}
     LIBRARIES
         GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_SOURCE_DIR}/modules/IcingaClient
@@ -490,7 +516,7 @@ if(WIN32)
 endif()
 
 NSCP_CREATE_TEST(
-    test_settings
+    settings_test
     SOURCES
         ${NSCP_INCLUDEDIR}/settings/settings_value_test.cpp
         ${NSCP_INCLUDEDIR}/settings/settings_interface_impl_test.cpp
@@ -603,3 +629,24 @@ if(BUILD_MODULE_LUAScript)
         NSCP_ADD_LUA_TEST(lua_scheduler_test test_scheduler)
     endif()
 endif()
+
+# client::configuration is what every outbound client module (NRPEClient,
+# NSCAClient, ...) shares, so it is built from the same ${NSCP_CLIENT_CPP}
+# list those modules use rather than a copy of it.
+NSCP_CREATE_TEST(
+    client_command_line_parser_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/client/command_line_parser_test.cpp
+        ${NSCP_CLIENT_CPP}
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        # Compiled in rather than taken from plugin_api: the Windows plugin_api
+        # DLL does not export the settings_helper symbols (modules compile this
+        # file into themselves via NSCP_DEF_PLUGIN_CPP for the same reason).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)

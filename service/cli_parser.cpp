@@ -332,11 +332,18 @@ int cli_parser::parse_settings(int argc, char *argv[]) {
       } else if (vm.count("list")) {
         ret = settings_cli.list(vm["path"].as<std::string>());
       } else if (vm.count("show")) {
-        if (vm.count("path") > 0 && vm.count("key") > 0)
-          ret = settings_cli.show(vm["path"].as<std::string>(), vm["key"].as<std::string>());
-        else {
+        const std::string show_path = vm["path"].as<std::string>();
+        const std::string show_key = vm["key"].as<std::string>();
+        // Neither given is meaningful - show() then describes the active
+        // store. One without the other is a typo, and used to be answered
+        // with silence and a success exit: both options carry a
+        // default_value(""), so vm.count() reports them present even when the
+        // operator never typed them and the guard below could never fire.
+        if (show_path.empty() != show_key.empty()) {
           std::cerr << "Invalid command line please use --path and --key with show" << std::endl;
           ret = -1;
+        } else {
+          ret = settings_cli.show(show_path, show_key);
         }
       } else if (vm.count("activate-module")) {
         ret = settings_cli.activate(vm["activate-module"].as<std::vector<std::string> >());

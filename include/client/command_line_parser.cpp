@@ -292,7 +292,12 @@ void client::configuration::i_do_query(destination_container &s, destination_con
       custom_command = true;
       // TODO: Build argument vector here!
     }
-    if (command.substr(0, 8) == "forward_" || command.substr(command.size() - 8, 8) == "_forward") {
+    // Prefix and suffix both select forwarding. Test the suffix with
+    // ends_with: command.size() - 8 underflows for a shorter name and the
+    // substr then throws, which the catch at the bottom turns into an
+    // "Exception processing command line" answer for every command under
+    // eight characters.
+    if (boost::algorithm::starts_with(command, "forward_") || boost::algorithm::ends_with(command, "_forward")) {
       for (const PB::Commands::QueryRequestMessage::Request &p : request.payload()) {
         if (p.arguments_size() > 0) {
           for (const std::string &a : p.arguments()) {
@@ -311,8 +316,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
     } else {
       po::options_description desc = create_descriptor(command, s, d);
       payload_builder builder;
-      std::string x = command.substr(command.size() - 6, 6);
-      if (command.substr(0, 6) == "check_" || command.substr(command.size() - 6, 6) == "_query") {
+      if (boost::algorithm::starts_with(command, "check_") || boost::algorithm::ends_with(command, "_query")) {
         builder.set_type(payload_builder::type_query);
         desc.add(add_query_options(s, d, builder));
       } else if (command.substr(0, 5) == "exec_") {
@@ -456,7 +460,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
       } else if (command.substr(0, 5) == "exec_") {
         builder.set_type(payload_builder::type_exec);
         desc.add(add_exec_options(s, d, builder));
-      } else if (command.substr(0, 7) == "submit_" || command.substr(command.size() - 7, 7) == "_submit") {
+      } else if (boost::algorithm::starts_with(command, "submit_") || boost::algorithm::ends_with(command, "_submit")) {
         builder.set_type(payload_builder::type_submit);
         desc.add(add_submit_options(s, d, builder));
       } else {

@@ -603,4 +603,311 @@ TEST_F(SettingsHandlerTest, SetInstanceMakesGetReturn) {
   ASSERT_TRUE(static_cast<bool>(inst));
 }
 
+// ===========================================================================
+// update_defaults / remove_defaults
+//
+// These two are what `nscp settings --add-defaults` and `--remove-defaults`
+// do to a live store: the first materialises every registered non-advanced
+// key at its default value, the second strips back out whatever still sits at
+// that default. Together they decide what a shipped nsclient.ini looks like,
+// and the half that matters most is the one that leaves an operator's own
+// value alone.
+//
+// Backed by a real INI store in a temp dir rather than the dummy backend -
+// dummy discards everything written to it, which would make every assertion
+// below vacuously true.
+// ===========================================================================
+
+// recording_provider answers every expand_path() with its boot.ini, which is
+// what the boot() tests need but breaks anything that resolves a real path:
+// INISettings runs its file name through the same hook, so loading, saving
+// and context_exists() would all end up looking at the boot.ini instead.
+class passthrough_provider : public recording_provider {
+ public:
+  passthrough_provider() : recording_provider("") {}
+  std::string expand_path(std::string file) override { return file; }
+};
+
+// Build an "ini:///<absolute path>" context - three slashes so net::parse
+// leaves the host empty and hands the whole absolute path to url.path.
+std::string ini_context(const boost::filesystem::path &p) {
+  std::string s = p.generic_string();
+  if (!s.empty() && s.front() == '/') s.erase(0, 1);
+  return "ini:///" + s;
+}
+
+class SettingsDefaultsTest : public SettingsHandlerTest {
+ protected:
+  settings_test::temp_dir store_dir_;
+  std::unique_ptr<passthrough_provider> store_provider_;
+
+  void SetUp() override {
+    store_provider_ = std::make_unique<passthrough_provider>();
+    impl_ = std::make_unique<settings_manager::NSCSettingsImpl>(store_provider_.get());
+    // INISettings resolves its context against an existing file (see the note
+    // in settings_ini_test), so the file has to be there before we point at
+    // it - empty is fine.
+    const boost::filesystem::path file = store_dir_.file("store.ini");
+    settings_test::write_file(file, "");
+    impl_->set_instance("master", ini_context(file));
+  }
+};
+
+// Same provider, no store: for the context-dispatch tests, which resolve
+// paths but never open an instance.
+class SettingsContextTest : public SettingsHandlerTest {
+ protected:
+  std::unique_ptr<passthrough_provider> path_provider_;
+
+  void SetUp() override {
+    path_provider_ = std::make_unique<passthrough_provider>();
+    impl_ = std::make_unique<settings_manager::NSCSettingsImpl>(path_provider_.get());
+  }
+};
+
+TEST_F(SettingsDefaultsTest, UpdateDefaultsMaterialisesRegisteredKeys) {
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "k", "string", "", "", "the-default", false, false, true);
+
+  impl_->update_defaults();
+
+  EXPECT_EQ(impl_->get()->get_string("/sec", "k", ""), "the-default");
+}
+
+TEST_F(SettingsDefaultsTest, UpdateDefaultsSkipsAdvancedKeys) {
+  // "advanced" is the flag that keeps rarely-touched keys out of a fresh ini.
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "k", "string", "", "", "the-default", /*advanced=*/true, false, true);
+
+  impl_->update_defaults();
+
+  EXPECT_FALSE(impl_->get()->has_key("/sec", "k"));
+}
+
+TEST_F(SettingsDefaultsTest, UpdateDefaultsLeavesAnOperatorsValueAlone) {
+  // The whole point of the has_key branch: --add-defaults must not reset
+  // configuration somebody deliberately changed.
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "k", "string", "", "", "the-default", false, false, true);
+  impl_->get()->set_string("/sec", "k", "operator-value");
+
+  impl_->update_defaults();
+
+  EXPECT_EQ(impl_->get()->get_string("/sec", "k", ""), "operator-value");
+}
+
+TEST_F(SettingsDefaultsTest, UpdateDefaultsCreatesRegisteredSectionsWithoutKeys) {
+  impl_->register_path(0xffff, "/empty-sec", "S", "", false, false, true);
+
+  impl_->update_defaults();
+
+  EXPECT_TRUE(impl_->get()->has_section("/empty-sec"));
+}
+
+TEST_F(SettingsDefaultsTest, UpdateDefaultsIgnoresSamplePaths) {
+  // Sample sections document what a config could look like; writing them into
+  // the live store would enable configuration nobody asked for.
+  impl_->register_path(0xffff, "/sample", "S", "", false, /*is_sample=*/true, true);
+  impl_->register_key(0xffff, "/sample", "k", "string", "", "", "d", false, /*is_sample=*/true, true);
+
+  impl_->update_defaults();
+
+  EXPECT_FALSE(impl_->get()->has_key("/sample", "k"));
+}
+
+TEST_F(SettingsDefaultsTest, RemoveDefaultsDropsKeysLeftAtTheirDefault) {
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "k", "string", "", "", "the-default", false, false, true);
+  impl_->get()->set_string("/sec", "k", "the-default");
+
+  impl_->remove_defaults();
+
+  EXPECT_FALSE(impl_->get()->has_key("/sec", "k"));
+}
+
+TEST_F(SettingsDefaultsTest, RemoveDefaultsKeepsCustomisedKeys) {
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "k", "string", "", "", "the-default", false, false, true);
+  impl_->get()->set_string("/sec", "k", "operator-value");
+
+  impl_->remove_defaults();
+
+  EXPECT_EQ(impl_->get()->get_string("/sec", "k", ""), "operator-value");
+}
+
+TEST_F(SettingsDefaultsTest, RemoveDefaultsDropsTheSectionOnceItIsEmpty) {
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "k", "string", "", "", "the-default", false, false, true);
+  impl_->get()->set_string("/sec", "k", "the-default");
+
+  impl_->remove_defaults();
+
+  EXPECT_FALSE(impl_->get()->has_section("/sec"));
+}
+
+TEST_F(SettingsDefaultsTest, RemoveDefaultsKeepsASectionThatStillHasKeys) {
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "default-key", "string", "", "", "the-default", false, false, true);
+  impl_->register_key(0xffff, "/sec", "custom-key", "string", "", "", "the-default", false, false, true);
+  impl_->get()->set_string("/sec", "default-key", "the-default");
+  impl_->get()->set_string("/sec", "custom-key", "operator-value");
+
+  impl_->remove_defaults();
+
+  EXPECT_TRUE(impl_->get()->has_section("/sec"));
+  EXPECT_EQ(impl_->get()->get_string("/sec", "custom-key", ""), "operator-value");
+}
+
+TEST_F(SettingsDefaultsTest, DefaultsRoundTripLeavesNothingBehind) {
+  // Adding every default and then removing every default should land back on
+  // the store we started with.
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "k", "string", "", "", "the-default", false, false, true);
+
+  impl_->update_defaults();
+  impl_->remove_defaults();
+
+  EXPECT_FALSE(impl_->get()->has_key("/sec", "k"));
+  EXPECT_FALSE(impl_->get()->has_section("/sec"));
+}
+
+// ---------------------------------------------------------------------------
+// Instance-backed accessors. Each of these dereferences the settings instance,
+// so the interesting case is what they do before boot() installs one.
+// ---------------------------------------------------------------------------
+
+TEST_F(SettingsHandlerTest, HouseKeepingThrowsBeforeAnInstanceExists) {
+  // scheduler::handle_settings drives this on a timer, which can fire before
+  // boot() has installed an instance or after shutdown destroyed it. It used
+  // to dereference the null instance; the scheduler thread catches exceptions
+  // but cannot catch a segfault.
+  EXPECT_THROW(impl_->house_keeping(), settings::settings_exception);
+}
+
+TEST_F(SettingsHandlerTest, HouseKeepingRunsOnALiveInstance) {
+  impl_->set_instance("master", "dummy");
+  EXPECT_NO_THROW(impl_->house_keeping());
+}
+
+TEST_F(SettingsHandlerTest, SupportsUpdatesThrowsBeforeAnInstanceExists) { EXPECT_THROW(impl_->supports_updates(), settings::settings_exception); }
+
+TEST_F(SettingsHandlerTest, SupportsUpdatesFollowsTheBackend) {
+  // The dummy backend swallows writes, so it must report itself read-only.
+  impl_->set_instance("master", "dummy");
+  EXPECT_FALSE(impl_->supports_updates());
+}
+
+TEST_F(SettingsDefaultsTest, SupportsUpdatesIsTrueForAnIniStore) { EXPECT_TRUE(impl_->supports_updates()); }
+
+// validate() is what `nscp settings --validate` reports. It has to run against
+// configuration read from disk: writing a key through the store auto-registers
+// its section as "in flight" (settings_interface_impl::setter does), so a
+// section created in the same process is never unregistered by the time
+// validate() looks.
+TEST_F(SettingsContextTest, ValidateReportsSectionsNobodyRegistered) {
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.file("stray.ini");
+  settings_test::write_file(file, "[/nobody-registered-this]\nk = v\n");
+  impl_->set_instance("master", ini_context(file));
+
+  EXPECT_FALSE(impl_->validate().empty());
+}
+
+TEST_F(SettingsContextTest, ValidateIsQuietForRegisteredConfiguration) {
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.file("known.ini");
+  settings_test::write_file(file, "[/sec]\nk = v\n");
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->register_key(0xffff, "/sec", "k", "string", "", "", "", false, false, true);
+  impl_->set_instance("master", ini_context(file));
+
+  EXPECT_TRUE(impl_->validate().empty());
+}
+
+TEST_F(SettingsContextTest, ValidateDoesNotFlagUnregisteredKeys) {
+  // CHARACTERIZATION TEST - this pins current behaviour, which is wrong.
+  //
+  // settings_ini::validate() spots an unregistered key by catching an
+  // exception out of get_registered_key(). The production core does not throw
+  // for an unknown key, it returns boost::none (settings_handler_impl), so
+  // that half of --validate never fires and a typo in a key name is reported
+  // by nothing. Only the test core in test_helpers.hpp throws, which is why
+  // settings_ini_test's own validate test sees the errors this one cannot.
+  //
+  // See the FIXME in settings_ini.hpp: the fix is to test the optional rather
+  // than wait for an exception, but it widens what --validate prints (every
+  // key of every module that is not currently loaded), so it wants its own
+  // change.
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.file("typo.ini");
+  settings_test::write_file(file, "[/sec]\nunregistered-key = v\n");
+  impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
+  impl_->set_instance("master", ini_context(file));
+
+  EXPECT_TRUE(impl_->validate().empty()) << "documenting the defect: the unknown key is not reported";
+}
+
+TEST_F(SettingsDefaultsTest, UseSensitiveKeysDefaultsToFalse) { EXPECT_FALSE(impl_->use_sensitive_keys()); }
+
+TEST_F(SettingsDefaultsTest, UseSensitiveKeysFollowsTheSetting) {
+  // Turning this on is what redirects passwords into the Windows credential
+  // manager instead of writing them into the ini in clear text.
+  impl_->get()->set_string("/settings", "use credential manager", "true");
+  EXPECT_TRUE(impl_->use_sensitive_keys());
+}
+
+// ---------------------------------------------------------------------------
+// Context dispatch: which backend a context string selects, whether it can be
+// edited, and whether it is already there. get_context/--migrate-to and the
+// settings web UI all branch on these.
+// ---------------------------------------------------------------------------
+
+TEST_F(SettingsHandlerTest, SupportsEditAcceptsAnEmptyContext) {
+  // Empty means "whatever is configured", which the caller resolves later.
+  EXPECT_TRUE(impl_->supports_edit(""));
+}
+
+TEST_F(SettingsHandlerTest, SupportsEditIsTrueForIni) { EXPECT_TRUE(impl_->supports_edit("ini:///tmp/whatever.ini")); }
+
+TEST_F(SettingsHandlerTest, SupportsEditIsFalseForReadOnlyBackends) {
+  EXPECT_FALSE(impl_->supports_edit("dummy"));
+  EXPECT_FALSE(impl_->supports_edit("http://localhost/settings"));
+  EXPECT_FALSE(impl_->supports_edit("https://localhost/settings"));
+}
+
+TEST_F(SettingsHandlerTest, SupportsEditIsFalseForAnUnknownProtocol) { EXPECT_FALSE(impl_->supports_edit("gopher://localhost/settings")); }
+
+TEST_F(SettingsContextTest, ContextExistsFollowsTheFileForIni) {
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.file("there.ini");
+  settings_test::write_file(file, "");
+
+  EXPECT_TRUE(impl_->context_exists(ini_context(file)));
+  EXPECT_FALSE(impl_->context_exists(ini_context(file) + ".missing"));
+}
+
+TEST_F(SettingsHandlerTest, ContextExistsIsAlwaysTrueForDummyAndHttp) {
+  // Neither has anything to check up front: dummy has no storage at all and
+  // an http store is only reachable once the daemon is running.
+  EXPECT_TRUE(impl_->context_exists("dummy"));
+  EXPECT_TRUE(impl_->context_exists("http://localhost/settings"));
+}
+
+TEST_F(SettingsHandlerTest, CreateInstanceThrowsForAnUnknownProtocol) {
+  EXPECT_THROW(impl_->create_instance("master", "gopher://localhost/settings"), settings::settings_exception);
+}
+
+TEST_F(SettingsContextTest, CreateInstanceBuildsTheBackendTheContextNames) {
+  const settings::instance_raw_ptr dummy = impl_->create_instance("master", "dummy");
+  ASSERT_TRUE(static_cast<bool>(dummy));
+  EXPECT_EQ(dummy->get_type(), "dummy");
+
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.file("ctx.ini");
+  settings_test::write_file(file, "");
+  const settings::instance_raw_ptr ini = impl_->create_instance("master", ini_context(file));
+  ASSERT_TRUE(static_cast<bool>(ini));
+  EXPECT_EQ(ini->get_type(), "ini");
+}
+
 }  // namespace

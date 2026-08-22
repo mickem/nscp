@@ -114,7 +114,11 @@ struct syslog_client_handler : public client::handler_interface {
   bool submit(client::destination_container sender, client::destination_container target, const PB::Commands::SubmitRequestMessage &request_message,
               PB::Commands::SubmitResponseMessage &response_message) {
     const PB::Common::Header &request_header = request_message.header();
-    connection_data con(sender, target);
+    // (target, sender): the first argument is the target's settings - the
+    // address, facility, severity and templates the operator configured.
+    // Passing them the other way round read every one of them from the
+    // sender container, which carries none of them.
+    connection_data con(target, sender);
 
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 

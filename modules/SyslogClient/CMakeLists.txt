@@ -38,3 +38,23 @@ target_link_libraries(
     ${NSCP_DEF_PLUGIN_LIB}
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+# The payload construction (connection_data, the RFC 3164 priority tables and
+# what submit() puts on the wire) is ordinary C++ with a UDP socket at the end,
+# so it is unit-testable on every platform.
+NSCP_CREATE_TEST(
+    syslog_client_test
+    SOURCES
+        syslog_client_test.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

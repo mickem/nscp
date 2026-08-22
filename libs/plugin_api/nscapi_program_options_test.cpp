@@ -7,24 +7,24 @@
 
 namespace po = boost::program_options;
 
-TEST(nscapiProgramOptionsTest, strip_default_value_plain) {
-  EXPECT_EQ("", nscapi::program_options::strip_default_value("arg"));
+TEST(nscapiProgramOptionsTest, extract_default_value_plain) {
+  EXPECT_EQ("", nscapi::program_options::extract_default_value("arg"));
 }
 
-TEST(nscapiProgramOptionsTest, strip_default_value_default) {
-  EXPECT_EQ("10", nscapi::program_options::strip_default_value("arg (=10)"));
-  EXPECT_EQ("%(status): Nothing found...", nscapi::program_options::strip_default_value("arg (=%(status): Nothing found...)"));
+TEST(nscapiProgramOptionsTest, extract_default_value_default) {
+  EXPECT_EQ("10", nscapi::program_options::extract_default_value("arg (=10)"));
+  EXPECT_EQ("%(status): Nothing found...", nscapi::program_options::extract_default_value("arg (=%(status): Nothing found...)"));
 }
 
-TEST(nscapiProgramOptionsTest, strip_default_value_implicit) {
-  EXPECT_EQ("true", nscapi::program_options::strip_default_value("[=arg(=true)]"));
+TEST(nscapiProgramOptionsTest, extract_default_value_implicit) {
+  EXPECT_EQ("true", nscapi::program_options::extract_default_value("[=arg(=true)]"));
 }
 
-TEST(nscapiProgramOptionsTest, strip_default_value_implicit_and_default) {
+TEST(nscapiProgramOptionsTest, extract_default_value_implicit_and_default) {
   // The bool convention implicit_value(true)->default_value(false) formats as
   // "[=arg(=1)] (=0)"; the default is the part to surface.
-  EXPECT_EQ("0", nscapi::program_options::strip_default_value("[=arg(=1)] (=0)"));
-  EXPECT_EQ("1", nscapi::program_options::strip_default_value("[=arg(=1)] (=1)"));
+  EXPECT_EQ("0", nscapi::program_options::extract_default_value("[=arg(=1)] (=0)"));
+  EXPECT_EQ("1", nscapi::program_options::extract_default_value("[=arg(=1)] (=1)"));
 }
 
 namespace {

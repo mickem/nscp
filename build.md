@@ -95,6 +95,7 @@ with `-DNSCP_CMAKE_CONFIG=<file>`).
 | `NSCP_WEB_BACKEND`          | `mongoose`       | HTTP/REST backend for `WEBServer`: `mongoose` (needs the vendored Mongoose source) or `beast` (header-only, **requires OpenSSL**). The Linux package builds use `beast`. |
 | `NSCP_BOOST_PYTHON_VERSION` | —                | Boost.Python component matching your Python, e.g. `python311`, `python312`, `python313`. Only relevant when building `PythonScript`.                                     |
 | `NSCP_SANITIZE`             | `off`            | Comma-separated sanitizer list for gcc/clang on Linux: `address`, `undefined`, `address,undefined`, `thread`. See `tools/sanitizers/run.sh`.                             |
+| `NSCP_COVERAGE`             | `OFF`            | Instrument every target with gcov counters (gcc/clang on Linux) so ctest and the `tests/` suite can be turned into a coverage report. See `tools/coverage/run.sh`.      |
 | `NSCP_BUILD_DOCS_HTML`      | `ON` on Windows, `OFF` elsewhere | Build the mkdocs HTML site as part of the default target. Only the Windows installer ships the site; elsewhere build it on demand with `cmake --build . --target build_docs_html`. |
 | `USE_STATIC_RUNTIME`        | `OFF`            | Link the C/C++ runtime statically (used by the Win32 static build).                                                                                                      |
 | `USE_SYSTEMD`               | `ON` (Linux)     | Install systemd service files in the package.                                                                                                                            |
@@ -923,6 +924,81 @@ export UBSAN_OPTIONS=suppressions=$PWD/../tools/sanitizers/ubsan-suppressions.tx
 
 See the header of `tools/sanitizers/run.sh` and
 `.github/workflows/tests-sanitizers.yml` for more variations.
+
+#### Coverage reports
+
+`-DNSCP_COVERAGE=ON` instruments every target with gcov counters. Because the
+integration harness spawns the built `nscp` and lets it `dlopen` the built
+modules, the *same* instrumented tree yields coverage for both the C++ unit
+tests and the scenario suites — the latter is the more interesting half, since
+it covers real command dispatch and REST argument parsing rather than pure
+logic in isolation.
+
+`tools/coverage/run.sh` does the whole cycle — configure, build, run, report:
+
+```bash
+# From the repo root. Builds build-coverage/, runs both suites, writes coverage/
+tools/coverage/run.sh
+
+# One suite at a time (each starts from a clean counter set):
+SUITES=unit tools/coverage/run.sh
+SUITES=integration tools/coverage/run.sh
+
+# Re-run tests in an existing tree without rebuilding:
+SKIP_BUILD=1 SUITES=integration JEST_ARGS=checkdisk tools/coverage/run.sh
+```
+
+It needs **gcovr** (`apt-get install gcovr`) and leaves this in `coverage/`:
+`html/index.html` (both suites merged, with annotated per-file source),
+one-page summaries `unit.html` and `integration.html`, and `cobertura.xml`
+for CI coverage services. Only the merged report carries per-file detail
+pages — one full set is ~80MB. Extra cmake
+`-D` flags go in `CMAKE_ARGS`, exactly as for the sanitizer runner — e.g.
+`CMAKE_ARGS="-DNSCP_WEB_BACKEND=beast"` when the vendored Mongoose source is
+absent.
+
+Generated code is excluded from the reports: the protobuf `*.pb.cc`, and the
+per-module `module.cpp` / `module.hpp` dispatch glue that CMake generates from
+each `module.json` (66 files, ~4600 lines — leaving them in cost 2.6 points of
+line coverage, and a gap in generated code isn't something you can write a test
+for). The `.json` tracefiles still contain them, though, because they carry one
+signal worth having: **a `module.cpp` at 0% means no test ever loaded that
+module**, even when its own sources are well covered by a unit test that links
+them directly — which is exactly the gap the "every new check command needs a
+`tests/` test" rule exists to close. To see that view:
+
+```bash
+gcovr --add-tracefile coverage/unit.json \
+      --filter '.*/module\.cpp$' --txt glue.txt --print-summary
+```
+
+`CauseCrashes` is not built at all for coverage (`-DBUILD_MODULE_CauseCrashes=OFF`):
+nothing exercises a module whose only job is to crash the daemon, and if
+anything did, the crash would take the unflushed gcov counters with it.
+
+Three things are worth knowing before trusting the numbers:
+
+- **Stale `.gcda` are poison.** Once the sources move on, gcov rejects the old
+  data with `stamp mismatch with notes file` and silently under-reports. The
+  script deletes every `.gcda` before each suite; if you drive gcov by hand, do
+  the same.
+- **The daemon must shut down cleanly.** gcov flushes its counters in an
+  `atexit` handler, so a SIGKILLed `nscp` contributes nothing. On Linux the
+  harness stops it with SIGTERM and `CommandClient` turns that into a graceful
+  shutdown, which is exactly what makes this work — the same property
+  LeakSanitizer depends on. On Windows the harness uses SIGKILL, and MSVC has
+  no gcov anyway; use OpenCppCoverage there.
+- **`-fprofile-update=atomic` is not optional** (the CMake option sets it).
+  nscp is heavily threaded, and non-atomic counter updates race into wrong
+  numbers and the occasional corrupt `.gcda`.
+
+The Lua acceptance tests (`lua_*_test`) are part of `ctest -R '_test$'`, so the
+unit-suite report already includes the module code paths they drive.
+
+`.github/workflows/tests-coverage.yml` runs the same two suites in CI and
+uploads `coverage/` as a build artifact. It is informational and does not gate
+the build; add `--fail-under-line N` to the final `gcovr` call in the script if
+you want it to.
 
 See `tests/README.md` for the full layout, fixture documentation and the
 per-suite table.

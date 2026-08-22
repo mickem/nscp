@@ -78,12 +78,23 @@ NSCP_CREATE_TEST(
     nrdp_test
     SOURCES
         nrdp_test.cpp
+        nrdp_client_test.cpp
         nrdp.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_INCLUDEDIR}/bytes/base64.c
+        ${NSCP_CLIENT_CPP}
         ${TINYXML2_SRCS}
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
         ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        # nrdp_client.hpp posts through net/http/client.hpp, whose transport is
+        # TLS-capable, so the test links the same OpenSSL the module does.
+        ${EXTRA_LIBS}
         ${TINYXML2_EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
