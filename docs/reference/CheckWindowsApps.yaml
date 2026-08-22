@@ -26,9 +26,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: state != 'running' and auto_start != 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${pool}: ${state}, uptime ${uptime}s, ${recycles} recycles'
         empty-state: unknown
         empty-syntax: No application pools found
@@ -44,6 +47,7 @@ windows:
         perf-syntax: ${pool}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -93,9 +97,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: queue_length > 1000
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${queue}: ${queue_length} queued, ${rejected} rejected'
         empty-state: ok
         empty-syntax: No HTTP.sys request queues found
@@ -111,6 +118,7 @@ windows:
         perf-syntax: ${queue}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: queue_length > 800
@@ -150,9 +158,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: state = 'stopped' and auto_start != 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${site}: ${state}, ${connections} connections, uptime ${uptime}s'
         empty-state: unknown
         empty-syntax: No web sites found
@@ -168,6 +179,7 @@ windows:
         perf-syntax: ${site}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -231,9 +243,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${pool} (pid ${pid}): ${active_requests} active requests'
         empty-state: ok
         empty-syntax: No IIS worker processes running
@@ -249,6 +264,7 @@ windows:
         perf-syntax: ${pool}_${pid}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -292,9 +308,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${label} = ${value}
         empty-state: unknown
         empty-syntax: No Connection Broker counters found
@@ -310,6 +329,7 @@ windows:
         perf-syntax: ${label}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -359,9 +379,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: available = 0 and total_licenses > 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${description}: ${issued}/${total_licenses} issued, ${available} available'
         empty-state: unknown
         empty-syntax: No license key packs found
@@ -377,6 +400,7 @@ windows:
         perf-syntax: ${description}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: available < 10 and total_licenses > 0
@@ -432,9 +456,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${session}: ${cpu}% cpu, ${working_set}B working set'
         empty-state: ok
         empty-syntax: No sessions found
@@ -450,6 +477,7 @@ windows:
         perf-syntax: ${session}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -509,9 +537,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${active} active, ${inactive} inactive (${total_sessions} total)
         empty-state: unknown
         empty-syntax: No session counters found
@@ -527,6 +558,7 @@ windows:
         perf-syntax: sessions
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''

@@ -76,13 +76,13 @@ filter_obj_handler::filter_obj_handler() {
   // clang-format on
 
   registry_.add_human_string("state", &filter_obj::get_state_s, "The current state (started, stopped, hung)");
-  registry_.add_human_string("peak_virtual", &filter_obj::get_PeakVirtualSize_human, "");
-  registry_.add_human_string("virtual", &filter_obj::get_VirtualSize_human, "");
-  registry_.add_human_string("peak_working_set", &filter_obj::get_PeakWorkingSetSize_human, "");
-  registry_.add_human_string("working_set", &filter_obj::get_WorkingSetSize_human, "");
-  registry_.add_human_string("rss", &filter_obj::get_WorkingSetSize_human, "");
-  registry_.add_human_string("peak_pagefile", &filter_obj::get_PageFileUsage_human, "");
-  registry_.add_human_string("pagefile", &filter_obj::get_PeakPageFileUsage_human, "");
+  registry_.add_human_string_context("peak_virtual", &filter_obj::get_PeakVirtualSize_human, "");
+  registry_.add_human_string_context("virtual", &filter_obj::get_VirtualSize_human, "");
+  registry_.add_human_string_context("peak_working_set", &filter_obj::get_PeakWorkingSetSize_human, "");
+  registry_.add_human_string_context("working_set", &filter_obj::get_WorkingSetSize_human, "");
+  registry_.add_human_string_context("rss", &filter_obj::get_WorkingSetSize_human, "");
+  registry_.add_human_string_context("peak_pagefile", &filter_obj::get_PageFileUsage_human, "");
+  registry_.add_human_string_context("pagefile", &filter_obj::get_PeakPageFileUsage_human, "");
 
   registry_.add_converter(type_custom_state, &parse_state);
 }

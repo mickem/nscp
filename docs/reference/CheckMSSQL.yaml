@@ -83,9 +83,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${server_name}: SQL Server ${version} ${product_level} ${edition}, uptime ${uptime}s'
         empty-state: unknown
         empty-syntax: '%(status): No server information returned'
@@ -101,6 +104,7 @@ windows:
         perf-syntax: ${server_name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -229,9 +233,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: full_age < 0 or full_age > 7d
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: last full backup ${full_age}s ago'
         empty-state: unknown
         empty-syntax: '%(status): No databases found'
@@ -247,6 +254,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_count}/${count} databases (${problem_list})'
         warn: ''
         warning: full_age > 3d
@@ -399,9 +407,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING'
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${state}'
         empty-state: unknown
         empty-syntax: '%(status): No databases found'
@@ -417,6 +428,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_count}/${count} databases (${problem_list})'
         warn: ''
         warning: state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE'
@@ -554,9 +566,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: last_run_status = 'failed'
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${last_run_status}'
         empty-state: ok
         empty-syntax: '%(status): No enabled SQL Agent jobs found'
@@ -572,6 +587,7 @@ windows:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_count}/${count} jobs (${problem_list})'
         warn: ''
         warning: last_run_status = 'canceled' or last_run_status = 'retry'
@@ -705,9 +721,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '%(line)'
         empty-state: ignored
         empty-syntax: ''
@@ -723,6 +742,7 @@ windows:
         perf-syntax: ''
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: ${list}
         warn: ''
         warning: ''

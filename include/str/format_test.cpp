@@ -364,9 +364,54 @@ TEST(format, format_byte_units_with_empty_unit) {
 }
 
 TEST(format, format_byte_units_with_unknown_unit) {
-  // Unknown unit not in BKMG_RANGE: falls through the loop dividing by 1024 each time
-  std::string result = str::format::format_byte_units(0LL, "Z");
-  EXPECT_FALSE(result.empty());
+  // A unit nobody recognises is a typo in a syntax string, not a request to
+  // divide by 1024 seven times (#1428).
+  EXPECT_THROW(str::format::format_byte_units(1024LL, "Z"), std::invalid_argument);
+}
+
+TEST(format, format_byte_units_unit_is_case_insensitive) {
+  // decode_byte_units and convert_to_byte_units have always accepted "gb";
+  // format_byte_units used to silently render 1.27055e-10 for it.
+  EXPECT_EQ(str::format::format_byte_units(1024LL * 1024LL * 1024LL, "gb"), "1");
+  EXPECT_EQ(str::format::format_byte_units(1024LL * 1024LL * 1024LL, "g"), "1");
+  EXPECT_EQ(str::format::format_byte_units(2048LL, "kb"), "2");
+}
+
+TEST(format, format_byte_units_with_decimals) {
+  str::number_format fmt;
+  fmt.decimals = 2;
+  // Exactly two decimals, trailing zeros kept - a stable width is the point.
+  EXPECT_EQ(str::format::format_byte_units(1024LL * 1024LL * 1024LL, fmt), "1.00GB");
+  EXPECT_EQ(str::format::format_byte_units(5734563876LL, fmt), "5.34GB");
+  EXPECT_EQ(str::format::format_byte_units(5734563876LL, "G", fmt), "5.34");
+}
+
+TEST(format, format_byte_units_with_pinned_unit) {
+  str::number_format fmt;
+  fmt.decimals = 2;
+  fmt.byte_unit = "GB";
+  // Without a pinned unit these two land in different units, which is what
+  // makes "140.293GB/0.983TB" so hard to read (#1428).
+  EXPECT_EQ(str::format::format_byte_units(1006LL * 1024LL * 1024LL * 1024LL, fmt), "1006.00GB");
+  EXPECT_EQ(str::format::format_byte_units(140LL * 1024LL * 1024LL * 1024LL, fmt), "140.00GB");
+}
+
+TEST(format, format_byte_units_with_separators) {
+  str::number_format fmt;
+  fmt.decimals = 2;
+  fmt.byte_unit = "GB";
+  fmt.decimal_separator = ",";
+  fmt.thousands_separator = ".";
+  EXPECT_EQ(str::format::format_byte_units(1006LL * 1024LL * 1024LL * 1024LL, fmt), "1.006,00GB");
+}
+
+TEST(format, format_pct_with_number_format) {
+  str::number_format fmt;
+  EXPECT_EQ(str::format::format_pct(1LL, 3LL, fmt), "33.33");
+  fmt.decimals = 1;
+  EXPECT_EQ(str::format::format_pct(1LL, 3LL, fmt), "33.3");
+  fmt.decimal_separator = ",";
+  EXPECT_EQ(str::format::format_pct(1LL, 3LL, fmt), "33,3");
 }
 
 TEST(format, format_byte_units_zero_with_unit) {
@@ -376,10 +421,14 @@ TEST(format, format_byte_units_zero_with_unit) {
 }
 
 TEST(format, convert_to_byte_units_unknown_unit) {
-  // Unknown unit: divides through all BKMG_SIZE iterations
-  double result = str::format::convert_to_byte_units(1024LL, "Z");
-  // After 7 divisions by 1024, result is 1024 / 1024^7
-  EXPECT_GT(result, 0.0);
+  // A unit nobody recognises leaves the value alone; dividing seven times (what
+  // this used to do) turns a typo in perf-config into a metric off by 1024^7.
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL, "Z"), 1024.0);
+}
+
+TEST(format, convert_to_byte_units_is_case_insensitive) {
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(2048LL, "kb"), 2.0);
+  EXPECT_DOUBLE_EQ(str::format::convert_to_byte_units(1024LL * 1024LL, "m"), 1.0);
 }
 
 TEST(format, decode_time_with_long_type) {
@@ -539,11 +588,9 @@ TEST(format, convert_to_byte_units_int_type) {
 
 // format_byte_units<T>(value, unit) with non-zero unknown unit (falls through loop)
 TEST(format, format_byte_units_with_unit_unknown_nonzero) {
-  std::string result = str::format::format_byte_units(1024LL, "Z");
-  EXPECT_FALSE(result.empty());
-  // After dividing by 1024 seven times: 1024 / 1024^7 → very small number
-  double val = std::stod(result);
-  EXPECT_GT(val, 0.0);
+  // See format_byte_units_with_unknown_unit: an unknown unit is reported, not
+  // quietly rendered as value/1024^7 (#1428).
+  EXPECT_THROW(str::format::format_byte_units(1024LL, "Z"), std::invalid_argument);
 }
 
 // format_byte_units<T>(value, unit) with T (terabyte) unit

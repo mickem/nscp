@@ -445,14 +445,14 @@ filter_obj_handler::filter_obj_handler() {
   // `received` so perfdata stays numeric. format_byte_units auto-scales
   // to B/KB/MB/GB/... base-1024.
   registry_
-      .add_string_var(
-          "sent_human", [](auto obj) { return str::format::format_byte_units(obj->getBytesSentPersec()); },
+      .add_string_var_w_context(
+          "sent_human", [](auto obj, auto context) { return str::format::format_byte_units(obj->getBytesSentPersec(), context->get_number_format()); },
           "Bytes sent per second, formatted as a human-readable string (auto-scaled).")
-      .add_string_var(
-          "received_human", [](auto obj) { return str::format::format_byte_units(obj->getBytesReceivedPersec()); },
+      .add_string_var_w_context(
+          "received_human", [](auto obj, auto context) { return str::format::format_byte_units(obj->getBytesReceivedPersec(), context->get_number_format()); },
           "Bytes received per second, formatted as a human-readable string (auto-scaled).")
-      .add_string_var(
-          "total_human", [](auto obj) { return str::format::format_byte_units(obj->getBytesTotalPersec()); },
+      .add_string_var_w_context(
+          "total_human", [](auto obj, auto context) { return str::format::format_byte_units(obj->getBytesTotalPersec(), context->get_number_format()); },
           "Bytes total per second, formatted as a human-readable string (auto-scaled).");
 
   // The *_human strings above auto-scale; these let a template or a threshold

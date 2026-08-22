@@ -155,25 +155,29 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                        | Default Value                |
-    |-----------------------------------------------------------------------------------------------|------------------------------|
-    | <a id="check_docker_filter"></a>[filter](../common-options.md#filter)                         |                              |
-    | <a id="check_docker_warning"></a>[warning](../common-options.md#warning)                      |                              |
-    | <a id="check_docker_warn"></a>[warn](../common-options.md#warn)                               |                              |
-    | <a id="check_docker_critical"></a>[critical](../common-options.md#critical)                   | container_state != 'running' |
-    | <a id="check_docker_crit"></a>[crit](../common-options.md#crit)                               |                              |
-    | <a id="check_docker_ok"></a>[ok](../common-options.md#ok)                                     |                              |
-    | <a id="check_docker_debug"></a>[debug](../common-options.md#debug)                            | false                        |
-    | <a id="check_docker_show-all"></a>[show-all](../common-options.md#show-all)                   | false                        |
-    | <a id="check_docker_empty-state"></a>[empty-state](../common-options.md#empty-state)          | warning                      |
-    | <a id="check_docker_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                              |
-    | <a id="check_docker_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                        |
-    | <a id="check_docker_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                            |
-    | <a id="check_docker_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}           |
-    | <a id="check_docker_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                              |
-    | <a id="check_docker_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No containers found          |
-    | <a id="check_docker_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}=${container_state}  |
-    | <a id="check_docker_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                     |
+    | Option                                                                                                       | Default Value                |
+    |--------------------------------------------------------------------------------------------------------------|------------------------------|
+    | <a id="check_docker_filter"></a>[filter](../common-options.md#filter)                                        |                              |
+    | <a id="check_docker_warning"></a>[warning](../common-options.md#warning)                                     |                              |
+    | <a id="check_docker_warn"></a>[warn](../common-options.md#warn)                                              |                              |
+    | <a id="check_docker_critical"></a>[critical](../common-options.md#critical)                                  | container_state != 'running' |
+    | <a id="check_docker_crit"></a>[crit](../common-options.md#crit)                                              |                              |
+    | <a id="check_docker_ok"></a>[ok](../common-options.md#ok)                                                    |                              |
+    | <a id="check_docker_debug"></a>[debug](../common-options.md#debug)                                           | false                        |
+    | <a id="check_docker_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                        |
+    | <a id="check_docker_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | warning                      |
+    | <a id="check_docker_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                              |
+    | <a id="check_docker_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                        |
+    | <a id="check_docker_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                            |
+    | <a id="check_docker_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}           |
+    | <a id="check_docker_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                              |
+    | <a id="check_docker_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No containers found          |
+    | <a id="check_docker_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${names}=${container_state}  |
+    | <a id="check_docker_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${names}                     |
+    | <a id="check_docker_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                              |
+    | <a id="check_docker_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                              |
+    | <a id="check_docker_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                           |
+    | <a id="check_docker_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                              |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -215,25 +219,29 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                        | Default Value                |
-    |-----------------------------------------------------------------------------------------------|------------------------------|
-    | <a id="check_docker_filter"></a>[filter](../common-options.md#filter)                         |                              |
-    | <a id="check_docker_warning"></a>[warning](../common-options.md#warning)                      |                              |
-    | <a id="check_docker_warn"></a>[warn](../common-options.md#warn)                               |                              |
-    | <a id="check_docker_critical"></a>[critical](../common-options.md#critical)                   | container_state != 'running' |
-    | <a id="check_docker_crit"></a>[crit](../common-options.md#crit)                               |                              |
-    | <a id="check_docker_ok"></a>[ok](../common-options.md#ok)                                     |                              |
-    | <a id="check_docker_debug"></a>[debug](../common-options.md#debug)                            | false                        |
-    | <a id="check_docker_show-all"></a>[show-all](../common-options.md#show-all)                   | false                        |
-    | <a id="check_docker_empty-state"></a>[empty-state](../common-options.md#empty-state)          | warning                      |
-    | <a id="check_docker_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                              |
-    | <a id="check_docker_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                        |
-    | <a id="check_docker_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                            |
-    | <a id="check_docker_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}           |
-    | <a id="check_docker_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                              |
-    | <a id="check_docker_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No containers found          |
-    | <a id="check_docker_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}=${container_state}  |
-    | <a id="check_docker_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                     |
+    | Option                                                                                                       | Default Value                |
+    |--------------------------------------------------------------------------------------------------------------|------------------------------|
+    | <a id="check_docker_filter"></a>[filter](../common-options.md#filter)                                        |                              |
+    | <a id="check_docker_warning"></a>[warning](../common-options.md#warning)                                     |                              |
+    | <a id="check_docker_warn"></a>[warn](../common-options.md#warn)                                              |                              |
+    | <a id="check_docker_critical"></a>[critical](../common-options.md#critical)                                  | container_state != 'running' |
+    | <a id="check_docker_crit"></a>[crit](../common-options.md#crit)                                              |                              |
+    | <a id="check_docker_ok"></a>[ok](../common-options.md#ok)                                                    |                              |
+    | <a id="check_docker_debug"></a>[debug](../common-options.md#debug)                                           | false                        |
+    | <a id="check_docker_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                        |
+    | <a id="check_docker_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | warning                      |
+    | <a id="check_docker_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                              |
+    | <a id="check_docker_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                        |
+    | <a id="check_docker_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                            |
+    | <a id="check_docker_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}           |
+    | <a id="check_docker_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                              |
+    | <a id="check_docker_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No containers found          |
+    | <a id="check_docker_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${names}=${container_state}  |
+    | <a id="check_docker_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${names}                     |
+    | <a id="check_docker_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                              |
+    | <a id="check_docker_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                              |
+    | <a id="check_docker_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                           |
+    | <a id="check_docker_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                              |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -350,25 +358,29 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                           | Default Value                                 |
-    |--------------------------------------------------------------------------------------------------|-----------------------------------------------|
-    | <a id="check_docker_df_filter"></a>[filter](../common-options.md#filter)                         |                                               |
-    | <a id="check_docker_df_warning"></a>[warning](../common-options.md#warning)                      |                                               |
-    | <a id="check_docker_df_warn"></a>[warn](../common-options.md#warn)                               |                                               |
-    | <a id="check_docker_df_critical"></a>[critical](../common-options.md#critical)                   |                                               |
-    | <a id="check_docker_df_crit"></a>[crit](../common-options.md#crit)                               |                                               |
-    | <a id="check_docker_df_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
-    | <a id="check_docker_df_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
-    | <a id="check_docker_df_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                         |
-    | <a id="check_docker_df_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                       |
-    | <a id="check_docker_df_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                               |
-    | <a id="check_docker_df_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                         |
-    | <a id="check_docker_df_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                             |
-    | <a id="check_docker_df_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                            |
-    | <a id="check_docker_df_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                               |
-    | <a id="check_docker_df_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No disk usage information returned |
-    | <a id="check_docker_df_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${message}                                    |
-    | <a id="check_docker_df_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | docker                                        |
+    | Option                                                                                                          | Default Value                                 |
+    |-----------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+    | <a id="check_docker_df_filter"></a>[filter](../common-options.md#filter)                                        |                                               |
+    | <a id="check_docker_df_warning"></a>[warning](../common-options.md#warning)                                     |                                               |
+    | <a id="check_docker_df_warn"></a>[warn](../common-options.md#warn)                                              |                                               |
+    | <a id="check_docker_df_critical"></a>[critical](../common-options.md#critical)                                  |                                               |
+    | <a id="check_docker_df_crit"></a>[crit](../common-options.md#crit)                                              |                                               |
+    | <a id="check_docker_df_ok"></a>[ok](../common-options.md#ok)                                                    |                                               |
+    | <a id="check_docker_df_debug"></a>[debug](../common-options.md#debug)                                           | false                                         |
+    | <a id="check_docker_df_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                         |
+    | <a id="check_docker_df_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                       |
+    | <a id="check_docker_df_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                               |
+    | <a id="check_docker_df_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                         |
+    | <a id="check_docker_df_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                             |
+    | <a id="check_docker_df_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                            |
+    | <a id="check_docker_df_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                               |
+    | <a id="check_docker_df_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No disk usage information returned |
+    | <a id="check_docker_df_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${message}                                    |
+    | <a id="check_docker_df_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | docker                                        |
+    | <a id="check_docker_df_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                               |
+    | <a id="check_docker_df_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                               |
+    | <a id="check_docker_df_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                            |
+    | <a id="check_docker_df_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                               |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -400,25 +412,29 @@ OK: build cache 13752766549 (reclaimable 13752766549)|'docker build cache'=13752
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                           | Default Value                                 |
-    |--------------------------------------------------------------------------------------------------|-----------------------------------------------|
-    | <a id="check_docker_df_filter"></a>[filter](../common-options.md#filter)                         |                                               |
-    | <a id="check_docker_df_warning"></a>[warning](../common-options.md#warning)                      |                                               |
-    | <a id="check_docker_df_warn"></a>[warn](../common-options.md#warn)                               |                                               |
-    | <a id="check_docker_df_critical"></a>[critical](../common-options.md#critical)                   |                                               |
-    | <a id="check_docker_df_crit"></a>[crit](../common-options.md#crit)                               |                                               |
-    | <a id="check_docker_df_ok"></a>[ok](../common-options.md#ok)                                     |                                               |
-    | <a id="check_docker_df_debug"></a>[debug](../common-options.md#debug)                            | false                                         |
-    | <a id="check_docker_df_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                         |
-    | <a id="check_docker_df_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                       |
-    | <a id="check_docker_df_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                               |
-    | <a id="check_docker_df_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                         |
-    | <a id="check_docker_df_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                             |
-    | <a id="check_docker_df_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                            |
-    | <a id="check_docker_df_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                               |
-    | <a id="check_docker_df_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No disk usage information returned |
-    | <a id="check_docker_df_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${message}                                    |
-    | <a id="check_docker_df_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | docker                                        |
+    | Option                                                                                                          | Default Value                                 |
+    |-----------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+    | <a id="check_docker_df_filter"></a>[filter](../common-options.md#filter)                                        |                                               |
+    | <a id="check_docker_df_warning"></a>[warning](../common-options.md#warning)                                     |                                               |
+    | <a id="check_docker_df_warn"></a>[warn](../common-options.md#warn)                                              |                                               |
+    | <a id="check_docker_df_critical"></a>[critical](../common-options.md#critical)                                  |                                               |
+    | <a id="check_docker_df_crit"></a>[crit](../common-options.md#crit)                                              |                                               |
+    | <a id="check_docker_df_ok"></a>[ok](../common-options.md#ok)                                                    |                                               |
+    | <a id="check_docker_df_debug"></a>[debug](../common-options.md#debug)                                           | false                                         |
+    | <a id="check_docker_df_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                         |
+    | <a id="check_docker_df_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                       |
+    | <a id="check_docker_df_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                               |
+    | <a id="check_docker_df_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                         |
+    | <a id="check_docker_df_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                             |
+    | <a id="check_docker_df_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                            |
+    | <a id="check_docker_df_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                               |
+    | <a id="check_docker_df_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No disk usage information returned |
+    | <a id="check_docker_df_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${message}                                    |
+    | <a id="check_docker_df_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | docker                                        |
+    | <a id="check_docker_df_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                               |
+    | <a id="check_docker_df_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                               |
+    | <a id="check_docker_df_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                            |
+    | <a id="check_docker_df_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                               |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -526,25 +542,29 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                             | Default Value                                                                                                       |
-    |----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
-    | <a id="check_docker_info_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                                     |
-    | <a id="check_docker_info_warning"></a>[warning](../common-options.md#warning)                      |                                                                                                                     |
-    | <a id="check_docker_info_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                     |
-    | <a id="check_docker_info_critical"></a>[critical](../common-options.md#critical)                   |                                                                                                                     |
-    | <a id="check_docker_info_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                     |
-    | <a id="check_docker_info_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                     |
-    | <a id="check_docker_info_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                               |
-    | <a id="check_docker_info_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                               |
-    | <a id="check_docker_info_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                                                             |
-    | <a id="check_docker_info_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                     |
-    | <a id="check_docker_info_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                               |
-    | <a id="check_docker_info_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                                   |
-    | <a id="check_docker_info_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                                  |
-    | <a id="check_docker_info_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                                                     |
-    | <a id="check_docker_info_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No daemon information returned                                                                           |
-    | <a id="check_docker_info_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images |
-    | <a id="check_docker_info_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                                                             |
+    | Option                                                                                                            | Default Value                                                                                                       |
+    |-------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+    | <a id="check_docker_info_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                                     |
+    | <a id="check_docker_info_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                                                     |
+    | <a id="check_docker_info_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                                     |
+    | <a id="check_docker_info_critical"></a>[critical](../common-options.md#critical)                                  |                                                                                                                     |
+    | <a id="check_docker_info_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                                     |
+    | <a id="check_docker_info_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                                     |
+    | <a id="check_docker_info_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                               |
+    | <a id="check_docker_info_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                               |
+    | <a id="check_docker_info_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                                             |
+    | <a id="check_docker_info_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                                     |
+    | <a id="check_docker_info_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                               |
+    | <a id="check_docker_info_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                                   |
+    | <a id="check_docker_info_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                                  |
+    | <a id="check_docker_info_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                                     |
+    | <a id="check_docker_info_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No daemon information returned                                                                           |
+    | <a id="check_docker_info_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images |
+    | <a id="check_docker_info_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                                                                             |
+    | <a id="check_docker_info_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                                     |
+    | <a id="check_docker_info_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                                     |
+    | <a id="check_docker_info_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                                  |
+    | <a id="check_docker_info_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                                     |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -576,25 +596,29 @@ Failed to connect to docker daemon at '/var/run/missing.sock': Failed to connect
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                             | Default Value                                                                                                       |
-    |----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
-    | <a id="check_docker_info_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                                     |
-    | <a id="check_docker_info_warning"></a>[warning](../common-options.md#warning)                      |                                                                                                                     |
-    | <a id="check_docker_info_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                     |
-    | <a id="check_docker_info_critical"></a>[critical](../common-options.md#critical)                   |                                                                                                                     |
-    | <a id="check_docker_info_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                     |
-    | <a id="check_docker_info_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                     |
-    | <a id="check_docker_info_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                               |
-    | <a id="check_docker_info_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                               |
-    | <a id="check_docker_info_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                                                             |
-    | <a id="check_docker_info_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                     |
-    | <a id="check_docker_info_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                               |
-    | <a id="check_docker_info_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                                   |
-    | <a id="check_docker_info_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                                  |
-    | <a id="check_docker_info_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                                                     |
-    | <a id="check_docker_info_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No daemon information returned                                                                           |
-    | <a id="check_docker_info_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images |
-    | <a id="check_docker_info_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                                                             |
+    | Option                                                                                                            | Default Value                                                                                                       |
+    |-------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+    | <a id="check_docker_info_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                                     |
+    | <a id="check_docker_info_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                                                     |
+    | <a id="check_docker_info_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                                     |
+    | <a id="check_docker_info_critical"></a>[critical](../common-options.md#critical)                                  |                                                                                                                     |
+    | <a id="check_docker_info_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                                     |
+    | <a id="check_docker_info_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                                     |
+    | <a id="check_docker_info_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                               |
+    | <a id="check_docker_info_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                               |
+    | <a id="check_docker_info_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                                             |
+    | <a id="check_docker_info_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                                     |
+    | <a id="check_docker_info_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                               |
+    | <a id="check_docker_info_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                                   |
+    | <a id="check_docker_info_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                                  |
+    | <a id="check_docker_info_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                                     |
+    | <a id="check_docker_info_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No daemon information returned                                                                           |
+    | <a id="check_docker_info_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | docker ${version} on ${name}: ${running} running, ${paused} paused, ${stopped} stopped containers, ${images} images |
+    | <a id="check_docker_info_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                                                                             |
+    | <a id="check_docker_info_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                                     |
+    | <a id="check_docker_info_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                                     |
+    | <a id="check_docker_info_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                                  |
+    | <a id="check_docker_info_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                                     |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -711,25 +735,29 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                                 | Default Value                                           |
-    |--------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
-    | <a id="check_docker_restarts_filter"></a>[filter](../common-options.md#filter)                         |                                                         |
-    | <a id="check_docker_restarts_warning"></a>[warning](../common-options.md#warning)                      | restart_count > 3 and started < 15m and started >= 0    |
-    | <a id="check_docker_restarts_warn"></a>[warn](../common-options.md#warn)                               |                                                         |
-    | <a id="check_docker_restarts_critical"></a>[critical](../common-options.md#critical)                   | oom_killed = 1                                          |
-    | <a id="check_docker_restarts_crit"></a>[crit](../common-options.md#crit)                               |                                                         |
-    | <a id="check_docker_restarts_ok"></a>[ok](../common-options.md#ok)                                     |                                                         |
-    | <a id="check_docker_restarts_debug"></a>[debug](../common-options.md#debug)                            | false                                                   |
-    | <a id="check_docker_restarts_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                   |
-    | <a id="check_docker_restarts_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                      |
-    | <a id="check_docker_restarts_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                         |
-    | <a id="check_docker_restarts_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                   |
-    | <a id="check_docker_restarts_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                       |
-    | <a id="check_docker_restarts_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                      |
-    | <a id="check_docker_restarts_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                         |
-    | <a id="check_docker_restarts_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No containers found                                     |
-    | <a id="check_docker_restarts_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}: ${restart_count} restarts, ${container_state} |
-    | <a id="check_docker_restarts_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                                                |
+    | Option                                                                                                                | Default Value                                           |
+    |-----------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
+    | <a id="check_docker_restarts_filter"></a>[filter](../common-options.md#filter)                                        |                                                         |
+    | <a id="check_docker_restarts_warning"></a>[warning](../common-options.md#warning)                                     | restart_count > 3 and started < 15m and started >= 0    |
+    | <a id="check_docker_restarts_warn"></a>[warn](../common-options.md#warn)                                              |                                                         |
+    | <a id="check_docker_restarts_critical"></a>[critical](../common-options.md#critical)                                  | oom_killed = 1                                          |
+    | <a id="check_docker_restarts_crit"></a>[crit](../common-options.md#crit)                                              |                                                         |
+    | <a id="check_docker_restarts_ok"></a>[ok](../common-options.md#ok)                                                    |                                                         |
+    | <a id="check_docker_restarts_debug"></a>[debug](../common-options.md#debug)                                           | false                                                   |
+    | <a id="check_docker_restarts_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                   |
+    | <a id="check_docker_restarts_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                      |
+    | <a id="check_docker_restarts_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                         |
+    | <a id="check_docker_restarts_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                   |
+    | <a id="check_docker_restarts_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                       |
+    | <a id="check_docker_restarts_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                      |
+    | <a id="check_docker_restarts_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                         |
+    | <a id="check_docker_restarts_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No containers found                                     |
+    | <a id="check_docker_restarts_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${names}: ${restart_count} restarts, ${container_state} |
+    | <a id="check_docker_restarts_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${names}                                                |
+    | <a id="check_docker_restarts_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                         |
+    | <a id="check_docker_restarts_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                         |
+    | <a id="check_docker_restarts_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                      |
+    | <a id="check_docker_restarts_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                         |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -764,25 +792,29 @@ OK: app-backend: 0 restarts, up 236s, exit=0 oom=0|'app-backend restarts'=0;0;0
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                                 | Default Value                                           |
-    |--------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
-    | <a id="check_docker_restarts_filter"></a>[filter](../common-options.md#filter)                         |                                                         |
-    | <a id="check_docker_restarts_warning"></a>[warning](../common-options.md#warning)                      | restart_count > 3 and started < 15m and started >= 0    |
-    | <a id="check_docker_restarts_warn"></a>[warn](../common-options.md#warn)                               |                                                         |
-    | <a id="check_docker_restarts_critical"></a>[critical](../common-options.md#critical)                   | oom_killed = 1                                          |
-    | <a id="check_docker_restarts_crit"></a>[crit](../common-options.md#crit)                               |                                                         |
-    | <a id="check_docker_restarts_ok"></a>[ok](../common-options.md#ok)                                     |                                                         |
-    | <a id="check_docker_restarts_debug"></a>[debug](../common-options.md#debug)                            | false                                                   |
-    | <a id="check_docker_restarts_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                   |
-    | <a id="check_docker_restarts_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                      |
-    | <a id="check_docker_restarts_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                         |
-    | <a id="check_docker_restarts_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                   |
-    | <a id="check_docker_restarts_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                       |
-    | <a id="check_docker_restarts_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                      |
-    | <a id="check_docker_restarts_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                         |
-    | <a id="check_docker_restarts_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No containers found                                     |
-    | <a id="check_docker_restarts_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}: ${restart_count} restarts, ${container_state} |
-    | <a id="check_docker_restarts_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                                                |
+    | Option                                                                                                                | Default Value                                           |
+    |-----------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------|
+    | <a id="check_docker_restarts_filter"></a>[filter](../common-options.md#filter)                                        |                                                         |
+    | <a id="check_docker_restarts_warning"></a>[warning](../common-options.md#warning)                                     | restart_count > 3 and started < 15m and started >= 0    |
+    | <a id="check_docker_restarts_warn"></a>[warn](../common-options.md#warn)                                              |                                                         |
+    | <a id="check_docker_restarts_critical"></a>[critical](../common-options.md#critical)                                  | oom_killed = 1                                          |
+    | <a id="check_docker_restarts_crit"></a>[crit](../common-options.md#crit)                                              |                                                         |
+    | <a id="check_docker_restarts_ok"></a>[ok](../common-options.md#ok)                                                    |                                                         |
+    | <a id="check_docker_restarts_debug"></a>[debug](../common-options.md#debug)                                           | false                                                   |
+    | <a id="check_docker_restarts_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                   |
+    | <a id="check_docker_restarts_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                      |
+    | <a id="check_docker_restarts_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                         |
+    | <a id="check_docker_restarts_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                   |
+    | <a id="check_docker_restarts_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                       |
+    | <a id="check_docker_restarts_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                      |
+    | <a id="check_docker_restarts_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                         |
+    | <a id="check_docker_restarts_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No containers found                                     |
+    | <a id="check_docker_restarts_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${names}: ${restart_count} restarts, ${container_state} |
+    | <a id="check_docker_restarts_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${names}                                                |
+    | <a id="check_docker_restarts_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                         |
+    | <a id="check_docker_restarts_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                         |
+    | <a id="check_docker_restarts_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                      |
+    | <a id="check_docker_restarts_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                         |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -896,25 +928,29 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                              | Default Value                                                |
-    |-----------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
-    | <a id="check_docker_stats_filter"></a>[filter](../common-options.md#filter)                         |                                                              |
-    | <a id="check_docker_stats_warning"></a>[warning](../common-options.md#warning)                      |                                                              |
-    | <a id="check_docker_stats_warn"></a>[warn](../common-options.md#warn)                               |                                                              |
-    | <a id="check_docker_stats_critical"></a>[critical](../common-options.md#critical)                   |                                                              |
-    | <a id="check_docker_stats_crit"></a>[crit](../common-options.md#crit)                               |                                                              |
-    | <a id="check_docker_stats_ok"></a>[ok](../common-options.md#ok)                                     |                                                              |
-    | <a id="check_docker_stats_debug"></a>[debug](../common-options.md#debug)                            | false                                                        |
-    | <a id="check_docker_stats_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                        |
-    | <a id="check_docker_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                           |
-    | <a id="check_docker_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                              |
-    | <a id="check_docker_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                        |
-    | <a id="check_docker_stats_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                            |
-    | <a id="check_docker_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                           |
-    | <a id="check_docker_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                              |
-    | <a id="check_docker_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No running containers                                        |
-    | <a id="check_docker_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%) |
-    | <a id="check_docker_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                                                     |
+    | Option                                                                                                             | Default Value                                                |
+    |--------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+    | <a id="check_docker_stats_filter"></a>[filter](../common-options.md#filter)                                        |                                                              |
+    | <a id="check_docker_stats_warning"></a>[warning](../common-options.md#warning)                                     |                                                              |
+    | <a id="check_docker_stats_warn"></a>[warn](../common-options.md#warn)                                              |                                                              |
+    | <a id="check_docker_stats_critical"></a>[critical](../common-options.md#critical)                                  |                                                              |
+    | <a id="check_docker_stats_crit"></a>[crit](../common-options.md#crit)                                              |                                                              |
+    | <a id="check_docker_stats_ok"></a>[ok](../common-options.md#ok)                                                    |                                                              |
+    | <a id="check_docker_stats_debug"></a>[debug](../common-options.md#debug)                                           | false                                                        |
+    | <a id="check_docker_stats_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                        |
+    | <a id="check_docker_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                           |
+    | <a id="check_docker_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                              |
+    | <a id="check_docker_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                        |
+    | <a id="check_docker_stats_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                            |
+    | <a id="check_docker_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                           |
+    | <a id="check_docker_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                              |
+    | <a id="check_docker_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No running containers                                        |
+    | <a id="check_docker_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%) |
+    | <a id="check_docker_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${names}                                                     |
+    | <a id="check_docker_stats_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                              |
+    | <a id="check_docker_stats_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                              |
+    | <a id="check_docker_stats_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                           |
+    | <a id="check_docker_stats_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                              |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -949,25 +985,29 @@ OK: web-frontend: cpu 1%, memory 12.4MB of 15.35GB (0%), app-backend: cpu 2%, me
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                              | Default Value                                                |
-    |-----------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
-    | <a id="check_docker_stats_filter"></a>[filter](../common-options.md#filter)                         |                                                              |
-    | <a id="check_docker_stats_warning"></a>[warning](../common-options.md#warning)                      |                                                              |
-    | <a id="check_docker_stats_warn"></a>[warn](../common-options.md#warn)                               |                                                              |
-    | <a id="check_docker_stats_critical"></a>[critical](../common-options.md#critical)                   |                                                              |
-    | <a id="check_docker_stats_crit"></a>[crit](../common-options.md#crit)                               |                                                              |
-    | <a id="check_docker_stats_ok"></a>[ok](../common-options.md#ok)                                     |                                                              |
-    | <a id="check_docker_stats_debug"></a>[debug](../common-options.md#debug)                            | false                                                        |
-    | <a id="check_docker_stats_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                        |
-    | <a id="check_docker_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                           |
-    | <a id="check_docker_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                              |
-    | <a id="check_docker_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                        |
-    | <a id="check_docker_stats_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                            |
-    | <a id="check_docker_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                           |
-    | <a id="check_docker_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                              |
-    | <a id="check_docker_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No running containers                                        |
-    | <a id="check_docker_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%) |
-    | <a id="check_docker_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${names}                                                     |
+    | Option                                                                                                             | Default Value                                                |
+    |--------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+    | <a id="check_docker_stats_filter"></a>[filter](../common-options.md#filter)                                        |                                                              |
+    | <a id="check_docker_stats_warning"></a>[warning](../common-options.md#warning)                                     |                                                              |
+    | <a id="check_docker_stats_warn"></a>[warn](../common-options.md#warn)                                              |                                                              |
+    | <a id="check_docker_stats_critical"></a>[critical](../common-options.md#critical)                                  |                                                              |
+    | <a id="check_docker_stats_crit"></a>[crit](../common-options.md#crit)                                              |                                                              |
+    | <a id="check_docker_stats_ok"></a>[ok](../common-options.md#ok)                                                    |                                                              |
+    | <a id="check_docker_stats_debug"></a>[debug](../common-options.md#debug)                                           | false                                                        |
+    | <a id="check_docker_stats_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                        |
+    | <a id="check_docker_stats_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                           |
+    | <a id="check_docker_stats_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                              |
+    | <a id="check_docker_stats_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                        |
+    | <a id="check_docker_stats_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                            |
+    | <a id="check_docker_stats_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                           |
+    | <a id="check_docker_stats_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                              |
+    | <a id="check_docker_stats_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No running containers                                        |
+    | <a id="check_docker_stats_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${names}: cpu ${cpu_pct}%, memory ${memory} (${memory_pct}%) |
+    | <a id="check_docker_stats_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${names}                                                     |
+    | <a id="check_docker_stats_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                              |
+    | <a id="check_docker_stats_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                              |
+    | <a id="check_docker_stats_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                           |
+    | <a id="check_docker_stats_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                              |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

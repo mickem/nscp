@@ -171,25 +171,29 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                       | Default Value                                                                        |
-|----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
-| <a id="check_mssql_filter"></a>[filter](../common-options.md#filter)                         |                                                                                      |
-| <a id="check_mssql_warning"></a>[warning](../common-options.md#warning)                      |                                                                                      |
-| <a id="check_mssql_warn"></a>[warn](../common-options.md#warn)                               |                                                                                      |
-| <a id="check_mssql_critical"></a>[critical](../common-options.md#critical)                   |                                                                                      |
-| <a id="check_mssql_crit"></a>[crit](../common-options.md#crit)                               |                                                                                      |
-| <a id="check_mssql_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                      |
-| <a id="check_mssql_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                |
-| <a id="check_mssql_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                |
-| <a id="check_mssql_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                              |
-| <a id="check_mssql_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                      |
-| <a id="check_mssql_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                |
-| <a id="check_mssql_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                    |
-| <a id="check_mssql_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                   |
-| <a id="check_mssql_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                                                      |
-| <a id="check_mssql_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No server information returned                                            |
-| <a id="check_mssql_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${server_name}: SQL Server ${version} ${product_level} ${edition}, uptime ${uptime}s |
-| <a id="check_mssql_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${server_name}                                                                       |
+| Option                                                                                                      | Default Value                                                                        |
+|-------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| <a id="check_mssql_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                      |
+| <a id="check_mssql_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                      |
+| <a id="check_mssql_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                      |
+| <a id="check_mssql_critical"></a>[critical](../common-options.md#critical)                                  |                                                                                      |
+| <a id="check_mssql_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                      |
+| <a id="check_mssql_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                      |
+| <a id="check_mssql_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                |
+| <a id="check_mssql_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                |
+| <a id="check_mssql_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                              |
+| <a id="check_mssql_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                      |
+| <a id="check_mssql_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                |
+| <a id="check_mssql_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                    |
+| <a id="check_mssql_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                   |
+| <a id="check_mssql_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                      |
+| <a id="check_mssql_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No server information returned                                            |
+| <a id="check_mssql_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${server_name}: SQL Server ${version} ${product_level} ${edition}, uptime ${uptime}s |
+| <a id="check_mssql_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${server_name}                                                                       |
+| <a id="check_mssql_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                      |
+| <a id="check_mssql_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                      |
+| <a id="check_mssql_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                   |
+| <a id="check_mssql_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                      |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -380,25 +384,29 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                              | Default Value                                                    |
-|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
-| <a id="check_mssql_backup_filter"></a>[filter](../common-options.md#filter)                         |                                                                  |
-| <a id="check_mssql_backup_warning"></a>[warning](../common-options.md#warning)                      | full_age > 3d                                                    |
-| <a id="check_mssql_backup_warn"></a>[warn](../common-options.md#warn)                               |                                                                  |
-| <a id="check_mssql_backup_critical"></a>[critical](../common-options.md#critical)                   | full_age < 0 or full_age > 7d                                    |
-| <a id="check_mssql_backup_crit"></a>[crit](../common-options.md#crit)                               |                                                                  |
-| <a id="check_mssql_backup_ok"></a>[ok](../common-options.md#ok)                                     |                                                                  |
-| <a id="check_mssql_backup_debug"></a>[debug](../common-options.md#debug)                            | false                                                            |
-| <a id="check_mssql_backup_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                            |
-| <a id="check_mssql_backup_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                          |
-| <a id="check_mssql_backup_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                  |
-| <a id="check_mssql_backup_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                            |
-| <a id="check_mssql_backup_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                |
-| <a id="check_mssql_backup_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_count}/${count} databases (${problem_list}) |
-| <a id="check_mssql_backup_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) databases have recent backups            |
-| <a id="check_mssql_backup_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No databases found                                    |
-| <a id="check_mssql_backup_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: last full backup ${full_age}s ago                       |
-| <a id="check_mssql_backup_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                          |
+| Option                                                                                                             | Default Value                                                    |
+|--------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| <a id="check_mssql_backup_filter"></a>[filter](../common-options.md#filter)                                        |                                                                  |
+| <a id="check_mssql_backup_warning"></a>[warning](../common-options.md#warning)                                     | full_age > 3d                                                    |
+| <a id="check_mssql_backup_warn"></a>[warn](../common-options.md#warn)                                              |                                                                  |
+| <a id="check_mssql_backup_critical"></a>[critical](../common-options.md#critical)                                  | full_age < 0 or full_age > 7d                                    |
+| <a id="check_mssql_backup_crit"></a>[crit](../common-options.md#crit)                                              |                                                                  |
+| <a id="check_mssql_backup_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                  |
+| <a id="check_mssql_backup_debug"></a>[debug](../common-options.md#debug)                                           | false                                                            |
+| <a id="check_mssql_backup_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                            |
+| <a id="check_mssql_backup_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                          |
+| <a id="check_mssql_backup_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                  |
+| <a id="check_mssql_backup_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                            |
+| <a id="check_mssql_backup_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                |
+| <a id="check_mssql_backup_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_count}/${count} databases (${problem_list}) |
+| <a id="check_mssql_backup_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) databases have recent backups            |
+| <a id="check_mssql_backup_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No databases found                                    |
+| <a id="check_mssql_backup_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: last full backup ${full_age}s ago                       |
+| <a id="check_mssql_backup_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                          |
+| <a id="check_mssql_backup_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                  |
+| <a id="check_mssql_backup_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                  |
+| <a id="check_mssql_backup_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                               |
+| <a id="check_mssql_backup_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                  |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -543,25 +551,29 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                                 | Default Value                                                          |
-|--------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
-| <a id="check_mssql_databases_filter"></a>[filter](../common-options.md#filter)                         |                                                                        |
-| <a id="check_mssql_databases_warning"></a>[warning](../common-options.md#warning)                      | state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE'       |
-| <a id="check_mssql_databases_warn"></a>[warn](../common-options.md#warn)                               |                                                                        |
-| <a id="check_mssql_databases_critical"></a>[critical](../common-options.md#critical)                   | state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING' |
-| <a id="check_mssql_databases_crit"></a>[crit](../common-options.md#crit)                               |                                                                        |
-| <a id="check_mssql_databases_ok"></a>[ok](../common-options.md#ok)                                     |                                                                        |
-| <a id="check_mssql_databases_debug"></a>[debug](../common-options.md#debug)                            | false                                                                  |
-| <a id="check_mssql_databases_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                  |
-| <a id="check_mssql_databases_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                |
-| <a id="check_mssql_databases_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                        |
-| <a id="check_mssql_databases_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                  |
-| <a id="check_mssql_databases_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                      |
-| <a id="check_mssql_databases_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_count}/${count} databases (${problem_list})       |
-| <a id="check_mssql_databases_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) databases are ONLINE                           |
-| <a id="check_mssql_databases_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No databases found                                          |
-| <a id="check_mssql_databases_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${state}                                                      |
-| <a id="check_mssql_databases_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                |
+| Option                                                                                                                | Default Value                                                          |
+|-----------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
+| <a id="check_mssql_databases_filter"></a>[filter](../common-options.md#filter)                                        |                                                                        |
+| <a id="check_mssql_databases_warning"></a>[warning](../common-options.md#warning)                                     | state = 'RESTORING' or state = 'RECOVERING' or state = 'OFFLINE'       |
+| <a id="check_mssql_databases_warn"></a>[warn](../common-options.md#warn)                                              |                                                                        |
+| <a id="check_mssql_databases_critical"></a>[critical](../common-options.md#critical)                                  | state = 'SUSPECT' or state = 'EMERGENCY' or state = 'RECOVERY_PENDING' |
+| <a id="check_mssql_databases_crit"></a>[crit](../common-options.md#crit)                                              |                                                                        |
+| <a id="check_mssql_databases_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                        |
+| <a id="check_mssql_databases_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                  |
+| <a id="check_mssql_databases_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                  |
+| <a id="check_mssql_databases_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                |
+| <a id="check_mssql_databases_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                        |
+| <a id="check_mssql_databases_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                  |
+| <a id="check_mssql_databases_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                      |
+| <a id="check_mssql_databases_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_count}/${count} databases (${problem_list})       |
+| <a id="check_mssql_databases_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) databases are ONLINE                           |
+| <a id="check_mssql_databases_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No databases found                                          |
+| <a id="check_mssql_databases_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${state}                                                      |
+| <a id="check_mssql_databases_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                                |
+| <a id="check_mssql_databases_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                        |
+| <a id="check_mssql_databases_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                        |
+| <a id="check_mssql_databases_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                     |
+| <a id="check_mssql_databases_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                        |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -732,25 +744,29 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                            | Default Value                                               |
-|---------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
-| <a id="check_mssql_jobs_filter"></a>[filter](../common-options.md#filter)                         | enabled = 1                                                 |
-| <a id="check_mssql_jobs_warning"></a>[warning](../common-options.md#warning)                      | last_run_status = 'canceled' or last_run_status = 'retry'   |
-| <a id="check_mssql_jobs_warn"></a>[warn](../common-options.md#warn)                               |                                                             |
-| <a id="check_mssql_jobs_critical"></a>[critical](../common-options.md#critical)                   | last_run_status = 'failed'                                  |
-| <a id="check_mssql_jobs_crit"></a>[crit](../common-options.md#crit)                               |                                                             |
-| <a id="check_mssql_jobs_ok"></a>[ok](../common-options.md#ok)                                     |                                                             |
-| <a id="check_mssql_jobs_debug"></a>[debug](../common-options.md#debug)                            | false                                                       |
-| <a id="check_mssql_jobs_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                       |
-| <a id="check_mssql_jobs_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                          |
-| <a id="check_mssql_jobs_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                             |
-| <a id="check_mssql_jobs_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                       |
-| <a id="check_mssql_jobs_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                           |
-| <a id="check_mssql_jobs_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_count}/${count} jobs (${problem_list}) |
-| <a id="check_mssql_jobs_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) jobs succeeded                      |
-| <a id="check_mssql_jobs_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No enabled SQL Agent jobs found                  |
-| <a id="check_mssql_jobs_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${last_run_status}                                 |
-| <a id="check_mssql_jobs_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                     |
+| Option                                                                                                           | Default Value                                               |
+|------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+| <a id="check_mssql_jobs_filter"></a>[filter](../common-options.md#filter)                                        | enabled = 1                                                 |
+| <a id="check_mssql_jobs_warning"></a>[warning](../common-options.md#warning)                                     | last_run_status = 'canceled' or last_run_status = 'retry'   |
+| <a id="check_mssql_jobs_warn"></a>[warn](../common-options.md#warn)                                              |                                                             |
+| <a id="check_mssql_jobs_critical"></a>[critical](../common-options.md#critical)                                  | last_run_status = 'failed'                                  |
+| <a id="check_mssql_jobs_crit"></a>[crit](../common-options.md#crit)                                              |                                                             |
+| <a id="check_mssql_jobs_ok"></a>[ok](../common-options.md#ok)                                                    |                                                             |
+| <a id="check_mssql_jobs_debug"></a>[debug](../common-options.md#debug)                                           | false                                                       |
+| <a id="check_mssql_jobs_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                       |
+| <a id="check_mssql_jobs_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                          |
+| <a id="check_mssql_jobs_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                             |
+| <a id="check_mssql_jobs_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                       |
+| <a id="check_mssql_jobs_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                           |
+| <a id="check_mssql_jobs_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_count}/${count} jobs (${problem_list}) |
+| <a id="check_mssql_jobs_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) jobs succeeded                      |
+| <a id="check_mssql_jobs_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No enabled SQL Agent jobs found                  |
+| <a id="check_mssql_jobs_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${last_run_status}                                 |
+| <a id="check_mssql_jobs_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                     |
+| <a id="check_mssql_jobs_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                             |
+| <a id="check_mssql_jobs_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                             |
+| <a id="check_mssql_jobs_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                          |
+| <a id="check_mssql_jobs_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                             |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -919,25 +935,29 @@ Trust the server certificate (TrustServerCertificate=yes, modern ODBC drivers on
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                             | Default Value |
-|----------------------------------------------------------------------------------------------------|---------------|
-| <a id="check_mssql_query_filter"></a>[filter](../common-options.md#filter)                         |               |
-| <a id="check_mssql_query_warning"></a>[warning](../common-options.md#warning)                      |               |
-| <a id="check_mssql_query_warn"></a>[warn](../common-options.md#warn)                               |               |
-| <a id="check_mssql_query_critical"></a>[critical](../common-options.md#critical)                   |               |
-| <a id="check_mssql_query_crit"></a>[crit](../common-options.md#crit)                               |               |
-| <a id="check_mssql_query_ok"></a>[ok](../common-options.md#ok)                                     |               |
-| <a id="check_mssql_query_debug"></a>[debug](../common-options.md#debug)                            | false         |
-| <a id="check_mssql_query_show-all"></a>[show-all](../common-options.md#show-all)                   | false         |
-| <a id="check_mssql_query_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored       |
-| <a id="check_mssql_query_perf-config"></a>[perf-config](../common-options.md#perf-config)          |               |
-| <a id="check_mssql_query_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false         |
-| <a id="check_mssql_query_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,             |
-| <a id="check_mssql_query_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${list}       |
-| <a id="check_mssql_query_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |               |
-| <a id="check_mssql_query_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |               |
-| <a id="check_mssql_query_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | %(line)       |
-| <a id="check_mssql_query_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          |               |
+| Option                                                                                                            | Default Value |
+|-------------------------------------------------------------------------------------------------------------------|---------------|
+| <a id="check_mssql_query_filter"></a>[filter](../common-options.md#filter)                                        |               |
+| <a id="check_mssql_query_warning"></a>[warning](../common-options.md#warning)                                     |               |
+| <a id="check_mssql_query_warn"></a>[warn](../common-options.md#warn)                                              |               |
+| <a id="check_mssql_query_critical"></a>[critical](../common-options.md#critical)                                  |               |
+| <a id="check_mssql_query_crit"></a>[crit](../common-options.md#crit)                                              |               |
+| <a id="check_mssql_query_ok"></a>[ok](../common-options.md#ok)                                                    |               |
+| <a id="check_mssql_query_debug"></a>[debug](../common-options.md#debug)                                           | false         |
+| <a id="check_mssql_query_show-all"></a>[show-all](../common-options.md#show-all)                                  | false         |
+| <a id="check_mssql_query_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored       |
+| <a id="check_mssql_query_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |               |
+| <a id="check_mssql_query_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false         |
+| <a id="check_mssql_query_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,             |
+| <a id="check_mssql_query_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${list}       |
+| <a id="check_mssql_query_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |               |
+| <a id="check_mssql_query_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |               |
+| <a id="check_mssql_query_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | %(line)       |
+| <a id="check_mssql_query_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         |               |
+| <a id="check_mssql_query_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |               |
+| <a id="check_mssql_query_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |               |
+| <a id="check_mssql_query_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1            |
+| <a id="check_mssql_query_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |               |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

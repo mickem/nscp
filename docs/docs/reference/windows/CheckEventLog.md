@@ -294,26 +294,30 @@ Use bookmarks to only look for messages since last check (with the same bookmark
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                          | Default Value                                  |
-|-------------------------------------------------------------------------------------------------|------------------------------------------------|
-| <a id="check_eventlog_filter"></a>[filter](../common-options.md#filter)                         | level in ('warning', 'error', 'critical')      |
-| <a id="check_eventlog_warning"></a>[warning](../common-options.md#warning)                      | level = 'warning', problem_count > 0           |
-| <a id="check_eventlog_warn"></a>[warn](../common-options.md#warn)                               |                                                |
-| <a id="check_eventlog_critical"></a>[critical](../common-options.md#critical)                   | level in ('error', 'critical')                 |
-| <a id="check_eventlog_crit"></a>[crit](../common-options.md#crit)                               |                                                |
-| <a id="check_eventlog_ok"></a>[ok](../common-options.md#ok)                                     |                                                |
-| <a id="check_eventlog_debug"></a>[debug](../common-options.md#debug)                            | false                                          |
-| <a id="check_eventlog_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                          |
-| <a id="check_eventlog_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                             |
-| <a id="check_eventlog_perf-config"></a>[perf-config](../common-options.md#perf-config)          | level(ignored:true)                            |
-| <a id="check_eventlog_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                          |
-| <a id="check_eventlog_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                              |
-| <a id="check_eventlog_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${count} message(s) ${problem_list} |
-| <a id="check_eventlog_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): Event log seems fine                |
-| <a id="check_eventlog_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No entries found                    |
-| <a id="check_eventlog_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${file} ${source} (${message})                 |
-| <a id="check_eventlog_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${file}_${source}                              |
-| <a id="check_eventlog_unique-index"></a>[unique-index](../common-options.md#unique-index)       |                                                |
+| Option                                                                                                         | Default Value                                  |
+|----------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| <a id="check_eventlog_filter"></a>[filter](../common-options.md#filter)                                        | level in ('warning', 'error', 'critical')      |
+| <a id="check_eventlog_warning"></a>[warning](../common-options.md#warning)                                     | level = 'warning', problem_count > 0           |
+| <a id="check_eventlog_warn"></a>[warn](../common-options.md#warn)                                              |                                                |
+| <a id="check_eventlog_critical"></a>[critical](../common-options.md#critical)                                  | level in ('error', 'critical')                 |
+| <a id="check_eventlog_crit"></a>[crit](../common-options.md#crit)                                              |                                                |
+| <a id="check_eventlog_ok"></a>[ok](../common-options.md#ok)                                                    |                                                |
+| <a id="check_eventlog_debug"></a>[debug](../common-options.md#debug)                                           | false                                          |
+| <a id="check_eventlog_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                          |
+| <a id="check_eventlog_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                             |
+| <a id="check_eventlog_perf-config"></a>[perf-config](../common-options.md#perf-config)                         | level(ignored:true)                            |
+| <a id="check_eventlog_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                          |
+| <a id="check_eventlog_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                              |
+| <a id="check_eventlog_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${count} message(s) ${problem_list} |
+| <a id="check_eventlog_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): Event log seems fine                |
+| <a id="check_eventlog_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No entries found                    |
+| <a id="check_eventlog_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${file} ${source} (${message})                 |
+| <a id="check_eventlog_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${file}_${source}                              |
+| <a id="check_eventlog_unique-index"></a>[unique-index](../common-options.md#unique-index)                      |                                                |
+| <a id="check_eventlog_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                |
+| <a id="check_eventlog_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                |
+| <a id="check_eventlog_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                             |
+| <a id="check_eventlog_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

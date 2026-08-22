@@ -33,9 +33,15 @@ struct filter_obj {
   long long get_free() const { return free; }
   std::string get_type() const { return type; }
 
-  std::string get_total_human() const { return str::format::format_byte_units(get_total()); }
-  std::string get_used_human() const { return str::format::format_byte_units(get_used()); }
-  std::string get_free_human() const { return str::format::format_byte_units(get_free()); }
+  std::string get_total_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_total(), context->get_number_format());
+  }
+  std::string get_used_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_used(), context->get_number_format());
+  }
+  std::string get_free_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_free(), context->get_number_format());
+  }
 };
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;

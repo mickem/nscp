@@ -51,9 +51,9 @@ filter_obj_handler::filter_obj_handler() {
           .add_percentage([] (auto obj, auto context) { return obj->get_total(); }, "", " %")
       ;
   // clang-format on
-  registry_.add_human_string("size", &filter_obj::get_total_human, "")
-      .add_human_string("free", &filter_obj::get_free_human, "")
-      .add_human_string("used", &filter_obj::get_used_human, "");
+  registry_.add_human_string_context("size", &filter_obj::get_total_human, "")
+      .add_human_string_context("free", &filter_obj::get_free_human, "")
+      .add_human_string_context("used", &filter_obj::get_used_human, "");
 
   registry_.add_converter(type_custom_free, &calculate_free).add_converter(type_custom_used, &calculate_free);
 }

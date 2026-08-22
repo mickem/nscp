@@ -15,12 +15,21 @@ namespace kernel_memory_check {
 
 using parsers::where::type_size;
 
-std::string kernel_memory_obj::get_pool_paged_human() const { return str::format::format_byte_units(pool_paged); }
-std::string kernel_memory_obj::get_pool_nonpaged_human() const { return str::format::format_byte_units(pool_nonpaged); }
-std::string kernel_memory_obj::get_cache_human() const { return str::format::format_byte_units(cache); }
+std::string kernel_memory_obj::get_pool_paged_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(pool_paged, context->get_number_format());
+}
+std::string kernel_memory_obj::get_pool_nonpaged_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(pool_nonpaged, context->get_number_format());
+}
+std::string kernel_memory_obj::get_cache_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(cache, context->get_number_format());
+}
 
 std::string kernel_memory_obj::show() const {
-  return "paged pool " + get_pool_paged_human() + ", nonpaged pool " + get_pool_nonpaged_human() + ", cache " + get_cache_human();
+  // Debug output, so the plain rendering rather than the check's number format
+  // (which lives on the evaluation context and is not in reach here).
+  return "paged pool " + str::format::format_byte_units(pool_paged) + ", nonpaged pool " + str::format::format_byte_units(pool_nonpaged) + ", cache " +
+         str::format::format_byte_units(cache);
 }
 
 kernel_memory_obj make_kernel_memory_obj(const long long pool_paged, const long long pool_nonpaged, const long long cache, const double page_faults,
@@ -50,9 +59,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_float("hard_faults_per_sec", &kernel_memory_obj::get_hard_faults,
                  "Hard faults per second (Page Reads/sec): faults that had to read from disk — the fault-storm signal");
   // Render the three byte gauges human-readable; expressions keep comparing bytes.
-  registry_.add_human_string("pool_paged", &kernel_memory_obj::get_pool_paged_human, "Paged pool as a human-readable size")
-      .add_human_string("pool_nonpaged", &kernel_memory_obj::get_pool_nonpaged_human, "Nonpaged pool as a human-readable size")
-      .add_human_string("cache", &kernel_memory_obj::get_cache_human, "File cache as a human-readable size");
+  registry_.add_human_string_context("pool_paged", &kernel_memory_obj::get_pool_paged_human, "Paged pool as a human-readable size")
+      .add_human_string_context("pool_nonpaged", &kernel_memory_obj::get_pool_nonpaged_human, "Nonpaged pool as a human-readable size")
+      .add_human_string_context("cache", &kernel_memory_obj::get_cache_human, "File cache as a human-readable size");
   // clang-format on
 }
 

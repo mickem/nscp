@@ -11,26 +11,30 @@ These options are available on all filter based commands. Default values are com
 listed on each command's reference page.
 
 
-| Option                            | Description                                                                                                               |
-|-----------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| [filter](#filter)                 | Filter which marks interesting items.                                                                                     |
-| [warning](#warning)               | Filter which marks items which generates a warning state.                                                                 |
-| [warn](#warn)                     | Short alias for warning                                                                                                   |
-| [critical](#critical)             | Filter which marks items which generates a critical state.                                                                |
-| [crit](#crit)                     | Short alias for critical.                                                                                                 |
-| [ok](#ok)                         | Filter which marks items which generates an ok state.                                                                     |
-| [debug](#debug)                   | Show debugging information in the log                                                                                     |
-| [show-all](#show-all)             | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).          |
-| [empty-state](#empty-state)       | Return status to use when nothing matched filter.                                                                         |
-| [perf-config](#perf-config)       | Performance data generation configuration                                                                                 |
-| [escape-html](#escape-html)       | Escape any < and > characters to prevent HTML encoding                                                                    |
-| [list-separator](#list-separator) | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list). |
-| [top-syntax](#top-syntax)         | Top level syntax.                                                                                                         |
-| [ok-syntax](#ok-syntax)           | ok syntax.                                                                                                                |
-| [empty-syntax](#empty-syntax)     | Empty syntax.                                                                                                             |
-| [detail-syntax](#detail-syntax)   | Detail level syntax.                                                                                                      |
-| [perf-syntax](#perf-syntax)       | Performance alias syntax.                                                                                                 |
-| [unique-index](#unique-index)     | Unique syntax.                                                                                                            |
+| Option                                      | Description                                                                                                                                                                           |
+|---------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#filter)                           | Filter which marks interesting items.                                                                                                                                                 |
+| [warning](#warning)                         | Filter which marks items which generates a warning state.                                                                                                                             |
+| [warn](#warn)                               | Short alias for warning                                                                                                                                                               |
+| [critical](#critical)                       | Filter which marks items which generates a critical state.                                                                                                                            |
+| [crit](#crit)                               | Short alias for critical.                                                                                                                                                             |
+| [ok](#ok)                                   | Filter which marks items which generates an ok state.                                                                                                                                 |
+| [debug](#debug)                             | Show debugging information in the log                                                                                                                                                 |
+| [show-all](#show-all)                       | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                                                                      |
+| [empty-state](#empty-state)                 | Return status to use when nothing matched filter.                                                                                                                                     |
+| [perf-config](#perf-config)                 | Performance data generation configuration                                                                                                                                             |
+| [escape-html](#escape-html)                 | Escape any < and > characters to prevent HTML encoding                                                                                                                                |
+| [list-separator](#list-separator)           | String used to separate the items of %(list), %(ok_list), %(warn_list), %(crit_list), %(problem_list) and %(detail_list).                                                             |
+| [top-syntax](#top-syntax)                   | Top level syntax.                                                                                                                                                                     |
+| [ok-syntax](#ok-syntax)                     | ok syntax.                                                                                                                                                                            |
+| [empty-syntax](#empty-syntax)               | Empty syntax.                                                                                                                                                                         |
+| [detail-syntax](#detail-syntax)             | Detail level syntax.                                                                                                                                                                  |
+| [perf-syntax](#perf-syntax)                 | Performance alias syntax.                                                                                                                                                             |
+| [unique-index](#unique-index)               | Unique syntax.                                                                                                                                                                        |
+| [byte-unit](#byte-unit)                     | Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or EB.                                                                                                       |
+| [decimal-separator](#decimal-separator)     | Character to use as the decimal separator of the message, for instance "," for the European rendering (default ".").                                                                  |
+| [decimals](#decimals)                       | Number of decimals to render the numbers of the message with, for instance 1 to turn "25.191GB" into "25.2GB".                                                                        |
+| [thousands-separator](#thousands-separator) | Character to group the thousands of the message with, for instance "." to render 1006.85 GB as "1.006,85" (together with decimal-separator=,). Empty (the default) means no grouping. |
 
 
 
@@ -127,6 +131,28 @@ This is the syntax for the base names of the performance data.
 
 Unique syntax.
 Used to filter unique items (counted will still increase but messages will not repeated)
+
+<h4 id="byte-unit">byte-unit</h4>
+
+Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or EB.
+By default each value scales on its own, which is why a single line can read "140.293GB/0.983TB"; pinning the unit makes the values comparable ("140.29GB/1006.85GB").
+Performance data is unaffected - its unit is chosen separately and can be set with perf-config.
+
+<h4 id="decimal-separator">decimal-separator</h4>
+
+Character to use as the decimal separator of the message, for instance "," for the European rendering (default ".").
+Only the message is affected: performance data and the numbers you write in a filter or threshold always use ".", as their consumers require.
+
+<h4 id="decimals">decimals</h4>
+
+Number of decimals to render the numbers of the message with, for instance 1 to turn "25.191GB" into "25.2GB".
+Applies to the byte and percentage keywords and to format_bytes()/format_number(); -1 (the default) keeps the historical rendering of up to three decimals with the trailing zeros stripped.
+Performance data is unaffected - it is generated from the raw values so that graphs keep their full precision.
+
+<h4 id="thousands-separator">thousands-separator</h4>
+
+Character to group the thousands of the message with, for instance "." to render 1006.85 GB as "1.006,85" (together with decimal-separator=,). Empty (the default) means no grouping.
+Only the message is affected: performance data and the numbers you write in a filter or threshold are never grouped.
 
 
 ## Standard options

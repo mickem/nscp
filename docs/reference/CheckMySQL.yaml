@@ -97,9 +97,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${flavor} ${version}, uptime ${uptime}s, connections ${threads_connected}/${max_connections}
           (${connections_pct}%)
         empty-state: unknown
@@ -116,6 +119,7 @@ common:
         perf-syntax: ${flavor}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -260,9 +264,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '%(line)'
         empty-state: ignored
         empty-syntax: ''
@@ -278,6 +285,7 @@ common:
         perf-syntax: ''
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: ${list}
         warn: ''
         warning: ''

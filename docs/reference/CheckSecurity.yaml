@@ -21,9 +21,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: licensed = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${activation_status} (${genuine_state}, grace ${grace_days}d)'
         empty-state: unknown
         empty-syntax: '%(status): No licensing information found (Software Licensing service unavailable?)'
@@ -39,6 +42,7 @@ common:
         perf-syntax: license
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: grace_days > 0 and grace_days < 30
@@ -144,9 +148,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: enabled = 0 or up_to_date = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name} (enabled=${enabled} up_to_date=${up_to_date})
         empty-state: unknown
         empty-syntax: No antivirus product registered
@@ -162,6 +169,7 @@ common:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -202,9 +210,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: protected = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${drive} protected=${protected}
         empty-state: unknown
         empty-syntax: No encryptable volumes found
@@ -220,6 +231,7 @@ common:
         perf-syntax: ${drive}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -259,9 +271,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: expires_in < 10
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${subject} expires in ${expires_in}d (${valid_to})
         empty-state: unknown
         empty-syntax: No certificates found
@@ -277,6 +292,7 @@ common:
         perf-syntax: ${subject}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: expires_in < 30
@@ -451,9 +467,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: enabled = 0 or realtime_enabled = 0 or signature_age > 7
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: Defender enabled=${enabled} realtime=${realtime_enabled} tamper=${tamper_protection}
           sig_age=${signature_age}d sig=${signature_version} engine=${engine_version}
         empty-state: unknown
@@ -471,6 +490,7 @@ common:
         perf-syntax: defender
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: signature_age > 3
@@ -531,9 +551,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: exists = 0 or readable = 0 or owner_expected = 0 or world_writable = 1
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${path}: ${state}'
         empty-state: unknown
         empty-syntax: '%(status): No paths checked'
@@ -549,6 +572,7 @@ common:
         perf-syntax: ${path}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: unexpected_write = 1
@@ -688,9 +712,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: enabled = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${profile}=${enabled}
         empty-state: unknown
         empty-syntax: No firewall profiles found
@@ -706,6 +733,7 @@ common:
         perf-syntax: ${profile}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: ''
@@ -756,9 +784,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: present = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${state}'
         empty-state: ok
         empty-syntax: '%(status): No firewall rules matched'
@@ -774,6 +805,7 @@ common:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: ''
@@ -902,9 +934,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: expected = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${member} (${type})
         empty-state: ok
         empty-syntax: '%(status): Group is empty'
@@ -920,6 +955,7 @@ common:
         perf-syntax: ${member}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -991,9 +1027,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: enabled = 1 and password_required = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name} (enabled=${enabled}, pw_req=${password_required}, pw_exp=${password_expires},
           locked=${locked})
         empty-state: ok
@@ -1010,6 +1049,7 @@ common:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: enabled = 1 and is_builtin_guest = 1
@@ -1070,9 +1110,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${network}=${category}
         empty-state: ok
         empty-syntax: No networks found
@@ -1088,6 +1131,7 @@ common:
         perf-syntax: ${network}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -1124,9 +1168,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: enabled = 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: secure boot enabled=${enabled} supported=${supported}
         empty-state: unknown
         empty-syntax: No Secure Boot state
@@ -1142,6 +1189,7 @@ common:
         perf-syntax: secureboot
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -1174,9 +1222,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${user}
         empty-state: ok
         empty-syntax: No users logged on
@@ -1192,6 +1243,7 @@ common:
         perf-syntax: ${user}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${count} user(s) logged on: ${list}'
         warn: ''
         warning: ''
