@@ -165,6 +165,7 @@
               <File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
               <File Id="ModCheckWindowsApps.dll" Name="CheckWindowsApps.dll" DiskId="1" Source="$(var.Source)/modules/CheckWindowsApps.dll" Vital="no" />
               <File Id="ModCheckSecurity.dll" Name="CheckSecurity.dll" DiskId="1" Source="$(var.Source)/modules/CheckSecurity.dll" Vital="no" />
+              <File Id="ModCheckActiveDirectory.dll" Name="CheckActiveDirectory.dll" DiskId="1" Source="$(var.Source)/modules/CheckActiveDirectory.dll" Vital="no" />
               <File Id="ModCheckMSSQL.dll" Name="CheckMSSQL.dll" DiskId="1" Source="$(var.Source)/modules/CheckMSSQL.dll" Vital="no" />
               <File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
               <File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
