@@ -140,6 +140,14 @@ void PDHQuery::gatherData(const bool ignore_errors) {
       status = c->collect();
     }
     if (status.is_negative_denominator()) {
+      // Still negative after the retry. Some counters simply cannot be
+      // computed at times (HTTP Service Request Queues\MaxQueueItemAge on an
+      // idle queue is a known one): with ignore_errors the caller asked for
+      // best effort, so skip this counter for this tick - it keeps no
+      // formatted value and readers fall back to their default - instead of
+      // failing the whole gather, which checks then misreport as the object
+      // not existing at all.
+      if (ignore_errors) continue;
       if (!has_displayed_invalid_counter_) {
         has_displayed_invalid_counter_ = true;
         throw pdh_exception(c->getName() + " Negative denominator issue (check FAQ for ways to solve this): ", status);
