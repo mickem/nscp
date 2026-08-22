@@ -45,18 +45,6 @@ std::string architecture_to_string(const long long architecture) {
   }
 }
 
-namespace {
-// The inventory columns are absent or NULL on some platforms (VMs, older
-// Windows); read them best-effort instead of failing the whole row.
-long long get_int_or_zero(const wmi_impl::row &r, const char *col) {
-  try {
-    return r.get_int(col);
-  } catch (...) {
-    return 0;
-  }
-}
-}  // namespace
-
 void cpu_frequency::read_wmi(const wmi_impl::row &r) {
   socket_id = r.get_string("DeviceId");
   socket = r.get_string("SocketDesignation");
@@ -65,16 +53,16 @@ void cpu_frequency::read_wmi(const wmi_impl::row &r) {
   max_mhz = r.get_int("MaxClockSpeed");
   number_of_cores = r.get_int("NumberOfCores");
   number_of_logical_processors = r.get_int("NumberOfLogicalProcessors");
-  load_pct = r.get_int("LoadPercentage");
-  // L2/L3CacheSize are reported in KB.
-  l2_cache = get_int_or_zero(r, "L2CacheSize") * 1024;
-  l3_cache = get_int_or_zero(r, "L3CacheSize") * 1024;
-  try {
-    architecture = architecture_to_string(r.get_int("Architecture"));
-  } catch (...) {
-    // Cannot default to 0 here: 0 is a valid value (x86).
-    architecture = "unknown";
-  }
+  // WMI does not always have a load sample ready (#1391); 0 is a valid idle
+  // reading, so a missing sample stays absent rather than becoming a fake 0.
+  load_pct = r.get_int_opt("LoadPercentage");
+  // The inventory columns are absent or NULL on some platforms (VMs, older
+  // Windows). L2/L3CacheSize are reported in KB.
+  l2_cache = r.get_int_opt("L2CacheSize").value_or(0) * 1024;
+  l3_cache = r.get_int_opt("L3CacheSize").value_or(0) * 1024;
+  const boost::optional<long long> arch = r.get_int_opt("Architecture");
+  // Cannot default to 0 here: 0 is a valid value (x86).
+  architecture = arch ? architecture_to_string(*arch) : "unknown";
 }
 
 std::string cpu_frequency::get_l2_cache_human() const { return str::format::format_byte_units(l2_cache); }
@@ -87,7 +75,8 @@ void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
   add_metric(section, name + ".frequency_pct", get_frequency_pct());
   add_metric(section, name + ".cores", number_of_cores);
   add_metric(section, name + ".logical_processors", number_of_logical_processors);
-  add_metric(section, name + ".load_pct", load_pct);
+  // No fabricated 0 when WMI had no load sample this cycle: absent is absent.
+  if (load_pct) add_metric(section, name + ".load_pct", *load_pct);
   add_metric(section, name + ".l2_cache", l2_cache);
   add_metric(section, name + ".l3_cache", l3_cache);
 }
@@ -138,6 +127,14 @@ struct filter_obj_handler : native_context {
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
+namespace {
+// What load_pct renders as, and compares equal to, when WMI had no sample for
+// Win32_Processor.LoadPercentage this cycle (`load_pct = 'no load sample'` is
+// the presence test). A missing sample must not read as 0: 0 is a valid idle
+// reading (#1391).
+const char *no_load_sample = "no load sample";
+}  // namespace
+
 filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("name", &filter_obj::get_name, "CPU name / model string")
       .add_string_var("socket_id", &filter_obj::get_socket_id, "Socket device id (e.g. CPU0), for per-socket filtering")
@@ -149,7 +146,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_perf("MHz", "", "_max_mhz")
       .add_int_var("frequency_pct", &filter_obj::get_frequency_pct, "Current frequency as percentage of maximum (perfdata)")
       .add_int_perf("%", "", "_frequency_pct")
-      .add_int_var("load_pct", &filter_obj::get_load_pct, "Per-socket CPU load as reported by Win32_Processor.LoadPercentage (perfdata)")
+      .add_optional_int_var(
+          "load_pct", [](const std::shared_ptr<filter_obj> &obj) { return obj->get_load_pct(); }, no_load_sample,
+          "Per-socket CPU load as reported by Win32_Processor.LoadPercentage (perfdata); 'no load sample' when WMI has no reading this cycle")
       .add_int_perf("%", "", "_load_pct")
       .add_int_var("cores", &filter_obj::get_number_of_cores, "Number of physical cores")
       .add_int_var("logical_processors", &filter_obj::get_number_of_logical_processors, "Number of logical processors (threads)")

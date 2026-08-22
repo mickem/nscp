@@ -149,16 +149,23 @@ std::string row::to_string() const {
   return ss.str();
 }
 
-long long row::get_int(const std::string &col) const {
+boost::optional<long long> row::get_int_opt(const std::string &col) const {
   const CComBSTR bCol(utf8::cvt<std::wstring>(col).c_str());
   CComVariant vValue;
-  HRESULT hr = row_obj->Get(bCol, 0, &vValue, 0, 0);
+  HRESULT hr = row_obj->Get(bCol, 0, &vValue, nullptr, nullptr);
   if (FAILED(hr)) throw wmi_exception(hr, "Failed to get value for " + col);
+  if (vValue.vt == VT_NULL || vValue.vt == VT_EMPTY) return boost::none;
   hr = vValue.ChangeType(VT_I8);
   if (SUCCEEDED(hr)) return vValue.llVal;
   hr = vValue.ChangeType(VT_UI8);
-  if (SUCCEEDED(hr)) return vValue.ullVal;
+  if (SUCCEEDED(hr)) return static_cast<long long>(vValue.ullVal);
   throw wmi_exception(hr, "Failed to convert " + col + " to number");
+}
+
+long long row::get_int(const std::string &col) const {
+  const boost::optional<long long> value = get_int_opt(col);
+  if (!value) throw wmi_exception(DISP_E_TYPEMISMATCH, col + " is NULL (use get_int_opt for optional fields)");
+  return *value;
 }
 
 bool row_enumerator::has_next() {
