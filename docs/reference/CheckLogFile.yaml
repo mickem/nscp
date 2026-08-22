@@ -212,9 +212,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${column1}
         empty-state: ignored
         empty-syntax: '%(status): Nothing found'
@@ -230,6 +233,7 @@ common:
         perf-syntax: ${column1}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: ${count}/${total} (${problem_list})
         warn: ''
         warning: ''

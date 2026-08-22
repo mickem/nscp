@@ -186,25 +186,29 @@ Do not evaluate the genuine state (skips the SLIsGenuineLocal call); genuine_sta
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                            | Default Value                                                                       |
-|---------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
-| <a id="check_activation_filter"></a>[filter](../common-options.md#filter)                         |                                                                                     |
-| <a id="check_activation_warning"></a>[warning](../common-options.md#warning)                      | grace_days > 0 and grace_days < 30                                                  |
-| <a id="check_activation_warn"></a>[warn](../common-options.md#warn)                               |                                                                                     |
-| <a id="check_activation_critical"></a>[critical](../common-options.md#critical)                   | licensed = 0                                                                        |
-| <a id="check_activation_crit"></a>[crit](../common-options.md#crit)                               |                                                                                     |
-| <a id="check_activation_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                     |
-| <a id="check_activation_debug"></a>[debug](../common-options.md#debug)                            | false                                                                               |
-| <a id="check_activation_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                               |
-| <a id="check_activation_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                             |
-| <a id="check_activation_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                     |
-| <a id="check_activation_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                               |
-| <a id="check_activation_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                   |
-| <a id="check_activation_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                  |
-| <a id="check_activation_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): ${list}                                                                  |
-| <a id="check_activation_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No licensing information found (Software Licensing service unavailable?) |
-| <a id="check_activation_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${activation_status} (${genuine_state}, grace ${grace_days}d)              |
-| <a id="check_activation_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | license                                                                             |
+| Option                                                                                                           | Default Value                                                                       |
+|------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| <a id="check_activation_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                     |
+| <a id="check_activation_warning"></a>[warning](../common-options.md#warning)                                     | grace_days > 0 and grace_days < 30                                                  |
+| <a id="check_activation_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                     |
+| <a id="check_activation_critical"></a>[critical](../common-options.md#critical)                                  | licensed = 0                                                                        |
+| <a id="check_activation_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                     |
+| <a id="check_activation_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                     |
+| <a id="check_activation_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                               |
+| <a id="check_activation_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                               |
+| <a id="check_activation_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                             |
+| <a id="check_activation_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                     |
+| <a id="check_activation_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                               |
+| <a id="check_activation_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                   |
+| <a id="check_activation_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                  |
+| <a id="check_activation_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): ${list}                                                                  |
+| <a id="check_activation_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No licensing information found (Software Licensing service unavailable?) |
+| <a id="check_activation_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${activation_status} (${genuine_state}, grace ${grace_days}d)              |
+| <a id="check_activation_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | license                                                                             |
+| <a id="check_activation_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                     |
+| <a id="check_activation_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                     |
+| <a id="check_activation_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                  |
+| <a id="check_activation_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                     |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -308,25 +312,29 @@ L        cli UNKNOWN: check_antivirus is not supported on this platform (Windows
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                           | Default Value                                         |
-|--------------------------------------------------------------------------------------------------|-------------------------------------------------------|
-| <a id="check_antivirus_filter"></a>[filter](../common-options.md#filter)                         |                                                       |
-| <a id="check_antivirus_warning"></a>[warning](../common-options.md#warning)                      |                                                       |
-| <a id="check_antivirus_warn"></a>[warn](../common-options.md#warn)                               |                                                       |
-| <a id="check_antivirus_critical"></a>[critical](../common-options.md#critical)                   | enabled = 0 or up_to_date = 0                         |
-| <a id="check_antivirus_crit"></a>[crit](../common-options.md#crit)                               |                                                       |
-| <a id="check_antivirus_ok"></a>[ok](../common-options.md#ok)                                     |                                                       |
-| <a id="check_antivirus_debug"></a>[debug](../common-options.md#debug)                            | false                                                 |
-| <a id="check_antivirus_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                 |
-| <a id="check_antivirus_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                               |
-| <a id="check_antivirus_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                       |
-| <a id="check_antivirus_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                 |
-| <a id="check_antivirus_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                     |
-| <a id="check_antivirus_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                    |
-| <a id="check_antivirus_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | ${status}: ${count} antivirus product(s) healthy      |
-| <a id="check_antivirus_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No antivirus product registered                       |
-| <a id="check_antivirus_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name} (enabled=${enabled} up_to_date=${up_to_date}) |
-| <a id="check_antivirus_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                               |
+| Option                                                                                                          | Default Value                                         |
+|-----------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
+| <a id="check_antivirus_filter"></a>[filter](../common-options.md#filter)                                        |                                                       |
+| <a id="check_antivirus_warning"></a>[warning](../common-options.md#warning)                                     |                                                       |
+| <a id="check_antivirus_warn"></a>[warn](../common-options.md#warn)                                              |                                                       |
+| <a id="check_antivirus_critical"></a>[critical](../common-options.md#critical)                                  | enabled = 0 or up_to_date = 0                         |
+| <a id="check_antivirus_crit"></a>[crit](../common-options.md#crit)                                              |                                                       |
+| <a id="check_antivirus_ok"></a>[ok](../common-options.md#ok)                                                    |                                                       |
+| <a id="check_antivirus_debug"></a>[debug](../common-options.md#debug)                                           | false                                                 |
+| <a id="check_antivirus_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                 |
+| <a id="check_antivirus_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                               |
+| <a id="check_antivirus_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                       |
+| <a id="check_antivirus_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                 |
+| <a id="check_antivirus_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                     |
+| <a id="check_antivirus_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                    |
+| <a id="check_antivirus_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | ${status}: ${count} antivirus product(s) healthy      |
+| <a id="check_antivirus_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No antivirus product registered                       |
+| <a id="check_antivirus_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} (enabled=${enabled} up_to_date=${up_to_date}) |
+| <a id="check_antivirus_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                               |
+| <a id="check_antivirus_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                       |
+| <a id="check_antivirus_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                       |
+| <a id="check_antivirus_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                    |
+| <a id="check_antivirus_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                       |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -417,25 +425,29 @@ L        cli UNKNOWN: check_bitlocker is not supported on this platform (Windows
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                           | Default Value                               |
-|--------------------------------------------------------------------------------------------------|---------------------------------------------|
-| <a id="check_bitlocker_filter"></a>[filter](../common-options.md#filter)                         |                                             |
-| <a id="check_bitlocker_warning"></a>[warning](../common-options.md#warning)                      |                                             |
-| <a id="check_bitlocker_warn"></a>[warn](../common-options.md#warn)                               |                                             |
-| <a id="check_bitlocker_critical"></a>[critical](../common-options.md#critical)                   | protected = 0                               |
-| <a id="check_bitlocker_crit"></a>[crit](../common-options.md#crit)                               |                                             |
-| <a id="check_bitlocker_ok"></a>[ok](../common-options.md#ok)                                     |                                             |
-| <a id="check_bitlocker_debug"></a>[debug](../common-options.md#debug)                            | false                                       |
-| <a id="check_bitlocker_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                       |
-| <a id="check_bitlocker_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                     |
-| <a id="check_bitlocker_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                             |
-| <a id="check_bitlocker_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                       |
-| <a id="check_bitlocker_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                           |
-| <a id="check_bitlocker_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                          |
-| <a id="check_bitlocker_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | ${status}: all ${count} volume(s) protected |
-| <a id="check_bitlocker_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No encryptable volumes found                |
-| <a id="check_bitlocker_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${drive} protected=${protected}             |
-| <a id="check_bitlocker_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${drive}                                    |
+| Option                                                                                                          | Default Value                               |
+|-----------------------------------------------------------------------------------------------------------------|---------------------------------------------|
+| <a id="check_bitlocker_filter"></a>[filter](../common-options.md#filter)                                        |                                             |
+| <a id="check_bitlocker_warning"></a>[warning](../common-options.md#warning)                                     |                                             |
+| <a id="check_bitlocker_warn"></a>[warn](../common-options.md#warn)                                              |                                             |
+| <a id="check_bitlocker_critical"></a>[critical](../common-options.md#critical)                                  | protected = 0                               |
+| <a id="check_bitlocker_crit"></a>[crit](../common-options.md#crit)                                              |                                             |
+| <a id="check_bitlocker_ok"></a>[ok](../common-options.md#ok)                                                    |                                             |
+| <a id="check_bitlocker_debug"></a>[debug](../common-options.md#debug)                                           | false                                       |
+| <a id="check_bitlocker_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                       |
+| <a id="check_bitlocker_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                     |
+| <a id="check_bitlocker_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                             |
+| <a id="check_bitlocker_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                       |
+| <a id="check_bitlocker_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                           |
+| <a id="check_bitlocker_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                          |
+| <a id="check_bitlocker_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | ${status}: all ${count} volume(s) protected |
+| <a id="check_bitlocker_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No encryptable volumes found                |
+| <a id="check_bitlocker_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${drive} protected=${protected}             |
+| <a id="check_bitlocker_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${drive}                                    |
+| <a id="check_bitlocker_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                             |
+| <a id="check_bitlocker_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                             |
+| <a id="check_bitlocker_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                          |
+| <a id="check_bitlocker_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                             |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -637,25 +649,29 @@ Windows store location: LocalMachine or CurrentUser. Windows only.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                             | Default Value                                      |
-|----------------------------------------------------------------------------------------------------|----------------------------------------------------|
-| <a id="check_certificate_filter"></a>[filter](../common-options.md#filter)                         |                                                    |
-| <a id="check_certificate_warning"></a>[warning](../common-options.md#warning)                      | expires_in < 30                                    |
-| <a id="check_certificate_warn"></a>[warn](../common-options.md#warn)                               |                                                    |
-| <a id="check_certificate_critical"></a>[critical](../common-options.md#critical)                   | expires_in < 10                                    |
-| <a id="check_certificate_crit"></a>[crit](../common-options.md#crit)                               |                                                    |
-| <a id="check_certificate_ok"></a>[ok](../common-options.md#ok)                                     |                                                    |
-| <a id="check_certificate_debug"></a>[debug](../common-options.md#debug)                            | false                                              |
-| <a id="check_certificate_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                              |
-| <a id="check_certificate_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                            |
-| <a id="check_certificate_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                    |
-| <a id="check_certificate_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                              |
-| <a id="check_certificate_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                  |
-| <a id="check_certificate_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                         |
-| <a id="check_certificate_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): all %(count) certificate(s) are ok      |
-| <a id="check_certificate_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No certificates found                              |
-| <a id="check_certificate_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${subject} expires in ${expires_in}d (${valid_to}) |
-| <a id="check_certificate_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${subject}                                         |
+| Option                                                                                                            | Default Value                                      |
+|-------------------------------------------------------------------------------------------------------------------|----------------------------------------------------|
+| <a id="check_certificate_filter"></a>[filter](../common-options.md#filter)                                        |                                                    |
+| <a id="check_certificate_warning"></a>[warning](../common-options.md#warning)                                     | expires_in < 30                                    |
+| <a id="check_certificate_warn"></a>[warn](../common-options.md#warn)                                              |                                                    |
+| <a id="check_certificate_critical"></a>[critical](../common-options.md#critical)                                  | expires_in < 10                                    |
+| <a id="check_certificate_crit"></a>[crit](../common-options.md#crit)                                              |                                                    |
+| <a id="check_certificate_ok"></a>[ok](../common-options.md#ok)                                                    |                                                    |
+| <a id="check_certificate_debug"></a>[debug](../common-options.md#debug)                                           | false                                              |
+| <a id="check_certificate_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                              |
+| <a id="check_certificate_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                            |
+| <a id="check_certificate_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                    |
+| <a id="check_certificate_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                              |
+| <a id="check_certificate_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                  |
+| <a id="check_certificate_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                         |
+| <a id="check_certificate_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): all %(count) certificate(s) are ok      |
+| <a id="check_certificate_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No certificates found                              |
+| <a id="check_certificate_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${subject} expires in ${expires_in}d (${valid_to}) |
+| <a id="check_certificate_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${subject}                                         |
+| <a id="check_certificate_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                    |
+| <a id="check_certificate_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                    |
+| <a id="check_certificate_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                 |
+| <a id="check_certificate_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                    |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -796,25 +812,29 @@ OK: Defender enabled=1 realtime=1 tamper=1 sig_age=0d sig=1.455.84.0 engine=1.1.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                          | Default Value                                                                                                                                                    |
-|-------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| <a id="check_defender_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                                                                                  |
-| <a id="check_defender_warning"></a>[warning](../common-options.md#warning)                      | signature_age > 3                                                                                                                                                |
-| <a id="check_defender_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                                                                  |
-| <a id="check_defender_critical"></a>[critical](../common-options.md#critical)                   | enabled = 0 or realtime_enabled = 0 or signature_age > 7                                                                                                         |
-| <a id="check_defender_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                                                                  |
-| <a id="check_defender_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                                                                  |
-| <a id="check_defender_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                                                                            |
-| <a id="check_defender_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                                                                            |
-| <a id="check_defender_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                                                                                                          |
-| <a id="check_defender_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                                                                  |
-| <a id="check_defender_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                                                                            |
-| <a id="check_defender_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                                                                                |
-| <a id="check_defender_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                                                                               |
-| <a id="check_defender_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): Microsoft Defender healthy (signature age ${signature_age}d)                                                                                          |
-| <a id="check_defender_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): Microsoft Defender status unavailable (not installed or another antivirus is active)                                                                  |
-| <a id="check_defender_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | Defender enabled=${enabled} realtime=${realtime_enabled} tamper=${tamper_protection} sig_age=${signature_age}d sig=${signature_version} engine=${engine_version} |
-| <a id="check_defender_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | defender                                                                                                                                                         |
+| Option                                                                                                         | Default Value                                                                                                                                                    |
+|----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| <a id="check_defender_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                                                                                  |
+| <a id="check_defender_warning"></a>[warning](../common-options.md#warning)                                     | signature_age > 3                                                                                                                                                |
+| <a id="check_defender_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                                                                                  |
+| <a id="check_defender_critical"></a>[critical](../common-options.md#critical)                                  | enabled = 0 or realtime_enabled = 0 or signature_age > 7                                                                                                         |
+| <a id="check_defender_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                                                                                  |
+| <a id="check_defender_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                                                                                  |
+| <a id="check_defender_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                                                                            |
+| <a id="check_defender_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                                                                            |
+| <a id="check_defender_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                                                                                          |
+| <a id="check_defender_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                                                                                  |
+| <a id="check_defender_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                                                                            |
+| <a id="check_defender_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                                                                                |
+| <a id="check_defender_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                                                                               |
+| <a id="check_defender_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): Microsoft Defender healthy (signature age ${signature_age}d)                                                                                          |
+| <a id="check_defender_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): Microsoft Defender status unavailable (not installed or another antivirus is active)                                                                  |
+| <a id="check_defender_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | Defender enabled=${enabled} realtime=${realtime_enabled} tamper=${tamper_protection} sig_age=${signature_age}d sig=${signature_version} engine=${engine_version} |
+| <a id="check_defender_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | defender                                                                                                                                                         |
+| <a id="check_defender_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                                                                                  |
+| <a id="check_defender_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                                                                                  |
+| <a id="check_defender_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                                                                               |
+| <a id="check_defender_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                                                                                  |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1023,25 +1043,29 @@ L        cli UNKNOWN: check_file_security is not supported on this platform (Win
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                               | Default Value                                                                          |
-|------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
-| <a id="check_file_security_filter"></a>[filter](../common-options.md#filter)                         |                                                                                        |
-| <a id="check_file_security_warning"></a>[warning](../common-options.md#warning)                      | unexpected_write = 1                                                                   |
-| <a id="check_file_security_warn"></a>[warn](../common-options.md#warn)                               |                                                                                        |
-| <a id="check_file_security_critical"></a>[critical](../common-options.md#critical)                   | exists = 0 or readable = 0 or owner_expected = 0 or world_writable = 1                 |
-| <a id="check_file_security_crit"></a>[crit](../common-options.md#crit)                               |                                                                                        |
-| <a id="check_file_security_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                        |
-| <a id="check_file_security_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                  |
-| <a id="check_file_security_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                  |
-| <a id="check_file_security_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                                                |
-| <a id="check_file_security_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                        |
-| <a id="check_file_security_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                  |
-| <a id="check_file_security_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                      |
-| <a id="check_file_security_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                     |
-| <a id="check_file_security_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): all %(count) path(s) have the expected owner and no unexpected write access |
-| <a id="check_file_security_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No paths checked                                                            |
-| <a id="check_file_security_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${path}: ${state}                                                                      |
-| <a id="check_file_security_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${path}                                                                                |
+| Option                                                                                                              | Default Value                                                                          |
+|---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| <a id="check_file_security_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                        |
+| <a id="check_file_security_warning"></a>[warning](../common-options.md#warning)                                     | unexpected_write = 1                                                                   |
+| <a id="check_file_security_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                        |
+| <a id="check_file_security_critical"></a>[critical](../common-options.md#critical)                                  | exists = 0 or readable = 0 or owner_expected = 0 or world_writable = 1                 |
+| <a id="check_file_security_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                        |
+| <a id="check_file_security_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                        |
+| <a id="check_file_security_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                  |
+| <a id="check_file_security_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                  |
+| <a id="check_file_security_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                |
+| <a id="check_file_security_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                        |
+| <a id="check_file_security_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                  |
+| <a id="check_file_security_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                      |
+| <a id="check_file_security_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                     |
+| <a id="check_file_security_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): all %(count) path(s) have the expected owner and no unexpected write access |
+| <a id="check_file_security_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No paths checked                                                            |
+| <a id="check_file_security_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${path}: ${state}                                                                      |
+| <a id="check_file_security_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${path}                                                                                |
+| <a id="check_file_security_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                        |
+| <a id="check_file_security_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                        |
+| <a id="check_file_security_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                     |
+| <a id="check_file_security_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                        |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1203,25 +1227,29 @@ L        cli UNKNOWN: check_firewall is not supported on this platform (Windows-
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                          | Default Value                                       |
-|-------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| <a id="check_firewall_filter"></a>[filter](../common-options.md#filter)                         |                                                     |
-| <a id="check_firewall_warning"></a>[warning](../common-options.md#warning)                      |                                                     |
-| <a id="check_firewall_warn"></a>[warn](../common-options.md#warn)                               |                                                     |
-| <a id="check_firewall_critical"></a>[critical](../common-options.md#critical)                   | enabled = 0                                         |
-| <a id="check_firewall_crit"></a>[crit](../common-options.md#crit)                               |                                                     |
-| <a id="check_firewall_ok"></a>[ok](../common-options.md#ok)                                     |                                                     |
-| <a id="check_firewall_debug"></a>[debug](../common-options.md#debug)                            | false                                               |
-| <a id="check_firewall_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                               |
-| <a id="check_firewall_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                             |
-| <a id="check_firewall_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                     |
-| <a id="check_firewall_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                               |
-| <a id="check_firewall_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                   |
-| <a id="check_firewall_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                          |
-| <a id="check_firewall_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): all %(count) firewall profile(s) enabled |
-| <a id="check_firewall_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No firewall profiles found                          |
-| <a id="check_firewall_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${profile}=${enabled}                               |
-| <a id="check_firewall_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${profile}                                          |
+| Option                                                                                                         | Default Value                                       |
+|----------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| <a id="check_firewall_filter"></a>[filter](../common-options.md#filter)                                        |                                                     |
+| <a id="check_firewall_warning"></a>[warning](../common-options.md#warning)                                     |                                                     |
+| <a id="check_firewall_warn"></a>[warn](../common-options.md#warn)                                              |                                                     |
+| <a id="check_firewall_critical"></a>[critical](../common-options.md#critical)                                  | enabled = 0                                         |
+| <a id="check_firewall_crit"></a>[crit](../common-options.md#crit)                                              |                                                     |
+| <a id="check_firewall_ok"></a>[ok](../common-options.md#ok)                                                    |                                                     |
+| <a id="check_firewall_debug"></a>[debug](../common-options.md#debug)                                           | false                                               |
+| <a id="check_firewall_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                               |
+| <a id="check_firewall_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                             |
+| <a id="check_firewall_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                     |
+| <a id="check_firewall_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                               |
+| <a id="check_firewall_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                   |
+| <a id="check_firewall_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                          |
+| <a id="check_firewall_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): all %(count) firewall profile(s) enabled |
+| <a id="check_firewall_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No firewall profiles found                          |
+| <a id="check_firewall_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${profile}=${enabled}                               |
+| <a id="check_firewall_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${profile}                                          |
+| <a id="check_firewall_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                     |
+| <a id="check_firewall_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                     |
+| <a id="check_firewall_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                  |
+| <a id="check_firewall_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                     |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1398,25 +1426,29 @@ L        cli UNKNOWN: check_firewall_rules is not supported on this platform (Wi
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                                | Default Value                                        |
-|-------------------------------------------------------------------------------------------------------|------------------------------------------------------|
-| <a id="check_firewall_rules_filter"></a>[filter](../common-options.md#filter)                         |                                                      |
-| <a id="check_firewall_rules_warning"></a>[warning](../common-options.md#warning)                      |                                                      |
-| <a id="check_firewall_rules_warn"></a>[warn](../common-options.md#warn)                               |                                                      |
-| <a id="check_firewall_rules_critical"></a>[critical](../common-options.md#critical)                   | present = 0                                          |
-| <a id="check_firewall_rules_crit"></a>[crit](../common-options.md#crit)                               |                                                      |
-| <a id="check_firewall_rules_ok"></a>[ok](../common-options.md#ok)                                     |                                                      |
-| <a id="check_firewall_rules_debug"></a>[debug](../common-options.md#debug)                            | false                                                |
-| <a id="check_firewall_rules_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                |
-| <a id="check_firewall_rules_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                   |
-| <a id="check_firewall_rules_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                      |
-| <a id="check_firewall_rules_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                |
-| <a id="check_firewall_rules_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                    |
-| <a id="check_firewall_rules_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                           |
-| <a id="check_firewall_rules_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(count) rule(s) checked, all as expected |
-| <a id="check_firewall_rules_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No firewall rules matched                 |
-| <a id="check_firewall_rules_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${state}                                    |
-| <a id="check_firewall_rules_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                              |
+| Option                                                                                                               | Default Value                                        |
+|----------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
+| <a id="check_firewall_rules_filter"></a>[filter](../common-options.md#filter)                                        |                                                      |
+| <a id="check_firewall_rules_warning"></a>[warning](../common-options.md#warning)                                     |                                                      |
+| <a id="check_firewall_rules_warn"></a>[warn](../common-options.md#warn)                                              |                                                      |
+| <a id="check_firewall_rules_critical"></a>[critical](../common-options.md#critical)                                  | present = 0                                          |
+| <a id="check_firewall_rules_crit"></a>[crit](../common-options.md#crit)                                              |                                                      |
+| <a id="check_firewall_rules_ok"></a>[ok](../common-options.md#ok)                                                    |                                                      |
+| <a id="check_firewall_rules_debug"></a>[debug](../common-options.md#debug)                                           | false                                                |
+| <a id="check_firewall_rules_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                |
+| <a id="check_firewall_rules_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                   |
+| <a id="check_firewall_rules_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                      |
+| <a id="check_firewall_rules_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                |
+| <a id="check_firewall_rules_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                    |
+| <a id="check_firewall_rules_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                           |
+| <a id="check_firewall_rules_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(count) rule(s) checked, all as expected |
+| <a id="check_firewall_rules_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No firewall rules matched                 |
+| <a id="check_firewall_rules_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${state}                                    |
+| <a id="check_firewall_rules_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                              |
+| <a id="check_firewall_rules_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                      |
+| <a id="check_firewall_rules_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                      |
+| <a id="check_firewall_rules_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                   |
+| <a id="check_firewall_rules_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                      |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1570,25 +1602,29 @@ OK: All 2 member(s) are on the expected list.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                               | Default Value                                               |
-|------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
-| <a id="check_group_members_filter"></a>[filter](../common-options.md#filter)                         |                                                             |
-| <a id="check_group_members_warning"></a>[warning](../common-options.md#warning)                      |                                                             |
-| <a id="check_group_members_warn"></a>[warn](../common-options.md#warn)                               |                                                             |
-| <a id="check_group_members_critical"></a>[critical](../common-options.md#critical)                   | expected = 0                                                |
-| <a id="check_group_members_crit"></a>[crit](../common-options.md#crit)                               |                                                             |
-| <a id="check_group_members_ok"></a>[ok](../common-options.md#ok)                                     |                                                             |
-| <a id="check_group_members_debug"></a>[debug](../common-options.md#debug)                            | false                                                       |
-| <a id="check_group_members_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                       |
-| <a id="check_group_members_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                          |
-| <a id="check_group_members_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                             |
-| <a id="check_group_members_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                       |
-| <a id="check_group_members_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                           |
-| <a id="check_group_members_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                          |
-| <a id="check_group_members_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) member(s) are on the expected list. |
-| <a id="check_group_members_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): Group is empty                                   |
-| <a id="check_group_members_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${member} (${type})                                         |
-| <a id="check_group_members_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${member}                                                   |
+| Option                                                                                                              | Default Value                                               |
+|---------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+| <a id="check_group_members_filter"></a>[filter](../common-options.md#filter)                                        |                                                             |
+| <a id="check_group_members_warning"></a>[warning](../common-options.md#warning)                                     |                                                             |
+| <a id="check_group_members_warn"></a>[warn](../common-options.md#warn)                                              |                                                             |
+| <a id="check_group_members_critical"></a>[critical](../common-options.md#critical)                                  | expected = 0                                                |
+| <a id="check_group_members_crit"></a>[crit](../common-options.md#crit)                                              |                                                             |
+| <a id="check_group_members_ok"></a>[ok](../common-options.md#ok)                                                    |                                                             |
+| <a id="check_group_members_debug"></a>[debug](../common-options.md#debug)                                           | false                                                       |
+| <a id="check_group_members_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                       |
+| <a id="check_group_members_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                          |
+| <a id="check_group_members_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                             |
+| <a id="check_group_members_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                       |
+| <a id="check_group_members_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                           |
+| <a id="check_group_members_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                          |
+| <a id="check_group_members_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) member(s) are on the expected list. |
+| <a id="check_group_members_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): Group is empty                                   |
+| <a id="check_group_members_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${member} (${type})                                         |
+| <a id="check_group_members_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${member}                                                   |
+| <a id="check_group_members_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                             |
+| <a id="check_group_members_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                             |
+| <a id="check_group_members_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                          |
+| <a id="check_group_members_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                             |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1702,25 +1738,29 @@ OK: All 5 local account(s) ok.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                                | Default Value                                                                                           |
-|-------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
-| <a id="check_local_accounts_filter"></a>[filter](../common-options.md#filter)                         |                                                                                                         |
-| <a id="check_local_accounts_warning"></a>[warning](../common-options.md#warning)                      | enabled = 1 and is_builtin_guest = 1                                                                    |
-| <a id="check_local_accounts_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                         |
-| <a id="check_local_accounts_critical"></a>[critical](../common-options.md#critical)                   | enabled = 1 and password_required = 0                                                                   |
-| <a id="check_local_accounts_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                         |
-| <a id="check_local_accounts_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                         |
-| <a id="check_local_accounts_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                   |
-| <a id="check_local_accounts_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                   |
-| <a id="check_local_accounts_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                                                                      |
-| <a id="check_local_accounts_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                         |
-| <a id="check_local_accounts_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                   |
-| <a id="check_local_accounts_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                       |
-| <a id="check_local_accounts_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                      |
-| <a id="check_local_accounts_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) local account(s) ok.                                                            |
-| <a id="check_local_accounts_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No local accounts found                                                                      |
-| <a id="check_local_accounts_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name} (enabled=${enabled}, pw_req=${password_required}, pw_exp=${password_expires}, locked=${locked}) |
-| <a id="check_local_accounts_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                                                 |
+| Option                                                                                                               | Default Value                                                                                           |
+|----------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| <a id="check_local_accounts_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                         |
+| <a id="check_local_accounts_warning"></a>[warning](../common-options.md#warning)                                     | enabled = 1 and is_builtin_guest = 1                                                                    |
+| <a id="check_local_accounts_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                         |
+| <a id="check_local_accounts_critical"></a>[critical](../common-options.md#critical)                                  | enabled = 1 and password_required = 0                                                                   |
+| <a id="check_local_accounts_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                         |
+| <a id="check_local_accounts_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                         |
+| <a id="check_local_accounts_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                   |
+| <a id="check_local_accounts_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                   |
+| <a id="check_local_accounts_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                                                                      |
+| <a id="check_local_accounts_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                         |
+| <a id="check_local_accounts_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                   |
+| <a id="check_local_accounts_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                       |
+| <a id="check_local_accounts_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                      |
+| <a id="check_local_accounts_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) local account(s) ok.                                                            |
+| <a id="check_local_accounts_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No local accounts found                                                                      |
+| <a id="check_local_accounts_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} (enabled=${enabled}, pw_req=${password_required}, pw_exp=${password_expires}, locked=${locked}) |
+| <a id="check_local_accounts_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                                                                 |
+| <a id="check_local_accounts_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                         |
+| <a id="check_local_accounts_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                         |
+| <a id="check_local_accounts_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                      |
+| <a id="check_local_accounts_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                         |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1813,25 +1853,29 @@ L        cli UNKNOWN: check_nla is not supported on this platform (Windows Netwo
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                     | Default Value              |
-|--------------------------------------------------------------------------------------------|----------------------------|
-| <a id="check_nla_filter"></a>[filter](../common-options.md#filter)                         |                            |
-| <a id="check_nla_warning"></a>[warning](../common-options.md#warning)                      |                            |
-| <a id="check_nla_warn"></a>[warn](../common-options.md#warn)                               |                            |
-| <a id="check_nla_critical"></a>[critical](../common-options.md#critical)                   |                            |
-| <a id="check_nla_crit"></a>[crit](../common-options.md#crit)                               |                            |
-| <a id="check_nla_ok"></a>[ok](../common-options.md#ok)                                     |                            |
-| <a id="check_nla_debug"></a>[debug](../common-options.md#debug)                            | false                      |
-| <a id="check_nla_show-all"></a>[show-all](../common-options.md#show-all)                   | false                      |
-| <a id="check_nla_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                         |
-| <a id="check_nla_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                            |
-| <a id="check_nla_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                      |
-| <a id="check_nla_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                          |
-| <a id="check_nla_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}         |
-| <a id="check_nla_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | ${status}: all networks ok |
-| <a id="check_nla_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No networks found          |
-| <a id="check_nla_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${network}=${category}     |
-| <a id="check_nla_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${network}                 |
+| Option                                                                                                    | Default Value              |
+|-----------------------------------------------------------------------------------------------------------|----------------------------|
+| <a id="check_nla_filter"></a>[filter](../common-options.md#filter)                                        |                            |
+| <a id="check_nla_warning"></a>[warning](../common-options.md#warning)                                     |                            |
+| <a id="check_nla_warn"></a>[warn](../common-options.md#warn)                                              |                            |
+| <a id="check_nla_critical"></a>[critical](../common-options.md#critical)                                  |                            |
+| <a id="check_nla_crit"></a>[crit](../common-options.md#crit)                                              |                            |
+| <a id="check_nla_ok"></a>[ok](../common-options.md#ok)                                                    |                            |
+| <a id="check_nla_debug"></a>[debug](../common-options.md#debug)                                           | false                      |
+| <a id="check_nla_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                      |
+| <a id="check_nla_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                         |
+| <a id="check_nla_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                            |
+| <a id="check_nla_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                      |
+| <a id="check_nla_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                          |
+| <a id="check_nla_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}         |
+| <a id="check_nla_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | ${status}: all networks ok |
+| <a id="check_nla_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No networks found          |
+| <a id="check_nla_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${network}=${category}     |
+| <a id="check_nla_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${network}                 |
+| <a id="check_nla_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                            |
+| <a id="check_nla_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                            |
+| <a id="check_nla_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                         |
+| <a id="check_nla_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                            |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1917,25 +1961,29 @@ L        cli UNKNOWN: check_secureboot is not supported on this platform (Window
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                            | Default Value                                         |
-|---------------------------------------------------------------------------------------------------|-------------------------------------------------------|
-| <a id="check_secureboot_filter"></a>[filter](../common-options.md#filter)                         |                                                       |
-| <a id="check_secureboot_warning"></a>[warning](../common-options.md#warning)                      |                                                       |
-| <a id="check_secureboot_warn"></a>[warn](../common-options.md#warn)                               |                                                       |
-| <a id="check_secureboot_critical"></a>[critical](../common-options.md#critical)                   | enabled = 0                                           |
-| <a id="check_secureboot_crit"></a>[crit](../common-options.md#crit)                               |                                                       |
-| <a id="check_secureboot_ok"></a>[ok](../common-options.md#ok)                                     |                                                       |
-| <a id="check_secureboot_debug"></a>[debug](../common-options.md#debug)                            | false                                                 |
-| <a id="check_secureboot_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                 |
-| <a id="check_secureboot_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                               |
-| <a id="check_secureboot_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                       |
-| <a id="check_secureboot_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                 |
-| <a id="check_secureboot_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                     |
-| <a id="check_secureboot_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                    |
-| <a id="check_secureboot_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | ${status}: secure boot is enabled                     |
-| <a id="check_secureboot_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No Secure Boot state                                  |
-| <a id="check_secureboot_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | secure boot enabled=${enabled} supported=${supported} |
-| <a id="check_secureboot_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | secureboot                                            |
+| Option                                                                                                           | Default Value                                         |
+|------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
+| <a id="check_secureboot_filter"></a>[filter](../common-options.md#filter)                                        |                                                       |
+| <a id="check_secureboot_warning"></a>[warning](../common-options.md#warning)                                     |                                                       |
+| <a id="check_secureboot_warn"></a>[warn](../common-options.md#warn)                                              |                                                       |
+| <a id="check_secureboot_critical"></a>[critical](../common-options.md#critical)                                  | enabled = 0                                           |
+| <a id="check_secureboot_crit"></a>[crit](../common-options.md#crit)                                              |                                                       |
+| <a id="check_secureboot_ok"></a>[ok](../common-options.md#ok)                                                    |                                                       |
+| <a id="check_secureboot_debug"></a>[debug](../common-options.md#debug)                                           | false                                                 |
+| <a id="check_secureboot_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                 |
+| <a id="check_secureboot_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                               |
+| <a id="check_secureboot_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                       |
+| <a id="check_secureboot_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                 |
+| <a id="check_secureboot_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                     |
+| <a id="check_secureboot_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                    |
+| <a id="check_secureboot_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | ${status}: secure boot is enabled                     |
+| <a id="check_secureboot_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No Secure Boot state                                  |
+| <a id="check_secureboot_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | secure boot enabled=${enabled} supported=${supported} |
+| <a id="check_secureboot_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | secureboot                                            |
+| <a id="check_secureboot_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                       |
+| <a id="check_secureboot_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                       |
+| <a id="check_secureboot_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                    |
+| <a id="check_secureboot_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                       |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2033,25 +2081,29 @@ check_users "crit=session_state = 'disconnected'" "detail-syntax=${user} (${sess
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                       | Default Value                                  |
-|----------------------------------------------------------------------------------------------|------------------------------------------------|
-| <a id="check_users_filter"></a>[filter](../common-options.md#filter)                         |                                                |
-| <a id="check_users_warning"></a>[warning](../common-options.md#warning)                      |                                                |
-| <a id="check_users_warn"></a>[warn](../common-options.md#warn)                               |                                                |
-| <a id="check_users_critical"></a>[critical](../common-options.md#critical)                   |                                                |
-| <a id="check_users_crit"></a>[crit](../common-options.md#crit)                               |                                                |
-| <a id="check_users_ok"></a>[ok](../common-options.md#ok)                                     |                                                |
-| <a id="check_users_debug"></a>[debug](../common-options.md#debug)                            | false                                          |
-| <a id="check_users_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                          |
-| <a id="check_users_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                             |
-| <a id="check_users_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                |
-| <a id="check_users_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                          |
-| <a id="check_users_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                              |
-| <a id="check_users_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${count} user(s) logged on: ${list} |
-| <a id="check_users_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | ${status}: ${count} user(s) logged on          |
-| <a id="check_users_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No users logged on                             |
-| <a id="check_users_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${user}                                        |
-| <a id="check_users_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${user}                                        |
+| Option                                                                                                      | Default Value                                  |
+|-------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| <a id="check_users_filter"></a>[filter](../common-options.md#filter)                                        |                                                |
+| <a id="check_users_warning"></a>[warning](../common-options.md#warning)                                     |                                                |
+| <a id="check_users_warn"></a>[warn](../common-options.md#warn)                                              |                                                |
+| <a id="check_users_critical"></a>[critical](../common-options.md#critical)                                  |                                                |
+| <a id="check_users_crit"></a>[crit](../common-options.md#crit)                                              |                                                |
+| <a id="check_users_ok"></a>[ok](../common-options.md#ok)                                                    |                                                |
+| <a id="check_users_debug"></a>[debug](../common-options.md#debug)                                           | false                                          |
+| <a id="check_users_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                          |
+| <a id="check_users_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                             |
+| <a id="check_users_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                |
+| <a id="check_users_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                          |
+| <a id="check_users_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                              |
+| <a id="check_users_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${count} user(s) logged on: ${list} |
+| <a id="check_users_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | ${status}: ${count} user(s) logged on          |
+| <a id="check_users_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No users logged on                             |
+| <a id="check_users_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${user}                                        |
+| <a id="check_users_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${user}                                        |
+| <a id="check_users_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                |
+| <a id="check_users_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                |
+| <a id="check_users_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                             |
+| <a id="check_users_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

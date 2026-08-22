@@ -8,6 +8,7 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
+#include <str/number_format.hpp>
 #ifdef WIN32
 #pragma warning(disable : 4251)
 #endif
@@ -30,6 +31,14 @@ struct NSCAPI_EXPORT filter_object {
   // What joins the items of %(list) and friends; accepts \n, \r, \t and \\.
   // Mirrors the `list-separator` option of a queried check (issue #1370).
   std::string list_separator;
+  // How the numbers of the message are rendered, mirroring the `decimals`,
+  // `byte-unit`, `decimal-separator` and `thousands-separator` options of a
+  // queried check (issue #1428). -1 decimals and empty strings mean "unset",
+  // so apply_parent can inherit them from the default template.
+  int decimals;
+  std::string byte_unit;
+  std::string decimal_separator;
+  std::string thousands_separator;
 
  private:
   std::string filter_string_;
@@ -50,7 +59,13 @@ struct NSCAPI_EXPORT filter_object {
   std::string timeout_msg;
 
   filter_object(std::string syntax_top, std::string syntax_detail, std::string target)
-      : debug(false), escape_html(false), syntax_top(std::move(syntax_top)), syntax_detail(std::move(syntax_detail)), target(std::move(target)), severity(-1) {}
+      : debug(false),
+        escape_html(false),
+        syntax_top(std::move(syntax_top)),
+        syntax_detail(std::move(syntax_detail)),
+        target(std::move(target)),
+        decimals(-1),
+        severity(-1) {}
 
   filter_object(const filter_object &other) = default;
 
@@ -82,6 +97,16 @@ struct NSCAPI_EXPORT filter_object {
   }
   void set_silent_period(const std::string &age) {
     if (age != "none" && age != "infinite" && age != "false" && age != "off") silent_period = parse_time(age);
+  }
+
+  // The number format these keys describe; unset keys keep their defaults.
+  str::number_format number_format() const {
+    str::number_format fmt;
+    fmt.decimals = decimals;
+    fmt.byte_unit = byte_unit;
+    if (!decimal_separator.empty()) fmt.decimal_separator = decimal_separator;
+    fmt.thousands_separator = thousands_separator;
+    return fmt;
   }
 
   void read_object(settings_helper::path_extension &path, bool is_default);

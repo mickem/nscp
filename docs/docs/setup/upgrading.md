@@ -32,6 +32,33 @@ page tracks those in one place. Full per-release detail lives in each
   migrate) now keeps a placeholder you pass it as-is in `boot.ini` while
   migrating into the expanded per-host file, so the template survives on a
   fleet-managed machine.
+- **Check messages can now be told how to render their numbers.** Every filter
+  check gained four options - `decimals`, `byte-unit`, `decimal-separator` and
+  `thousands-separator` - so `check_drivesize` can report
+  `141.06GB/1006.85GB` (or `141,06GB/1.006,85GB`) instead of
+  `140.293GB/0.983TB`. The defaults are unchanged, so an installation that does
+  not set them renders exactly what it rendered before. The options only touch
+  the message: performance data keeps its full precision and its `.` radix, and
+  so do the numbers you write in a filter or a threshold. Real-time filters take
+  the same settings as `decimals`, `byte unit`, `decimal separator` and
+  `thousands separator` keys, inheritable from the default template.
+- **An unknown unit in `format_bytes()` is now reported instead of rendering
+  nonsense.** `format_bytes(used, 'gb')` used to render `1.27055e-10` because
+  the unit comparison was case sensitive, and any misspelled unit rendered
+  `value/1024^7`. Lowercase units now work, and a unit that names nothing (say
+  `'ZB'`) makes the check report `Filter processing failed: format_bytes
+  failed: Unknown byte unit: ZB`. A syntax string with such a typo returns
+  UNKNOWN rather than a quietly wrong number - fix the unit, or the check will
+  stay UNKNOWN.
+- **A `unit:` in `perf-config` that names no unit no longer divides the metric
+  by 1024⁷.** An unrecognised unit now leaves the value alone. If a graph of
+  yours has been flat at a near-zero value, check the `unit:` spelling in its
+  `perf-config`: the metric will jump to its real magnitude on upgrade.
+- **Errors raised while a template renders are now reported.** A function that
+  failed inside `detail-syntax` or `top-syntax` used to leave the placeholder
+  empty and say nothing; the check now returns UNKNOWN with `Filter processing
+  failed: …`. This surfaces template mistakes that have been silently producing
+  incomplete messages.
 - **`check_pending_reboot`'s default message now names the pending-since
   time.** When the reboot was queued by Component Based Servicing or Windows
   Update, the message gains a suffix: `Reboot required: Windows Update` became

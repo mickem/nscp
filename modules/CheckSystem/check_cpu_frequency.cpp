@@ -65,8 +65,12 @@ void cpu_frequency::read_wmi(const wmi_impl::row &r) {
   architecture = arch ? architecture_to_string(*arch) : "unknown";
 }
 
-std::string cpu_frequency::get_l2_cache_human() const { return str::format::format_byte_units(l2_cache); }
-std::string cpu_frequency::get_l3_cache_human() const { return str::format::format_byte_units(l3_cache); }
+std::string cpu_frequency::get_l2_cache_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(l2_cache, context->get_number_format());
+}
+std::string cpu_frequency::get_l3_cache_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(l3_cache, context->get_number_format());
+}
 
 void cpu_frequency::build_metrics(PB::Metrics::MetricsBundle *section) const {
   using namespace nscapi::metrics;
@@ -159,8 +163,8 @@ filter_obj_handler::filter_obj_handler() {
   registry_.add_string_var("architecture", &filter_obj::get_architecture, "Processor architecture (x86, x64, ARM64, ...)");
 
   // Render the cache sizes human-readable; expressions keep comparing bytes.
-  registry_.add_human_string("l2_cache", &filter_obj::get_l2_cache_human, "L2 cache as a human-readable size")
-      .add_human_string("l3_cache", &filter_obj::get_l3_cache_human, "L3 cache as a human-readable size");
+  registry_.add_human_string_context("l2_cache", &filter_obj::get_l2_cache_human, "L2 cache as a human-readable size")
+      .add_human_string_context("l3_cache", &filter_obj::get_l3_cache_human, "L3 cache as a human-readable size");
 }
 
 void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,

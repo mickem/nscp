@@ -30,6 +30,23 @@ void filter_object::read_object(settings_helper::path_extension& path, const boo
                   "render one item per line (most Nagios compatible frontends show everything after the first line as long output). Reference it as %(sep) in "
                   "the top syntax to also break before the first item.",
                   true)
+      // Number rendering, mirroring the same-named options of a queried check
+      // (#1428). Unset means "leave it alone" so apply_parent can inherit.
+      .add_int("decimals", sh::int_key(&decimals, -1), "DECIMALS",
+               "Number of decimals to render the numbers of the message with (-1 keeps the historical rendering of up to three decimals with the trailing "
+               "zeros stripped). Performance data is unaffected.",
+               true)
+      .add_string("byte unit", sh::string_key(&byte_unit), "BYTE UNIT",
+                  "Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or EB. Empty (the default) scales each value on its own. "
+                  "Performance data is unaffected.",
+                  true)
+      .add_string("decimal separator", sh::string_key(&decimal_separator), "DECIMAL SEPARATOR",
+                  "Character to use as the decimal separator of the message, for instance ',' for the European rendering. Only the message is affected: "
+                  "performance data and the numbers written in a filter always use '.'.",
+                  true)
+      .add_string("thousands separator", sh::string_key(&thousands_separator), "THOUSANDS SEPARATOR",
+                  "Character to group the thousands of the message with. Empty (the default) means no grouping. Only the message is affected.", true)
+
       .add_string("perf config", sh::string_key(&perf_config), "PERF CONFIG", "Performance data configuration", true)
 
       .add_bool("debug", sh::bool_key(&debug), "DEBUG", "Enable this to display debug information for this match filter", true)
@@ -72,6 +89,10 @@ void filter_object::apply_parent(const filter_object& parent) {
   import_string(syntax_detail, parent.syntax_detail);
   import_string(syntax_top, parent.syntax_top);
   import_string(list_separator, parent.list_separator);
+  if (decimals == -1) decimals = parent.decimals;
+  import_string(byte_unit, parent.byte_unit);
+  import_string(decimal_separator, parent.decimal_separator);
+  import_string(thousands_separator, parent.thousands_separator);
   import_string(filter_string_, parent.filter_string_);
   import_string(filter_warn, parent.filter_warn);
   import_string(filter_crit, parent.filter_crit);

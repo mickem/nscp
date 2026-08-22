@@ -12,6 +12,23 @@ using hardware_check::parse_first_array_int;
 
 namespace {
 
+// Minimal evaluation context carrying the default number format.
+struct mock_evaluation_context final : parsers::where::evaluation_context_interface {
+  bool has_error() const override { return false; }
+  std::string get_error() const override { return ""; }
+  void error(std::string) override {}
+  bool has_warn() const override { return false; }
+  std::string get_warn() const override { return ""; }
+  void warn(std::string) override {}
+  void clear() override {}
+  void enable_debug(bool) override {}
+  bool debug_enabled() override { return false; }
+  std::string get_debug() const override { return ""; }
+  void debug(parsers::where::object_match) override {}
+};
+
+parsers::where::evaluation_context make_context() { return std::make_shared<mock_evaluation_context>(); }
+
 std::string join_lines(const PB::Commands::QueryResponseMessage::Response &r) {
   std::string out;
   for (int i = 0; i < r.lines_size(); ++i) {
@@ -90,7 +107,7 @@ TEST(CheckHardware, RecomputeAggregatesModules) {
   EXPECT_EQ(h.memory, 64LL * 1024 * 1024 * 1024);
   EXPECT_EQ(h.memory_speed, 4400);  // slowest module
   EXPECT_EQ(h.module_list, "DIMM_A1: 32GB@4800MHz; DIMM_B1: 32GB@4400MHz");
-  EXPECT_EQ(h.get_memory_human(), "64GB");
+  EXPECT_EQ(h.get_memory_human(make_context()), "64GB");
 }
 
 // --- rendering / thresholds ------------------------------------------------------

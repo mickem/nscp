@@ -94,6 +94,7 @@ NSCP_CREATE_TEST(
     str_test
     SOURCES
         ${NSCP_INCLUDEDIR}/str/format_test.cpp
+        ${NSCP_INCLUDEDIR}/str/number_format_test.cpp
         ${NSCP_INCLUDEDIR}/str/xtos_test.cpp
         ${NSCP_INCLUDEDIR}/str/nscp_string_test.cpp
         ${NSCP_INCLUDEDIR}/str/utils_test.cpp

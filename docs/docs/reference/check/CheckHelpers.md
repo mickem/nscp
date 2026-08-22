@@ -440,26 +440,30 @@ List of arguments (for wrapped command)
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                       | Default Value                                          |
-|----------------------------------------------------------------------------------------------|--------------------------------------------------------|
-| <a id="render_perf_filter"></a>[filter](../common-options.md#filter)                         |                                                        |
-| <a id="render_perf_warning"></a>[warning](../common-options.md#warning)                      |                                                        |
-| <a id="render_perf_warn"></a>[warn](../common-options.md#warn)                               |                                                        |
-| <a id="render_perf_critical"></a>[critical](../common-options.md#critical)                   |                                                        |
-| <a id="render_perf_crit"></a>[crit](../common-options.md#crit)                               |                                                        |
-| <a id="render_perf_ok"></a>[ok](../common-options.md#ok)                                     |                                                        |
-| <a id="render_perf_debug"></a>[debug](../common-options.md#debug)                            | false                                                  |
-| <a id="render_perf_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                  |
-| <a id="render_perf_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                |
-| <a id="render_perf_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                        |
-| <a id="render_perf_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                  |
-| <a id="render_perf_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                      |
-| <a id="render_perf_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | %(status): %(message) %(list)                          |
-| <a id="render_perf_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |                                                        |
-| <a id="render_perf_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                        |
-| <a id="render_perf_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | %(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
+| Option                                                                                                      | Default Value                                          |
+|-------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| <a id="render_perf_filter"></a>[filter](../common-options.md#filter)                                        |                                                        |
+| <a id="render_perf_warning"></a>[warning](../common-options.md#warning)                                     |                                                        |
+| <a id="render_perf_warn"></a>[warn](../common-options.md#warn)                                              |                                                        |
+| <a id="render_perf_critical"></a>[critical](../common-options.md#critical)                                  |                                                        |
+| <a id="render_perf_crit"></a>[crit](../common-options.md#crit)                                              |                                                        |
+| <a id="render_perf_ok"></a>[ok](../common-options.md#ok)                                                    |                                                        |
+| <a id="render_perf_debug"></a>[debug](../common-options.md#debug)                                           | false                                                  |
+| <a id="render_perf_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                  |
+| <a id="render_perf_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                |
+| <a id="render_perf_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                        |
+| <a id="render_perf_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                  |
+| <a id="render_perf_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                      |
+| <a id="render_perf_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | %(status): %(message) %(list)                          |
+| <a id="render_perf_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                        |
+| <a id="render_perf_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                        |
+| <a id="render_perf_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | %(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
  |
-| <a id="render_perf_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | %(key)                                                 |
+| <a id="render_perf_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | %(key)                                                 |
+| <a id="render_perf_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                        |
+| <a id="render_perf_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                        |
+| <a id="render_perf_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                     |
+| <a id="render_perf_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                        |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

@@ -137,25 +137,29 @@ Device-state keywords (populated on `has_device = 1` rows): `friendly_name`,
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                             | Default Value                                                                                                                       |
-|----------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| <a id="check_disk_health_filter"></a>[filter](../common-options.md#filter)                         | name != '_Total'                                                                                                                    |
-| <a id="check_disk_health_warning"></a>[warning](../common-options.md#warning)                      | (has_space = 1 and free_pct < 20) or percent_disk_time > 80 or (has_device = 1 and health_status = 'Warning')                       |
-| <a id="check_disk_health_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                                     |
-| <a id="check_disk_health_critical"></a>[critical](../common-options.md#critical)                   | (has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1 and (health_status = 'Unhealthy' or is_offline = 1)) |
-| <a id="check_disk_health_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                                     |
-| <a id="check_disk_health_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                                     |
-| <a id="check_disk_health_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                                               |
-| <a id="check_disk_health_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                                               |
-| <a id="check_disk_health_empty-state"></a>[empty-state](../common-options.md#empty-state)          | critical                                                                                                                            |
-| <a id="check_disk_health_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                                     |
-| <a id="check_disk_health_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                                               |
-| <a id="check_disk_health_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                                                   |
-| <a id="check_disk_health_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                                                  |
-| <a id="check_disk_health_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All disks are healthy.                                                                                                   |
-| <a id="check_disk_health_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                                                                                     |
-| <a id="check_disk_health_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}                                               |
-| <a id="check_disk_health_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                                                                             |
+| Option                                                                                                            | Default Value                                                                                                                       |
+|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| <a id="check_disk_health_filter"></a>[filter](../common-options.md#filter)                                        | name != '_Total'                                                                                                                    |
+| <a id="check_disk_health_warning"></a>[warning](../common-options.md#warning)                                     | (has_space = 1 and free_pct < 20) or percent_disk_time > 80 or (has_device = 1 and health_status = 'Warning')                       |
+| <a id="check_disk_health_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                                                     |
+| <a id="check_disk_health_critical"></a>[critical](../common-options.md#critical)                                  | (has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1 and (health_status = 'Unhealthy' or is_offline = 1)) |
+| <a id="check_disk_health_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                                                     |
+| <a id="check_disk_health_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                                                     |
+| <a id="check_disk_health_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                                               |
+| <a id="check_disk_health_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                                               |
+| <a id="check_disk_health_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | critical                                                                                                                            |
+| <a id="check_disk_health_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                                                     |
+| <a id="check_disk_health_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                                               |
+| <a id="check_disk_health_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                                                   |
+| <a id="check_disk_health_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                                                  |
+| <a id="check_disk_health_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All disks are healthy.                                                                                                   |
+| <a id="check_disk_health_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                                                                                     |
+| <a id="check_disk_health_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}                                               |
+| <a id="check_disk_health_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                                                                                             |
+| <a id="check_disk_health_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                                                     |
+| <a id="check_disk_health_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                                                     |
+| <a id="check_disk_health_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                                                  |
+| <a id="check_disk_health_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                                                     |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -340,25 +344,29 @@ OK: All disk I/O seems ok.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                         | Default Value                                                                                                        |
-|------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| <a id="check_disk_io_filter"></a>[filter](../common-options.md#filter)                         | name != '_Total'                                                                                                     |
-| <a id="check_disk_io_warning"></a>[warning](../common-options.md#warning)                      | percent_disk_time > 80                                                                                               |
-| <a id="check_disk_io_warn"></a>[warn](../common-options.md#warn)                               |                                                                                                                      |
-| <a id="check_disk_io_critical"></a>[critical](../common-options.md#critical)                   | percent_disk_time > 95                                                                                               |
-| <a id="check_disk_io_crit"></a>[crit](../common-options.md#crit)                               |                                                                                                                      |
-| <a id="check_disk_io_ok"></a>[ok](../common-options.md#ok)                                     |                                                                                                                      |
-| <a id="check_disk_io_debug"></a>[debug](../common-options.md#debug)                            | false                                                                                                                |
-| <a id="check_disk_io_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                                                                                |
-| <a id="check_disk_io_empty-state"></a>[empty-state](../common-options.md#empty-state)          | critical                                                                                                             |
-| <a id="check_disk_io_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                                                                                      |
-| <a id="check_disk_io_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                                                                                |
-| <a id="check_disk_io_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                                                                                    |
-| <a id="check_disk_io_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                                                                                   |
-| <a id="check_disk_io_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All disk I/O seems ok.                                                                                    |
-| <a id="check_disk_io_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |                                                                                                                      |
-| <a id="check_disk_io_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s q=${queue_length} |
-| <a id="check_disk_io_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                                                                              |
+| Option                                                                                                        | Default Value                                                                                                        |
+|---------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| <a id="check_disk_io_filter"></a>[filter](../common-options.md#filter)                                        | name != '_Total'                                                                                                     |
+| <a id="check_disk_io_warning"></a>[warning](../common-options.md#warning)                                     | percent_disk_time > 80                                                                                               |
+| <a id="check_disk_io_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                                      |
+| <a id="check_disk_io_critical"></a>[critical](../common-options.md#critical)                                  | percent_disk_time > 95                                                                                               |
+| <a id="check_disk_io_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                                      |
+| <a id="check_disk_io_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                                      |
+| <a id="check_disk_io_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                                |
+| <a id="check_disk_io_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                                |
+| <a id="check_disk_io_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | critical                                                                                                             |
+| <a id="check_disk_io_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                                      |
+| <a id="check_disk_io_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                                |
+| <a id="check_disk_io_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                                    |
+| <a id="check_disk_io_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                                   |
+| <a id="check_disk_io_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All disk I/O seems ok.                                                                                    |
+| <a id="check_disk_io_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                                                                                      |
+| <a id="check_disk_io_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s q=${queue_length} |
+| <a id="check_disk_io_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                                                                              |
+| <a id="check_disk_io_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                                      |
+| <a id="check_disk_io_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                                      |
+| <a id="check_disk_io_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                                   |
+| <a id="check_disk_io_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                                      |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -509,25 +517,29 @@ The amount of data to write, in bytes or with a byte unit (e.g. 512, 4k, 1M). Ma
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                            | Default Value           |
-|---------------------------------------------------------------------------------------------------|-------------------------|
-| <a id="check_disk_write_filter"></a>[filter](../common-options.md#filter)                         |                         |
-| <a id="check_disk_write_warning"></a>[warning](../common-options.md#warning)                      |                         |
-| <a id="check_disk_write_warn"></a>[warn](../common-options.md#warn)                               |                         |
-| <a id="check_disk_write_critical"></a>[critical](../common-options.md#critical)                   | has_issues = 1          |
-| <a id="check_disk_write_crit"></a>[crit](../common-options.md#crit)                               |                         |
-| <a id="check_disk_write_ok"></a>[ok](../common-options.md#ok)                                     |                         |
-| <a id="check_disk_write_debug"></a>[debug](../common-options.md#debug)                            | false                   |
-| <a id="check_disk_write_show-all"></a>[show-all](../common-options.md#show-all)                   | false                   |
-| <a id="check_disk_write_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                 |
-| <a id="check_disk_write_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                         |
-| <a id="check_disk_write_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                   |
-| <a id="check_disk_write_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                       |
-| <a id="check_disk_write_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}      |
-| <a id="check_disk_write_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)      |
-| <a id="check_disk_write_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No write test performed |
-| <a id="check_disk_write_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | %(path): %(message)     |
-| <a id="check_disk_write_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | %(path)                 |
+| Option                                                                                                           | Default Value           |
+|------------------------------------------------------------------------------------------------------------------|-------------------------|
+| <a id="check_disk_write_filter"></a>[filter](../common-options.md#filter)                                        |                         |
+| <a id="check_disk_write_warning"></a>[warning](../common-options.md#warning)                                     |                         |
+| <a id="check_disk_write_warn"></a>[warn](../common-options.md#warn)                                              |                         |
+| <a id="check_disk_write_critical"></a>[critical](../common-options.md#critical)                                  | has_issues = 1          |
+| <a id="check_disk_write_crit"></a>[crit](../common-options.md#crit)                                              |                         |
+| <a id="check_disk_write_ok"></a>[ok](../common-options.md#ok)                                                    |                         |
+| <a id="check_disk_write_debug"></a>[debug](../common-options.md#debug)                                           | false                   |
+| <a id="check_disk_write_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                   |
+| <a id="check_disk_write_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                 |
+| <a id="check_disk_write_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                         |
+| <a id="check_disk_write_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                   |
+| <a id="check_disk_write_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                       |
+| <a id="check_disk_write_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}      |
+| <a id="check_disk_write_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(list)      |
+| <a id="check_disk_write_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No write test performed |
+| <a id="check_disk_write_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | %(path): %(message)     |
+| <a id="check_disk_write_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | %(path)                 |
+| <a id="check_disk_write_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                         |
+| <a id="check_disk_write_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                         |
+| <a id="check_disk_write_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                      |
+| <a id="check_disk_write_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                         |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -914,25 +926,29 @@ check_drivesize "filter=full_in = 'never'"
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                           | Default Value                          |
-    |--------------------------------------------------------------------------------------------------|----------------------------------------|
-    | <a id="check_drivesize_filter"></a>[filter](../common-options.md#filter)                         | mounted = 1                            |
-    | <a id="check_drivesize_warning"></a>[warning](../common-options.md#warning)                      | used > 80%                             |
-    | <a id="check_drivesize_warn"></a>[warn](../common-options.md#warn)                               |                                        |
-    | <a id="check_drivesize_critical"></a>[critical](../common-options.md#critical)                   | used > 90%                             |
-    | <a id="check_drivesize_crit"></a>[crit](../common-options.md#crit)                               |                                        |
-    | <a id="check_drivesize_ok"></a>[ok](../common-options.md#ok)                                     |                                        |
-    | <a id="check_drivesize_debug"></a>[debug](../common-options.md#debug)                            | false                                  |
-    | <a id="check_drivesize_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                  |
-    | <a id="check_drivesize_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                |
-    | <a id="check_drivesize_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                        |
-    | <a id="check_drivesize_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                  |
-    | <a id="check_drivesize_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                      |
-    | <a id="check_drivesize_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status} ${problem_list}              |
-    | <a id="check_drivesize_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status) All %(count) drive(s) are ok |
-    | <a id="check_drivesize_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No drives found             |
-    | <a id="check_drivesize_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${drive_or_name}: ${used}/${size} used |
-    | <a id="check_drivesize_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${drive_or_id}                         |
+    | Option                                                                                                          | Default Value                          |
+    |-----------------------------------------------------------------------------------------------------------------|----------------------------------------|
+    | <a id="check_drivesize_filter"></a>[filter](../common-options.md#filter)                                        | mounted = 1                            |
+    | <a id="check_drivesize_warning"></a>[warning](../common-options.md#warning)                                     | used > 80%                             |
+    | <a id="check_drivesize_warn"></a>[warn](../common-options.md#warn)                                              |                                        |
+    | <a id="check_drivesize_critical"></a>[critical](../common-options.md#critical)                                  | used > 90%                             |
+    | <a id="check_drivesize_crit"></a>[crit](../common-options.md#crit)                                              |                                        |
+    | <a id="check_drivesize_ok"></a>[ok](../common-options.md#ok)                                                    |                                        |
+    | <a id="check_drivesize_debug"></a>[debug](../common-options.md#debug)                                           | false                                  |
+    | <a id="check_drivesize_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                  |
+    | <a id="check_drivesize_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                |
+    | <a id="check_drivesize_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                        |
+    | <a id="check_drivesize_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                  |
+    | <a id="check_drivesize_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                      |
+    | <a id="check_drivesize_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status} ${problem_list}              |
+    | <a id="check_drivesize_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status) All %(count) drive(s) are ok |
+    | <a id="check_drivesize_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No drives found             |
+    | <a id="check_drivesize_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${drive_or_name}: ${used}/${size} used |
+    | <a id="check_drivesize_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${drive_or_id}                         |
+    | <a id="check_drivesize_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                        |
+    | <a id="check_drivesize_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                        |
+    | <a id="check_drivesize_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                     |
+    | <a id="check_drivesize_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                        |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -981,25 +997,29 @@ check_drivesize "filter=full_in = 'never'"
     These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    | Option                                                                                           | Default Value                          |
-    |--------------------------------------------------------------------------------------------------|----------------------------------------|
-    | <a id="check_drivesize_filter"></a>[filter](../common-options.md#filter)                         | mounted = 1                            |
-    | <a id="check_drivesize_warning"></a>[warning](../common-options.md#warning)                      | used > 80%                             |
-    | <a id="check_drivesize_warn"></a>[warn](../common-options.md#warn)                               |                                        |
-    | <a id="check_drivesize_critical"></a>[critical](../common-options.md#critical)                   | used > 90%                             |
-    | <a id="check_drivesize_crit"></a>[crit](../common-options.md#crit)                               |                                        |
-    | <a id="check_drivesize_ok"></a>[ok](../common-options.md#ok)                                     |                                        |
-    | <a id="check_drivesize_debug"></a>[debug](../common-options.md#debug)                            | false                                  |
-    | <a id="check_drivesize_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                  |
-    | <a id="check_drivesize_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                |
-    | <a id="check_drivesize_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                        |
-    | <a id="check_drivesize_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                  |
-    | <a id="check_drivesize_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                      |
-    | <a id="check_drivesize_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status} ${problem_list}              |
-    | <a id="check_drivesize_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status) All %(count) drive(s) are ok |
-    | <a id="check_drivesize_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No drives found             |
-    | <a id="check_drivesize_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${drive_or_name}: ${used}/${size} used |
-    | <a id="check_drivesize_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${drive_or_id}                         |
+    | Option                                                                                                          | Default Value                          |
+    |-----------------------------------------------------------------------------------------------------------------|----------------------------------------|
+    | <a id="check_drivesize_filter"></a>[filter](../common-options.md#filter)                                        | mounted = 1                            |
+    | <a id="check_drivesize_warning"></a>[warning](../common-options.md#warning)                                     | used > 80%                             |
+    | <a id="check_drivesize_warn"></a>[warn](../common-options.md#warn)                                              |                                        |
+    | <a id="check_drivesize_critical"></a>[critical](../common-options.md#critical)                                  | used > 90%                             |
+    | <a id="check_drivesize_crit"></a>[crit](../common-options.md#crit)                                              |                                        |
+    | <a id="check_drivesize_ok"></a>[ok](../common-options.md#ok)                                                    |                                        |
+    | <a id="check_drivesize_debug"></a>[debug](../common-options.md#debug)                                           | false                                  |
+    | <a id="check_drivesize_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                  |
+    | <a id="check_drivesize_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                |
+    | <a id="check_drivesize_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                        |
+    | <a id="check_drivesize_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                  |
+    | <a id="check_drivesize_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                      |
+    | <a id="check_drivesize_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status} ${problem_list}              |
+    | <a id="check_drivesize_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status) All %(count) drive(s) are ok |
+    | <a id="check_drivesize_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No drives found             |
+    | <a id="check_drivesize_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${drive_or_name}: ${used}/${size} used |
+    | <a id="check_drivesize_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${drive_or_id}                         |
+    | <a id="check_drivesize_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                        |
+    | <a id="check_drivesize_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                        |
+    | <a id="check_drivesize_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                     |
+    | <a id="check_drivesize_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                        |
 
 
     This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1275,25 +1295,29 @@ Silently skip top-level paths that do not exist, instead of failing the whole ch
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                       | Default Value                                                |
-|----------------------------------------------------------------------------------------------|--------------------------------------------------------------|
-| <a id="check_files_filter"></a>[filter](../common-options.md#filter)                         |                                                              |
-| <a id="check_files_warning"></a>[warning](../common-options.md#warning)                      |                                                              |
-| <a id="check_files_warn"></a>[warn](../common-options.md#warn)                               |                                                              |
-| <a id="check_files_critical"></a>[critical](../common-options.md#critical)                   |                                                              |
-| <a id="check_files_crit"></a>[crit](../common-options.md#crit)                               |                                                              |
-| <a id="check_files_ok"></a>[ok](../common-options.md#ok)                                     |                                                              |
-| <a id="check_files_debug"></a>[debug](../common-options.md#debug)                            | false                                                        |
-| <a id="check_files_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                        |
-| <a id="check_files_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                                      |
-| <a id="check_files_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                              |
-| <a id="check_files_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                        |
-| <a id="check_files_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                            |
-| <a id="check_files_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_count}/${count} files (${problem_list}) |
-| <a id="check_files_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) files are ok                         |
-| <a id="check_files_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No files found                                               |
-| <a id="check_files_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}                                                      |
-| <a id="check_files_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                      |
+| Option                                                                                                      | Default Value                                                |
+|-------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| <a id="check_files_filter"></a>[filter](../common-options.md#filter)                                        |                                                              |
+| <a id="check_files_warning"></a>[warning](../common-options.md#warning)                                     |                                                              |
+| <a id="check_files_warn"></a>[warn](../common-options.md#warn)                                              |                                                              |
+| <a id="check_files_critical"></a>[critical](../common-options.md#critical)                                  |                                                              |
+| <a id="check_files_crit"></a>[crit](../common-options.md#crit)                                              |                                                              |
+| <a id="check_files_ok"></a>[ok](../common-options.md#ok)                                                    |                                                              |
+| <a id="check_files_debug"></a>[debug](../common-options.md#debug)                                           | false                                                        |
+| <a id="check_files_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                        |
+| <a id="check_files_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                      |
+| <a id="check_files_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                              |
+| <a id="check_files_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                        |
+| <a id="check_files_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                            |
+| <a id="check_files_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_count}/${count} files (${problem_list}) |
+| <a id="check_files_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) files are ok                         |
+| <a id="check_files_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No files found                                               |
+| <a id="check_files_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}                                                      |
+| <a id="check_files_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                      |
+| <a id="check_files_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                              |
+| <a id="check_files_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                              |
+| <a id="check_files_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                           |
+| <a id="check_files_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                              |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1439,25 +1463,29 @@ OK: mounts are as expected
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                       | Default Value                                  |
-|----------------------------------------------------------------------------------------------|------------------------------------------------|
-| <a id="check_mount_filter"></a>[filter](../common-options.md#filter)                         |                                                |
-| <a id="check_mount_warning"></a>[warning](../common-options.md#warning)                      | has_issues = 1                                 |
-| <a id="check_mount_warn"></a>[warn](../common-options.md#warn)                               |                                                |
-| <a id="check_mount_critical"></a>[critical](../common-options.md#critical)                   | issues like 'not mounted'                      |
-| <a id="check_mount_crit"></a>[crit](../common-options.md#crit)                               |                                                |
-| <a id="check_mount_ok"></a>[ok](../common-options.md#ok)                                     |                                                |
-| <a id="check_mount_debug"></a>[debug](../common-options.md#debug)                            | false                                          |
-| <a id="check_mount_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                          |
-| <a id="check_mount_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                        |
-| <a id="check_mount_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                |
-| <a id="check_mount_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                          |
-| <a id="check_mount_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                              |
-| <a id="check_mount_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                     |
-| <a id="check_mount_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): mounts are as expected              |
-| <a id="check_mount_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | check_mount found nothing matching this filter |
-| <a id="check_mount_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | mount ${mount} ${issues}                       |
-| <a id="check_mount_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${mount}                                       |
+| Option                                                                                                      | Default Value                                  |
+|-------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| <a id="check_mount_filter"></a>[filter](../common-options.md#filter)                                        |                                                |
+| <a id="check_mount_warning"></a>[warning](../common-options.md#warning)                                     | has_issues = 1                                 |
+| <a id="check_mount_warn"></a>[warn](../common-options.md#warn)                                              |                                                |
+| <a id="check_mount_critical"></a>[critical](../common-options.md#critical)                                  | issues like 'not mounted'                      |
+| <a id="check_mount_crit"></a>[crit](../common-options.md#crit)                                              |                                                |
+| <a id="check_mount_ok"></a>[ok](../common-options.md#ok)                                                    |                                                |
+| <a id="check_mount_debug"></a>[debug](../common-options.md#debug)                                           | false                                          |
+| <a id="check_mount_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                          |
+| <a id="check_mount_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                        |
+| <a id="check_mount_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                |
+| <a id="check_mount_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                          |
+| <a id="check_mount_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                              |
+| <a id="check_mount_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                     |
+| <a id="check_mount_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): mounts are as expected              |
+| <a id="check_mount_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | check_mount found nothing matching this filter |
+| <a id="check_mount_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | mount ${mount} ${issues}                       |
+| <a id="check_mount_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${mount}                                       |
+| <a id="check_mount_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                |
+| <a id="check_mount_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                |
+| <a id="check_mount_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                             |
+| <a id="check_mount_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1584,25 +1612,29 @@ OK: \\?\Volume{4c2b...}\: 12 copies, newest 2026-07-11 07:00:03 UTC
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                            | Default Value                                                |
-|---------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
-| <a id="check_shadowcopy_filter"></a>[filter](../common-options.md#filter)                         |                                                              |
-| <a id="check_shadowcopy_warning"></a>[warning](../common-options.md#warning)                      | newest > 26h                                                 |
-| <a id="check_shadowcopy_warn"></a>[warn](../common-options.md#warn)                               |                                                              |
-| <a id="check_shadowcopy_critical"></a>[critical](../common-options.md#critical)                   | newest > 50h                                                 |
-| <a id="check_shadowcopy_crit"></a>[crit](../common-options.md#crit)                               |                                                              |
-| <a id="check_shadowcopy_ok"></a>[ok](../common-options.md#ok)                                     |                                                              |
-| <a id="check_shadowcopy_debug"></a>[debug](../common-options.md#debug)                            | false                                                        |
-| <a id="check_shadowcopy_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                        |
-| <a id="check_shadowcopy_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                           |
-| <a id="check_shadowcopy_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                              |
-| <a id="check_shadowcopy_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                        |
-| <a id="check_shadowcopy_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                            |
-| <a id="check_shadowcopy_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                           |
-| <a id="check_shadowcopy_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) volume(s) have recent shadow copies. |
-| <a id="check_shadowcopy_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No shadow copies found                            |
-| <a id="check_shadowcopy_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${volume}: ${copies} copies, newest ${newest_date}           |
-| <a id="check_shadowcopy_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${volume}                                                    |
+| Option                                                                                                           | Default Value                                                |
+|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| <a id="check_shadowcopy_filter"></a>[filter](../common-options.md#filter)                                        |                                                              |
+| <a id="check_shadowcopy_warning"></a>[warning](../common-options.md#warning)                                     | newest > 26h                                                 |
+| <a id="check_shadowcopy_warn"></a>[warn](../common-options.md#warn)                                              |                                                              |
+| <a id="check_shadowcopy_critical"></a>[critical](../common-options.md#critical)                                  | newest > 50h                                                 |
+| <a id="check_shadowcopy_crit"></a>[crit](../common-options.md#crit)                                              |                                                              |
+| <a id="check_shadowcopy_ok"></a>[ok](../common-options.md#ok)                                                    |                                                              |
+| <a id="check_shadowcopy_debug"></a>[debug](../common-options.md#debug)                                           | false                                                        |
+| <a id="check_shadowcopy_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                        |
+| <a id="check_shadowcopy_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                           |
+| <a id="check_shadowcopy_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                              |
+| <a id="check_shadowcopy_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                        |
+| <a id="check_shadowcopy_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                            |
+| <a id="check_shadowcopy_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                           |
+| <a id="check_shadowcopy_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) volume(s) have recent shadow copies. |
+| <a id="check_shadowcopy_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No shadow copies found                            |
+| <a id="check_shadowcopy_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${volume}: ${copies} copies, newest ${newest_date}           |
+| <a id="check_shadowcopy_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${volume}                                                    |
+| <a id="check_shadowcopy_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                              |
+| <a id="check_shadowcopy_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                              |
+| <a id="check_shadowcopy_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                           |
+| <a id="check_shadowcopy_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                              |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1732,25 +1764,29 @@ OK: All 2 share(s) ok.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                       | Default Value                                          |
-|----------------------------------------------------------------------------------------------|--------------------------------------------------------|
-| <a id="check_share_filter"></a>[filter](../common-options.md#filter)                         |                                                        |
-| <a id="check_share_warning"></a>[warning](../common-options.md#warning)                      |                                                        |
-| <a id="check_share_warn"></a>[warn](../common-options.md#warn)                               |                                                        |
-| <a id="check_share_critical"></a>[critical](../common-options.md#critical)                   | not exists                                             |
-| <a id="check_share_crit"></a>[crit](../common-options.md#crit)                               |                                                        |
-| <a id="check_share_ok"></a>[ok](../common-options.md#ok)                                     |                                                        |
-| <a id="check_share_debug"></a>[debug](../common-options.md#debug)                            | false                                                  |
-| <a id="check_share_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                  |
-| <a id="check_share_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                     |
-| <a id="check_share_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                        |
-| <a id="check_share_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                  |
-| <a id="check_share_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                      |
-| <a id="check_share_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                     |
-| <a id="check_share_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) share(s) ok.                   |
-| <a id="check_share_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No shares found                             |
-| <a id="check_share_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name} (type=${type}, path=${path}, exists=${exists}) |
-| <a id="check_share_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                                |
+| Option                                                                                                      | Default Value                                          |
+|-------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| <a id="check_share_filter"></a>[filter](../common-options.md#filter)                                        |                                                        |
+| <a id="check_share_warning"></a>[warning](../common-options.md#warning)                                     |                                                        |
+| <a id="check_share_warn"></a>[warn](../common-options.md#warn)                                              |                                                        |
+| <a id="check_share_critical"></a>[critical](../common-options.md#critical)                                  | not exists                                             |
+| <a id="check_share_crit"></a>[crit](../common-options.md#crit)                                              |                                                        |
+| <a id="check_share_ok"></a>[ok](../common-options.md#ok)                                                    |                                                        |
+| <a id="check_share_debug"></a>[debug](../common-options.md#debug)                                           | false                                                  |
+| <a id="check_share_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                  |
+| <a id="check_share_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                     |
+| <a id="check_share_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                        |
+| <a id="check_share_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                  |
+| <a id="check_share_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                      |
+| <a id="check_share_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                     |
+| <a id="check_share_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) share(s) ok.                   |
+| <a id="check_share_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No shares found                             |
+| <a id="check_share_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name} (type=${type}, path=${path}, exists=${exists}) |
+| <a id="check_share_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                                |
+| <a id="check_share_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                        |
+| <a id="check_share_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                        |
+| <a id="check_share_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                     |
+| <a id="check_share_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                        |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1912,25 +1948,29 @@ Return OK instead of failing when the file does not exist. Intended for files th
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                             | Default Value                          |
-|----------------------------------------------------------------------------------------------------|----------------------------------------|
-| <a id="check_single_file_filter"></a>[filter](../common-options.md#filter)                         |                                        |
-| <a id="check_single_file_warning"></a>[warning](../common-options.md#warning)                      |                                        |
-| <a id="check_single_file_warn"></a>[warn](../common-options.md#warn)                               |                                        |
-| <a id="check_single_file_critical"></a>[critical](../common-options.md#critical)                   |                                        |
-| <a id="check_single_file_crit"></a>[crit](../common-options.md#crit)                               |                                        |
-| <a id="check_single_file_ok"></a>[ok](../common-options.md#ok)                                     |                                        |
-| <a id="check_single_file_debug"></a>[debug](../common-options.md#debug)                            | false                                  |
-| <a id="check_single_file_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                  |
-| <a id="check_single_file_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                     |
-| <a id="check_single_file_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                        |
-| <a id="check_single_file_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                  |
-| <a id="check_single_file_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                      |
-| <a id="check_single_file_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | %(status): %(list)                     |
-| <a id="check_single_file_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(filename) is ok           |
-| <a id="check_single_file_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No file inspected                      |
-| <a id="check_single_file_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | %(filename) (size=%(size), age=%(age)) |
-| <a id="check_single_file_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | %(filename)                            |
+| Option                                                                                                            | Default Value                          |
+|-------------------------------------------------------------------------------------------------------------------|----------------------------------------|
+| <a id="check_single_file_filter"></a>[filter](../common-options.md#filter)                                        |                                        |
+| <a id="check_single_file_warning"></a>[warning](../common-options.md#warning)                                     |                                        |
+| <a id="check_single_file_warn"></a>[warn](../common-options.md#warn)                                              |                                        |
+| <a id="check_single_file_critical"></a>[critical](../common-options.md#critical)                                  |                                        |
+| <a id="check_single_file_crit"></a>[crit](../common-options.md#crit)                                              |                                        |
+| <a id="check_single_file_ok"></a>[ok](../common-options.md#ok)                                                    |                                        |
+| <a id="check_single_file_debug"></a>[debug](../common-options.md#debug)                                           | false                                  |
+| <a id="check_single_file_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                  |
+| <a id="check_single_file_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                     |
+| <a id="check_single_file_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                        |
+| <a id="check_single_file_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                  |
+| <a id="check_single_file_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                      |
+| <a id="check_single_file_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | %(status): %(list)                     |
+| <a id="check_single_file_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(filename) is ok           |
+| <a id="check_single_file_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No file inspected                      |
+| <a id="check_single_file_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | %(filename) (size=%(size), age=%(age)) |
+| <a id="check_single_file_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | %(filename)                            |
+| <a id="check_single_file_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                        |
+| <a id="check_single_file_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                        |
+| <a id="check_single_file_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                     |
+| <a id="check_single_file_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                        |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2036,25 +2076,29 @@ Keywords: `name`, `health_status` (Healthy/Warning/Unhealthy/Unknown),
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                             | Default Value                                       |
-|----------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| <a id="check_storagepool_filter"></a>[filter](../common-options.md#filter)                         |                                                     |
-| <a id="check_storagepool_warning"></a>[warning](../common-options.md#warning)                      | health_status = 'Warning' or free_pct < 20          |
-| <a id="check_storagepool_warn"></a>[warn](../common-options.md#warn)                               |                                                     |
-| <a id="check_storagepool_critical"></a>[critical](../common-options.md#critical)                   | health_status = 'Unhealthy' or free_pct < 10        |
-| <a id="check_storagepool_crit"></a>[crit](../common-options.md#crit)                               |                                                     |
-| <a id="check_storagepool_ok"></a>[ok](../common-options.md#ok)                                     |                                                     |
-| <a id="check_storagepool_debug"></a>[debug](../common-options.md#debug)                            | false                                               |
-| <a id="check_storagepool_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                               |
-| <a id="check_storagepool_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ok                                                  |
-| <a id="check_storagepool_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                     |
-| <a id="check_storagepool_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                               |
-| <a id="check_storagepool_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                   |
-| <a id="check_storagepool_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                                  |
-| <a id="check_storagepool_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All storage pools are healthy.           |
-| <a id="check_storagepool_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No storage pools found                   |
-| <a id="check_storagepool_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${name}: ${health_status}, ${used}/${capacity} used |
-| <a id="check_storagepool_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${name}                                             |
+| Option                                                                                                            | Default Value                                       |
+|-------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| <a id="check_storagepool_filter"></a>[filter](../common-options.md#filter)                                        |                                                     |
+| <a id="check_storagepool_warning"></a>[warning](../common-options.md#warning)                                     | health_status = 'Warning' or free_pct < 20          |
+| <a id="check_storagepool_warn"></a>[warn](../common-options.md#warn)                                              |                                                     |
+| <a id="check_storagepool_critical"></a>[critical](../common-options.md#critical)                                  | health_status = 'Unhealthy' or free_pct < 10        |
+| <a id="check_storagepool_crit"></a>[crit](../common-options.md#crit)                                              |                                                     |
+| <a id="check_storagepool_ok"></a>[ok](../common-options.md#ok)                                                    |                                                     |
+| <a id="check_storagepool_debug"></a>[debug](../common-options.md#debug)                                           | false                                               |
+| <a id="check_storagepool_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                               |
+| <a id="check_storagepool_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ok                                                  |
+| <a id="check_storagepool_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                     |
+| <a id="check_storagepool_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                               |
+| <a id="check_storagepool_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                   |
+| <a id="check_storagepool_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                  |
+| <a id="check_storagepool_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All storage pools are healthy.           |
+| <a id="check_storagepool_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No storage pools found                   |
+| <a id="check_storagepool_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${name}: ${health_status}, ${used}/${capacity} used |
+| <a id="check_storagepool_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${name}                                             |
+| <a id="check_storagepool_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                     |
+| <a id="check_storagepool_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                     |
+| <a id="check_storagepool_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                  |
+| <a id="check_storagepool_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                     |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -2160,25 +2204,29 @@ check_uncpath path=\\a\share path=\\b\share "crit=free_pct < 10" "top-syntax=${s
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                         | Default Value                                |
-|------------------------------------------------------------------------------------------------|----------------------------------------------|
-| <a id="check_uncpath_filter"></a>[filter](../common-options.md#filter)                         |                                              |
-| <a id="check_uncpath_warning"></a>[warning](../common-options.md#warning)                      | used_pct > 80                                |
-| <a id="check_uncpath_warn"></a>[warn](../common-options.md#warn)                               |                                              |
-| <a id="check_uncpath_critical"></a>[critical](../common-options.md#critical)                   | used_pct > 90                                |
-| <a id="check_uncpath_crit"></a>[crit](../common-options.md#crit)                               |                                              |
-| <a id="check_uncpath_ok"></a>[ok](../common-options.md#ok)                                     |                                              |
-| <a id="check_uncpath_debug"></a>[debug](../common-options.md#debug)                            | false                                        |
-| <a id="check_uncpath_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                        |
-| <a id="check_uncpath_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                      |
-| <a id="check_uncpath_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                              |
-| <a id="check_uncpath_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                        |
-| <a id="check_uncpath_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                            |
-| <a id="check_uncpath_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                           |
-| <a id="check_uncpath_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All UNC paths are ok.             |
-| <a id="check_uncpath_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No paths checked                  |
-| <a id="check_uncpath_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${path}: ${used}/${size} used (${free} free) |
-| <a id="check_uncpath_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${path}                                      |
+| Option                                                                                                        | Default Value                                |
+|---------------------------------------------------------------------------------------------------------------|----------------------------------------------|
+| <a id="check_uncpath_filter"></a>[filter](../common-options.md#filter)                                        |                                              |
+| <a id="check_uncpath_warning"></a>[warning](../common-options.md#warning)                                     | used_pct > 80                                |
+| <a id="check_uncpath_warn"></a>[warn](../common-options.md#warn)                                              |                                              |
+| <a id="check_uncpath_critical"></a>[critical](../common-options.md#critical)                                  | used_pct > 90                                |
+| <a id="check_uncpath_crit"></a>[crit](../common-options.md#crit)                                              |                                              |
+| <a id="check_uncpath_ok"></a>[ok](../common-options.md#ok)                                                    |                                              |
+| <a id="check_uncpath_debug"></a>[debug](../common-options.md#debug)                                           | false                                        |
+| <a id="check_uncpath_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                        |
+| <a id="check_uncpath_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                      |
+| <a id="check_uncpath_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                              |
+| <a id="check_uncpath_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                        |
+| <a id="check_uncpath_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                            |
+| <a id="check_uncpath_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                           |
+| <a id="check_uncpath_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All UNC paths are ok.             |
+| <a id="check_uncpath_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No paths checked                  |
+| <a id="check_uncpath_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${path}: ${used}/${size} used (${free} free) |
+| <a id="check_uncpath_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${path}                                      |
+| <a id="check_uncpath_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                              |
+| <a id="check_uncpath_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                              |
+| <a id="check_uncpath_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                           |
+| <a id="check_uncpath_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                              |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

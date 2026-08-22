@@ -13,6 +13,7 @@
 #include <locale>
 #include <sstream>
 #include <stdexcept>
+#include <str/number_format.hpp>
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
 #include <string>
@@ -111,6 +112,18 @@ inline std::string format_pct(unsigned long long value, unsigned long long total
   return format_pct(calc_pct_double(value, total), decimals);
 }
 inline std::string format_pct(long long value, long long total, int decimals = 2) { return format_pct(calc_pct_double(value, total), decimals); }
+
+// Percentages have always rendered with two decimals; `decimals` on the number
+// format overrides that, and the separators apply either way.
+inline std::string format_pct(const double pct, const number_format &fmt) {
+  number_format pct_fmt = fmt;
+  if (pct_fmt.decimals < 0) pct_fmt.decimals = 2;
+  return render_number(pct, pct_fmt);
+}
+inline std::string format_pct(unsigned long long value, unsigned long long total, const number_format &fmt) {
+  return format_pct(calc_pct_double(value, total), fmt);
+}
+inline std::string format_pct(long long value, long long total, const number_format &fmt) { return format_pct(calc_pct_double(value, total), fmt); }
 
 //
 // Padding
@@ -392,104 +405,79 @@ inline long long decode_byte_units(const std::string &s) {
 constexpr char BKMG_RANGE[] = "BKMGTPE?";
 constexpr std::size_t BKMG_SIZE = 7;
 
-inline std::string format_byte_units(const long long i) {
-  auto cpy = static_cast<double>(i);
+// Number of times `value` has to be divided by 1024 to land in the unit the
+// auto-scaler picks for it.
+inline std::size_t auto_scale_index(const double value) {
+  double rest = value < 0 ? -value : value;
   std::size_t idx = 0;
-  double acpy = cpy < 0 ? -cpy : cpy;
-  while ((acpy > 999) && (idx < BKMG_SIZE)) {
-    cpy /= 1024;
-    acpy = cpy < 0 ? -cpy : cpy;
+  while ((rest > 999) && (idx < BKMG_SIZE)) {
+    rest /= 1024;
     idx++;
   }
-  std::stringstream ss;
-  ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
-  std::string ret = ss.str();
-  std::string::size_type pos = ret.find_last_not_of('0');
-  if (pos != std::string::npos) {
-    if (ret[pos] == '.') pos--;
-    ret = ret.substr(0, pos + 1);
+  return idx;
+}
+
+// Index of the unit named by `unit` ("g", "GB", "gb", ...), or -1 when it
+// names no unit we know of. Case insensitive, like decode_byte_units and
+// convert_to_byte_units: format_byte_units used to be the odd one out and
+// silently rendered value/1024^7 for a lowercase or misspelled unit (#1428).
+inline int byte_unit_index(const std::string &unit) {
+  if (unit.empty()) return -1;
+  const char c = static_cast<char>(std::toupper(static_cast<unsigned char>(unit[0])));
+  for (std::size_t i = 0; i < BKMG_SIZE; i++) {
+    if (BKMG_RANGE[i] == c) return static_cast<int>(i);
   }
-  ret += BKMG_RANGE[idx];
+  return -1;
+}
+
+// Name of the unit at `idx` ("B", "KB", "MB", ...).
+inline std::string byte_unit_name(const std::size_t idx) {
+  auto ret = std::string(1, BKMG_RANGE[idx > BKMG_SIZE ? BKMG_SIZE : idx]);
   if (idx > 0) ret += "B";
   return ret;
 }
-inline std::string format_byte_units(const unsigned long long i) {
-  auto cpy = static_cast<double>(i);
-  std::size_t idx = 0;
-  while ((cpy > 999) && (idx < BKMG_SIZE)) {
-    cpy /= 1024;
-    idx++;
-  }
-  std::stringstream ss;
-  ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
-  std::string ret = ss.str();
-  std::string::size_type pos = ret.find_last_not_of('0');
-  if (pos != std::string::npos) {
-    if (ret[pos] == '.') pos--;
-    ret = ret.substr(0, pos + 1);
-  }
-  ret += BKMG_RANGE[idx];
-  if (idx > 0) ret += "B";
-  return ret;
+
+// Render a byte count as a human readable string with the unit appended
+// ("25.19GB"). `fmt.byte_unit` pins the unit; an empty one scales the value on
+// its own. An unparsable pinned unit falls back to auto-scaling - the option
+// parser rejects those up front, so reaching here means an internal caller.
+inline std::string format_byte_units(const double value, const number_format &fmt) {
+  const int pinned = byte_unit_index(fmt.byte_unit);
+  const std::size_t idx = pinned >= 0 ? static_cast<std::size_t>(pinned) : auto_scale_index(value);
+  double scaled = value;
+  for (std::size_t i = 0; i < idx; i++) scaled /= 1024;
+  return render_number(scaled, fmt) + byte_unit_name(idx);
 }
+inline std::string format_byte_units(const long long i) { return format_byte_units(static_cast<double>(i), number_format()); }
+inline std::string format_byte_units(const unsigned long long i) { return format_byte_units(static_cast<double>(i), number_format()); }
+inline std::string format_byte_units(const long long i, const number_format &fmt) { return format_byte_units(static_cast<double>(i), fmt); }
+inline std::string format_byte_units(const unsigned long long i, const number_format &fmt) { return format_byte_units(static_cast<double>(i), fmt); }
+
+// Convert a byte count into `unit`. An empty or unknown unit leaves the value
+// alone; dividing seven times for a unit nobody recognised (what this used to
+// do) turns a typo in perf-config into a metric off by 1024^7.
 template <class T>
 double convert_to_byte_units(T i, const std::string &unit) {
-  const std::string unit_uc = boost::to_upper_copy(unit);
-  std::size_t idx = 0;
-  if (unit_uc.empty()) {
-    return static_cast<double>(i);
-  }
+  const int idx = byte_unit_index(unit);
+  if (idx <= 0) return static_cast<double>(i);
   auto cpy = static_cast<double>(i);
-  while (idx < BKMG_SIZE) {
-    if (unit_uc[0] == BKMG_RANGE[idx]) {
-      return cpy;
-    }
-    cpy /= 1024.0;
-    idx++;
-  }
+  for (int n = 0; n < idx; n++) cpy /= 1024.0;
   return cpy;
 }
-template <class T>
-std::string format_byte_units(T value, std::string unit) {
-  std::stringstream ss;
-  auto cpy = static_cast<double>(value);
-  if (unit.empty()) {
-    ss << cpy;
-    return ss.str();
-  }
-  for (std::size_t i = 0; i < BKMG_SIZE; i++) {
-    if (unit[0] == BKMG_RANGE[i]) {
-      ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
-      std::string s = ss.str();
-      std::string::size_type pos = s.find_last_not_of('0');
-      if (pos != std::string::npos) {
-        if (s[pos] == '.') {
-          if (pos == 0) {
-            // Handle strings like ".000" by normalizing to "0"
-            s = "0";
-            return s;
-          }
-          --pos;
-        }
-        s = s.substr(0, pos + 1);
-      }
-      return s;
-    }
-    cpy /= 1024;
-  }
-  ss << cpy;
-  return ss.str();
+
+// Render a byte count in `unit` *without* appending the unit - the caller
+// spells the unit out in its syntax string. An empty unit renders the raw
+// number; an unknown one throws, so a typo is reported rather than silently
+// rendering value/1024^7 (#1428).
+template <class T> std::string format_byte_units(T value, const std::string &unit, const number_format &fmt = number_format()) {
+  if (unit.empty()) return render_number(static_cast<double>(value), fmt);
+  const int idx = byte_unit_index(unit);
+  if (idx < 0) throw std::invalid_argument("Unknown byte unit: " + unit);
+  double scaled = static_cast<double>(value);
+  for (int n = 0; n < idx; n++) scaled /= 1024;
+  return render_number(scaled, fmt);
 }
-inline std::string find_proper_unit_BKMG(unsigned long long i) {
-  auto cpy = static_cast<double>(i);
-  std::size_t idx = 0;
-  while ((cpy > 999) && (idx < BKMG_SIZE)) {
-    cpy /= 1024;
-    idx++;
-  }
-  auto ret = std::string(1, BKMG_RANGE[idx]);
-  if (idx > 0) ret += "B";
-  return ret;
-}
+
+inline std::string find_proper_unit_BKMG(unsigned long long i) { return byte_unit_name(auto_scale_index(static_cast<double>(i))); }
 }  // namespace format
 }  // namespace str

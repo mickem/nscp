@@ -10,8 +10,36 @@
 #include "check_cpu_frequency.hpp"
 
 #include <algorithm>
+#include <parsers/where/node.hpp>
+#include <str/number_format.hpp>
 #include <string>
 #include <vector>
+
+namespace {
+
+// Minimal evaluation context carrying the number format the human readable
+// getters render through (#1428).
+struct mock_evaluation_context final : parsers::where::evaluation_context_interface {
+  bool has_error() const override { return false; }
+  std::string get_error() const override { return ""; }
+  void error(std::string) override {}
+  bool has_warn() const override { return false; }
+  std::string get_warn() const override { return ""; }
+  void warn(std::string) override {}
+  void clear() override {}
+  void enable_debug(bool) override {}
+  bool debug_enabled() override { return false; }
+  std::string get_debug() const override { return ""; }
+  void debug(parsers::where::object_match) override {}
+};
+
+parsers::where::evaluation_context make_context(const str::number_format &fmt = str::number_format()) {
+  auto ctx = std::make_shared<mock_evaluation_context>();
+  ctx->set_number_format(fmt);
+  return ctx;
+}
+
+}  // namespace
 
 // ============================================================================
 // cpu_frequency struct tests
@@ -153,11 +181,19 @@ TEST(CpuFrequency, CacheAccessorsAndHumanRendering) {
   c.l3_cache = 16LL * 1024 * 1024;
   EXPECT_EQ(c.get_l2_cache(), 512LL * 1024);
   EXPECT_EQ(c.get_l3_cache(), 16LL * 1024 * 1024);
-  EXPECT_EQ(c.get_l2_cache_human(), "512KB");
-  EXPECT_EQ(c.get_l3_cache_human(), "16MB");
+  EXPECT_EQ(c.get_l2_cache_human(make_context()), "512KB");
+  EXPECT_EQ(c.get_l3_cache_human(make_context()), "16MB");
   // Unreported caches render as 0B rather than failing.
   const cpu_frequency_check::cpu_frequency empty;
-  EXPECT_EQ(empty.get_l2_cache_human(), "0B");
+  EXPECT_EQ(empty.get_l2_cache_human(make_context()), "0B");
+
+  // The context carries the check's rendering options (#1428).
+  str::number_format fmt;
+  fmt.decimals = 2;
+  fmt.byte_unit = "KB";
+  const parsers::where::evaluation_context pinned = make_context(fmt);
+  EXPECT_EQ(c.get_l2_cache_human(pinned), "512.00KB");
+  EXPECT_EQ(c.get_l3_cache_human(pinned), "16384.00KB");
 }
 
 TEST(CpuFrequency, SocketAndLoadAccessors) {

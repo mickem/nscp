@@ -8,6 +8,7 @@
 #include <list>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <parsers/where/node.hpp>
 #include <string>
 #include <win/wmi/wmi_query.hpp>
 
@@ -58,8 +59,8 @@ struct cpu_frequency {
   long long get_frequency_pct() const { return max_mhz == 0 ? 0 : (current_mhz * 100 / max_mhz); }
   long long get_l2_cache() const { return l2_cache; }
   long long get_l3_cache() const { return l3_cache; }
-  std::string get_l2_cache_human() const;
-  std::string get_l3_cache_human() const;
+  std::string get_l2_cache_human(parsers::where::evaluation_context context) const;
+  std::string get_l3_cache_human(parsers::where::evaluation_context context) const;
   std::string get_architecture() const { return architecture; }
 
   std::string show() const { return name; }

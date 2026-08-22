@@ -59,8 +59,8 @@ filter_obj_handler::filter_obj_handler() {
   // for the common units; for arbitrary scaling use the scale() / format_bytes()
   // functions registered below.
   registry_
-      .add_string_var(
-          "value_human", [](auto obj) { return str::format::format_byte_units(obj->get_value_i()); },
+      .add_string_var_w_context(
+          "value_human", [](auto obj, auto context) { return str::format::format_byte_units(obj->get_value_i(), context->get_number_format()); },
           "Counter value formatted as a human-readable byte string, auto-scaled to B/KB/MB/GB/...")
       .add_float(
           "value_kb", [](auto obj) { return obj->get_value_f() / 1024.0; }, "Counter value in KB (1024-based).")

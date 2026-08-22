@@ -30,9 +30,9 @@ struct kernel_memory_obj {
   long long get_pool_paged() const { return pool_paged; }
   long long get_pool_nonpaged() const { return pool_nonpaged; }
   long long get_cache() const { return cache; }
-  std::string get_pool_paged_human() const;
-  std::string get_pool_nonpaged_human() const;
-  std::string get_cache_human() const;
+  std::string get_pool_paged_human(parsers::where::evaluation_context context) const;
+  std::string get_pool_nonpaged_human(parsers::where::evaluation_context context) const;
+  std::string get_cache_human(parsers::where::evaluation_context context) const;
   double get_page_faults() const { return page_faults; }
   double get_transition_faults() const { return transition_faults; }
   double get_hard_faults() const { return hard_faults; }
