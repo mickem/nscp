@@ -24,9 +24,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: exit_code < 0
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${folder}/${title}: ${exit_code} != 0'
         empty-state: warning
         empty-syntax: '%(status): No tasks found'
@@ -42,6 +45,7 @@ windows:
         perf-syntax: ${title}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: exit_code != 0

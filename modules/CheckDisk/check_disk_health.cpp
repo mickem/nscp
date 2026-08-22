@@ -129,10 +129,10 @@ std::function<boost::optional<long long>(std::shared_ptr<filter_obj>)> space_val
 
 // Rendering counterpart of the above: bytes as a human-readable string,
 // percentages with their sign, and a dash where there is no space data.
-std::function<std::string(std::shared_ptr<filter_obj>)> space_bytes_human(const space_getter getter) {
-  return [getter](const std::shared_ptr<filter_obj> obj) -> std::string {
+std::function<std::string(std::shared_ptr<filter_obj>, parsers::where::evaluation_context)> space_bytes_human(const space_getter getter) {
+  return [getter](const std::shared_ptr<filter_obj> obj, const parsers::where::evaluation_context context) -> std::string {
     if (!obj->has_space) return "-";
-    return str::format::format_byte_units(((*obj).*getter)());
+    return str::format::format_byte_units(((*obj).*getter)(), context->get_number_format());
   };
 }
 
@@ -231,11 +231,11 @@ filter_obj_handler::filter_obj_handler() {
   // a raw byte count, and a row with no filesystem prints `-` instead of a
   // fabricated zero. Thresholds and perfdata keep using the numeric variables
   // above, exactly as in check_drivesize.
-  registry_.add_human_string("size", space_bytes_human(&filter_obj::get_total), "")
-      .add_human_string("total", space_bytes_human(&filter_obj::get_total), "")  // deprecated alias for size
-      .add_human_string("free", space_bytes_human(&filter_obj::get_free), "")
-      .add_human_string("used", space_bytes_human(&filter_obj::get_used), "")
-      .add_human_string("user_free", space_bytes_human(&filter_obj::get_user_free), "")
+  registry_.add_human_string_context("size", space_bytes_human(&filter_obj::get_total), "")
+      .add_human_string_context("total", space_bytes_human(&filter_obj::get_total), "")  // deprecated alias for size
+      .add_human_string_context("free", space_bytes_human(&filter_obj::get_free), "")
+      .add_human_string_context("used", space_bytes_human(&filter_obj::get_used), "")
+      .add_human_string_context("user_free", space_bytes_human(&filter_obj::get_user_free), "")
       .add_human_string("free_pct", space_pct_human(&filter_obj::get_free_pct), "")
       .add_human_string("used_pct", space_pct_human(&filter_obj::get_used_pct), "");
 

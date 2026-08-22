@@ -68,10 +68,13 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: (has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1 and (health_status
           = 'Unhealthy' or is_offline = 1))
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}'
         empty-state: critical
         empty-syntax: ''
@@ -87,6 +90,7 @@ common:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: (has_space = 1 and free_pct < 20) or percent_disk_time > 80 or (has_device = 1 and health_status
@@ -255,9 +259,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: percent_disk_time > 95
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s
           q=${queue_length}'
         empty-state: critical
@@ -274,6 +281,7 @@ common:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: percent_disk_time > 80
@@ -374,9 +382,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: has_issues = 1
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '%(path): %(message)'
         empty-state: unknown
         empty-syntax: No write test performed
@@ -392,6 +403,7 @@ common:
         perf-syntax: '%(path)'
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -476,9 +488,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name}
         empty-state: unknown
         empty-syntax: No files found
@@ -494,6 +509,7 @@ common:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_count}/${count} files (${problem_list})'
         warn: ''
         warning: ''
@@ -703,9 +719,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: newest > 50h
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${volume}: ${copies} copies, newest ${newest_date}'
         empty-state: ok
         empty-syntax: '%(status): No shadow copies found'
@@ -721,6 +740,7 @@ common:
         perf-syntax: ${volume}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: newest > 26h
@@ -798,9 +818,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: not exists
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${name} (type=${type}, path=${path}, exists=${exists})
         empty-state: ok
         empty-syntax: '%(status): No shares found'
@@ -816,6 +839,7 @@ common:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''
@@ -875,9 +899,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '%(filename) (size=%(size), age=%(age))'
         empty-state: ok
         empty-syntax: No file inspected
@@ -893,6 +920,7 @@ common:
         perf-syntax: '%(filename)'
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '%(status): %(list)'
         warn: ''
         warning: ''
@@ -1062,9 +1090,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: health_status = 'Unhealthy' or free_pct < 10
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${name}: ${health_status}, ${used}/${capacity} used'
         empty-state: ok
         empty-syntax: '%(status): No storage pools found'
@@ -1080,6 +1111,7 @@ common:
         perf-syntax: ${name}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: health_status = 'Warning' or free_pct < 20
@@ -1160,9 +1192,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: used_pct > 90
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${path}: ${used}/${size} used (${free} free)'
         empty-state: unknown
         empty-syntax: '%(status): No paths checked'
@@ -1178,6 +1213,7 @@ common:
         perf-syntax: ${path}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: used_pct > 80
@@ -1281,9 +1317,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: used > 90%
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${drive_or_name}: ${used}/${size} used'
         empty-state: unknown
         empty-syntax: '%(status): No drives found'
@@ -1299,6 +1338,7 @@ unix:
         perf-syntax: ${drive_or_id}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: ${status} ${problem_list}
         warn: ''
         warning: used > 80%
@@ -1535,9 +1575,12 @@ unix:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: issues like 'not mounted'
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: mount ${mount} ${issues}
         empty-state: unknown
         empty-syntax: check_mount found nothing matching this filter
@@ -1553,6 +1596,7 @@ unix:
         perf-syntax: ${mount}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${problem_list}'
         warn: ''
         warning: has_issues = 1
@@ -1627,9 +1671,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: used > 90%
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${drive_or_name}: ${used}/${size} used'
         empty-state: unknown
         empty-syntax: '%(status): No drives found'
@@ -1645,6 +1692,7 @@ windows:
         perf-syntax: ${drive_or_id}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: ${status} ${problem_list}
         warn: ''
         warning: used > 80%

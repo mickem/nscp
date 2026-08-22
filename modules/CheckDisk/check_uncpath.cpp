@@ -27,9 +27,15 @@ namespace po = boost::program_options;
 
 namespace uncpath_check {
 
-std::string unc_obj::get_free_human() const { return str::format::format_byte_units(free); }
-std::string unc_obj::get_used_human() const { return str::format::format_byte_units(get_used()); }
-std::string unc_obj::get_size_human() const { return str::format::format_byte_units(size); }
+std::string unc_obj::get_free_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(free, context->get_number_format());
+}
+std::string unc_obj::get_used_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(get_used(), context->get_number_format());
+}
+std::string unc_obj::get_size_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(size, context->get_number_format());
+}
 
 #ifdef WIN32
 unc_obj query(const std::string &path, const std::string &user, const std::string &password) {
@@ -116,9 +122,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_int_var("used_pct", &filter_obj::get_used_pct, "Percentage of used space")
       .add_int_perf("%", "", "_used_pct");
 
-  registry_.add_human_string("size", &filter_obj::get_size_human, "")
-      .add_human_string("free", &filter_obj::get_free_human, "")
-      .add_human_string("used", &filter_obj::get_used_human, "");
+  registry_.add_human_string_context("size", &filter_obj::get_size_human, "")
+      .add_human_string_context("free", &filter_obj::get_free_human, "")
+      .add_human_string_context("used", &filter_obj::get_used_human, "");
 
   // The human strings above auto-scale; these let a template or a threshold
   // pick the unit (and cover user_free, which has no human form).

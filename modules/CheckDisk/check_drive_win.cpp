@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2004-2026 Michael Medin
 // SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
 
-#include "check_drive.hpp"
-
 #include <boost/program_options.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <bytes/char_buffer.hpp>
@@ -17,11 +15,13 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <parsers/where/helpers.hpp>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
 #include <utility>
 
+#include "check_drive.hpp"
 #include "drive_trend.hpp"
 
 #ifdef WIN32
@@ -172,26 +172,36 @@ struct filter_obj {
 
   std::string get_user_free_pct_human(parsers::where::evaluation_context context) {
     get_size(context);
-    return str::format::format_pct(user_free, drive_size);
+    return str::format::format_pct(user_free, drive_size, context->get_number_format());
   }
   std::string get_total_free_pct_human(parsers::where::evaluation_context context) {
     get_size(context);
-    return str::format::format_pct(total_free, drive_size);
+    return str::format::format_pct(total_free, drive_size, context->get_number_format());
   }
   std::string get_user_used_pct_human(parsers::where::evaluation_context context) {
     get_size(context);
-    return str::format::format_pct(drive_size - user_free, drive_size);
+    return str::format::format_pct(drive_size - user_free, drive_size, context->get_number_format());
   }
   std::string get_total_used_pct_human(parsers::where::evaluation_context context) {
     get_size(context);
-    return str::format::format_pct(drive_size - total_free, drive_size);
+    return str::format::format_pct(drive_size - total_free, drive_size, context->get_number_format());
   }
 
-  std::string get_user_free_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_user_free(context)); }
-  std::string get_total_free_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_total_free(context)); }
-  std::string get_drive_size_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_drive_size(context)); }
-  std::string get_total_used_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_total_used(context)); }
-  std::string get_user_used_human(parsers::where::evaluation_context context) { return str::format::format_byte_units(get_user_used(context)); }
+  std::string get_user_free_human(parsers::where::evaluation_context context) {
+    return str::format::format_byte_units(get_user_free(context), context->get_number_format());
+  }
+  std::string get_total_free_human(parsers::where::evaluation_context context) {
+    return str::format::format_byte_units(get_total_free(context), context->get_number_format());
+  }
+  std::string get_drive_size_human(parsers::where::evaluation_context context) {
+    return str::format::format_byte_units(get_drive_size(context), context->get_number_format());
+  }
+  std::string get_total_used_human(parsers::where::evaluation_context context) {
+    return str::format::format_byte_units(get_total_used(context), context->get_number_format());
+  }
+  std::string get_user_used_human(parsers::where::evaluation_context context) {
+    return str::format::format_byte_units(get_user_used(context), context->get_number_format());
+  }
 
   std::string get_type_as_string(parsers::where::evaluation_context context) { return type_to_string(get_type(context)); }
 
@@ -294,7 +304,7 @@ struct filter_obj {
   long long get_trend_span() const { return is_total_ ? trend_total_.span : trend_.span; }
   long long get_trend_samples() const { return is_total_ ? trend_total_.samples : trend_.samples; }
   std::string get_full_in_human(parsers::where::evaluation_context context) { return drive_trend::format_full_in(get_full_in(context)); }
-  std::string get_rate_human(parsers::where::evaluation_context) const { return drive_trend::format_rate(get_rate()); }
+  std::string get_rate_human(parsers::where::evaluation_context context) const { return drive_trend::format_rate(get_rate(), context->get_number_format()); }
 
   void append(std::shared_ptr<filter_obj> other) {
     user_free += other->user_free;
@@ -490,6 +500,11 @@ struct filter_obj_handler : public native_context {
                          return drive_trend::parse_time_node(context, subject);
                        })
         .add_converter(type_custom_type, &convert_type);
+
+    // Byte-valued keywords with no arithmetic in the grammar: without these a
+    // template can only print the raw count, and there is no way at all to ask
+    // for a fixed unit or a different precision (#1392, #1428).
+    parsers::where::format_functions::register_format_functions(registry_);
   }
 };
 

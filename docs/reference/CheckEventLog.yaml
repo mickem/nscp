@@ -250,9 +250,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: level in ('error', 'critical')
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${file} ${source} (${message})
         empty-state: ok
         empty-syntax: '%(status): No entries found'
@@ -268,6 +271,7 @@ windows:
         perf-syntax: ${file}_${source}
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${count} message(s) ${problem_list}'
         unique-index: ''
         warn: ''

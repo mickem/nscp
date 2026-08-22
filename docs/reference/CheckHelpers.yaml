@@ -359,9 +359,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n"
         empty-state: unknown
         empty-syntax: ''
@@ -377,6 +380,7 @@ common:
         perf-syntax: '%(key)'
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '%(status): %(message) %(list)'
         warn: ''
         warning: ''

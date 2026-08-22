@@ -785,7 +785,18 @@ struct SeparatorFilter {
   struct {
     std::string list_separator = ", ";
   } summary;
+  // build_filter sets the number format on the context and tells the renderers
+  // whether they have one to honour; both are recorded here so the tests can
+  // read them back.
+  struct fake_context {
+    str::number_format number_format;
+    void set_number_format(const str::number_format &fmt) { number_format = fmt; }
+  };
+  std::shared_ptr<fake_context> context = std::make_shared<fake_context>();
+  bool human_numbers = false;
   bool started = false;
+
+  void set_human_number_format(const bool human) { human_numbers = human; }
 
   bool build_syntax(bool, const std::string &, const std::string &, const std::string &, const std::string &, const std::string &, const std::string &) {
     return true;
@@ -847,6 +858,87 @@ TEST_F(CliHelperTest, BuildFilterKeepsAPlainSeparatorVerbatim) {
   ASSERT_TRUE(helper.build_filter(filter));
 
   EXPECT_EQ(" | ", filter.summary.list_separator);
+}
+
+// ============================================================================
+// cli_helper — number formatting (issue #1428)
+// ============================================================================
+
+TEST_F(CliHelperTest, NumberFormatDefaultsToTheHistoricalRendering) {
+  modern_filter::cli_helper<SeparatorFilter> helper(request_, response_, data_);
+  helper.add_misc_options();
+
+  boost::program_options::variables_map vm;
+  const std::vector<std::string> empty_args;
+  boost::program_options::store(boost::program_options::command_line_parser(empty_args).options(helper.get_desc()).run(), vm);
+  boost::program_options::notify(vm);
+
+  SeparatorFilter filter;
+  ASSERT_TRUE(helper.build_filter(filter));
+
+  EXPECT_TRUE(filter.context->number_format.is_default());
+  // Nothing configured, so the templates keep rendering their floats the way
+  // they always did.
+  EXPECT_FALSE(filter.human_numbers);
+}
+
+TEST_F(CliHelperTest, NumberFormatOptionsReachTheContext) {
+  modern_filter::cli_helper<SeparatorFilter> helper(request_, response_, data_);
+  helper.add_misc_options();
+
+  boost::program_options::variables_map vm;
+  const std::vector<std::string> args{"--decimals", "2", "--byte-unit", "GB", "--decimal-separator", ",", "--thousands-separator", "."};
+  boost::program_options::store(boost::program_options::command_line_parser(args).options(helper.get_desc()).run(), vm);
+  boost::program_options::notify(vm);
+
+  SeparatorFilter filter;
+  ASSERT_TRUE(helper.build_filter(filter));
+
+  EXPECT_EQ(2, filter.context->number_format.decimals);
+  EXPECT_EQ("GB", filter.context->number_format.byte_unit);
+  EXPECT_EQ(",", filter.context->number_format.decimal_separator);
+  EXPECT_EQ(".", filter.context->number_format.thousands_separator);
+  EXPECT_TRUE(filter.human_numbers);
+}
+
+// REST passes each option as the single token `key=value`, which is the
+// transport the request came in over for most of these checks.
+TEST_F(CliHelperTest, NumberFormatOptionsAcceptTheValuedForm) {
+  modern_filter::cli_helper<SeparatorFilter> helper(request_, response_, data_);
+  helper.add_misc_options();
+
+  boost::program_options::variables_map vm;
+  const std::vector<std::string> args{"--decimals=1", "--byte-unit=MB"};
+  boost::program_options::store(boost::program_options::command_line_parser(args).options(helper.get_desc()).run(), vm);
+  boost::program_options::notify(vm);
+
+  SeparatorFilter filter;
+  ASSERT_TRUE(helper.build_filter(filter));
+
+  EXPECT_EQ(1, filter.context->number_format.decimals);
+  EXPECT_EQ("MB", filter.context->number_format.byte_unit);
+}
+
+TEST_F(CliHelperTest, BuildFilterRejectsAnUnknownByteUnit) {
+  modern_filter::cli_helper<SeparatorFilter> helper(request_, response_, data_);
+  data_.byte_unit = "ZB";
+
+  SeparatorFilter filter;
+  EXPECT_FALSE(helper.build_filter(filter));
+  ASSERT_GT(response_->lines_size(), 0);
+  EXPECT_NE(std::string::npos, response_->lines(0).message().find("Invalid byte-unit"));
+  // A rejected option must not leave the filter half-built.
+  EXPECT_FALSE(filter.started);
+}
+
+TEST_F(CliHelperTest, BuildFilterRejectsNegativeDecimals) {
+  modern_filter::cli_helper<SeparatorFilter> helper(request_, response_, data_);
+  data_.decimals = -2;
+
+  SeparatorFilter filter;
+  EXPECT_FALSE(helper.build_filter(filter));
+  ASSERT_GT(response_->lines_size(), 0);
+  EXPECT_NE(std::string::npos, response_->lines(0).message().find("Invalid decimals"));
 }
 
 // ============================================================================

@@ -83,9 +83,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: update_available = 1
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '${version} (latest: ${latest_version})'
         empty-state: ignored
         empty-syntax: ''
@@ -101,6 +104,7 @@ common:
         perf-syntax: version
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: update_available = 1
@@ -195,9 +199,12 @@ common:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: ${version} (${date})
         empty-state: ignored
         empty-syntax: ''
@@ -213,6 +220,7 @@ common:
         perf-syntax: version
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: '${status}: ${list}'
         warn: ''
         warning: ''

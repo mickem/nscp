@@ -96,6 +96,14 @@ struct realtime_filter_helper {
       // "inherit" here (as it does for every other filter_object string), so
       // the summary keeps its own ", " default.
       if (!config.list_separator.empty()) filter.summary.list_separator = str::utils::unescape(config.list_separator);
+      // Same story for the number format (#1428): set before the first row is
+      // rendered, and left alone entirely while nothing has been configured so
+      // an untouched filter renders exactly what it always did.
+      const str::number_format number_format = config.number_format();
+      if (!number_format.is_default()) {
+        filter.context->set_number_format(number_format);
+        filter.set_human_number_format(true);
+      }
       if (!filter.build_syntax(config.debug, config.syntax_top, config.syntax_detail, config.perf_data, config.perf_config, config.syntax_ok,
                                config.syntax_empty)) {
         error = "Failed to build strings " + alias;

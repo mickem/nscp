@@ -34,9 +34,12 @@ windows:
       - warn_count
       - warn_list
       common_options:
+        byte-unit: ''
         crit: ''
         critical: ''
         debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
         detail-syntax: '%(line)'
         empty-state: ignored
         empty-syntax: ''
@@ -52,6 +55,7 @@ windows:
         perf-syntax: ''
         show-all: 'false'
         show-default: ''
+        thousands-separator: ''
         top-syntax: ${list}
         warn: ''
         warning: ''

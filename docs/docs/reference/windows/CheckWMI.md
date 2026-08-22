@@ -125,25 +125,29 @@ The WMI root namespace to bind to.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                     | Default Value |
-|--------------------------------------------------------------------------------------------|---------------|
-| <a id="check_wmi_filter"></a>[filter](../common-options.md#filter)                         |               |
-| <a id="check_wmi_warning"></a>[warning](../common-options.md#warning)                      |               |
-| <a id="check_wmi_warn"></a>[warn](../common-options.md#warn)                               |               |
-| <a id="check_wmi_critical"></a>[critical](../common-options.md#critical)                   |               |
-| <a id="check_wmi_crit"></a>[crit](../common-options.md#crit)                               |               |
-| <a id="check_wmi_ok"></a>[ok](../common-options.md#ok)                                     |               |
-| <a id="check_wmi_debug"></a>[debug](../common-options.md#debug)                            | false         |
-| <a id="check_wmi_show-all"></a>[show-all](../common-options.md#show-all)                   | false         |
-| <a id="check_wmi_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored       |
-| <a id="check_wmi_perf-config"></a>[perf-config](../common-options.md#perf-config)          |               |
-| <a id="check_wmi_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false         |
-| <a id="check_wmi_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,             |
-| <a id="check_wmi_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${list}       |
-| <a id="check_wmi_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                |               |
-| <a id="check_wmi_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       |               |
-| <a id="check_wmi_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | %(line)       |
-| <a id="check_wmi_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          |               |
+| Option                                                                                                    | Default Value |
+|-----------------------------------------------------------------------------------------------------------|---------------|
+| <a id="check_wmi_filter"></a>[filter](../common-options.md#filter)                                        |               |
+| <a id="check_wmi_warning"></a>[warning](../common-options.md#warning)                                     |               |
+| <a id="check_wmi_warn"></a>[warn](../common-options.md#warn)                                              |               |
+| <a id="check_wmi_critical"></a>[critical](../common-options.md#critical)                                  |               |
+| <a id="check_wmi_crit"></a>[crit](../common-options.md#crit)                                              |               |
+| <a id="check_wmi_ok"></a>[ok](../common-options.md#ok)                                                    |               |
+| <a id="check_wmi_debug"></a>[debug](../common-options.md#debug)                                           | false         |
+| <a id="check_wmi_show-all"></a>[show-all](../common-options.md#show-all)                                  | false         |
+| <a id="check_wmi_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored       |
+| <a id="check_wmi_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |               |
+| <a id="check_wmi_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false         |
+| <a id="check_wmi_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,             |
+| <a id="check_wmi_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${list}       |
+| <a id="check_wmi_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |               |
+| <a id="check_wmi_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |               |
+| <a id="check_wmi_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | %(line)       |
+| <a id="check_wmi_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         |               |
+| <a id="check_wmi_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |               |
+| <a id="check_wmi_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |               |
+| <a id="check_wmi_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1            |
+| <a id="check_wmi_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |               |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

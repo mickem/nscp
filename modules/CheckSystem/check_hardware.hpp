@@ -67,7 +67,7 @@ struct hardware_info {
   long long get_slots() const { return slots; }
   long long get_modules() const { return modules; }
   long long get_memory() const { return memory; }
-  std::string get_memory_human() const;
+  std::string get_memory_human(parsers::where::evaluation_context context) const;
   long long get_memory_speed() const { return memory_speed; }
   std::string get_module_list() const { return module_list; }
 

@@ -113,7 +113,9 @@ void hardware_info::recompute() {
   }
 }
 
-std::string hardware_info::get_memory_human() const { return str::format::format_byte_units(memory); }
+std::string hardware_info::get_memory_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(memory, context->get_number_format());
+}
 
 filter_obj_handler::filter_obj_handler() {
   // clang-format off
@@ -133,7 +135,7 @@ filter_obj_handler::filter_obj_handler() {
                    "Total installed memory (supports size units, e.g. 'memory < 64G'); renders human-readable")
       .add_int_var("memory_speed", &hardware_info::get_memory_speed, "Slowest populated module's configured clock in MHz (0 when unknown)");
   // Render ${memory} human-readable (64GB) while expressions keep comparing bytes.
-  registry_.add_human_string("memory", &hardware_info::get_memory_human, "Total installed memory as a human-readable size");
+  registry_.add_human_string_context("memory", &hardware_info::get_memory_human, "Total installed memory as a human-readable size");
   // clang-format on
 }
 
