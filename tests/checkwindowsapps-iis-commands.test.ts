@@ -19,6 +19,13 @@ const onWindows = process.platform === "win32";
 
 const NOT_AVAILABLE = /not available - is the Web Server \(IIS\) role installed\?/;
 
+// Strict mode: the CI job provisions the real IIS role (see
+// integration-tests-windows.yml) and sets NSCP_EXPECT_IIS=1, turning the
+// role-not-installed fallback from an accepted contract into a failure - the
+// checks must then produce live counter data. Without the flag the suite
+// keeps accepting both shapes so it runs on any developer machine.
+const expectIis = process.env.NSCP_EXPECT_IIS === "1";
+
 (onWindows ? describe : describe.skip)("CheckWindowsApps IIS commands", () => {
   let nscp: NscpInstance;
 
@@ -27,7 +34,9 @@ const NOT_AVAILABLE = /not available - is the Web Server \(IIS\) role installed\
     const r = await nscp.run(["client", "--module", "CheckWindowsApps", "--boot", "--query", command, ...args], {
       allowFailure: true,
     });
-    return r.all ?? `${r.stdout}\n${r.stderr}`;
+    const out = r.all ?? `${r.stdout}\n${r.stderr}`;
+    if (expectIis) expect(out).not.toMatch(/not available/);
+    return out;
   }
 
   beforeAll(() => {
@@ -40,6 +49,10 @@ const NOT_AVAILABLE = /not available - is the Web Server \(IIS\) role installed\
     const out = await query("check_iis_app_pools");
     if (NOT_AVAILABLE.test(out)) {
       expect(out).toMatch(/IIS performance counters \(APP_POOL_WAS\) not available/);
+    } else if (expectIis) {
+      // The CI job started the default site, so DefaultAppPool has a live
+      // WAS counter instance: a real pool record, not the empty-set message.
+      expect(out).toMatch(/uptime \d+s, \d+ recycles/);
     } else {
       // Real IIS: every pool line carries a state word and an uptime.
       expect(out).toMatch(/uptime \d+s, \d+ recycles|No application pools found/);
@@ -62,6 +75,9 @@ const NOT_AVAILABLE = /not available - is the Web Server \(IIS\) role installed\
     const out = await query("check_iis_sites", ["averages=true", "warning=connections < 0", "critical=connections < 0", "empty-state=ok"]);
     expect(out).not.toMatch(/does not take any arguments/);
     expect(out).toMatch(/not available|OK|No web sites found|connections/);
+    // Provisioned IIS: the started default site is a real record with a
+    // connection count, not the empty-set message.
+    if (expectIis) expect(out).toMatch(/Default Web Site: \w+, \d+ connections/);
   });
 
   // --- check_iis_worker_processes -------------------------------------------

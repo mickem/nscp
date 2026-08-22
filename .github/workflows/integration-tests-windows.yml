@@ -85,12 +85,27 @@ jobs:
         shell: bash
         run: npm install
 
+      # Provision the real IIS role so the CheckWindowsApps IIS checks run
+      # against live WAS/W3SVC counters instead of their role-not-installed
+      # fallback (NSCP_EXPECT_IIS=1 below turns that fallback into a test
+      # failure). Web-Scripting-Tools brings the root\WebAdministration WMI
+      # provider the app-pool check uses for auto_start enrichment, and the
+      # priming request starts DefaultAppPool so its counter instances exist
+      # before the suite queries them.
+      - name: Enable IIS (live target for CheckWindowsApps)
+        shell: powershell
+        run: |
+          Install-WindowsFeature -Name Web-Server, Web-Scripting-Tools | Out-Null
+          Start-Service W3SVC
+          Invoke-WebRequest -UseBasicParsing http://localhost/ | Out-Null
+
       - name: Run REST scenarios (no-docker)
         working-directory: tests
         shell: bash
         env:
           NSCP_BIN: ${{ github.workspace }}/tmp/nscp/nscp.exe
           NSCP_SKIP_DOCKER: "1"
+          NSCP_EXPECT_IIS: "1"
         run: npm test
 
       # TODO: Disabled for now due to issues with docker on windows runners
