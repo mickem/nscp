@@ -56,6 +56,23 @@ class settings_http : public settings::settings_interface_impl {
   // name that needs escaping gets escaped rather than corrupting the request.
   static net::url parse_settings_url(const std::string &url) { return net::parse(socket_helpers::expand_hostname(url)); }
 
+  // Local path an attachment is written to, from the key it is declared under.
+  // Both kinds of placeholder are resolved, host name first and path tokens
+  // afterwards, so one fleet-wide configuration can give every agent its own
+  // file (issue #458):
+  //
+  //   [/attachments]
+  //   ${shared-path}/${host}-nsclient.ini = https://cfgsrv/hosts/${host}.ini
+  //
+  // The url on the right goes through parse_settings_url and has taken host
+  // name placeholders since 0.16.1; without this the path on the left did not,
+  // and an unknown token silently expands to the installation directory rather
+  // than failing, so the attachment landed in one shared file with a mangled
+  // name instead of a per-host one.
+  static std::string resolve_attachment_target(settings_core *core, const std::string &key) {
+    return core->expand_path(socket_helpers::expand_hostname_placeholders(key));
+  }
+
   settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {
     remote_url = parse_settings_url(utf8::cvt<std::string>(context));
     boost::filesystem::path path = core->expand_path(CACHE_FOLDER);
@@ -364,7 +381,7 @@ class settings_http : public settings::settings_interface_impl {
     if (!child) return;
     string_list keys = child->get_keys("/attachments");
     for (const std::string &k : keys) {
-      std::string target = get_core()->expand_path(k);
+      std::string target = resolve_attachment_target(get_core(), k);
       op_string str = child->get_string("/attachments", k);
       if (!str) continue;
       net::url source = parse_settings_url(*str);

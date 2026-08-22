@@ -89,6 +89,10 @@ class NSCSettingsImpl : public settings::settings_handler_impl {
   std::string find_file(std::string file, std::string fallback = "");
   std::string expand_path(std::string file);
   std::string expand_context(const std::string &key);
+  // The protocol aliases only ("ini", "dummy", ...), without the host name
+  // placeholders expand_context resolves. Use this wherever the result is
+  // written back to a configuration file rather than opened.
+  static std::string expand_context_alias(const std::string &key);
 
   settings::instance_raw_ptr create_instance(std::string alias, std::string key);
   void change_context(const std::string &file);

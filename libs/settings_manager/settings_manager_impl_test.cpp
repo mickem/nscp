@@ -16,11 +16,13 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <boost/asio/ip/host_name.hpp>
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <map>
 #include <memory>
 #include <settings/test_helpers.hpp>
+#include <str/utils.hpp>
 #include <string>
 #include <vector>
 
@@ -118,6 +120,45 @@ TEST(SettingsManagerExpandContext, UnknownKeyPassesThrough) {
   // Anything not recognised - including fully-formed URLs - should round-trip.
   EXPECT_EQ(impl.expand_context("ini://D:/somewhere.ini"), "ini://D:/somewhere.ini");
   EXPECT_EQ(impl.expand_context(""), "");
+}
+
+// --- issue #458: host name placeholders in a settings context ---------------
+
+TEST(SettingsManagerExpandContext, ExpandsHostNamePlaceholders) {
+  settings_test::temp_dir dir;
+  const auto boot_ini = dir.file("boot.ini");
+  recording_provider p(boot_ini.string());
+  settings_manager::NSCSettingsImpl impl(&p);
+
+  // What [/includes] hands to create_instance, so one shared configuration can
+  // pull in a per-host file.
+  const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
+  EXPECT_EQ(impl.expand_context("${host}-nsclient.ini"), host + "-nsclient.ini");
+  EXPECT_EQ(impl.expand_context("${hostname}.ini"), boost::asio::ip::host_name() + ".ini");
+  EXPECT_EQ(impl.expand_context("ini://${shared-path}/${host}.ini"), "ini://${shared-path}/" + host + ".ini");
+}
+
+TEST(SettingsManagerExpandContext, LeavesPathTokensToThePathManager) {
+  settings_test::temp_dir dir;
+  const auto boot_ini = dir.file("boot.ini");
+  recording_provider p(boot_ini.string());
+  settings_manager::NSCSettingsImpl impl(&p);
+
+  // The two kinds of placeholder share a syntax; this pass must not consume
+  // a token that expand_path is going to resolve later.
+  EXPECT_EQ(impl.expand_context("ini://${shared-path}/nsclient.ini"), "ini://${shared-path}/nsclient.ini");
+}
+
+TEST(SettingsManagerExpandContext, DoesNotResolveTheAutoShorthand) {
+  settings_test::temp_dir dir;
+  const auto boot_ini = dir.file("boot.ini");
+  recording_provider p(boot_ini.string());
+  settings_manager::NSCSettingsImpl impl(&p);
+
+  // A context named "auto" is a name. Only the submit clients' host name specs
+  // give "auto" its other meaning, which is why this does not go through
+  // expand_hostname.
+  EXPECT_EQ(impl.expand_context("auto"), "auto");
 }
 
 #ifdef WIN32
@@ -895,6 +936,59 @@ TEST_F(SettingsHandlerTest, ContextExistsIsAlwaysTrueForDummyAndHttp) {
 
 TEST_F(SettingsHandlerTest, CreateInstanceThrowsForAnUnknownProtocol) {
   EXPECT_THROW(impl_->create_instance("master", "gopher://localhost/settings"), settings::settings_exception);
+}
+
+// --- issue #458: a stored context keeps its placeholder ---------------------
+
+TEST_F(SettingsManagerBootTest, SwitchingContextKeepsAPlaceholderInBootIni) {
+  // set_primary reorders boot.ini and writes every entry back. The whole point
+  // of a placeholder is that the same boot.ini works on every machine, so it
+  // has to survive the round trip - expanding it here would replace the
+  // template with the name of whichever host happened to switch context.
+  settings_test::write_file(boot_ini_, "[settings]\n1=ini://${host}-nsclient.ini\n2=dummy\n");
+  ASSERT_TRUE(settings_manager::init_settings(provider_.get(), "dummy"));
+
+  settings_manager::set_boot_ini_primary("dummy");
+
+  const std::string after = settings_test::read_file(boot_ini_);
+  EXPECT_NE(after.find("ini://${host}-nsclient.ini"), std::string::npos) << after;
+  EXPECT_EQ(after.find(str::utils::getToken(boost::asio::ip::host_name(), '.').first + "-nsclient.ini"), std::string::npos) << after;
+}
+
+// --- issue #458: a per-host [/includes] entry -------------------------------
+
+TEST_F(SettingsContextTest, AContextWithAHostPlaceholderResolvesToThePerHostFile) {
+  // The end of the chain [/includes] walks: the ini backend hands the value it
+  // read straight to create_instance/context_exists, so expanding the
+  // placeholder there is what makes
+  //
+  //   [/includes]
+  //   client = ${host}-nsclient.ini
+  //
+  // open this host's file. Without it the token reached the path manager,
+  // which has no answer for it and substitutes the installation directory.
+  settings_test::temp_dir dir;
+  const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
+  settings_test::write_file(dir.file(host + "-nsclient.ini"), "[/settings]\nkey = value\n");
+
+  const std::string context = ini_context(dir.path() / "${host}-nsclient.ini");
+  EXPECT_TRUE(impl_->context_exists(context));
+
+  const settings::instance_raw_ptr instance = impl_->create_instance("client", context);
+  ASSERT_TRUE(static_cast<bool>(instance));
+  EXPECT_EQ(instance->get_type(), "ini");
+  // get_info() names the file that was actually opened.
+  EXPECT_NE(instance->get_info().find(host + "-nsclient.ini"), std::string::npos) << instance->get_info();
+  EXPECT_EQ(instance->get_info().find("${host}"), std::string::npos) << instance->get_info();
+}
+
+TEST_F(SettingsContextTest, AContextWithoutAPlaceholderIsUnaffected) {
+  settings_test::temp_dir dir;
+  const boost::filesystem::path file = dir.file("plain.ini");
+  settings_test::write_file(file, "");
+
+  EXPECT_TRUE(impl_->context_exists(ini_context(file)));
+  EXPECT_FALSE(impl_->context_exists(ini_context(dir.path() / "${host}-plain.ini")));
 }
 
 TEST_F(SettingsContextTest, CreateInstanceBuildsTheBackendTheContextNames) {
