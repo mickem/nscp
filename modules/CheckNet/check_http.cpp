@@ -6,7 +6,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
 #include <boost/program_options.hpp>
-#include <bytes/base64.hpp>
 #include <memory>
 #include <net/address_family.hpp>
 #include <net/http/client.hpp>
@@ -16,9 +15,9 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <sstream>
 
+#include "check_http_fetch.hpp"
 #include "check_http_internal.hpp"
 #include "check_http_json.hpp"
-#include "check_net_error.hpp"
 
 namespace po = boost::program_options;
 
@@ -54,6 +53,9 @@ filter_obj_handler::filter_obj_handler() {
 
 namespace {
 
+using check_http_fetch::add_basic_auth;
+using check_http_fetch::classify_status;
+using check_http_fetch::error_result;
 using check_http_internal::host_header_value;
 using check_http_internal::parse_url;
 using check_http_internal::parsed_url;
@@ -110,8 +112,7 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
 
       http::request rq(opt.method, host_header_value(u.host), u.path);
       if (!opt.user_agent.empty()) rq.add_header("User-Agent", opt.user_agent);
-      if (!opt.username.empty() || !opt.password.empty())
-        rq.add_header("Authorization", "Basic " + bytes::base64_encode(opt.username + ":" + opt.password));
+      add_basic_auth(rq, opt.username, opt.password);
       for (const auto &h : opt.headers) {
         const auto pos = h.find(':');
         if (pos == std::string::npos) continue;
@@ -161,18 +162,14 @@ void run_http_check(const std::string &url_in, const http_check_options &opt, ch
 
       if (!opt.expected_body.empty() && out.body.find(opt.expected_body) == std::string::npos) {
         out.result = "no_match";
-      } else if (resp.status_code_ >= 200 && resp.status_code_ < 400) {
-        out.result = "ok";
       } else {
-        out.result = "http_" + std::to_string(resp.status_code_);
+        // Redirects we were not asked to follow count as ok, hence < 400.
+        out.result = classify_status(resp.status_code_, 400);
       }
       break;
     }
   } catch (const std::exception &e) {
-    // Boost.Asio surfaces system errors using the OS code page (e.g. Windows
-    // ANSI like "Ingen sådan värd är känd" on Swedish locales) and tacks on a
-    // build-path source location. Convert to UTF-8 and strip the location.
-    out.result = std::string("error: ") + check_net::format_exception_message(e);
+    out.result = error_result(e);
   }
 
   const auto elapsed = boost::chrono::duration_cast<boost::chrono::milliseconds>(boost::chrono::steady_clock::now() - start).count();

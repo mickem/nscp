@@ -30,7 +30,7 @@ helper = None
 # is fixed so a module always lands in the same reference folder regardless of
 # which platform's pipeline extracted it. Cross-platform "system" modules keep
 # their historical windows/ home; CheckSystemUnix is the only unix-only one.)
-WINDOWS_MODULES = ['NSClientServer', 'DotnetPlugins', 'CheckEventLog', 'CheckMSSQL', 'CheckTaskSched', 'CheckWMI']
+WINDOWS_MODULES = ['NSClientServer', 'DotnetPlugins', 'CheckEventLog', 'CheckMSSQL', 'CheckTaskSched', 'CheckWMI', 'CheckWindowsApps']
 UNIX_MODULES = []
 CHECK_MODULES = ['CheckSystem', 'CheckExternalScripts', 'CheckDisk', 'CheckHelpers', 'CheckLogFile', 'CheckMKClient',
                  'CheckMKServer', 'CheckNSCP', 'CheckNet', 'CheckSecurity']

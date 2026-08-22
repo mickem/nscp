@@ -90,6 +90,7 @@ std::string installer_feature_hint(const std::string &module) {
       {"CheckNSCP", "Check Plugins"},
       {"CheckDisk", "Check Plugins"},
       {"CheckTaskSched", "Check Plugins"},
+      {"CheckWindowsApps", "Check Plugins"},
       {"CheckSecurity", "Check Plugins"},
       {"CheckMSSQL", "Check Plugins"},
       // Its own feature, not part of "Check Plugins": it is the one check

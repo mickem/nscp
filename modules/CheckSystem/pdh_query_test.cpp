@@ -18,6 +18,7 @@ class MockPdh : public PDH::impl_interface {
   PDH_STATUS close_status = ERROR_SUCCESS;
   PDH_STATUS add_counter_status = ERROR_SUCCESS;
   PDH_STATUS remove_counter_status = ERROR_SUCCESS;
+  PDH_STATUS formatted_value_status = ERROR_SUCCESS;
   bool throw_on_add_listener = false;
 
   // Observables
@@ -99,7 +100,7 @@ class MockPdh : public PDH::impl_interface {
   PDH::pdh_error PdhExpandCounterPath(LPCTSTR, LPTSTR, LPDWORD) override { return {}; }
   PDH::pdh_error PdhGetCounterInfo(PDH::PDH_HCOUNTER, BOOLEAN, LPDWORD, PDH_COUNTER_INFO *) override { return {}; }
   PDH::pdh_error PdhGetRawCounterValue(PDH::PDH_HCOUNTER, LPDWORD, PPDH_RAW_COUNTER) override { return {}; }
-  PDH::pdh_error PdhGetFormattedCounterValue(PDH::PDH_HCOUNTER, DWORD, LPDWORD, PPDH_FMT_COUNTERVALUE) override { return {}; }
+  PDH::pdh_error PdhGetFormattedCounterValue(PDH::PDH_HCOUNTER, DWORD, LPDWORD, PPDH_FMT_COUNTERVALUE) override { return {formatted_value_status}; }
   PDH::pdh_error PdhValidatePath(LPCWSTR, bool) override { return {}; }
   PDH::pdh_error PdhEnumObjects(LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, DWORD, BOOL) override { return {}; }
   PDH::pdh_error PdhEnumObjectItems(LPCWSTR, LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, LPWSTR, LPDWORD, DWORD, DWORD) override { return {}; }
@@ -329,4 +330,34 @@ TEST_F(PdhQueryLifecycleTest, InvalidResolutionValueThrows) {
   PDH::pdh_object obj;
   obj.set_counter("\\Foo\\Bar");
   EXPECT_THROW(obj.set_resolution("nonsense"), PDH::pdh_exception);
+}
+
+// ----------------------------------------------------------------------------
+// gatherData tolerance for uncomputable counters
+// ----------------------------------------------------------------------------
+
+TEST_F(PdhQueryLifecycleTest, GatherDataSkipsNegativeDenominatorWhenIgnoringErrors) {
+  // Some counters simply cannot be computed at times (HTTP Service Request
+  // Queues\MaxQueueItemAge on an idle queue persists past the retry). With
+  // ignore_errors the counter must be skipped for this tick - readers fall
+  // back to their default - not fail the whole gather, which the object
+  // gathers then misreport as "the object does not exist on this host".
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("age", "\HTTP Service Request Queues\MaxQueueItemAge"));
+  q.open();
+  mock->formatted_value_status = PDH_CALC_NEGATIVE_DENOMINATOR;
+  EXPECT_NO_THROW(q.gatherData(true));
+  q.close();
+}
+
+TEST_F(PdhQueryLifecycleTest, GatherDataStillThrowsOnNegativeDenominatorByDefault) {
+  // Without ignore_errors the historical contract stays: a counter that
+  // remains uncomputable after the retry raises, so single-counter callers
+  // hear about it instead of silently reading a default.
+  PDH::PDHQuery q;
+  q.addCounter(make_counter("age", "\HTTP Service Request Queues\MaxQueueItemAge"));
+  q.open();
+  mock->formatted_value_status = PDH_CALC_NEGATIVE_DENOMINATOR;
+  EXPECT_THROW(q.gatherData(false), PDH::pdh_exception);
+  q.close();
 }

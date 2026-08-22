@@ -865,6 +865,21 @@ TEST(CheckHttp, parse_url_rejects_bad_input) {
   EXPECT_FALSE(check_net::check_http_internal::parse_url("http:///nohost", u));
 }
 
+TEST(CheckHttp, parse_url_rejects_bad_ports) {
+  // The callers std::stoll the port without a try block, so parse_url must
+  // reject anything stoll would throw on ("" after a bare colon) or silently
+  // misread ("8o80" parses as 8).
+  check_net::check_http_internal::parsed_url u;
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://example.com:/path", u));       // empty port after colon
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://example.com:8o80/path", u));   // non-numeric port
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://example.com:-80/path", u));    // negative port
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://example.com:0/path", u));      // port 0 is not connectable
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://example.com:65536/path", u));  // above the TCP port range
+  EXPECT_FALSE(check_net::check_http_internal::parse_url("http://[::1]:8o80/path", u));         // bad port on an IPv6 literal
+  EXPECT_TRUE(check_net::check_http_internal::parse_url("http://example.com:65535/path", u));
+  EXPECT_EQ(u.port, "65535");
+}
+
 TEST(CheckHttp, resolve_redirect_absolute) {
   using check_net::check_http_internal::resolve_redirect;
   EXPECT_EQ(resolve_redirect("http://a.com/x", "https://b.com/y"), "https://b.com/y");

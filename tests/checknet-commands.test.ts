@@ -26,6 +26,7 @@ import {
   CRITICAL,
   NscpInstance,
   OK,
+  UNKNOWN,
   WARNING,
   type CertPair,
   executeQuery,
@@ -1097,6 +1098,209 @@ describe("CheckNet commands", () => {
   //
   // That is not only a public-internet problem: make_context loads the CA
   // whenever `ca` is non-empty, before verify mode is considered, so
+  // --- web/application server status pages ----------------------------------
+
+  const APACHE_AUTO = [
+    "localhost",
+    "ServerVersion: Apache/2.4.58 (Unix)",
+    "Total Accesses: 8341",
+    "Total kBytes: 91674",
+    "Uptime: 7254",
+    "ReqPerSec: 1.14985",
+    "BytesPerSec: 12940.7",
+    "BusyWorkers: 3",
+    "IdleWorkers: 47",
+    "Scoreboard: __W_K_____W.....",
+    "",
+  ].join("\n");
+
+  const NGINX_STUB = [
+    "Active connections: 291 ",
+    "server accepts handled requests",
+    " 16630948 16630946 31070465 ",
+    "Reading: 6 Writing: 179 Waiting: 106 ",
+    "",
+  ].join("\n");
+
+  const PHPFPM_STATUS = [
+    "pool:                 www",
+    "process manager:      dynamic",
+    "accepted conn:        4211",
+    "listen queue:         0",
+    "max listen queue:     11",
+    "listen queue len:     511",
+    "idle processes:       7",
+    "active processes:     3",
+    "total processes:      10",
+    "max active processes: 9",
+    "max children reached: 0",
+    "slow requests:        5",
+    "",
+  ].join("\n");
+
+  const TOMCAT_XML =
+    `<?xml version="1.0" encoding="utf-8"?><status>` +
+    `<jvm><memory free='1734127416' total='2147483648' max='4294967296'/></jvm>` +
+    `<connector name='"http-nio-8080"'><threadInfo maxThreads="200" currentThreadCount="25" currentThreadsBusy="4"/>` +
+    `<requestInfo maxTime="1230" processingTime="55211" requestCount="104211" errorCount="17" bytesReceived="0" bytesSent="1048576000"/></connector>` +
+    `<connector name='"ajp-nio-8009"'><threadInfo maxThreads="100" currentThreadCount="0" currentThreadsBusy="0"/>` +
+    `<requestInfo maxTime="0" processingTime="0" requestCount="0" errorCount="0" bytesReceived="0" bytesSent="0"/></connector></status>`;
+
+  it("check_apache_status parses the ?auto page (appending ?auto itself)", async () => {
+    // The handler only answers the machine-readable format when ?auto is
+    // present, so an OK here proves the check appended it to the bare URL.
+    const s = await startHttp((req, res) => {
+      res.end(req.url?.includes("auto") ? APACHE_AUTO : "<html>Apache Status</html>");
+    });
+    const q = await executeQuery(key, "check_apache_status", {
+      url: `http://127.0.0.1:${s.port}/server-status`,
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/3 busy and 47 idle workers/);
+    expect(messageOf(q)).toMatch(/1\.14985 req\/s/);
+    expect(perfValue(q, "127.0.0.1_busy_workers")).toBe(3);
+  });
+
+  it("check_apache_status applies worker thresholds", async () => {
+    const s = await startHttp((_req, res) => res.end(APACHE_AUTO));
+    const q = await executeQuery(key, "check_apache_status", {
+      url: `http://127.0.0.1:${s.port}/server-status`,
+      warning: "idle_workers < 50",
+    });
+    expect(q.result).toBe(WARNING);
+  });
+
+  it("check_apache_status reports parse_error for a non-status body", async () => {
+    const s = await startHttp((_req, res) => res.end("<html>not a status page</html>"));
+    const q = await executeQuery(key, "check_apache_status", {
+      url: `http://127.0.0.1:${s.port}/server-status`,
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/parse_error/);
+  });
+
+  it("check_nginx_status parses stub_status", async () => {
+    const s = await startHttp((_req, res) => res.end(NGINX_STUB));
+    const q = await executeQuery(key, "check_nginx_status", {
+      url: `http://127.0.0.1:${s.port}/nginx_status`,
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/291 active \(6 reading, 179 writing, 106 waiting\)/);
+    expect(perfValue(q, "127.0.0.1_active")).toBe(291);
+  });
+
+  it("check_nginx_status alerts on dropped connections via the derived keyword", async () => {
+    // accepts=16630948, handled=16630946 -> dropped=2.
+    const s = await startHttp((_req, res) => res.end(NGINX_STUB));
+    const q = await executeQuery(key, "check_nginx_status", {
+      url: `http://127.0.0.1:${s.port}/nginx_status`,
+      warning: "dropped > 0",
+    });
+    expect(q.result).toBe(WARNING);
+  });
+
+  it("check_nginx_status goes CRITICAL when the endpoint is unreachable", async () => {
+    const port = await closedPort();
+    const q = await executeQuery(key, "check_nginx_status", {
+      url: `http://127.0.0.1:${port}/nginx_status`,
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/error/);
+  });
+
+  it("check_phpfpm_status parses the FPM status page", async () => {
+    const s = await startHttp((_req, res) => res.end(PHPFPM_STATUS));
+    const q = await executeQuery(key, "check_phpfpm_status", {
+      url: `http://127.0.0.1:${s.port}/status`,
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/pool www: 3 active, 7 idle, 0 queued/);
+    expect(perfValue(q, "www_active_processes")).toBe(3);
+  });
+
+  it("check_phpfpm_status applies thresholds on saturation counters", async () => {
+    const s = await startHttp((_req, res) => res.end(PHPFPM_STATUS));
+    const q = await executeQuery(key, "check_phpfpm_status", {
+      url: `http://127.0.0.1:${s.port}/status`,
+      critical: "slow_requests > 4",
+    });
+    expect(q.result).toBe(CRITICAL);
+  });
+
+  it("check_tomcat_status parses the manager XML with Basic auth (appending XML=true itself)", async () => {
+    const s = await startHttp((req, res) => {
+      const auth = "Basic " + Buffer.from("tomcat:s3cret").toString("base64");
+      if (req.headers.authorization !== auth) {
+        res.statusCode = 401;
+        res.end("unauthorized");
+        return;
+      }
+      res.end(req.url?.includes("XML=true") ? TOMCAT_XML : "<html/>");
+    });
+    const q = await executeQuery(key, "check_tomcat_status", {
+      url: `http://127.0.0.1:${s.port}/manager/status`,
+      username: "tomcat",
+      password: "s3cret",
+    });
+    expect(q.result).toBe(OK);
+    expect(messageOf(q)).toMatch(/http-nio-8080 ok: 4\/200 threads busy/);
+    expect(messageOf(q)).toMatch(/ajp-nio-8009 ok: 0\/100 threads busy/);
+    expect(perfValue(q, "http-nio-8080_threads_busy")).toBe(4);
+  });
+
+  it("check_tomcat_status goes CRITICAL without credentials", async () => {
+    const s = await startHttp((_req, res) => {
+      res.statusCode = 401;
+      res.end("unauthorized");
+    });
+    const q = await executeQuery(key, "check_tomcat_status", {
+      url: `http://127.0.0.1:${s.port}/manager/status`,
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/http_401/);
+  });
+
+  it("check_tomcat_status applies per-connector thresholds", async () => {
+    const s = await startHttp((req, res) => res.end(req.url?.includes("XML=true") ? TOMCAT_XML : "<html/>"));
+    const q = await executeQuery(key, "check_tomcat_status", {
+      url: `http://127.0.0.1:${s.port}/manager/status`,
+      warning: "error_count > 10",
+    });
+    expect(q.result).toBe(WARNING);
+  });
+
+  it("check_tomcat_status reports parse_error for XML without connectors", async () => {
+    // A truncated/partial manager response can parse as XML yet carry zero
+    // <connector> elements; that must not be reported as "OK: 0/0 threads".
+    const jvmOnly = `<?xml version="1.0" encoding="utf-8"?><status><jvm><memory free='1' total='2' max='3'/></jvm></status>`;
+    const s = await startHttp((_req, res) => res.end(jvmOnly));
+    const q = await executeQuery(key, "check_tomcat_status", {
+      url: `http://127.0.0.1:${s.port}/manager/status`,
+    });
+    expect(q.result).toBe(CRITICAL);
+    expect(messageOf(q)).toMatch(/parse_error/);
+  });
+
+  it("status-page checks report invalid_url for a malformed port instead of throwing", async () => {
+    // ":" with nothing after it used to hit an unguarded std::stoll and escape
+    // the check as a generic module exception; ":8o80" silently parsed as 8.
+    for (const url of ["http://127.0.0.1:/server-status", "http://127.0.0.1:8o80/server-status"]) {
+      const q = await executeQuery(key, "check_apache_status", { url });
+      expect(q.result).toBe(CRITICAL);
+      expect(messageOf(q)).toMatch(/invalid_url/);
+    }
+  });
+
+  it("status-page checks reject a non-positive timeout", async () => {
+    // timeout=-1 used to be cast to unsigned and become a ~136-year timeout.
+    const q = await executeQuery(key, "check_nginx_status", {
+      url: "http://127.0.0.1/nginx_status",
+      timeout: "-1",
+    });
+    expect(q.result).toBe(UNKNOWN);
+    expect(messageOf(q)).toMatch(/timeout must be a positive number of seconds/);
+  });
+
   // `verify=none` against a local self-signed server fails too. On Rocky 10 it
   // takes down four of this file's existing tests (ssl_expiry_days, the
   // redirect-to-plain-http case and both check_nsclient_web_online cases) with

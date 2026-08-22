@@ -16,6 +16,18 @@ struct parsed_url {
   std::string path;
 };
 
+// True when the string is a usable TCP port: all digits, 1-65535. parse_url
+// validates the port with this so callers can std::stoll it without a try
+// block (stoll would otherwise throw on ":" with nothing after it, and
+// silently parse "8o80" as 8).
+inline bool valid_port(const std::string &port) {
+  if (port.empty() || port.size() > 5) return false;
+  for (const char c : port)
+    if (c < '0' || c > '9') return false;
+  const int value = std::stoi(port);
+  return value >= 1 && value <= 65535;
+}
+
 // Minimal URL parser for http(s)://host[:port]/path. Returns false on failure.
 inline bool parse_url(const std::string &url, parsed_url &out) {
   std::string s = url;
@@ -50,7 +62,7 @@ inline bool parse_url(const std::string &url, parsed_url &out) {
     } else {
       return false;
     }
-    return !out.host.empty() && !out.port.empty();
+    return !out.host.empty() && valid_port(out.port);
   }
 
   const auto colon = host_port.find(':');
@@ -61,7 +73,7 @@ inline bool parse_url(const std::string &url, parsed_url &out) {
     out.host = host_port.substr(0, colon);
     out.port = host_port.substr(colon + 1);
   }
-  return !out.host.empty();
+  return !out.host.empty() && valid_port(out.port);
 }
 
 // The value to put in the Host header for a parsed host. parse_url strips the
