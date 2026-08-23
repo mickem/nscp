@@ -32,6 +32,13 @@ page tracks those in one place. Full per-release detail lives in each
   migrate) now keeps a placeholder you pass it as-is in `boot.ini` while
   migrating into the expanded per-host file, so the template survives on a
   fleet-managed machine.
+- **`check_pending_reboot`'s default message now names the pending-since
+  time.** When the reboot was queued by Component Based Servicing or Windows
+  Update, the message gains a suffix: `Reboot required: Windows Update` became
+  `Reboot required: Windows Update (pending since 2026-08-16 09:41:12)`.
+  Notification pipelines that match the exact message text (an anchored regex,
+  a string equality) need their pattern relaxed; thresholds, states and
+  existing keywords are unchanged.
 - **Filter comparisons between a text keyword and a bare number are now
   numeric.** A string-typed keyword compared against an unquoted number used
   to order *lexically* — `filter=value > 90` on `filter_perf` matched

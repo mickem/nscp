@@ -69,8 +69,9 @@ filter_obj_handler::filter_obj_handler() {
   // the pending reboot was signalled without one.
   registry_
       .add_optional_int_var("written", parsers::where::type_date, [](auto obj) { return obj->get_written(); }, "unknown",
-                            "When the oldest timestamped pending-reboot signal appeared (last-write time of the CBS/Windows Update key; supports date "
-                            "comparisons). 'unknown' when only untimestamped signals are set (`written = 'unknown'` tests for it)")
+                            "When the oldest timestamped pending-reboot signal appeared (last-write time of the CBS/Windows Update key), as epoch seconds. "
+                            "Threshold staleness with `age` or a relative date (written < -7d); a quoted date string is compared as text, not as a date. "
+                            "'unknown' when only untimestamped signals are set (`written = 'unknown'` tests for it)")
       .no_perf()
       .add_optional_int_var("age", type_custom_age, [](auto obj) { return obj->get_age(); }, "unknown",
                             "Seconds the reboot has been pending (since the oldest timestamped signal appeared); threshold with durations, e.g. "
