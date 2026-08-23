@@ -363,6 +363,48 @@ TEST(ExpandHostnamePlaceholders, MixedWithAPathToken) {
   EXPECT_EQ(out, "${shared-path}/" + host + "-nsclient.ini");
 }
 
+// =============================================================================
+// expand_hostname_placeholders_in_path / sanitize_path_component
+//
+// The variant for values that land on the local file system. The host name is
+// not fully under the operator's control (DHCP can set it on some systems), so
+// what gets substituted into an attachment target or a settings context must
+// not be able to carry a path separator or a dots-only component.
+// =============================================================================
+
+TEST(SanitizePathComponent, LeavesALegalHostNameAlone) {
+  EXPECT_EQ(socket_helpers::sanitize_path_component("my-host"), "my-host");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("MY-HOST.example.com"), "MY-HOST.example.com");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("srv_01"), "srv_01");
+  EXPECT_EQ(socket_helpers::sanitize_path_component(""), "");
+}
+
+TEST(SanitizePathComponent, MapsSeparatorsAndFriendsToUnderscore) {
+  EXPECT_EQ(socket_helpers::sanitize_path_component("a/b"), "a_b");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("a\\b"), "a_b");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("../../etc/cron.d/evil"), ".._.._etc_cron.d_evil");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("a:b?c"), "a_b_c");
+}
+
+TEST(SanitizePathComponent, ADotsOnlyValueIsNotAPathComponent) {
+  EXPECT_EQ(socket_helpers::sanitize_path_component("."), "_");
+  EXPECT_EQ(socket_helpers::sanitize_path_component(".."), "_");
+  // ...but dots inside a name are just dots.
+  EXPECT_EQ(socket_helpers::sanitize_path_component("a..b"), "a..b");
+}
+
+TEST(ExpandHostnamePlaceholdersInPath, AgreesWithThePlainVariantForARealHostName) {
+  // A real system host name is RFC-952 material, so on any sane machine the
+  // two variants answer the same - the sanitizer only bites on a hostile name.
+  const std::string spec = "${shared-path}/${host}-nsclient.ini|${hostname}|${domain_uc}";
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders_in_path(spec), socket_helpers::expand_hostname_placeholders(spec));
+}
+
+TEST(ExpandHostnamePlaceholdersInPath, LeavesNonHostTokensAndShorthandsAlone) {
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders_in_path("${shared-path}/nsclient.ini"), "${shared-path}/nsclient.ini");
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders_in_path("auto"), "auto");
+}
+
 #ifdef USE_SSL
 // =============================================================================
 // SSL-specific: get_verify_mode

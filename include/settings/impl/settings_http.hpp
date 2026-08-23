@@ -69,8 +69,13 @@ class settings_http : public settings::settings_interface_impl {
   // and an unknown token silently expands to the installation directory rather
   // than failing, so the attachment landed in one shared file with a mangled
   // name instead of a per-host one.
+  //
+  // The substituted values are sanitized (the _in_path variant): the target is
+  // written to with the service's privileges, and the host name - which DHCP
+  // can set on some systems - must not be able to smuggle a separator or a
+  // ".." into it.
   static std::string resolve_attachment_target(settings_core *core, const std::string &key) {
-    return core->expand_path(socket_helpers::expand_hostname_placeholders(key));
+    return core->expand_path(socket_helpers::expand_hostname_placeholders_in_path(key));
   }
 
   settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {

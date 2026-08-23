@@ -955,6 +955,30 @@ TEST_F(SettingsManagerBootTest, SwitchingContextKeepsAPlaceholderInBootIni) {
   EXPECT_EQ(after.find(str::utils::getToken(boost::asio::ip::host_name(), '.').first + "-nsclient.ini"), std::string::npos) << after;
 }
 
+TEST_F(SettingsManagerBootTest, MigratingToAContextKeepsItsPlaceholderInBootIni) {
+  // The other way a context gets stored: migrate ends in set_primary too, but
+  // the instance it migrates into carries the *expanded* context, because
+  // create_instance resolves the placeholder to open the per-host file. What
+  // lands in boot.ini has to be the context as the operator wrote it - or
+  // `nscp settings --migrate-to 'ini://${host}.ini'` on one machine would bake
+  // that machine's name into a boot.ini meant for the whole fleet, while
+  // --switch with the same argument keeps the template.
+  settings_test::write_file(boot_ini_, "[settings]\n1=dummy\n");
+  ASSERT_TRUE(settings_manager::init_settings(provider_.get(), "dummy"));
+
+  settings_test::temp_dir dir;
+  const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
+  // INISettings resolves its context against an existing file, so the per-host
+  // file the expanded context names has to be there first.
+  settings_test::write_file(dir.file(host + "-migrated.ini"), "");
+
+  settings_manager::get_core()->migrate_to("master", ini_context(dir.path() / "${host}-migrated.ini"));
+
+  const std::string after = settings_test::read_file(boot_ini_);
+  EXPECT_NE(after.find("${host}-migrated.ini"), std::string::npos) << after;
+  EXPECT_EQ(after.find(host + "-migrated.ini"), std::string::npos) << after;
+}
+
 // --- issue #458: a per-host [/includes] entry -------------------------------
 
 TEST_F(SettingsContextTest, AContextWithAHostPlaceholderResolvesToThePerHostFile) {

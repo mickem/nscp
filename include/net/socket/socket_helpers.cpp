@@ -29,27 +29,67 @@ namespace ip = boost::asio::ip;
 
 std::list<std::string> socket_helpers::connection_info::validate() const { return validate_ssl(); }
 
-std::string socket_helpers::expand_hostname_placeholders(std::string spec) {
-  // Nothing to resolve, and asking the OS for its host name is not free: a
-  // settings context or an attachment path usually has no placeholder at all.
-  if (spec.find("${") == std::string::npos) return spec;
-  std::string host_name = ip::host_name();
+namespace {
+std::string keep_verbatim(std::string value) { return value; }
+
+// One host name placeholder substitution pass; `prep` is applied to every
+// value before it is spliced in (identity for a host name spec, the path
+// sanitizer for a string that ends up on the file system).
+std::string expand_placeholders_with(std::string spec, std::string (*prep)(std::string)) {
+  // Nothing to resolve, and asking the OS for its host name is not free (and
+  // can even throw): a settings context or an attachment path usually has no
+  // host name placeholder at all. Every token starts with ${host or ${domain,
+  // so this also skips a spec that only carries path tokens (${shared-path}).
+  if (spec.find("${host") == std::string::npos && spec.find("${domain") == std::string::npos) return spec;
+  std::string host_name;
+  try {
+    host_name = ip::host_name();
+  } catch (const std::exception &) {
+    // No host name to substitute with. Leave the placeholders alone rather
+    // than let a failing gethostname() abort settings boot - the callers all
+    // have a defined answer for an unresolved token.
+    return spec;
+  }
 
   // The full name exactly as the system reports it. ${host} stops at the first
   // '.', so without this there is no way to get the fqdn from inside a template
   // - only by setting the whole spec to "auto", which a template cannot do.
-  str::utils::replace(spec, "${hostname_uc}", boost::algorithm::to_upper_copy(host_name));
-  str::utils::replace(spec, "${hostname_lc}", boost::algorithm::to_lower_copy(host_name));
-  str::utils::replace(spec, "${hostname}", host_name);
+  str::utils::replace(spec, "${hostname_uc}", prep(boost::algorithm::to_upper_copy(host_name)));
+  str::utils::replace(spec, "${hostname_lc}", prep(boost::algorithm::to_lower_copy(host_name)));
+  str::utils::replace(spec, "${hostname}", prep(host_name));
 
   const str::utils::token dn = str::utils::getToken(host_name, '.');
-  str::utils::replace(spec, "${host}", dn.first);
-  str::utils::replace(spec, "${domain}", dn.second);
-  str::utils::replace(spec, "${host_uc}", boost::algorithm::to_upper_copy(dn.first));
-  str::utils::replace(spec, "${domain_uc}", boost::algorithm::to_upper_copy(dn.second));
-  str::utils::replace(spec, "${host_lc}", boost::algorithm::to_lower_copy(dn.first));
-  str::utils::replace(spec, "${domain_lc}", boost::algorithm::to_lower_copy(dn.second));
+  str::utils::replace(spec, "${host}", prep(dn.first));
+  str::utils::replace(spec, "${domain}", prep(dn.second));
+  str::utils::replace(spec, "${host_uc}", prep(boost::algorithm::to_upper_copy(dn.first)));
+  str::utils::replace(spec, "${domain_uc}", prep(boost::algorithm::to_upper_copy(dn.second)));
+  str::utils::replace(spec, "${host_lc}", prep(boost::algorithm::to_lower_copy(dn.first)));
+  str::utils::replace(spec, "${domain_lc}", prep(boost::algorithm::to_lower_copy(dn.second)));
   return spec;
+}
+}  // namespace
+
+std::string socket_helpers::sanitize_path_component(std::string value) {
+  // gethostname() is not fully under the operator's control - DHCP can set it
+  // on some systems - so a value substituted into a local path must not be
+  // able to smuggle in a separator or a ".." component. A real host name is
+  // RFC-952 material (letters, digits, '-', '.' between labels), so mapping
+  // everything else to '_' cannot change a legitimate setup.
+  bool only_dots = !value.empty();
+  for (char &c : value) {
+    const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-';
+    if (!ok) c = '_';
+    if (c != '.') only_dots = false;
+  }
+  // "." or ".." as a whole component is a path, not a name.
+  if (only_dots) return "_";
+  return value;
+}
+
+std::string socket_helpers::expand_hostname_placeholders(std::string spec) { return expand_placeholders_with(std::move(spec), keep_verbatim); }
+
+std::string socket_helpers::expand_hostname_placeholders_in_path(std::string spec) {
+  return expand_placeholders_with(std::move(spec), &socket_helpers::sanitize_path_component);
 }
 
 std::string socket_helpers::expand_hostname(std::string spec) {

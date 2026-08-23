@@ -78,6 +78,21 @@ void validate_certificate(const std::string& certificate, std::list<std::string>
 // as a whole (see the "auto" shorthands in expand_hostname).
 std::string expand_hostname_placeholders(std::string spec);
 
+// The same substitution, but every substituted value is first passed through
+// sanitize_path_component. Use this - not the plain variant - whenever the
+// result names something on the local file system (an attachment target, a
+// settings context): the host name is not fully under the operator's control
+// (DHCP can set it on some systems), and a value carrying '/', '\' or a
+// dots-only component must not be able to redirect a path the agent reads or
+// writes with its (typically root/SYSTEM) privileges.
+std::string expand_hostname_placeholders_in_path(std::string spec);
+
+// Reduce `value` to characters safe inside a single path component: letters,
+// digits, '.', '_' and '-' pass, anything else becomes '_', and a value that
+// is nothing but dots ("." / "..") becomes "_". A legal RFC-952 host name
+// comes through unchanged.
+std::string sanitize_path_component(std::string value);
+
 // Resolve a hostname spec used by the various submit-clients.
 //   "auto"     -> system host name as-is
 //   "auto-lc"  -> system host name, lower-cased

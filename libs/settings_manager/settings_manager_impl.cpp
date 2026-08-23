@@ -89,11 +89,14 @@ std::string NSCSettingsImpl::expand_context(const std::string &key) {
   //
   // Note this deliberately does not go through expand_hostname: its "auto"
   // shorthands would rewrite a context which merely happens to be named auto.
+  // And it is the sanitizing _in_path variant, since a context names a file
+  // this process opens: the host name is not fully under the operator's
+  // control, and must not be able to smuggle a separator or ".." into it.
   //
   // Anything which *stores* a context (set_primary rewriting boot.ini) must use
   // expand_context_alias instead, or the placeholder is replaced by this host's
   // name in the file - the opposite of what a fleet-wide boot.ini is for.
-  return socket_helpers::expand_hostname_placeholders(expand_context_alias(key));
+  return socket_helpers::expand_hostname_placeholders_in_path(expand_context_alias(key));
 }
 
 //////////////////////////////////////////////////////////////////////////

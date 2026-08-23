@@ -221,7 +221,10 @@ An attachment target and an included file are paths, so they take path tokens (`
 `${exe-path}`, ...) as well. The two kinds of placeholder share a syntax but not a vocabulary: the
 host name placeholders in this table are resolved first, and everything else is left to the path
 tokens. Only the copy being opened is expanded - the placeholder stays in the configuration file,
-which is the point.
+which is the point. When the substituted value lands in a local path (an attachment target, an
+included file) it is additionally reduced to the characters a legal host name can contain, so a
+host name outside the operator's control cannot carry a path separator or a `..` into a path the
+agent reads or writes.
 
 > **New in 0.17:** `${hostname}`, `${hostname_lc}` and `${hostname_uc}`, and host name placeholders
 > in attachment targets and in `[/includes]` (issue
