@@ -1440,6 +1440,29 @@ TEST(VariableCrossType, SummaryIntVarVsFloatLiteralWidensToFloat) {
   EXPECT_EQ("", gt2.eval_error);
 }
 
+TEST(VariableCrossType, SummaryIntVarVsFloatLiteralKeepsPerfBoundary) {
+  // The convert wrapper from the test above must not hide the variable from
+  // perf-boundary discovery: `warn=count > 2.5` has to keep emitting the same
+  // count perf series (with its warn bound) that `warn=count > 3` does.
+  mock_summary summary;
+  auto ctx = ctx_with_count(summary, 3);
+  const node_type expr = factory::create_bin_op(op_gt, new_summary_count_var(), factory::create_float(2.5));
+  const object_converter converter = make_converter();
+  expr->infer_type(converter);
+  expr->bind(converter);
+
+  performance_collector collector;
+  expr->find_performance_data(ctx, collector);
+  performance_collector::boundaries_type boundaries = collector.get_candidates();
+  ASSERT_EQ(boundaries.size(), 1u);
+  ASSERT_EQ(boundaries.count("count"), 1u);
+  const performance_node &bound = boundaries["count"];
+  EXPECT_EQ(bound.variable, "count");
+  EXPECT_EQ(bound.perf_node_type, performance_node::perf_type_upper);
+  ASSERT_TRUE(bound.value);
+  EXPECT_DOUBLE_EQ(bound.value->get_value(ctx, type_float).get_float(0.0), 2.5);
+}
+
 TEST(VariableCrossType, SummaryIntVarBinandFloatLiteralKeepsIntDomain) {
   // The float widening is gated to comparison operators: & has no float
   // form, so the literal still narrows into the int domain (2 & 3 = 2).
