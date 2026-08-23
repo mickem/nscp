@@ -99,6 +99,13 @@ struct realtime_filter_helper {
       // Same story for the number format (#1428): set before the first row is
       // rendered, and left alone entirely while nothing has been configured so
       // an untouched filter renders exactly what it always did.
+      const std::string byte_unit_error = config.invalid_byte_unit();
+      if (!byte_unit_error.empty()) {
+        // A one-shot query would be rejected here; a real-time filter keeps
+        // running (auto-scaling the value) so a formatting typo cannot take
+        // down persistent monitoring, but the misconfiguration is logged.
+        NSC_LOG_ERROR(byte_unit_error + " in real-time filter '" + alias + "'; falling back to auto-scaling");
+      }
       const str::number_format number_format = config.number_format();
       if (!number_format.is_default()) {
         filter.context->set_number_format(number_format);

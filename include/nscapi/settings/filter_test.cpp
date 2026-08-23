@@ -314,6 +314,50 @@ TEST(FilterObjectTest, ApplyParentPreservesOwnListSeparator) {
 }
 
 // ============================================================================
+// number formatting (issue #1428)
+// ============================================================================
+
+TEST(FilterObjectTest, NumberFormatDefaultsToUnset) {
+  const filter_object obj("top", "detail", "target");
+  const str::number_format fmt = obj.number_format();
+  EXPECT_TRUE(fmt.is_default());
+}
+
+TEST(FilterObjectTest, NumberFormatCarriesTheConfiguredKeys) {
+  filter_object obj("top", "detail", "target");
+  obj.decimals = 2;
+  obj.byte_unit = "GB";
+  obj.decimal_separator = ",";
+  obj.thousands_separator = ".";
+  const str::number_format fmt = obj.number_format();
+  EXPECT_EQ(2, fmt.decimals);
+  EXPECT_EQ("GB", fmt.byte_unit);
+  EXPECT_EQ(",", fmt.decimal_separator);
+  EXPECT_EQ(".", fmt.thousands_separator);
+}
+
+// A config typo must not hand render_fixed an unbounded width; the settings
+// path has no error channel, so it clamps rather than rejects.
+TEST(FilterObjectTest, NumberFormatClampsRunawayDecimals) {
+  filter_object obj("top", "detail", "target");
+  obj.decimals = 1000000000;
+  EXPECT_EQ(str::max_decimals, obj.number_format().decimals);
+  obj.decimals = -5;
+  EXPECT_EQ(-1, obj.number_format().decimals);
+}
+
+TEST(FilterObjectTest, InvalidByteUnitIsReportedButEmptyAndValidAreNot) {
+  filter_object obj("top", "detail", "target");
+  EXPECT_EQ("", obj.invalid_byte_unit());
+  obj.byte_unit = "GB";
+  EXPECT_EQ("", obj.invalid_byte_unit());
+  obj.byte_unit = "gb";  // case insensitive, like the query path
+  EXPECT_EQ("", obj.invalid_byte_unit());
+  obj.byte_unit = "ZB";
+  EXPECT_NE(std::string::npos, obj.invalid_byte_unit().find("Invalid byte unit"));
+}
+
+// ============================================================================
 // apply_parent tests
 // ============================================================================
 

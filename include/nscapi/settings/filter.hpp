@@ -8,6 +8,7 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
+#include <str/format.hpp>
 #include <str/number_format.hpp>
 #ifdef WIN32
 #pragma warning(disable : 4251)
@@ -110,6 +111,17 @@ struct NSCAPI_EXPORT filter_object {
     if (!decimal_separator.empty()) fmt.decimal_separator = decimal_separator;
     fmt.thousands_separator = thousands_separator;
     return fmt;
+  }
+
+  // Whether the `byte unit` key names a unit we know about. The query path
+  // rejects an unknown one outright; a real-time filter is persistent
+  // monitoring, so it warns and falls back to auto-scaling rather than
+  // dropping the filter - but either way an invalid unit is no longer silent.
+  // Returns an error message, or "" when the unit is empty or valid.
+  std::string invalid_byte_unit() const {
+    if (!byte_unit.empty() && str::format::byte_unit_index(byte_unit) < 0)
+      return "Invalid byte unit: " + byte_unit + " (expected one of B, KB, MB, GB, TB, PB, EB)";
+    return "";
   }
 
   void read_object(settings_helper::path_extension &path, bool is_default);
