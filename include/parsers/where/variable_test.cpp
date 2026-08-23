@@ -1028,3 +1028,290 @@ TEST(OptionalIntVariableNode, InferTypeRoutesStringSuggestionToString) {
   EXPECT_EQ(type_int, node->infer_type(converter, type_int));
   EXPECT_EQ(type_int, node->get_type());
 }
+
+// ======================================================================
+// Cross-type comparisons: a variable of one type against a literal of
+// another.
+//
+// The engine derives the type of a comparison in helpers::infer_binary_type,
+// whose rule is essentially "convert the *right* operand into the *left*
+// operand's type when that is possible". That single rule is what decides
+// whether `svar > 9` is answered as numbers or as text, and it makes several
+// of these cases asymmetric, so they are pinned down here rather than left to
+// be re-derived from the conversion table.
+// ======================================================================
+
+namespace {
+
+// The outcome of running one comparison through the same steps the engine
+// runs: derive types (this is where the comparison picks its domain), bind
+// (conversion nodes only get their function here), then evaluate.
+struct cmp_outcome {
+  bool truth;
+  bool is_unsure;
+  std::string tree;         // typed AST, e.g. {bool}({string}svar = {string}convert(9))
+  std::string infer_error;  // errors raised while deriving types
+  std::string eval_error;   // errors raised while evaluating
+};
+
+cmp_outcome run_cmp(const node_type &left, const operators op, const node_type &right, const evaluation_context &ctx) {
+  const node_type expr = factory::create_bin_op(op, left, right);
+  const object_converter converter = make_converter();
+  expr->infer_type(converter);
+  expr->bind(converter);
+  cmp_outcome out;
+  out.tree = expr->to_string();
+  out.infer_error = converter->get_error();
+  const value_container result = expr->evaluate(ctx)->get_value(ctx, type_int);
+  out.truth = result.get_int(0) != 0;
+  out.is_unsure = result.is_unsure;
+  out.eval_error = ctx->get_error();
+  return out;
+}
+
+node_type new_int_var() { return std::make_shared<int_var_node>("ivar", type_int, make_int_fun(), std::list<int_var_node::int_performance_generator>()); }
+node_type new_float_var() {
+  return std::make_shared<float_var_node>("fvar", type_float, make_float_fun(), std::list<float_var_node::float_performance_generator>());
+}
+node_type new_str_var() { return std::make_shared<str_var_node>("svar", type_string, make_str_fun()); }
+node_type new_dual_int_str_var() {
+  return std::make_shared<dual_var_node>("dvar", type_int, make_int_fun(), make_str_fun(), std::list<dual_var_node::int_performance_generator>());
+}
+node_type new_summary_count_var() {
+  return std::make_shared<summary_int_var_node>("count", [](mock_summary *s) -> long long { return s ? s->count : 0; });
+}
+
+evaluation_context ctx_with(long long i, double f, const std::string &s) { return make_var_context_with_object(mock_object{i, f, s}); }
+
+evaluation_context ctx_with_count(mock_summary &summary, long long count) {
+  auto ctx = make_var_context();
+  summary.count = count;
+  native(ctx)->set_summary(&summary);
+  return ctx;
+}
+
+}  // namespace
+
+// ----------------------------------------------------------------------
+// int variable vs string literal - the literal joins the variable's domain
+// ----------------------------------------------------------------------
+
+TEST(VariableCrossType, IntVarVsNumericStringComparesAsNumbers) {
+  const cmp_outcome eq = run_cmp(new_int_var(), op_eq, factory::create_string("42"), ctx_with(42, 0.0, ""));
+  EXPECT_TRUE(eq.truth);
+  EXPECT_EQ("", eq.eval_error);
+  EXPECT_EQ("{bool}({int}ivar = {int}convert(\"42\"))", eq.tree);
+}
+
+TEST(VariableCrossType, IntVarVsNumericStringIsNotAStringCompare) {
+  // 42 > 9 is true as numbers; as text "42" > "9" would be false. The
+  // literal is pulled into the variable's int domain, so numbers win.
+  const cmp_outcome gt = run_cmp(new_int_var(), op_gt, factory::create_string("9"), ctx_with(42, 0.0, ""));
+  EXPECT_TRUE(gt.truth);
+  EXPECT_EQ("", gt.eval_error);
+}
+
+TEST(VariableCrossType, IntVarVsNonNumericStringIsAnError) {
+  const cmp_outcome eq = run_cmp(new_int_var(), op_eq, factory::create_string("abc"), ctx_with(42, 0.0, ""));
+  EXPECT_FALSE(eq.truth);
+  EXPECT_NE("", eq.eval_error);
+}
+
+TEST(VariableCrossType, IntVarLikeNonNumericStringDoesNotError) {
+  // `like` asks the (int-typed) conversion node for a string, which passes
+  // the literal straight through - so a pattern that is not a number is fine
+  // here even though `=` against the same literal is an error.
+  const cmp_outcome like = run_cmp(new_int_var(), op_like, factory::create_string("ab"), ctx_with(42, 0.0, ""));
+  EXPECT_FALSE(like.truth);
+  EXPECT_EQ("", like.eval_error);
+}
+
+TEST(VariableCrossType, IntVarLikeMatchesTextualRepresentation) {
+  const cmp_outcome like = run_cmp(new_int_var(), op_like, factory::create_string("2"), ctx_with(42, 0.0, ""));
+  EXPECT_TRUE(like.truth);
+  EXPECT_EQ("", like.eval_error);
+}
+
+// ----------------------------------------------------------------------
+// int/float mixing - no string ever enters the picture
+// ----------------------------------------------------------------------
+
+TEST(VariableCrossType, IntVarVsFloatLiteralPromotesVariableToFloat) {
+  // The variable re-types itself to float rather than the literal being
+  // squeezed into an int, so no precision is lost on either side.
+  const node_type var = new_int_var();
+  const cmp_outcome lt = run_cmp(var, op_lt, factory::create_float(3.5), ctx_with(3, 0.0, ""));
+  EXPECT_TRUE(lt.truth);
+  EXPECT_EQ("", lt.eval_error);
+  EXPECT_EQ(type_float, var->get_type());
+  // (int_variable_node::to_string() hardcodes the "{int}" tag, so the
+  // rendered tree still says int even after the promotion.)
+  EXPECT_EQ("{bool}({int}ivar < 3.5)", lt.tree);
+}
+
+TEST(VariableCrossType, IntVarVsFloatLiteralDoesNotRoundTheLiteral) {
+  // 3 > 2.5 is true. Had the literal been converted into the int domain it
+  // would have been rounded to 3 and this would be false - which is exactly
+  // what happens for a summary variable, see
+  // SummaryIntVarVsFloatLiteralRoundsTheLiteral below.
+  const cmp_outcome gt = run_cmp(new_int_var(), op_gt, factory::create_float(2.5), ctx_with(3, 0.0, ""));
+  EXPECT_TRUE(gt.truth);
+  EXPECT_EQ("", gt.eval_error);
+}
+
+TEST(VariableCrossType, FloatVarVsIntLiteralComparesAsFloat) {
+  const cmp_outcome gt = run_cmp(new_float_var(), op_gt, factory::create_int(2), ctx_with(0, 2.5, ""));
+  EXPECT_TRUE(gt.truth);
+  EXPECT_EQ("", gt.eval_error);
+  const cmp_outcome eq = run_cmp(new_float_var(), op_eq, factory::create_int(2), ctx_with(0, 2.5, ""));
+  EXPECT_FALSE(eq.truth);
+}
+
+// ----------------------------------------------------------------------
+// string variable vs number literal - this one IS a string comparison
+// ----------------------------------------------------------------------
+
+TEST(VariableCrossType, StringVarVsIntLiteralComparesAsStrings) {
+  // The number is rendered into the variable's string domain, so this is
+  // "10" = "10" and not 10 = 10 - same answer here...
+  const cmp_outcome eq = run_cmp(new_str_var(), op_eq, factory::create_int(10), ctx_with(0, 0.0, "10"));
+  EXPECT_TRUE(eq.truth);
+  EXPECT_EQ("{bool}({string}svar = {string}convert(10))", eq.tree);
+}
+
+TEST(VariableCrossType, StringVarOrderingAgainstIntLiteralIsLexical) {
+  // ...but ordering gives the answer away: numerically 10 > 9, lexically
+  // "10" < "9". A string-typed variable compared against a number literal
+  // orders as text. This is the documented consequence of "convert the
+  // right operand into the left operand's type".
+  const cmp_outcome gt = run_cmp(new_str_var(), op_gt, factory::create_int(9), ctx_with(0, 0.0, "10"));
+  EXPECT_FALSE(gt.truth);
+  const cmp_outcome lt = run_cmp(new_str_var(), op_lt, factory::create_int(9), ctx_with(0, 0.0, "10"));
+  EXPECT_TRUE(lt.truth);
+  EXPECT_EQ("", lt.eval_error);
+}
+
+TEST(VariableCrossType, StringVarVsFloatLiteralIsAnError) {
+  // An int literal renders into the string domain (test above), but a float
+  // literal does not: float_value::get_value() has no type_string branch, so
+  // the conversion yields nil and the comparison reports "invalid type".
+  // `svar = 2.5` therefore never matches, not even the text "2.5".
+  const cmp_outcome eq = run_cmp(new_str_var(), op_eq, factory::create_float(2.5), ctx_with(0, 0.0, "2.5"));
+  EXPECT_FALSE(eq.truth);
+  EXPECT_NE("", eq.eval_error);
+}
+
+// ----------------------------------------------------------------------
+// Operand order matters: a literal on the left wraps the *variable* in the
+// conversion node, and variables cannot be converted.
+// ----------------------------------------------------------------------
+
+TEST(VariableCrossType, IntLiteralOnLeftOfStringVarFailsToEvaluate) {
+  // `svar < 9` (previous test) works; `9 > svar` does not: the conversion
+  // node is put around the variable, and convert() reads its argument from
+  // get_list_value(), which variable nodes do not implement.
+  const cmp_outcome gt = run_cmp(factory::create_int(9), op_gt, new_str_var(), ctx_with(0, 0.0, "10"));
+  // Deriving the types is happy about it; only evaluation fails.
+  EXPECT_EQ("", gt.infer_error);
+  EXPECT_NE("", gt.eval_error);
+}
+
+TEST(VariableCrossType, StringLiteralOnLeftOfIntVarFailsToEvaluate) {
+  const cmp_outcome lt = run_cmp(factory::create_string("9"), op_lt, new_int_var(), ctx_with(42, 0.0, ""));
+  EXPECT_EQ("", lt.infer_error);
+  EXPECT_NE("", lt.eval_error);
+}
+
+TEST(VariableCrossType, FloatLiteralOnLeftOfIntVarIsFine) {
+  // Numeric widening is done by re-inferring the variable, not by wrapping
+  // it, so this direction keeps working.
+  const cmp_outcome lt = run_cmp(factory::create_float(2.5), op_lt, new_int_var(), ctx_with(3, 0.0, ""));
+  EXPECT_TRUE(lt.truth);
+  EXPECT_EQ("", lt.eval_error);
+}
+
+// ----------------------------------------------------------------------
+// dual variables adapt to the literal instead of falling back to text
+// ----------------------------------------------------------------------
+
+TEST(VariableCrossType, DualVarVsIntLiteralUsesIntAccessor) {
+  const cmp_outcome gt = run_cmp(new_dual_int_str_var(), op_gt, factory::create_int(9), ctx_with(10, 0.0, "ten"));
+  EXPECT_TRUE(gt.truth);
+  EXPECT_EQ("", gt.eval_error);
+  EXPECT_EQ("{bool}({int}dvar > 9)", gt.tree);
+}
+
+TEST(VariableCrossType, DualVarVsStringLiteralUsesStringAccessor) {
+  const cmp_outcome eq = run_cmp(new_dual_int_str_var(), op_eq, factory::create_string("ten"), ctx_with(10, 0.0, "ten"));
+  EXPECT_TRUE(eq.truth);
+  EXPECT_EQ("", eq.eval_error);
+  EXPECT_EQ("{bool}({string}dvar = \"ten\")", eq.tree);
+}
+
+TEST(VariableCrossType, DualVarVsNumericStringLiteralComparesAsStrings) {
+  // A dual variable takes the *literal's* type, so a quoted number makes
+  // this a text comparison: "10" < "9" lexically.
+  const cmp_outcome lt = run_cmp(new_dual_int_str_var(), op_lt, factory::create_string("9"), ctx_with(10, 0.0, "10"));
+  EXPECT_TRUE(lt.truth);
+  EXPECT_EQ("", lt.eval_error);
+}
+
+TEST(VariableCrossType, DualIntStringVarVsFloatLiteralHasNoAccessor) {
+  // The float suggestion re-types the node to float, but this dual node was
+  // built with int+string accessors only, so there is nothing to read.
+  const cmp_outcome gt = run_cmp(new_dual_int_str_var(), op_gt, factory::create_float(1.5), ctx_with(10, 0.0, "10"));
+  EXPECT_FALSE(gt.truth);
+  EXPECT_NE("", gt.eval_error);
+}
+
+// ----------------------------------------------------------------------
+// optional-int variables: numbers stay numbers, the string form is the
+// presence test
+// ----------------------------------------------------------------------
+
+TEST(VariableCrossType, OptionalIntVarVsNoValueStringLiteral) {
+  auto unset = make_var_context_with_object(without_opt());
+  EXPECT_TRUE(run_cmp(make_opt_node(), op_eq, factory::create_string("unknown"), unset).truth);
+
+  auto set = make_var_context_with_object(with_opt(42));
+  EXPECT_FALSE(run_cmp(make_opt_node(), op_eq, factory::create_string("unknown"), set).truth);
+}
+
+TEST(VariableCrossType, OptionalIntVarVsNumericStringLiteralComparesRenderedValue) {
+  auto set = make_var_context_with_object(with_opt(42));
+  const cmp_outcome eq = run_cmp(make_opt_node(), op_eq, factory::create_string("42"), set);
+  EXPECT_TRUE(eq.truth);
+  EXPECT_EQ("", eq.eval_error);
+}
+
+TEST(VariableCrossType, OptionalIntVarWithNoValueIsSureFalseAgainstNumbers) {
+  auto unset = make_var_context_with_object(without_opt());
+  const cmp_outcome gt = run_cmp(make_opt_node(), op_gt, factory::create_int(5), unset);
+  EXPECT_FALSE(gt.truth);
+  EXPECT_FALSE(gt.is_unsure);
+  EXPECT_EQ("", gt.eval_error);
+}
+
+// ----------------------------------------------------------------------
+// summary variables ignore the type suggestion, so the literal is always
+// converted to int
+// ----------------------------------------------------------------------
+
+TEST(VariableCrossType, SummaryIntVarVsNumericStringComparesAsNumbers) {
+  mock_summary summary;
+  auto ctx = ctx_with_count(summary, 3);
+  const cmp_outcome eq = run_cmp(new_summary_count_var(), op_eq, factory::create_string("3"), ctx);
+  EXPECT_TRUE(eq.truth);
+  EXPECT_EQ("", eq.eval_error);
+}
+
+TEST(VariableCrossType, SummaryIntVarVsFloatLiteralRoundsTheLiteral) {
+  // Unlike a plain int variable (which widens itself to float), a summary
+  // variable keeps its int type, so the float literal is rounded into the
+  // int domain: `count > 2.5` is evaluated as `count > 3`.
+  mock_summary summary;
+  auto ctx = ctx_with_count(summary, 3);
+  const cmp_outcome gt = run_cmp(new_summary_count_var(), op_gt, factory::create_float(2.5), ctx);
+  EXPECT_FALSE(gt.truth);
+  EXPECT_EQ("", gt.eval_error);
+}
