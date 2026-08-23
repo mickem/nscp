@@ -631,6 +631,22 @@ describe("CheckSystem commands", () => {
     expect(q.result).toBeLessThanOrEqual(CRITICAL);
   });
 
+  it("check_pending_reboot accepts duration thresholds on age over REST (Windows)", async () => {
+    if (!onWindows) return;
+    // age is optional ('unknown' without a timestamped CBS/WU signal) and
+    // duration-typed: `3650d` must parse as ten years, not the number 3650 —
+    // a plain type_int keyword would silently read it as seconds and fire.
+    // No real host has had a reboot pending for a decade, so the result is a
+    // deterministic OK whatever this machine's actual reboot state.
+    const q = await executeQuery(key, "check_pending_reboot", {
+      warning: "none",
+      critical: "pending = 1 and age > 3650d",
+    });
+    expect(messageOf(q)).not.toMatch(/does not take any arguments/);
+    expect(messageOf(q)).not.toMatch(/invalid|error/i);
+    expect(q.result).toBe(OK);
+  });
+
   // --- check_patch_age (Windows) ---------------------------------------------
 
   it("check_patch_age reports installed hotfixes with perf (Windows)", async () => {

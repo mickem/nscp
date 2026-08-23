@@ -9,8 +9,21 @@ OK: No reboot pending
 
 ```
 check_pending_reboot
-WARNING: Reboot required: Windows Update
+WARNING: Reboot required: Windows Update (pending since 2026-08-16 09:41:12)
 ```
+
+**Warn on any pending reboot but escalate one that has been pending for over a week:**
+
+```
+check_pending_reboot "warn=pending = 1" "crit=pending = 1 and age > 7d"
+CRITICAL: Reboot required: Windows Update (pending since 2026-08-10 03:12:45)
+```
+
+The since-time is the last-write time of the Component Based Servicing /
+Windows Update registry key, which exists only while that reboot is queued.
+The other signals (file rename, computer rename, domain join) carry no
+timestamp, so `age` and `written` report `unknown` for them and never trip a
+numeric threshold (test for it with `written = 'unknown'`).
 
 **Escalate a pending reboot to CRITICAL:**
 
