@@ -5,6 +5,7 @@
 
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/node.hpp>
+#include <str/xtos.hpp>
 
 namespace parsers {
 namespace where {
@@ -37,7 +38,22 @@ struct string_value : node_value_impl<std::string>, std::enable_shared_from_this
   value_container get_value(evaluation_context context, value_type type) const override;
   std::string to_string() const override;
   std::string to_string(evaluation_context context) const override;
-  value_type infer_type(object_converter, value_type) override { return type_string; }
+  // A numeric suggestion (comparison against a numeric variable or literal)
+  // moves the literal into the float domain when its content is a number, so
+  // '9' < ivar and ivar > '9' compare as numbers either way round. A literal
+  // that is not a number stays a string and the caller falls back to its
+  // conversion rules.
+  value_type infer_type(object_converter, const value_type suggestion) override {
+    if (suggestion == type_int || suggestion == type_float) {
+      try {
+        str::stox<double>(value_);
+        set_type(type_float);
+        return type_float;
+      } catch (const std::exception &) {
+      }
+    }
+    return type_string;
+  }
   value_type infer_type(object_converter) override { return type_string; }
   bool find_performance_data(evaluation_context context, performance_collector &collector) override;
 };

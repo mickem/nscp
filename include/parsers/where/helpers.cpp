@@ -107,6 +107,22 @@ value_type infer_binary_type(const object_converter &converter, const operators 
       rt = right->infer_type(converter, lt);
   }
   if (lt == rt) return lt;
+  // Numbers win over text in comparisons: when one side is plainly numeric
+  // and the other is a string, invite the string side into the float domain.
+  // Nodes that can join re-type themselves - a string variable parses its
+  // value per row, a quoted literal joins only when it parses as a number -
+  // while everything else (summary strings, custom types with registered
+  // converters) declines and falls through to the conversion rules below.
+  // Quoted literals against string variables never get here (same type), so
+  // `version < '8'` stays a lexical comparison.
+  if (is_comparison_operator(op)) {
+    if (lt == type_string && (rt == type_int || rt == type_float)) {
+      lt = left->infer_type(converter, type_float);
+    } else if (rt == type_string && (lt == type_int || lt == type_float)) {
+      rt = right->infer_type(converter, type_float);
+    }
+  }
+  if (lt == rt) return lt;
   if (type_is_float(lt) && type_is_int(rt)) rt = right->infer_type(converter, lt);
   if (type_is_float(rt) && type_is_int(lt)) lt = left->infer_type(converter, rt);
   if (lt == rt) return lt;

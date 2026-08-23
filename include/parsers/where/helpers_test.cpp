@@ -613,12 +613,34 @@ TEST(WhereHelpers, InferBinaryTypeWithCanConvertOnConverter) {
   EXPECT_EQ(type_string, result);
 }
 
-TEST(WhereHelpers, InferBinaryTypeStringAndIntUsesBuiltinConvert) {
+TEST(WhereHelpers, InferBinaryTypeNumericStringLiteralJoinsFloatForComparisons) {
+  // Numbers win in comparisons: a quoted literal that parses as a number
+  // joins the numeric side's domain instead of pulling it into a lexical
+  // compare.
   auto converter = make_converter(false);
   node_type left = factory::create_string("42");
   node_type right = factory::create_int(42);
-  // can_convert(type_int, type_string) is true, so right is converted to string
   value_type result = infer_binary_type(converter, op_eq, left, right);
+  EXPECT_EQ(type_float, result);
+}
+
+TEST(WhereHelpers, InferBinaryTypeNonNumericStringLiteralStaysString) {
+  // A literal that is not a number cannot join the numeric domain; the
+  // built-in conversion rules take over (int renders into the string domain).
+  auto converter = make_converter(false);
+  node_type left = factory::create_string("hello");
+  node_type right = factory::create_int(42);
+  value_type result = infer_binary_type(converter, op_eq, left, right);
+  EXPECT_EQ(type_string, result);
+}
+
+TEST(WhereHelpers, InferBinaryTypeLikeKeepsStringDomain) {
+  // "Numbers win" is gated to comparison operators; `like` keeps the old
+  // convert-based behaviour so numeric-looking patterns still match text.
+  auto converter = make_converter(false);
+  node_type left = factory::create_string("42");
+  node_type right = factory::create_int(42);
+  value_type result = infer_binary_type(converter, op_like, left, right);
   EXPECT_EQ(type_string, result);
 }
 

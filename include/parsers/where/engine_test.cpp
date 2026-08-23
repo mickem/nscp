@@ -1394,6 +1394,57 @@ TEST(EngineFilterMatch, SizeVarAgainstFractionalUnitLiteral) {
   EXPECT_TRUE(eval_match("szvar > 1.5k", above, true));
 }
 
+// ============================================================================
+// Numbers win: a string variable compared against a bare numeric literal is
+// answered in the number domain (the row value is parsed); quoting the
+// literal keeps the lexical comparison.
+// ============================================================================
+
+TEST(EngineFilterMatch, StringVarAgainstBareNumberComparesNumerically) {
+  // "10" > 9 as numbers; the old lexical compare said "10" < "9".
+  auto above = make_native_context();
+  above->set_object({0, 0.0, "10"});
+  EXPECT_TRUE(eval_match("svar > 9", above, true));
+  auto below = make_native_context();
+  below->set_object({0, 0.0, "9"});
+  EXPECT_FALSE(eval_match("svar > 9", below, true));
+}
+
+TEST(EngineFilterMatch, StringVarAgainstBareDecimalComparesNumerically) {
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "10"});
+  EXPECT_TRUE(eval_match("svar > 2.5", ctx, true));
+  auto low = make_native_context();
+  low->set_object({0, 0.0, "2"});
+  EXPECT_FALSE(eval_match("svar > 2.5", low, true));
+}
+
+TEST(EngineFilterMatch, StringVarNonNumericRowNeverMatchesNumbers) {
+  // Not a number → certainly nothing to compare: sure-false for every
+  // operator, including = and != (the no_value contract).
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "abc"});
+  EXPECT_FALSE(eval_match("svar > 9", ctx, true));
+  EXPECT_FALSE(eval_match("svar = 9", ctx, true));
+  EXPECT_FALSE(eval_match("svar != 9", ctx, true));
+}
+
+TEST(EngineFilterMatch, StringVarAgainstQuotedNumberStaysLexical) {
+  // Quoting asks for text ordering explicitly: "10" < "9" lexically.
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "10"});
+  EXPECT_TRUE(eval_match("svar < '9'", ctx, true));
+  EXPECT_FALSE(eval_match("svar > '9'", ctx, true));
+}
+
+TEST(EngineFilterMatch, BareNumberOnLeftOfStringVarComparesNumerically) {
+  // Operand order does not matter; this shape used to fail to evaluate.
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "10"});
+  EXPECT_TRUE(eval_match("11 > svar", ctx, true));
+  EXPECT_FALSE(eval_match("9 > svar", ctx, true));
+}
+
 TEST(EngineFilter, FunctionConvertProgrammaticBoundSubjectPropagatesUnsure) {
   // Defensive test: programmatically construct
   //   convert(ivar, 'gb') > 5
