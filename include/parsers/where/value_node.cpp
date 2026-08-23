@@ -61,6 +61,9 @@ value_container float_value::get_value(const evaluation_context context, value_t
   if (new_type == type_int) {
     return value_container::create_int(static_cast<long long>(value_), is_unsure_);
   }
+  if (new_type == type_string) {
+    return value_container::create_string(str::xtos(value_), is_unsure_);
+  }
   context->error("Failed to convert float to " + helpers::type_to_string(new_type) + ": " + str::xtos(value_));
   return value_container::create_nil();
 }

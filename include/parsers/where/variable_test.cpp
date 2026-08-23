@@ -1191,14 +1191,16 @@ TEST(VariableCrossType, StringVarOrderingAgainstIntLiteralIsLexical) {
   EXPECT_EQ("", lt.eval_error);
 }
 
-TEST(VariableCrossType, StringVarVsFloatLiteralIsAnError) {
-  // An int literal renders into the string domain (test above), but a float
-  // literal does not: float_value::get_value() has no type_string branch, so
-  // the conversion yields nil and the comparison reports "invalid type".
-  // `svar = 2.5` therefore never matches, not even the text "2.5".
+TEST(VariableCrossType, StringVarVsFloatLiteralComparesRenderedValue) {
+  // A float literal renders into the string domain just like an int literal
+  // does (float_value::get_value grew the type_string branch), so
+  // `svar = 2.5` matches the text "2.5" instead of erroring.
   const cmp_outcome eq = run_cmp(new_str_var(), op_eq, factory::create_float(2.5), ctx_with(0, 0.0, "2.5"));
-  EXPECT_FALSE(eq.truth);
-  EXPECT_NE("", eq.eval_error);
+  EXPECT_TRUE(eq.truth);
+  EXPECT_EQ("", eq.eval_error);
+  const cmp_outcome ne = run_cmp(new_str_var(), op_eq, factory::create_float(2.5), ctx_with(0, 0.0, "3.5"));
+  EXPECT_FALSE(ne.truth);
+  EXPECT_EQ("", ne.eval_error);
 }
 
 // ----------------------------------------------------------------------
@@ -1293,8 +1295,8 @@ TEST(VariableCrossType, OptionalIntVarWithNoValueIsSureFalseAgainstNumbers) {
 }
 
 // ----------------------------------------------------------------------
-// summary variables ignore the type suggestion, so the literal is always
-// converted to int
+// summary variables ignore the type suggestion; a numeric-string literal
+// still joins their int domain, and a float literal widens the comparison
 // ----------------------------------------------------------------------
 
 TEST(VariableCrossType, SummaryIntVarVsNumericStringComparesAsNumbers) {
@@ -1305,13 +1307,30 @@ TEST(VariableCrossType, SummaryIntVarVsNumericStringComparesAsNumbers) {
   EXPECT_EQ("", eq.eval_error);
 }
 
-TEST(VariableCrossType, SummaryIntVarVsFloatLiteralRoundsTheLiteral) {
-  // Unlike a plain int variable (which widens itself to float), a summary
-  // variable keeps its int type, so the float literal is rounded into the
-  // int domain: `count > 2.5` is evaluated as `count > 3`.
+TEST(VariableCrossType, SummaryIntVarVsFloatLiteralWidensToFloat) {
+  // A summary variable keeps its int type, so the engine wraps it in a
+  // convert-to-float node and answers the comparison in float. It used to be
+  // the literal that was converted, rounding `count > 2.5` into `count > 3`.
   mock_summary summary;
   auto ctx = ctx_with_count(summary, 3);
   const cmp_outcome gt = run_cmp(new_summary_count_var(), op_gt, factory::create_float(2.5), ctx);
-  EXPECT_FALSE(gt.truth);
+  EXPECT_TRUE(gt.truth);
   EXPECT_EQ("", gt.eval_error);
+  EXPECT_EQ("{bool}({float}convert({int}count()) > 2.5)", gt.tree);
+
+  mock_summary summary2;
+  auto ctx2 = ctx_with_count(summary2, 2);
+  const cmp_outcome gt2 = run_cmp(new_summary_count_var(), op_gt, factory::create_float(2.5), ctx2);
+  EXPECT_FALSE(gt2.truth);
+  EXPECT_EQ("", gt2.eval_error);
+}
+
+TEST(VariableCrossType, SummaryIntVarBinandFloatLiteralKeepsIntDomain) {
+  // The float widening is gated to comparison operators: & has no float
+  // form, so the literal still narrows into the int domain (2 & 3 = 2).
+  mock_summary summary;
+  auto ctx = ctx_with_count(summary, 2);
+  const cmp_outcome band = run_cmp(new_summary_count_var(), op_binand, factory::create_float(2.5), ctx);
+  EXPECT_TRUE(band.truth);
+  EXPECT_EQ("", band.eval_error);
 }

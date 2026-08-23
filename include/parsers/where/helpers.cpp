@@ -94,7 +94,9 @@ node_type add_convert_node(node_type subject, const value_type new_type) {
   return subject;
 }
 
-value_type infer_binary_type(const object_converter &converter, node_type &left, node_type &right) {
+bool is_comparison_operator(const operators op) { return op == op_eq || op == op_ne || op == op_lt || op == op_le || op == op_gt || op == op_ge; }
+
+value_type infer_binary_type(const object_converter &converter, const operators op, node_type &left, node_type &right) {
   value_type rt = right->infer_type(converter);
   value_type lt = left->infer_type(converter);
   if (lt == type_multi || rt == type_multi) {
@@ -117,6 +119,21 @@ value_type infer_binary_type(const object_converter &converter, node_type &left,
   if (converter->can_convert(lt, rt)) {
     left = add_convert_node(left, rt);
     return rt;
+  }
+  // A comparison stuck between plain int and plain float means the int side
+  // refused the float suggestion above (a fixed-type node such as a summary
+  // counter). Compare in the float domain and wrap the int side (lossless),
+  // instead of rounding the float operand into the int domain, which turned
+  // `count > 2.5` into `count > 3`.
+  if (is_comparison_operator(op)) {
+    if (lt == type_int && rt == type_float) {
+      left = add_convert_node(left, type_float);
+      return type_float;
+    }
+    if (lt == type_float && rt == type_int) {
+      right = add_convert_node(right, type_float);
+      return type_float;
+    }
   }
   if (can_convert(rt, lt)) {
     right = add_convert_node(right, lt);

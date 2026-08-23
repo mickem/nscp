@@ -567,28 +567,28 @@ TEST(WhereHelpers, InferBinaryTypeSameTypeInt) {
   auto converter = make_converter();
   node_type left = factory::create_int(1);
   node_type right = factory::create_int(2);
-  EXPECT_EQ(type_int, infer_binary_type(converter, left, right));
+  EXPECT_EQ(type_int, infer_binary_type(converter, op_eq, left, right));
 }
 
 TEST(WhereHelpers, InferBinaryTypeSameTypeString) {
   auto converter = make_converter();
   node_type left = factory::create_string("a");
   node_type right = factory::create_string("b");
-  EXPECT_EQ(type_string, infer_binary_type(converter, left, right));
+  EXPECT_EQ(type_string, infer_binary_type(converter, op_eq, left, right));
 }
 
 TEST(WhereHelpers, InferBinaryTypeSameTypeFloat) {
   auto converter = make_converter();
   node_type left = factory::create_float(1.0);
   node_type right = factory::create_float(2.0);
-  EXPECT_EQ(type_float, infer_binary_type(converter, left, right));
+  EXPECT_EQ(type_float, infer_binary_type(converter, op_eq, left, right));
 }
 
 TEST(WhereHelpers, InferBinaryTypeFloatAndIntConverts) {
   auto converter = make_converter();
   node_type left = factory::create_float(1.0);
   node_type right = factory::create_int(2);
-  value_type result = infer_binary_type(converter, left, right);
+  value_type result = infer_binary_type(converter, op_eq, left, right);
   // float + int: type_is_float(lt) && type_is_int(rt) triggers right->infer_type(factory, lt)
   // int_value::infer_type with float suggestion sets type to float
   EXPECT_EQ(type_float, result);
@@ -598,7 +598,7 @@ TEST(WhereHelpers, InferBinaryTypeIntAndFloatConverts) {
   auto converter = make_converter();
   node_type left = factory::create_int(1);
   node_type right = factory::create_float(2.0);
-  value_type result = infer_binary_type(converter, left, right);
+  value_type result = infer_binary_type(converter, op_eq, left, right);
   // int + float: type_is_float(rt) && type_is_int(lt) triggers left->infer_type(factory, rt)
   EXPECT_EQ(type_float, result);
 }
@@ -608,7 +608,7 @@ TEST(WhereHelpers, InferBinaryTypeWithCanConvertOnConverter) {
   auto converter = make_converter(true);
   node_type left = factory::create_string("hello");
   node_type right = factory::create_int(42);
-  value_type result = infer_binary_type(converter, left, right);
+  value_type result = infer_binary_type(converter, op_eq, left, right);
   // converter->can_convert(rt=int, lt=string) returns true, so right gets converted to string
   EXPECT_EQ(type_string, result);
 }
@@ -618,7 +618,7 @@ TEST(WhereHelpers, InferBinaryTypeStringAndIntUsesBuiltinConvert) {
   node_type left = factory::create_string("42");
   node_type right = factory::create_int(42);
   // can_convert(type_int, type_string) is true, so right is converted to string
-  value_type result = infer_binary_type(converter, left, right);
+  value_type result = infer_binary_type(converter, op_eq, left, right);
   EXPECT_EQ(type_string, result);
 }
 

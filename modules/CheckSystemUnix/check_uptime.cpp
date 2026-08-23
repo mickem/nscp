@@ -9,6 +9,7 @@
 #define UPTIME_FILE "/proc/uptime"
 
 #include <boost/assign.hpp>
+#include <cmath>
 #include <list>
 #include <map>
 #include <nscapi/protobuf/functions_response.hpp>
@@ -33,8 +34,14 @@ parsers::where::node_type parse_time(std::shared_ptr<filter_obj> object, parsers
   if (tokens.size() == 2) {
     auto cit = tokens.begin();
     const long long n = (*cit)->get_int_value(context);
+    const double n_f = (*cit)->get_float_value(context);
     ++cit;
     const std::string unit = (*cit)->get_value(context, parsers::where::type_string).get_string("");
+    // A fractional count ("2.5h") cannot survive the string round-trip: the
+    // int accessor already truncated it to 2. Scale it numerically instead.
+    if (n_f != static_cast<double>(n)) {
+      return parsers::where::factory::create_int(llround(n_f * str::format::time_unit_multiplier(unit)));
+    }
     expr = str::xtos(n) + unit;
   } else {
     expr = subject->get_string_value(context);
