@@ -10,6 +10,15 @@
 
 namespace str {
 
+// The largest number of decimals that is ever meaningful: a double carries at
+// most ~17 significant digits, so anything past this is noise. It also bounds
+// the width of a rendered number - std::setprecision(N) makes the stream build
+// an N-digit fraction, so an unbounded N (a config typo, or a hostile REST
+// argument) would try to allocate a huge string and crash the check. Callers
+// that take a decimals value from outside reject anything larger; render_fixed
+// clamps to it as a last-resort backstop so no path can trigger that.
+constexpr int max_decimals = 15;
+
 // How the human readable numbers of a check message are rendered (issue #1428).
 //
 // This describes the *message* and nothing else. Performance data is rendered
@@ -20,8 +29,8 @@ namespace str {
 struct number_format {
   // Decimals to render. -1 keeps the historical rendering: up to three
   // decimals with the trailing zeros stripped ("1KB", "70.874GB"). Anything
-  // >= 0 renders exactly that many ("25.19GB"), because a stable width is the
-  // whole point of asking for two decimals.
+  // in [0, max_decimals] renders exactly that many ("25.19GB"), because a
+  // stable width is the whole point of asking for two decimals.
   int decimals;
   // Unit to pin byte values to ("GB"); empty lets every value scale on its
   // own, which is why one drive reads "140.293GB/0.983TB" by default.
@@ -43,9 +52,13 @@ struct number_format {
 // three, trailing zeros stripped" - the rendering every byte value has used
 // since forever.
 inline std::string render_fixed(const double value, const int decimals) {
+  // Clamp as a backstop: the option and function-argument parsers already
+  // reject anything above max_decimals, but a settings key or an internal
+  // caller must never be able to hand setprecision an unbounded width.
+  const int precision = decimals < 0 ? 3 : (decimals > max_decimals ? max_decimals : decimals);
   std::ostringstream ss;
   ss.imbue(std::locale::classic());
-  ss << std::fixed << std::setprecision(decimals < 0 ? 3 : decimals) << value;
+  ss << std::fixed << std::setprecision(precision) << value;
   std::string ret = ss.str();
   if (decimals >= 0) return ret;
   const std::string::size_type pos = ret.find_last_not_of('0');

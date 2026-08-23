@@ -78,3 +78,16 @@ TEST(number_format, RenderFixedStripsTrailingZerosOnlyWhenAsked) {
   EXPECT_EQ(str::render_fixed(1.0, -1), "1");
   EXPECT_EQ(str::render_fixed(1.0, 0), "1");
 }
+
+// A huge decimals count used to make setprecision build a multi-megabyte
+// string and crash the process; render_fixed clamps to max_decimals as a
+// backstop so no caller (a config typo, a hostile REST argument) can trigger
+// that. The clamp caps the width, not the value.
+TEST(number_format, RenderFixedClampsRunawayDecimals) {
+  const std::string clamped = str::render_fixed(1.5, 1000000000);
+  EXPECT_EQ(clamped.size(), std::string("1.").size() + str::max_decimals);
+  EXPECT_EQ(clamped, "1.500000000000000");
+  str::number_format fmt;
+  fmt.decimals = 1000000000;
+  EXPECT_EQ(str::render_number(1.5, fmt), "1.500000000000000");
+}

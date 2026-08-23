@@ -100,9 +100,12 @@ struct NSCAPI_EXPORT filter_object {
   }
 
   // The number format these keys describe; unset keys keep their defaults.
+  // Unlike the query path this has no error channel, so a nonsensical decimals
+  // is clamped rather than rejected - the point is only to keep a config typo
+  // from handing render_fixed an unbounded width and crashing the check.
   str::number_format number_format() const {
     str::number_format fmt;
-    fmt.decimals = decimals;
+    fmt.decimals = decimals < -1 ? -1 : (decimals > str::max_decimals ? str::max_decimals : decimals);
     fmt.byte_unit = byte_unit;
     if (!decimal_separator.empty()) fmt.decimal_separator = decimal_separator;
     fmt.thousands_separator = thousands_separator;

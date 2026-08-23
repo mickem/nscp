@@ -55,6 +55,9 @@ inline str::number_format with_decimals(const str::number_format &base, const ev
   str::number_format fmt = base;
   fmt.decimals = static_cast<int>(node->get_int_value(context));
   if (fmt.decimals < 0) throw std::invalid_argument("decimals must not be negative");
+  // Bound it: an unlimited number of decimals would make render_fixed allocate
+  // a huge string and crash, and past max_decimals a double has no digits left.
+  if (fmt.decimals > str::max_decimals) throw std::invalid_argument("decimals must not exceed " + str::xtos(str::max_decimals));
   return fmt;
 }
 
