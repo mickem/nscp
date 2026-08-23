@@ -15,6 +15,7 @@
 
 #include <atomic>
 #include <file_helpers.hpp>
+#include <net/socket/socket_helpers.hpp>
 #include <nscp/path_defaults.hpp>
 #include <settings/client/settings_proxy.hpp>
 #include <str/format.hpp>
@@ -64,7 +65,7 @@ std::string NSCSettingsImpl::find_file(std::string file, std::string fallback) {
 }
 std::string NSCSettingsImpl::expand_path(std::string file) { return provider_->expand_path(file); }
 
-std::string NSCSettingsImpl::expand_context(const std::string &key) {
+std::string NSCSettingsImpl::expand_context_alias(const std::string &key) {
 #ifdef WIN32
   if (key == "old") return DEFAULT_CONF_OLD_LOCATION;
   if (key == "registry" || key == "reg") return DEFAULT_CONF_REG_LOCATION;
@@ -72,6 +73,30 @@ std::string NSCSettingsImpl::expand_context(const std::string &key) {
   if (key == "ini") return DEFAULT_CONF_INI_LOCATION;
   if (key == "dummy") return "dummy://";
   return key;
+}
+
+std::string NSCSettingsImpl::expand_context(const std::string &key) {
+  // Host name placeholders, so an included file can be per host (issue #458):
+  //
+  //   [/includes]
+  //   client = ${host}-nsclient.ini
+  //
+  // This is the same expansion http(s) settings urls take, and it happens here
+  // rather than in the ini backend so every store which chains children -
+  // [/includes] in an ini file or in the registry, and the [settings] entries
+  // in boot.ini - resolves a context the same way. The stored string keeps its
+  // placeholder: only the context we are about to open is expanded.
+  //
+  // Note this deliberately does not go through expand_hostname: its "auto"
+  // shorthands would rewrite a context which merely happens to be named auto.
+  // And it is the sanitizing _in_path variant, since a context names a file
+  // this process opens: the host name is not fully under the operator's
+  // control, and must not be able to smuggle a separator or ".." into it.
+  //
+  // Anything which *stores* a context (set_primary rewriting boot.ini) must use
+  // expand_context_alias instead, or the placeholder is replaced by this host's
+  // name in the file - the opposite of what a fleet-wide boot.ini is for.
+  return socket_helpers::expand_hostname_placeholders_in_path(expand_context_alias(key));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -249,10 +274,15 @@ void NSCSettingsImpl::set_primary(std::string key) {
   std::list<std::string> order;
   CSimpleIni boot_conf;
   boot_conf.LoadFile(boot_.string().c_str());
+  // Every entry read here is written back below, so only the protocol aliases
+  // are resolved: a host name placeholder has to survive being reordered, or
+  // switching context once would bake this host's name into a boot.ini meant
+  // for every machine (issue #458).
+  key = expand_context_alias(key);
   for (int i = 0; i < 20; i++) {
     std::string v = utf8::cvt<std::string>(boot_conf.GetValue(L"settings", utf8::cvt<std::wstring>(str::xtos(i)).c_str(), L""));
     if (!v.empty()) {
-      order.push_back(expand_context(v));
+      order.push_back(expand_context_alias(v));
       boot_conf.SetValue(L"settings", utf8::cvt<std::wstring>(str::xtos(i)).c_str(), L"");
     }
   }

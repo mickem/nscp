@@ -7,6 +7,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <str/utils.hpp>
 #include <string>
 
 // =============================================================================
@@ -320,6 +321,88 @@ TEST(ExpandHostname, CasePlaceholdersAreExpanded) {
   // placeholders are substituted away.
   std::string out = socket_helpers::expand_hostname("${host_lc}|${host_uc}|${domain_lc}|${domain_uc}|${domain}");
   EXPECT_EQ(out.find("${"), std::string::npos);
+}
+
+// =============================================================================
+// expand_hostname_placeholders
+//
+// The half of expand_hostname which is applied to strings that are not host
+// name specs - settings contexts and attachment paths (issue #458). It must
+// substitute exactly what expand_hostname substitutes and nothing more.
+// =============================================================================
+
+TEST(ExpandHostnamePlaceholders, SubstitutesTheSamePlaceholders) {
+  const std::string spec = "${hostname}|${host}|${domain}|${hostname_lc}|${host_uc}|${domain_lc}";
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders(spec), socket_helpers::expand_hostname(spec));
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders(spec).find("${"), std::string::npos);
+}
+
+TEST(ExpandHostnamePlaceholders, LeavesTheAutoShorthandsAlone) {
+  // The whole reason this is a separate entry point: a settings context or an
+  // attachment path named "auto" is a name, not a request for the host name.
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("auto"), "auto");
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("auto-lc"), "auto-lc");
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("auto-uc"), "auto-uc");
+  // ...while expand_hostname still resolves them for the submit clients.
+  EXPECT_EQ(socket_helpers::expand_hostname("auto"), boost::asio::ip::host_name());
+}
+
+TEST(ExpandHostnamePlaceholders, PassesThroughWhatHasNoPlaceholder) {
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders(""), "");
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("ini:///etc/nsclient/nsclient.ini"), "ini:///etc/nsclient/nsclient.ini");
+  // A path token is not ours to resolve - it belongs to the path manager, and
+  // has to survive this pass untouched.
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders("${shared-path}/nsclient.ini"), "${shared-path}/nsclient.ini");
+}
+
+TEST(ExpandHostnamePlaceholders, MixedWithAPathToken) {
+  // The #458 case: the two kinds of placeholder share a syntax and a string,
+  // and each pass must leave the other's tokens for it.
+  const std::string out = socket_helpers::expand_hostname_placeholders("${shared-path}/${host}-nsclient.ini");
+  const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
+  EXPECT_EQ(out, "${shared-path}/" + host + "-nsclient.ini");
+}
+
+// =============================================================================
+// expand_hostname_placeholders_in_path / sanitize_path_component
+//
+// The variant for values that land on the local file system. The host name is
+// not fully under the operator's control (DHCP can set it on some systems), so
+// what gets substituted into an attachment target or a settings context must
+// not be able to carry a path separator or a dots-only component.
+// =============================================================================
+
+TEST(SanitizePathComponent, LeavesALegalHostNameAlone) {
+  EXPECT_EQ(socket_helpers::sanitize_path_component("my-host"), "my-host");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("MY-HOST.example.com"), "MY-HOST.example.com");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("srv_01"), "srv_01");
+  EXPECT_EQ(socket_helpers::sanitize_path_component(""), "");
+}
+
+TEST(SanitizePathComponent, MapsSeparatorsAndFriendsToUnderscore) {
+  EXPECT_EQ(socket_helpers::sanitize_path_component("a/b"), "a_b");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("a\\b"), "a_b");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("../../etc/cron.d/evil"), ".._.._etc_cron.d_evil");
+  EXPECT_EQ(socket_helpers::sanitize_path_component("a:b?c"), "a_b_c");
+}
+
+TEST(SanitizePathComponent, ADotsOnlyValueIsNotAPathComponent) {
+  EXPECT_EQ(socket_helpers::sanitize_path_component("."), "_");
+  EXPECT_EQ(socket_helpers::sanitize_path_component(".."), "_");
+  // ...but dots inside a name are just dots.
+  EXPECT_EQ(socket_helpers::sanitize_path_component("a..b"), "a..b");
+}
+
+TEST(ExpandHostnamePlaceholdersInPath, AgreesWithThePlainVariantForARealHostName) {
+  // A real system host name is RFC-952 material, so on any sane machine the
+  // two variants answer the same - the sanitizer only bites on a hostile name.
+  const std::string spec = "${shared-path}/${host}-nsclient.ini|${hostname}|${domain_uc}";
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders_in_path(spec), socket_helpers::expand_hostname_placeholders(spec));
+}
+
+TEST(ExpandHostnamePlaceholdersInPath, LeavesNonHostTokensAndShorthandsAlone) {
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders_in_path("${shared-path}/nsclient.ini"), "${shared-path}/nsclient.ini");
+  EXPECT_EQ(socket_helpers::expand_hostname_placeholders_in_path("auto"), "auto");
 }
 
 #ifdef USE_SSL

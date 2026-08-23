@@ -65,7 +65,8 @@ void nsclient_core::settings_client::terminate() {
 int nsclient_core::settings_client::migrate_from(std::string src) {
   try {
     debug_msg(__FILE__, __LINE__, "Migrating from: " + expand_context(src));
-    get_core()->migrate_from("master", expand_context(src));
+    // Handed over as written: create_instance expands what it opens itself.
+    get_core()->migrate_from("master", src);
     return 1;
   } catch (settings::settings_exception &e) {
     error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
@@ -77,7 +78,12 @@ int nsclient_core::settings_client::migrate_from(std::string src) {
 int nsclient_core::settings_client::migrate_to(std::string target) {
   try {
     debug_msg(__FILE__, __LINE__, "Migrating to: " + expand_context(target));
-    get_core()->migrate_to("master", expand_context(target));
+    // Handed over as written, like --switch: migrate_to ends in set_primary,
+    // which writes the context to boot.ini, and a host name placeholder the
+    // operator typed is a template for the whole fleet - expanding it first
+    // would store this host's name instead (issue #458). create_instance
+    // expands what it opens itself.
+    get_core()->migrate_to("master", target);
     return 1;
   } catch (const settings::settings_exception &e) {
     error_msg(e.file(), e.line(), "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
@@ -241,7 +247,11 @@ int nsclient_core::settings_client::generate(std::string target) {
   }
 }
 
-void nsclient_core::settings_client::switch_context(std::string context) { get_core()->set_primary(expand_context(context)); }
+// The context is handed over unexpanded: set_primary writes it to boot.ini, and
+// a host name placeholder the operator typed is a template for the whole fleet,
+// not a request to store this host's name (issue #458). set_primary resolves
+// the protocol aliases itself.
+void nsclient_core::settings_client::switch_context(std::string context) { get_core()->set_primary(context); }
 
 int nsclient_core::settings_client::set(std::string path, std::string key, std::string val) {
   get_core()->get()->set_string(path, key, val);

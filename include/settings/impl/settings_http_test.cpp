@@ -8,6 +8,7 @@
 #include <future>
 #include <settings/impl/settings_http.hpp>
 #include <settings/test_helpers.hpp>
+#include <str/utils.hpp>
 #include <thread>
 
 using settings_test::mock_settings_core;
@@ -386,4 +387,57 @@ TEST(settings_http, resolve_cache_file_handles_url_without_a_file_name) {
   EXPECT_NE(resolved, cache.path());
   EXPECT_EQ(resolved.parent_path(), cache.path());
   EXPECT_EQ(resolved.filename().string().find("cached.ini"), 0u);
+}
+
+// --- issue #458: host name placeholders in attachment targets ---------------
+
+namespace {
+// A core whose expand_path behaves like the real path manager for the one
+// token these tests care about, so the assertions show which pass resolved
+// which placeholder.
+class attachment_core : public mock_settings_core {
+ public:
+  std::string expand_path(std::string key) override {
+    str::utils::replace(key, "${shared-path}", "/etc/nsclient");
+    return key;
+  }
+};
+}  // namespace
+
+TEST(settings_http, attachment_target_expands_host_name_placeholders) {
+  // The reported case: one configuration served to a whole fleet, each agent
+  // writing its own file. Before this the ${host} token reached the path
+  // manager, which has no answer for it and hands back the installation
+  // directory - so every agent wrote the same mangled name.
+  attachment_core core;
+  const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
+
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "${shared-path}/${host}-nsclient.ini"),
+            "/etc/nsclient/" + host + "-nsclient.ini");
+}
+
+TEST(settings_http, attachment_target_expands_the_full_host_name) {
+  attachment_core core;
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "${shared-path}/${hostname}.ini"),
+            "/etc/nsclient/" + boost::asio::ip::host_name() + ".ini");
+}
+
+TEST(settings_http, attachment_target_without_a_placeholder_is_unchanged) {
+  // Attachments have always been declared as plain paths; those must resolve
+  // exactly as before.
+  attachment_core core;
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "scripts/myscript.bat"), "scripts/myscript.bat");
+  EXPECT_EQ(settings::settings_http::resolve_attachment_target(&core, "${shared-path}/scripts/myscript.bat"), "/etc/nsclient/scripts/myscript.bat");
+}
+
+TEST(settings_http, attachment_target_and_source_agree_on_the_host) {
+  // Both halves of an attachment line have to name the same host, or the file
+  // an agent downloads is not the file it writes.
+  attachment_core core;
+  const std::string target = settings::settings_http::resolve_attachment_target(&core, "${shared-path}/${host}.ini");
+  const net::url source = settings::settings_http::parse_settings_url("https://cfgsrv/hosts/${host}.ini");
+
+  const std::string host = str::utils::getToken(boost::asio::ip::host_name(), '.').first;
+  EXPECT_EQ(target, "/etc/nsclient/" + host + ".ini");
+  EXPECT_EQ(source.path, "/hosts/" + host + ".ini");
 }

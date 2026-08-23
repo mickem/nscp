@@ -66,14 +66,38 @@ std::string format_subject_cn_only(void* x509);
 #endif
 void validate_certificate(const std::string& certificate, std::list<std::string>& list);
 
+// Substitute the host name placeholders in `spec`: ${hostname}, ${hostname_lc}
+// and ${hostname_uc} are the system host name as reported; ${host}, ${domain},
+// ${host_lc}, ${host_uc}, ${domain_lc} and ${domain_uc} are substituted from it
+// after splitting on the first '.' into host and domain. Other text is
+// preserved.
+//
+// This is the half of expand_hostname which is safe to apply to a string that
+// is not a host name spec - a settings context or an attachment path, say -
+// since it only ever replaces a placeholder and never reinterprets the string
+// as a whole (see the "auto" shorthands in expand_hostname).
+std::string expand_hostname_placeholders(std::string spec);
+
+// The same substitution, but every substituted value is first passed through
+// sanitize_path_component. Use this - not the plain variant - whenever the
+// result names something on the local file system (an attachment target, a
+// settings context): the host name is not fully under the operator's control
+// (DHCP can set it on some systems), and a value carrying '/', '\' or a
+// dots-only component must not be able to redirect a path the agent reads or
+// writes with its (typically root/SYSTEM) privileges.
+std::string expand_hostname_placeholders_in_path(std::string spec);
+
+// Reduce `value` to characters safe inside a single path component: letters,
+// digits, '.', '_' and '-' pass, anything else becomes '_', and a value that
+// is nothing but dots ("." / "..") becomes "_". A legal RFC-952 host name
+// comes through unchanged.
+std::string sanitize_path_component(std::string value);
+
 // Resolve a hostname spec used by the various submit-clients.
 //   "auto"     -> system host name as-is
 //   "auto-lc"  -> system host name, lower-cased
 //   "auto-uc"  -> system host name, upper-cased
-//   anything else: ${hostname}, ${hostname_lc} and ${hostname_uc} are the
-//   system host name as reported; ${host}, ${domain}, ${host_lc}, ${host_uc},
-//   ${domain_lc} and ${domain_uc} are substituted from it after splitting on
-//   the first '.' into host and domain. Other text is preserved.
+//   anything else: expand_hostname_placeholders above.
 std::string expand_hostname(std::string spec);
 
 class socket_exception : public std::exception {

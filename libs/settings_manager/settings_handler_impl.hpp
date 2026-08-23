@@ -73,16 +73,27 @@ class settings_handler_impl : public settings_core {
   instance_ptr get_no_wait();
   void update_defaults();
   void remove_defaults();
-  void migrate(instance_ptr from, instance_ptr to) {
+  // primary_context is what set_primary stores in boot.ini. It is passed
+  // separately from `to` because an instance's context is the *expanded* one
+  // (create_instance resolves host name placeholders so it can open the per-
+  // host file), and storing that would bake this host's name into a boot.ini
+  // meant for every machine (issue #458): the callers which still have the
+  // context as the operator wrote it hand that in, placeholder intact, and
+  // set_primary resolves the protocol aliases itself.
+  void migrate(instance_ptr from, instance_ptr to, const std::string &primary_context) {
     if (!from || !to) throw new settings_exception(__FILE__, __LINE__, "Source or target is null");
     from->save_to(to);
-    set_primary(to->get_context());
+    set_primary(primary_context);
+  }
+  void migrate(instance_ptr from, instance_ptr to) {
+    if (!to) throw new settings_exception(__FILE__, __LINE__, "Source or target is null");
+    migrate(from, to, to->get_context());
   }
   void migrate_to(instance_ptr to) { migrate(get(), to); }
   void migrate_from(instance_ptr from) { migrate(from, get()); }
   void migrate_to(std::string alias, std::string to) {
     instance_ptr i = create_instance(alias, to);
-    migrate_to(i);
+    migrate(get(), i, to);
   }
   void migrate_from(std::string alias, std::string from) {
     instance_ptr i = create_instance(alias, from);
@@ -91,7 +102,7 @@ class settings_handler_impl : public settings_core {
   void migrate(std::string alias_from, std::string from, std::string alias_to, std::string to) {
     instance_ptr ifrom = create_instance(alias_from, from);
     instance_ptr ito = create_instance(alias_to, to);
-    migrate(ifrom, ito);
+    migrate(ifrom, ito, to);
   }
 
   //////////////////////////////////////////////////////////////////////////
