@@ -49,6 +49,11 @@ struct data_container {
       return "Invalid byte-unit: " + byte_unit + " (expected one of B, KB, MB, GB, TB, PB, EB)";
     }
     if (decimals < -1) return "Invalid decimals: " + str::xtos(decimals) + " (expected 0 or more, or -1 to leave the rendering alone)";
+    // An unbounded decimals would make render_fixed allocate a huge string and
+    // crash the check; past max_decimals the digits are noise anyway.
+    if (decimals > str::max_decimals) {
+      return "Invalid decimals: " + str::xtos(decimals) + " (expected at most " + str::xtos(str::max_decimals) + ")";
+    }
     return "";
   }
 };

@@ -41,7 +41,12 @@ page tracks those in one place. Full per-release detail lives in each
   the message: performance data keeps its full precision and its `.` radix, and
   so do the numbers you write in a filter or a threshold. Real-time filters take
   the same settings as `decimals`, `byte unit`, `decimal separator` and
-  `thousands separator` keys, inheritable from the default template.
+  `thousands separator` keys, inheritable from the default template. `decimals`
+  is capped at 15 (a `double` carries no more than that): the query option and
+  the `format_bytes()`/`format_number()` argument reject a larger value, and the
+  settings key clamps it, so a typo like `decimals=1000000` can no longer make a
+  check try to render a multi-megabyte number. 🔒 See
+  [security notices](../security/notices.md#a-runaway-decimals-in-a-check-message-can-no-longer-crash-the-check).
 - **An unknown unit in `format_bytes()` is now reported instead of rendering
   nonsense.** `format_bytes(used, 'gb')` used to render `1.27055e-10` because
   the unit comparison was case sensitive, and any misspelled unit rendered

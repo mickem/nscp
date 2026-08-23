@@ -941,6 +941,20 @@ TEST_F(CliHelperTest, BuildFilterRejectsNegativeDecimals) {
   EXPECT_NE(std::string::npos, response_->lines(0).message().find("Invalid decimals"));
 }
 
+// An unbounded decimals would make render_fixed allocate a multi-megabyte
+// string and crash the check, so a value past max_decimals is rejected up
+// front rather than reaching the renderer.
+TEST_F(CliHelperTest, BuildFilterRejectsRunawayDecimals) {
+  modern_filter::cli_helper<SeparatorFilter> helper(request_, response_, data_);
+  data_.decimals = 1000000000;
+
+  SeparatorFilter filter;
+  EXPECT_FALSE(helper.build_filter(filter));
+  ASSERT_GT(response_->lines_size(), 0);
+  EXPECT_NE(std::string::npos, response_->lines(0).message().find("Invalid decimals"));
+  EXPECT_FALSE(filter.started);
+}
+
 // ============================================================================
 // cli_helper — valued booleans (REST passes `x=true` as a single token, which
 // bool_switch would reject with "does not take any arguments")
