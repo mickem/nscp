@@ -9,6 +9,10 @@
 
 #include "check_cpu_frequency.hpp"
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 // ============================================================================
 // cpu_frequency struct tests
 // ============================================================================
@@ -20,6 +24,8 @@ TEST(CpuFrequency, DefaultConstruction) {
   EXPECT_EQ(c.max_mhz, 0);
   EXPECT_EQ(c.number_of_cores, 0);
   EXPECT_EQ(c.number_of_logical_processors, 0);
+  // No load sample is "absent", never a fake 0 (#1391).
+  EXPECT_FALSE(c.load_pct);
 }
 
 TEST(CpuFrequency, Accessors) {
@@ -108,12 +114,29 @@ TEST(CpuFrequency, BuildMetrics) {
   c.max_mhz = 4500;
   c.number_of_cores = 8;
   c.number_of_logical_processors = 16;
+  c.load_pct = 12;
 
   PB::Metrics::MetricsBundle section;
   c.build_metrics(&section);
 
   // current_mhz, max_mhz, frequency_pct, cores, logical_processors, load_pct, l2_cache, l3_cache
   EXPECT_EQ(section.value_size(), 8);
+}
+
+TEST(CpuFrequency, BuildMetricsSkipsMissingLoadSample) {
+  cpu_frequency_check::cpu_frequency c;
+  c.name = "CPU0";
+  c.current_mhz = 3000;
+  c.max_mhz = 4500;
+
+  PB::Metrics::MetricsBundle section;
+  c.build_metrics(&section);
+
+  // load_pct is absent this cycle: no fabricated 0 metric (#1391).
+  EXPECT_EQ(section.value_size(), 7);
+  for (const auto &value : section.value()) {
+    EXPECT_EQ(value.key().find("load_pct"), std::string::npos) << value.key();
+  }
 }
 
 TEST(CpuFrequency, ArchitectureMapping) {
@@ -144,14 +167,105 @@ TEST(CpuFrequency, SocketAndLoadAccessors) {
   c.load_pct = 42;
   EXPECT_EQ(c.get_socket_id(), "CPU0");
   EXPECT_EQ(c.get_socket(), "CPU 1");
-  EXPECT_EQ(c.get_load_pct(), 42);
+  ASSERT_TRUE(c.get_load_pct());
+  EXPECT_EQ(*c.get_load_pct(), 42);
 }
 
 TEST(CpuFrequency, SocketDefaultsEmpty) {
   cpu_frequency_check::cpu_frequency c;
   EXPECT_EQ(c.socket_id, "");
   EXPECT_EQ(c.socket, "");
-  EXPECT_EQ(c.load_pct, 0);
+  EXPECT_FALSE(c.load_pct);
+}
+
+// ============================================================================
+// check_cpu_frequency() filter tests: rows without a load sample (#1391)
+// ============================================================================
+
+namespace {
+cpu_frequency_check::cpus_type one_cpu(const boost::optional<long long> load) {
+  cpu_frequency_check::cpu_frequency c;
+  c.name = "CPU A";
+  c.socket_id = "CPU0";
+  c.socket = "CPU 1";
+  c.current_mhz = 3000;
+  c.max_mhz = 4000;
+  c.number_of_cores = 8;
+  c.number_of_logical_processors = 16;
+  c.load_pct = load;
+  return {c};
+}
+
+PB::Common::ResultCode run_frequency_check(const cpu_frequency_check::cpus_type &data, const std::vector<std::string> &args,
+                                           PB::Commands::QueryResponseMessage::Response &response) {
+  PB::Commands::QueryRequestMessage::Request request;
+  request.set_command("check_cpu_frequency");
+  for (const std::string &a : args) request.add_arguments(a);
+  cpu_frequency_check::check::check_cpu_frequency(request, &response, data);
+  return response.result();
+}
+
+std::string all_messages(const PB::Commands::QueryResponseMessage::Response &r) {
+  std::string out;
+  for (int i = 0; i < r.lines_size(); ++i) {
+    if (!out.empty()) out += "\n";
+    out += r.lines(i).message();
+  }
+  return out;
+}
+
+std::vector<std::string> perf_aliases(const PB::Commands::QueryResponseMessage::Response &r) {
+  std::vector<std::string> out;
+  for (int i = 0; i < r.lines_size(); ++i) {
+    for (int j = 0; j < r.lines(i).perf_size(); ++j) out.push_back(r.lines(i).perf(j).alias());
+  }
+  return out;
+}
+}  // namespace
+
+TEST(CheckCpuFrequency, MissingLoadSampleIsNotEvaluatedAgainstLoadThresholds) {
+  // A row with no load sample must neither trip a load threshold nor read as
+  // an idle 0; every numeric comparison against a missing value is sure-false.
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_frequency_check(one_cpu(boost::none), {"warning=load_pct > 90", "critical=load_pct > 99"}, response), PB::Common::ResultCode::OK)
+      << all_messages(response);
+  EXPECT_EQ(run_frequency_check(one_cpu(boost::none), {"warning=load_pct < 5"}, response), PB::Common::ResultCode::OK) << all_messages(response);
+}
+
+TEST(CheckCpuFrequency, PresentLoadSampleStillTripsLoadThresholds) {
+  PB::Commands::QueryResponseMessage::Response response;
+  EXPECT_EQ(run_frequency_check(one_cpu(95), {"warning=load_pct > 90"}, response), PB::Common::ResultCode::WARNING) << all_messages(response);
+
+  const std::vector<std::string> aliases = perf_aliases(response);
+  EXPECT_NE(std::find(aliases.begin(), aliases.end(), "CPU A_load_pct"), aliases.end()) << all_messages(response);
+}
+
+TEST(CheckCpuFrequency, MissingLoadSampleRendersNoLoadSample) {
+  PB::Commands::QueryResponseMessage::Response response;
+  run_frequency_check(one_cpu(boost::none), {"filter=none", "detail-syntax=%(name): %(load_pct)"}, response);
+
+  const std::string message = all_messages(response);
+  EXPECT_NE(message.find("no load sample"), std::string::npos) << message;
+}
+
+TEST(CheckCpuFrequency, MissingLoadSampleEmitsNoLoadPerfData) {
+  PB::Commands::QueryResponseMessage::Response response;
+  // load_pct is the only metric asked for, so any perfdata at all would be a
+  // fabricated reading for a socket WMI had no sample for.
+  run_frequency_check(one_cpu(boost::none), {"filter=none", "warning=none", "critical=none", "perf-config=extra(load_pct)"}, response);
+
+  EXPECT_TRUE(perf_aliases(response).empty()) << all_messages(response);
+}
+
+TEST(CheckCpuFrequency, LoadKeywordComparableAgainstTheNoValueString) {
+  PB::Commands::QueryResponseMessage::Response response;
+  // The presence test documented for optional keywords.
+  EXPECT_EQ(run_frequency_check(one_cpu(boost::none), {"filter=none", "warning=load_pct = 'no load sample'"}, response), PB::Common::ResultCode::WARNING)
+      << all_messages(response);
+
+  PB::Commands::QueryResponseMessage::Response with_sample;
+  EXPECT_EQ(run_frequency_check(one_cpu(0), {"filter=none", "warning=load_pct = 'no load sample'"}, with_sample), PB::Common::ResultCode::OK)
+      << all_messages(with_sample);
 }
 
 // ============================================================================
