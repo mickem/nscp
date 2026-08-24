@@ -25,7 +25,7 @@ std::list<node_type> binary_op::get_list_value(evaluation_context context) const
 value_type binary_op::infer_type(const object_converter converter, value_type) { return infer_type(converter); }
 
 value_type binary_op::infer_type(const object_converter converter) {
-  value_type inferred_type = helpers::infer_binary_type(converter, left, right);
+  value_type inferred_type = helpers::infer_binary_type(converter, op, left, right);
   if (inferred_type == type_invalid) return inferred_type;
   inferred_type = helpers::get_return_type(op, inferred_type);
   set_type(inferred_type);

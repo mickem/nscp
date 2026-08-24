@@ -408,10 +408,21 @@ TEST(FloatValue, GetValueAsInt) {
   EXPECT_FALSE(ctx->has_error());
 }
 
+TEST(FloatValue, GetValueAsString) {
+  // Mirrors int_value: a float literal renders into the string domain, so a
+  // string-typed variable compared against a float literal gets a real string
+  // instead of an "invalid type" error.
+  auto ctx = make_context();
+  float_value fv(2.5);
+  auto vc = fv.get_value(ctx, type_string);
+  EXPECT_EQ(vc.get_string(), "2.5");
+  EXPECT_FALSE(ctx->has_error());
+}
+
 TEST(FloatValue, GetValueAsUnknownTypeSetsError) {
   auto ctx = make_context();
   float_value fv(3.14);
-  auto vc = fv.get_value(ctx, type_string);
+  auto vc = fv.get_value(ctx, type_date);
   EXPECT_TRUE(ctx->has_error());
 }
 

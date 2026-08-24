@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <boost/algorithm/string/trim.hpp>
+#include <cmath>
 #include <boost/function.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>
@@ -388,8 +389,12 @@ struct str_variable_node : any_node {
   typedef typename TContext::bound_string_type function_type;
 
   function_type fun;
+  // Set once the first non-numeric row value has been warned about, so a
+  // numeric comparison over many non-numeric rows logs one warn per parsed
+  // filter instead of one per row.
+  mutable bool warned_not_numeric_;
 
-  str_variable_node(const std::string &name, const value_type type, function_type fun) : any_node(type), name_(name), fun(fun) {}
+  str_variable_node(const std::string &name, const value_type type, function_type fun) : any_node(type), name_(name), fun(fun), warned_not_numeric_(false) {}
   // TODO: add c-tors
 
   std::list<node_type> get_list_value(evaluation_context context) const override { return std::list<node_type>(); }
@@ -411,35 +416,49 @@ struct str_variable_node : any_node {
   bool bind(object_converter context) override { return true; }
   bool static_evaluate(evaluation_context context) const override { return false; }
   bool require_object(evaluation_context context) const override { return true; }
-  long long get_int_value(const evaluation_context context) const override {
-    context->error("Invalid type: " + name_);
-    return 0;
-  }
-  double get_float_value(const evaluation_context context) const override {
-    context->error("Invalid type: " + name_);
-    return 0;
-  }
   value_container get_value(evaluation_context context, const value_type vt) const override {
-    if (vt == type_string) {
-      try {
-        native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-        // Match int_variable_node / float_variable_node's no-object contract:
-        // return a typed-but-unsure default value (here, empty string with
-        // is_unsure=true) plus a warn (not error). This propagates the
-        // unsure flag through every downstream operator naturally — every
-        // comparison/LIKE/REGEXP/IN/NOT-IN sees a real string and produces
-        // a properly-flagged result. Centralises what used to be a per-
-        // operator nil-guard, and stops emitting one ERROR per empty-rows
-        // tick into production logs.
-        if (native_context != nullptr && fun && native_context->has_object()) {
-          return value_container::create_string(fun(native_context->get_object(), context));
-        }
+    const bool ti = helpers::type_is_int(vt);
+    const bool tf = helpers::type_is_float(vt);
+    try {
+      native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+      // Match int_variable_node / float_variable_node's no-object contract:
+      // return a typed-but-unsure default value plus a warn (not error). This
+      // propagates the unsure flag through every downstream operator
+      // naturally — every comparison/LIKE/REGEXP/IN/NOT-IN sees a real value
+      // and produces a properly-flagged result. Centralises what used to be a
+      // per-operator nil-guard, and stops emitting one ERROR per empty-rows
+      // tick into production logs.
+      if (native_context == nullptr || !fun || !native_context->has_object()) {
         context->warn("Unbound function " + name_);
+        if (ti) return value_container::create_int(0, /*is_unsure=*/true);
+        if (tf) return value_container::create_float(0, /*is_unsure=*/true);
         return value_container::create_string("", /*is_unsure=*/true);
-      } catch (const std::exception &e) {
-        context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
-        return value_container::create_nil();
       }
+      const std::string value = fun(native_context->get_object(), context);
+      if (vt == type_string) {
+        return value_container::create_string(value);
+      }
+      if (ti || tf) {
+        // Numeric view of a string variable (a comparison against a numeric
+        // literal): parse the row's value. A value that is not a number is a
+        // certain "nothing to compare" — the no_value contract makes every
+        // comparison against it sure-false (like an optional number with no
+        // value), rather than unsure or a lexical surprise.
+        try {
+          const double parsed = str::stox<double>(boost::trim_copy(value));
+          if (ti) return value_container::create_int(llround(parsed));
+          return value_container::create_float(parsed);
+        } catch (const std::exception &) {
+          if (!warned_not_numeric_) {
+            warned_not_numeric_ = true;
+            context->warn("Cannot compare " + name_ + " numerically: '" + value + "' is not a number");
+          }
+          return value_container::create_no_value();
+        }
+      }
+    } catch (const std::exception &e) {
+      context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+      return value_container::create_nil();
     }
     context->error("Invalid type " + name_);
     return value_container::create_nil();
@@ -452,7 +471,18 @@ struct str_variable_node : any_node {
     return "(string)var:" + name_;
   }
   std::string to_string() const override { return "{string}" + name_; }
-  value_type infer_type(object_converter, value_type) override { return get_type(); }
+  // A plain numeric suggestion (a comparison against a bare number literal)
+  // re-types the variable into the float domain: numbers win over lexical
+  // ordering, and the row value is parsed per evaluation in get_value. Any
+  // other suggestion (including a quoted string literal's type_string) keeps
+  // the string domain.
+  value_type infer_type(object_converter, const value_type suggestion) override {
+    if (suggestion == type_int || suggestion == type_float) {
+      set_type(type_float);
+      return type_float;
+    }
+    return get_type();
+  }
   value_type infer_type(object_converter) override { return get_type(); }
   bool find_performance_data(evaluation_context context, performance_collector &collector) override {
     collector.set_candidate_variable(name_);
@@ -507,6 +537,10 @@ struct dual_variable_node : any_node {
       try {
         native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
         if (native_context != nullptr && f_fun && native_context->has_object()) return factory::create_float(f_fun(native_context->get_object(), context));
+        // Same int-accessor fallback as get_value: an int+string dual
+        // re-typed to float by a decimal threshold still has a value.
+        if (native_context != nullptr && i_fun && native_context->has_object())
+          return factory::create_float(static_cast<double>(i_fun(native_context->get_object(), context)));
         context->error("Failed to evaluate " + name_ + " no object instance");
       } catch (const std::exception &e) {
         context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
@@ -531,6 +565,10 @@ struct dual_variable_node : any_node {
       if (native_context != nullptr && native_context->has_object()) {
         if (helpers::type_is_int(vt) && i_fun) return value_container::create_int(i_fun(native_context->get_object(), context));
         if (helpers::type_is_float(vt) && f_fun) return value_container::create_float(f_fun(native_context->get_object(), context));
+        // No float accessor: serve a float request from the int accessor
+        // (lossless), so an int+string dual (a log column, a WMI column)
+        // can be compared against a decimal threshold.
+        if (helpers::type_is_float(vt) && i_fun) return value_container::create_float(static_cast<double>(i_fun(native_context->get_object(), context)));
         if (vt == type_string && s_fun) return value_container::create_string(s_fun(native_context->get_object(), context));
         if (vt == type_string && i_fun && (is_int() || !f_fun)) return value_container::create_string(str::xtos(i_fun(native_context->get_object(), context)));
         if (vt == type_string && f_fun) return value_container::create_string(str::xtos(f_fun(native_context->get_object(), context)));

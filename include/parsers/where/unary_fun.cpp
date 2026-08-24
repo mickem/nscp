@@ -56,6 +56,13 @@ bool unary_fun::find_performance_data(const evaluation_context context, performa
     if (sub_collector.has_candidate_value()) {
       collector.set_candidate_value(shared_from_this());
     }
+    // A convert wrapper around a variable (a fixed-int node widened for a
+    // float comparison, e.g. `count > 2.5`) must stay visible as that
+    // variable, or the boundary pairing in binary_op never forms and the
+    // keyword's perf data silently disappears.
+    if (sub_collector.has_candidate_variable()) {
+      collector.set_candidate_variable(sub_collector.get_variable());
+    }
   }
   return false;
 }

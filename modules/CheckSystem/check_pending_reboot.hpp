@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <parsers/filter/modern_filter.hpp>
@@ -24,7 +25,16 @@ struct reboot_obj {
   bool computer_rename;  // ActiveComputerName differs from the pending ComputerName
   bool domain_join;      // Netlogon has a pending domain join / SPN update
 
-  reboot_obj() : servicing(false), windows_update(false), file_rename(false), computer_rename(false), domain_join(false) {}
+  // When the reboot request appeared, as epoch seconds (0 = unknown). The CBS
+  // and Windows Update keys exist only while their reboot is queued, so the
+  // oldest last-write time among them is when a reboot started pending. The
+  // other signals carry no timestamp of their own (they are values under
+  // long-lived keys), so a signal set only by them leaves this 0.
+  long long pending_since;
+  // Epoch "now" used to derive age; captured at gather time so tests can pin it.
+  long long now;
+
+  reboot_obj() : servicing(false), windows_update(false), file_rename(false), computer_rename(false), domain_join(false), pending_since(0), now(0) {}
 
   bool any() const { return servicing || windows_update || file_rename || computer_rename || domain_join; }
   long long signal_count() const {
@@ -38,6 +48,20 @@ struct reboot_obj {
   long long get_file_rename() const { return file_rename ? 1 : 0; }
   long long get_computer_rename() const { return computer_rename ? 1 : 0; }
   long long get_domain_join() const { return domain_join ? 1 : 0; }
+
+  // written/age are optional: empty when no timestamped signal (CBS, Windows
+  // Update) is set, so they render as 'unknown' and never trip a numeric
+  // threshold instead of comparing against a made-up value.
+  boost::optional<long long> get_written() const {
+    if (pending_since == 0) return boost::none;
+    return pending_since;
+  }
+  boost::optional<long long> get_age() const {
+    if (pending_since == 0) return boost::none;
+    return now > pending_since ? now - pending_since : 0;
+  }
+  // Signal-appearance time as a human-readable string, or "unknown".
+  std::string get_written_s() const;
 
   // Comma-separated list of the human-readable reasons a reboot is pending, or
   // "none" when nothing is queued.

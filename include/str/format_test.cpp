@@ -257,6 +257,20 @@ TEST(format, stox_as_time_sec) {
   EXPECT_EQ(str::format::stox_as_time_sec<int>("5", ""), 5);
 }
 
+TEST(format, time_unit_multiplier) {
+  EXPECT_EQ(str::format::time_unit_multiplier("s"), 1);
+  EXPECT_EQ(str::format::time_unit_multiplier("S"), 1);
+  EXPECT_EQ(str::format::time_unit_multiplier("m"), 60);
+  EXPECT_EQ(str::format::time_unit_multiplier("M"), 60);
+  EXPECT_EQ(str::format::time_unit_multiplier("h"), 3600);
+  EXPECT_EQ(str::format::time_unit_multiplier("H"), 3600);
+  EXPECT_EQ(str::format::time_unit_multiplier("d"), 86400);
+  EXPECT_EQ(str::format::time_unit_multiplier("w"), 604800);
+  // Unknown or empty units fall back to seconds, like stox_as_time_sec.
+  EXPECT_EQ(str::format::time_unit_multiplier(""), 1);
+  EXPECT_EQ(str::format::time_unit_multiplier("x"), 1);
+}
+
 // Issue #589: malformed time specs should be rejected rather than silently
 // accepted with the trailing garbage discarded.
 TEST(format, decode_time_rejects_garbage) {

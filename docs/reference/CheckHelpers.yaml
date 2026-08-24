@@ -382,35 +382,35 @@ common:
         warning: ''
       fields:
       - generic: false
-        long_description: Major version number
+        long_description: The critical threshold (range when set, otherwise the numeric bound)
         name: crit
         short_description: ''
       - generic: false
-        long_description: Major version number
+        long_description: The name (alias) of the performance data entry
         name: key
         short_description: ''
       - generic: false
-        long_description: Major version number
+        long_description: The maximum bound of the performance data entry
         name: max
         short_description: ''
       - generic: false
-        long_description: Major version number
+        long_description: The name (alias) of the performance data entry
         name: message
         short_description: ''
       - generic: false
-        long_description: Major version number
+        long_description: The minimum bound of the performance data entry
         name: min
         short_description: ''
       - generic: false
-        long_description: Major version number
+        long_description: The unit of the performance data entry
         name: unit
         short_description: ''
       - generic: false
-        long_description: Major version number
+        long_description: The value of the performance data entry
         name: value
         short_description: ''
       - generic: false
-        long_description: Major version number
+        long_description: The warning threshold (range when set, otherwise the numeric bound)
         name: warn
         short_description: ''
       info:

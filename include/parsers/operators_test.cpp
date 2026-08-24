@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <list>
+#include <parsers/helpers.hpp>
 #include <parsers/operators.hpp>
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/list_node.hpp>
@@ -1159,6 +1160,57 @@ TEST(FunctionConvert, ConvertSizeTerabytes) {
   auto fun = op_factory::get_binary_function(ctx, "convert", list);
   auto result = fun->evaluate(type_size, ctx, list);
   EXPECT_EQ(result->get_int_value(ctx), 1024LL * 1024 * 1024 * 1024);
+}
+
+TEST(FunctionConvert, ConvertSizeFractionalGigabytesScalesBeforeRounding) {
+  // 1.5g is 1610612736 bytes; the old int-first path truncated the count to
+  // 1 before scaling and produced 1073741824.
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_float(1.5));
+  list->push_back(make_string("g"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  auto result = fun->evaluate(type_size, ctx, list);
+  EXPECT_EQ(result->get_int_value(ctx), 1610612736LL);
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(FunctionConvert, ConvertSizeWholeFloatMatchesIntPath) {
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_float(2.0));
+  list->push_back(make_string("g"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  auto result = fun->evaluate(type_size, ctx, list);
+  EXPECT_EQ(result->get_int_value(ctx), 2LL * 1024 * 1024 * 1024);
+}
+
+TEST(FunctionConvert, ConvertTimeFractionalHoursScalesBeforeRounding) {
+  // 2.5h is 9000 seconds from now; the old int-first path truncated to 2h.
+  auto ctx = make_context();
+  auto list = factory::create_list();
+  list->push_back(make_float(2.5));
+  list->push_back(make_string("h"));
+  auto fun = op_factory::get_binary_function(ctx, "convert", list);
+  const long long before = parsers::where::constants::get_now();
+  auto result = fun->evaluate(type_date, ctx, list);
+  const long long after = parsers::where::constants::get_now();
+  const long long value = result->get_int_value(ctx);
+  EXPECT_GE(value, before + 9000);
+  EXPECT_LE(value, after + 9000);
+  EXPECT_FALSE(ctx->has_error());
+}
+
+TEST(FunctionConvert, ConvertPlainNodeUsesTheNodeItself) {
+  // A convert node wrapped around a plain (non-list) node — the shape
+  // add_convert_node produces around a variable — converts that node instead
+  // of failing with "no arguments".
+  auto ctx = make_context();
+  auto subject = make_float(3.7);
+  auto fun = op_factory::get_binary_function(ctx, "convert", subject);
+  auto result = fun->evaluate(type_int, ctx, subject);
+  EXPECT_EQ(result->get_int_value(ctx), 4);
+  EXPECT_FALSE(ctx->has_error());
 }
 
 TEST(FunctionConvert, ConvertUnknownTypeWithUnitReturnsError) {

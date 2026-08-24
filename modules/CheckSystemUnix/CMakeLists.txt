@@ -116,6 +116,8 @@ NSCP_CREATE_TEST(
         check_kernel_stats.cpp
         check_swap_io_test.cpp
         check_swap_io.cpp
+        check_uptime_test.cpp
+        check_uptime.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
