@@ -168,86 +168,44 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_disk_health_filter_keys"></a>
 #### Filter keywords
 
-=== "Windows"
+| Option              | Description                                                                                                        |
+|---------------------|--------------------------------------------------------------------------------------------------------------------|
+| convert_bytes()     | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
+| disk_number         | Physical disk number/index (device rows)                                                                           |
+| format_bytes()      | Format a number as a human-readable byte string.                                                                   |
+| format_number()     | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
+| free                | Free disk space in bytes (I/O-only rows have none)                                                                 |
+| free_pct            | Percentage of free disk space (I/O-only rows have none)                                                            |
+| friendly_name       | Physical disk friendly name (device rows)                                                                          |
+| has_device          | 1 if the row carries physical-disk device state (a per-disk row), 0 otherwise (guard; no perfdata)                 |
+| has_space           | 1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or a disk with no mounted filesystem)     |
+| health_status       | Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)                                         |
+| iops                | Total IOPS (reads + writes)                                                                                        |
+| is_offline          | 1 if the physical disk is offline (device rows)                                                                    |
+| is_readonly         | 1 if the physical disk is read-only (device rows)                                                                  |
+| media_type          | Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)                                               |
+| name                | Drive name (e.g. C:, D:, _Total)                                                                                   |
+| operational_status  | Physical disk operational status, synthesised single value: Offline, OK, or the health string (device rows)        |
+| percent_disk_time   | Percent of time the disk is busy                                                                                   |
+| percent_idle_time   | Percent of time the disk is idle                                                                                   |
+| queue_length        | Current disk queue length                                                                                          |
+| read_bytes_per_sec  | Bytes read per second                                                                                              |
+| read_latency        | Average read latency in milliseconds (over the collection interval)                                                |
+| reads_per_sec       | Read IOPS                                                                                                          |
+| scale()             | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
+| serial              | Physical disk serial number (device rows)                                                                          |
+| size                | Total disk size in bytes (I/O-only rows have none)                                                                 |
+| split_io_per_sec    | Split I/O operations per second                                                                                    |
+| total_bytes_per_sec | Total bytes per second (read + write)                                                                              |
+| total_latency       | Average latency per I/O (read + write) in milliseconds (over the collection interval)                              |
+| used                | Used disk space in bytes (I/O-only rows have none)                                                                 |
+| used_pct            | Percentage of used disk space (I/O-only rows have none)                                                            |
+| user_free           | Free disk space available to current user in bytes (I/O-only rows have none)                                       |
+| write_bytes_per_sec | Bytes written per second                                                                                           |
+| write_latency       | Average write latency in milliseconds (over the collection interval)                                               |
+| writes_per_sec      | Write IOPS                                                                                                         |
 
-    | Option              | Description                                                                                                        |
-    |---------------------|--------------------------------------------------------------------------------------------------------------------|
-    | convert_bytes()     | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | disk_number         | Physical disk number/index (device rows)                                                                           |
-    | format_bytes()      | Format a number as a human-readable byte string.                                                                   |
-    | format_number()     | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
-    | free                | Free disk space in bytes (I/O-only rows have none)                                                                 |
-    | free_pct            | Percentage of free disk space (I/O-only rows have none)                                                            |
-    | friendly_name       | Physical disk friendly name (device rows)                                                                          |
-    | has_device          | 1 if the row carries physical-disk device state (a per-disk row), 0 otherwise (guard; no perfdata)                 |
-    | has_space           | 1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or a disk with no mounted filesystem)     |
-    | health_status       | Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)                                         |
-    | iops                | Total IOPS (reads + writes)                                                                                        |
-    | is_offline          | 1 if the physical disk is offline (device rows)                                                                    |
-    | is_readonly         | 1 if the physical disk is read-only (device rows)                                                                  |
-    | media_type          | Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)                                               |
-    | name                | Drive name (e.g. C:, D:, _Total)                                                                                   |
-    | operational_status  | Physical disk operational status, synthesised single value: Offline, OK, or the health string (device rows)        |
-    | percent_disk_time   | Percent of time the disk is busy                                                                                   |
-    | percent_idle_time   | Percent of time the disk is idle                                                                                   |
-    | queue_length        | Current disk queue length                                                                                          |
-    | read_bytes_per_sec  | Bytes read per second                                                                                              |
-    | read_latency        | Average read latency in milliseconds (over the collection interval)                                                |
-    | reads_per_sec       | Read IOPS                                                                                                          |
-    | scale()             | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | serial              | Physical disk serial number (device rows)                                                                          |
-    | size                | Total disk size in bytes (I/O-only rows have none)                                                                 |
-    | split_io_per_sec    | Split I/O operations per second                                                                                    |
-    | total_bytes_per_sec | Total bytes per second (read + write)                                                                              |
-    | total_latency       | Average latency per I/O (read + write) in milliseconds (over the collection interval)                              |
-    | used                | Used disk space in bytes (I/O-only rows have none)                                                                 |
-    | used_pct            | Percentage of used disk space (I/O-only rows have none)                                                            |
-    | user_free           | Free disk space available to current user in bytes (I/O-only rows have none)                                       |
-    | write_bytes_per_sec | Bytes written per second                                                                                           |
-    | write_latency       | Average write latency in milliseconds (over the collection interval)                                               |
-    | writes_per_sec      | Write IOPS                                                                                                         |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
-
-=== "Linux"
-
-    | Option              | Description                                                                                                        |
-    |---------------------|--------------------------------------------------------------------------------------------------------------------|
-    | convert_bytes()     | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | disk_number         | Physical disk number/index (device rows)                                                                           |
-    | format_bytes()      | Format a number as a human-readable byte string.                                                                   |
-    | free                | Free disk space in bytes (I/O-only rows have none)                                                                 |
-    | free_pct            | Percentage of free disk space (I/O-only rows have none)                                                            |
-    | friendly_name       | Physical disk friendly name (device rows)                                                                          |
-    | has_device          | 1 if the row carries physical-disk device state (a per-disk row), 0 otherwise (guard; no perfdata)                 |
-    | has_space           | 1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or a disk with no mounted filesystem)     |
-    | health_status       | Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)                                         |
-    | iops                | Total IOPS (reads + writes)                                                                                        |
-    | is_offline          | 1 if the physical disk is offline (device rows)                                                                    |
-    | is_readonly         | 1 if the physical disk is read-only (device rows)                                                                  |
-    | media_type          | Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)                                               |
-    | name                | Drive name (e.g. C:, D:, _Total)                                                                                   |
-    | operational_status  | Physical disk operational status, synthesised single value: Offline, OK, or the health string (device rows)        |
-    | percent_disk_time   | Percent of time the disk is busy                                                                                   |
-    | percent_idle_time   | Percent of time the disk is idle                                                                                   |
-    | queue_length        | Current disk queue length                                                                                          |
-    | read_bytes_per_sec  | Bytes read per second                                                                                              |
-    | read_latency        | Average read latency in milliseconds (over the collection interval)                                                |
-    | reads_per_sec       | Read IOPS                                                                                                          |
-    | scale()             | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | serial              | Physical disk serial number (device rows)                                                                          |
-    | size                | Total disk size in bytes (I/O-only rows have none)                                                                 |
-    | split_io_per_sec    | Split I/O operations per second                                                                                    |
-    | total_bytes_per_sec | Total bytes per second (read + write)                                                                              |
-    | total_latency       | Average latency per I/O (read + write) in milliseconds (over the collection interval)                              |
-    | used                | Used disk space in bytes (I/O-only rows have none)                                                                 |
-    | used_pct            | Percentage of used disk space (I/O-only rows have none)                                                            |
-    | user_free           | Free disk space available to current user in bytes (I/O-only rows have none)                                       |
-    | write_bytes_per_sec | Bytes written per second                                                                                           |
-    | write_latency       | Average write latency in milliseconds (over the collection interval)                                               |
-    | writes_per_sec      | Write IOPS                                                                                                         |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_disk_io
 
@@ -418,54 +376,28 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_disk_io_filter_keys"></a>
 #### Filter keywords
 
-=== "Windows"
+| Option              | Description                                                                                                        |
+|---------------------|--------------------------------------------------------------------------------------------------------------------|
+| convert_bytes()     | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
+| format_bytes()      | Format a number as a human-readable byte string.                                                                   |
+| format_number()     | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
+| iops                | Total IOPS (reads + writes)                                                                                        |
+| name                | Logical disk name (e.g. C:, D:, _Total)                                                                            |
+| percent_disk_time   | Percent of time the disk is busy                                                                                   |
+| percent_idle_time   | Percent of time the disk is idle                                                                                   |
+| queue_length        | Current disk queue length                                                                                          |
+| read_bytes_per_sec  | Bytes read per second                                                                                              |
+| read_latency        | Average read latency in milliseconds (over the collection interval)                                                |
+| reads_per_sec       | Read IOPS                                                                                                          |
+| scale()             | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
+| split_io_per_sec    | Split I/O operations per second                                                                                    |
+| total_bytes_per_sec | Total bytes per second (read + write)                                                                              |
+| total_latency       | Average latency per I/O (read + write) in milliseconds (over the collection interval)                              |
+| write_bytes_per_sec | Bytes written per second                                                                                           |
+| write_latency       | Average write latency in milliseconds (over the collection interval)                                               |
+| writes_per_sec      | Write IOPS                                                                                                         |
 
-    | Option              | Description                                                                                                        |
-    |---------------------|--------------------------------------------------------------------------------------------------------------------|
-    | convert_bytes()     | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | format_bytes()      | Format a number as a human-readable byte string.                                                                   |
-    | format_number()     | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
-    | iops                | Total IOPS (reads + writes)                                                                                        |
-    | name                | Logical disk name (e.g. C:, D:, _Total)                                                                            |
-    | percent_disk_time   | Percent of time the disk is busy                                                                                   |
-    | percent_idle_time   | Percent of time the disk is idle                                                                                   |
-    | queue_length        | Current disk queue length                                                                                          |
-    | read_bytes_per_sec  | Bytes read per second                                                                                              |
-    | read_latency        | Average read latency in milliseconds (over the collection interval)                                                |
-    | reads_per_sec       | Read IOPS                                                                                                          |
-    | scale()             | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | split_io_per_sec    | Split I/O operations per second                                                                                    |
-    | total_bytes_per_sec | Total bytes per second (read + write)                                                                              |
-    | total_latency       | Average latency per I/O (read + write) in milliseconds (over the collection interval)                              |
-    | write_bytes_per_sec | Bytes written per second                                                                                           |
-    | write_latency       | Average write latency in milliseconds (over the collection interval)                                               |
-    | writes_per_sec      | Write IOPS                                                                                                         |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
-
-=== "Linux"
-
-    | Option              | Description                                                                                                        |
-    |---------------------|--------------------------------------------------------------------------------------------------------------------|
-    | convert_bytes()     | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | format_bytes()      | Format a number as a human-readable byte string.                                                                   |
-    | iops                | Total IOPS (reads + writes)                                                                                        |
-    | name                | Logical disk name (e.g. C:, D:, _Total)                                                                            |
-    | percent_disk_time   | Percent of time the disk is busy                                                                                   |
-    | percent_idle_time   | Percent of time the disk is idle                                                                                   |
-    | queue_length        | Current disk queue length                                                                                          |
-    | read_bytes_per_sec  | Bytes read per second                                                                                              |
-    | read_latency        | Average read latency in milliseconds (over the collection interval)                                                |
-    | reads_per_sec       | Read IOPS                                                                                                          |
-    | scale()             | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | split_io_per_sec    | Split I/O operations per second                                                                                    |
-    | total_bytes_per_sec | Total bytes per second (read + write)                                                                              |
-    | total_latency       | Average latency per I/O (read + write) in milliseconds (over the collection interval)                              |
-    | write_bytes_per_sec | Bytes written per second                                                                                           |
-    | write_latency       | Average write latency in milliseconds (over the collection interval)                                               |
-    | writes_per_sec      | Write IOPS                                                                                                         |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_disk_write
 
@@ -1147,12 +1079,15 @@ check_drivesize "filter=full_in = 'never'"
 
     | Option          | Description                                                                                                                                                                                                                                                                                                                                 |
     |-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.                                                                                                                                                                                                                                    |
     | drive           | Technical name of drive (mount point)                                                                                                                                                                                                                                                                                                       |
     | drive_or_id     | Mount point if present if not use device                                                                                                                                                                                                                                                                                                    |
     | drive_or_name   | Mount point if present if not use device                                                                                                                                                                                                                                                                                                    |
     | erasable        | 1 (true) if drive is erasable                                                                                                                                                                                                                                                                                                               |
     | filesystem      | Filesystem type as reported by the OS (e.g. ext4, xfs, btrfs, nfs)                                                                                                                                                                                                                                                                          |
     | flags           | String representation of flags                                                                                                                                                                                                                                                                                                              |
+    | format_bytes()  | Format a number as a human-readable byte string.                                                                                                                                                                                                                                                                                            |
+    | format_number() | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.                                                                                                                                                                                                                                        |
     | free            | Shorthand for total_free (Number of free bytes)                                                                                                                                                                                                                                                                                             |
     | free_pct        | Shorthand for total_free_pct (% free space)                                                                                                                                                                                                                                                                                                 |
     | fs              | Shorthand alias for filesystem                                                                                                                                                                                                                                                                                                              |
@@ -1171,6 +1106,7 @@ check_drivesize "filter=full_in = 'never'"
     | rate            | Growth of used space in bytes/day over the trend window, signed (negative = emptying); renders auto-scaled ('12.3MB/day'), or 'unknown' until enough history exists                                                                                                                                                                         |
     | readable        | 1 (true) if drive is readable                                                                                                                                                                                                                                                                                                               |
     | removable       | 1 (true) if drive is removable                                                                                                                                                                                                                                                                                                              |
+    | scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)).                                                                                                                                                                                                                          |
     | size            | Total size of drive                                                                                                                                                                                                                                                                                                                         |
     | total_free      | Number of free bytes                                                                                                                                                                                                                                                                                                                        |
     | total_free_pct  | % free space                                                                                                                                                                                                                                                                                                                                |
@@ -1717,42 +1653,22 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_shadowcopy_filter_keys"></a>
 #### Filter keywords
 
-=== "Windows"
+| Option          | Description                                                                                                        |
+|-----------------|--------------------------------------------------------------------------------------------------------------------|
+| allocated       | Shadow storage currently allocated in bytes                                                                        |
+| convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
+| copies          | Number of shadow copies on this volume                                                                             |
+| format_bytes()  | Format a number as a human-readable byte string.                                                                   |
+| format_number() | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
+| max_size        | Shadow storage maximum in bytes (0 if unbounded/unresolved)                                                        |
+| newest          | Seconds since the newest shadow copy (-1 if unknown); threshold with durations, e.g. newest > 26h                  |
+| newest_date     | Timestamp of the newest shadow copy on this volume (UTC)                                                           |
+| scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
+| used            | Shadow storage used on this volume in bytes                                                                        |
+| used_pct        | Percentage of the shadow-storage maximum in use (0 when max_size is unbounded)                                     |
+| volume          | Volume the shadow copies belong to (VolumeName device path)                                                        |
 
-    | Option          | Description                                                                                                        |
-    |-----------------|--------------------------------------------------------------------------------------------------------------------|
-    | allocated       | Shadow storage currently allocated in bytes                                                                        |
-    | convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | copies          | Number of shadow copies on this volume                                                                             |
-    | format_bytes()  | Format a number as a human-readable byte string.                                                                   |
-    | format_number() | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
-    | max_size        | Shadow storage maximum in bytes (0 if unbounded/unresolved)                                                        |
-    | newest          | Seconds since the newest shadow copy (-1 if unknown); threshold with durations, e.g. newest > 26h                  |
-    | newest_date     | Timestamp of the newest shadow copy on this volume (UTC)                                                           |
-    | scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | used            | Shadow storage used on this volume in bytes                                                                        |
-    | used_pct        | Percentage of the shadow-storage maximum in use (0 when max_size is unbounded)                                     |
-    | volume          | Volume the shadow copies belong to (VolumeName device path)                                                        |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
-
-=== "Linux"
-
-    | Option          | Description                                                                                                        |
-    |-----------------|--------------------------------------------------------------------------------------------------------------------|
-    | allocated       | Shadow storage currently allocated in bytes                                                                        |
-    | convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | copies          | Number of shadow copies on this volume                                                                             |
-    | format_bytes()  | Format a number as a human-readable byte string.                                                                   |
-    | max_size        | Shadow storage maximum in bytes (0 if unbounded/unresolved)                                                        |
-    | newest          | Seconds since the newest shadow copy (-1 if unknown); threshold with durations, e.g. newest > 26h                  |
-    | newest_date     | Timestamp of the newest shadow copy on this volume (UTC)                                                           |
-    | scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | used            | Shadow storage used on this volume in bytes                                                                        |
-    | used_pct        | Percentage of the shadow-storage maximum in use (0 when max_size is unbounded)                                     |
-    | volume          | Volume the shadow copies belong to (VolumeName device path)                                                        |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_share
 
@@ -2202,44 +2118,23 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_storagepool_filter_keys"></a>
 #### Filter keywords
 
-=== "Windows"
+| Option             | Description                                                                                                        |
+|--------------------|--------------------------------------------------------------------------------------------------------------------|
+| capacity           | Total pool capacity in bytes                                                                                       |
+| convert_bytes()    | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
+| format_bytes()     | Format a number as a human-readable byte string.                                                                   |
+| format_number()    | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
+| free               | Unallocated (free) pool space in bytes                                                                             |
+| free_pct           | Percentage of free pool space                                                                                      |
+| health_status      | Pool health: Healthy, Warning, Unhealthy or Unknown                                                                |
+| is_readonly        | 1 if the pool is read-only                                                                                         |
+| name               | Storage pool friendly name                                                                                         |
+| operational_status | Pool operational status, synthesised single value: OK, ReadOnly, or the health string                              |
+| scale()            | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
+| used               | Allocated (used) pool space in bytes                                                                               |
+| used_pct           | Percentage of used pool space                                                                                      |
 
-    | Option             | Description                                                                                                        |
-    |--------------------|--------------------------------------------------------------------------------------------------------------------|
-    | capacity           | Total pool capacity in bytes                                                                                       |
-    | convert_bytes()    | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | format_bytes()     | Format a number as a human-readable byte string.                                                                   |
-    | format_number()    | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
-    | free               | Unallocated (free) pool space in bytes                                                                             |
-    | free_pct           | Percentage of free pool space                                                                                      |
-    | health_status      | Pool health: Healthy, Warning, Unhealthy or Unknown                                                                |
-    | is_readonly        | 1 if the pool is read-only                                                                                         |
-    | name               | Storage pool friendly name                                                                                         |
-    | operational_status | Pool operational status, synthesised single value: OK, ReadOnly, or the health string                              |
-    | scale()            | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | used               | Allocated (used) pool space in bytes                                                                               |
-    | used_pct           | Percentage of used pool space                                                                                      |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
-
-=== "Linux"
-
-    | Option             | Description                                                                                                        |
-    |--------------------|--------------------------------------------------------------------------------------------------------------------|
-    | capacity           | Total pool capacity in bytes                                                                                       |
-    | convert_bytes()    | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | format_bytes()     | Format a number as a human-readable byte string.                                                                   |
-    | free               | Unallocated (free) pool space in bytes                                                                             |
-    | free_pct           | Percentage of free pool space                                                                                      |
-    | health_status      | Pool health: Healthy, Warning, Unhealthy or Unknown                                                                |
-    | is_readonly        | 1 if the pool is read-only                                                                                         |
-    | name               | Storage pool friendly name                                                                                         |
-    | operational_status | Pool operational status, synthesised single value: OK, ReadOnly, or the health string                              |
-    | scale()            | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | used               | Allocated (used) pool space in bytes                                                                               |
-    | used_pct           | Percentage of used pool space                                                                                      |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_uncpath
 
@@ -2352,40 +2247,21 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_uncpath_filter_keys"></a>
 #### Filter keywords
 
-=== "Windows"
+| Option          | Description                                                                                                        |
+|-----------------|--------------------------------------------------------------------------------------------------------------------|
+| convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
+| format_bytes()  | Format a number as a human-readable byte string.                                                                   |
+| format_number() | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
+| free            | Free space on the share in bytes                                                                                   |
+| free_pct        | Percentage of free space                                                                                           |
+| path            | The UNC path being checked                                                                                         |
+| scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
+| size            | Total size of the share in bytes                                                                                   |
+| used            | Used space on the share in bytes                                                                                   |
+| used_pct        | Percentage of used space                                                                                           |
+| user_free       | Free space available to the querying user (quota-aware) in bytes                                                   |
 
-    | Option          | Description                                                                                                        |
-    |-----------------|--------------------------------------------------------------------------------------------------------------------|
-    | convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | format_bytes()  | Format a number as a human-readable byte string.                                                                   |
-    | format_number() | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
-    | free            | Free space on the share in bytes                                                                                   |
-    | free_pct        | Percentage of free space                                                                                           |
-    | path            | The UNC path being checked                                                                                         |
-    | scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | size            | Total size of the share in bytes                                                                                   |
-    | used            | Used space on the share in bytes                                                                                   |
-    | used_pct        | Percentage of used space                                                                                           |
-    | user_free       | Free space available to the querying user (quota-aware) in bytes                                                   |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
-
-=== "Linux"
-
-    | Option          | Description                                                                                                        |
-    |-----------------|--------------------------------------------------------------------------------------------------------------------|
-    | convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
-    | format_bytes()  | Format a number as a human-readable byte string.                                                                   |
-    | free            | Free space on the share in bytes                                                                                   |
-    | free_pct        | Percentage of free space                                                                                           |
-    | path            | The UNC path being checked                                                                                         |
-    | scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
-    | size            | Total size of the share in bytes                                                                                   |
-    | used            | Used space on the share in bytes                                                                                   |
-    | used_pct        | Percentage of used space                                                                                           |
-    | user_free       | Free space available to the querying user (quota-aware) in bytes                                                   |
-
-    This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ## Configuration
 

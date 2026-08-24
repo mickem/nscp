@@ -124,8 +124,6 @@ A list of all available queries (check commands)
 
 ### check_apache_status
 
-*Available on Windows only.*
-
 Check an Apache httpd server via its mod_status page (server-status?auto).
 
 #### About `check_apache_status`
@@ -922,8 +920,6 @@ This command also supports the [common filter keywords](../common-options.md#com
 
 ### check_nginx_status
 
-*Available on Windows only.*
-
 Check an NGINX server via its stub_status page.
 
 #### About `check_nginx_status`
@@ -1436,8 +1432,6 @@ This command also accepts the standard [help options](../common-options.md#stand
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_phpfpm_status
-
-*Available on Windows only.*
 
 Check a PHP-FPM pool via its status page.
 
@@ -2450,8 +2444,6 @@ This command also accepts the standard [help options](../common-options.md#stand
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_tomcat_status
-
-*Available on Windows only.*
 
 Check an Apache Tomcat server via the manager status page (XML).
 

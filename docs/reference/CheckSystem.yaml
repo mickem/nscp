@@ -183,6 +183,13 @@ unix:
         title: Realtime cpu filters
       sample:
         keys:
+          byte unit:
+            advanced: true
+            default_value: ''
+            description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or
+              EB. Empty (the default) scales each value on its own. Performance data is unaffected.'
+            sample: true
+            title: BYTE UNIT
           command:
             advanced: true
             default_value: ''
@@ -202,6 +209,22 @@ unix:
             description: Enable this to display debug information for this match filter
             sample: true
             title: DEBUG
+          decimal separator:
+            advanced: true
+            default_value: ''
+            description: 'Character to use as the decimal separator of the message, for instance '',''
+              for the European rendering. Only the message is affected: performance data and the numbers
+              written in a filter always use ''.''.'
+            sample: true
+            title: DECIMAL SEPARATOR
+          decimals:
+            advanced: true
+            default_value: '-1'
+            description: Number of decimals to render the numbers of the message with (-1 keeps the historical
+              rendering of up to three decimals with the trailing zeros stripped). Performance data is
+              unaffected.
+            sample: true
+            title: DECIMALS
           destination:
             advanced: true
             default_value: ''
@@ -305,6 +328,13 @@ unix:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET ID
+          thousands separator:
+            advanced: true
+            default_value: ''
+            description: Character to group the thousands of the message with. Empty (the default) means
+              no grouping. Only the message is affected.
+            sample: true
+            title: THOUSANDS SEPARATOR
           time:
             advanced: false
             default_value: ''
@@ -337,6 +367,13 @@ unix:
         title: Realtime memory filters
       sample:
         keys:
+          byte unit:
+            advanced: true
+            default_value: ''
+            description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or
+              EB. Empty (the default) scales each value on its own. Performance data is unaffected.'
+            sample: true
+            title: BYTE UNIT
           command:
             advanced: true
             default_value: ''
@@ -356,6 +393,22 @@ unix:
             description: Enable this to display debug information for this match filter
             sample: true
             title: DEBUG
+          decimal separator:
+            advanced: true
+            default_value: ''
+            description: 'Character to use as the decimal separator of the message, for instance '',''
+              for the European rendering. Only the message is affected: performance data and the numbers
+              written in a filter always use ''.''.'
+            sample: true
+            title: DECIMAL SEPARATOR
+          decimals:
+            advanced: true
+            default_value: '-1'
+            description: Number of decimals to render the numbers of the message with (-1 keeps the historical
+              rendering of up to three decimals with the trailing zeros stripped). Performance data is
+              unaffected.
+            sample: true
+            title: DECIMALS
           destination:
             advanced: true
             default_value: ''
@@ -459,6 +512,13 @@ unix:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET ID
+          thousands separator:
+            advanced: true
+            default_value: ''
+            description: Character to group the thousands of the message with. Empty (the default) means
+              no grouping. Only the message is affected.
+            sample: true
+            title: THOUSANDS SEPARATOR
           top syntax:
             advanced: true
             default_value: ''
@@ -491,6 +551,13 @@ unix:
         title: Realtime process filters
       sample:
         keys:
+          byte unit:
+            advanced: true
+            default_value: ''
+            description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or
+              EB. Empty (the default) scales each value on its own. Performance data is unaffected.'
+            sample: true
+            title: BYTE UNIT
           command:
             advanced: true
             default_value: ''
@@ -510,6 +577,22 @@ unix:
             description: Enable this to display debug information for this match filter
             sample: true
             title: DEBUG
+          decimal separator:
+            advanced: true
+            default_value: ''
+            description: 'Character to use as the decimal separator of the message, for instance '',''
+              for the European rendering. Only the message is affected: performance data and the numbers
+              written in a filter always use ''.''.'
+            sample: true
+            title: DECIMAL SEPARATOR
+          decimals:
+            advanced: true
+            default_value: '-1'
+            description: Number of decimals to render the numbers of the message with (-1 keeps the historical
+              rendering of up to three decimals with the trailing zeros stripped). Performance data is
+              unaffected.
+            sample: true
+            title: DECIMALS
           destination:
             advanced: true
             default_value: ''
@@ -625,6 +708,13 @@ unix:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET ID
+          thousands separator:
+            advanced: true
+            default_value: ''
+            description: Character to group the thousands of the message with. Empty (the default) means
+              no grouping. Only the message is affected.
+            sample: true
+            title: THOUSANDS SEPARATOR
           top syntax:
             advanced: true
             default_value: ''
@@ -890,7 +980,7 @@ unix:
         warning: usage > 90
       fields:
       - generic: false
-        long_description: Guest (incl. guest_nice) CPU utilization in percent
+        long_description: CPU time spent running a guest under this kernel, in percent (incl. guest_nice)
         name: guest
         short_description: ''
       - generic: false
@@ -914,7 +1004,7 @@ unix:
         name: softirq
         short_description: ''
       - generic: false
-        long_description: Stolen (hypervisor) CPU utilization in percent
+        long_description: CPU time stolen by the hypervisor in percent (VM guests)
         name: steal
         short_description: ''
       - generic: false
@@ -1063,7 +1153,7 @@ unix:
         name: package_status
         short_description: ''
       - generic: false
-        long_description: Maintainer (dpkg) / vendor (rpm); may be empty
+        long_description: Maintainer (dpkg, email stripped) / vendor (rpm); empty for pacman
         name: publisher
         short_description: ''
       - generic: false
@@ -1071,7 +1161,7 @@ unix:
         name: size
         short_description: ''
       - generic: false
-        long_description: Version string (comparisons are lexical, not version-aware)
+        long_description: 'Version string (rpm: version-release); comparisons are lexical, not version-aware'
         name: version
         short_description: ''
       info:
@@ -1126,26 +1216,29 @@ unix:
         name: cache
         short_description: ''
       - generic: false
-        long_description: 'Major (hard) faults per second: faults that had to read from disk — the fault-storm
-          signal'
+        long_description: 'Major (hard) faults per second (pgmajfault in /proc/vmstat): faults that had
+          to read from disk — the fault-storm signal'
         name: major_faults_per_sec
         short_description: ''
       - generic: false
-        long_description: Total page faults per second (soft + hard). Dominated by cheap soft faults and
-          routinely very large on a healthy host — alert on major_faults_per_sec instead
+        long_description: Total page faults per second, soft + hard (pgfault in /proc/vmstat). Dominated
+          by cheap soft faults and routinely very large on a healthy host — alert on major_faults_per_sec
+          instead
         name: page_faults_per_sec
         short_description: ''
       - generic: false
-        long_description: Total kernel slab allocator bytes (supports size units, e.g. 'slab > 2G')
+        long_description: Total kernel slab allocator bytes (Slab in /proc/meminfo; supports size units,
+          e.g. 'slab > 2G')
         name: slab
         short_description: ''
       - generic: false
-        long_description: Reclaimable slab bytes (caches the kernel can drop)
+        long_description: Reclaimable slab bytes the kernel can drop under pressure, e.g. dentry/inode
+          caches (SReclaimable in /proc/meminfo)
         name: slab_reclaimable
         short_description: ''
       - generic: false
-        long_description: Unreclaimable slab bytes — steady growth here is the classic kernel/driver leak
-          signal
+        long_description: Unreclaimable (pinned) slab bytes (SUnreclaim in /proc/meminfo) — steady growth
+          here is the classic kernel/driver leak signal
         name: slab_unreclaimable
         short_description: ''
       info:
@@ -1203,7 +1296,7 @@ unix:
         name: human
         short_description: ''
       - generic: false
-        long_description: Human-friendly metric label
+        long_description: Human-friendly metric label (Context Switches, Threads, ...)
         name: label
         short_description: ''
       - generic: false
@@ -1443,9 +1536,22 @@ unix:
         short_description: ''
       - generic: false
         long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Link operational state (up/down/unknown)
@@ -1827,12 +1933,13 @@ unix:
         name: ppid
         short_description: ''
       - generic: false
-        long_description: 'Raw Linux process state: running, sleeping, disk_sleep, zombie, stopped, tracing_stop,
-          dead, idle, parked'
+        long_description: 'Raw Linux scheduler state (the letter ps prints in its STAT column): running,
+          sleeping, disk_sleep, zombie, stopped, tracing_stop, dead, idle, parked or unknown'
         name: proc_state
         short_description: ''
       - generic: false
-        long_description: Resident set size; alias for working_set (g,m,k,b)
+        long_description: Resident set size in bytes; alias for working_set, matching the Windows keyword
+          set (g,m,k,b)
         name: rss
         short_description: ''
       - generic: false
@@ -1840,7 +1947,8 @@ unix:
         name: started
         short_description: ''
       - generic: false
-        long_description: The current state (started, stopped, hung)
+        long_description: 'Cross-platform state verdict: started or stopped (''running'' is accepted as
+          a synonym for started in expressions; the rendered value stays ''started'')'
         name: state
         short_description: ''
       - generic: false
@@ -1852,7 +1960,8 @@ unix:
         name: time
         short_description: ''
       - generic: false
-        long_description: Process owner uid (-1 when not known)
+        long_description: Real uid of the process owner from /proc/<pid>/status; -1 when not known (the
+          synthetic 'not found' and total rows)
         name: uid
         short_description: ''
       - generic: false
@@ -2137,11 +2246,11 @@ unix:
         name: created
         short_description: ''
       - generic: false
-        long_description: Service description
+        long_description: Unit description
         name: desc
         short_description: ''
       - generic: false
-        long_description: Service name
+        long_description: Unit (service) name
         name: name
         short_description: ''
       - generic: false
@@ -2280,7 +2389,7 @@ unix:
         name: swap_in
         short_description: ''
       - generic: false
-        long_description: Bytes swapped in per second
+        long_description: Bytes swapped in per second (pages x page size)
         name: swap_in_bytes
         short_description: ''
       - generic: false
@@ -2288,7 +2397,7 @@ unix:
         name: swap_out
         short_description: ''
       - generic: false
-        long_description: Bytes swapped out per second
+        long_description: Bytes swapped out per second (pages x page size)
         name: swap_out_bytes
         short_description: ''
       info:

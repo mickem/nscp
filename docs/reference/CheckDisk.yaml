@@ -51,6 +51,346 @@ common:
           sample: false
           title: Trend history retention
   queries:
+    check_disk_health:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: (has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1 and (health_status
+          = 'Unhealthy' or is_offline = 1))
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}'
+        empty-state: critical
+        empty-syntax: ''
+        escape-html: 'false'
+        filter: name != '_Total'
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): All disks are healthy.'
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: (has_space = 1 and free_pct < 20) or percent_disk_time > 80 or (has_device = 1 and health_status
+          = 'Warning')
+      fields:
+      - generic: false
+        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
+          Useful in thresholds.
+
+          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
+        name: convert_bytes()
+        short_description: ''
+      - generic: false
+        long_description: Physical disk number/index (device rows)
+        name: disk_number
+        short_description: ''
+      - generic: false
+        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
+        name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
+        short_description: ''
+      - generic: false
+        long_description: Free disk space in bytes (I/O-only rows have none)
+        name: free
+        short_description: ''
+      - generic: false
+        long_description: Percentage of free disk space (I/O-only rows have none)
+        name: free_pct
+        short_description: ''
+      - generic: false
+        long_description: Physical disk friendly name (device rows)
+        name: friendly_name
+        short_description: ''
+      - generic: false
+        long_description: 1 if the row carries physical-disk device state (a per-disk row), 0 otherwise
+          (guard; no perfdata)
+        name: has_device
+        short_description: ''
+      - generic: false
+        long_description: 1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or
+          a disk with no mounted filesystem)
+        name: has_space
+        short_description: ''
+      - generic: false
+        long_description: 'Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)'
+        name: health_status
+        short_description: ''
+      - generic: false
+        long_description: Total IOPS (reads + writes)
+        name: iops
+        short_description: ''
+      - generic: false
+        long_description: 1 if the physical disk is offline (device rows)
+        name: is_offline
+        short_description: ''
+      - generic: false
+        long_description: 1 if the physical disk is read-only (device rows)
+        name: is_readonly
+        short_description: ''
+      - generic: false
+        long_description: 'Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)'
+        name: media_type
+        short_description: ''
+      - generic: false
+        long_description: Drive name (e.g. C:, D:, _Total)
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: 'Physical disk operational status, synthesised single value: Offline, OK, or
+          the health string (device rows)'
+        name: operational_status
+        short_description: ''
+      - generic: false
+        long_description: Percent of time the disk is busy
+        name: percent_disk_time
+        short_description: ''
+      - generic: false
+        long_description: Percent of time the disk is idle
+        name: percent_idle_time
+        short_description: ''
+      - generic: false
+        long_description: Current disk queue length
+        name: queue_length
+        short_description: ''
+      - generic: false
+        long_description: Bytes read per second
+        name: read_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Average read latency in milliseconds (over the collection interval)
+        name: read_latency
+        short_description: ''
+      - generic: false
+        long_description: Read IOPS
+        name: reads_per_sec
+        short_description: ''
+      - generic: false
+        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
+          Mbps with scale(value, 1000000)).
+
+          Syntax: scale(value, divisor).'
+        name: scale()
+        short_description: ''
+      - generic: false
+        long_description: Physical disk serial number (device rows)
+        name: serial
+        short_description: ''
+      - generic: false
+        long_description: Total disk size in bytes (I/O-only rows have none)
+        name: size
+        short_description: ''
+      - generic: false
+        long_description: Split I/O operations per second
+        name: split_io_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Total bytes per second (read + write)
+        name: total_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Average latency per I/O (read + write) in milliseconds (over the collection
+          interval)
+        name: total_latency
+        short_description: ''
+      - generic: false
+        long_description: Used disk space in bytes (I/O-only rows have none)
+        name: used
+        short_description: ''
+      - generic: false
+        long_description: Percentage of used disk space (I/O-only rows have none)
+        name: used_pct
+        short_description: ''
+      - generic: false
+        long_description: Free disk space available to current user in bytes (I/O-only rows have none)
+        name: user_free
+        short_description: ''
+      - generic: false
+        long_description: Bytes written per second
+        name: write_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Average write latency in milliseconds (over the collection interval)
+        name: write_latency
+        short_description: ''
+      - generic: false
+        long_description: Write IOPS
+        name: writes_per_sec
+        short_description: ''
+      info:
+        description: Combined per-drive health check (free space + I/O metrics).
+    check_disk_io:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: percent_disk_time > 95
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s
+          q=${queue_length}'
+        empty-state: critical
+        empty-syntax: ''
+        escape-html: 'false'
+        filter: name != '_Total'
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): All disk I/O seems ok.'
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: percent_disk_time > 80
+      fields:
+      - generic: false
+        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
+          Useful in thresholds.
+
+          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
+        name: convert_bytes()
+        short_description: ''
+      - generic: false
+        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
+        name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
+        short_description: ''
+      - generic: false
+        long_description: Total IOPS (reads + writes)
+        name: iops
+        short_description: ''
+      - generic: false
+        long_description: Logical disk name (e.g. C:, D:, _Total)
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: Percent of time the disk is busy
+        name: percent_disk_time
+        short_description: ''
+      - generic: false
+        long_description: Percent of time the disk is idle
+        name: percent_idle_time
+        short_description: ''
+      - generic: false
+        long_description: Current disk queue length
+        name: queue_length
+        short_description: ''
+      - generic: false
+        long_description: Bytes read per second
+        name: read_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Average read latency in milliseconds (over the collection interval)
+        name: read_latency
+        short_description: ''
+      - generic: false
+        long_description: Read IOPS
+        name: reads_per_sec
+        short_description: ''
+      - generic: false
+        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
+          Mbps with scale(value, 1000000)).
+
+          Syntax: scale(value, divisor).'
+        name: scale()
+        short_description: ''
+      - generic: false
+        long_description: Split I/O operations per second
+        name: split_io_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Total bytes per second (read + write)
+        name: total_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Average latency per I/O (read + write) in milliseconds (over the collection
+          interval)
+        name: total_latency
+        short_description: ''
+      - generic: false
+        long_description: Bytes written per second
+        name: write_bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: Average write latency in milliseconds (over the collection interval)
+        name: write_latency
+        short_description: ''
+      - generic: false
+        long_description: Write IOPS
+        name: writes_per_sec
+        short_description: ''
+      info:
+        description: Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
     check_disk_write:
       common_fields:
       - count
@@ -388,6 +728,118 @@ common:
           check. Intended for directories that are legitimately absent some of the time. Implies empty-state=ok,
           so a scan whose paths are all missing reports OK rather than UNKNOWN (pass empty-state= to choose
           a different one).
+    check_shadowcopy:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: newest > 50h
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${volume}: ${copies} copies, newest ${newest_date}'
+        empty-state: ok
+        empty-syntax: '%(status): No shadow copies found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): All %(count) volume(s) have recent shadow copies.'
+        perf-config: ''
+        perf-syntax: ${volume}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: newest > 26h
+      fields:
+      - generic: false
+        long_description: Shadow storage currently allocated in bytes
+        name: allocated
+        short_description: ''
+      - generic: false
+        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
+          Useful in thresholds.
+
+          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
+        name: convert_bytes()
+        short_description: ''
+      - generic: false
+        long_description: Number of shadow copies on this volume
+        name: copies
+        short_description: ''
+      - generic: false
+        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
+        name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
+        short_description: ''
+      - generic: false
+        long_description: Shadow storage maximum in bytes (0 if unbounded/unresolved)
+        name: max_size
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the newest shadow copy (-1 if unknown); threshold with durations,
+          e.g. newest > 26h
+        name: newest
+        short_description: ''
+      - generic: false
+        long_description: Timestamp of the newest shadow copy on this volume (UTC)
+        name: newest_date
+        short_description: ''
+      - generic: false
+        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
+          Mbps with scale(value, 1000000)).
+
+          Syntax: scale(value, divisor).'
+        name: scale()
+        short_description: ''
+      - generic: false
+        long_description: Shadow storage used on this volume in bytes
+        name: used
+        short_description: ''
+      - generic: false
+        long_description: Percentage of the shadow-storage maximum in use (0 when max_size is unbounded)
+        name: used_pct
+        short_description: ''
+      - generic: false
+        long_description: Volume the shadow copies belong to (VolumeName device path)
+        name: volume
+        short_description: ''
+      info:
+        description: Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage
+          per volume. Windows only.
     check_share:
       common_fields:
       - count
@@ -660,6 +1112,252 @@ common:
         short_description: Return OK instead of failing when the file does not exist. Intended for files
           that are legitimately absent some of the time, such as a lock file or a report that is only
           written after a run.
+    check_storagepool:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: health_status = 'Unhealthy' or free_pct < 10
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${name}: ${health_status}, ${used}/${capacity} used'
+        empty-state: ok
+        empty-syntax: '%(status): No storage pools found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): All storage pools are healthy.'
+        perf-config: ''
+        perf-syntax: ${name}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: health_status = 'Warning' or free_pct < 20
+      fields:
+      - generic: false
+        long_description: Total pool capacity in bytes
+        name: capacity
+        short_description: ''
+      - generic: false
+        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
+          Useful in thresholds.
+
+          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
+        name: convert_bytes()
+        short_description: ''
+      - generic: false
+        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
+        name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
+        short_description: ''
+      - generic: false
+        long_description: Unallocated (free) pool space in bytes
+        name: free
+        short_description: ''
+      - generic: false
+        long_description: Percentage of free pool space
+        name: free_pct
+        short_description: ''
+      - generic: false
+        long_description: 'Pool health: Healthy, Warning, Unhealthy or Unknown'
+        name: health_status
+        short_description: ''
+      - generic: false
+        long_description: 1 if the pool is read-only
+        name: is_readonly
+        short_description: ''
+      - generic: false
+        long_description: Storage pool friendly name
+        name: name
+        short_description: ''
+      - generic: false
+        long_description: 'Pool operational status, synthesised single value: OK, ReadOnly, or the health
+          string'
+        name: operational_status
+        short_description: ''
+      - generic: false
+        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
+          Mbps with scale(value, 1000000)).
+
+          Syntax: scale(value, divisor).'
+        name: scale()
+        short_description: ''
+      - generic: false
+        long_description: Allocated (used) pool space in bytes
+        name: used
+        short_description: ''
+      - generic: false
+        long_description: Percentage of used pool space
+        name: used_pct
+        short_description: ''
+      info:
+        description: Check Storage Spaces pool health and capacity. Windows only.
+    check_uncpath:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: used_pct > 90
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${path}: ${used}/${size} used (${free} free)'
+        empty-state: unknown
+        empty-syntax: '%(status): No paths checked'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: '%(status): All UNC paths are ok.'
+        perf-config: ''
+        perf-syntax: ${path}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: used_pct > 80
+      fields:
+      - generic: false
+        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
+          Useful in thresholds.
+
+          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
+        name: convert_bytes()
+        short_description: ''
+      - generic: false
+        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
+        name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
+        short_description: ''
+      - generic: false
+        long_description: Free space on the share in bytes
+        name: free
+        short_description: ''
+      - generic: false
+        long_description: Percentage of free space
+        name: free_pct
+        short_description: ''
+      - generic: false
+        long_description: The UNC path being checked
+        name: path
+        short_description: ''
+      - generic: false
+        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
+          Mbps with scale(value, 1000000)).
+
+          Syntax: scale(value, divisor).'
+        name: scale()
+        short_description: ''
+      - generic: false
+        long_description: Total size of the share in bytes
+        name: size
+        short_description: ''
+      - generic: false
+        long_description: Used space on the share in bytes
+        name: used
+        short_description: ''
+      - generic: false
+        long_description: Percentage of used space
+        name: used_pct
+        short_description: ''
+      - generic: false
+        long_description: Free space available to the querying user (quota-aware) in bytes
+        name: user_free
+        short_description: ''
+      info:
+        description: Check free space on a UNC path (server share), with optional alternate credentials.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The UNC path(s) to check, e.g. \\server\share. Repeat for multiple.
+        name: path
+        repeatable: false
+        required: false
+        short_description: The UNC path(s) to check, e.g. \\server\share. Repeat for multiple.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Optional user name for alternate credentials (Windows).
+        name: user
+        repeatable: false
+        required: false
+        short_description: Optional user name for alternate credentials (Windows).
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Optional password for alternate credentials (Windows).
+        name: password
+        repeatable: false
+        required: false
+        short_description: Optional password for alternate credentials (Windows).
 module: CheckDisk
 namespace: check
 platforms:
@@ -667,320 +1365,6 @@ platforms:
 - windows
 unix:
   queries:
-    check_disk_health:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: (has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1 and (health_status
-          = 'Unhealthy' or is_offline = 1))
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}'
-        empty-state: critical
-        empty-syntax: ''
-        escape-html: 'false'
-        filter: name != '_Total'
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All disks are healthy.'
-        perf-config: ''
-        perf-syntax: ${name}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: (has_space = 1 and free_pct < 20) or percent_disk_time > 80 or (has_device = 1 and health_status
-          = 'Warning')
-      fields:
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: Physical disk number/index (device rows)
-        name: disk_number
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: Free disk space in bytes (I/O-only rows have none)
-        name: free
-        short_description: ''
-      - generic: false
-        long_description: Percentage of free disk space (I/O-only rows have none)
-        name: free_pct
-        short_description: ''
-      - generic: false
-        long_description: Physical disk friendly name (device rows)
-        name: friendly_name
-        short_description: ''
-      - generic: false
-        long_description: 1 if the row carries physical-disk device state (a per-disk row), 0 otherwise
-          (guard; no perfdata)
-        name: has_device
-        short_description: ''
-      - generic: false
-        long_description: 1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or
-          a disk with no mounted filesystem)
-        name: has_space
-        short_description: ''
-      - generic: false
-        long_description: 'Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)'
-        name: health_status
-        short_description: ''
-      - generic: false
-        long_description: Total IOPS (reads + writes)
-        name: iops
-        short_description: ''
-      - generic: false
-        long_description: 1 if the physical disk is offline (device rows)
-        name: is_offline
-        short_description: ''
-      - generic: false
-        long_description: 1 if the physical disk is read-only (device rows)
-        name: is_readonly
-        short_description: ''
-      - generic: false
-        long_description: 'Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)'
-        name: media_type
-        short_description: ''
-      - generic: false
-        long_description: Drive name (e.g. C:, D:, _Total)
-        name: name
-        short_description: ''
-      - generic: false
-        long_description: 'Physical disk operational status, synthesised single value: Offline, OK, or
-          the health string (device rows)'
-        name: operational_status
-        short_description: ''
-      - generic: false
-        long_description: Percent of time the disk is busy
-        name: percent_disk_time
-        short_description: ''
-      - generic: false
-        long_description: Percent of time the disk is idle
-        name: percent_idle_time
-        short_description: ''
-      - generic: false
-        long_description: Current disk queue length
-        name: queue_length
-        short_description: ''
-      - generic: false
-        long_description: Bytes read per second
-        name: read_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average read latency in milliseconds (over the collection interval)
-        name: read_latency
-        short_description: ''
-      - generic: false
-        long_description: Read IOPS
-        name: reads_per_sec
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Physical disk serial number (device rows)
-        name: serial
-        short_description: ''
-      - generic: false
-        long_description: Total disk size in bytes (I/O-only rows have none)
-        name: size
-        short_description: ''
-      - generic: false
-        long_description: Split I/O operations per second
-        name: split_io_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Total bytes per second (read + write)
-        name: total_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average latency per I/O (read + write) in milliseconds (over the collection
-          interval)
-        name: total_latency
-        short_description: ''
-      - generic: false
-        long_description: Used disk space in bytes (I/O-only rows have none)
-        name: used
-        short_description: ''
-      - generic: false
-        long_description: Percentage of used disk space (I/O-only rows have none)
-        name: used_pct
-        short_description: ''
-      - generic: false
-        long_description: Free disk space available to current user in bytes (I/O-only rows have none)
-        name: user_free
-        short_description: ''
-      - generic: false
-        long_description: Bytes written per second
-        name: write_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average write latency in milliseconds (over the collection interval)
-        name: write_latency
-        short_description: ''
-      - generic: false
-        long_description: Write IOPS
-        name: writes_per_sec
-        short_description: ''
-      info:
-        description: Combined per-drive health check (free space + I/O metrics).
-    check_disk_io:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: percent_disk_time > 95
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s
-          q=${queue_length}'
-        empty-state: critical
-        empty-syntax: ''
-        escape-html: 'false'
-        filter: name != '_Total'
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All disk I/O seems ok.'
-        perf-config: ''
-        perf-syntax: ${name}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: percent_disk_time > 80
-      fields:
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: Total IOPS (reads + writes)
-        name: iops
-        short_description: ''
-      - generic: false
-        long_description: Logical disk name (e.g. C:, D:, _Total)
-        name: name
-        short_description: ''
-      - generic: false
-        long_description: Percent of time the disk is busy
-        name: percent_disk_time
-        short_description: ''
-      - generic: false
-        long_description: Percent of time the disk is idle
-        name: percent_idle_time
-        short_description: ''
-      - generic: false
-        long_description: Current disk queue length
-        name: queue_length
-        short_description: ''
-      - generic: false
-        long_description: Bytes read per second
-        name: read_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average read latency in milliseconds (over the collection interval)
-        name: read_latency
-        short_description: ''
-      - generic: false
-        long_description: Read IOPS
-        name: reads_per_sec
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Split I/O operations per second
-        name: split_io_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Total bytes per second (read + write)
-        name: total_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average latency per I/O (read + write) in milliseconds (over the collection
-          interval)
-        name: total_latency
-        short_description: ''
-      - generic: false
-        long_description: Bytes written per second
-        name: write_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average write latency in milliseconds (over the collection interval)
-        name: write_latency
-        short_description: ''
-      - generic: false
-        long_description: Write IOPS
-        name: writes_per_sec
-        short_description: ''
-      info:
-        description: Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
     check_drivesize:
       common_fields:
       - count
@@ -1025,6 +1409,13 @@ unix:
         warning: used > 80%
       fields:
       - generic: false
+        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
+          Useful in thresholds.
+
+          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
+        name: convert_bytes()
+        short_description: ''
+      - generic: false
         long_description: Technical name of drive (mount point)
         name: drive
         short_description: ''
@@ -1047,6 +1438,25 @@ unix:
       - generic: false
         long_description: String representation of flags
         name: flags
+        short_description: ''
+      - generic: false
+        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
+        name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Shorthand for total_free (Number of free bytes)
@@ -1123,6 +1533,13 @@ unix:
       - generic: false
         long_description: 1 (true) if drive is removable
         name: removable
+        short_description: ''
+      - generic: false
+        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
+          Mbps with scale(value, 1000000)).
+
+          Syntax: scale(value, divisor).'
+        name: scale()
         short_description: ''
       - generic: false
         long_description: Total size of drive
@@ -1333,667 +1750,8 @@ unix:
         repeatable: false
         required: false
         short_description: The filesystem type to expect
-    check_shadowcopy:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: newest > 50h
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${volume}: ${copies} copies, newest ${newest_date}'
-        empty-state: ok
-        empty-syntax: '%(status): No shadow copies found'
-        escape-html: 'false'
-        filter: ''
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All %(count) volume(s) have recent shadow copies.'
-        perf-config: ''
-        perf-syntax: ${volume}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: newest > 26h
-      fields:
-      - generic: false
-        long_description: Shadow storage currently allocated in bytes
-        name: allocated
-        short_description: ''
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: Number of shadow copies on this volume
-        name: copies
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: Shadow storage maximum in bytes (0 if unbounded/unresolved)
-        name: max_size
-        short_description: ''
-      - generic: false
-        long_description: Seconds since the newest shadow copy (-1 if unknown); threshold with durations,
-          e.g. newest > 26h
-        name: newest
-        short_description: ''
-      - generic: false
-        long_description: Timestamp of the newest shadow copy on this volume (UTC)
-        name: newest_date
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Shadow storage used on this volume in bytes
-        name: used
-        short_description: ''
-      - generic: false
-        long_description: Percentage of the shadow-storage maximum in use (0 when max_size is unbounded)
-        name: used_pct
-        short_description: ''
-      - generic: false
-        long_description: Volume the shadow copies belong to (VolumeName device path)
-        name: volume
-        short_description: ''
-      info:
-        description: Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage
-          per volume. Windows only.
-    check_storagepool:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: health_status = 'Unhealthy' or free_pct < 10
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${name}: ${health_status}, ${used}/${capacity} used'
-        empty-state: ok
-        empty-syntax: '%(status): No storage pools found'
-        escape-html: 'false'
-        filter: ''
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All storage pools are healthy.'
-        perf-config: ''
-        perf-syntax: ${name}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: health_status = 'Warning' or free_pct < 20
-      fields:
-      - generic: false
-        long_description: Total pool capacity in bytes
-        name: capacity
-        short_description: ''
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: Unallocated (free) pool space in bytes
-        name: free
-        short_description: ''
-      - generic: false
-        long_description: Percentage of free pool space
-        name: free_pct
-        short_description: ''
-      - generic: false
-        long_description: 'Pool health: Healthy, Warning, Unhealthy or Unknown'
-        name: health_status
-        short_description: ''
-      - generic: false
-        long_description: 1 if the pool is read-only
-        name: is_readonly
-        short_description: ''
-      - generic: false
-        long_description: Storage pool friendly name
-        name: name
-        short_description: ''
-      - generic: false
-        long_description: 'Pool operational status, synthesised single value: OK, ReadOnly, or the health
-          string'
-        name: operational_status
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Allocated (used) pool space in bytes
-        name: used
-        short_description: ''
-      - generic: false
-        long_description: Percentage of used pool space
-        name: used_pct
-        short_description: ''
-      info:
-        description: Check Storage Spaces pool health and capacity. Windows only.
-    check_uncpath:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: used_pct > 90
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${path}: ${used}/${size} used (${free} free)'
-        empty-state: unknown
-        empty-syntax: '%(status): No paths checked'
-        escape-html: 'false'
-        filter: ''
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All UNC paths are ok.'
-        perf-config: ''
-        perf-syntax: ${path}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: used_pct > 80
-      fields:
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: Free space on the share in bytes
-        name: free
-        short_description: ''
-      - generic: false
-        long_description: Percentage of free space
-        name: free_pct
-        short_description: ''
-      - generic: false
-        long_description: The UNC path being checked
-        name: path
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Total size of the share in bytes
-        name: size
-        short_description: ''
-      - generic: false
-        long_description: Used space on the share in bytes
-        name: used
-        short_description: ''
-      - generic: false
-        long_description: Percentage of used space
-        name: used_pct
-        short_description: ''
-      - generic: false
-        long_description: Free space available to the querying user (quota-aware) in bytes
-        name: user_free
-        short_description: ''
-      info:
-        description: Check free space on a UNC path (server share), with optional alternate credentials.
-      params:
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: The UNC path(s) to check, e.g. \\server\share. Repeat for multiple.
-        name: path
-        repeatable: false
-        required: false
-        short_description: The UNC path(s) to check, e.g. \\server\share. Repeat for multiple.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Optional user name for alternate credentials (Windows).
-        name: user
-        repeatable: false
-        required: false
-        short_description: Optional user name for alternate credentials (Windows).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Optional password for alternate credentials (Windows).
-        name: password
-        repeatable: false
-        required: false
-        short_description: Optional password for alternate credentials (Windows).
 windows:
   queries:
-    check_disk_health:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: (has_space = 1 and free_pct < 10) or percent_disk_time > 95 or (has_device = 1 and (health_status
-          = 'Unhealthy' or is_offline = 1))
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${name}: ${free_pct} free, ${percent_disk_time}% busy, q=${queue_length} iops=${iops}'
-        empty-state: critical
-        empty-syntax: ''
-        escape-html: 'false'
-        filter: name != '_Total'
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All disks are healthy.'
-        perf-config: ''
-        perf-syntax: ${name}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: (has_space = 1 and free_pct < 20) or percent_disk_time > 80 or (has_device = 1 and health_status
-          = 'Warning')
-      fields:
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: Physical disk number/index (device rows)
-        name: disk_number
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
-          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
-          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
-          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
-          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
-          and thousands separators.
-
-          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
-          it.
-
-          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
-        name: format_number()
-        short_description: ''
-      - generic: false
-        long_description: Free disk space in bytes (I/O-only rows have none)
-        name: free
-        short_description: ''
-      - generic: false
-        long_description: Percentage of free disk space (I/O-only rows have none)
-        name: free_pct
-        short_description: ''
-      - generic: false
-        long_description: Physical disk friendly name (device rows)
-        name: friendly_name
-        short_description: ''
-      - generic: false
-        long_description: 1 if the row carries physical-disk device state (a per-disk row), 0 otherwise
-          (guard; no perfdata)
-        name: has_device
-        short_description: ''
-      - generic: false
-        long_description: 1 if the row has filesystem space data, 0 for I/O-only rows (e.g. _Total or
-          a disk with no mounted filesystem)
-        name: has_space
-        short_description: ''
-      - generic: false
-        long_description: 'Physical disk health: Healthy, Warning, Unhealthy or Unknown (device rows)'
-        name: health_status
-        short_description: ''
-      - generic: false
-        long_description: Total IOPS (reads + writes)
-        name: iops
-        short_description: ''
-      - generic: false
-        long_description: 1 if the physical disk is offline (device rows)
-        name: is_offline
-        short_description: ''
-      - generic: false
-        long_description: 1 if the physical disk is read-only (device rows)
-        name: is_readonly
-        short_description: ''
-      - generic: false
-        long_description: 'Physical disk media type: HDD, SSD, SCM or Unspecified (device rows)'
-        name: media_type
-        short_description: ''
-      - generic: false
-        long_description: Drive name (e.g. C:, D:, _Total)
-        name: name
-        short_description: ''
-      - generic: false
-        long_description: 'Physical disk operational status, synthesised single value: Offline, OK, or
-          the health string (device rows)'
-        name: operational_status
-        short_description: ''
-      - generic: false
-        long_description: Percent of time the disk is busy
-        name: percent_disk_time
-        short_description: ''
-      - generic: false
-        long_description: Percent of time the disk is idle
-        name: percent_idle_time
-        short_description: ''
-      - generic: false
-        long_description: Current disk queue length
-        name: queue_length
-        short_description: ''
-      - generic: false
-        long_description: Bytes read per second
-        name: read_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average read latency in milliseconds (over the collection interval)
-        name: read_latency
-        short_description: ''
-      - generic: false
-        long_description: Read IOPS
-        name: reads_per_sec
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Physical disk serial number (device rows)
-        name: serial
-        short_description: ''
-      - generic: false
-        long_description: Total disk size in bytes (I/O-only rows have none)
-        name: size
-        short_description: ''
-      - generic: false
-        long_description: Split I/O operations per second
-        name: split_io_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Total bytes per second (read + write)
-        name: total_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average latency per I/O (read + write) in milliseconds (over the collection
-          interval)
-        name: total_latency
-        short_description: ''
-      - generic: false
-        long_description: Used disk space in bytes (I/O-only rows have none)
-        name: used
-        short_description: ''
-      - generic: false
-        long_description: Percentage of used disk space (I/O-only rows have none)
-        name: used_pct
-        short_description: ''
-      - generic: false
-        long_description: Free disk space available to current user in bytes (I/O-only rows have none)
-        name: user_free
-        short_description: ''
-      - generic: false
-        long_description: Bytes written per second
-        name: write_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average write latency in milliseconds (over the collection interval)
-        name: write_latency
-        short_description: ''
-      - generic: false
-        long_description: Write IOPS
-        name: writes_per_sec
-        short_description: ''
-      info:
-        description: Combined per-drive health check (free space + I/O metrics).
-    check_disk_io:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: percent_disk_time > 95
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${name}: ${percent_disk_time}% busy, read=${read_bytes_per_sec}B/s write=${write_bytes_per_sec}B/s
-          q=${queue_length}'
-        empty-state: critical
-        empty-syntax: ''
-        escape-html: 'false'
-        filter: name != '_Total'
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All disk I/O seems ok.'
-        perf-config: ''
-        perf-syntax: ${name}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: percent_disk_time > 80
-      fields:
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
-          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
-          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
-          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
-          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
-          and thousands separators.
-
-          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
-          it.
-
-          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
-        name: format_number()
-        short_description: ''
-      - generic: false
-        long_description: Total IOPS (reads + writes)
-        name: iops
-        short_description: ''
-      - generic: false
-        long_description: Logical disk name (e.g. C:, D:, _Total)
-        name: name
-        short_description: ''
-      - generic: false
-        long_description: Percent of time the disk is busy
-        name: percent_disk_time
-        short_description: ''
-      - generic: false
-        long_description: Percent of time the disk is idle
-        name: percent_idle_time
-        short_description: ''
-      - generic: false
-        long_description: Current disk queue length
-        name: queue_length
-        short_description: ''
-      - generic: false
-        long_description: Bytes read per second
-        name: read_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average read latency in milliseconds (over the collection interval)
-        name: read_latency
-        short_description: ''
-      - generic: false
-        long_description: Read IOPS
-        name: reads_per_sec
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Split I/O operations per second
-        name: split_io_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Total bytes per second (read + write)
-        name: total_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average latency per I/O (read + write) in milliseconds (over the collection
-          interval)
-        name: total_latency
-        short_description: ''
-      - generic: false
-        long_description: Bytes written per second
-        name: write_bytes_per_sec
-        short_description: ''
-      - generic: false
-        long_description: Average write latency in milliseconds (over the collection interval)
-        name: write_latency
-        short_description: ''
-      - generic: false
-        long_description: Write IOPS
-        name: writes_per_sec
-        short_description: ''
-      info:
-        description: Check disk I/O performance metrics (throughput, IOPS, queue length, busy time).
     check_drivesize:
       common_fields:
       - count
@@ -2320,361 +2078,3 @@ windows:
     check_mount:
       info:
         description: Check that a filesystem is mounted with the expected fstype and options.
-    check_shadowcopy:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: newest > 50h
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${volume}: ${copies} copies, newest ${newest_date}'
-        empty-state: ok
-        empty-syntax: '%(status): No shadow copies found'
-        escape-html: 'false'
-        filter: ''
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All %(count) volume(s) have recent shadow copies.'
-        perf-config: ''
-        perf-syntax: ${volume}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: newest > 26h
-      fields:
-      - generic: false
-        long_description: Shadow storage currently allocated in bytes
-        name: allocated
-        short_description: ''
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: Number of shadow copies on this volume
-        name: copies
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
-          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
-          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
-          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
-          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
-          and thousands separators.
-
-          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
-          it.
-
-          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
-        name: format_number()
-        short_description: ''
-      - generic: false
-        long_description: Shadow storage maximum in bytes (0 if unbounded/unresolved)
-        name: max_size
-        short_description: ''
-      - generic: false
-        long_description: Seconds since the newest shadow copy (-1 if unknown); threshold with durations,
-          e.g. newest > 26h
-        name: newest
-        short_description: ''
-      - generic: false
-        long_description: Timestamp of the newest shadow copy on this volume (UTC)
-        name: newest_date
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Shadow storage used on this volume in bytes
-        name: used
-        short_description: ''
-      - generic: false
-        long_description: Percentage of the shadow-storage maximum in use (0 when max_size is unbounded)
-        name: used_pct
-        short_description: ''
-      - generic: false
-        long_description: Volume the shadow copies belong to (VolumeName device path)
-        name: volume
-        short_description: ''
-      info:
-        description: Check VSS shadow-copy (Volume Shadow Copy) recency, count and shadow-storage usage
-          per volume. Windows only.
-    check_storagepool:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: health_status = 'Unhealthy' or free_pct < 10
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${name}: ${health_status}, ${used}/${capacity} used'
-        empty-state: ok
-        empty-syntax: '%(status): No storage pools found'
-        escape-html: 'false'
-        filter: ''
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All storage pools are healthy.'
-        perf-config: ''
-        perf-syntax: ${name}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: health_status = 'Warning' or free_pct < 20
-      fields:
-      - generic: false
-        long_description: Total pool capacity in bytes
-        name: capacity
-        short_description: ''
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
-          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
-          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
-          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
-          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
-          and thousands separators.
-
-          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
-          it.
-
-          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
-        name: format_number()
-        short_description: ''
-      - generic: false
-        long_description: Unallocated (free) pool space in bytes
-        name: free
-        short_description: ''
-      - generic: false
-        long_description: Percentage of free pool space
-        name: free_pct
-        short_description: ''
-      - generic: false
-        long_description: 'Pool health: Healthy, Warning, Unhealthy or Unknown'
-        name: health_status
-        short_description: ''
-      - generic: false
-        long_description: 1 if the pool is read-only
-        name: is_readonly
-        short_description: ''
-      - generic: false
-        long_description: Storage pool friendly name
-        name: name
-        short_description: ''
-      - generic: false
-        long_description: 'Pool operational status, synthesised single value: OK, ReadOnly, or the health
-          string'
-        name: operational_status
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Allocated (used) pool space in bytes
-        name: used
-        short_description: ''
-      - generic: false
-        long_description: Percentage of used pool space
-        name: used_pct
-        short_description: ''
-      info:
-        description: Check Storage Spaces pool health and capacity. Windows only.
-    check_uncpath:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: used_pct > 90
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: '${path}: ${used}/${size} used (${free} free)'
-        empty-state: unknown
-        empty-syntax: '%(status): No paths checked'
-        escape-html: 'false'
-        filter: ''
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: '%(status): All UNC paths are ok.'
-        perf-config: ''
-        perf-syntax: ${path}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: used_pct > 80
-      fields:
-      - generic: false
-        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
-          Useful in thresholds.
-
-          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
-        name: convert_bytes()
-        short_description: ''
-      - generic: false
-        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
-          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
-          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
-          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
-          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
-        name: format_bytes()
-        short_description: ''
-      - generic: false
-        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
-          and thousands separators.
-
-          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
-          it.
-
-          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
-        name: format_number()
-        short_description: ''
-      - generic: false
-        long_description: Free space on the share in bytes
-        name: free
-        short_description: ''
-      - generic: false
-        long_description: Percentage of free space
-        name: free_pct
-        short_description: ''
-      - generic: false
-        long_description: The UNC path being checked
-        name: path
-        short_description: ''
-      - generic: false
-        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
-          Mbps with scale(value, 1000000)).
-
-          Syntax: scale(value, divisor).'
-        name: scale()
-        short_description: ''
-      - generic: false
-        long_description: Total size of the share in bytes
-        name: size
-        short_description: ''
-      - generic: false
-        long_description: Used space on the share in bytes
-        name: used
-        short_description: ''
-      - generic: false
-        long_description: Percentage of used space
-        name: used_pct
-        short_description: ''
-      - generic: false
-        long_description: Free space available to the querying user (quota-aware) in bytes
-        name: user_free
-        short_description: ''
-      info:
-        description: Check free space on a UNC path (server share), with optional alternate credentials.
-      params:
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: The UNC path(s) to check, e.g. \\server\share. Repeat for multiple.
-        name: path
-        repeatable: false
-        required: false
-        short_description: The UNC path(s) to check, e.g. \\server\share. Repeat for multiple.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Optional user name for alternate credentials (Windows).
-        name: user
-        repeatable: false
-        required: false
-        short_description: Optional user name for alternate credentials (Windows).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Optional password for alternate credentials (Windows).
-        name: password
-        repeatable: false
-        required: false
-        short_description: Optional password for alternate credentials (Windows).
