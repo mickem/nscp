@@ -12,8 +12,53 @@ page tracks those in one place. Full per-release detail lives in each
 
 ---
 
-## next
+## 0.17.0
 
+- **Check-specific filter keywords that clashed with the generic summary
+  keywords are renamed.** A handful of checks registered their own keyword
+  named `status`, `count` or `total` — the same names as the built-in summary
+  keywords (`%(status)`, `%(count)`, …). The check-specific value won in
+  `filter`/`warning`/`critical` and `detail-syntax`, while `top-syntax` and
+  the reference documentation showed the generic one, which was confusing.
+  Each such keyword now has a distinct, documented name:
+
+    | Check | Old | New |
+    |-------|-----|-----|
+    | `check_cpu`, `check_cpu_utilization` | `total` | `usage` |
+    | `check_battery` | `status` | `battery_status` |
+    | `check_network` | `status`, `total` | `link_status`, `throughput` |
+    | `check_os_updates` | `count` | `updates` |
+    | `check_patch_age` | `count` | `patches` |
+    | `check_pending_reboot` | `count` | `signals` |
+    | `check_printjobs` | `status` | `job_status` |
+    | `check_printqueue` | `status` | `printer_status` |
+    | `check_installed_software` (Linux) | `status` | `package_status` |
+    | `check_activation` | `status` | `activation_status` |
+    | `check_docker` | `status` | `container_status` |
+    | `check_connections` | `count`, `total` | `connections`, `total_connections` |
+    | `check_dns` | `count` | `records` |
+    | `check_http` | `status` | `status_message` |
+    | `check_shadowcopy` | `count` | `copies` |
+    | `check_disk_health` | `total` | `size` |
+
+  **Existing configurations keep working:** the old names remain as
+  undocumented deprecated aliases with unchanged behaviour, so filters like
+  `check_cpu "warn=total > 80"` still work. Migrate to the new names at your
+  convenience; only they appear in the reference documentation. A few
+  behaviour changes ride along:
+
+    - `check_os_updates`' default output now reports the actual number of
+      updates (rendered from the detail line via `${list}`) instead of the
+      matched-row count the old default showed.
+    - Three default perfdata keys change because the default `perf-config`
+      lists the renamed keyword: `check_cpu_utilization` (Linux)
+      `cpu_total` → `cpu_usage`, `check_patch_age` `patch_count` →
+      `patch_patches`, `check_pending_reboot` `reboot_count` →
+      `reboot_signals`. Pass your own `perf-config=extra(...)` with the old
+      (alias) keyword to keep the old key. All other perfdata keys are
+      unchanged (the renames keep their original perf suffixes, and
+      `check_connections`' default perf-config intentionally still uses the
+      alias for series continuity).
 - 🔒 **`${host}` and friends now resolve in attachment paths and in
   `[/includes]`.** Host name placeholders were only expanded in settings urls
   and in the url an attachment is fetched from, not in the path it is written
@@ -45,8 +90,7 @@ page tracks those in one place. Full per-release detail lives in each
   is capped at 15 (a `double` carries no more than that): the query option and
   the `format_bytes()`/`format_number()` argument reject a larger value, and the
   settings key clamps it, so a typo like `decimals=1000000` can no longer make a
-  check try to render a multi-megabyte number. 🔒 See
-  [security notices](../security/notices.md#a-runaway-decimals-in-a-check-message-can-no-longer-crash-the-check).
+  check try to render a multi-megabyte number.
   Note that setting **any** of the four options also moves plain float keywords
   in the message onto the number format: with `decimals` unset they then render
   with up to three decimals (trailing zeros stripped) instead of the legacy
@@ -151,51 +195,6 @@ page tracks those in one place. Full per-release detail lives in each
 
 ## 0.16.4
 
-- **Check-specific filter keywords that clashed with the generic summary
-  keywords are renamed.** A handful of checks registered their own keyword
-  named `status`, `count` or `total` — the same names as the built-in summary
-  keywords (`%(status)`, `%(count)`, …). The check-specific value won in
-  `filter`/`warning`/`critical` and `detail-syntax`, while `top-syntax` and
-  the reference documentation showed the generic one, which was confusing.
-  Each such keyword now has a distinct, documented name:
-
-    | Check | Old | New |
-    |-------|-----|-----|
-    | `check_cpu`, `check_cpu_utilization` | `total` | `usage` |
-    | `check_battery` | `status` | `battery_status` |
-    | `check_network` | `status`, `total` | `link_status`, `throughput` |
-    | `check_os_updates` | `count` | `updates` |
-    | `check_patch_age` | `count` | `patches` |
-    | `check_pending_reboot` | `count` | `signals` |
-    | `check_printjobs` | `status` | `job_status` |
-    | `check_printqueue` | `status` | `printer_status` |
-    | `check_installed_software` (Linux) | `status` | `package_status` |
-    | `check_activation` | `status` | `activation_status` |
-    | `check_docker` | `status` | `container_status` |
-    | `check_connections` | `count`, `total` | `connections`, `total_connections` |
-    | `check_dns` | `count` | `records` |
-    | `check_http` | `status` | `status_message` |
-    | `check_shadowcopy` | `count` | `copies` |
-    | `check_disk_health` | `total` | `size` |
-
-  **Existing configurations keep working:** the old names remain as
-  undocumented deprecated aliases with unchanged behaviour, so filters like
-  `check_cpu "warn=total > 80"` still work. Migrate to the new names at your
-  convenience; only they appear in the reference documentation. A few
-  behaviour changes ride along:
-
-    - `check_os_updates`' default output now reports the actual number of
-      updates (rendered from the detail line via `${list}`) instead of the
-      matched-row count the old default showed.
-    - Three default perfdata keys change because the default `perf-config`
-      lists the renamed keyword: `check_cpu_utilization` (Linux)
-      `cpu_total` → `cpu_usage`, `check_patch_age` `patch_count` →
-      `patch_patches`, `check_pending_reboot` `reboot_count` →
-      `reboot_signals`. Pass your own `perf-config=extra(...)` with the old
-      (alias) keyword to keep the old key. All other perfdata keys are
-      unchanged (the renames keep their original perf suffixes, and
-      `check_connections`' default perf-config intentionally still uses the
-      alias for series continuity).
 - 🔒 **The bundled Mongoose web server is upgraded to 7.23,** fixing two
   critical (CVSS 9.1) HTTP request-smuggling vulnerabilities in its HTTP
   parser ([CVE-2026-73256](https://nvd.nist.gov/vuln/detail/CVE-2026-73256),

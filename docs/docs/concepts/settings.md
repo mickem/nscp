@@ -240,7 +240,7 @@ url it prints (`nscp settings --show`): both render a settings url as scheme, ho
 Anything else that handles the url - a proxy, the settings server's own access log - is of course
 outside the agent's control.
 
-> **Changed in 0.17:** query parameters used to be silently dropped from the request, so the
+> **Changed in 0.16.1:** query parameters used to be silently dropped from the request, so the
 > server only ever saw the bare path.
 
 #### Using TLS

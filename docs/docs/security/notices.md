@@ -92,31 +92,9 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
-### A runaway `decimals` in a check message can no longer crash the check
-
-**Fixed in:** next · **Severity:** Low
-
-The number-rendering options added for check messages (issue
-[#1428](https://github.com/mickem/nscp/issues/1428)) include a `decimals` count
-that is passed straight to `std::setprecision`. A large value — from a REST
-query argument such as `decimals=1000000000`, from the `format_bytes()` /
-`format_number()` third argument, or from a `decimals` settings key — makes the
-renderer build a fraction with that many digits, allocating a huge string and
-crashing the check (and with it the querying worker). Because a check argument
-can reach this from a remote monitoring request where argument passing is
-enabled, an unbounded value is a denial-of-service foot-gun. `decimals` is now
-bounded to 15 (the most a `double` can represent): the query option and the
-function argument reject anything larger with `Invalid decimals` / `decimals
-must not exceed 15`, the settings key clamps it, and `render_fixed` clamps as a
-last-resort backstop so no internal caller can trigger the allocation either.
-
-**What to do:** nothing required. Defaults are unchanged; only an out-of-range
-`decimals` behaves differently, and only by being rejected or clamped instead of
-crashing.
-
 ### Host name placeholders are sanitized before they land in a local path
 
-**Fixed in:** next · **Severity:** Low
+**Fixed in:** 0.17.0 · **Severity:** Low
 
 With host name placeholders now resolving in attachment target paths and in
 `[/includes]` (issue [#458](https://github.com/mickem/nscp/issues/458)), the

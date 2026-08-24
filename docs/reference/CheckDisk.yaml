@@ -109,9 +109,22 @@ common:
         short_description: ''
       - generic: false
         long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Free disk space in bytes (I/O-only rows have none)
@@ -295,9 +308,22 @@ common:
         short_description: ''
       - generic: false
         long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Total IOPS (reads + writes)
@@ -762,9 +788,22 @@ common:
         short_description: ''
       - generic: false
         long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Shadow storage maximum in bytes (0 if unbounded/unresolved)
@@ -1129,9 +1168,22 @@ common:
         short_description: ''
       - generic: false
         long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Unallocated (free) pool space in bytes
@@ -1227,9 +1279,22 @@ common:
         short_description: ''
       - generic: false
         long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Free space on the share in bytes
@@ -1344,6 +1409,13 @@ unix:
         warning: used > 80%
       fields:
       - generic: false
+        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
+          Useful in thresholds.
+
+          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
+        name: convert_bytes()
+        short_description: ''
+      - generic: false
         long_description: Technical name of drive (mount point)
         name: drive
         short_description: ''
@@ -1366,6 +1438,25 @@ unix:
       - generic: false
         long_description: String representation of flags
         name: flags
+        short_description: ''
+      - generic: false
+        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
+        name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Shorthand for total_free (Number of free bytes)
@@ -1442,6 +1533,13 @@ unix:
       - generic: false
         long_description: 1 (true) if drive is removable
         name: removable
+        short_description: ''
+      - generic: false
+        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
+          Mbps with scale(value, 1000000)).
+
+          Syntax: scale(value, divisor).'
+        name: scale()
         short_description: ''
       - generic: false
         long_description: Total size of drive
@@ -1698,6 +1796,13 @@ windows:
         warning: used > 80%
       fields:
       - generic: false
+        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
+          Useful in thresholds.
+
+          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
+        name: convert_bytes()
+        short_description: ''
+      - generic: false
         long_description: Technical name of drive
         name: drive
         short_description: ''
@@ -1720,6 +1825,25 @@ windows:
       - generic: false
         long_description: String representation of flags
         name: flags
+        short_description: ''
+      - generic: false
+        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
+        name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Shorthand for total_free (Number of free bytes)
@@ -1776,6 +1900,13 @@ windows:
       - generic: false
         long_description: 1 (true) if drive is removable
         name: removable
+        short_description: ''
+      - generic: false
+        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
+          Mbps with scale(value, 1000000)).
+
+          Syntax: scale(value, divisor).'
+        name: scale()
         short_description: ''
       - generic: false
         long_description: Total size of drive

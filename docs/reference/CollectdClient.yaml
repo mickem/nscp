@@ -87,7 +87,7 @@ common:
         subkey: false
         title: VARIABLE DEFINITIONS
 module: CollectdClient
-namespace: misc
+namespace: client
 platforms:
 - unix
 - windows

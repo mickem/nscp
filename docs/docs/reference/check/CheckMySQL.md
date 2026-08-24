@@ -142,26 +142,20 @@ OK: mysql 8.4.11, uptime 1011s, connections 1/151 (0%)
 <a id="check_mysql_options"></a>
 #### Command-line Arguments
 
-<a id="check_mysql_socket"></a>
 <a id="check_mysql_database"></a>
 <a id="check_mysql_user"></a>
 <a id="check_mysql_password"></a>
-<a id="check_mysql_defaults-file"></a>
-<a id="check_mysql_plugin-dir"></a>
 
-| Option                                      | Default Value | Description                                                                                                                                |
-|---------------------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| [host](#check_mysql_host)                   | localhost     | MySQL/MariaDB server to connect to.                                                                                                        |
-| [port](#check_mysql_port)                   | 3306          | TCP port of the server.                                                                                                                    |
-| socket                                      |               | Unix socket path (or Windows named pipe) to connect through instead of TCP.                                                                |
-| database                                    |               | Default database (schema) to connect to.                                                                                                   |
-| user                                        |               | User to authenticate with.                                                                                                                 |
-| password                                    |               | Password to authenticate with.                                                                                                             |
-| defaults-file                               |               | my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.                               |
-| plugin-dir                                  |               | Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong). |
-| [tls](#check_mysql_tls)                     | false         | Require TLS on the connection.                                                                                                             |
-| [timeout](#check_mysql_timeout)             | 10            | Connection timeout in seconds.                                                                                                             |
-| [query-timeout](#check_mysql_query-timeout) | 30            | Query (read/write) timeout in seconds.                                                                                                     |
+| Option                                      | Default Value | Description                              |
+|---------------------------------------------|---------------|------------------------------------------|
+| [host](#check_mysql_host)                   | localhost     | MySQL/MariaDB server to connect to.      |
+| [port](#check_mysql_port)                   | 3306          | TCP port of the server.                  |
+| database                                    |               | Default database (schema) to connect to. |
+| user                                        |               | User to authenticate with.               |
+| password                                    |               | Password to authenticate with.           |
+| [tls](#check_mysql_tls)                     | false         | Require TLS on the connection.           |
+| [timeout](#check_mysql_timeout)             | 10            | Connection timeout in seconds.           |
+| [query-timeout](#check_mysql_query-timeout) | 30            | Query (read/write) timeout in seconds.   |
 
 
 
@@ -324,27 +318,21 @@ No query specified (use query=<SQL>)
 #### Command-line Arguments
 
 <a id="check_mysql_query_query"></a>
-<a id="check_mysql_query_socket"></a>
 <a id="check_mysql_query_database"></a>
 <a id="check_mysql_query_user"></a>
 <a id="check_mysql_query_password"></a>
-<a id="check_mysql_query_defaults-file"></a>
-<a id="check_mysql_query_plugin-dir"></a>
 
-| Option                                            | Default Value | Description                                                                                                                                |
-|---------------------------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| query                                             |               | The SQL query to execute.                                                                                                                  |
-| [host](#check_mysql_query_host)                   | localhost     | MySQL/MariaDB server to connect to.                                                                                                        |
-| [port](#check_mysql_query_port)                   | 3306          | TCP port of the server.                                                                                                                    |
-| socket                                            |               | Unix socket path (or Windows named pipe) to connect through instead of TCP.                                                                |
-| database                                          |               | Default database (schema) to connect to.                                                                                                   |
-| user                                              |               | User to authenticate with.                                                                                                                 |
-| password                                          |               | Password to authenticate with.                                                                                                             |
-| defaults-file                                     |               | my.cnf-style file whose [client] section supplies credentials, so passwords can be kept out of nsclient.ini.                               |
-| plugin-dir                                        |               | Directory the connector loads client auth plugins from (needed for MySQL 8's caching_sha2_password when the connector's default is wrong). |
-| [tls](#check_mysql_query_tls)                     | false         | Require TLS on the connection.                                                                                                             |
-| [timeout](#check_mysql_query_timeout)             | 10            | Connection timeout in seconds.                                                                                                             |
-| [query-timeout](#check_mysql_query_query-timeout) | 30            | Query (read/write) timeout in seconds.                                                                                                     |
+| Option                                            | Default Value | Description                              |
+|---------------------------------------------------|---------------|------------------------------------------|
+| query                                             |               | The SQL query to execute.                |
+| [host](#check_mysql_query_host)                   | localhost     | MySQL/MariaDB server to connect to.      |
+| [port](#check_mysql_query_port)                   | 3306          | TCP port of the server.                  |
+| database                                          |               | Default database (schema) to connect to. |
+| user                                              |               | User to authenticate with.               |
+| password                                          |               | Password to authenticate with.           |
+| [tls](#check_mysql_query_tls)                     | false         | Require TLS on the connection.           |
+| [timeout](#check_mysql_query_timeout)             | 10            | Connection timeout in seconds.           |
+| [query-timeout](#check_mysql_query_query-timeout) | 30            | Query (read/write) timeout in seconds.   |
 
 
 

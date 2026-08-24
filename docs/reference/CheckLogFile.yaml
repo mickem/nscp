@@ -27,6 +27,13 @@ common:
         title: Real-time filters
       sample:
         keys:
+          byte unit:
+            advanced: true
+            default_value: ''
+            description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or
+              EB. Empty (the default) scales each value on its own. Performance data is unaffected.'
+            sample: true
+            title: BYTE UNIT
           column split:
             advanced: false
             default_value: ''
@@ -58,6 +65,22 @@ common:
             description: Enable this to display debug information for this match filter
             sample: true
             title: DEBUG
+          decimal separator:
+            advanced: true
+            default_value: ''
+            description: 'Character to use as the decimal separator of the message, for instance '',''
+              for the European rendering. Only the message is affected: performance data and the numbers
+              written in a filter always use ''.''.'
+            sample: true
+            title: DECIMAL SEPARATOR
+          decimals:
+            advanced: true
+            default_value: '-1'
+            description: Number of decimals to render the numbers of the message with (-1 keeps the historical
+              rendering of up to three decimals with the trailing zeros stripped). Performance data is
+              unaffected.
+            sample: true
+            title: DECIMALS
           destination:
             advanced: true
             default_value: ''
@@ -182,6 +205,13 @@ common:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET ID
+          thousands separator:
+            advanced: true
+            default_value: ''
+            description: Character to group the thousands of the message with. Empty (the default) means
+              no grouping. Only the message is affected.
+            sample: true
+            title: THOUSANDS SEPARATOR
           top syntax:
             advanced: true
             default_value: ''

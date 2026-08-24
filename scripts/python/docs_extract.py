@@ -32,12 +32,13 @@ helper = None
 # their historical windows/ home; CheckSystemUnix is the only unix-only one.)
 WINDOWS_MODULES = ['NSClientServer', 'DotnetPlugins', 'CheckEventLog', 'CheckMSSQL', 'CheckTaskSched', 'CheckWMI', 'CheckWindowsApps']
 UNIX_MODULES = []
-CHECK_MODULES = ['CheckSystem', 'CheckExternalScripts', 'CheckDisk', 'CheckHelpers', 'CheckLogFile', 'CheckMKClient',
-                 'CheckMKServer', 'CheckNSCP', 'CheckNet', 'CheckSecurity']
+CHECK_MODULES = ['CheckSystem', 'CheckExternalScripts', 'CheckDisk', 'CheckHelpers', 'CheckLogFile', 'CheckNSCP', 'CheckNet',
+                 'CheckSecurity', 'CheckMySQL', 'CheckDocker', 'CheckWindowsApps']
 CLIENT_MODULES = ['GraphiteClient', 'IcingaClient', 'NRDPClient', 'NRPEClient', 'NRPEServer',
                   'NSCAClient', 'NSCANgClient', 'NSCAServer', 'NSClientServer', 'SMTPClient',
-                  'SyslogClient']
-GENERIC_MODULES = ['CommandClient', 'DotnetPlugins', 'LUAScript', 'PythonScript', 'Scheduler',
+                  'SyslogClient', 'CollectdClient', 'Op5Client', 'CheckNSCP', 'ElasticClient', 'NSCPClient',
+                  'CheckMKClient', 'CheckMKServer']
+GENERIC_MODULES = ['CommandClient', 'LUAScript', 'PythonScript', 'Scheduler',
                    'SimpleCache', 'SimpleFileWriter', 'WEBServer']
 IGNORED_MODULES = ['CauseCrashes', 'SamplePluginSimple']
 
@@ -490,6 +491,13 @@ def write_module_yaml(yaml_dir, module, platform, fresh_tree):
             data = yaml.safe_load(f) or {}
     trees = expand(data)          # reconstruct whatever platforms are on disk
     trees[platform] = fresh_tree  # replace this platform with freshly extracted data
+    # module/namespace are platform-invariant and statically classified, so the
+    # fresh values always win: trees rebuilt from disk may carry a stale
+    # namespace (factor takes them from the alphabetically first platform,
+    # which need not be the one just extracted).
+    for tree in trees.values():
+        tree['module'] = fresh_tree['module']
+        tree['namespace'] = fresh_tree['namespace']
     data = factor(trees)          # re-dedup into common + per-platform overrides
     text = yaml.safe_dump(data, sort_keys=True, default_flow_style=False,
                           allow_unicode=True, width=100)

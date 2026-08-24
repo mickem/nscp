@@ -105,7 +105,7 @@ common:
         subkey: true
         title: Op5 passive Commands
 module: Op5Client
-namespace: misc
+namespace: client
 platforms:
 - unix
 - windows

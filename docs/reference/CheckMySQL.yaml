@@ -174,14 +174,6 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Unix socket path (or Windows named pipe) to connect through instead of TCP.
-        name: socket
-        repeatable: false
-        required: false
-        short_description: Unix socket path (or Windows named pipe) to connect through instead of TCP.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
         long_description: Default database (schema) to connect to.
         name: database
         repeatable: false
@@ -203,26 +195,6 @@ common:
         repeatable: false
         required: false
         short_description: Password to authenticate with.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: my.cnf-style file whose [client] section supplies credentials, so passwords
-          can be kept out of nsclient.ini.
-        name: defaults-file
-        repeatable: false
-        required: false
-        short_description: my.cnf-style file whose [client] section supplies credentials, so passwords
-          can be kept out of nsclient.ini.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Directory the connector loads client auth plugins from (needed for MySQL 8's
-          caching_sha2_password when the connector's default is wrong).
-        name: plugin-dir
-        repeatable: false
-        required: false
-        short_description: Directory the connector loads client auth plugins from (needed for MySQL 8's
-          caching_sha2_password when the connector's default is wrong).
       - content_type: 2
         default_value: 'false'
         is_simple: false
@@ -319,14 +291,6 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Unix socket path (or Windows named pipe) to connect through instead of TCP.
-        name: socket
-        repeatable: false
-        required: false
-        short_description: Unix socket path (or Windows named pipe) to connect through instead of TCP.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
         long_description: Default database (schema) to connect to.
         name: database
         repeatable: false
@@ -348,26 +312,6 @@ common:
         repeatable: false
         required: false
         short_description: Password to authenticate with.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: my.cnf-style file whose [client] section supplies credentials, so passwords
-          can be kept out of nsclient.ini.
-        name: defaults-file
-        repeatable: false
-        required: false
-        short_description: my.cnf-style file whose [client] section supplies credentials, so passwords
-          can be kept out of nsclient.ini.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Directory the connector loads client auth plugins from (needed for MySQL 8's
-          caching_sha2_password when the connector's default is wrong).
-        name: plugin-dir
-        repeatable: false
-        required: false
-        short_description: Directory the connector loads client auth plugins from (needed for MySQL 8's
-          caching_sha2_password when the connector's default is wrong).
       - content_type: 2
         default_value: 'false'
         is_simple: false
@@ -393,7 +337,7 @@ common:
         required: false
         short_description: Query (read/write) timeout in seconds.
 module: CheckMySQL
-namespace: misc
+namespace: check
 platforms:
 - unix
 - windows

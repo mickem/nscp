@@ -68,7 +68,7 @@ common:
           sample: false
           title: Elastic type used for metrics
 module: ElasticClient
-namespace: misc
+namespace: client
 platforms:
 - unix
 - windows

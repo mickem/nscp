@@ -573,31 +573,35 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key            | Default Value             | Description     |
-|----------------|---------------------------|-----------------|
-| command        |                           | COMMAND NAME    |
-| critical       |                           | CRITICAL FILTER |
-| debug          |                           | DEBUG           |
-| destination    |                           | DESTINATION     |
-| detail syntax  |                           | SYNTAX          |
-| empty message  | eventlog found no records | EMPTY MESSAGE   |
-| escape html    |                           | ESCAPE HTML     |
-| filter         |                           | FILTER          |
-| list separator |                           | LIST SEPARATOR  |
-| log            |                           | FILE            |
-| logs           |                           | FILES           |
-| maximum age    | 5m                        | MAXIMUM AGE     |
-| ok             |                           | OK FILTER       |
-| ok syntax      |                           | SYNTAX          |
-| perf config    |                           | PERF CONFIG     |
-| severity       |                           | SEVERITY        |
-| silent period  | false                     | Silent period   |
-| source id      |                           | SOURCE ID       |
-| target         |                           | DESTINATION     |
-| target id      |                           | TARGET ID       |
-| top syntax     |                           | SYNTAX          |
-| truncate       |                           | Truncate        |
-| warning        |                           | WARNING FILTER  |
+| Key                 | Default Value             | Description         |
+|---------------------|---------------------------|---------------------|
+| byte unit           |                           | BYTE UNIT           |
+| command             |                           | COMMAND NAME        |
+| critical            |                           | CRITICAL FILTER     |
+| debug               |                           | DEBUG               |
+| decimal separator   |                           | DECIMAL SEPARATOR   |
+| decimals            | -1                        | DECIMALS            |
+| destination         |                           | DESTINATION         |
+| detail syntax       |                           | SYNTAX              |
+| empty message       | eventlog found no records | EMPTY MESSAGE       |
+| escape html         |                           | ESCAPE HTML         |
+| filter              |                           | FILTER              |
+| list separator      |                           | LIST SEPARATOR      |
+| log                 |                           | FILE                |
+| logs                |                           | FILES               |
+| maximum age         | 5m                        | MAXIMUM AGE         |
+| ok                  |                           | OK FILTER           |
+| ok syntax           |                           | SYNTAX              |
+| perf config         |                           | PERF CONFIG         |
+| severity            |                           | SEVERITY            |
+| silent period       | false                     | Silent period       |
+| source id           |                           | SOURCE ID           |
+| target              |                           | DESTINATION         |
+| target id           |                           | TARGET ID           |
+| thousands separator |                           | THOUSANDS SEPARATOR |
+| top syntax          |                           | SYNTAX              |
+| truncate            |                           | Truncate            |
+| warning             |                           | WARNING FILTER      |
 
 
 **Sample:**
@@ -605,9 +609,12 @@ This is a section of objects. This means that you will create objects below this
 ```ini
 # An example of a Real-time eventlog filters section
 [/settings/eventlog/real-time/filters/sample]
+#byte unit=...
 #command=...
 #critical=...
 #debug=...
+#decimal separator=...
+decimals=-1
 #destination=...
 #detail syntax=...
 empty message=eventlog found no records
@@ -625,6 +632,7 @@ silent period=false
 #source id=...
 #target=...
 #target id=...
+#thousands separator=...
 #top syntax=...
 #truncate=...
 #warning=...

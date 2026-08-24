@@ -36,197 +36,99 @@ Submit information to the remote NSCA server.
 <a id="submit_nsca_options"></a>
 #### Command-line Arguments
 
-=== "Windows"
+<a id="submit_nsca_host"></a>
+<a id="submit_nsca_port"></a>
+<a id="submit_nsca_address"></a>
+<a id="submit_nsca_timeout"></a>
+<a id="submit_nsca_target"></a>
+<a id="submit_nsca_retry"></a>
+<a id="submit_nsca_retries"></a>
+<a id="submit_nsca_source-host"></a>
+<a id="submit_nsca_sender-host"></a>
+<a id="submit_nsca_command"></a>
+<a id="submit_nsca_alias"></a>
+<a id="submit_nsca_message"></a>
+<a id="submit_nsca_result"></a>
+<a id="submit_nsca_separator"></a>
+<a id="submit_nsca_batch"></a>
+<a id="submit_nsca_certificate"></a>
+<a id="submit_nsca_dh"></a>
+<a id="submit_nsca_certificate-key"></a>
+<a id="submit_nsca_certificate-format"></a>
+<a id="submit_nsca_ca"></a>
+<a id="submit_nsca_verify"></a>
+<a id="submit_nsca_allowed-ciphers"></a>
+<a id="submit_nsca_payload-length"></a>
+<a id="submit_nsca_buffer-length"></a>
+<a id="submit_nsca_password"></a>
+<a id="submit_nsca_hostname"></a>
+<a id="submit_nsca_time-offset"></a>
+<a id="submit_nsca_timezone"></a>
 
-    <a id="submit_nsca_host"></a>
-    <a id="submit_nsca_port"></a>
-    <a id="submit_nsca_address"></a>
-    <a id="submit_nsca_timeout"></a>
-    <a id="submit_nsca_target"></a>
-    <a id="submit_nsca_retry"></a>
-    <a id="submit_nsca_retries"></a>
-    <a id="submit_nsca_source-host"></a>
-    <a id="submit_nsca_sender-host"></a>
-    <a id="submit_nsca_command"></a>
-    <a id="submit_nsca_alias"></a>
-    <a id="submit_nsca_message"></a>
-    <a id="submit_nsca_result"></a>
-    <a id="submit_nsca_separator"></a>
-    <a id="submit_nsca_batch"></a>
-    <a id="submit_nsca_certificate"></a>
-    <a id="submit_nsca_dh"></a>
-    <a id="submit_nsca_certificate-key"></a>
-    <a id="submit_nsca_certificate-format"></a>
-    <a id="submit_nsca_ca"></a>
-    <a id="submit_nsca_verify"></a>
-    <a id="submit_nsca_allowed-ciphers"></a>
-    <a id="submit_nsca_payload-length"></a>
-    <a id="submit_nsca_buffer-length"></a>
-    <a id="submit_nsca_password"></a>
-    <a id="submit_nsca_hostname"></a>
-    <a id="submit_nsca_time-offset"></a>
-    <a id="submit_nsca_timezone"></a>
-
-    | Option                                | Default Value | Description                                                                                                                                                               |
-    |---------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | host                                  |               | The host of the host running the server                                                                                                                                   |
-    | port                                  |               | The port of the host running the server                                                                                                                                   |
-    | address                               |               | The address (host:port) of the host running the server                                                                                                                    |
-    | timeout                               |               | Number of seconds before connection times out (default=10)                                                                                                                |
-    | target                                |               | Target to use (lookup connection info from config)                                                                                                                        |
-    | retry                                 |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
-    | retries                               |               | legacy version of retry                                                                                                                                                   |
-    | source-host                           |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-    | sender-host                           |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-    | command                               |               | The name of the command that the remote daemon should run                                                                                                                 |
-    | alias                                 |               | Same as command                                                                                                                                                           |
-    | message                               |               | Message                                                                                                                                                                   |
-    | result                                |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                    |
-    | separator                             |               | Separator to use for the batch command (default is |)                                                                                                                     |
-    | batch                                 |               | Add multiple records using the separator format is: command|result|message                                                                                                |
-    | certificate                           |               | The client certificate to use                                                                                                                                             |
-    | dh                                    |               | The DH key to use                                                                                                                                                         |
-    | certificate-key                       |               | Client certificate to use                                                                                                                                                 |
-    | certificate-format                    |               | Client certificate format                                                                                                                                                 |
-    | ca                                    |               | Certificate authority                                                                                                                                                     |
-    | verify                                |               | Client certificate format                                                                                                                                                 |
-    | allowed-ciphers                       |               | Client certificate format                                                                                                                                                 |
-    | [ssl](#submit_nsca_ssl)               | true          | Initial an ssl handshake with the server.                                                                                                                                 |
-    | [encryption](#submit_nsca_encryption) |               | Name of encryption algorithm to use.                                                                                                                                      |
-    | payload-length                        |               | Length of payload (has to be same as on the server)                                                                                                                       |
-    | buffer-length                         |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
-    | password                              |               | Password                                                                                                                                                                  |
-    | hostname                              |               | Host name to report                                                                                                                                                       |
-    | time-offset                           |               |                                                                                                                                                                           |
-    | timezone                              |               | Reference timezone for wire timestamps (default 'utc'; use 'local' only for legacy peers that emit local-clock-as-Unix-time)                                              |
+| Option                                | Default Value | Description                                                                                                                                                               |
+|---------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| host                                  |               | The host of the host running the server                                                                                                                                   |
+| port                                  |               | The port of the host running the server                                                                                                                                   |
+| address                               |               | The address (host:port) of the host running the server                                                                                                                    |
+| timeout                               |               | Number of seconds before connection times out (default=10)                                                                                                                |
+| target                                |               | Target to use (lookup connection info from config)                                                                                                                        |
+| retry                                 |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
+| retries                               |               | legacy version of retry                                                                                                                                                   |
+| source-host                           |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| sender-host                           |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
+| command                               |               | The name of the command that the remote daemon should run                                                                                                                 |
+| alias                                 |               | Same as command                                                                                                                                                           |
+| message                               |               | Message                                                                                                                                                                   |
+| result                                |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                    |
+| separator                             |               | Separator to use for the batch command (default is |)                                                                                                                     |
+| batch                                 |               | Add multiple records using the separator format is: command|result|message                                                                                                |
+| certificate                           |               | The client certificate to use                                                                                                                                             |
+| dh                                    |               | The DH key to use                                                                                                                                                         |
+| certificate-key                       |               | Client certificate to use                                                                                                                                                 |
+| certificate-format                    |               | Client certificate format                                                                                                                                                 |
+| ca                                    |               | Certificate authority                                                                                                                                                     |
+| verify                                |               | Client certificate format                                                                                                                                                 |
+| allowed-ciphers                       |               | Client certificate format                                                                                                                                                 |
+| [ssl](#submit_nsca_ssl)               | true          | Initial an ssl handshake with the server.                                                                                                                                 |
+| [encryption](#submit_nsca_encryption) |               | Name of encryption algorithm to use.                                                                                                                                      |
+| payload-length                        |               | Length of payload (has to be same as on the server)                                                                                                                       |
+| buffer-length                         |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
+| password                              |               | Password                                                                                                                                                                  |
+| hostname                              |               | Host name to report                                                                                                                                                       |
+| time-offset                           |               |                                                                                                                                                                           |
+| timezone                              |               | Reference timezone for wire timestamps (default 'utc'; use 'local' only for legacy peers that emit local-clock-as-Unix-time)                                              |
 
 
 
-    <h5 id="submit_nsca_ssl">ssl:</h5>
+<h5 id="submit_nsca_ssl">ssl:</h5>
 
-    Initial an ssl handshake with the server.
+Initial an ssl handshake with the server.
 
-    *Default Value:* `true`
+*Default Value:* `true`
 
-    <h5 id="submit_nsca_encryption">encryption:</h5>
+<h5 id="submit_nsca_encryption">encryption:</h5>
 
-    Name of encryption algorithm to use.
-    Has to be the same as your server i using or it wont work at all.This is also independent of SSL and generally used instead of SSL.
-    Available encryption algorithms are:
-    none = No Encryption (not safe)
-    xor = XOR
-    des = DES
-    3des = DES-EDE3
-    cast128 = CAST-128
-    xtea = XTEA
-    blowfish = Blowfish
-    twofish = Twofish
-    rc2 = RC2
-    aes128 = AES
-    aes192 = AES
-    aes = AES
-    serpent = Serpent
-    gost = GOST
-
-
-
-    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
-
-=== "Linux"
-
-    <a id="submit_nsca_host"></a>
-    <a id="submit_nsca_port"></a>
-    <a id="submit_nsca_address"></a>
-    <a id="submit_nsca_timeout"></a>
-    <a id="submit_nsca_target"></a>
-    <a id="submit_nsca_retry"></a>
-    <a id="submit_nsca_retries"></a>
-    <a id="submit_nsca_source-host"></a>
-    <a id="submit_nsca_sender-host"></a>
-    <a id="submit_nsca_command"></a>
-    <a id="submit_nsca_alias"></a>
-    <a id="submit_nsca_message"></a>
-    <a id="submit_nsca_result"></a>
-    <a id="submit_nsca_separator"></a>
-    <a id="submit_nsca_batch"></a>
-    <a id="submit_nsca_certificate"></a>
-    <a id="submit_nsca_dh"></a>
-    <a id="submit_nsca_certificate-key"></a>
-    <a id="submit_nsca_certificate-format"></a>
-    <a id="submit_nsca_ca"></a>
-    <a id="submit_nsca_verify"></a>
-    <a id="submit_nsca_allowed-ciphers"></a>
-    <a id="submit_nsca_payload-length"></a>
-    <a id="submit_nsca_buffer-length"></a>
-    <a id="submit_nsca_password"></a>
-    <a id="submit_nsca_hostname"></a>
-    <a id="submit_nsca_time-offset"></a>
-    <a id="submit_nsca_timezone"></a>
-
-    | Option                                | Default Value | Description                                                                                                                                                               |
-    |---------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | host                                  |               | The host of the host running the server                                                                                                                                   |
-    | port                                  |               | The port of the host running the server                                                                                                                                   |
-    | address                               |               | The address (host:port) of the host running the server                                                                                                                    |
-    | timeout                               |               | Number of seconds before connection times out (default=10)                                                                                                                |
-    | target                                |               | Target to use (lookup connection info from config)                                                                                                                        |
-    | retry                                 |               | Number of times ti retry a failed connection attempt (default=2)                                                                                                          |
-    | retries                               |               | legacy version of retry                                                                                                                                                   |
-    | source-host                           |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-    | sender-host                           |               | Source/sender host name (default is auto which means use the name of the actual host)                                                                                     |
-    | command                               |               | The name of the command that the remote daemon should run                                                                                                                 |
-    | alias                                 |               | Same as command                                                                                                                                                           |
-    | message                               |               | Message                                                                                                                                                                   |
-    | result                                |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                                                                                                    |
-    | separator                             |               | Separator to use for the batch command (default is |)                                                                                                                     |
-    | batch                                 |               | Add multiple records using the separator format is: command|result|message                                                                                                |
-    | certificate                           |               | The client certificate to use                                                                                                                                             |
-    | dh                                    |               | The DH key to use                                                                                                                                                         |
-    | certificate-key                       |               | Client certificate to use                                                                                                                                                 |
-    | certificate-format                    |               | Client certificate format                                                                                                                                                 |
-    | ca                                    |               | Certificate authority                                                                                                                                                     |
-    | verify                                |               | Client certificate format                                                                                                                                                 |
-    | allowed-ciphers                       |               | Client certificate format                                                                                                                                                 |
-    | [ssl](#submit_nsca_ssl)               | 1             | Initial an ssl handshake with the server.                                                                                                                                 |
-    | [encryption](#submit_nsca_encryption) |               | Name of encryption algorithm to use.                                                                                                                                      |
-    | payload-length                        |               | Length of payload (has to be same as on the server)                                                                                                                       |
-    | buffer-length                         |               | Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work. |
-    | password                              |               | Password                                                                                                                                                                  |
-    | hostname                              |               | Host name to report                                                                                                                                                       |
-    | time-offset                           |               |                                                                                                                                                                           |
-    | timezone                              |               | Reference timezone for wire timestamps (default 'utc'; use 'local' only for legacy peers that emit local-clock-as-Unix-time)                                              |
+Name of encryption algorithm to use.
+Has to be the same as your server i using or it wont work at all.This is also independent of SSL and generally used instead of SSL.
+Available encryption algorithms are:
+none = No Encryption (not safe)
+xor = XOR
+des = DES
+3des = DES-EDE3
+cast128 = CAST-128
+xtea = XTEA
+blowfish = Blowfish
+twofish = Twofish
+rc2 = RC2
+aes128 = AES
+aes192 = AES
+aes = AES
+serpent = Serpent
+gost = GOST
 
 
 
-    <h5 id="submit_nsca_ssl">ssl:</h5>
-
-    Initial an ssl handshake with the server.
-
-    *Default Value:* `1`
-
-    <h5 id="submit_nsca_encryption">encryption:</h5>
-
-    Name of encryption algorithm to use.
-    Has to be the same as your server i using or it wont work at all.This is also independent of SSL and generally used instead of SSL.
-    Available encryption algorithms are:
-    none = No Encryption (not safe)
-    xor = XOR
-    des = DES
-    3des = DES-EDE3
-    cast128 = CAST-128
-    xtea = XTEA
-    blowfish = Blowfish
-    twofish = Twofish
-    rc2 = RC2
-    aes128 = AES
-    aes192 = AES
-    aes = AES
-    serpent = Serpent
-    gost = GOST
-
-
-
-    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ## Configuration

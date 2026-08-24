@@ -494,33 +494,37 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key              | Default Value             | Description      |
-|------------------|---------------------------|------------------|
-| column split     |                           | COLUMN SPLIT     |
-| column-split     |                           | COLUMN SPLIT     |
-| command          |                           | COMMAND NAME     |
-| critical         |                           | CRITICAL FILTER  |
-| debug            |                           | DEBUG            |
-| destination      |                           | DESTINATION      |
-| detail syntax    |                           | SYNTAX           |
-| empty message    | eventlog found no records | EMPTY MESSAGE    |
-| escape html      |                           | ESCAPE HTML      |
-| file             |                           | FILE             |
-| files            |                           | FILES            |
-| filter           |                           | FILTER           |
-| list separator   |                           | LIST SEPARATOR   |
-| maximum age      | 5m                        | MAXIMUM AGE      |
-| ok               |                           | OK FILTER        |
-| ok syntax        |                           | SYNTAX           |
-| perf config      |                           | PERF CONFIG      |
-| read entire file |                           | read entire file |
-| severity         |                           | SEVERITY         |
-| silent period    | false                     | Silent period    |
-| source id        |                           | SOURCE ID        |
-| target           |                           | DESTINATION      |
-| target id        |                           | TARGET ID        |
-| top syntax       |                           | SYNTAX           |
-| warning          |                           | WARNING FILTER   |
+| Key                 | Default Value             | Description         |
+|---------------------|---------------------------|---------------------|
+| byte unit           |                           | BYTE UNIT           |
+| column split        |                           | COLUMN SPLIT        |
+| column-split        |                           | COLUMN SPLIT        |
+| command             |                           | COMMAND NAME        |
+| critical            |                           | CRITICAL FILTER     |
+| debug               |                           | DEBUG               |
+| decimal separator   |                           | DECIMAL SEPARATOR   |
+| decimals            | -1                        | DECIMALS            |
+| destination         |                           | DESTINATION         |
+| detail syntax       |                           | SYNTAX              |
+| empty message       | eventlog found no records | EMPTY MESSAGE       |
+| escape html         |                           | ESCAPE HTML         |
+| file                |                           | FILE                |
+| files               |                           | FILES               |
+| filter              |                           | FILTER              |
+| list separator      |                           | LIST SEPARATOR      |
+| maximum age         | 5m                        | MAXIMUM AGE         |
+| ok                  |                           | OK FILTER           |
+| ok syntax           |                           | SYNTAX              |
+| perf config         |                           | PERF CONFIG         |
+| read entire file    |                           | read entire file    |
+| severity            |                           | SEVERITY            |
+| silent period       | false                     | Silent period       |
+| source id           |                           | SOURCE ID           |
+| target              |                           | DESTINATION         |
+| target id           |                           | TARGET ID           |
+| thousands separator |                           | THOUSANDS SEPARATOR |
+| top syntax          |                           | SYNTAX              |
+| warning             |                           | WARNING FILTER      |
 
 
 **Sample:**
@@ -528,11 +532,14 @@ This is a section of objects. This means that you will create objects below this
 ```ini
 # An example of a Real-time filters section
 [/settings/logfile/real-time/checks/sample]
+#byte unit=...
 #column split=...
 #column-split=...
 #command=...
 #critical=...
 #debug=...
+#decimal separator=...
+decimals=-1
 #destination=...
 #detail syntax=...
 empty message=eventlog found no records
@@ -551,6 +558,7 @@ silent period=false
 #source id=...
 #target=...
 #target id=...
+#thousands separator=...
 #top syntax=...
 #warning=...
 

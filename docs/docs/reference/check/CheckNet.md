@@ -109,14 +109,187 @@ A list of all available queries (check commands)
 
 | Command                                                 | Description                                                                                 |
 |---------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| [check_apache_status](#check_apache_status)             | Check an Apache httpd server via its mod_status page (server-status?auto).                  |
 | [check_connections](#check_connections)                 | Count active TCP/UDP connections and report counts per protocol and TCP state.              |
 | [check_dns](#check_dns)                                 | Resolve a host name and check the response time and resulting addresses.                    |
 | [check_http](#check_http)                               | Send an HTTP/HTTPS request and check the response status, time, size and body.              |
+| [check_nginx_status](#check_nginx_status)               | Check an NGINX server via its stub_status page.                                             |
 | [check_nsclient_web_online](#check_nsclient_web_online) | Query the REST API of a remote NSClient++ agent (reachability or a remote check).           |
 | [check_ntp_offset](#check_ntp_offset)                   | Query an NTP server and check the offset between the local clock and the server.            |
+| [check_phpfpm_status](#check_phpfpm_status)             | Check a PHP-FPM pool via its status page.                                                   |
 | [check_ping](#check_ping)                               | Ping another host and check the result.                                                     |
 | [check_ssh](#check_ssh)                                 | Connect to an SSH port and verify the server presents a valid SSH banner.                   |
 | [check_tcp](#check_tcp)                                 | Connect to a TCP port and optionally send/expect data to check that a service is reachable. |
+| [check_tomcat_status](#check_tomcat_status)             | Check an Apache Tomcat server via the manager status page (XML).                            |
+
+### check_apache_status
+
+Check an Apache httpd server via its mod_status page (server-status?auto).
+
+#### About `check_apache_status`
+
+`check_apache_status` fetches Apache httpd's
+[mod_status](https://httpd.apache.org/docs/current/mod/mod_status.html) page in
+its machine-readable form (`/server-status?auto`) and exposes the reported
+values as filter keywords. The `?auto` parameter is appended automatically when
+the URL does not already carry it, so `url=http://host/server-status` is
+enough. `ExtendedStatus On` (the default since Apache 2.3.6) is required for
+the request/byte counters; `BusyWorkers`/`IdleWorkers` are always present.
+
+The check emits a single record. By default it goes **critical** when the
+endpoint cannot be fetched or does not look like a mod_status page
+(`result != 'ok'`); worker/traffic thresholds are opt-in.
+
+Connection options match `check_http` where applicable: `timeout`, `username`
+/ `password` (Basic auth), and for https `tls-version`, `verify` and `ca`.
+
+Note that `requests_per_sec`/`bytes_per_sec` are lifetime averages computed by
+Apache itself, not a current rate; for spiky load, alert on `busy_workers`
+instead.
+
+**Jump to section:**
+
+* [Sample Commands](#check_apache_status_samples)
+* [Command-line Arguments](#check_apache_status_options)
+* [Filter keywords](#check_apache_status_filter_keys)
+
+
+<a id="check_apache_status_samples"></a>
+#### Sample Commands
+
+**Check a local Apache via mod_status (the `?auto` parameter is appended automatically):**
+
+```
+check_apache_status url=http://127.0.0.1/server-status
+OK: ok: 3 busy and 47 idle workers, 1.14985 req/s, uptime 7254s|'127.0.0.1_busy_workers'=3;0;0 '127.0.0.1_idle_workers'=47;0;0 '127.0.0.1_requests_per_sec'=1.14985;0;0
+```
+
+**Alert when the worker pool is running out of spare workers:**
+
+```
+check_apache_status url=http://127.0.0.1/server-status "warning=idle_workers < 10" "critical=idle_workers < 3"
+OK: ok: 3 busy and 47 idle workers, 1.14985 req/s, uptime 7254s|'127.0.0.1_idle_workers'=47;10;3 '127.0.0.1_busy_workers'=3;0;0 '127.0.0.1_requests_per_sec'=1.14985;0;0
+```
+
+**Alert on load (busy workers) instead:**
+
+```
+check_apache_status url=http://127.0.0.1/server-status "warning=busy_workers > 2"
+WARNING: ok: 3 busy and 47 idle workers, 1.14985 req/s, uptime 7254s|'127.0.0.1_busy_workers'=3;2;0 '127.0.0.1_idle_workers'=47;0;0 '127.0.0.1_requests_per_sec'=1.14985;0;0
+```
+
+**A server that is down (or serving the wrong page) is CRITICAL by default:**
+
+```
+check_apache_status url=http://127.0.0.1/nope
+CRITICAL: http_404: 0 busy and 0 idle workers, 0 req/s, uptime 0s|'127.0.0.1_busy_workers'=0;0;0 '127.0.0.1_idle_workers'=0;0;0 '127.0.0.1_requests_per_sec'=0;0;0
+```
+
+
+
+<a id="check_apache_status_options"></a>
+#### Command-line Arguments
+
+<a id="check_apache_status_username"></a>
+<a id="check_apache_status_password"></a>
+
+| Option                                          | Default Value                  | Description                                                                                                          |
+|-------------------------------------------------|--------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| [url](#check_apache_status_url)                 | http://127.0.0.1/server-status | URL of the status endpoint (http://host[:port]/path or https://...).                                                 |
+| [timeout](#check_apache_status_timeout)         | 30                             | Connection/read timeout in seconds.                                                                                  |
+| username                                        |                                | Username for HTTP Basic authentication.                                                                              |
+| password                                        |                                | Password for HTTP Basic authentication.                                                                              |
+| [tls-version](#check_apache_status_tls-version) | tlsv1.2+                       | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                         |
+| [verify](#check_apache_status_verify)           | peer                           | Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate. |
+| [ca](#check_apache_status_ca)                   | ${ca-path}                     | Path to a CA bundle used to verify the server certificate.                                                           |
+
+
+
+<h5 id="check_apache_status_url">url:</h5>
+
+URL of the status endpoint (http://host[:port]/path or https://...).
+
+*Default Value:* `http://127.0.0.1/server-status`
+
+<h5 id="check_apache_status_timeout">timeout:</h5>
+
+Connection/read timeout in seconds.
+
+*Default Value:* `30`
+
+<h5 id="check_apache_status_tls-version">tls-version:</h5>
+
+TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+
+*Default Value:* `tlsv1.2+`
+
+<h5 id="check_apache_status_verify">verify:</h5>
+
+Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.
+
+*Default Value:* `peer`
+
+<h5 id="check_apache_status_ca">ca:</h5>
+
+Path to a CA bundle used to verify the server certificate.
+
+*Default Value:* `${ca-path}`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                              | Default Value                                                                                                  |
+|---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| <a id="check_apache_status_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                                |
+| <a id="check_apache_status_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                                                |
+| <a id="check_apache_status_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                                |
+| <a id="check_apache_status_critical"></a>[critical](../common-options.md#critical)                                  | result != 'ok'                                                                                                 |
+| <a id="check_apache_status_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                                |
+| <a id="check_apache_status_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                                |
+| <a id="check_apache_status_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                                          |
+| <a id="check_apache_status_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                                          |
+| <a id="check_apache_status_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                                        |
+| <a id="check_apache_status_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                                |
+| <a id="check_apache_status_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                                          |
+| <a id="check_apache_status_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                              |
+| <a id="check_apache_status_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                             |
+| <a id="check_apache_status_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                                |
+| <a id="check_apache_status_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No status page fetched                                                                                         |
+| <a id="check_apache_status_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${result}: ${busy_workers} busy and ${idle_workers} idle workers, ${requests_per_sec} req/s, uptime ${uptime}s |
+| <a id="check_apache_status_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${host}                                                                                                        |
+| <a id="check_apache_status_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                                |
+| <a id="check_apache_status_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                                |
+| <a id="check_apache_status_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                             |
+| <a id="check_apache_status_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                                |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_apache_status_filter_keys"></a>
+#### Filter keywords
+
+| Option           | Description                                                           |
+|------------------|-----------------------------------------------------------------------|
+| busy_workers     | Workers currently serving requests                                    |
+| bytes_per_sec    | Average bytes per second since start                                  |
+| code             | HTTP status code of the response                                      |
+| host             | Host part of the URL                                                  |
+| idle_workers     | Idle (spare) workers                                                  |
+| port             | TCP port that was used                                                |
+| requests_per_sec | Average requests per second since start                               |
+| result           | Result of the check: ok, parse_error, http_<code> or error: <message> |
+| scoreboard       | The raw mod_status scoreboard string                                  |
+| total_accesses   | Requests served since start                                           |
+| total_kbytes     | kBytes served since start                                             |
+| total_workers    | Busy plus idle workers (the currently running worker pool)            |
+| uptime           | Server uptime in seconds                                              |
+| url              | Full URL that was requested                                           |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_connections
 
@@ -745,6 +918,178 @@ This command also accepts the standard [help options](../common-options.md#stand
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
+### check_nginx_status
+
+Check an NGINX server via its stub_status page.
+
+#### About `check_nginx_status`
+
+`check_nginx_status` fetches NGINX's
+[stub_status](https://nginx.org/en/docs/http/ngx_http_stub_status_module.html)
+page and exposes the reported values as filter keywords. The endpoint must be
+enabled in the NGINX configuration, conventionally as `/nginx_status` (or
+`/stub_status`):
+
+```nginx
+location /nginx_status {
+    stub_status;
+    allow 127.0.0.1;
+    deny all;
+}
+```
+
+The check emits a single record. By default it goes **critical** when the
+endpoint cannot be fetched or does not look like a stub_status page
+(`result != 'ok'`); connection thresholds are opt-in.
+
+`accepts`, `handled`, `requests` and `dropped` are cumulative since NGINX
+started, so `dropped > 0` stays raised until the next restart once a drop has
+ever happened; treat it as a "worker_connections is too low" indicator rather
+than a live gauge.
+
+**Jump to section:**
+
+* [Sample Commands](#check_nginx_status_samples)
+* [Command-line Arguments](#check_nginx_status_options)
+* [Filter keywords](#check_nginx_status_filter_keys)
+
+
+<a id="check_nginx_status_samples"></a>
+#### Sample Commands
+
+**Check a local NGINX via its stub_status endpoint:**
+
+```
+check_nginx_status url=http://127.0.0.1/nginx_status
+OK: ok: 291 active (6 reading, 179 writing, 106 waiting)|'127.0.0.1_active'=291;0;0
+```
+
+**Alert when connections pile up:**
+
+```
+check_nginx_status url=http://127.0.0.1/nginx_status "warning=active > 200" "critical=active > 400"
+WARNING: ok: 291 active (6 reading, 179 writing, 106 waiting)|'127.0.0.1_active'=291;200;400
+```
+
+**Alert when NGINX has started dropping connections (accepted minus handled):**
+
+```
+check_nginx_status url=http://127.0.0.1/nginx_status "warning=dropped > 0"
+WARNING: ok: 291 active (6 reading, 179 writing, 106 waiting)|'127.0.0.1_active'=291;0;0 '127.0.0.1_dropped'=2c;0;0
+```
+
+**A server that is down is CRITICAL by default:**
+
+```
+check_nginx_status url=http://127.0.0.1:81/nginx_status
+CRITICAL: error: Failed to connect to 127.0.0.1:81: No connection could be made because the target machine actively refused it: 0 active (0 reading, 0 writing, 0 waiting)|'127.0.0.1_active'=0;0;0
+```
+
+
+
+<a id="check_nginx_status_options"></a>
+#### Command-line Arguments
+
+<a id="check_nginx_status_username"></a>
+<a id="check_nginx_status_password"></a>
+
+| Option                                         | Default Value                 | Description                                                                                                          |
+|------------------------------------------------|-------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| [url](#check_nginx_status_url)                 | http://127.0.0.1/nginx_status | URL of the status endpoint (http://host[:port]/path or https://...).                                                 |
+| [timeout](#check_nginx_status_timeout)         | 30                            | Connection/read timeout in seconds.                                                                                  |
+| username                                       |                               | Username for HTTP Basic authentication.                                                                              |
+| password                                       |                               | Password for HTTP Basic authentication.                                                                              |
+| [tls-version](#check_nginx_status_tls-version) | tlsv1.2+                      | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                         |
+| [verify](#check_nginx_status_verify)           | peer                          | Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate. |
+| [ca](#check_nginx_status_ca)                   | ${ca-path}                    | Path to a CA bundle used to verify the server certificate.                                                           |
+
+
+
+<h5 id="check_nginx_status_url">url:</h5>
+
+URL of the status endpoint (http://host[:port]/path or https://...).
+
+*Default Value:* `http://127.0.0.1/nginx_status`
+
+<h5 id="check_nginx_status_timeout">timeout:</h5>
+
+Connection/read timeout in seconds.
+
+*Default Value:* `30`
+
+<h5 id="check_nginx_status_tls-version">tls-version:</h5>
+
+TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+
+*Default Value:* `tlsv1.2+`
+
+<h5 id="check_nginx_status_verify">verify:</h5>
+
+Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.
+
+*Default Value:* `peer`
+
+<h5 id="check_nginx_status_ca">ca:</h5>
+
+Path to a CA bundle used to verify the server certificate.
+
+*Default Value:* `${ca-path}`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                             | Default Value                                                                            |
+|--------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
+| <a id="check_nginx_status_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                          |
+| <a id="check_nginx_status_warning"></a>[warning](../common-options.md#warning)                                     |                                                                                          |
+| <a id="check_nginx_status_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                          |
+| <a id="check_nginx_status_critical"></a>[critical](../common-options.md#critical)                                  | result != 'ok'                                                                           |
+| <a id="check_nginx_status_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                          |
+| <a id="check_nginx_status_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                          |
+| <a id="check_nginx_status_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                    |
+| <a id="check_nginx_status_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                    |
+| <a id="check_nginx_status_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                  |
+| <a id="check_nginx_status_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                          |
+| <a id="check_nginx_status_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                    |
+| <a id="check_nginx_status_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                        |
+| <a id="check_nginx_status_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                       |
+| <a id="check_nginx_status_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                          |
+| <a id="check_nginx_status_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No status page fetched                                                                   |
+| <a id="check_nginx_status_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${result}: ${active} active (${reading} reading, ${writing} writing, ${waiting} waiting) |
+| <a id="check_nginx_status_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${host}                                                                                  |
+| <a id="check_nginx_status_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                          |
+| <a id="check_nginx_status_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                          |
+| <a id="check_nginx_status_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                       |
+| <a id="check_nginx_status_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                          |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_nginx_status_filter_keys"></a>
+#### Filter keywords
+
+| Option   | Description                                                            |
+|----------|------------------------------------------------------------------------|
+| accepts  | Accepted connections since start                                       |
+| active   | Active client connections (including waiting)                          |
+| code     | HTTP status code of the response                                       |
+| dropped  | Connections accepted but not handled (resource exhaustion) since start |
+| handled  | Handled connections since start                                        |
+| host     | Host part of the URL                                                   |
+| port     | TCP port that was used                                                 |
+| reading  | Connections where nginx is reading the request                         |
+| requests | Requests served since start                                            |
+| result   | Result of the check: ok, parse_error, http_<code> or error: <message>  |
+| url      | Full URL that was requested                                            |
+| waiting  | Idle keep-alive connections                                            |
+| writing  | Connections where nginx is writing the response                        |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
 ### check_nsclient_web_online
 
 Query the REST API of a remote NSClient++ agent (reachability or a remote check).
@@ -1083,6 +1428,174 @@ This command also accepts the standard [help options](../common-options.md#stand
 | server          | NTP server that was queried                                                                                                                                                                                                                                                               |
 | stratum         | Stratum reported by the server (0..16)                                                                                                                                                                                                                                                    |
 | time            | Round trip time of the NTP query in milliseconds                                                                                                                                                                                                                                          |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_phpfpm_status
+
+Check a PHP-FPM pool via its status page.
+
+#### About `check_phpfpm_status`
+
+`check_phpfpm_status` fetches a PHP-FPM pool's status page (the default text
+format) and exposes the reported values as filter keywords. The page must be
+enabled in the pool configuration (`pm.status_path = /status`) and the location
+routed to FPM in the web server in front of it (or served via `fastcgi` on a
+dedicated port).
+
+The check emits a single record. By default it goes **warning** when requests
+are waiting in the listen queue (`listen_queue > 0` — the pool has no free
+worker to pick them up) and **critical** when the endpoint cannot be fetched
+or does not look like an FPM status page (`result != 'ok'`).
+
+`max_children_reached`, `slow_requests`, `max_listen_queue` and
+`accepted_conn` are cumulative since the pool (re)started; a threshold on them
+stays raised until the counter resets on reload.
+
+**Jump to section:**
+
+* [Sample Commands](#check_phpfpm_status_samples)
+* [Command-line Arguments](#check_phpfpm_status_options)
+* [Filter keywords](#check_phpfpm_status_filter_keys)
+
+
+<a id="check_phpfpm_status_samples"></a>
+#### Sample Commands
+
+**Check a PHP-FPM pool via its status page:**
+
+```
+check_phpfpm_status url=http://127.0.0.1/status
+OK: ok: pool www: 3 active, 7 idle, 0 queued|'www_active_processes'=3;0;0 'www_idle_processes'=7;0;0 'www_listen_queue'=0;0;0
+```
+
+**The default warning fires when requests are queueing up (the pool is saturated):**
+
+```
+check_phpfpm_status url=http://127.0.0.1/status
+WARNING: ok: pool www: 8 active, 0 idle, 4 queued|'www_active_processes'=8;0;0 'www_idle_processes'=0;0;0 'www_listen_queue'=4;0;0
+```
+
+**Alert when the pool has ever hit pm.max_children or logged slow requests:**
+
+```
+check_phpfpm_status url=http://127.0.0.1/status "critical=max_children_reached > 0" "warning=slow_requests > 4"
+CRITICAL: ok: pool www: 3 active, 7 idle, 0 queued|'www_max_children_reached'=1c;0;0 'www_slow_requests'=5c;4;0 'www_active_processes'=3;0;0 'www_idle_processes'=7;0;0 'www_listen_queue'=0;0;0
+```
+
+**An FPM pool that is down (or a missing status location) is CRITICAL by default:**
+
+```
+check_phpfpm_status url=http://127.0.0.1/status
+CRITICAL: http_404: pool : 0 active, 0 idle, 0 queued|'_active_processes'=0;0;0 '_idle_processes'=0;0;0 '_listen_queue'=0;0;0
+```
+
+
+
+<a id="check_phpfpm_status_options"></a>
+#### Command-line Arguments
+
+<a id="check_phpfpm_status_username"></a>
+<a id="check_phpfpm_status_password"></a>
+
+| Option                                          | Default Value           | Description                                                                                                          |
+|-------------------------------------------------|-------------------------|----------------------------------------------------------------------------------------------------------------------|
+| [url](#check_phpfpm_status_url)                 | http://127.0.0.1/status | URL of the status endpoint (http://host[:port]/path or https://...).                                                 |
+| [timeout](#check_phpfpm_status_timeout)         | 30                      | Connection/read timeout in seconds.                                                                                  |
+| username                                        |                         | Username for HTTP Basic authentication.                                                                              |
+| password                                        |                         | Password for HTTP Basic authentication.                                                                              |
+| [tls-version](#check_phpfpm_status_tls-version) | tlsv1.2+                | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                         |
+| [verify](#check_phpfpm_status_verify)           | peer                    | Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate. |
+| [ca](#check_phpfpm_status_ca)                   | ${ca-path}              | Path to a CA bundle used to verify the server certificate.                                                           |
+
+
+
+<h5 id="check_phpfpm_status_url">url:</h5>
+
+URL of the status endpoint (http://host[:port]/path or https://...).
+
+*Default Value:* `http://127.0.0.1/status`
+
+<h5 id="check_phpfpm_status_timeout">timeout:</h5>
+
+Connection/read timeout in seconds.
+
+*Default Value:* `30`
+
+<h5 id="check_phpfpm_status_tls-version">tls-version:</h5>
+
+TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+
+*Default Value:* `tlsv1.2+`
+
+<h5 id="check_phpfpm_status_verify">verify:</h5>
+
+Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.
+
+*Default Value:* `peer`
+
+<h5 id="check_phpfpm_status_ca">ca:</h5>
+
+Path to a CA bundle used to verify the server certificate.
+
+*Default Value:* `${ca-path}`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                              | Default Value                                                                                       |
+|---------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| <a id="check_phpfpm_status_filter"></a>[filter](../common-options.md#filter)                                        |                                                                                                     |
+| <a id="check_phpfpm_status_warning"></a>[warning](../common-options.md#warning)                                     | listen_queue > 0                                                                                    |
+| <a id="check_phpfpm_status_warn"></a>[warn](../common-options.md#warn)                                              |                                                                                                     |
+| <a id="check_phpfpm_status_critical"></a>[critical](../common-options.md#critical)                                  | result != 'ok'                                                                                      |
+| <a id="check_phpfpm_status_crit"></a>[crit](../common-options.md#crit)                                              |                                                                                                     |
+| <a id="check_phpfpm_status_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                                                     |
+| <a id="check_phpfpm_status_debug"></a>[debug](../common-options.md#debug)                                           | false                                                                                               |
+| <a id="check_phpfpm_status_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                                                               |
+| <a id="check_phpfpm_status_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                                                             |
+| <a id="check_phpfpm_status_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                                                     |
+| <a id="check_phpfpm_status_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                                                               |
+| <a id="check_phpfpm_status_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                                                   |
+| <a id="check_phpfpm_status_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                                                  |
+| <a id="check_phpfpm_status_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                                                     |
+| <a id="check_phpfpm_status_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No status page fetched                                                                              |
+| <a id="check_phpfpm_status_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${result}: pool ${pool}: ${active_processes} active, ${idle_processes} idle, ${listen_queue} queued |
+| <a id="check_phpfpm_status_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${pool}                                                                                             |
+| <a id="check_phpfpm_status_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                                                     |
+| <a id="check_phpfpm_status_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                                                     |
+| <a id="check_phpfpm_status_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                                                  |
+| <a id="check_phpfpm_status_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                                                     |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_phpfpm_status_filter_keys"></a>
+#### Filter keywords
+
+| Option               | Description                                                             |
+|----------------------|-------------------------------------------------------------------------|
+| accepted_conn        | Connections accepted since start                                        |
+| active_processes     | Workers currently serving requests                                      |
+| code                 | HTTP status code of the response                                        |
+| host                 | Host part of the URL                                                    |
+| idle_processes       | Idle (spare) workers                                                    |
+| listen_queue         | Requests currently waiting in the listen queue                          |
+| listen_queue_len     | Size of the socket listen queue                                         |
+| max_active_processes | Highest number of simultaneously active workers since start             |
+| max_children_reached | Times the pool hit pm.max_children since start (the pool was saturated) |
+| max_listen_queue     | Highest listen queue length seen since start                            |
+| pool                 | Name of the FPM pool                                                    |
+| port                 | TCP port that was used                                                  |
+| process_manager      | Process manager mode (static, dynamic or ondemand)                      |
+| result               | Result of the check: ok, parse_error, http_<code> or error: <message>   |
+| slow_requests        | Requests that exceeded request_slowlog_timeout                          |
+| total_processes      | Total workers in the pool                                               |
+| url                  | Full URL that was requested                                             |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -1927,6 +2440,186 @@ This command also accepts the standard [help options](../common-options.md#stand
 | result          | Textual result of the check (ok, refused, timeout, no_match, resolve_failed, ...)                                                                                                                                                                                                                                                           |
 | ssl_expiry_days | Whole days until the peer's TLS certificate expires; negative once it has expired. Renders as 'no certificate' (and compares false against every number) when the connection is not TLS or the peer presented none, so `ssl_expiry_days < 30` cannot fire on a plain connection; `ssl_expiry_days = 'no certificate'` tests for that state. |
 | time            | Connection time in milliseconds                                                                                                                                                                                                                                                                                                             |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
+
+### check_tomcat_status
+
+Check an Apache Tomcat server via the manager status page (XML).
+
+#### About `check_tomcat_status`
+
+`check_tomcat_status` fetches Apache Tomcat's manager status page in XML form
+(`/manager/status?XML=true`) and reports one record per connector plus the JVM
+heap numbers. The `?XML=true` parameter is appended automatically when the URL
+does not already carry it.
+
+The manager application must be deployed and the account used needs the
+`manager-status` role (or `manager-gui`, which includes it) in
+`conf/tomcat-users.xml`; pass it with `username=` / `password=`.
+
+One record is emitted per connector (e.g. `http-nio-8080`, `ajp-nio-8009`).
+By default the check goes **warning** at 75% and **critical** at 90% thread
+pool usage, and **critical** when the page cannot be fetched or parsed
+(`result != 'ok'` — including `http_401` for missing credentials).
+
+Use `filter=connector like 'http'` to scope the check to specific connectors.
+The JVM heap keywords repeat on every connector record, so combine them with a
+`filter` to avoid the same memory alert firing once per connector.
+
+**Jump to section:**
+
+* [Sample Commands](#check_tomcat_status_samples)
+* [Command-line Arguments](#check_tomcat_status_options)
+* [Filter keywords](#check_tomcat_status_filter_keys)
+
+
+<a id="check_tomcat_status_samples"></a>
+#### Sample Commands
+
+**Check a Tomcat server via the manager status page (the `?XML=true` parameter is appended automatically):**
+
+```
+check_tomcat_status url=http://127.0.0.1:8080/manager/status username=tomcat password=s3cret
+OK: http-nio-8080 ok: 4/200 threads busy, ajp-nio-8009 ok: 0/100 threads busy|'http-nio-8080_thread_usage'=2;75;90 'http-nio-8080_threads_busy'=4;0;0 'ajp-nio-8009_thread_usage'=0;75;90 'ajp-nio-8009_threads_busy'=0;0;0
+```
+
+**The default thresholds alert when a connector's thread pool fills up (75%/90%):**
+
+```
+check_tomcat_status url=http://127.0.0.1:8080/manager/status username=tomcat password=s3cret
+WARNING: http-nio-8080 ok: 160/200 threads busy, ajp-nio-8009 ok: 0/100 threads busy|'http-nio-8080_thread_usage'=80;75;90 'http-nio-8080_threads_busy'=160;0;0 'ajp-nio-8009_thread_usage'=0;75;90 'ajp-nio-8009_threads_busy'=0;0;0
+```
+
+**Alert on request errors per connector:**
+
+```
+check_tomcat_status url=http://127.0.0.1:8080/manager/status username=tomcat password=s3cret "warning=error_count > 10"
+WARNING: http-nio-8080 ok: 4/200 threads busy, ajp-nio-8009 ok: 0/100 threads busy|'http-nio-8080_error_count'=17c;10;0 'http-nio-8080_thread_usage'=2;0;90 'http-nio-8080_threads_busy'=4;0;0 'ajp-nio-8009_error_count'=0c;10;0 'ajp-nio-8009_thread_usage'=0;0;90 'ajp-nio-8009_threads_busy'=0;0;0
+```
+
+**Alert on a shrinking JVM heap:**
+
+```
+check_tomcat_status url=http://127.0.0.1:8080/manager/status username=tomcat password=s3cret "critical=memory_free < 100000000"
+OK: http-nio-8080 ok: 4/200 threads busy, ajp-nio-8009 ok: 0/100 threads busy|'http-nio-8080_memory_free'=1734127416B;0;100000000 ...
+```
+
+**Missing or wrong manager credentials are CRITICAL:**
+
+```
+check_tomcat_status url=http://127.0.0.1:8080/manager/status
+CRITICAL:  http_401: 0/0 threads busy|'_thread_usage'=0%;75;90 '_threads_busy'=0;0;0
+```
+
+
+
+<a id="check_tomcat_status_options"></a>
+#### Command-line Arguments
+
+<a id="check_tomcat_status_username"></a>
+<a id="check_tomcat_status_password"></a>
+
+| Option                                          | Default Value                        | Description                                                                                                          |
+|-------------------------------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| [url](#check_tomcat_status_url)                 | http://127.0.0.1:8080/manager/status | URL of the status endpoint (http://host[:port]/path or https://...).                                                 |
+| [timeout](#check_tomcat_status_timeout)         | 30                                   | Connection/read timeout in seconds.                                                                                  |
+| username                                        |                                      | Username for HTTP Basic authentication.                                                                              |
+| password                                        |                                      | Password for HTTP Basic authentication.                                                                              |
+| [tls-version](#check_tomcat_status_tls-version) | tlsv1.2+                             | TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).                                         |
+| [verify](#check_tomcat_status_verify)           | peer                                 | Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate. |
+| [ca](#check_tomcat_status_ca)                   | ${ca-path}                           | Path to a CA bundle used to verify the server certificate.                                                           |
+
+
+
+<h5 id="check_tomcat_status_url">url:</h5>
+
+URL of the status endpoint (http://host[:port]/path or https://...).
+
+*Default Value:* `http://127.0.0.1:8080/manager/status`
+
+<h5 id="check_tomcat_status_timeout">timeout:</h5>
+
+Connection/read timeout in seconds.
+
+*Default Value:* `30`
+
+<h5 id="check_tomcat_status_tls-version">tls-version:</h5>
+
+TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+
+*Default Value:* `tlsv1.2+`
+
+<h5 id="check_tomcat_status_verify">verify:</h5>
+
+Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert, fail-if-no-peer-cert, client-certificate.
+
+*Default Value:* `peer`
+
+<h5 id="check_tomcat_status_ca">ca:</h5>
+
+Path to a CA bundle used to verify the server certificate.
+
+*Default Value:* `${ca-path}`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                              | Default Value                                                       |
+|---------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| <a id="check_tomcat_status_filter"></a>[filter](../common-options.md#filter)                                        |                                                                     |
+| <a id="check_tomcat_status_warning"></a>[warning](../common-options.md#warning)                                     | thread_usage > 75                                                   |
+| <a id="check_tomcat_status_warn"></a>[warn](../common-options.md#warn)                                              |                                                                     |
+| <a id="check_tomcat_status_critical"></a>[critical](../common-options.md#critical)                                  | result != 'ok' or thread_usage > 90                                 |
+| <a id="check_tomcat_status_crit"></a>[crit](../common-options.md#crit)                                              |                                                                     |
+| <a id="check_tomcat_status_ok"></a>[ok](../common-options.md#ok)                                                    |                                                                     |
+| <a id="check_tomcat_status_debug"></a>[debug](../common-options.md#debug)                                           | false                                                               |
+| <a id="check_tomcat_status_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                               |
+| <a id="check_tomcat_status_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                                             |
+| <a id="check_tomcat_status_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                                     |
+| <a id="check_tomcat_status_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                               |
+| <a id="check_tomcat_status_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                                   |
+| <a id="check_tomcat_status_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                                  |
+| <a id="check_tomcat_status_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                                     |
+| <a id="check_tomcat_status_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No connectors found                                                 |
+| <a id="check_tomcat_status_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${connector} ${result}: ${threads_busy}/${threads_max} threads busy |
+| <a id="check_tomcat_status_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${connector}                                                        |
+| <a id="check_tomcat_status_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                                     |
+| <a id="check_tomcat_status_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                                     |
+| <a id="check_tomcat_status_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                                  |
+| <a id="check_tomcat_status_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                                     |
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
+
+<a id="check_tomcat_status_filter_keys"></a>
+#### Filter keywords
+
+| Option          | Description                                                                                    |
+|-----------------|------------------------------------------------------------------------------------------------|
+| bytes_received  | Bytes received since start                                                                     |
+| bytes_sent      | Bytes sent since start                                                                         |
+| code            | HTTP status code of the response                                                               |
+| connector       | Name of the connector (e.g. http-nio-8080)                                                     |
+| error_count     | Requests that ended in an error since start                                                    |
+| host            | Host part of the URL                                                                           |
+| max_time        | Slowest request in ms since start                                                              |
+| memory_free     | Free JVM heap in bytes                                                                         |
+| memory_max      | Maximum JVM heap size in bytes                                                                 |
+| memory_total    | Current JVM heap size in bytes                                                                 |
+| port            | TCP port that was used                                                                         |
+| processing_time | Total request processing time in ms since start                                                |
+| request_count   | Requests served since start                                                                    |
+| result          | Result of the check: ok, parse_error, http_<code> or error: <message>                          |
+| thread_usage    | Busy threads as a percentage of the maximum thread pool size (0 when the pool size is unknown) |
+| threads_busy    | Threads currently serving requests                                                             |
+| threads_current | Threads currently alive in the pool                                                            |
+| threads_max     | Maximum size of the thread pool                                                                |
+| url             | Full URL that was requested                                                                    |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
