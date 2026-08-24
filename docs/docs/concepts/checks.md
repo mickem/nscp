@@ -453,7 +453,11 @@ OK /: 141,09GB/1.006,85GB used
 ```
 
 They apply to the byte and percentage keywords and to the
-[functions](#6-functions-transforming-values) below.
+[functions](#6-functions-transforming-values) below. Setting **any** of them also switches plain
+float keywords in the message templates over to the number format: instead of the legacy
+6-significant-digit rendering (which goes scientific past a million, `1.23457e+07`), floats then
+render with the configured `decimals` — or up to three decimals with trailing zeros stripped while
+`decimals` is unset. Strings, integers, durations and dates never change.
 
 <!-- @formatter:off -->
 !!! note "Only the message changes"
