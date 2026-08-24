@@ -357,6 +357,46 @@ TEST(FilterObjectTest, InvalidByteUnitIsReportedButEmptyAndValidAreNot) {
   EXPECT_NE(std::string::npos, obj.invalid_byte_unit().find("Invalid byte unit"));
 }
 
+// The number-format keys are advertised as inheritable from the default
+// template, so apply_parent must carry all four - with the -1 sentinel logic
+// for decimals, where 0 is a meaningful child value and not "unset".
+TEST(FilterObjectTest, ApplyParentCopiesNumberFormatKeys) {
+  filter_object parent("parent_top", "parent_detail", "parent_target");
+  parent.decimals = 2;
+  parent.byte_unit = "GB";
+  parent.decimal_separator = ",";
+  parent.thousands_separator = ".";
+
+  filter_object child("", "", "");
+  child.apply_parent(parent);
+
+  EXPECT_EQ(2, child.decimals);
+  EXPECT_EQ("GB", child.byte_unit);
+  EXPECT_EQ(",", child.decimal_separator);
+  EXPECT_EQ(".", child.thousands_separator);
+}
+
+TEST(FilterObjectTest, ApplyParentPreservesOwnNumberFormatKeys) {
+  filter_object parent("parent_top", "parent_detail", "parent_target");
+  parent.decimals = 2;
+  parent.byte_unit = "GB";
+  parent.decimal_separator = ",";
+  parent.thousands_separator = ".";
+
+  filter_object child("child_top", "child_detail", "child_target");
+  child.decimals = 0;  // explicit 0 must survive: only -1 means "inherit"
+  child.byte_unit = "KB";
+  child.decimal_separator = ".";
+  child.thousands_separator = " ";
+
+  child.apply_parent(parent);
+
+  EXPECT_EQ(0, child.decimals);
+  EXPECT_EQ("KB", child.byte_unit);
+  EXPECT_EQ(".", child.decimal_separator);
+  EXPECT_EQ(" ", child.thousands_separator);
+}
+
 // ============================================================================
 // apply_parent tests
 // ============================================================================

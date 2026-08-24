@@ -377,6 +377,18 @@ TEST(format, format_byte_units_with_empty_unit) {
   EXPECT_EQ(result, "1024");
 }
 
+TEST(format, format_byte_units_with_empty_unit_follows_the_number_format) {
+  // The empty unit still honours the number format - grouping an unscaled
+  // byte count is the one way to render it raw but readable.
+  str::number_format fmt;
+  fmt.thousands_separator = ",";
+  EXPECT_EQ(str::format::format_byte_units(2684354560LL, "", fmt), "2,684,354,560");
+  fmt.decimals = 2;
+  fmt.decimal_separator = ",";
+  fmt.thousands_separator = ".";
+  EXPECT_EQ(str::format::format_byte_units(1536LL, "", fmt), "1.536,00");
+}
+
 TEST(format, format_byte_units_with_unknown_unit) {
   // A unit nobody recognises is a typo in a syntax string, not a request to
   // divide by 1024 seven times (#1428).

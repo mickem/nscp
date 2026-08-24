@@ -108,6 +108,14 @@ struct filter_obj_handler : native_context {
     registry_.add_converter(type_custom_duration, &parse_duration);
     // clang-format on
 
+    // The scaled-byte perf shape every check_drivesize keyword uses: the perf
+    // series converts itself (value and bounds) into a readable unit, and
+    // perf-config's `unit:` pins or - when misspelled - must not break it.
+    registry_.add_int_legacy()(
+        "zbytes", parsers::where::type_size, [](data_ptr o, parsers::where::evaluation_context) { return o->bytes; },
+        "Byte keyword with scaled perf (the check_drivesize shape)")
+        .add_scaled_byte();
+
     // The human renderings a template resolves for %(bytes) / %(pct) - the
     // same shape check_drivesize registers for %(used) / %(used_pct).
     registry_.add_human_string_context(
@@ -326,6 +334,32 @@ TEST(FilterRenderingDefault, FormatBytesRendersTheOptionalSentinelAsIs) {
   EXPECT_EQ(render_all("%(format_bytes(oval))"), "512B, unknown, 96KB");
 }
 
+TEST(FilterRenderingDefault, FormatNumberRendersTheOptionalSentinelAsIs) {
+  // Same contract through format_number, which probes the float domain rather
+  // than the int domain.
+  EXPECT_EQ(render_all("%(format_number(oval))"), "512, unknown, 98304");
+}
+
+TEST(FilterRenderingDefault, ScaledBytePerfAutoPicksAUnitPerSeries) {
+  // The check_drivesize perf shape: each series scales itself (and its
+  // bounds) into a readable unit and labels the series with it, so row a
+  // lands in KB and row b in GB. perf-config's `unit:` pins this - see the
+  // PerfConfig suite.
+  const run_result r = run_query({"warning=zbytes > 1k", "critical=none"}, "%(name)");
+  ASSERT_TRUE(r.built) << r.message;
+  const PB::Common::PerformanceData *a = find_perf(r, "a");
+  ASSERT_NE(a, nullptr) << r.message;
+  ASSERT_TRUE(a->has_float_value());
+  EXPECT_EQ(a->float_value().unit(), "KB");
+  EXPECT_DOUBLE_EQ(a->float_value().value(), 1.5);
+  EXPECT_DOUBLE_EQ(a->float_value().warning().value(), 1.0);
+  const PB::Common::PerformanceData *b = find_perf(r, "b");
+  ASSERT_NE(b, nullptr) << r.message;
+  ASSERT_TRUE(b->has_float_value());
+  EXPECT_EQ(b->float_value().unit(), "GB");
+  EXPECT_DOUBLE_EQ(b->float_value().value(), 2.5);
+}
+
 TEST(FilterRenderingDefault, DurationThresholdGoesThroughTheConverter) {
   // The custom-typed expression side of the duration keyword: `1h` means 3600
   // seconds, so a (273600) and c (7200) match and b (45) does not.
@@ -477,6 +511,62 @@ TEST(FilterRenderingFormatted, FormatNumberGroupsAndSignsLargeValues) {
 
 TEST(FilterRenderingFormatted, FormatBytesOnSignedValuesFollowsTheFormat) {
   EXPECT_EQ(render_all("%(format_bytes(delta, 'KB', 1))", {"decimal-separator=,", "thousands-separator=."}), "-2.621.440,0, -1,5, 1,0");
+}
+
+TEST(FilterRenderingFormatted, MaximumDecimalsAreAccepted) {
+  // The boundary of the render-crash guard: 16 is rejected (see the error
+  // suite), 15 - all the digits a double can carry - must work, on the option
+  // and on the function argument alike.
+  EXPECT_EQ(render_all("%(smallf)", {"decimals=15"}), "0.015625000000000, -0.015625000000000, 0.500000000000000");
+  EXPECT_EQ(render_all("%(format_number(smallf, 15))"), "0.015625000000000, -0.015625000000000, 0.500000000000000");
+}
+
+// ============================================================================
+// perf-config: the perf side has its own unit formatting, configured per
+// series, and it must never leak the message options nor render nonsense.
+// ============================================================================
+
+TEST(FilterRenderingPerfConfig, UnitPinsEveryScaledSeries) {
+  // perf-config=zbytes(unit:KB) overrides the per-series auto-scaling:
+  // row b would land in GB on its own (see the Default suite) but is
+  // converted - value and bounds - into KB and labelled with it.
+  const run_result r = run_query({"warning=zbytes > 1k", "critical=none", "perf-config=zbytes(unit:KB)"}, "%(name)");
+  ASSERT_TRUE(r.built) << r.message;
+  const PB::Common::PerformanceData *b = find_perf(r, "b");
+  ASSERT_NE(b, nullptr) << r.message;
+  ASSERT_TRUE(b->has_float_value());
+  EXPECT_EQ(b->float_value().unit(), "KB");
+  EXPECT_DOUBLE_EQ(b->float_value().value(), 2621440.0);
+  ASSERT_TRUE(b->float_value().has_warning());
+  EXPECT_DOUBLE_EQ(b->float_value().warning().value(), 1.0);
+}
+
+TEST(FilterRenderingPerfConfig, UnknownUnitLeavesTheValueAlone) {
+  // A unit: that names nothing used to divide the metric by 1024^7, flattening
+  // the graph to near zero; it now leaves the value untouched (the label keeps
+  // the operator's spelling, so the typo stays visible).
+  const run_result r = run_query({"warning=zbytes > 1k", "critical=none", "perf-config=zbytes(unit:ZB)"}, "%(name)");
+  ASSERT_TRUE(r.built) << r.message;
+  const PB::Common::PerformanceData *p = find_perf(r, "a");
+  ASSERT_NE(p, nullptr) << r.message;
+  ASSERT_TRUE(p->has_float_value());
+  EXPECT_EQ(p->float_value().unit(), "ZB");
+  EXPECT_DOUBLE_EQ(p->float_value().value(), 1536.0);
+  ASSERT_TRUE(p->float_value().has_warning());
+  EXPECT_DOUBLE_EQ(p->float_value().warning().value(), 1024.0);
+}
+
+TEST(FilterRenderingPerfConfig, StaticUnitPerfIsALabelOnly) {
+  // The plain add_int_perf shape (the `bytes` keyword): perf-config's unit:
+  // relabels the series but never converts it - the raw value is the
+  // contract there, whatever the label says.
+  const run_result r = run_query({"warning=bytes > 1k", "critical=none", "perf-config=bytes(unit:KB)"}, "%(name)");
+  ASSERT_TRUE(r.built) << r.message;
+  const PB::Common::PerformanceData *p = find_perf(r, "a");
+  ASSERT_NE(p, nullptr) << r.message;
+  ASSERT_TRUE(p->has_float_value());
+  EXPECT_EQ(p->float_value().unit(), "KB");
+  EXPECT_DOUBLE_EQ(p->float_value().value(), 1536.0);
 }
 
 // ============================================================================
