@@ -189,9 +189,12 @@ where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_t
 						>> *(charset::alnum | charset::char_('_'))[qi::_val += qi::_1]
 				]
 				;
+			// Zero-or-more: '' is a valid (empty) literal, so the documented
+			// format_bytes(value, '') form - render the raw byte count - can be
+			// written in a template (#1428).
 			string_literal
 				= qi::lexeme['\''
-				>> +(charset::char_ - '\'')[qi::_val += qi::_1]
+				>> *(charset::char_ - '\'')[qi::_val += qi::_1]
 				>> '\'']
 				;
 			string_literal_ex

@@ -340,6 +340,13 @@ TEST(FilterRenderingDefault, FormatNumberRendersTheOptionalSentinelAsIs) {
   EXPECT_EQ(render_all("%(format_number(oval))"), "512, unknown, 98304");
 }
 
+TEST(FilterRenderingDefault, FormatBytesEmptyUnitRendersTheRawCount) {
+  // Documented on the function: an empty unit renders the raw byte count,
+  // unscaled and with nothing appended. ('' is an empty string literal, valid
+  // in the where-grammar since #1428's follow-up.)
+  EXPECT_EQ(render_all("%(format_bytes(bytes, ''))"), "1536, 2684354560, 734003200");
+}
+
 TEST(FilterRenderingDefault, ScaledBytePerfAutoPicksAUnitPerSeries) {
   // The check_drivesize perf shape: each series scales itself (and its
   // bounds) into a readable unit and labels the series with it, so row a
@@ -511,6 +518,12 @@ TEST(FilterRenderingFormatted, FormatNumberGroupsAndSignsLargeValues) {
 
 TEST(FilterRenderingFormatted, FormatBytesOnSignedValuesFollowsTheFormat) {
   EXPECT_EQ(render_all("%(format_bytes(delta, 'KB', 1))", {"decimal-separator=,", "thousands-separator=."}), "-2.621.440,0, -1,5, 1,0");
+}
+
+TEST(FilterRenderingFormatted, FormatBytesEmptyUnitGroupsTheRawCount) {
+  // The empty unit plus a thousands separator is the way to render a raw but
+  // readable byte count.
+  EXPECT_EQ(render_all("%(format_bytes(bytes, ''))", {"thousands-separator=,"}), "1,536, 2,684,354,560, 734,003,200");
 }
 
 TEST(FilterRenderingFormatted, MaximumDecimalsAreAccepted) {
