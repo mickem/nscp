@@ -260,7 +260,7 @@ common:
           sample: false
           title: Timezone
 module: CheckMKServer
-namespace: check
+namespace: client
 platforms:
 - unix
 - windows

@@ -507,7 +507,11 @@ CPU Load ok
 
     There are no default warning/critical thresholds: modern CPUs legitimately clock
     far below their maximum at idle, so a `frequency_pct` default would warn on every
-    idle machine. Use `load_pct` for a per-socket utilisation alert. The inventory
+    idle machine. Use `load_pct` for a per-socket utilisation alert. WMI does not
+    always have a load sample ready: on such a cycle `load_pct` renders as
+    `no load sample`, compares false against every numeric threshold and emits no
+    perfdata (it is never a fabricated `0`, which is a valid idle reading);
+    `load_pct = 'no load sample'` is the presence test. The inventory
     columns (`architecture`, `l2_cache`, `l3_cache`) make the check double as the
     per-socket CPU hardware inventory; pin them to detect a re-imaged or migrated
     box (`crit=architecture != 'x64'`).
@@ -521,7 +525,11 @@ CPU Load ok
 
     There are no default warning/critical thresholds: modern CPUs legitimately clock
     far below their maximum at idle, so a `frequency_pct` default would warn on every
-    idle machine. Use `load_pct` for a per-socket utilisation alert. The inventory
+    idle machine. Use `load_pct` for a per-socket utilisation alert. WMI does not
+    always have a load sample ready: on such a cycle `load_pct` renders as
+    `no load sample`, compares false against every numeric threshold and emits no
+    perfdata (it is never a fabricated `0`, which is a valid idle reading);
+    `load_pct = 'no load sample'` is the presence test. The inventory
     columns (`architecture`, `l2_cache`, `l3_cache`) make the check double as the
     per-socket CPU hardware inventory; pin them to detect a re-imaged or migrated
     box (`crit=architecture != 'x64'`).
@@ -611,20 +619,20 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_cpu_frequency_filter_keys"></a>
 #### Filter keywords
 
-| Option             | Description                                                                                        |
-|--------------------|----------------------------------------------------------------------------------------------------|
-| architecture       | Processor architecture (x86, x64, ARM64, ...)                                                      |
-| cores              | Number of physical cores                                                                           |
-| current_mhz        | Current clock speed in MHz (perfdata)                                                              |
-| frequency_pct      | Current frequency as percentage of maximum (perfdata)                                              |
-| l2_cache           | L2 cache size (size units work, e.g. 'l2_cache < 1M'); renders human-readable; 0 when not reported |
-| l3_cache           | L3 cache size; 0 when not reported (common on VMs)                                                 |
-| load_pct           | Per-socket CPU load as reported by Win32_Processor.LoadPercentage (perfdata)                       |
-| logical_processors | Number of logical processors (threads)                                                             |
-| max_mhz            | Maximum clock speed in MHz (perfdata)                                                              |
-| name               | CPU name / model string                                                                            |
-| socket             | Socket designation (e.g. "CPU 1"), for per-socket filtering                                        |
-| socket_id          | Socket device id (e.g. CPU0), for per-socket filtering                                             |
+| Option             | Description                                                                                                                       |
+|--------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| architecture       | Processor architecture (x86, x64, ARM64, ...)                                                                                     |
+| cores              | Number of physical cores                                                                                                          |
+| current_mhz        | Current clock speed in MHz (perfdata)                                                                                             |
+| frequency_pct      | Current frequency as percentage of maximum (perfdata)                                                                             |
+| l2_cache           | L2 cache size (size units work, e.g. 'l2_cache < 1M'); renders human-readable; 0 when not reported                                |
+| l3_cache           | L3 cache size; 0 when not reported (common on VMs)                                                                                |
+| load_pct           | Per-socket CPU load as reported by Win32_Processor.LoadPercentage (perfdata); 'no load sample' when WMI has no reading this cycle |
+| logical_processors | Number of logical processors (threads)                                                                                            |
+| max_mhz            | Maximum clock speed in MHz (perfdata)                                                                                             |
+| name               | CPU name / model string                                                                                                           |
+| socket             | Socket designation (e.g. "CPU 1"), for per-socket filtering                                                                       |
+| socket_id          | Socket device id (e.g. CPU0), for per-socket filtering                                                                            |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -2190,14 +2198,18 @@ page = 8.05G, physical = 7.85G
 
 === "Windows"
 
-    | Option   | Description                                     |
-    |----------|-------------------------------------------------|
-    | free     | Free memory in bytes (g,m,k,b) or percentages % |
-    | free_pct | % free memory                                   |
-    | size     | Total size of memory                            |
-    | type     | The type of memory to check                     |
-    | used     | Used memory in bytes (g,m,k,b) or percentages % |
-    | used_pct | % used memory                                   |
+    | Option          | Description                                                                                                        |
+    |-----------------|--------------------------------------------------------------------------------------------------------------------|
+    | convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
+    | format_bytes()  | Format a number as a human-readable byte string.                                                                   |
+    | format_number() | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
+    | free            | Free memory in bytes (g,m,k,b) or percentages %                                                                    |
+    | free_pct        | % free memory                                                                                                      |
+    | scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
+    | size            | Total size of memory                                                                                               |
+    | type            | The type of memory to check                                                                                        |
+    | used            | Used memory in bytes (g,m,k,b) or percentages %                                                                    |
+    | used_pct        | % used memory                                                                                                      |
 
     This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -2623,6 +2635,7 @@ page = 8.05G, physical = 7.85G
     | errors_in         | Inbound packet errors per second                                                                                                                                                                                    |
     | errors_out        | Outbound packet errors per second                                                                                                                                                                                   |
     | format_bytes()    | Format a number as a human-readable byte string.                                                                                                                                                                    |
+    | format_number()   | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.                                                                                                                |
     | link_status       | Network connection status                                                                                                                                                                                           |
     | name              | Network interface name                                                                                                                                                                                              |
     | net_connection_id | Network connection id                                                                                                                                                                                               |
@@ -3631,6 +3644,7 @@ This command also accepts the standard [help options](../common-options.md#stand
 | convert_bytes() | Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.           |
 | counter         | The counter name                                                                                                   |
 | format_bytes()  | Format a number as a human-readable byte string.                                                                   |
+| format_number() | Render a number with a fixed number of decimals, using the check's decimal and thousands separators.               |
 | scale()         | Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal Mbps with scale(value, 1000000)). |
 | time            | The time for rrd checks                                                                                            |
 | value           | The counter value (either float or int)                                                                            |
@@ -3665,6 +3679,29 @@ pending, no critical). Override it to escalate, to alert only on specific causes
 (e.g. `crit=servicing = 1`), or to suppress the default with `warn=none`. The
 check always returns a single aggregate row, so there is no empty state.
 
+##### How long has the reboot been pending?
+
+A reboot queued minutes ago by an update is expected; one still queued days
+later is usually the actionable case. The `age` and `written` keywords expose
+how long the reboot has been pending, e.g.
+`crit=pending = 1 and age > 7d`. The time comes from the last-write time of the
+Component Based Servicing / Windows Update registry key (each exists only while
+its reboot is queued); when both are set the oldest one wins. Three caveats:
+
+- Only those two signals carry a timestamp. A reboot signalled solely by a
+  pending file rename, computer rename or domain join reports
+  `age`/`written` as `unknown`, which never trips a numeric threshold
+  (test for it explicitly with `written = 'unknown'`).
+- Threshold staleness with a duration on `age` (`age > 7d`) or a *relative*
+  date on `written` (`written < -7d` — the signal appeared more than seven
+  days ago). A quoted date string (`written < '2026-08-01 00:00:00'`) is
+  **not** parsed as a date: it is compared as text against the raw timestamp
+  and will not order correctly. The only quoted comparison with a defined
+  meaning is the `written = 'unknown'` probe.
+- The registry records the key's *last* write, not its creation: if servicing
+  re-touches the key while the reboot is still queued, `age` restarts. Treat it
+  as "pending at least this long since the last signal update".
+
 **Jump to section:**
 
 * [Sample Commands](#check_pending_reboot_samples)
@@ -3686,8 +3723,21 @@ OK: No reboot pending
 
 ```
 check_pending_reboot
-WARNING: Reboot required: Windows Update
+WARNING: Reboot required: Windows Update (pending since 2026-08-16 09:41:12)
 ```
+
+**Warn on any pending reboot but escalate one that has been pending for over a week:**
+
+```
+check_pending_reboot "warn=pending = 1" "crit=pending = 1 and age > 7d"
+CRITICAL: Reboot required: Windows Update (pending since 2026-08-10 03:12:45)
+```
+
+The since-time is the last-write time of the Component Based Servicing /
+Windows Update registry key, which exists only while that reboot is queued.
+The other signals (file rename, computer rename, domain join) carry no
+timestamp, so `age` and `written` report `unknown` for them and never trip a
+numeric threshold (test for it with `written = 'unknown'`).
 
 **Escalate a pending reboot to CRITICAL:**
 
@@ -3758,17 +3808,20 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="check_pending_reboot_filter_keys"></a>
 #### Filter keywords
 
-| Option          | Description                                                                                                         |
-|-----------------|---------------------------------------------------------------------------------------------------------------------|
-| computer_rename | 1 if the computer has been renamed but not yet rebooted (ActiveComputerName differs from the pending ComputerName)  |
-| domain_join     | 1 if a domain join / SPN update is pending in Netlogon (JoinDomain / AvoidSpnSet present)                           |
-| file_rename     | 1 if 'Session Manager\PendingFileRenameOperations' is present and non-empty (a file replacement awaits reboot)      |
-| message         | Full status sentence, e.g. 'Reboot required: Windows Update'                                                        |
-| pending         | 1 if any pending-reboot signal is set (the aggregate flag most checks threshold on)                                 |
-| reasons         | Comma-separated human-readable list of pending-reboot causes ('none' if clear)                                      |
-| servicing       | 1 if Component Based Servicing (CBS) has queued a reboot (the 'Component Based Servicing\RebootPending' key exists) |
-| signals         | Number of distinct pending-reboot signals currently set                                                             |
-| windows_update  | 1 if Windows Update has queued a reboot (WindowsUpdate\Auto Update\RebootRequired)                                  |
+| Option          | Description                                                                                                                                                                                                                                                                                                                                      |
+|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| age             | Seconds the reboot has been pending (since the oldest timestamped signal appeared); threshold with durations, e.g. pending = 1 and age > 7d                                                                                                                                                                                                      |
+| computer_rename | 1 if the computer has been renamed but not yet rebooted (ActiveComputerName differs from the pending ComputerName)                                                                                                                                                                                                                               |
+| domain_join     | 1 if a domain join / SPN update is pending in Netlogon (JoinDomain / AvoidSpnSet present)                                                                                                                                                                                                                                                        |
+| file_rename     | 1 if 'Session Manager\PendingFileRenameOperations' is present and non-empty (a file replacement awaits reboot)                                                                                                                                                                                                                                   |
+| message         | Full status sentence, e.g. 'Reboot required: Windows Update (pending since 2026-08-16 09:00:00)'                                                                                                                                                                                                                                                 |
+| pending         | 1 if any pending-reboot signal is set (the aggregate flag most checks threshold on)                                                                                                                                                                                                                                                              |
+| reasons         | Comma-separated human-readable list of pending-reboot causes ('none' if clear)                                                                                                                                                                                                                                                                   |
+| servicing       | 1 if Component Based Servicing (CBS) has queued a reboot (the 'Component Based Servicing\RebootPending' key exists)                                                                                                                                                                                                                              |
+| signals         | Number of distinct pending-reboot signals currently set                                                                                                                                                                                                                                                                                          |
+| windows_update  | 1 if Windows Update has queued a reboot (WindowsUpdate\Auto Update\RebootRequired)                                                                                                                                                                                                                                                               |
+| written         | When the oldest timestamped pending-reboot signal appeared (last-write time of the CBS/Windows Update key), as epoch seconds. Threshold staleness with `age` or a relative date (written < -7d); a quoted date string is compared as text, not as a date. 'unknown' when only untimestamped signals are set (`written = 'unknown'` tests for it) |
+| written_s       | Signal-appearance time as a human-readable string ('unknown' if no timestamped signal)                                                                                                                                                                                                                                                           |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
@@ -6834,31 +6887,35 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key            | Default Value             | Description     |
-|----------------|---------------------------|-----------------|
-| check          | cpu                       | TYPE OF CHECK   |
-| command        |                           | COMMAND NAME    |
-| critical       |                           | CRITICAL FILTER |
-| debug          |                           | DEBUG           |
-| destination    |                           | DESTINATION     |
-| detail syntax  |                           | SYNTAX          |
-| empty message  | eventlog found no records | EMPTY MESSAGE   |
-| escape html    |                           | ESCAPE HTML     |
-| filter         |                           | FILTER          |
-| list separator |                           | LIST SEPARATOR  |
-| maximum age    | 5m                        | MAXIMUM AGE     |
-| ok             |                           | OK FILTER       |
-| ok syntax      |                           | SYNTAX          |
-| perf config    |                           | PERF CONFIG     |
-| severity       |                           | SEVERITY        |
-| silent period  | false                     | Silent period   |
-| source id      |                           | SOURCE ID       |
-| target         |                           | DESTINATION     |
-| target id      |                           | TARGET ID       |
-| time           |                           | TIME            |
-| times          |                           | FILES           |
-| top syntax     |                           | SYNTAX          |
-| warning        |                           | WARNING FILTER  |
+| Key                 | Default Value             | Description         |
+|---------------------|---------------------------|---------------------|
+| byte unit           |                           | BYTE UNIT           |
+| check               | cpu                       | TYPE OF CHECK       |
+| command             |                           | COMMAND NAME        |
+| critical            |                           | CRITICAL FILTER     |
+| debug               |                           | DEBUG               |
+| decimal separator   |                           | DECIMAL SEPARATOR   |
+| decimals            | -1                        | DECIMALS            |
+| destination         |                           | DESTINATION         |
+| detail syntax       |                           | SYNTAX              |
+| empty message       | eventlog found no records | EMPTY MESSAGE       |
+| escape html         |                           | ESCAPE HTML         |
+| filter              |                           | FILTER              |
+| list separator      |                           | LIST SEPARATOR      |
+| maximum age         | 5m                        | MAXIMUM AGE         |
+| ok                  |                           | OK FILTER           |
+| ok syntax           |                           | SYNTAX              |
+| perf config         |                           | PERF CONFIG         |
+| severity            |                           | SEVERITY            |
+| silent period       | false                     | Silent period       |
+| source id           |                           | SOURCE ID           |
+| target              |                           | DESTINATION         |
+| target id           |                           | TARGET ID           |
+| thousands separator |                           | THOUSANDS SEPARATOR |
+| time                |                           | TIME                |
+| times               |                           | FILES               |
+| top syntax          |                           | SYNTAX              |
+| warning             |                           | WARNING FILTER      |
 
 
 **Sample:**
@@ -6866,10 +6923,13 @@ This is a section of objects. This means that you will create objects below this
 ```ini
 # An example of a Legacy generic filters section
 [/settings/system/windows/real-time/checks/sample]
+#byte unit=...
 check=cpu
 #command=...
 #critical=...
 #debug=...
+#decimal separator=...
+decimals=-1
 #destination=...
 #detail syntax=...
 empty message=eventlog found no records
@@ -6885,6 +6945,7 @@ silent period=false
 #source id=...
 #target=...
 #target id=...
+#thousands separator=...
 #time=...
 #times=...
 #top syntax=...
@@ -6911,29 +6972,33 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key            | Default Value             | Description     |
-|----------------|---------------------------|-----------------|
-| command        |                           | COMMAND NAME    |
-| critical       |                           | CRITICAL FILTER |
-| debug          |                           | DEBUG           |
-| destination    |                           | DESTINATION     |
-| detail syntax  |                           | SYNTAX          |
-| empty message  | eventlog found no records | EMPTY MESSAGE   |
-| escape html    |                           | ESCAPE HTML     |
-| filter         |                           | FILTER          |
-| list separator |                           | LIST SEPARATOR  |
-| maximum age    | 5m                        | MAXIMUM AGE     |
-| ok             |                           | OK FILTER       |
-| ok syntax      |                           | SYNTAX          |
-| perf config    |                           | PERF CONFIG     |
-| severity       |                           | SEVERITY        |
-| silent period  | false                     | Silent period   |
-| source id      |                           | SOURCE ID       |
-| target         |                           | DESTINATION     |
-| target id      |                           | TARGET ID       |
-| time           |                           | TIME            |
-| top syntax     |                           | SYNTAX          |
-| warning        |                           | WARNING FILTER  |
+| Key                 | Default Value             | Description         |
+|---------------------|---------------------------|---------------------|
+| byte unit           |                           | BYTE UNIT           |
+| command             |                           | COMMAND NAME        |
+| critical            |                           | CRITICAL FILTER     |
+| debug               |                           | DEBUG               |
+| decimal separator   |                           | DECIMAL SEPARATOR   |
+| decimals            | -1                        | DECIMALS            |
+| destination         |                           | DESTINATION         |
+| detail syntax       |                           | SYNTAX              |
+| empty message       | eventlog found no records | EMPTY MESSAGE       |
+| escape html         |                           | ESCAPE HTML         |
+| filter              |                           | FILTER              |
+| list separator      |                           | LIST SEPARATOR      |
+| maximum age         | 5m                        | MAXIMUM AGE         |
+| ok                  |                           | OK FILTER           |
+| ok syntax           |                           | SYNTAX              |
+| perf config         |                           | PERF CONFIG         |
+| severity            |                           | SEVERITY            |
+| silent period       | false                     | Silent period       |
+| source id           |                           | SOURCE ID           |
+| target              |                           | DESTINATION         |
+| target id           |                           | TARGET ID           |
+| thousands separator |                           | THOUSANDS SEPARATOR |
+| time                |                           | TIME                |
+| top syntax          |                           | SYNTAX              |
+| warning             |                           | WARNING FILTER      |
 
 
 **Sample:**
@@ -6941,9 +7006,12 @@ This is a section of objects. This means that you will create objects below this
 ```ini
 # An example of a Realtime cpu filters section
 [/settings/system/windows/real-time/cpu/sample]
+#byte unit=...
 #command=...
 #critical=...
 #debug=...
+#decimal separator=...
+decimals=-1
 #destination=...
 #detail syntax=...
 empty message=eventlog found no records
@@ -6959,6 +7027,7 @@ silent period=false
 #source id=...
 #target=...
 #target id=...
+#thousands separator=...
 #time=...
 #top syntax=...
 #warning=...
@@ -6984,29 +7053,33 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key            | Default Value             | Description     |
-|----------------|---------------------------|-----------------|
-| command        |                           | COMMAND NAME    |
-| critical       |                           | CRITICAL FILTER |
-| debug          |                           | DEBUG           |
-| destination    |                           | DESTINATION     |
-| detail syntax  |                           | SYNTAX          |
-| empty message  | eventlog found no records | EMPTY MESSAGE   |
-| escape html    |                           | ESCAPE HTML     |
-| filter         |                           | FILTER          |
-| list separator |                           | LIST SEPARATOR  |
-| maximum age    | 5m                        | MAXIMUM AGE     |
-| ok             |                           | OK FILTER       |
-| ok syntax      |                           | SYNTAX          |
-| perf config    |                           | PERF CONFIG     |
-| severity       |                           | SEVERITY        |
-| silent period  | false                     | Silent period   |
-| source id      |                           | SOURCE ID       |
-| target         |                           | DESTINATION     |
-| target id      |                           | TARGET ID       |
-| top syntax     |                           | SYNTAX          |
-| type           |                           | MEMORY TYPE     |
-| warning        |                           | WARNING FILTER  |
+| Key                 | Default Value             | Description         |
+|---------------------|---------------------------|---------------------|
+| byte unit           |                           | BYTE UNIT           |
+| command             |                           | COMMAND NAME        |
+| critical            |                           | CRITICAL FILTER     |
+| debug               |                           | DEBUG               |
+| decimal separator   |                           | DECIMAL SEPARATOR   |
+| decimals            | -1                        | DECIMALS            |
+| destination         |                           | DESTINATION         |
+| detail syntax       |                           | SYNTAX              |
+| empty message       | eventlog found no records | EMPTY MESSAGE       |
+| escape html         |                           | ESCAPE HTML         |
+| filter              |                           | FILTER              |
+| list separator      |                           | LIST SEPARATOR      |
+| maximum age         | 5m                        | MAXIMUM AGE         |
+| ok                  |                           | OK FILTER           |
+| ok syntax           |                           | SYNTAX              |
+| perf config         |                           | PERF CONFIG         |
+| severity            |                           | SEVERITY            |
+| silent period       | false                     | Silent period       |
+| source id           |                           | SOURCE ID           |
+| target              |                           | DESTINATION         |
+| target id           |                           | TARGET ID           |
+| thousands separator |                           | THOUSANDS SEPARATOR |
+| top syntax          |                           | SYNTAX              |
+| type                |                           | MEMORY TYPE         |
+| warning             |                           | WARNING FILTER      |
 
 
 **Sample:**
@@ -7014,9 +7087,12 @@ This is a section of objects. This means that you will create objects below this
 ```ini
 # An example of a Realtime memory filters section
 [/settings/system/windows/real-time/memory/sample]
+#byte unit=...
 #command=...
 #critical=...
 #debug=...
+#decimal separator=...
+decimals=-1
 #destination=...
 #detail syntax=...
 empty message=eventlog found no records
@@ -7032,6 +7108,7 @@ silent period=false
 #source id=...
 #target=...
 #target id=...
+#thousands separator=...
 #top syntax=...
 #type=...
 #warning=...
@@ -7057,29 +7134,33 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key            | Default Value             | Description     |
-|----------------|---------------------------|-----------------|
-| command        |                           | COMMAND NAME    |
-| critical       |                           | CRITICAL FILTER |
-| debug          |                           | DEBUG           |
-| destination    |                           | DESTINATION     |
-| detail syntax  |                           | SYNTAX          |
-| empty message  | eventlog found no records | EMPTY MESSAGE   |
-| escape html    |                           | ESCAPE HTML     |
-| filter         |                           | FILTER          |
-| list separator |                           | LIST SEPARATOR  |
-| maximum age    | 5m                        | MAXIMUM AGE     |
-| ok             |                           | OK FILTER       |
-| ok syntax      |                           | SYNTAX          |
-| perf config    |                           | PERF CONFIG     |
-| process        |                           | PROCESS         |
-| severity       |                           | SEVERITY        |
-| silent period  | false                     | Silent period   |
-| source id      |                           | SOURCE ID       |
-| target         |                           | DESTINATION     |
-| target id      |                           | TARGET ID       |
-| top syntax     |                           | SYNTAX          |
-| warning        |                           | WARNING FILTER  |
+| Key                 | Default Value             | Description         |
+|---------------------|---------------------------|---------------------|
+| byte unit           |                           | BYTE UNIT           |
+| command             |                           | COMMAND NAME        |
+| critical            |                           | CRITICAL FILTER     |
+| debug               |                           | DEBUG               |
+| decimal separator   |                           | DECIMAL SEPARATOR   |
+| decimals            | -1                        | DECIMALS            |
+| destination         |                           | DESTINATION         |
+| detail syntax       |                           | SYNTAX              |
+| empty message       | eventlog found no records | EMPTY MESSAGE       |
+| escape html         |                           | ESCAPE HTML         |
+| filter              |                           | FILTER              |
+| list separator      |                           | LIST SEPARATOR      |
+| maximum age         | 5m                        | MAXIMUM AGE         |
+| ok                  |                           | OK FILTER           |
+| ok syntax           |                           | SYNTAX              |
+| perf config         |                           | PERF CONFIG         |
+| process             |                           | PROCESS             |
+| severity            |                           | SEVERITY            |
+| silent period       | false                     | Silent period       |
+| source id           |                           | SOURCE ID           |
+| target              |                           | DESTINATION         |
+| target id           |                           | TARGET ID           |
+| thousands separator |                           | THOUSANDS SEPARATOR |
+| top syntax          |                           | SYNTAX              |
+| warning             |                           | WARNING FILTER      |
 
 
 **Sample:**
@@ -7087,9 +7168,12 @@ This is a section of objects. This means that you will create objects below this
 ```ini
 # An example of a Realtime process filters section
 [/settings/system/windows/real-time/process/sample]
+#byte unit=...
 #command=...
 #critical=...
 #debug=...
+#decimal separator=...
+decimals=-1
 #destination=...
 #detail syntax=...
 empty message=eventlog found no records
@@ -7106,6 +7190,7 @@ silent period=false
 #source id=...
 #target=...
 #target id=...
+#thousands separator=...
 #top syntax=...
 #warning=...
 

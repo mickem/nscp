@@ -60,14 +60,13 @@ nav:
       - Reference: reference/index.md
       - Common options: reference/common-options.md
       - Check commands:
-        - CheckActiveDirectory (Windows): reference/misc/CheckActiveDirectory.md
         - CheckDisk: reference/check/CheckDisk.md
+        - CheckDocker: reference/check/CheckDocker.md
         - CheckExternalScripts: reference/check/CheckExternalScripts.md
         - CheckEventLog (Windows): reference/windows/CheckEventLog.md
         - CheckHelpers: reference/check/CheckHelpers.md
         - CheckLogFile: reference/check/CheckLogFile.md
-        - CheckMKClient: reference/check/CheckMKClient.md
-        - CheckMKServer: reference/check/CheckMKServer.md
+        - CheckMySQL: reference/check/CheckMySQL.md
         - CheckNet: reference/check/CheckNet.md
         - CheckNSCP: reference/check/CheckNSCP.md
         - CheckSecurity: reference/check/CheckSecurity.md
@@ -78,20 +77,23 @@ nav:
         - CheckWMI (Windows): reference/windows/CheckWMI.md
       - Clients & Servers:
         - WEBServer: reference/generic/WEBServer.md
-        - WEBClient: reference/misc/WEBClient.md
         - NRPEServer: reference/client/NRPEServer.md
         - NRPEClient: reference/client/NRPEClient.md
         - NSClientServer: reference/windows/NSClientServer.md
         - NSCAServer: reference/client/NSCAServer.md
         - NSCAClient: reference/client/NSCAClient.md
+        - NSCANgClient: reference/client/NSCANgClient.md
+        - NSCPClient: reference/client/NSCPClient.md
         - NRDPClient: reference/client/NRDPClient.md
         - IcingaClient: reference/client/IcingaClient.md
         - SMTPClient: reference/client/SMTPClient.md
         - GraphiteClient: reference/client/GraphiteClient.md
         - SyslogClient: reference/client/SyslogClient.md
-        - CollectdClient: reference/misc/CollectdClient.md
-        - Op5Client: reference/misc/Op5Client.md
-        - ElasticClient: reference/misc/ElasticClient.md
+        - CollectdClient: reference/client/CollectdClient.md
+        - Op5Client: reference/client/Op5Client.md
+        - ElasticClient: reference/client/ElasticClient.md
+        - CheckMKClient: reference/client/CheckMKClient.md
+        - CheckMKServer: reference/client/CheckMKServer.md
       - Helper modules:
         - Scheduler: reference/generic/Scheduler.md
         - SimpleFileWriter: reference/generic/SimpleFileWriter.md

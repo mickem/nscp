@@ -2509,6 +2509,13 @@ windows:
         title: Legacy generic filters
       sample:
         keys:
+          byte unit:
+            advanced: true
+            default_value: ''
+            description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or
+              EB. Empty (the default) scales each value on its own. Performance data is unaffected.'
+            sample: true
+            title: BYTE UNIT
           check:
             advanced: false
             default_value: cpu
@@ -2534,6 +2541,22 @@ windows:
             description: Enable this to display debug information for this match filter
             sample: true
             title: DEBUG
+          decimal separator:
+            advanced: true
+            default_value: ''
+            description: 'Character to use as the decimal separator of the message, for instance '',''
+              for the European rendering. Only the message is affected: performance data and the numbers
+              written in a filter always use ''.''.'
+            sample: true
+            title: DECIMAL SEPARATOR
+          decimals:
+            advanced: true
+            default_value: '-1'
+            description: Number of decimals to render the numbers of the message with (-1 keeps the historical
+              rendering of up to three decimals with the trailing zeros stripped). Performance data is
+              unaffected.
+            sample: true
+            title: DECIMALS
           destination:
             advanced: true
             default_value: ''
@@ -2637,6 +2660,13 @@ windows:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET ID
+          thousands separator:
+            advanced: true
+            default_value: ''
+            description: Character to group the thousands of the message with. Empty (the default) means
+              no grouping. Only the message is affected.
+            sample: true
+            title: THOUSANDS SEPARATOR
           time:
             advanced: false
             default_value: ''
@@ -2669,6 +2699,13 @@ windows:
         title: Realtime cpu filters
       sample:
         keys:
+          byte unit:
+            advanced: true
+            default_value: ''
+            description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or
+              EB. Empty (the default) scales each value on its own. Performance data is unaffected.'
+            sample: true
+            title: BYTE UNIT
           command:
             advanced: true
             default_value: ''
@@ -2688,6 +2725,22 @@ windows:
             description: Enable this to display debug information for this match filter
             sample: true
             title: DEBUG
+          decimal separator:
+            advanced: true
+            default_value: ''
+            description: 'Character to use as the decimal separator of the message, for instance '',''
+              for the European rendering. Only the message is affected: performance data and the numbers
+              written in a filter always use ''.''.'
+            sample: true
+            title: DECIMAL SEPARATOR
+          decimals:
+            advanced: true
+            default_value: '-1'
+            description: Number of decimals to render the numbers of the message with (-1 keeps the historical
+              rendering of up to three decimals with the trailing zeros stripped). Performance data is
+              unaffected.
+            sample: true
+            title: DECIMALS
           destination:
             advanced: true
             default_value: ''
@@ -2791,6 +2844,13 @@ windows:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET ID
+          thousands separator:
+            advanced: true
+            default_value: ''
+            description: Character to group the thousands of the message with. Empty (the default) means
+              no grouping. Only the message is affected.
+            sample: true
+            title: THOUSANDS SEPARATOR
           time:
             advanced: true
             default_value: ''
@@ -2817,6 +2877,13 @@ windows:
         title: Realtime memory filters
       sample:
         keys:
+          byte unit:
+            advanced: true
+            default_value: ''
+            description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or
+              EB. Empty (the default) scales each value on its own. Performance data is unaffected.'
+            sample: true
+            title: BYTE UNIT
           command:
             advanced: true
             default_value: ''
@@ -2836,6 +2903,22 @@ windows:
             description: Enable this to display debug information for this match filter
             sample: true
             title: DEBUG
+          decimal separator:
+            advanced: true
+            default_value: ''
+            description: 'Character to use as the decimal separator of the message, for instance '',''
+              for the European rendering. Only the message is affected: performance data and the numbers
+              written in a filter always use ''.''.'
+            sample: true
+            title: DECIMAL SEPARATOR
+          decimals:
+            advanced: true
+            default_value: '-1'
+            description: Number of decimals to render the numbers of the message with (-1 keeps the historical
+              rendering of up to three decimals with the trailing zeros stripped). Performance data is
+              unaffected.
+            sample: true
+            title: DECIMALS
           destination:
             advanced: true
             default_value: ''
@@ -2939,6 +3022,13 @@ windows:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET ID
+          thousands separator:
+            advanced: true
+            default_value: ''
+            description: Character to group the thousands of the message with. Empty (the default) means
+              no grouping. Only the message is affected.
+            sample: true
+            title: THOUSANDS SEPARATOR
           top syntax:
             advanced: true
             default_value: ''
@@ -2965,6 +3055,13 @@ windows:
         title: Realtime process filters
       sample:
         keys:
+          byte unit:
+            advanced: true
+            default_value: ''
+            description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or
+              EB. Empty (the default) scales each value on its own. Performance data is unaffected.'
+            sample: true
+            title: BYTE UNIT
           command:
             advanced: true
             default_value: ''
@@ -2984,6 +3081,22 @@ windows:
             description: Enable this to display debug information for this match filter
             sample: true
             title: DEBUG
+          decimal separator:
+            advanced: true
+            default_value: ''
+            description: 'Character to use as the decimal separator of the message, for instance '',''
+              for the European rendering. Only the message is affected: performance data and the numbers
+              written in a filter always use ''.''.'
+            sample: true
+            title: DECIMAL SEPARATOR
+          decimals:
+            advanced: true
+            default_value: '-1'
+            description: Number of decimals to render the numbers of the message with (-1 keeps the historical
+              rendering of up to three decimals with the trailing zeros stripped). Performance data is
+              unaffected.
+            sample: true
+            title: DECIMALS
           destination:
             advanced: true
             default_value: ''
@@ -3093,6 +3206,13 @@ windows:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET ID
+          thousands separator:
+            advanced: true
+            default_value: ''
+            description: Character to group the thousands of the message with. Empty (the default) means
+              no grouping. Only the message is affected.
+            sample: true
+            title: THOUSANDS SEPARATOR
           top syntax:
             advanced: true
             default_value: ''
@@ -3387,7 +3507,8 @@ windows:
         name: l3_cache
         short_description: ''
       - generic: false
-        long_description: Per-socket CPU load as reported by Win32_Processor.LoadPercentage (perfdata)
+        long_description: Per-socket CPU load as reported by Win32_Processor.LoadPercentage (perfdata);
+          'no load sample' when WMI has no reading this cycle
         name: load_pct
         short_description: ''
       - generic: false
@@ -3899,12 +4020,45 @@ windows:
         warning: used > 80%
       fields:
       - generic: false
+        long_description: 'Convert a byte count to a specific unit and return the numeric value (1024-based).
+          Useful in thresholds.
+
+          Syntax: convert_bytes(value, unit) where unit is "B", "K"/"KB", "M"/"MB", "G"/"GB", "T"/"TB".'
+        name: convert_bytes()
+        short_description: ''
+      - generic: false
+        long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
+        name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
+        short_description: ''
+      - generic: false
         long_description: Free memory in bytes (g,m,k,b) or percentages %
         name: free
         short_description: ''
       - generic: false
         long_description: '% free memory'
         name: free_pct
+        short_description: ''
+      - generic: false
+        long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
+          Mbps with scale(value, 1000000)).
+
+          Syntax: scale(value, divisor).'
+        name: scale()
         short_description: ''
       - generic: false
         long_description: Total size of memory
@@ -4011,9 +4165,22 @@ windows:
         short_description: ''
       - generic: false
         long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: Network connection status
@@ -4549,9 +4716,22 @@ windows:
         short_description: ''
       - generic: false
         long_description: "Format a number as a human-readable byte string.\nSyntax: format_bytes(value)\
-          \ auto-scales to B/KB/MB/GB/... (1024-based).\n        format_bytes(value, unit) formats to\
-          \ a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\")."
+          \ auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n        format_bytes(value,\
+          \ unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\"\
+          ) and does not append it; an empty unit renders the raw byte count.\n        format_bytes(value,\
+          \ unit, decimals) does the same with a fixed number of decimals.\nWithout an explicit decimals\
+          \ argument the decimals, byte-unit, decimal-separator and thousands-separator options apply."
         name: format_bytes()
+        short_description: ''
+      - generic: false
+        long_description: 'Render a number with a fixed number of decimals, using the check''s decimal
+          and thousands separators.
+
+          Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides
+          it.
+
+          Useful for percentages and other non-byte values: format_number(used_pct, 1).'
+        name: format_number()
         short_description: ''
       - generic: false
         long_description: 'Divide a value by a divisor. Useful for arbitrary unit conversions (e.g. decimal
@@ -4731,6 +4911,11 @@ windows:
         warning: pending = 1
       fields:
       - generic: false
+        long_description: Seconds the reboot has been pending (since the oldest timestamped signal appeared);
+          threshold with durations, e.g. pending = 1 and age > 7d
+        name: age
+        short_description: ''
+      - generic: false
         long_description: 1 if the computer has been renamed but not yet rebooted (ActiveComputerName
           differs from the pending ComputerName)
         name: computer_rename
@@ -4746,7 +4931,8 @@ windows:
         name: file_rename
         short_description: ''
       - generic: false
-        long_description: 'Full status sentence, e.g. ''Reboot required: Windows Update'''
+        long_description: 'Full status sentence, e.g. ''Reboot required: Windows Update (pending since
+          2026-08-16 09:00:00)'''
         name: message
         short_description: ''
       - generic: false
@@ -4770,6 +4956,18 @@ windows:
       - generic: false
         long_description: 1 if Windows Update has queued a reboot (WindowsUpdate\Auto Update\RebootRequired)
         name: windows_update
+        short_description: ''
+      - generic: false
+        long_description: When the oldest timestamped pending-reboot signal appeared (last-write time
+          of the CBS/Windows Update key), as epoch seconds. Threshold staleness with `age` or a relative
+          date (written < -7d); a quoted date string is compared as text, not as a date. 'unknown' when
+          only untimestamped signals are set (`written = 'unknown'` tests for it)
+        name: written
+        short_description: ''
+      - generic: false
+        long_description: Signal-appearance time as a human-readable string ('unknown' if no timestamped
+          signal)
+        name: written_s
         short_description: ''
       info:
         description: Check whether the system is waiting for a reboot, aggregating the servicing, Windows

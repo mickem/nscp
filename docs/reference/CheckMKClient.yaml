@@ -68,7 +68,7 @@ common:
             sample: true
             title: TIMEOUT
 module: CheckMKClient
-namespace: check
+namespace: client
 platforms:
 - unix
 - windows

@@ -120,7 +120,7 @@ common:
       info:
         description: Forward the request as-is to remote host via NSCP.
 module: NSCPClient
-namespace: misc
+namespace: client
 platforms:
 - unix
 - windows

@@ -3,7 +3,7 @@ common:
     description: Check docker containers (state, health) and the docker daemon itself.
     title: CheckDocker
 module: CheckDocker
-namespace: misc
+namespace: check
 platforms:
 - unix
 - windows

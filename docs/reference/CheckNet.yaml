@@ -1274,3 +1274,677 @@ namespace: check
 platforms:
 - unix
 - windows
+windows:
+  queries:
+    check_apache_status:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: result != 'ok'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${result}: ${busy_workers} busy and ${idle_workers} idle workers, ${requests_per_sec}
+          req/s, uptime ${uptime}s'
+        empty-state: unknown
+        empty-syntax: No status page fetched
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${host}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Workers currently serving requests
+        name: busy_workers
+        short_description: ''
+      - generic: false
+        long_description: Average bytes per second since start
+        name: bytes_per_sec
+        short_description: ''
+      - generic: false
+        long_description: HTTP status code of the response
+        name: code
+        short_description: ''
+      - generic: false
+        long_description: Host part of the URL
+        name: host
+        short_description: ''
+      - generic: false
+        long_description: Idle (spare) workers
+        name: idle_workers
+        short_description: ''
+      - generic: false
+        long_description: TCP port that was used
+        name: port
+        short_description: ''
+      - generic: false
+        long_description: Average requests per second since start
+        name: requests_per_sec
+        short_description: ''
+      - generic: false
+        long_description: 'Result of the check: ok, parse_error, http_<code> or error: <message>'
+        name: result
+        short_description: ''
+      - generic: false
+        long_description: The raw mod_status scoreboard string
+        name: scoreboard
+        short_description: ''
+      - generic: false
+        long_description: Requests served since start
+        name: total_accesses
+        short_description: ''
+      - generic: false
+        long_description: kBytes served since start
+        name: total_kbytes
+        short_description: ''
+      - generic: false
+        long_description: Busy plus idle workers (the currently running worker pool)
+        name: total_workers
+        short_description: ''
+      - generic: false
+        long_description: Server uptime in seconds
+        name: uptime
+        short_description: ''
+      - generic: false
+        long_description: Full URL that was requested
+        name: url
+        short_description: ''
+      info:
+        description: Check an Apache httpd server via its mod_status page (server-status?auto).
+      params:
+      - content_type: 2
+        default_value: http://127.0.0.1/server-status
+        is_simple: false
+        long_description: URL of the status endpoint (http://host[:port]/path or https://...).
+        name: url
+        repeatable: false
+        required: false
+        short_description: URL of the status endpoint (http://host[:port]/path or https://...).
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Connection/read timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection/read timeout in seconds.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Username for HTTP Basic authentication.
+        name: username
+        repeatable: false
+        required: false
+        short_description: Username for HTTP Basic authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for HTTP Basic authentication.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for HTTP Basic authentication.
+      - content_type: 2
+        default_value: tlsv1.2+
+        is_simple: false
+        long_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+        name: tls-version
+        repeatable: false
+        required: false
+        short_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+      - content_type: 2
+        default_value: peer
+        is_simple: false
+        long_description: 'Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert,
+          fail-if-no-peer-cert, client-certificate.'
+        name: verify
+        repeatable: false
+        required: false
+        short_description: 'Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert,
+          fail-if-no-peer-cert, client-certificate.'
+      - content_type: 2
+        default_value: ${ca-path}
+        is_simple: false
+        long_description: Path to a CA bundle used to verify the server certificate.
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Path to a CA bundle used to verify the server certificate.
+    check_nginx_status:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: result != 'ok'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${result}: ${active} active (${reading} reading, ${writing} writing, ${waiting}
+          waiting)'
+        empty-state: unknown
+        empty-syntax: No status page fetched
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${host}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Accepted connections since start
+        name: accepts
+        short_description: ''
+      - generic: false
+        long_description: Active client connections (including waiting)
+        name: active
+        short_description: ''
+      - generic: false
+        long_description: HTTP status code of the response
+        name: code
+        short_description: ''
+      - generic: false
+        long_description: Connections accepted but not handled (resource exhaustion) since start
+        name: dropped
+        short_description: ''
+      - generic: false
+        long_description: Handled connections since start
+        name: handled
+        short_description: ''
+      - generic: false
+        long_description: Host part of the URL
+        name: host
+        short_description: ''
+      - generic: false
+        long_description: TCP port that was used
+        name: port
+        short_description: ''
+      - generic: false
+        long_description: Connections where nginx is reading the request
+        name: reading
+        short_description: ''
+      - generic: false
+        long_description: Requests served since start
+        name: requests
+        short_description: ''
+      - generic: false
+        long_description: 'Result of the check: ok, parse_error, http_<code> or error: <message>'
+        name: result
+        short_description: ''
+      - generic: false
+        long_description: Full URL that was requested
+        name: url
+        short_description: ''
+      - generic: false
+        long_description: Idle keep-alive connections
+        name: waiting
+        short_description: ''
+      - generic: false
+        long_description: Connections where nginx is writing the response
+        name: writing
+        short_description: ''
+      info:
+        description: Check an NGINX server via its stub_status page.
+      params:
+      - content_type: 2
+        default_value: http://127.0.0.1/nginx_status
+        is_simple: false
+        long_description: URL of the status endpoint (http://host[:port]/path or https://...).
+        name: url
+        repeatable: false
+        required: false
+        short_description: URL of the status endpoint (http://host[:port]/path or https://...).
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Connection/read timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection/read timeout in seconds.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Username for HTTP Basic authentication.
+        name: username
+        repeatable: false
+        required: false
+        short_description: Username for HTTP Basic authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for HTTP Basic authentication.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for HTTP Basic authentication.
+      - content_type: 2
+        default_value: tlsv1.2+
+        is_simple: false
+        long_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+        name: tls-version
+        repeatable: false
+        required: false
+        short_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+      - content_type: 2
+        default_value: peer
+        is_simple: false
+        long_description: 'Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert,
+          fail-if-no-peer-cert, client-certificate.'
+        name: verify
+        repeatable: false
+        required: false
+        short_description: 'Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert,
+          fail-if-no-peer-cert, client-certificate.'
+      - content_type: 2
+        default_value: ${ca-path}
+        is_simple: false
+        long_description: Path to a CA bundle used to verify the server certificate.
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Path to a CA bundle used to verify the server certificate.
+    check_phpfpm_status:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: result != 'ok'
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${result}: pool ${pool}: ${active_processes} active, ${idle_processes} idle, ${listen_queue}
+          queued'
+        empty-state: unknown
+        empty-syntax: No status page fetched
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${pool}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: listen_queue > 0
+      fields:
+      - generic: false
+        long_description: Connections accepted since start
+        name: accepted_conn
+        short_description: ''
+      - generic: false
+        long_description: Workers currently serving requests
+        name: active_processes
+        short_description: ''
+      - generic: false
+        long_description: HTTP status code of the response
+        name: code
+        short_description: ''
+      - generic: false
+        long_description: Host part of the URL
+        name: host
+        short_description: ''
+      - generic: false
+        long_description: Idle (spare) workers
+        name: idle_processes
+        short_description: ''
+      - generic: false
+        long_description: Requests currently waiting in the listen queue
+        name: listen_queue
+        short_description: ''
+      - generic: false
+        long_description: Size of the socket listen queue
+        name: listen_queue_len
+        short_description: ''
+      - generic: false
+        long_description: Highest number of simultaneously active workers since start
+        name: max_active_processes
+        short_description: ''
+      - generic: false
+        long_description: Times the pool hit pm.max_children since start (the pool was saturated)
+        name: max_children_reached
+        short_description: ''
+      - generic: false
+        long_description: Highest listen queue length seen since start
+        name: max_listen_queue
+        short_description: ''
+      - generic: false
+        long_description: Name of the FPM pool
+        name: pool
+        short_description: ''
+      - generic: false
+        long_description: TCP port that was used
+        name: port
+        short_description: ''
+      - generic: false
+        long_description: Process manager mode (static, dynamic or ondemand)
+        name: process_manager
+        short_description: ''
+      - generic: false
+        long_description: 'Result of the check: ok, parse_error, http_<code> or error: <message>'
+        name: result
+        short_description: ''
+      - generic: false
+        long_description: Requests that exceeded request_slowlog_timeout
+        name: slow_requests
+        short_description: ''
+      - generic: false
+        long_description: Total workers in the pool
+        name: total_processes
+        short_description: ''
+      - generic: false
+        long_description: Full URL that was requested
+        name: url
+        short_description: ''
+      info:
+        description: Check a PHP-FPM pool via its status page.
+      params:
+      - content_type: 2
+        default_value: http://127.0.0.1/status
+        is_simple: false
+        long_description: URL of the status endpoint (http://host[:port]/path or https://...).
+        name: url
+        repeatable: false
+        required: false
+        short_description: URL of the status endpoint (http://host[:port]/path or https://...).
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Connection/read timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection/read timeout in seconds.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Username for HTTP Basic authentication.
+        name: username
+        repeatable: false
+        required: false
+        short_description: Username for HTTP Basic authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for HTTP Basic authentication.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for HTTP Basic authentication.
+      - content_type: 2
+        default_value: tlsv1.2+
+        is_simple: false
+        long_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+        name: tls-version
+        repeatable: false
+        required: false
+        short_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+      - content_type: 2
+        default_value: peer
+        is_simple: false
+        long_description: 'Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert,
+          fail-if-no-peer-cert, client-certificate.'
+        name: verify
+        repeatable: false
+        required: false
+        short_description: 'Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert,
+          fail-if-no-peer-cert, client-certificate.'
+      - content_type: 2
+        default_value: ${ca-path}
+        is_simple: false
+        long_description: Path to a CA bundle used to verify the server certificate.
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Path to a CA bundle used to verify the server certificate.
+    check_tomcat_status:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: result != 'ok' or thread_usage > 90
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '${connector} ${result}: ${threads_busy}/${threads_max} threads busy'
+        empty-state: unknown
+        empty-syntax: No connectors found
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${connector}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: thread_usage > 75
+      fields:
+      - generic: false
+        long_description: Bytes received since start
+        name: bytes_received
+        short_description: ''
+      - generic: false
+        long_description: Bytes sent since start
+        name: bytes_sent
+        short_description: ''
+      - generic: false
+        long_description: HTTP status code of the response
+        name: code
+        short_description: ''
+      - generic: false
+        long_description: Name of the connector (e.g. http-nio-8080)
+        name: connector
+        short_description: ''
+      - generic: false
+        long_description: Requests that ended in an error since start
+        name: error_count
+        short_description: ''
+      - generic: false
+        long_description: Host part of the URL
+        name: host
+        short_description: ''
+      - generic: false
+        long_description: Slowest request in ms since start
+        name: max_time
+        short_description: ''
+      - generic: false
+        long_description: Free JVM heap in bytes
+        name: memory_free
+        short_description: ''
+      - generic: false
+        long_description: Maximum JVM heap size in bytes
+        name: memory_max
+        short_description: ''
+      - generic: false
+        long_description: Current JVM heap size in bytes
+        name: memory_total
+        short_description: ''
+      - generic: false
+        long_description: TCP port that was used
+        name: port
+        short_description: ''
+      - generic: false
+        long_description: Total request processing time in ms since start
+        name: processing_time
+        short_description: ''
+      - generic: false
+        long_description: Requests served since start
+        name: request_count
+        short_description: ''
+      - generic: false
+        long_description: 'Result of the check: ok, parse_error, http_<code> or error: <message>'
+        name: result
+        short_description: ''
+      - generic: false
+        long_description: Busy threads as a percentage of the maximum thread pool size (0 when the pool
+          size is unknown)
+        name: thread_usage
+        short_description: ''
+      - generic: false
+        long_description: Threads currently serving requests
+        name: threads_busy
+        short_description: ''
+      - generic: false
+        long_description: Threads currently alive in the pool
+        name: threads_current
+        short_description: ''
+      - generic: false
+        long_description: Maximum size of the thread pool
+        name: threads_max
+        short_description: ''
+      - generic: false
+        long_description: Full URL that was requested
+        name: url
+        short_description: ''
+      info:
+        description: Check an Apache Tomcat server via the manager status page (XML).
+      params:
+      - content_type: 2
+        default_value: http://127.0.0.1:8080/manager/status
+        is_simple: false
+        long_description: URL of the status endpoint (http://host[:port]/path or https://...).
+        name: url
+        repeatable: false
+        required: false
+        short_description: URL of the status endpoint (http://host[:port]/path or https://...).
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Connection/read timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection/read timeout in seconds.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Username for HTTP Basic authentication.
+        name: username
+        repeatable: false
+        required: false
+        short_description: Username for HTTP Basic authentication.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password for HTTP Basic authentication.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password for HTTP Basic authentication.
+      - content_type: 2
+        default_value: tlsv1.2+
+        is_simple: false
+        long_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+        name: tls-version
+        repeatable: false
+        required: false
+        short_description: TLS version for https (tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.2+, tlsv1.3, sslv3).
+      - content_type: 2
+        default_value: peer
+        is_simple: false
+        long_description: 'Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert,
+          fail-if-no-peer-cert, client-certificate.'
+        name: verify
+        repeatable: false
+        required: false
+        short_description: 'Certificate verify mode for https: none, peer, peer-cert, fail-if-no-cert,
+          fail-if-no-peer-cert, client-certificate.'
+      - content_type: 2
+        default_value: ${ca-path}
+        is_simple: false
+        long_description: Path to a CA bundle used to verify the server certificate.
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Path to a CA bundle used to verify the server certificate.

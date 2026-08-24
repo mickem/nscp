@@ -79,6 +79,12 @@ common:
           description: User used to authenticate.
           sample: false
           title: MYSQL USER
+module: CheckMySQL
+namespace: check
+platforms:
+- unix
+- windows
+unix:
   queries:
     check_mysql:
       common_fields:
@@ -392,8 +398,261 @@ common:
         repeatable: false
         required: false
         short_description: Query (read/write) timeout in seconds.
-module: CheckMySQL
-namespace: misc
-platforms:
-- unix
-- windows
+windows:
+  queries:
+    check_mysql:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${flavor} ${version}, uptime ${uptime}s, connections ${threads_connected}/${max_connections}
+          (${connections_pct}%)
+        empty-state: unknown
+        empty-syntax: '%(status): No server information returned'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${flavor}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: Open connections as a percentage of max_connections
+        name: connections_pct
+        short_description: ''
+      - generic: false
+        long_description: 'Server flavor derived from the version: mysql, mariadb or percona'
+        name: flavor
+        short_description: ''
+      - generic: false
+        long_description: Configured connection limit (max_connections)
+        name: max_connections
+        short_description: ''
+      - generic: false
+        long_description: Currently open connections (Threads_connected)
+        name: threads_connected
+        short_description: ''
+      - generic: false
+        long_description: Seconds since the server started (supports units, e.g. uptime < 1h)
+        name: uptime
+        short_description: ''
+      - generic: false
+        long_description: Server version, e.g. 10.11.14-MariaDB-ubu2404 or 8.4.3
+        name: version
+        short_description: ''
+      - generic: false
+        long_description: Server version comment (distribution/build description)
+        name: version_comment
+        short_description: ''
+      info:
+        description: Check MySQL/MariaDB server connectivity and health (version, flavor, uptime, connections).
+      params:
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: MySQL/MariaDB server to connect to.
+        name: host
+        repeatable: false
+        required: false
+        short_description: MySQL/MariaDB server to connect to.
+      - content_type: 2
+        default_value: '3306'
+        is_simple: false
+        long_description: TCP port of the server.
+        name: port
+        repeatable: false
+        required: false
+        short_description: TCP port of the server.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Default database (schema) to connect to.
+        name: database
+        repeatable: false
+        required: false
+        short_description: Default database (schema) to connect to.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: User to authenticate with.
+        name: user
+        repeatable: false
+        required: false
+        short_description: User to authenticate with.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password to authenticate with.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password to authenticate with.
+      - content_type: 2
+        default_value: 'false'
+        is_simple: false
+        long_description: Require TLS on the connection.
+        name: tls
+        repeatable: false
+        required: false
+        short_description: Require TLS on the connection.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query (read/write) timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query (read/write) timeout in seconds.
+    check_mysql_query:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: '%(line)'
+        empty-state: ignored
+        empty-syntax: ''
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ''
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: ${list}
+        warn: ''
+        warning: ''
+      info:
+        description: Run a custom SQL query and apply thresholds to the returned rows.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The SQL query to execute.
+        name: query
+        repeatable: false
+        required: false
+        short_description: The SQL query to execute.
+      - content_type: 2
+        default_value: localhost
+        is_simple: false
+        long_description: MySQL/MariaDB server to connect to.
+        name: host
+        repeatable: false
+        required: false
+        short_description: MySQL/MariaDB server to connect to.
+      - content_type: 2
+        default_value: '3306'
+        is_simple: false
+        long_description: TCP port of the server.
+        name: port
+        repeatable: false
+        required: false
+        short_description: TCP port of the server.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Default database (schema) to connect to.
+        name: database
+        repeatable: false
+        required: false
+        short_description: Default database (schema) to connect to.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: User to authenticate with.
+        name: user
+        repeatable: false
+        required: false
+        short_description: User to authenticate with.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Password to authenticate with.
+        name: password
+        repeatable: false
+        required: false
+        short_description: Password to authenticate with.
+      - content_type: 2
+        default_value: 'false'
+        is_simple: false
+        long_description: Require TLS on the connection.
+        name: tls
+        repeatable: false
+        required: false
+        short_description: Require TLS on the connection.
+      - content_type: 2
+        default_value: '10'
+        is_simple: false
+        long_description: Connection timeout in seconds.
+        name: timeout
+        repeatable: false
+        required: false
+        short_description: Connection timeout in seconds.
+      - content_type: 2
+        default_value: '30'
+        is_simple: false
+        long_description: Query (read/write) timeout in seconds.
+        name: query-timeout
+        repeatable: false
+        required: false
+        short_description: Query (read/write) timeout in seconds.
