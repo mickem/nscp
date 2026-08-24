@@ -268,7 +268,7 @@ nscp client --query check_ok --log-backend threaded-file
 ```
 
 <!-- @formatter:off -->
-!!! note "Changed in 0.17"
+!!! note "Changed in 0.16.2"
     On Windows every invocation used to write to a log file beside the
     executable, which an ordinary user could not open — the command worked but
     logging silently degraded. The file backend is now the service's, and the
