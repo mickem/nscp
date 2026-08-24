@@ -10,6 +10,7 @@
 #include <parsers/operators.hpp>
 #include <parsers/where/helpers.hpp>
 #include <parsers/where/value_node.hpp>
+#include <str/format.hpp>
 #include <str/xtos.hpp>
 
 #ifdef _WIN32
@@ -528,6 +529,11 @@ struct function_convert : binary_function_impl {
     std::list<node_type>::const_iterator item = args.begin();
     if (args.size() > 0) {
       value = *item;
+    } else if (!std::dynamic_pointer_cast<list_node_interface>(subject)) {
+      // A non-list subject (a variable wrapped by add_convert_node) has no
+      // argument list — convert the node itself, like helpers::read_arguments.
+      // An actual empty list stays unset and reports "no arguments" below.
+      value = subject;
     }
     if (args.size() > 1) {
       std::advance(item, 1);
@@ -551,13 +557,25 @@ struct function_convert : binary_function_impl {
     if (unit) {
       const node_type u = *unit;
       if (type == type_date) {
-        const value_container vc = v->get_value(context, type_int);
         const std::string unit_s = u->get_string_value(context);
+        if (v->is_float()) {
+          // Scale fractional counts in double before rounding — going through
+          // the int accessor truncated `2.5h` to 2 hours. Whole-number values
+          // keep the pure-int path below, bit-identical for large offsets.
+          const value_container vc = v->get_value(context, type_float);
+          return std::make_shared<int_value>(constants::get_now() + llround(vc.get_float(0.0) * str::format::time_unit_multiplier(unit_s)), vc.is_unsure);
+        }
+        const value_container vc = v->get_value(context, type_int);
         return std::make_shared<int_value>(parse_time(vc.get_int(0), unit_s), vc.is_unsure);
       }
       if (type == type_size) {
-        const value_container vc = v->get_value(context, type_int);
         const std::string unit_s = u->get_string_value(context);
+        if (v->is_float()) {
+          // Same as above: `1.5g` used to truncate to 1g before scaling.
+          const value_container vc = v->get_value(context, type_float);
+          return std::make_shared<int_value>(llround(str::format::decode_byte_units<double>(vc.get_float(0.0), unit_s)), vc.is_unsure);
+        }
+        const value_container vc = v->get_value(context, type_int);
         return std::make_shared<int_value>(parse_size(vc.get_int(0), unit_s), vc.is_unsure);
       }
       context->error("could not convert to " + helpers::type_to_string(type) + " from " + v->to_string() + ", " + u->to_string());

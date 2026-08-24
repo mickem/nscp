@@ -94,7 +94,9 @@ node_type add_convert_node(node_type subject, const value_type new_type) {
   return subject;
 }
 
-value_type infer_binary_type(const object_converter &converter, node_type &left, node_type &right) {
+bool is_comparison_operator(const operators op) { return op == op_eq || op == op_ne || op == op_lt || op == op_le || op == op_gt || op == op_ge; }
+
+value_type infer_binary_type(const object_converter &converter, const operators op, node_type &left, node_type &right) {
   value_type rt = right->infer_type(converter);
   value_type lt = left->infer_type(converter);
   if (lt == type_multi || rt == type_multi) {
@@ -103,6 +105,22 @@ value_type infer_binary_type(const object_converter &converter, node_type &left,
       lt = left->infer_type(converter, rt);
     else
       rt = right->infer_type(converter, lt);
+  }
+  if (lt == rt) return lt;
+  // Numbers win over text in comparisons: when one side is plainly numeric
+  // and the other is a string, invite the string side into the float domain.
+  // Nodes that can join re-type themselves - a string variable parses its
+  // value per row, a quoted literal joins only when it parses as a number -
+  // while everything else (summary strings, custom types with registered
+  // converters) declines and falls through to the conversion rules below.
+  // Quoted literals against string variables never get here (same type), so
+  // `version < '8'` stays a lexical comparison.
+  if (is_comparison_operator(op)) {
+    if (lt == type_string && (rt == type_int || rt == type_float)) {
+      lt = left->infer_type(converter, type_float);
+    } else if (rt == type_string && (lt == type_int || lt == type_float)) {
+      rt = right->infer_type(converter, type_float);
+    }
   }
   if (lt == rt) return lt;
   if (type_is_float(lt) && type_is_int(rt)) rt = right->infer_type(converter, lt);
@@ -117,6 +135,21 @@ value_type infer_binary_type(const object_converter &converter, node_type &left,
   if (converter->can_convert(lt, rt)) {
     left = add_convert_node(left, rt);
     return rt;
+  }
+  // A comparison stuck between plain int and plain float means the int side
+  // refused the float suggestion above (a fixed-type node such as a summary
+  // counter). Compare in the float domain and wrap the int side (lossless),
+  // instead of rounding the float operand into the int domain, which turned
+  // `count > 2.5` into `count > 3`.
+  if (is_comparison_operator(op)) {
+    if (lt == type_int && rt == type_float) {
+      left = add_convert_node(left, type_float);
+      return type_float;
+    }
+    if (lt == type_float && rt == type_int) {
+      right = add_convert_node(right, type_float);
+      return type_float;
+    }
   }
   if (can_convert(rt, lt)) {
     right = add_convert_node(right, lt);

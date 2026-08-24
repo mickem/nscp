@@ -136,10 +136,12 @@ struct mock_native_context : object_factory_interface {
   //   ivar    -> object_->ival     (object-bound int)
   //   fvar    -> object_->fval     (object-bound float)
   //   svar    -> object_->sval     (object-bound string)
+  //   szvar   -> object_->ival     (object-bound int typed type_size)
   //   scount  -> summary_->count   (summary int — does NOT require object)
   //   sstatus -> summary_->status  (summary string — does NOT require object)
   bool has_variable(const std::string& name) override {
-    return name == "ivar" || name == "fvar" || name == "svar" || name == "ovar" || name == "odur" || name == "scount" || name == "sstatus";
+    return name == "ivar" || name == "fvar" || name == "svar" || name == "szvar" || name == "ovar" || name == "odur" || name == "scount" ||
+           name == "sstatus";
   }
 
   node_type create_variable(const std::string& name, bool /*human_readable*/) override;
@@ -177,6 +179,13 @@ node_type mock_native_context::create_variable(const std::string& name, bool /*h
   }
   if (name == "svar") {
     return std::make_shared<svar_node>(name, type_string, [](mock_object o, evaluation_context) -> std::string { return o.sval; });
+  }
+  if (name == "szvar") {
+    // Byte-count variable (the check_process working_set / check_files size
+    // shape): plain type_size, no custom converter, so unit literals such as
+    // `1.5k` route through function_convert.
+    return std::make_shared<ivar_node>(
+        name, type_size, [](mock_object o, evaluation_context) -> long long { return o.ival; }, std::list<ivar_node::int_performance_generator>{});
   }
   if (name == "ovar") {
     return std::make_shared<ovar_node>(
@@ -1361,6 +1370,79 @@ TEST(EngineFilterMatchForce, IntComparisonAgainstTimeLiteral) {
   const auto r = eval_force_full("ivar > 1h", ctx);
   EXPECT_FALSE(r.matched);
   EXPECT_TRUE(r.is_unsure);
+}
+
+TEST(EngineFilterMatch, SizeVarAgainstWholeUnitLiteral) {
+  // Baseline for the fractional case below: `1k` = 1024 bytes.
+  auto below = make_native_context();
+  below->set_object({1000, 0.0, ""});
+  EXPECT_FALSE(eval_match("szvar > 1k", below, true));
+  auto above = make_native_context();
+  above->set_object({1100, 0.0, ""});
+  EXPECT_TRUE(eval_match("szvar > 1k", above, true));
+}
+
+TEST(EngineFilterMatch, SizeVarAgainstFractionalUnitLiteral) {
+  // `1.5k` = 1536 bytes. The old int-first convert path truncated the count
+  // to 1k = 1024, so a value between the two (1500) tells the paths apart:
+  // correct scaling says 1500 > 1536 is false, the truncated form said true.
+  auto between = make_native_context();
+  between->set_object({1500, 0.0, ""});
+  EXPECT_FALSE(eval_match("szvar > 1.5k", between, true));
+  auto above = make_native_context();
+  above->set_object({1600, 0.0, ""});
+  EXPECT_TRUE(eval_match("szvar > 1.5k", above, true));
+}
+
+// ============================================================================
+// Numbers win: a string variable compared against a bare numeric literal is
+// answered in the number domain (the row value is parsed); quoting the
+// literal keeps the lexical comparison.
+// ============================================================================
+
+TEST(EngineFilterMatch, StringVarAgainstBareNumberComparesNumerically) {
+  // "10" > 9 as numbers; the old lexical compare said "10" < "9".
+  auto above = make_native_context();
+  above->set_object({0, 0.0, "10"});
+  EXPECT_TRUE(eval_match("svar > 9", above, true));
+  auto below = make_native_context();
+  below->set_object({0, 0.0, "9"});
+  EXPECT_FALSE(eval_match("svar > 9", below, true));
+}
+
+TEST(EngineFilterMatch, StringVarAgainstBareDecimalComparesNumerically) {
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "10"});
+  EXPECT_TRUE(eval_match("svar > 2.5", ctx, true));
+  auto low = make_native_context();
+  low->set_object({0, 0.0, "2"});
+  EXPECT_FALSE(eval_match("svar > 2.5", low, true));
+}
+
+TEST(EngineFilterMatch, StringVarNonNumericRowNeverMatchesNumbers) {
+  // Not a number → certainly nothing to compare: sure-false for every
+  // operator, including = and != (the no_value contract).
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "abc"});
+  EXPECT_FALSE(eval_match("svar > 9", ctx, true));
+  EXPECT_FALSE(eval_match("svar = 9", ctx, true));
+  EXPECT_FALSE(eval_match("svar != 9", ctx, true));
+}
+
+TEST(EngineFilterMatch, StringVarAgainstQuotedNumberStaysLexical) {
+  // Quoting asks for text ordering explicitly: "10" < "9" lexically.
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "10"});
+  EXPECT_TRUE(eval_match("svar < '9'", ctx, true));
+  EXPECT_FALSE(eval_match("svar > '9'", ctx, true));
+}
+
+TEST(EngineFilterMatch, BareNumberOnLeftOfStringVarComparesNumerically) {
+  // Operand order does not matter; this shape used to fail to evaluate.
+  auto ctx = make_native_context();
+  ctx->set_object({0, 0.0, "10"});
+  EXPECT_TRUE(eval_match("11 > svar", ctx, true));
+  EXPECT_FALSE(eval_match("9 > svar", ctx, true));
 }
 
 TEST(EngineFilter, FunctionConvertProgrammaticBoundSubjectPropagatesUnsure) {

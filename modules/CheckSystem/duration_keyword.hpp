@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cctype>
+#include <cmath>
 #include <list>
 #include <parsers/where.hpp>
 #include <str/format.hpp>
@@ -44,8 +45,14 @@ parsers::where::node_type parse_duration(TObject /*object*/, parsers::where::eva
   if (tokens.size() == 2) {
     auto token = tokens.begin();
     const long long count = (*token)->get_int_value(context);
+    const double count_f = (*token)->get_float_value(context);
     ++token;
     const std::string unit = (*token)->get_value(context, parsers::where::type_string).get_string("");
+    // A fractional count ("2.5h") cannot survive the string round-trip: the
+    // int accessor already truncated it to 2. Scale it numerically instead.
+    if (count_f != static_cast<double>(count)) {
+      return parsers::where::factory::create_int(llround(count_f * str::format::time_unit_multiplier(unit)));
+    }
     expression = str::xtos(count) + unit;
   } else {
     expression = subject->get_string_value(context);

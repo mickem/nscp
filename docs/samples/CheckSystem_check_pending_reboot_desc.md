@@ -21,12 +21,18 @@ later is usually the actionable case. The `age` and `written` keywords expose
 how long the reboot has been pending, e.g.
 `crit=pending = 1 and age > 7d`. The time comes from the last-write time of the
 Component Based Servicing / Windows Update registry key (each exists only while
-its reboot is queued); when both are set the oldest one wins. Two caveats:
+its reboot is queued); when both are set the oldest one wins. Three caveats:
 
 - Only those two signals carry a timestamp. A reboot signalled solely by a
   pending file rename, computer rename or domain join reports
   `age`/`written` as `unknown`, which never trips a numeric threshold
   (test for it explicitly with `written = 'unknown'`).
+- Threshold staleness with a duration on `age` (`age > 7d`) or a *relative*
+  date on `written` (`written < -7d` — the signal appeared more than seven
+  days ago). A quoted date string (`written < '2026-08-01 00:00:00'`) is
+  **not** parsed as a date: it is compared as text against the raw timestamp
+  and will not order correctly. The only quoted comparison with a defined
+  meaning is the `written = 'unknown'` probe.
 - The registry records the key's *last* write, not its creation: if servicing
   re-touches the key while the reboot is still queued, `age` restarts. Treat it
   as "pending at least this long since the last signal update".

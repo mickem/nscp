@@ -346,6 +346,17 @@ inline std::string itos_as_time(const unsigned long long time, itos_as_time_unit
     ss << static_cast<unsigned int>(time);
   return ss.str();
 }
+// Seconds per duration-suffix unit (s/m/h/d/w, case-insensitive). Unknown or
+// empty units count as seconds, matching stox_as_time_sec's fallback.
+inline long long time_unit_multiplier(const std::string &unit) {
+  const char u = unit.empty() ? ' ' : unit[0];
+  if ((u == 'm') || (u == 'M')) return 60;
+  if ((u == 'h') || (u == 'H')) return 60 * 60;
+  if ((u == 'd') || (u == 'D')) return 24 * 60 * 60;
+  if ((u == 'w') || (u == 'W')) return 7 * 24 * 60 * 60;
+  return 1;
+}
+
 template <class T>
 T stox_as_time_sec(const std::string &time, const std::string &default_unit) {
   validate_time_spec(time);
@@ -356,16 +367,7 @@ T stox_as_time_sec(const std::string &time, const std::string &default_unit) {
   if (p != std::string::npos) {
     unit = time.substr(p);
   }
-  char u = ' ';
-  if (!unit.empty()) {
-    u = unit[0];
-  }
-  if ((u == 's') || (u == 'S')) return value;
-  if ((u == 'm') || (u == 'M')) return value * 60;
-  if ((u == 'h') || (u == 'H')) return value * 60 * 60;
-  if ((u == 'd') || (u == 'D')) return value * 24 * 60 * 60;
-  if ((u == 'w') || (u == 'W')) return value * 7 * 24 * 60 * 60;
-  return value;
+  return value * static_cast<T>(time_unit_multiplier(unit));
 }
 
 //

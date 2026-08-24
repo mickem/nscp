@@ -32,6 +32,40 @@ page tracks those in one place. Full per-release detail lives in each
   migrate) now keeps a placeholder you pass it as-is in `boot.ini` while
   migrating into the expanded per-host file, so the template survives on a
   fleet-managed machine.
+- **`check_pending_reboot`'s default message now names the pending-since
+  time.** When the reboot was queued by Component Based Servicing or Windows
+  Update, the message gains a suffix: `Reboot required: Windows Update` became
+  `Reboot required: Windows Update (pending since 2026-08-16 09:41:12)`.
+  Notification pipelines that match the exact message text (an anchored regex,
+  a string equality) need their pattern relaxed; thresholds, states and
+  existing keywords are unchanged.
+- **Filter comparisons between a text keyword and a bare number are now
+  numeric.** A string-typed keyword compared against an unquoted number used
+  to order *lexically* — `filter=value > 90` on `filter_perf` matched
+  `value=100` as false ("100" sorts before "90") — or, with the operands
+  reversed (`90 > value`), failed to evaluate at all. Both now compare as
+  numbers, whichever side the keyword is on: the row's text is parsed per
+  record, and a value that is not a number simply never matches (the check
+  logs one warning naming the value; the result stays a certain
+  non-match, not UNKNOWN). This applies to keywords such as
+  `value`/`warn`/`crit`/`min`/`max` (`filter_perf`, `render_perf`),
+  `speed` (`check_network`), `string_value` (`check_registry_value`) and the
+  `column()` function (`check_logfile`). **Quoted** literals keep the lexical
+  comparison — `version < '8'` still orders as text — as do `like`, `regexp`
+  and `in`, keyword-specific converters (`state = 'running'`,
+  `age > 30m`), and the `= 'unknown'` / `= 'never'` sentinels for optional
+  values. Review any filter that deliberately relied on text ordering
+  against a bare number: quote the number to keep the old behaviour.
+- **Fractional numbers in thresholds are no longer truncated or rounded.**
+  `count > 2.5` used to evaluate as `count > 3` (the literal was rounded
+  into the counter's integer domain); unit literals lost their fraction
+  entirely, so `working_set > 1.5g` meant 1g and `uptime < 2.5h` meant 2h.
+  Fractions now mean what they say. Whole-number thresholds are unchanged;
+  only expressions that already used a decimal point can behave differently.
+- **`filter_perf`/`render_perf`/`xform_perf`: the `max` and `min` filter
+  keywords were swapped.** `max` read the perf-data *minimum* bound and
+  `min` the *maximum*. They now read the bounds they name — a filter that
+  compensated for the swap needs the two names exchanged back.
 - **Syslog submission works again, so a configured syslog server will start
   receiving traffic.** `SyslogClient` read its connection settings from the
   wrong place, so the target's address, port, facility, severity and templates

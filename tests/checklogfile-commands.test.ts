@@ -81,6 +81,38 @@ describe("CheckLogFile check_logfile", () => {
     expect(messageOf(second)).toMatch(/2\/3/);
   });
 
+  it("compares columns against decimal thresholds numerically", async () => {
+    // Tab-separated columns (the default column-split). column2 is a dual
+    // string/number keyword: the decimal literal re-types it to float and
+    // the value is served from the numeric accessor — `column2 > 2.5` used
+    // to fail to evaluate ("no accessor"), and before that the whole class
+    // of string-vs-number comparisons ordered lexically.
+    const file = newLog("low\t2\nhigh\t3\nhighest\t10\n");
+
+    // 3 and 10 exceed 2.5; a lexical compare would also (wrongly) drop "10"
+    // since the text "10" sorts below "2.5".
+    const matching = await check(file, { filter: "column2 > 2.5" });
+    expect(matching.result).toBe(WARNING);
+    expect(messageOf(matching)).toMatch(/2\/3/);
+
+    // Nothing exceeds 10.5 — and the non-match must be a clean OK.
+    const none = await check(file, { filter: "column2 > 10.5" });
+    expect(none.result).toBe(OK);
+  });
+
+  it("compares a column against a bare number through the numeric accessor", async () => {
+    // Ordering discriminator: 100 > 90 as numbers, while the text "100"
+    // sorts below "90" — a lexical compare would report 0 matches.
+    const file = newLog("a\t100\nb\t9\n");
+
+    const gt = await check(file, { filter: "column2 > 90" });
+    expect(gt.result).toBe(WARNING);
+    expect(messageOf(gt)).toMatch(/1\/2/);
+
+    const none = await check(file, { filter: "column2 > 200" });
+    expect(none.result).toBe(OK);
+  });
+
   // --- bookmarks (#561) ----------------------------------------------------
 
   it("only reports lines added since the previous bookmarked check", async () => {

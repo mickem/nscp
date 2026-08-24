@@ -468,16 +468,16 @@ This command also accepts the standard [help options](../common-options.md#stand
 <a id="render_perf_filter_keys"></a>
 #### Filter keywords
 
-| Option  | Description          |
-|---------|----------------------|
-| crit    | Major version number |
-| key     | Major version number |
-| max     | Major version number |
-| message | Major version number |
-| min     | Major version number |
-| unit    | Major version number |
-| value   | Major version number |
-| warn    | Major version number |
+| Option  | Description                                                          |
+|---------|----------------------------------------------------------------------|
+| crit    | The critical threshold (range when set, otherwise the numeric bound) |
+| key     | The name (alias) of the performance data entry                       |
+| max     | The maximum bound of the performance data entry                      |
+| message | The name (alias) of the performance data entry                       |
+| min     | The minimum bound of the performance data entry                      |
+| unit    | The unit of the performance data entry                               |
+| value   | The value of the performance data entry                              |
+| warn    | The warning threshold (range when set, otherwise the numeric bound)  |
 
 This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
