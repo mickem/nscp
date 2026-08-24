@@ -569,17 +569,45 @@ TEST(FilterRenderingPerfConfig, UnknownUnitLeavesTheValueAlone) {
   EXPECT_DOUBLE_EQ(p->float_value().warning().value(), 1024.0);
 }
 
-TEST(FilterRenderingPerfConfig, StaticUnitPerfIsALabelOnly) {
-  // The plain add_int_perf shape (the `bytes` keyword): perf-config's unit:
-  // relabels the series but never converts it - the raw value is the
-  // contract there, whatever the label says.
+TEST(FilterRenderingPerfConfig, PlainBytePerfConvertsIntoTheRequestedUnit) {
+  // The plain add_int_perf shape (the `bytes` keyword, registered in "B"):
+  // unit:KB used to relabel without converting, shipping '=1536KB' for 1536
+  // *bytes*; value and bounds now convert so the label tells the truth.
   const run_result r = run_query({"warning=bytes > 1k", "critical=none", "perf-config=bytes(unit:KB)"}, "%(name)");
   ASSERT_TRUE(r.built) << r.message;
   const PB::Common::PerformanceData *p = find_perf(r, "a");
   ASSERT_NE(p, nullptr) << r.message;
   ASSERT_TRUE(p->has_float_value());
   EXPECT_EQ(p->float_value().unit(), "KB");
+  EXPECT_DOUBLE_EQ(p->float_value().value(), 1.5);
+  ASSERT_TRUE(p->float_value().has_warning());
+  EXPECT_DOUBLE_EQ(p->float_value().warning().value(), 1.0);
+}
+
+TEST(FilterRenderingPerfConfig, PlainBytePerfKeepsTheValueOnAnUnknownUnit) {
+  // Same contract as the scaled shape: a unit that names nothing relabels
+  // only - the typo stays visible and the metric keeps its magnitude.
+  const run_result r = run_query({"warning=bytes > 1k", "critical=none", "perf-config=bytes(unit:ZB)"}, "%(name)");
+  ASSERT_TRUE(r.built) << r.message;
+  const PB::Common::PerformanceData *p = find_perf(r, "a");
+  ASSERT_NE(p, nullptr) << r.message;
+  ASSERT_TRUE(p->has_float_value());
+  EXPECT_EQ(p->float_value().unit(), "ZB");
   EXPECT_DOUBLE_EQ(p->float_value().value(), 1536.0);
+}
+
+TEST(FilterRenderingPerfConfig, NonByteSeriesIsNeverRescaledByUnit) {
+  // A series not measured in bytes (the float keyword, registered unitless -
+  // the same protection covers ms, %, s, ...) treats unit: as a pure relabel:
+  // there is no byte ratio to apply, and inventing one would corrupt the
+  // metric.
+  const run_result r = run_query({"warning=fraction > 2", "critical=none", "perf-config=fraction(unit:KB)"}, "%(name)");
+  ASSERT_TRUE(r.built) << r.message;
+  const PB::Common::PerformanceData *p = find_perf(r, "a");
+  ASSERT_NE(p, nullptr) << r.message;
+  ASSERT_TRUE(p->has_float_value());
+  EXPECT_EQ(p->float_value().unit(), "KB");
+  EXPECT_DOUBLE_EQ(p->float_value().value(), 1234.75);
 }
 
 // ============================================================================
