@@ -4,6 +4,7 @@
 #pragma once
 
 #include <nscapi/protobuf/command.hpp>
+#include <parsers/where/node.hpp>
 #include <string>
 
 namespace uncpath_check {
@@ -28,9 +29,9 @@ struct unc_obj {
   long long get_user_free() const { return user_free; }
   long long get_free_pct() const { return size == 0 ? 0 : (free * 100 / size); }
   long long get_used_pct() const { return size == 0 ? 0 : ((size - free) * 100 / size); }
-  std::string get_free_human() const;
-  std::string get_used_human() const;
-  std::string get_size_human() const;
+  std::string get_free_human(parsers::where::evaluation_context context) const;
+  std::string get_used_human(parsers::where::evaluation_context context) const;
+  std::string get_size_human(parsers::where::evaluation_context context) const;
 
   std::string show() const { return path; }
 };

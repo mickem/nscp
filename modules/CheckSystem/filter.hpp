@@ -66,15 +66,29 @@ struct filter_obj {
   long long get_used_pct() const { return str::format::calc_pct_round(get_used(), get_total()); }
   long long get_free_pct() const { return str::format::calc_pct_round(get_free(), get_total()); }
   long long get_peak_used_pct() const { return str::format::calc_pct_round(get_peak(), get_total()); }
-  std::string get_peak_human() const { return str::format::format_byte_units(get_peak()); }
-  std::string get_peak_used_pct_human() const { return str::format::format_pct(get_peak(), get_total()); }
-  std::string get_used_pct_human() const { return str::format::format_pct(get_used(), get_total()); }
-  std::string get_free_pct_human() const { return str::format::format_pct(get_free(), get_total()); }
+  std::string get_peak_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_peak(), context->get_number_format());
+  }
+  std::string get_peak_used_pct_human(parsers::where::evaluation_context context) const {
+    return str::format::format_pct(get_peak(), get_total(), context->get_number_format());
+  }
+  std::string get_used_pct_human(parsers::where::evaluation_context context) const {
+    return str::format::format_pct(get_used(), get_total(), context->get_number_format());
+  }
+  std::string get_free_pct_human(parsers::where::evaluation_context context) const {
+    return str::format::format_pct(get_free(), get_total(), context->get_number_format());
+  }
   std::string get_name() const { return info.name; }
 
-  std::string get_total_human() const { return str::format::format_byte_units(get_total()); }
-  std::string get_used_human() const { return str::format::format_byte_units(get_used()); }
-  std::string get_free_human() const { return str::format::format_byte_units(get_free()); }
+  std::string get_total_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_total(), context->get_number_format());
+  }
+  std::string get_used_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_used(), context->get_number_format());
+  }
+  std::string get_free_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_free(), context->get_number_format());
+  }
 };
 
 typedef parsers::where::filter_handler_impl<std::shared_ptr<filter_obj> > native_context;

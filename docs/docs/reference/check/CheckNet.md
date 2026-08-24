@@ -195,25 +195,29 @@ OK: total/all: 231|'total_all_close_wait'=0;0;0 'total_all_closing'=0;0;0 'total
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                             | Default Value                        |
-|----------------------------------------------------------------------------------------------------|--------------------------------------|
-| <a id="check_connections_filter"></a>[filter](../common-options.md#filter)                         | protocol = 'total'                   |
-| <a id="check_connections_warning"></a>[warning](../common-options.md#warning)                      | total_connections > 1000             |
-| <a id="check_connections_warn"></a>[warn](../common-options.md#warn)                               |                                      |
-| <a id="check_connections_critical"></a>[critical](../common-options.md#critical)                   | total_connections > 2000             |
-| <a id="check_connections_crit"></a>[crit](../common-options.md#crit)                               |                                      |
-| <a id="check_connections_ok"></a>[ok](../common-options.md#ok)                                     |                                      |
-| <a id="check_connections_debug"></a>[debug](../common-options.md#debug)                            | false                                |
-| <a id="check_connections_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                |
-| <a id="check_connections_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                              |
-| <a id="check_connections_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                      |
-| <a id="check_connections_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                |
-| <a id="check_connections_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                    |
-| <a id="check_connections_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${list}                   |
-| <a id="check_connections_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)                   |
-| <a id="check_connections_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No connection data                   |
-| <a id="check_connections_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${protocol}/${state}: ${connections} |
-| <a id="check_connections_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${protocol}_${state}                 |
+| Option                                                                                                            | Default Value                        |
+|-------------------------------------------------------------------------------------------------------------------|--------------------------------------|
+| <a id="check_connections_filter"></a>[filter](../common-options.md#filter)                                        | protocol = 'total'                   |
+| <a id="check_connections_warning"></a>[warning](../common-options.md#warning)                                     | total_connections > 1000             |
+| <a id="check_connections_warn"></a>[warn](../common-options.md#warn)                                              |                                      |
+| <a id="check_connections_critical"></a>[critical](../common-options.md#critical)                                  | total_connections > 2000             |
+| <a id="check_connections_crit"></a>[crit](../common-options.md#crit)                                              |                                      |
+| <a id="check_connections_ok"></a>[ok](../common-options.md#ok)                                                    |                                      |
+| <a id="check_connections_debug"></a>[debug](../common-options.md#debug)                                           | false                                |
+| <a id="check_connections_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                |
+| <a id="check_connections_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                              |
+| <a id="check_connections_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                      |
+| <a id="check_connections_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                |
+| <a id="check_connections_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                    |
+| <a id="check_connections_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                   |
+| <a id="check_connections_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(list)                   |
+| <a id="check_connections_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No connection data                   |
+| <a id="check_connections_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${protocol}/${state}: ${connections} |
+| <a id="check_connections_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${protocol}_${state}                 |
+| <a id="check_connections_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                      |
+| <a id="check_connections_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                      |
+| <a id="check_connections_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                   |
+| <a id="check_connections_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                      |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -392,25 +396,29 @@ Timeout in milliseconds.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                     | Default Value                                                 |
-|--------------------------------------------------------------------------------------------|---------------------------------------------------------------|
-| <a id="check_dns_filter"></a>[filter](../common-options.md#filter)                         |                                                               |
-| <a id="check_dns_warning"></a>[warning](../common-options.md#warning)                      | time > 1000                                                   |
-| <a id="check_dns_warn"></a>[warn](../common-options.md#warn)                               |                                                               |
-| <a id="check_dns_critical"></a>[critical](../common-options.md#critical)                   | result != 'ok'                                                |
-| <a id="check_dns_crit"></a>[crit](../common-options.md#crit)                               |                                                               |
-| <a id="check_dns_ok"></a>[ok](../common-options.md#ok)                                     |                                                               |
-| <a id="check_dns_debug"></a>[debug](../common-options.md#debug)                            | false                                                         |
-| <a id="check_dns_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                         |
-| <a id="check_dns_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                       |
-| <a id="check_dns_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                               |
-| <a id="check_dns_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                         |
-| <a id="check_dns_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                             |
-| <a id="check_dns_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                                    |
-| <a id="check_dns_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)                                            |
-| <a id="check_dns_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No DNS lookup performed                                       |
-| <a id="check_dns_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${host} -> ${addresses} (${records}) in ${time}ms [${result}] |
-| <a id="check_dns_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${host}                                                       |
+| Option                                                                                                    | Default Value                                                 |
+|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| <a id="check_dns_filter"></a>[filter](../common-options.md#filter)                                        |                                                               |
+| <a id="check_dns_warning"></a>[warning](../common-options.md#warning)                                     | time > 1000                                                   |
+| <a id="check_dns_warn"></a>[warn](../common-options.md#warn)                                              |                                                               |
+| <a id="check_dns_critical"></a>[critical](../common-options.md#critical)                                  | result != 'ok'                                                |
+| <a id="check_dns_crit"></a>[crit](../common-options.md#crit)                                              |                                                               |
+| <a id="check_dns_ok"></a>[ok](../common-options.md#ok)                                                    |                                                               |
+| <a id="check_dns_debug"></a>[debug](../common-options.md#debug)                                           | false                                                         |
+| <a id="check_dns_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                         |
+| <a id="check_dns_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                       |
+| <a id="check_dns_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                               |
+| <a id="check_dns_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                         |
+| <a id="check_dns_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                             |
+| <a id="check_dns_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                                    |
+| <a id="check_dns_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(list)                                            |
+| <a id="check_dns_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No DNS lookup performed                                       |
+| <a id="check_dns_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${host} -> ${addresses} (${records}) in ${time}ms [${result}] |
+| <a id="check_dns_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${host}                                                       |
+| <a id="check_dns_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                               |
+| <a id="check_dns_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                               |
+| <a id="check_dns_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                            |
+| <a id="check_dns_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                               |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -689,25 +697,29 @@ Path to a CA bundle to use when verifying the server certificate.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                      | Default Value                                       |
-|---------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| <a id="check_http_filter"></a>[filter](../common-options.md#filter)                         |                                                     |
-| <a id="check_http_warning"></a>[warning](../common-options.md#warning)                      | time > 5000                                         |
-| <a id="check_http_warn"></a>[warn](../common-options.md#warn)                               |                                                     |
-| <a id="check_http_critical"></a>[critical](../common-options.md#critical)                   | code < 200 or code >= 400 or result != 'ok'         |
-| <a id="check_http_crit"></a>[crit](../common-options.md#crit)                               |                                                     |
-| <a id="check_http_ok"></a>[ok](../common-options.md#ok)                                     |                                                     |
-| <a id="check_http_debug"></a>[debug](../common-options.md#debug)                            | false                                               |
-| <a id="check_http_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                               |
-| <a id="check_http_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                             |
-| <a id="check_http_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                     |
-| <a id="check_http_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                               |
-| <a id="check_http_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                   |
-| <a id="check_http_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                          |
-| <a id="check_http_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)                                  |
-| <a id="check_http_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No URL checked                                      |
-| <a id="check_http_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${url} -> ${code} ${result} (${size}B in ${time}ms) |
-| <a id="check_http_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${url}                                              |
+| Option                                                                                                     | Default Value                                       |
+|------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| <a id="check_http_filter"></a>[filter](../common-options.md#filter)                                        |                                                     |
+| <a id="check_http_warning"></a>[warning](../common-options.md#warning)                                     | time > 5000                                         |
+| <a id="check_http_warn"></a>[warn](../common-options.md#warn)                                              |                                                     |
+| <a id="check_http_critical"></a>[critical](../common-options.md#critical)                                  | code < 200 or code >= 400 or result != 'ok'         |
+| <a id="check_http_crit"></a>[crit](../common-options.md#crit)                                              |                                                     |
+| <a id="check_http_ok"></a>[ok](../common-options.md#ok)                                                    |                                                     |
+| <a id="check_http_debug"></a>[debug](../common-options.md#debug)                                           | false                                               |
+| <a id="check_http_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                               |
+| <a id="check_http_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                             |
+| <a id="check_http_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                     |
+| <a id="check_http_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                               |
+| <a id="check_http_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                   |
+| <a id="check_http_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                          |
+| <a id="check_http_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(list)                                  |
+| <a id="check_http_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No URL checked                                      |
+| <a id="check_http_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${url} -> ${code} ${result} (${size}B in ${time}ms) |
+| <a id="check_http_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${url}                                              |
+| <a id="check_http_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                     |
+| <a id="check_http_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                     |
+| <a id="check_http_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                  |
+| <a id="check_http_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                     |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1027,25 +1039,29 @@ Number of queries to send to each server (default: 1). At least 2 are needed for
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                            | Default Value                                          |
-|---------------------------------------------------------------------------------------------------|--------------------------------------------------------|
-| <a id="check_ntp_offset_filter"></a>[filter](../common-options.md#filter)                         |                                                        |
-| <a id="check_ntp_offset_warning"></a>[warning](../common-options.md#warning)                      | offset > 50 or stratum >= 16                           |
-| <a id="check_ntp_offset_warn"></a>[warn](../common-options.md#warn)                               |                                                        |
-| <a id="check_ntp_offset_critical"></a>[critical](../common-options.md#critical)                   | offset > 100 or stratum >= 16 or result != 'ok'        |
-| <a id="check_ntp_offset_crit"></a>[crit](../common-options.md#crit)                               |                                                        |
-| <a id="check_ntp_offset_ok"></a>[ok](../common-options.md#ok)                                     |                                                        |
-| <a id="check_ntp_offset_debug"></a>[debug](../common-options.md#debug)                            | false                                                  |
-| <a id="check_ntp_offset_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                                  |
-| <a id="check_ntp_offset_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                                |
-| <a id="check_ntp_offset_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                        |
-| <a id="check_ntp_offset_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                                  |
-| <a id="check_ntp_offset_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                      |
-| <a id="check_ntp_offset_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}                             |
-| <a id="check_ntp_offset_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)                                     |
-| <a id="check_ntp_offset_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No NTP server checked                                  |
-| <a id="check_ntp_offset_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${server} offset=${offset_signed}ms stratum=${stratum} |
-| <a id="check_ntp_offset_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${server}                                              |
+| Option                                                                                                           | Default Value                                          |
+|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| <a id="check_ntp_offset_filter"></a>[filter](../common-options.md#filter)                                        |                                                        |
+| <a id="check_ntp_offset_warning"></a>[warning](../common-options.md#warning)                                     | offset > 50 or stratum >= 16                           |
+| <a id="check_ntp_offset_warn"></a>[warn](../common-options.md#warn)                                              |                                                        |
+| <a id="check_ntp_offset_critical"></a>[critical](../common-options.md#critical)                                  | offset > 100 or stratum >= 16 or result != 'ok'        |
+| <a id="check_ntp_offset_crit"></a>[crit](../common-options.md#crit)                                              |                                                        |
+| <a id="check_ntp_offset_ok"></a>[ok](../common-options.md#ok)                                                    |                                                        |
+| <a id="check_ntp_offset_debug"></a>[debug](../common-options.md#debug)                                           | false                                                  |
+| <a id="check_ntp_offset_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                  |
+| <a id="check_ntp_offset_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                |
+| <a id="check_ntp_offset_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                        |
+| <a id="check_ntp_offset_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                  |
+| <a id="check_ntp_offset_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                      |
+| <a id="check_ntp_offset_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}                             |
+| <a id="check_ntp_offset_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(list)                                     |
+| <a id="check_ntp_offset_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No NTP server checked                                  |
+| <a id="check_ntp_offset_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${server} offset=${offset_signed}ms stratum=${stratum} |
+| <a id="check_ntp_offset_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${server}                                              |
+| <a id="check_ntp_offset_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                        |
+| <a id="check_ntp_offset_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                        |
+| <a id="check_ntp_offset_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                     |
+| <a id="check_ntp_offset_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                        |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1332,25 +1348,29 @@ TTL / hop limit to set on outgoing packets (0 keeps the system default). Note th
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                      | Default Value                                     |
-|---------------------------------------------------------------------------------------------|---------------------------------------------------|
-| <a id="check_ping_filter"></a>[filter](../common-options.md#filter)                         |                                                   |
-| <a id="check_ping_warning"></a>[warning](../common-options.md#warning)                      | time > 60 or loss > 5%                            |
-| <a id="check_ping_warn"></a>[warn](../common-options.md#warn)                               |                                                   |
-| <a id="check_ping_critical"></a>[critical](../common-options.md#critical)                   | time > 100 or loss > 10%                          |
-| <a id="check_ping_crit"></a>[crit](../common-options.md#crit)                               |                                                   |
-| <a id="check_ping_ok"></a>[ok](../common-options.md#ok)                                     |                                                   |
-| <a id="check_ping_debug"></a>[debug](../common-options.md#debug)                            | false                                             |
-| <a id="check_ping_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                             |
-| <a id="check_ping_empty-state"></a>[empty-state](../common-options.md#empty-state)          | unknown                                           |
-| <a id="check_ping_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                                   |
-| <a id="check_ping_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                             |
-| <a id="check_ping_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                                 |
-| <a id="check_ping_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${ok_count}/${count} (${problem_list}) |
-| <a id="check_ping_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All %(count) hosts are ok              |
-| <a id="check_ping_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No hosts found                                    |
-| <a id="check_ping_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${ip} Packet loss = ${loss}%, RTA = ${time}ms     |
-| <a id="check_ping_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${host}                                           |
+| Option                                                                                                     | Default Value                                     |
+|------------------------------------------------------------------------------------------------------------|---------------------------------------------------|
+| <a id="check_ping_filter"></a>[filter](../common-options.md#filter)                                        |                                                   |
+| <a id="check_ping_warning"></a>[warning](../common-options.md#warning)                                     | time > 60 or loss > 5%                            |
+| <a id="check_ping_warn"></a>[warn](../common-options.md#warn)                                              |                                                   |
+| <a id="check_ping_critical"></a>[critical](../common-options.md#critical)                                  | time > 100 or loss > 10%                          |
+| <a id="check_ping_crit"></a>[crit](../common-options.md#crit)                                              |                                                   |
+| <a id="check_ping_ok"></a>[ok](../common-options.md#ok)                                                    |                                                   |
+| <a id="check_ping_debug"></a>[debug](../common-options.md#debug)                                           | false                                             |
+| <a id="check_ping_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                             |
+| <a id="check_ping_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | unknown                                           |
+| <a id="check_ping_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                   |
+| <a id="check_ping_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                             |
+| <a id="check_ping_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                 |
+| <a id="check_ping_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${ok_count}/${count} (${problem_list}) |
+| <a id="check_ping_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All %(count) hosts are ok              |
+| <a id="check_ping_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No hosts found                                    |
+| <a id="check_ping_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${ip} Packet loss = ${loss}%, RTA = ${time}ms     |
+| <a id="check_ping_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${host}                                           |
+| <a id="check_ping_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                   |
+| <a id="check_ping_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                   |
+| <a id="check_ping_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                |
+| <a id="check_ping_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                   |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1569,25 +1589,29 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                     | Default Value                          |
-|--------------------------------------------------------------------------------------------|----------------------------------------|
-| <a id="check_ssh_filter"></a>[filter](../common-options.md#filter)                         |                                        |
-| <a id="check_ssh_warning"></a>[warning](../common-options.md#warning)                      | time > 1000                            |
-| <a id="check_ssh_warn"></a>[warn](../common-options.md#warn)                               |                                        |
-| <a id="check_ssh_critical"></a>[critical](../common-options.md#critical)                   | time > 5000 or result != 'ok'          |
-| <a id="check_ssh_crit"></a>[crit](../common-options.md#crit)                               |                                        |
-| <a id="check_ssh_ok"></a>[ok](../common-options.md#ok)                                     |                                        |
-| <a id="check_ssh_debug"></a>[debug](../common-options.md#debug)                            | false                                  |
-| <a id="check_ssh_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                  |
-| <a id="check_ssh_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                |
-| <a id="check_ssh_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                        |
-| <a id="check_ssh_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                  |
-| <a id="check_ssh_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                      |
-| <a id="check_ssh_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}             |
-| <a id="check_ssh_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)                     |
-| <a id="check_ssh_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No hosts checked                       |
-| <a id="check_ssh_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${host}:${port} ${result} in ${time}ms |
-| <a id="check_ssh_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${host}_${port}                        |
+| Option                                                                                                    | Default Value                          |
+|-----------------------------------------------------------------------------------------------------------|----------------------------------------|
+| <a id="check_ssh_filter"></a>[filter](../common-options.md#filter)                                        |                                        |
+| <a id="check_ssh_warning"></a>[warning](../common-options.md#warning)                                     | time > 1000                            |
+| <a id="check_ssh_warn"></a>[warn](../common-options.md#warn)                                              |                                        |
+| <a id="check_ssh_critical"></a>[critical](../common-options.md#critical)                                  | time > 5000 or result != 'ok'          |
+| <a id="check_ssh_crit"></a>[crit](../common-options.md#crit)                                              |                                        |
+| <a id="check_ssh_ok"></a>[ok](../common-options.md#ok)                                                    |                                        |
+| <a id="check_ssh_debug"></a>[debug](../common-options.md#debug)                                           | false                                  |
+| <a id="check_ssh_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                  |
+| <a id="check_ssh_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                |
+| <a id="check_ssh_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                        |
+| <a id="check_ssh_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                  |
+| <a id="check_ssh_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                      |
+| <a id="check_ssh_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}             |
+| <a id="check_ssh_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(list)                     |
+| <a id="check_ssh_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No hosts checked                       |
+| <a id="check_ssh_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${host}:${port} ${result} in ${time}ms |
+| <a id="check_ssh_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${host}_${port}                        |
+| <a id="check_ssh_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                        |
+| <a id="check_ssh_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                        |
+| <a id="check_ssh_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                     |
+| <a id="check_ssh_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                        |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
@@ -1862,25 +1886,29 @@ Certificate verify mode when --ssl is used: none (default), peer, ... (peer requ
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                     | Default Value                          |
-|--------------------------------------------------------------------------------------------|----------------------------------------|
-| <a id="check_tcp_filter"></a>[filter](../common-options.md#filter)                         |                                        |
-| <a id="check_tcp_warning"></a>[warning](../common-options.md#warning)                      | time > 1000                            |
-| <a id="check_tcp_warn"></a>[warn](../common-options.md#warn)                               |                                        |
-| <a id="check_tcp_critical"></a>[critical](../common-options.md#critical)                   | time > 5000 or result != 'ok'          |
-| <a id="check_tcp_crit"></a>[crit](../common-options.md#crit)                               |                                        |
-| <a id="check_tcp_ok"></a>[ok](../common-options.md#ok)                                     |                                        |
-| <a id="check_tcp_debug"></a>[debug](../common-options.md#debug)                            | false                                  |
-| <a id="check_tcp_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                  |
-| <a id="check_tcp_empty-state"></a>[empty-state](../common-options.md#empty-state)          | ignored                                |
-| <a id="check_tcp_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                        |
-| <a id="check_tcp_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                  |
-| <a id="check_tcp_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                      |
-| <a id="check_tcp_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}             |
-| <a id="check_tcp_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): %(list)                     |
-| <a id="check_tcp_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | No hosts checked                       |
-| <a id="check_tcp_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${host}:${port} ${result} in ${time}ms |
-| <a id="check_tcp_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${host}_${port}                        |
+| Option                                                                                                    | Default Value                          |
+|-----------------------------------------------------------------------------------------------------------|----------------------------------------|
+| <a id="check_tcp_filter"></a>[filter](../common-options.md#filter)                                        |                                        |
+| <a id="check_tcp_warning"></a>[warning](../common-options.md#warning)                                     | time > 1000                            |
+| <a id="check_tcp_warn"></a>[warn](../common-options.md#warn)                                              |                                        |
+| <a id="check_tcp_critical"></a>[critical](../common-options.md#critical)                                  | time > 5000 or result != 'ok'          |
+| <a id="check_tcp_crit"></a>[crit](../common-options.md#crit)                                              |                                        |
+| <a id="check_tcp_ok"></a>[ok](../common-options.md#ok)                                                    |                                        |
+| <a id="check_tcp_debug"></a>[debug](../common-options.md#debug)                                           | false                                  |
+| <a id="check_tcp_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                  |
+| <a id="check_tcp_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                |
+| <a id="check_tcp_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                        |
+| <a id="check_tcp_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                  |
+| <a id="check_tcp_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                      |
+| <a id="check_tcp_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}             |
+| <a id="check_tcp_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): %(list)                     |
+| <a id="check_tcp_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | No hosts checked                       |
+| <a id="check_tcp_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${host}:${port} ${result} in ${time}ms |
+| <a id="check_tcp_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${host}_${port}                        |
+| <a id="check_tcp_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                        |
+| <a id="check_tcp_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                        |
+| <a id="check_tcp_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                     |
+| <a id="check_tcp_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                        |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

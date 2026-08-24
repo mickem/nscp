@@ -396,6 +396,17 @@ TEST(FilterMatrixString, InAndNotIn) {
   });
 }
 
+TEST(FilterMatrixString, EmptyStringLiteralComparesAsEmptyText) {
+  // '' is a valid (empty) string literal: no sval is empty, so equality never
+  // matches and inequality matches every row. Every non-empty string orders
+  // above "".
+  run_matrix({
+      {"sval = ''", ""},
+      {"sval != ''", "a, b, c, d"},
+      {"sval > ''", "a, b, c, d"},
+  });
+}
+
 // ============================================================================
 // Optional int keyword: oval = {a:100, b:(no value), c:5, d:0}
 // ============================================================================

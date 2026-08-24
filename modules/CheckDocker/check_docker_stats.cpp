@@ -36,7 +36,10 @@ struct stats_obj {
   long long get_memory_used() const { return memory_used; }
   long long get_memory_limit() const { return memory_limit; }
   long long get_memory_pct() const { return memory_limit > 0 ? memory_used * 100 / memory_limit : 0; }
-  std::string get_memory_human() const { return str::format::format_byte_units(memory_used) + " of " + str::format::format_byte_units(memory_limit); }
+  std::string get_memory_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(memory_used, context->get_number_format()) + " of " +
+           str::format::format_byte_units(memory_limit, context->get_number_format());
+  }
 };
 
 // One /containers/{id}/stats?stream=false sample -> cpu% and memory usage.
@@ -76,8 +79,8 @@ struct stats_obj_handler : public stats_context {
   stats_obj_handler() {
     registry_.add_string_var("names", &stats_obj::get_names, "Container name(s), comma separated")
         .add_string_var("image", &stats_obj::get_image, "Image the container was created from")
-        .add_string_var("memory", &stats_obj::get_memory_human,
-                        "Memory usage as human readable text, e.g. 45.2M of 512M (display only; threshold on memory_used or memory_pct)");
+        .add_string_var_w_context("memory", &stats_obj::get_memory_human,
+                                  "Memory usage as human readable text, e.g. 45.2M of 512M (display only; threshold on memory_used or memory_pct)");
     registry_.add_int_var("cpu_pct", &stats_obj::get_cpu_pct, "CPU usage in percent of the host (like docker stats)")
         .add_int_perf("%", "", " cpu")
         .add_int_var("memory_pct", &stats_obj::get_memory_pct, "Memory usage in percent of the container's limit")

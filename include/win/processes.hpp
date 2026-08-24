@@ -5,6 +5,7 @@
 
 #include <list>
 #include <memory>
+#include <parsers/where/node.hpp>
 #include <str/format.hpp>
 #include <str/xtos.hpp>
 #include <string>
@@ -74,8 +75,10 @@ struct string_var {
   long long get_##name() const { return (name).get(); }
 #define BOL_GETTER(name) \
   bool get_##name() const { return (name).get(); }
-#define HUMAN_SIZE_GETTER(name) \
-  std::string get_##name##_human() const { return str::format::format_byte_units((name).get()); }
+#define HUMAN_SIZE_GETTER(name)                                                                                \
+  std::string get_##name##_human(parsers::where::evaluation_context context) const {                           \
+    return str::format::format_byte_units(static_cast<long long>((name).get()), context->get_number_format()); \
+  }
 
 struct process_info {
   string_var filename;

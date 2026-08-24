@@ -30,12 +30,21 @@ double rate_of(const unsigned long long cur, const unsigned long long prev, cons
 }
 }  // namespace
 
-std::string kernel_memory_obj::get_slab_human() const { return str::format::format_byte_units(slab); }
-std::string kernel_memory_obj::get_slab_unreclaimable_human() const { return str::format::format_byte_units(slab_unreclaimable); }
-std::string kernel_memory_obj::get_cache_human() const { return str::format::format_byte_units(cache); }
+std::string kernel_memory_obj::get_slab_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(slab, context->get_number_format());
+}
+std::string kernel_memory_obj::get_slab_unreclaimable_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(slab_unreclaimable, context->get_number_format());
+}
+std::string kernel_memory_obj::get_cache_human(parsers::where::evaluation_context context) const {
+  return str::format::format_byte_units(cache, context->get_number_format());
+}
 
 std::string kernel_memory_obj::show() const {
-  return "slab " + get_slab_human() + " (" + get_slab_unreclaimable_human() + " unreclaimable), cache " + get_cache_human();
+  // Debug output, so the plain rendering rather than the check's number format
+  // (which lives on the evaluation context and is not in reach here).
+  return "slab " + str::format::format_byte_units(slab) + " (" + str::format::format_byte_units(slab_unreclaimable) + " unreclaimable), cache " +
+         str::format::format_byte_units(cache);
 }
 
 // /proc/meminfo lines look like "Slab:  123456 kB".
@@ -114,9 +123,9 @@ filter_obj_handler::filter_obj_handler() {
       .add_float("major_faults_per_sec", &kernel_memory_obj::get_major_faults,
                  "Major (hard) faults per second (pgmajfault in /proc/vmstat): faults that had to read from disk — the fault-storm signal");
   // Render the byte gauges human-readable; expressions keep comparing bytes.
-  registry_.add_human_string("slab", &kernel_memory_obj::get_slab_human, "Total slab as a human-readable size")
-      .add_human_string("slab_unreclaimable", &kernel_memory_obj::get_slab_unreclaimable_human, "Unreclaimable slab as a human-readable size")
-      .add_human_string("cache", &kernel_memory_obj::get_cache_human, "Page cache as a human-readable size");
+  registry_.add_human_string_context("slab", &kernel_memory_obj::get_slab_human, "Total slab as a human-readable size")
+      .add_human_string_context("slab_unreclaimable", &kernel_memory_obj::get_slab_unreclaimable_human, "Unreclaimable slab as a human-readable size")
+      .add_human_string_context("cache", &kernel_memory_obj::get_cache_human, "Page cache as a human-readable size");
   // clang-format on
 }
 

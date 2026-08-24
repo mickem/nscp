@@ -100,10 +100,10 @@ inline std::string format_full_in(const boost::optional<long long> &v) {
   return str::format::itos_as_time(static_cast<unsigned long long>(*v < 0 ? 0 : *v) * 1000);
 }
 
-inline std::string format_rate(const boost::optional<long long> &v) {
+inline std::string format_rate(const boost::optional<long long> &v, const str::number_format &fmt = str::number_format()) {
   if (!v) return "unknown";
-  if (*v < 0) return "-" + str::format::format_byte_units(-*v) + "/day";
-  return str::format::format_byte_units(*v) + "/day";
+  if (*v < 0) return "-" + str::format::format_byte_units(-*v, fmt) + "/day";
+  return str::format::format_byte_units(*v, fmt) + "/day";
 }
 
 // Duration literal ("12h", or the tokenized [12, h] list form) to seconds, as

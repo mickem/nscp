@@ -11,6 +11,7 @@
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <str/format.hpp>
 #include <str/utils_no_boost.hpp>
 
 namespace modern_filter {
@@ -26,10 +27,35 @@ struct data_container {
   std::vector<std::string> filter_string, warn_string, crit_string, ok_string;
   std::string syntax_empty, syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_state, syntax_unique, list_separator;
   bool debug, escape_html;
+  // How the numbers of the message are rendered (issue #1428); -1 decimals is
+  // "leave the rendering alone". These only ever touch the message: the
+  // performance data is built from the raw values and stays locale neutral.
+  int decimals;
+  std::string byte_unit, decimal_separator, thousands_separator;
   // list_separator carries its default here as well as on the option, so a
   // check that builds a filter without registering the misc options still
   // joins lists with ", " instead of with nothing.
-  data_container() : list_separator(", "), debug(false), escape_html(false) {}
+  data_container() : list_separator(", "), debug(false), escape_html(false), decimals(-1), decimal_separator(".") {}
+
+  // The number format these options describe, or an error message when the
+  // pinned unit is not one we know about.
+  std::string build_number_format(str::number_format &fmt) const {
+    fmt.decimals = decimals;
+    fmt.byte_unit = byte_unit;
+    // An explicitly emptied separator means "the default radix character".
+    fmt.decimal_separator = decimal_separator.empty() ? "." : decimal_separator;
+    fmt.thousands_separator = thousands_separator;
+    if (!byte_unit.empty() && str::format::byte_unit_index(byte_unit) < 0) {
+      return "Invalid byte-unit: " + byte_unit + " (expected one of B, KB, MB, GB, TB, PB, EB)";
+    }
+    if (decimals < -1) return "Invalid decimals: " + str::xtos(decimals) + " (expected 0 or more, or -1 to leave the rendering alone)";
+    // An unbounded decimals would make render_fixed allocate a huge string and
+    // crash the check; past max_decimals the digits are noise anyway.
+    if (decimals > str::max_decimals) {
+      return "Invalid decimals: " + str::xtos(decimals) + " (expected at most " + str::xtos(str::max_decimals) + ")";
+    }
+    return "";
+  }
 };
 
 struct perf_writer final : perf_writer_interface {
@@ -202,6 +228,27 @@ struct cli_helper : boost::noncopyable {
 	"Set to \\n to render one item per line, which most Nagios compatible frontends show as long output below the summary line.\n"
 	"The top-syntax decides what precedes the first item; templates are never escape-decoded, so reference the decoded separator as %(sep) to break "
 	"before it too: --top-syntax \"%(status): %(count) items:%(sep)%(list)\".") + common_option_marker).c_str())
+      ("decimals", boost::program_options::value<int>(&data.decimals)->default_value(-1),
+	(std::string("Number of decimals to render the numbers of the message with, for instance 1 to turn \"25.191GB\" into \"25.2GB\".\n"
+	"Applies to the byte and percentage keywords and to format_bytes()/format_number(); -1 (the default) keeps the historical rendering of up to three "
+	"decimals with the trailing zeros stripped.\n"
+	"Performance data is unaffected - it is generated from the raw values so that graphs keep their full precision.") + common_option_marker).c_str())
+      ("byte-unit", boost::program_options::value<std::string>(&data.byte_unit),
+	(std::string("Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or EB.\n"
+	"By default each value scales on its own, which is why a single line can read \"140.293GB/0.983TB\"; pinning the unit makes the values comparable "
+	"(\"140.29GB/1006.85GB\").\n"
+	"Performance data is unaffected - its unit is chosen separately and can be set with perf-config.") + common_option_marker).c_str())
+      // No program_options default: the "." lives on data_container instead, so
+      // that the docs extractor does not unexpand the literal "." into the
+      // ${data-path} token when it resolves path variables in defaults.
+      ("decimal-separator", boost::program_options::value<std::string>(&data.decimal_separator),
+	(std::string("Character to use as the decimal separator of the message, for instance \",\" for the European rendering (default \".\").\n"
+	"Only the message is affected: performance data and the numbers you write in a filter or threshold always use \".\", as their consumers require.") +
+	common_option_marker).c_str())
+      ("thousands-separator", boost::program_options::value<std::string>(&data.thousands_separator),
+	(std::string("Character to group the thousands of the message with, for instance \".\" to render 1006.85 GB as \"1.006,85\" (together with "
+	"decimal-separator=,). Empty (the default) means no grouping.\n"
+	"Only the message is affected: performance data and the numbers you write in a filter or threshold are never grouped.") + common_option_marker).c_str())
       ;
     // clang-format on
     nscapi::program_options::add_help(desc);
@@ -276,6 +323,16 @@ struct cli_helper : boost::noncopyable {
     // The separator joins list items as they are collected, so it has to be in
     // place before the first match is recorded (start_match, below).
     filter.summary.list_separator = str::utils::unescape(data.list_separator);
+    // Same story for the number format: every keyword getter reads it off the
+    // evaluation context while the rows are rendered.
+    str::number_format number_format;
+    const std::string number_format_error = data.build_number_format(number_format);
+    if (!number_format_error.empty()) {
+      nscapi::protobuf::functions::set_response_bad(*response, number_format_error);
+      return false;
+    }
+    filter.context->set_number_format(number_format);
+    filter.set_human_number_format(!number_format.is_default());
     data.filter_string.erase(std::remove(data.filter_string.begin(), data.filter_string.end(), "none"), data.filter_string.end());
     data.ok_string.erase(std::remove(data.ok_string.begin(), data.ok_string.end(), "none"), data.ok_string.end());
     data.warn_string.erase(std::remove(data.warn_string.begin(), data.warn_string.end(), "none"), data.warn_string.end());

@@ -19,10 +19,18 @@
 // Usage examples (all valid in both filter expressions and detail-syntax):
 //   detail-syntax = "%(name): %(format_bytes(total_bytes_per_sec))/s"
 //   detail-syntax = "%(format_bytes(used, 'GB')) used"
+//   detail-syntax = "%(format_bytes(used, 'GB', 1)) GB used"
+//   detail-syntax = "%(format_number(used_pct, 1))% used"
 //   warning       = "convert_bytes(write_bytes_per_sec, 'MB') > 100"
 //   detail-syntax = "%(scale(value, 1000000)) Mbps"
 //
-// Originally added for check_pdh (issue #281) and generalised in #1392.
+// Everything rendered here follows the check's number format (the `decimals`,
+// `byte-unit`, `decimal-separator` and `thousands-separator` options), so a
+// check configured for two decimals and a decimal comma keeps them here too;
+// an explicit `decimals` argument wins over the option.
+//
+// Originally added for check_pdh (issue #281), generalised in #1392 and given
+// configurable precision and separators in #1428.
 
 namespace parsers {
 namespace where {
@@ -42,26 +50,68 @@ inline bool has_no_value(const evaluation_context &context, const node_type &nod
   return node->get_value(context, numeric_type).is_no_value;
 }
 
+// Read the optional trailing `decimals` argument of a format function.
+inline str::number_format with_decimals(const str::number_format &base, const evaluation_context &context, const node_type &node) {
+  str::number_format fmt = base;
+  fmt.decimals = static_cast<int>(node->get_int_value(context));
+  if (fmt.decimals < 0) throw std::invalid_argument("decimals must not be negative");
+  // Bound it: an unlimited number of decimals would make render_fixed allocate
+  // a huge string and crash, and past max_decimals a double has no digits left.
+  if (fmt.decimals > str::max_decimals) throw std::invalid_argument("decimals must not exceed " + str::xtos(str::max_decimals));
+  return fmt;
+}
+
 // Format a number as a human-readable byte string: format_bytes(value) auto-
-// scales, format_bytes(value, unit) pins the unit.
+// scales and appends the unit, format_bytes(value, unit) pins the unit and
+// leaves it out of the result (the syntax string spells it out), and a third
+// argument overrides the number of decimals.
 inline node_type fn_format_bytes(value_type, evaluation_context context, const node_type subject) {
   try {
     const std::list<node_type> args = subject->get_list_value(context);
-    if (args.empty() || args.size() > 2) {
-      context->error("format_bytes expects 1 or 2 arguments: format_bytes(value) or format_bytes(value, unit)");
+    if (args.empty() || args.size() > 3) {
+      context->error("format_bytes expects 1 to 3 arguments: format_bytes(value), format_bytes(value, unit) or format_bytes(value, unit, decimals)");
       return factory::create_false();
     }
     auto it = args.begin();
     if (has_no_value(context, *it, type_int)) return *it;
     const long long v = (*it)->get_int_value(context);
+    str::number_format fmt = context->get_number_format();
     if (args.size() == 1) {
-      return factory::create_string(str::format::format_byte_units(v));
+      return factory::create_string(str::format::format_byte_units(v, fmt));
     }
     ++it;
     const std::string unit = (*it)->get_string_value(context);
-    return factory::create_string(str::format::format_byte_units(v, unit));
+    if (args.size() == 3) {
+      ++it;
+      fmt = with_decimals(fmt, context, *it);
+    }
+    return factory::create_string(str::format::format_byte_units(v, unit, fmt));
   } catch (const std::exception &e) {
     context->error(std::string("format_bytes failed: ") + e.what());
+    return factory::create_false();
+  }
+}
+
+// Render any number with a fixed number of decimals, honouring the check's
+// separators: format_number(used_pct, 1) turns 13.9333 into "13.9".
+inline node_type fn_format_number(value_type, evaluation_context context, const node_type subject) {
+  try {
+    const std::list<node_type> args = subject->get_list_value(context);
+    if (args.empty() || args.size() > 2) {
+      context->error("format_number expects 1 or 2 arguments: format_number(value) or format_number(value, decimals)");
+      return factory::create_false();
+    }
+    auto it = args.begin();
+    if (has_no_value(context, *it, type_float)) return *it;
+    const double v = (*it)->get_float_value(context);
+    str::number_format fmt = context->get_number_format();
+    if (args.size() == 2) {
+      ++it;
+      fmt = with_decimals(fmt, context, *it);
+    }
+    return factory::create_string(str::render_number(v, fmt));
+  } catch (const std::exception &e) {
+    context->error(std::string("format_number failed: ") + e.what());
     return factory::create_false();
   }
 }
@@ -118,8 +168,15 @@ void register_format_functions(TRegistry &registry) {
   registry
       .add_string_fun("format_bytes", &fn_format_bytes,
                       "Format a number as a human-readable byte string.\n"
-                      "Syntax: format_bytes(value) auto-scales to B/KB/MB/GB/... (1024-based).\n"
-                      "        format_bytes(value, unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\").")
+                      "Syntax: format_bytes(value) auto-scales to B/KB/MB/GB/... (1024-based) and appends the unit.\n"
+                      "        format_bytes(value, unit) formats to a fixed unit (\"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\") "
+                      "and does not append it; an empty unit renders the raw byte count.\n"
+                      "        format_bytes(value, unit, decimals) does the same with a fixed number of decimals.\n"
+                      "Without an explicit decimals argument the decimals, byte-unit, decimal-separator and thousands-separator options apply.")
+      .add_string_fun("format_number", &fn_format_number,
+                      "Render a number with a fixed number of decimals, using the check's decimal and thousands separators.\n"
+                      "Syntax: format_number(value) uses the decimals option; format_number(value, decimals) overrides it.\n"
+                      "Useful for percentages and other non-byte values: format_number(used_pct, 1).")
       .add_custom_fun("convert_bytes", parsers::where::type_float, &fn_convert_bytes,
                       "Convert a byte count to a specific unit and return the numeric value (1024-based). Useful in thresholds.\n"
                       "Syntax: convert_bytes(value, unit) where unit is \"B\", \"K\"/\"KB\", \"M\"/\"MB\", \"G\"/\"GB\", \"T\"/\"TB\".")

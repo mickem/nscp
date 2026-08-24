@@ -145,25 +145,29 @@ The name of the computer that you want to connect to.
 These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-| Option                                                                                           | Default Value                         |
-|--------------------------------------------------------------------------------------------------|---------------------------------------|
-| <a id="check_tasksched_filter"></a>[filter](../common-options.md#filter)                         | enabled = 1                           |
-| <a id="check_tasksched_warning"></a>[warning](../common-options.md#warning)                      | exit_code != 0                        |
-| <a id="check_tasksched_warn"></a>[warn](../common-options.md#warn)                               |                                       |
-| <a id="check_tasksched_critical"></a>[critical](../common-options.md#critical)                   | exit_code < 0                         |
-| <a id="check_tasksched_crit"></a>[crit](../common-options.md#crit)                               |                                       |
-| <a id="check_tasksched_ok"></a>[ok](../common-options.md#ok)                                     |                                       |
-| <a id="check_tasksched_debug"></a>[debug](../common-options.md#debug)                            | false                                 |
-| <a id="check_tasksched_show-all"></a>[show-all](../common-options.md#show-all)                   | false                                 |
-| <a id="check_tasksched_empty-state"></a>[empty-state](../common-options.md#empty-state)          | warning                               |
-| <a id="check_tasksched_perf-config"></a>[perf-config](../common-options.md#perf-config)          |                                       |
-| <a id="check_tasksched_escape-html"></a>[escape-html](../common-options.md#escape-html)          | false                                 |
-| <a id="check_tasksched_list-separator"></a>[list-separator](../common-options.md#list-separator) | ,                                     |
-| <a id="check_tasksched_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)             | ${status}: ${problem_list}            |
-| <a id="check_tasksched_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                | %(status): All tasks are ok           |
-| <a id="check_tasksched_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)       | %(status): No tasks found             |
-| <a id="check_tasksched_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)    | ${folder}/${title}: ${exit_code} != 0 |
-| <a id="check_tasksched_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)          | ${title}                              |
+| Option                                                                                                          | Default Value                         |
+|-----------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| <a id="check_tasksched_filter"></a>[filter](../common-options.md#filter)                                        | enabled = 1                           |
+| <a id="check_tasksched_warning"></a>[warning](../common-options.md#warning)                                     | exit_code != 0                        |
+| <a id="check_tasksched_warn"></a>[warn](../common-options.md#warn)                                              |                                       |
+| <a id="check_tasksched_critical"></a>[critical](../common-options.md#critical)                                  | exit_code < 0                         |
+| <a id="check_tasksched_crit"></a>[crit](../common-options.md#crit)                                              |                                       |
+| <a id="check_tasksched_ok"></a>[ok](../common-options.md#ok)                                                    |                                       |
+| <a id="check_tasksched_debug"></a>[debug](../common-options.md#debug)                                           | false                                 |
+| <a id="check_tasksched_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                 |
+| <a id="check_tasksched_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | warning                               |
+| <a id="check_tasksched_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                       |
+| <a id="check_tasksched_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                 |
+| <a id="check_tasksched_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                     |
+| <a id="check_tasksched_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${problem_list}            |
+| <a id="check_tasksched_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               | %(status): All tasks are ok           |
+| <a id="check_tasksched_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      | %(status): No tasks found             |
+| <a id="check_tasksched_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${folder}/${title}: ${exit_code} != 0 |
+| <a id="check_tasksched_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | ${title}                              |
+| <a id="check_tasksched_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                       |
+| <a id="check_tasksched_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                       |
+| <a id="check_tasksched_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                    |
+| <a id="check_tasksched_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                       |
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.

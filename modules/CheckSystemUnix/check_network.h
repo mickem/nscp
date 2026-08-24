@@ -8,6 +8,7 @@
 #include <memory>
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <parsers/where/node.hpp>
 #include <string>
 
 class pdh_thread;
@@ -67,9 +68,9 @@ struct network_interface {
   long long get_usage_out() const { return speed_bps <= 0 ? 0 : (tx_bytes_per_sec * 8 * 100) / speed_bps; }
   long long get_usage_total() const { return speed_bps <= 0 ? 0 : (get_total() * 8 * 100) / speed_bps; }
 
-  std::string get_received_human() const;
-  std::string get_sent_human() const;
-  std::string get_total_human() const;
+  std::string get_received_human(parsers::where::evaluation_context context) const;
+  std::string get_sent_human(parsers::where::evaluation_context context) const;
+  std::string get_total_human(parsers::where::evaluation_context context) const;
 
   std::string show() const { return name; }
 };

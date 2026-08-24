@@ -428,6 +428,51 @@ long output, shown as a block — which is the point of the exercise.
     a long multi-line result is cut off sooner than the single-line form would be.
 <!-- @formatter:on -->
 
+### Number formatting
+
+By default every byte value scales on its own and carries up to three decimals, which is how a
+single line ends up reading `141.085GB/0.983TB` — two units, six decimals, one disk. Four options
+change that, and they are available on every filter check:
+
+| Option                 | Effect                                                        | Default          |
+|------------------------|---------------------------------------------------------------|------------------|
+| `decimals`             | Decimals to render, exactly (`2` → `25.20`)                   | `-1` (up to 3)   |
+| `byte-unit`            | Pin every byte value to one unit: `B`…`EB`                    | auto per value   |
+| `decimal-separator`    | Radix character — `,` for the European rendering              | `.`              |
+| `thousands-separator`  | Digit grouping for the integer part                           | none             |
+
+```shell
+check_drivesize drive=/ show-all=true
+OK /: 141.085GB/0.983TB used
+
+check_drivesize drive=/ show-all=true decimals=2 byte-unit=GB
+OK /: 141.09GB/1006.85GB used
+
+check_drivesize drive=/ show-all=true decimals=2 byte-unit=GB decimal-separator=, thousands-separator=.
+OK /: 141,09GB/1.006,85GB used
+```
+
+They apply to the byte and percentage keywords and to the
+[functions](#6-functions-transforming-values) below. Setting **any** of them also switches plain
+float keywords in the message templates over to the number format: instead of the legacy
+6-significant-digit rendering (which goes scientific past a million, `1.23457e+07`), floats then
+render with the configured `decimals` — or up to three decimals with trailing zeros stripped while
+`decimals` is unset. Strings, integers, durations and dates never change.
+
+<!-- @formatter:off -->
+!!! note "Only the message changes"
+    Performance data is generated from the raw values, so it keeps its full precision and its `.`
+    radix character whatever you set here — graphs and time series are unaffected. The numbers you
+    write in a `filter`, `warning` or `critical` are parsed by the filter language and always use
+    `.` as well: `warning=used > 1.5g` means the same thing with `decimal-separator=,` in force.
+
+!!! tip "Setting it once"
+    These are ordinary check options, so an alias fixes them for a whole command:
+    `[/settings/external scripts/alias] alias_disk = check_drivesize decimals=2 byte-unit=GB`.
+    Real-time filters take the same values as the `decimals`, `byte unit`, `decimal separator` and
+    `thousands separator` settings keys, which inherit from the default template.
+<!-- @formatter:on -->
+
 ---
 
 ## 6. Functions — Transforming Values
@@ -461,15 +506,23 @@ filter        = "scale(rate, 1000000) > 100"
 
 ### Built-in functions
 
-These are available wherever the check exposes them — `check_pdh` ships them today; other checks
-add their own. Run `<check> help` to see the list for a given check.
+These are available wherever the check exposes them — every check with byte-valued keywords does,
+including `check_drivesize`, `check_memory`, `check_network`, `check_pdh` and the disk checks. Run
+`<check> help` to see the list for a given check.
 
-| Function                     | Returns | Purpose                                                                  |
-|------------------------------|---------|--------------------------------------------------------------------------|
-| `format_bytes(value)`        | string  | Auto-scaled human-readable bytes — `4194304 → "4MB"` (1024-based)        |
-| `format_bytes(value, 'MB')`  | string  | Fixed unit. Units: `B`, `K`/`KB`, `M`/`MB`, `G`/`GB`, `T`/`TB`           |
-| `convert_bytes(value, 'MB')` | float   | Numeric value in the named unit — use in thresholds                      |
-| `scale(value, divisor)`      | float   | Divide by an arbitrary divisor — for decimal units (Mbps, etc.)          |
+| Function                        | Returns | Purpose                                                                  |
+|---------------------------------|---------|--------------------------------------------------------------------------|
+| `format_bytes(value)`           | string  | Auto-scaled human-readable bytes — `4194304 → "4MB"` (1024-based)        |
+| `format_bytes(value, 'MB')`     | string  | Fixed unit, without the suffix. Units: `B`, `KB`, `MB`, `GB`, `TB`, …    |
+| `format_bytes(value, 'MB', 1)`  | string  | The same with exactly one decimal                                        |
+| `format_number(value, 2)`       | string  | Any number with a fixed number of decimals — percentages, rates, …       |
+| `convert_bytes(value, 'MB')`    | float   | Numeric value in the named unit — use in thresholds                      |
+| `scale(value, divisor)`         | float   | Divide by an arbitrary divisor — for decimal units (Mbps, etc.)          |
+
+Unit names are case insensitive (`GB`, `gb` and `g` all mean the same thing) and a unit that names
+nothing is reported rather than rendered: `format_bytes(used, 'ZB')` makes the check return UNKNOWN
+with `Unknown byte unit: ZB`. Without an explicit `decimals` argument these follow the check's
+[number formatting](#number-formatting) options.
 
 ### Recipes
 

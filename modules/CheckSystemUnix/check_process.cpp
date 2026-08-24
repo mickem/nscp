@@ -92,10 +92,11 @@ filter_obj_handler::filter_obj_handler() {
                              "Resident set size in bytes; alias for working_set, matching the Windows keyword set (g,m,k,b)")
       .add_scaled_byte(std::string(""), " rss");
 
-  registry_.add_human_string("virtual", &filter_obj::get_virtual_size_human, "").add_human_string("working_set", &filter_obj::get_working_set_human, "");
-  registry_.add_human_string("rss", &filter_obj::get_working_set_human, "");
-  registry_.add_human_string("peak_virtual", &filter_obj::get_peak_virtual_size_human, "")
-      .add_human_string("peak_working_set", &filter_obj::get_peak_working_set_human, "");
+  registry_.add_human_string_context("virtual", &filter_obj::get_virtual_size_human, "")
+      .add_human_string_context("working_set", &filter_obj::get_working_set_human, "");
+  registry_.add_human_string_context("rss", &filter_obj::get_working_set_human, "");
+  registry_.add_human_string_context("peak_virtual", &filter_obj::get_peak_virtual_size_human, "")
+      .add_human_string_context("peak_working_set", &filter_obj::get_peak_working_set_human, "");
 
   // Time counters. Perfdata mirrors Windows (no UOM): cumulative CPU seconds
   // normally, whole percentages of total CPU with delta=true. creation is the

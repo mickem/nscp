@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <parsers/where/dll_defines.hpp>
+#include <str/number_format.hpp>
 #include <string>
 #include <utility>
 #ifdef WIN32
@@ -225,6 +226,17 @@ struct evaluation_context_interface {
   virtual bool debug_enabled() = 0;
   virtual std::string get_debug() const = 0;
   virtual void debug(object_match reason) = 0;
+
+  // How the human readable numbers of this evaluation are rendered (#1428).
+  // Lives on the context because that is the one thing every keyword getter
+  // and every format function is already handed; the check's options set it
+  // once, before the first row is evaluated. It never reaches performance
+  // data, which is rendered from the raw values further down.
+  const str::number_format &get_number_format() const { return number_format_; }
+  void set_number_format(const str::number_format &fmt) { number_format_ = fmt; }
+
+ protected:
+  str::number_format number_format_;
 };
 typedef std::shared_ptr<evaluation_context_interface> evaluation_context;
 

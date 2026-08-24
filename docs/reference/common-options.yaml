@@ -22,6 +22,15 @@ fields:
   warn_count: Number of items matched the warning criteria.
   warn_list: A list of all items which matched the warning criteria.
 options:
+  byte-unit:
+    content_type: 2
+    description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or EB.
+
+      By default each value scales on its own, which is why a single line can read "140.293GB/0.983TB";
+      pinning the unit makes the values comparable ("140.29GB/1006.85GB").
+
+      Performance data is unaffected - its unit is chosen separately and can be set with perf-config.'
+    group: filter
   crit:
     content_type: 2
     description: Short alias for critical.
@@ -37,6 +46,25 @@ options:
   debug:
     content_type: 2
     description: Show debugging information in the log
+    group: filter
+  decimal-separator:
+    content_type: 2
+    description: 'Character to use as the decimal separator of the message, for instance "," for the European
+      rendering (default ".").
+
+      Only the message is affected: performance data and the numbers you write in a filter or threshold
+      always use ".", as their consumers require.'
+    group: filter
+  decimals:
+    content_type: 2
+    description: 'Number of decimals to render the numbers of the message with, for instance 1 to turn
+      "25.191GB" into "25.2GB".
+
+      Applies to the byte and percentage keywords and to format_bytes()/format_number(); -1 (the default)
+      keeps the historical rendering of up to three decimals with the trailing zeros stripped.
+
+      Performance data is unaffected - it is generated from the raw values so that graphs keep their full
+      precision.'
     group: filter
   detail-syntax:
     content_type: 2
@@ -135,6 +163,14 @@ options:
     content_type: 4
     description: Show default values for a given command
     group: standard
+  thousands-separator:
+    content_type: 2
+    description: 'Character to group the thousands of the message with, for instance "." to render 1006.85
+      GB as "1.006,85" (together with decimal-separator=,). Empty (the default) means no grouping.
+
+      Only the message is affected: performance data and the numbers you write in a filter or threshold
+      are never grouped.'
+    group: filter
   top-syntax:
     content_type: 2
     description: 'Top level syntax.

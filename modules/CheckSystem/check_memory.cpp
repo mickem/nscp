@@ -9,6 +9,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/format_functions.hpp>
 #include <parsers/where/node.hpp>
 #include <str/format.hpp>
 #include <string>
@@ -33,13 +34,23 @@ struct filter_obj {
   long long get_free() const { return total - used; }
   long long get_used_pct() const { return str::format::calc_pct_round(get_used(), get_total()); }
   long long get_free_pct() const { return str::format::calc_pct_round(get_free(), get_total()); }
-  std::string get_used_pct_human() const { return str::format::format_pct(get_used(), get_total()); }
-  std::string get_free_pct_human() const { return str::format::format_pct(get_free(), get_total()); }
+  std::string get_used_pct_human(parsers::where::evaluation_context context) const {
+    return str::format::format_pct(get_used(), get_total(), context->get_number_format());
+  }
+  std::string get_free_pct_human(parsers::where::evaluation_context context) const {
+    return str::format::format_pct(get_free(), get_total(), context->get_number_format());
+  }
   std::string get_type() const { return type; }
 
-  std::string get_total_human() const { return str::format::format_byte_units(get_total()); }
-  std::string get_used_human() const { return str::format::format_byte_units(get_used()); }
-  std::string get_free_human() const { return str::format::format_byte_units(get_free()); }
+  std::string get_total_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_total(), context->get_number_format());
+  }
+  std::string get_used_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_used(), context->get_number_format());
+  }
+  std::string get_free_human(parsers::where::evaluation_context context) const {
+    return str::format::format_byte_units(get_free(), context->get_number_format());
+  }
 };
 
 parsers::where::node_type calculate_free(std::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
@@ -77,14 +88,17 @@ struct filter_obj_handler : public native_context {
       ("used_pct", [](auto obj, auto context) { return obj->get_used_pct(); }, "% used memory")
       ;
     // clang-format on
-    registry_.add_human_string("size", &filter_obj::get_total_human, "")
-        .add_human_string("free", &filter_obj::get_free_human, "")
-        .add_human_string("used", &filter_obj::get_used_human, "")
+    registry_.add_human_string_context("size", &filter_obj::get_total_human, "")
+        .add_human_string_context("free", &filter_obj::get_free_human, "")
+        .add_human_string_context("used", &filter_obj::get_used_human, "")
         // Issue #595: render percentages with two decimals via human-string
-        .add_human_string("used_pct", &filter_obj::get_used_pct_human, "")
-        .add_human_string("free_pct", &filter_obj::get_free_pct_human, "");
+        .add_human_string_context("used_pct", &filter_obj::get_used_pct_human, "")
+        .add_human_string_context("free_pct", &filter_obj::get_free_pct_human, "");
 
     registry_.add_converter(type_custom_free, &calculate_free).add_converter(type_custom_used, &calculate_free);
+
+    // Byte-valued keywords with no arithmetic in the grammar (#1392, #1428).
+    parsers::where::format_functions::register_format_functions(registry_);
   }
 };
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;

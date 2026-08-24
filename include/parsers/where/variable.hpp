@@ -37,9 +37,24 @@ inline boost::optional<double> parse_optional_perf_bound(const std::string &s) {
   }
 }
 
+// Index of `unit` when it names a byte unit exactly ("B", "K", "KB", "mb",
+// ...), -1 for anything else. Stricter than str::format::byte_unit_index,
+// which matches on the first character only and would read a series measured
+// in "ms" as megabytes - not acceptable when the answer decides whether a
+// perf value is scaled.
+inline int exact_byte_unit_index(const std::string &unit) {
+  if (unit.empty() || unit.size() > 2) return -1;
+  if (unit.size() == 2 && unit[1] != 'B' && unit[1] != 'b') return -1;
+  return str::format::byte_unit_index(unit);
+}
+
 template <class TContext, typename TDataType>
 struct simple_number_performance_generator : number_performance_generator_interface<TContext, TDataType> {
   std::string unit;
+  // The unit the check registered the series with, before any perf-config
+  // override. When both it and the override name byte units, the values are
+  // converted (see eval); otherwise the override is a pure relabel.
+  std::string registered_unit;
   std::string prefix;
   std::string suffix;
   bool configured;
@@ -50,8 +65,8 @@ struct simple_number_performance_generator : number_performance_generator_interf
   boost::optional<double> minimum;
   boost::optional<double> maximum;
   simple_number_performance_generator(const std::string &unit, const std::string &prefix, const std::string &suffix)
-      : unit(unit), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
-  explicit simple_number_performance_generator(const std::string &unit) : unit(unit), configured(false), ignored(false) {}
+      : unit(unit), registered_unit(unit), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
+  explicit simple_number_performance_generator(const std::string &unit) : unit(unit), registered_unit(unit), configured(false), ignored(false) {}
   bool is_configured() override { return configured; }
   void configure(const std::string key, const object_factory context) override {
     const std::string p = boost::trim_copy(prefix);
@@ -75,11 +90,29 @@ struct simple_number_performance_generator : number_performance_generator_interf
   void eval(perf_list_type &list, evaluation_context context, const std::string alias, TDataType current_value, TDataType warn, TDataType crit,
             TContext object) override {
     if (ignored) return;
+    // A perf-config `unit:` on a byte series converts the value and bounds
+    // into the requested unit; relabelling alone would ship '=1536KB' for a
+    // value that is 1536 *bytes* - a metric silently off by the unit ratio.
+    // A series whose registered unit is not a byte unit (ms, %, s, ...) or an
+    // override that names no byte unit keeps the raw value: there the label
+    // is all the operator can change, and a typo stays visible instead of
+    // scaling the metric (the same contract as the scaled-byte generator).
+    double scale = 1.0;
+    if (unit != registered_unit) {
+      const int from = exact_byte_unit_index(registered_unit);
+      const int to = exact_byte_unit_index(unit);
+      if (from >= 0 && to >= 0) {
+        for (int i = from; i < to; ++i) scale /= 1024.0;
+        for (int i = to; i < from; ++i) scale *= 1024.0;
+      }
+    }
     performance_data data;
     performance_data::perf_value int_data;
-    int_data.value = static_cast<double>(current_value);
-    int_data.warn = static_cast<double>(warn);
-    int_data.crit = static_cast<double>(crit);
+    int_data.value = static_cast<double>(current_value) * scale;
+    int_data.warn = static_cast<double>(warn) * scale;
+    int_data.crit = static_cast<double>(crit) * scale;
+    // Explicit minimum/maximum overrides are written by the operator in the
+    // displayed unit already - never rescale them.
     if (minimum) int_data.minimum = *minimum;
     if (maximum) int_data.maximum = *maximum;
     data.set(int_data);
