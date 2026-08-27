@@ -55,7 +55,7 @@ release.
    [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs). Using
    the maintainer's personal account works but is not recommended; a
    dedicated bot identity is cleaner.
-2. Create a classic Personal Access Token with the `public_repo` scope.
+2. Create a classic Personal Access Token with `public_repo` and `workflow`.
    `wingetcreate` never writes to `microsoft/winget-pkgs` directly — it forks
    it into the token's own account, pushes a branch there and opens the PR
    from that fork. So the token needs repository write access in *its own*
