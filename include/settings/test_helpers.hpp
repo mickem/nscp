@@ -105,7 +105,7 @@ class mock_settings_core : public settings::settings_core {
   void migrate_from(std::string, std::string) override {}
   void set_primary(std::string) override {}
   settings::error_list validate() override { return {}; }
-  void update_defaults() override {}
+  void update_defaults(bool = false) override {}
   void remove_defaults() override {}
   void boot(std::string = "boot.ini") override {}
   void set_ready(bool flag = true) override { ready_flag_ = flag; }

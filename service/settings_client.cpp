@@ -46,7 +46,7 @@ void nsclient_core::settings_client::startup() {
     return;
   }
   if (default_) {
-    get_core()->update_defaults();
+    get_core()->update_defaults(use_samples_);
   }
   if (remove_default_) {
     std::cout << "Removing default values" << std::endl;
@@ -333,7 +333,7 @@ int nsclient_core::settings_client::activate(const std::vector<std::string> &mod
   }
   core_->boot_start_plugins(false);
   if (default_) {
-    get_core()->update_defaults();
+    get_core()->update_defaults(use_samples_);
   }
   get_core()->get()->save(false);
   return ret;

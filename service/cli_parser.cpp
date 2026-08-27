@@ -83,7 +83,8 @@ cli_parser::cli_parser(const std::shared_ptr<NSClient> &core)
         ("list", "List all keys given a path.")
         ("add-defaults", "Same as --add-missing")
         ("remove-defaults", "Remove all keys which have default values (and empty sections)")
-        ("use-samples", "Add sample commands provided by some sections such as targets and real time filters")
+        ("use-samples", "Together with --add-missing/--add-defaults, also write the sample objects some sections provide "
+                        "(sample schedules, targets, real time filters) as a starting point to edit.")
         ("activate-module", po::value<std::vector<std::string> >()->multitoken(),
          "Add one or more modules (and their configuration options) to the configuration. "
          "Accepts several names in one go, e.g. --activate-module CheckHelpers CheckSystem CheckDisk")

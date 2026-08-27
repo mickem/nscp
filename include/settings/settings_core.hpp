@@ -193,8 +193,12 @@ class settings_core {
   virtual settings::error_list validate() = 0;
 
   //////////////////////////////////////////////////////////////////////////
-  /// Overwrite the (current) settings store with default values.
-  virtual void update_defaults() = 0;
+  /// Fill the (current) settings store with the registered default values.
+  /// include_samples also materializes the keys registered as samples (the
+  /// sample schedules, targets and real-time filters modules register via
+  /// add_samples) - the CLI exposes it as `settings ... --use-samples`.
+  /// Existing values are never overwritten either way.
+  virtual void update_defaults(bool include_samples = false) = 0;
   virtual void remove_defaults() = 0;
 
   //////////////////////////////////////////////////////////////////////////

@@ -110,6 +110,26 @@ describe("settings --update --add-defaults", () => {
     expect(parseIni(nscp.settingsFile).get("/settings/log")?.get("level")).toBeUndefined();
   });
 
+  it("--use-samples writes the sample objects, and --remove-defaults strips them again", async () => {
+    const nscp = new NscpInstance();
+    await nscp.run(["settings", "--activate-module", "CheckHelpers", "Scheduler"]);
+
+    const r = await nscp.run(["settings", "--update", "--add-defaults", "--use-samples"]);
+    expect(r.exitCode).toBe(0);
+    let sections = parseIni(nscp.settingsFile);
+
+    // The Scheduler's sample schedule is materialized as a starting point...
+    expect([...sections.keys()]).toContain("/settings/scheduler/schedules/sample");
+    // ...with real defaults, not placeholders.
+    expect(valuesWhere(sections, (v) => v === "UNKNOWN")).toEqual([]);
+
+    // remove-defaults is the inverse: the untouched sample sections disappear.
+    const rm = await nscp.run(["settings", "--update", "--remove-defaults"]);
+    expect(rm.exitCode).toBe(0);
+    sections = parseIni(nscp.settingsFile);
+    expect([...sections.keys()].filter((s) => s.endsWith("/sample"))).toEqual([]);
+  });
+
   it("the deprecated --generate spelling honours the same contract", async () => {
     const nscp = new NscpInstance();
     await nscp.run(["settings", "--activate-module", "CheckHelpers", "Scheduler"]);
