@@ -223,6 +223,13 @@ class INISettings : public settings_interface_impl {
   void save(bool re_save_all) override {
     settings_interface_impl::save(re_save_all);
 
+    // A directory include ([/includes] pointing at a folder) is a container
+    // store: the files inside it are its children, which the base save above
+    // already flushed. It has no file of its own, and handing the directory
+    // path to SaveFile fails with EISDIR - which, since child saves propagate,
+    // used to abort every settings write on an agent with a directory include.
+    if (boost::filesystem::is_directory(get_file_name())) return;
+
     const SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
     if (rc < 0) throw_SI_error(rc, "Failed to save file");
   }
@@ -235,6 +242,9 @@ class INISettings : public settings_interface_impl {
   /// generated configs is for `[/modules]` to come first).
   void save_sorted() override {
     settings_interface_impl::save(true);
+
+    // Same as save(): a directory include has no file of its own to rewrite.
+    if (boost::filesystem::is_directory(get_file_name())) return;
 
     // Snapshot every (section, key) -> value/comment pair from the live
     // CSimpleIni then re-insert them in alphabetical order into a fresh

@@ -741,6 +741,30 @@ TEST(settings_ini, include_directory_keys_and_values_resolve_through_the_parent)
   EXPECT_EQ(s.get_string("/settings/scheduler/schedules", "test_swap2", ""), "check_swap");
 }
 
+TEST(settings_ini, save_survives_a_directory_include) {
+  // Found while pinning #636: the directory store has no file of its own, but
+  // save() handed the directory path to SaveFile anyway. The resulting EISDIR
+  // propagated out of the child save, so on an agent with a directory include
+  // every settings write (`nscp settings --set`, the web UI) failed and the
+  // main file was never written.
+  temp_dir dir;
+  boost::filesystem::path sub = dir.path() / "ini";
+  boost::filesystem::create_directories(sub);
+  write_file(sub / "checks.ini", "[/settings/scheduler/schedules]\ntest_swap=alias_swap2\n");
+  auto file = dir.file("nsclient.ini");
+  write_file(file, "[/includes]\notherfiles=" + sub.generic_string() + "/\n");
+
+  ini_child_core core;
+  settings::INISettings s(&core, "master", ini_context(file));
+  s.set_string("/settings/log", "level", "debug");
+  ASSERT_NO_THROW(s.save(false));
+
+  // The write must actually have landed in the main file.
+  EXPECT_NE(settings_test::read_file(file).find("level"), std::string::npos);
+  // ... and the included file must still be intact.
+  EXPECT_EQ(s.get_string("/settings/scheduler/schedules", "test_swap", ""), "alias_swap2");
+}
+
 TEST(settings_ini, include_directory_sections_and_subkeys_resolve_through_the_parent) {
   // A schedule written as its own section inside the included file: the object
   // reader walks get_sections + get_keys + get_string on the sub-path, so all
