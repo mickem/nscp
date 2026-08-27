@@ -72,6 +72,17 @@ void validate_certificate(const std::string& certificate, std::list<std::string>
 // after splitting on the first '.' into host and domain. Other text is
 // preserved.
 //
+// The machine's addresses are available too (#349): ${address_ipv4} is the
+// IPv4 address, and ${address_ipv6} the IPv6 address in its RFC 5952 canonical
+// form (lowercase, compressed). The IPv6 variants ${address_ipv6_lc} /
+// ${address_ipv6_uc} pick the case, and appending _comp / _uncomp
+// (${address_ipv6_lc_uncomp}, ...) picks between the compressed
+// (2001:db8::7) and the fully zero-padded eight-group form
+// (2001:0db8:0000:0000:0000:0000:0000:0007). The address is the source
+// address of the default route when there is one, otherwise the first
+// non-loopback, non-link-local address the host name resolves to; a machine
+// with no usable address in a family keeps that family's tokens unresolved.
+//
 // This is the half of expand_hostname which is safe to apply to a string that
 // is not a host name spec - a settings context or an attachment path, say -
 // since it only ever replaces a placeholder and never reinterprets the string
@@ -86,6 +97,13 @@ std::string expand_hostname_placeholders(std::string spec);
 // dots-only component must not be able to redirect a path the agent reads or
 // writes with its (typically root/SYSTEM) privileges.
 std::string expand_hostname_placeholders_in_path(std::string spec);
+
+// Format an IPv6 address for the ${address_ipv6*} placeholders: `compressed`
+// picks between the RFC 5952 elided form (2001:db8::7) and the fully
+// zero-padded eight-group form (2001:0db8:0000:0000:0000:0000:0000:0007),
+// `uppercase` the case of the hex digits. Exposed for unit testing - the
+// placeholder machinery resolves the address itself.
+std::string format_ipv6(const boost::asio::ip::address_v6& address, bool uppercase, bool compressed);
 
 // Reduce `value` to characters safe inside a single path component: letters,
 // digits, '.', '_' and '-' pass, anything else becomes '_', and a value that

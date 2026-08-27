@@ -52,11 +52,19 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
                     "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
                     "auto\tHostname\n"
                     "${host}\tHostname\n"
-                    "${host_lc}\nHostname in lowercase\n"
+                    "${host_lc}\tHostname in lowercase\n"
                     "${host_uc}\tHostname in uppercase\n"
                     "${domain}\tDomainname\n"
                     "${domain_lc}\tDomainname in lowercase\n"
-                    "${domain_uc}\tDomainname in uppercase\n")
+                    "${domain_uc}\tDomainname in uppercase\n"
+                    "${address_ipv4}\tIPv4 address of the computer\n"
+                    "${address_ipv6}\tIPv6 address of the computer (lowercase, compressed)\n"
+                    "${address_ipv6_lc}\tIPv6 address in lowercase (compressed)\n"
+                    "${address_ipv6_uc}\tIPv6 address in uppercase (compressed)\n"
+                    "${address_ipv6_lc_comp}\tIPv6 address in lowercase, compressed (2001:db8::7)\n"
+                    "${address_ipv6_lc_uncomp}\tIPv6 address in lowercase, uncompressed (2001:0db8:0000:0000:0000:0000:0000:0007)\n"
+                    "${address_ipv6_uc_comp}\tIPv6 address in uppercase, compressed\n"
+                    "${address_ipv6_uc_uncomp}\tIPv6 address in uppercase, uncompressed\n")
 
         .add_string("events", sh::string_key(&events, "eventlog:*,logfile:*"), "Event", "The events to subscribe to such as eventlog:* or logfile:mylog.")
 
