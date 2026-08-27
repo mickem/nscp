@@ -94,7 +94,9 @@ describe("CheckLogFile real-time run on startup", () => {
 
   afterAll(async () => {
     await nscp?.stop();
-    fs.rmSync(scratch, { recursive: true, force: true });
+    // beforeAll can fail before `scratch` is assigned; don't let teardown
+    // throw a secondary error that masks the original failure.
+    if (scratch) fs.rmSync(scratch, { recursive: true, force: true });
   });
 
   it("primes the cache at startup when run on startup is set", async () => {

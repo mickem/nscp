@@ -32,7 +32,7 @@ struct realtime_filter_helper {
   // startup` submissions are abandoned. The rounds are driven by the module's
   // real-time loop (sub-second to a few seconds apart), so this covers a slow
   // boot without retrying a genuinely broken destination forever.
-  static const int max_startup_attempts = 20;
+  static constexpr int max_startup_attempts = 20;
 
   typedef typename runtime_data::filter_type filter_type;
   typedef typename runtime_data::transient_data_type transient_data_type;
@@ -319,10 +319,10 @@ struct realtime_filter_helper {
   bool process_startup() {
     const boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
     bool pending = false;
+    nscapi::core_helper ch(core, plugin_id);
     for (const container_type &item : items) {
       if (item->broken || !item->startup_pending) continue;
       std::string response;
-      nscapi::core_helper ch(core, plugin_id);
       if (ch.submit_simple_message(item->get_target(), item->get_source_id(), item->get_target_id(), item->command, NSCAPI::query_return_codes::returnOK,
                                    item->timeout_msg, "", response)) {
         item->startup_pending = false;
