@@ -21,7 +21,13 @@ To set up NRPE with two-way TLS you need to:
 5. Configure the monitoring server to use the client certificate and trust the CA.
 
 Step 1-3 will depend on your environment and is covered in the [Active Monitoring with NRPE](../scenarios/nrpe.md).
-Step 4 can easily be setup with from the command line like so:
+
+On Windows step 4 can also be done at install time: the MSI's `CERTIFICATE`, `CERTIFICATE_KEY` and `CERTIFICATE_CA`
+properties install your files into the `security` folder under the default names, so the agent serves your CA-signed
+certificate from the first start instead of generating a self-signed one - see
+[Installing your own TLS certificates](installing.md#installing-your-own-tls-certificates).
+
+On an installed agent, step 4 can easily be setup from the command line like so:
 
 ```commandline
 $ nscp nrpe install ^

@@ -1,8 +1,8 @@
-from os import path, listdir
+from os import path, listdir, environ
 from glob import glob
 from argparse import ArgumentParser
 
-from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config, validate_files, validate_files_absent, resolve_folder, validate_secured
+from helpers import ensure_uninstalled, read_config, install, compare_file, create_upgrade_config, validate_files, validate_files_absent, resolve_folder, validate_secured, generate_certificates, validate_copied_files
 
 # Argument parsing for test selection
 parser = ArgumentParser(description="Run NSCP MSI installer tests.")
@@ -23,6 +23,13 @@ target_folder = path.join('c:\\', 'Program Files (x86)' if 'Win32' in msi_file e
 print(f"* Using Target folder: {target_folder}", flush=True)
 
 TEST_FOLDER = path.join(path.dirname(__file__), 'tests')
+
+# Where generated per-run test data (e.g. the own-certificates case's
+# throwaway CA and server pair) lives, referenced from a test case's
+# command_line as $TEST-DATA. %ProgramData% rather than %TEMP% so the path has
+# no spaces and is readable by both the installing user and SYSTEM (the
+# deferred custom actions).
+TEST_DATA_FOLDER = path.join(environ.get("ProgramData", r"c:\ProgramData"), "nscp-msi-test")
 
 all_test_cases = [
     f for f in listdir(TEST_FOLDER)
@@ -50,7 +57,10 @@ for test_case_file in test_cases:
     if 'upgrade' in test_case:
         create_upgrade_config(test_case['upgrade'], target_folder)
 
-    install(msi_file, target_folder, test_case["command_line"])
+    if test_case.get('certificates'):
+        generate_certificates(TEST_DATA_FOLDER)
+
+    install(msi_file, target_folder, test_case["command_line"], TEST_DATA_FOLDER)
 
     # boot.ini always stays beside the executable - it is what tells the agent
     # where everything else lives. The configuration follows the layout, so a
@@ -77,6 +87,12 @@ for test_case_file in test_cases:
             failure = True
     if 'forbidden_files' in test_case:
         if not validate_files_absent(target_folder, test_case['forbidden_files']):
+            print("! Test failed.", flush=True)
+            failure = True
+    if 'installed_files' in test_case:
+        # Files the installer must have copied verbatim from the test data
+        # folder - presence alone cannot tell them from generated ones.
+        if not validate_copied_files(target_folder, TEST_DATA_FOLDER, test_case['installed_files']):
             print("! Test failed.", flush=True)
             failure = True
 

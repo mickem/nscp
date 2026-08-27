@@ -252,6 +252,9 @@ A list of all the MSI options can be found below.
 | TLS_VERSION         | The TLS version to use (1.0, 1.1, 1.2, *1.3*)                                                                           |
 | TLS_VERIFY_MODE     | The TLS verify mode to use (none, *peer*, fail_if_no_peer_cert)                                                         |
 | TLS_CA              | The CA file to use for TLS connections (defaults to the Windows ROOT store)                                             |
+| CERTIFICATE         | PEM file to install as the agent's TLS server certificate - see [Installing your own TLS certificates](#installing-your-own-tls-certificates) |
+| CERTIFICATE_KEY     | PEM file with the private key for CERTIFICATE, when the key is not embedded in the certificate file                     |
+| CERTIFICATE_CA      | PEM file (bundle) to install as the CA the servers use to verify client certificates                                    |
 | CONF_SET            | Set a configuration value in the form of section1;key1;value1;section2;key2;value2...                                   |
 | IMPORT_CONFIG       | URL or file path to a configuration file to copy during install and use as the configuration for NSClient++             |
 | FLEET_SERVER        | Fleet server url (`https://fleet.example.com`) to enroll this host with during install                                  |
@@ -426,6 +429,50 @@ The same enrollment can be done after installation with the command line:
 ```
 nscp enroll --server https://fleet.example.com --token <bootstrap-token>
 ```
+
+## Installing your own TLS certificates
+
+The MSI itself ships no certificates: when a TLS-enabled server (NRPE, WEB, ...) starts and finds nothing at its default
+certificate path, the service generates a per-host self-signed certificate there. That gets you encryption out of the
+box, but a self-signed certificate is exactly what a monitoring server cannot verify - so a silent install can hand the
+installer CA-signed material instead:
+
+```
+msiexec /qn /i NSCP-<version>-x64.msi CERTIFICATE=c:\certs\myhost.pem CERTIFICATE_KEY=c:\certs\myhost.key CERTIFICATE_CA=c:\certs\my-ca.pem
+```
+
+The files are copied into the `security` folder under the default names every server module reads
+(`certificate.pem`, `certificate_key.pem` and `ca.pem`), wherever the host's [layout](#on-disk-layout-layout) puts that
+folder. Because the files exist, the service never generates its self-signed fallback, and no per-module certificate
+configuration is needed.
+
+- `CERTIFICATE` is the server certificate (chain) in PEM format. If the private key is embedded in the same file - the
+  NSClient++ convention, and what the generated certificate looks like - it is all you need to pass.
+- `CERTIFICATE_KEY` is the private key when you keep it in a separate file. The modules default to reading the key from
+  the certificate file, so the installer also points the NRPE and WEB servers at it
+  (`certificate key = ${certificate-path}/certificate_key.pem`); for other servers (NSCA, check_mk, check_nt) add the
+  same `certificate key` setting to their section by hand. Passing `CERTIFICATE_KEY` therefore requires the installer to
+  be allowed to write the configuration (do not combine it with `ALLOW_CONFIGURATION=0`).
+- `CERTIFICATE_CA` is the CA (bundle) the servers verify *client* certificates against - what
+  `NRPEMODE=SECURE`'s `verify mode = peer-cert` checks the connecting monitoring server against. It is independent of
+  the other two: passing only `CERTIFICATE_CA` keeps the generated server certificate but pins who may connect.
+
+A few things worth knowing:
+
+- **A wrong command line fails the install.** A missing file, a certificate and key swapped, or a certificate with no
+  key anywhere (neither embedded nor via `CERTIFICATE_KEY`) fails before anything is copied, rather than installing an
+  agent that silently serves the self-signed fallback - or nothing at all.
+- **The properties are one-shot.** They name files on the installing machine at install time; the installer copies
+  them and does not remember where they came from. Re-run the installer with the properties (or replace the files in
+  the `security` folder) to rotate the material - passing them again on an upgrade replaces the installed copies.
+- **Uninstalling removes the copies.** The installed `certificate.pem`, `certificate_key.pem` and `ca.pem` are cleaned
+  up with the rest of the key material; the files you pointed the properties at are yours and are left alone.
+- **They configure the servers, not the installer.** These certificates are what the agent *serves*. They are unrelated
+  to `TLS_CA`/`FLEET_CA`, which tell the installer what to trust when *it* connects out (to a settings or fleet
+  server).
+
+To do the same after installation, use `nscp nrpe install --certificate ... --certificate-key ...` and
+`nscp web install --certificate ... --certificate-key ...` - see [Securing NSClient++](securing.md).
 
 ## Copy configuration from a HTTP server
 

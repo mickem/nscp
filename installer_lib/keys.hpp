@@ -54,6 +54,15 @@
 #define FLEET_VERIFY_MODE L"FLEET_VERIFY_MODE"
 #define FLEET_INSECURE L"FLEET_INSECURE"
 
+// Operator-supplied TLS material (GitHub #568): install your own certificate,
+// private key and CA into ${certificate-path} instead of letting the service
+// generate a self-signed certificate on first use. Like the fleet properties
+// these are one-shot install-time instructions (paths to files on the
+// installing machine), not configuration we read back and diff.
+#define CERTIFICATE L"CERTIFICATE"
+#define CERTIFICATE_KEY L"CERTIFICATE_KEY"
+#define CERTIFICATE_CA L"CERTIFICATE_CA"
+
 // On-disk layout (experimental): LAYOUT=modern moves the writable state to
 // %ProgramData%\NSClient++ and restricts it to SYSTEM and administrators, while
 // the program stays in Program Files. A plain property for now, with no UI.

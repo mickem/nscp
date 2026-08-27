@@ -114,6 +114,88 @@ def ensure_uninstalled(msi_file, target_folder):
             print(f"! Could not remove {shared_folder}; the next test may fail against its leftovers.", flush=True)
 
 
+def generate_certificates(folder):
+    """Generate a throwaway CA + server certificate pair into `folder`.
+
+    Used by the own-certificates case (GitHub #568): the point of the
+    CERTIFICATE/CERTIFICATE_KEY/CERTIFICATE_CA properties is that the agent
+    serves the operator's CA-signed material instead of its generated
+    self-signed fallback, so the test needs real, loadable PEM files whose
+    bytes it can later find - unmodified - inside the install. Generated
+    fresh on every run (never committed) for the same reason the other test
+    suites generate theirs.
+    """
+    from datetime import datetime, timedelta, timezone
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    makedirs(folder, exist_ok=True)
+
+    def name(cn):
+        return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)])
+
+    def builder(subject, issuer, public_key):
+        now = datetime.now(timezone.utc)
+        return (x509.CertificateBuilder()
+                .subject_name(name(subject))
+                .issuer_name(name(issuer))
+                .public_key(public_key)
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(now - timedelta(days=1))
+                .not_valid_after(now + timedelta(days=365)))
+
+    def write(file_name, data):
+        with open(path.join(folder, file_name), 'wb') as f:
+            f.write(data)
+
+    ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    ca_cert = (builder("nscp-msi-test CA", "nscp-msi-test CA", ca_key.public_key())
+               .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+               .sign(ca_key, hashes.SHA256()))
+
+    server_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    server_cert = (builder("localhost", "nscp-msi-test CA", server_key.public_key())
+                   .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost")]), critical=False)
+                   .sign(ca_key, hashes.SHA256()))
+
+    write("ca.pem", ca_cert.public_bytes(serialization.Encoding.PEM))
+    write("server.pem", server_cert.public_bytes(serialization.Encoding.PEM))
+    write("server.key", server_key.private_bytes(serialization.Encoding.PEM,
+                                                 serialization.PrivateFormat.PKCS8,
+                                                 serialization.NoEncryption()))
+    print(f"- Generated test certificates in: {folder}", flush=True)
+
+
+def validate_copied_files(target_folder, source_folder, copied_files):
+    """Assert files the installer copied from `source_folder` byte for byte.
+
+    `copied_files` maps install-folder-relative paths to source file names.
+    Presence alone (validate_files) cannot tell an installed operator
+    certificate from the self-signed one the service generates at the same
+    path when it is missing - identical bytes can.
+    """
+    ok = True
+    for installed, source in copied_files.items():
+        installed_path = path.join(target_folder, installed.replace('/', path.sep))
+        source_path = path.join(source_folder, source)
+        if not path.exists(installed_path):
+            print(f"! Installed file does not exist: {installed_path}", flush=True)
+            ok = False
+            continue
+        with open(installed_path, 'rb') as f:
+            installed_content = f.read()
+        with open(source_path, 'rb') as f:
+            source_content = f.read()
+        if installed_content != source_content:
+            print(f"! {installed_path} does not match {source_path} (the installer should copy it verbatim)", flush=True)
+            ok = False
+        else:
+            print(f"- {installed_path} matches {source_path}", flush=True)
+    return ok
+
+
 def read_config(config_file):
     if not path.exists(config_file):
         print(f"! Configuration file does not exist: {config_file}", flush=True)
@@ -138,8 +220,10 @@ def print_install_log():
         print(f"! Log file {log_file} does not exist.", flush=True)
 
 
-def install(msi_file, target_folder, command_line):
+def install(msi_file, target_folder, command_line, test_data_folder=None):
     command_line = list(map(lambda x: x.replace("$MSI-FILE", msi_file), command_line))
+    if test_data_folder:
+        command_line = list(map(lambda x: x.replace("$TEST-DATA", test_data_folder), command_line))
     print(f"- Installing NSClient++: {' '.join(command_line)}", flush=True)
     try:
         return_code = run_with_timeout(command_line)

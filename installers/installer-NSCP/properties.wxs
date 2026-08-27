@@ -37,6 +37,17 @@
 	<Property Id="FLEET_INSECURE" Secure="yes" />
 	<Property Id="ExecEnrollFleet" Hidden="yes" />
 
+	<!-- OPERATOR-SUPPLIED TLS MATERIAL (GitHub #568)
+	     Paths to PEM files on the installing machine, installed into
+	     ${certificate-path} as certificate.pem / certificate_key.pem / ca.pem
+	     so the servers pick them up under their default settings and the
+	     service never generates its self-signed fallback. Declared to mark
+	     them Secure so they survive a managed/elevated install; they are
+	     paths, not secrets, so they are not hidden. -->
+	<Property Id="CERTIFICATE" Secure="yes" />
+	<Property Id="CERTIFICATE_KEY" Secure="yes" />
+	<Property Id="CERTIFICATE_CA" Secure="yes" />
+
 	<!-- On-disk layout (experimental, no UI yet): LAYOUT=modern keeps the
 	     writable state in %ProgramData%\NSClient++, restricted to SYSTEM and
 	     administrators, while the program stays in Program Files. LAYOUT=legacy
