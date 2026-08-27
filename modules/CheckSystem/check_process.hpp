@@ -51,6 +51,8 @@ struct helper {
   helper(nscapi::core_wrapper *core, int plugin_id);
   void add_obj(std::shared_ptr<filters::proc::filter_config_object> object);
   void boot();
+  // Deliver pending `run on startup` submissions; true once none are left.
+  bool process_startup();
   void check();
   std::set<std::string> check_shared();
   std::map<std::string, long long> get_counts() const;

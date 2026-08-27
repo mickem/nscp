@@ -82,6 +82,13 @@ void pdh_thread::thread_proc() {
   mem_helper.touch_all();
   proc_helper.touch_all();
 
+  // `run on startup` submissions are delivered from inside the 1 Hz loop
+  // below rather than here: this thread starts while later plugins (the
+  // destinations of the filters) may still be loading, so the first attempt
+  // waits a tick and failed submissions are retried until the destination's
+  // channel exists.
+  bool startup_done = false;
+
   const bool has_cpu_realtime = !cpu_filters_.empty();
   const bool has_mem_realtime = !mem_filters_.empty();
   const bool has_proc_realtime = !proc_filters_.empty();
@@ -135,6 +142,12 @@ void pdh_thread::thread_proc() {
 
     // Evaluate real-time filters once we have collected data
     try {
+      if (!startup_done) {
+        const bool cpu_done = cpu_helper.process_startup();
+        const bool mem_done = mem_helper.process_startup();
+        const bool proc_done = proc_helper.process_startup();
+        startup_done = cpu_done && mem_done && proc_done;
+      }
       if (has_cpu_realtime) cpu_helper.process_items(this);
       if (has_mem_realtime) mem_helper.process_items(this);
       if (has_proc_realtime) proc_helper.process_items(this);

@@ -172,6 +172,7 @@ All filter families share these keys in the child section:
 | `silent period` | Suppress repeat notifications after a match                              |
 | `maximum age`   | Re-submit an OK/"empty" message when nothing has matched for this long   |
 | `empty message` | The text used for that OK re-submission                                  |
+| `run on startup` | Submit the OK/"empty" message once as soon as NSClient++ starts, so the destination (e.g. the SimpleCache behind `check_cache`) is primed before the first match or `maximum age` timeout |
 | `top syntax` / `detail syntax` | Message formatting, as in regular checks                   |
 
 ---

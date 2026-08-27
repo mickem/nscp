@@ -172,6 +172,8 @@ void helper::add_obj(std::shared_ptr<filters::mem::filter_config_object> object)
 
 void helper::boot() { memory_helper->helper.touch_all(); }
 
+bool helper::process_startup() { return memory_helper->helper.process_startup(); }
+
 void helper::check() { memory_helper->helper.process_items(&memchecker); }
 
 std::map<std::string, long long> helper::get_counts() const { return memory_helper->helper.get_counts(); }

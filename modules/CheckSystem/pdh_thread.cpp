@@ -328,6 +328,13 @@ void pdh_thread::thread_proc() {
   memory_helper.boot();
   process_helper.boot();
 
+  // `run on startup` submissions are delivered from inside the 1 Hz loop
+  // below rather than here: this thread starts while later plugins (the
+  // destinations of the filters) may still be loading, so the first attempt
+  // waits a tick and failed submissions are retried until the destination's
+  // channel exists.
+  bool realtime_startup_done = false;
+
   DWORD waitStatus = 0;
   int i = 0;
 
@@ -475,6 +482,12 @@ void pdh_thread::thread_proc() {
       } catch (...) {
         errors.emplace_back("Failed to sample process CPU");
       }
+    }
+    if (!realtime_startup_done) {
+      const bool cpu_done = cpu_helper.process_startup();
+      const bool mem_done = memory_helper.process_startup();
+      const bool proc_done = process_helper.process_startup();
+      realtime_startup_done = cpu_done && mem_done && proc_done;
     }
     if (has_realtime && i == (min_threshold_ - 1)) {
       if (has_cpu_realtime) cpu_helper.process_items(this);

@@ -159,6 +159,7 @@ const FILTER_FIELD_GROUPS: FieldGroup[] = [
       "silent period",
       "empty message",
       "maximum age",
+      "run on startup",
       "escape html",
       "debug",
     ],
