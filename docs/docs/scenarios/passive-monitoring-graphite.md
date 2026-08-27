@@ -295,6 +295,10 @@ hostname = auto                       ; computer name (default)
 | `${domain}`    | domain name                        |
 | `${domain_lc}` | domain lowercase                   |
 | `${domain_uc}` | domain uppercase                   |
+| `${address_ipv4}` | IPv4 address of the machine     |
+| `${address_ipv6}` | IPv6 address (lowercase, compressed) |
+
+The IPv6 address is also available in case and padding variants: `${address_ipv6_lc}` / `${address_ipv6_uc}` pick the case, and appending `_comp` / `_uncomp` (e.g. `${address_ipv6_uc_uncomp}`) picks between the compressed (`2001:db8::7`) and the fully zero-padded (`2001:0db8:0000:0000:0000:0000:0000:0007`) form.
 
 Dots in the hostname become Graphite hierarchy separators, so
 `${host_lc}.${domain_lc}` nests each host under its domain in the tree.

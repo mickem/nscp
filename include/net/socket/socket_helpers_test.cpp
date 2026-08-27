@@ -4,11 +4,13 @@
 #include <gtest/gtest.h>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/asio.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <net/socket/server.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <str/utils.hpp>
 #include <string>
+#include <vector>
 
 // =============================================================================
 // socket_exception tests
@@ -321,6 +323,109 @@ TEST(ExpandHostname, CasePlaceholdersAreExpanded) {
   // placeholders are substituted away.
   std::string out = socket_helpers::expand_hostname("${host_lc}|${host_uc}|${domain_lc}|${domain_uc}|${domain}");
   EXPECT_EQ(out.find("${"), std::string::npos);
+}
+
+// =============================================================================
+// format_ipv6
+//
+// The pure formatting half of the ${address_ipv6*} placeholders (#349). The
+// address discovery half is machine-dependent and covered below only as far as
+// determinism allows.
+// =============================================================================
+
+TEST(FormatIpv6, CompressedLowercaseIsRfc5952) {
+  const auto addr = boost::asio::ip::make_address_v6("2001:0db8:0000:2000:0000:0000:0000:0007");
+  EXPECT_EQ(socket_helpers::format_ipv6(addr, false, true), "2001:db8:0:2000::7");
+}
+
+TEST(FormatIpv6, CompressedUppercase) {
+  const auto addr = boost::asio::ip::make_address_v6("2001:0db8:0000:2000:0000:0000:0000:0007");
+  EXPECT_EQ(socket_helpers::format_ipv6(addr, true, true), "2001:DB8:0:2000::7");
+}
+
+TEST(FormatIpv6, UncompressedLowercaseIsFullyPadded) {
+  const auto addr = boost::asio::ip::make_address_v6("2001:db8:0:2000::7");
+  EXPECT_EQ(socket_helpers::format_ipv6(addr, false, false), "2001:0db8:0000:2000:0000:0000:0000:0007");
+}
+
+TEST(FormatIpv6, UncompressedUppercase) {
+  const auto addr = boost::asio::ip::make_address_v6("2001:db8:0:2000::7");
+  EXPECT_EQ(socket_helpers::format_ipv6(addr, true, false), "2001:0DB8:0000:2000:0000:0000:0000:0007");
+}
+
+TEST(FormatIpv6, LoopbackBothForms) {
+  const auto addr = boost::asio::ip::make_address_v6("::1");
+  EXPECT_EQ(socket_helpers::format_ipv6(addr, false, true), "::1");
+  EXPECT_EQ(socket_helpers::format_ipv6(addr, false, false), "0000:0000:0000:0000:0000:0000:0000:0001");
+}
+
+// =============================================================================
+// ${address_*} placeholder expansion
+//
+// The resolved value is machine-dependent (and a machine may have no address
+// in a family at all, in which case the token is deliberately left alone), so
+// these assert the shape of the substitution, not a specific address.
+// =============================================================================
+
+namespace {
+bool looks_like_ipv4(const std::string& value) {
+  boost::system::error_code ec;
+  boost::asio::ip::make_address_v4(value, ec);
+  return !ec;
+}
+bool looks_like_ipv6(const std::string& value) {
+  boost::system::error_code ec;
+  boost::asio::ip::make_address_v6(value, ec);
+  return !ec;
+}
+}  // namespace
+
+TEST(ExpandHostname, AddressIpv4IsAnAddressOrLeftAlone) {
+  const std::string out = socket_helpers::expand_hostname("ip-${address_ipv4}-end");
+  if (out == "ip-${address_ipv4}-end") return;  // no usable IPv4 on this machine
+  ASSERT_EQ(out.substr(0, 3), "ip-");
+  ASSERT_EQ(out.substr(out.size() - 4), "-end");
+  const std::string value = out.substr(3, out.size() - 7);
+  EXPECT_TRUE(looks_like_ipv4(value)) << value;
+}
+
+TEST(ExpandHostname, AddressIpv6VariantsAgree) {
+  const std::string out = socket_helpers::expand_hostname("${address_ipv6}|${address_ipv6_lc}|${address_ipv6_lc_comp}");
+  if (out == "${address_ipv6}|${address_ipv6_lc}|${address_ipv6_lc_comp}") return;  // no usable IPv6 on this machine
+  // All three spell the same canonical (lowercase, compressed) form.
+  std::vector<std::string> parts;
+  boost::algorithm::split(parts, out, boost::algorithm::is_any_of("|"));
+  ASSERT_EQ(parts.size(), 3u);
+  EXPECT_EQ(parts[0], parts[1]);
+  EXPECT_EQ(parts[0], parts[2]);
+  EXPECT_TRUE(looks_like_ipv6(parts[0])) << parts[0];
+  EXPECT_EQ(parts[0], boost::algorithm::to_lower_copy(parts[0]));
+}
+
+TEST(ExpandHostname, AddressIpv6CaseAndPaddingVariants) {
+  const std::string out = socket_helpers::expand_hostname("${address_ipv6_lc}|${address_ipv6_uc}|${address_ipv6_lc_uncomp}|${address_ipv6_uc_uncomp}");
+  if (out.find("${") != std::string::npos) {
+    // No usable IPv6: every token must have been left alone, not just some.
+    EXPECT_EQ(out, "${address_ipv6_lc}|${address_ipv6_uc}|${address_ipv6_lc_uncomp}|${address_ipv6_uc_uncomp}");
+    return;
+  }
+  std::vector<std::string> parts;
+  boost::algorithm::split(parts, out, boost::algorithm::is_any_of("|"));
+  ASSERT_EQ(parts.size(), 4u);
+  EXPECT_EQ(parts[1], boost::algorithm::to_upper_copy(parts[0]));
+  EXPECT_EQ(parts[3], boost::algorithm::to_upper_copy(parts[2]));
+  // The uncompressed form is always eight fully padded groups.
+  EXPECT_EQ(parts[2].size(), 39u) << parts[2];
+  EXPECT_TRUE(looks_like_ipv6(parts[2])) << parts[2];
+  // ...and both forms name the same address.
+  EXPECT_EQ(boost::asio::ip::make_address_v6(parts[0]), boost::asio::ip::make_address_v6(parts[2]));
+}
+
+TEST(ExpandHostnamePlaceholders, AddressTokensAreExpandedWithoutHostTokens) {
+  // The cheap "does the spec have any placeholder at all" gate must not skip a
+  // spec that only carries address tokens.
+  const std::string out = socket_helpers::expand_hostname_placeholders("${address_ipv4}");
+  if (out != "${address_ipv4}") EXPECT_TRUE(looks_like_ipv4(out)) << out;
 }
 
 // =============================================================================

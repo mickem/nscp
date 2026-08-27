@@ -13,6 +13,7 @@ import {
   anyFileContains,
   containerChmodReadable,
   dockerOrSkip,
+  readAllUnder,
   trackContainerLogs,
   type StartedTestContainer,
 } from "@fixtures/index";
@@ -146,6 +147,35 @@ dockerOrSkip()("NRDP integration", () => {
     // Make sure none of the macro tokens leaked through unexpanded.
     expect(anyFileContains(spoolDir, "${host}")).toBe(false);
     expect(anyFileContains(spoolDir, "${domain}")).toBe(false);
+  });
+
+  it("expands the ${address_ipv4} hostname macro end-to-end", async () => {
+    // ${address_ipv4} (issue #349) resolves to the source address of the
+    // machine's default route. A machine with no usable address in a family
+    // deliberately keeps that family's token unresolved, so only IPv4 is
+    // asserted here: a docker-capable host always has an IPv4 route, while
+    // IPv6 may be absent.
+    const r = await nscp.run([
+      "nrdp",
+      "--define",
+      "/settings/NRDP/client:hostname=addr-${address_ipv4}-end",
+      "--address",
+      `http://127.0.0.1:${httpPort}/nrdp/server/`,
+      "--token",
+      TOKEN,
+      "--command",
+      "addr-macro-check",
+      "--result",
+      "0",
+      "--message",
+      "Address macro check",
+    ]);
+    expect(r.exitCode).toBe(0);
+    await containerChmodReadable(server, "/nrdp/checkresults");
+    expect(anyFileContains(spoolDir, "addr-macro-check")).toBe(true);
+    const spool = readAllUnder(spoolDir);
+    expect(spool).toMatch(/addr-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}-end/);
+    expect(spool).not.toContain("${address_ipv4}");
   });
 
   it("rejects an invalid token over HTTP", async () => {

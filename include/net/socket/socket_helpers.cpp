@@ -4,7 +4,9 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
+#include <iomanip>
 #include <net/socket/socket_helpers.hpp>
+#include <sstream>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/utils.hpp>
@@ -32,42 +34,131 @@ std::list<std::string> socket_helpers::connection_info::validate() const { retur
 namespace {
 std::string keep_verbatim(std::string value) { return value; }
 
+// Find the address this machine is best known by in the given family, for the
+// ${address_ipv4} / ${address_ipv6*} placeholders (#349). Loopback, link-local
+// and unspecified addresses never identify a host to a remote monitoring
+// server, so they are rejected everywhere; none() means "this machine has no
+// usable address in this family" and the caller leaves the token unresolved.
+boost::optional<ip::address> discover_local_address(const bool ipv6) {
+  // Routing-table probe: connecting a UDP socket sends no packet, it only asks
+  // the kernel which source address it would use for that destination - which
+  // is exactly the address a remote server would see this machine as. The
+  // probe destinations are from the documentation ranges (TEST-NET-3 and
+  // 2001:db8::/32) so nothing real is ever addressed.
+  try {
+    boost::asio::io_context io;
+    ip::udp::socket probe(io);
+    const ip::udp::endpoint target =
+        ipv6 ? ip::udp::endpoint(ip::make_address_v6("2001:db8::1"), 53) : ip::udp::endpoint(ip::make_address_v4("203.0.113.1"), 53);
+    probe.connect(target);
+    const ip::address addr = probe.local_endpoint().address();
+    if (!addr.is_loopback() && !addr.is_unspecified() && !(addr.is_v6() && addr.to_v6().is_link_local())) return addr;
+  } catch (const std::exception &) {
+    // No route in this family (common for IPv6) - try the resolver below.
+  }
+  // Fall back to what the host name resolves to. This can disagree with the
+  // routing answer (a 127.0.1.1 hosts-file entry, a multi-homed machine), so
+  // it is only consulted when the routing probe has nothing to offer.
+  try {
+    boost::asio::io_context io;
+    ip::udp::resolver resolver(io);
+    for (const auto &entry : resolver.resolve(ipv6 ? ip::udp::v6() : ip::udp::v4(), ip::host_name(), "")) {
+      const ip::address addr = entry.endpoint().address();
+      if (addr.is_loopback() || addr.is_unspecified()) continue;
+      if (addr.is_v6() && addr.to_v6().is_link_local()) continue;
+      return addr;
+    }
+  } catch (const std::exception &) {
+  }
+  return boost::none;
+}
+
 // One host name placeholder substitution pass; `prep` is applied to every
 // value before it is spliced in (identity for a host name spec, the path
 // sanitizer for a string that ends up on the file system).
 std::string expand_placeholders_with(std::string spec, std::string (*prep)(std::string)) {
-  // Nothing to resolve, and asking the OS for its host name is not free (and
-  // can even throw): a settings context or an attachment path usually has no
-  // host name placeholder at all. Every token starts with ${host or ${domain,
-  // so this also skips a spec that only carries path tokens (${shared-path}).
-  if (spec.find("${host") == std::string::npos && spec.find("${domain") == std::string::npos) return spec;
-  std::string host_name;
-  try {
-    host_name = ip::host_name();
-  } catch (const std::exception &) {
-    // No host name to substitute with. Leave the placeholders alone rather
-    // than let a failing gethostname() abort settings boot - the callers all
-    // have a defined answer for an unresolved token.
-    return spec;
+  // Nothing to resolve, and asking the OS for its host name or addresses is
+  // not free (and can even throw): a settings context or an attachment path
+  // usually has no placeholder at all. Every token starts with ${host,
+  // ${domain or ${address_ip, so this also skips a spec that only carries path
+  // tokens (${shared-path}).
+  const bool has_name_token = spec.find("${host") != std::string::npos || spec.find("${domain") != std::string::npos;
+  const bool has_address_token = spec.find("${address_ip") != std::string::npos;
+  if (!has_name_token && !has_address_token) return spec;
+
+  if (has_name_token) {
+    std::string host_name;
+    try {
+      host_name = ip::host_name();
+    } catch (const std::exception &) {
+      // No host name to substitute with. Leave the placeholders alone rather
+      // than let a failing gethostname() abort settings boot - the callers all
+      // have a defined answer for an unresolved token.
+      host_name.clear();
+    }
+    if (!host_name.empty()) {
+      // The full name exactly as the system reports it. ${host} stops at the
+      // first '.', so without this there is no way to get the fqdn from inside
+      // a template - only by setting the whole spec to "auto", which a
+      // template cannot do.
+      str::utils::replace(spec, "${hostname_uc}", prep(boost::algorithm::to_upper_copy(host_name)));
+      str::utils::replace(spec, "${hostname_lc}", prep(boost::algorithm::to_lower_copy(host_name)));
+      str::utils::replace(spec, "${hostname}", prep(host_name));
+
+      const str::utils::token dn = str::utils::getToken(host_name, '.');
+      str::utils::replace(spec, "${host}", prep(dn.first));
+      str::utils::replace(spec, "${domain}", prep(dn.second));
+      str::utils::replace(spec, "${host_uc}", prep(boost::algorithm::to_upper_copy(dn.first)));
+      str::utils::replace(spec, "${domain_uc}", prep(boost::algorithm::to_upper_copy(dn.second)));
+      str::utils::replace(spec, "${host_lc}", prep(boost::algorithm::to_lower_copy(dn.first)));
+      str::utils::replace(spec, "${domain_lc}", prep(boost::algorithm::to_lower_copy(dn.second)));
+    }
   }
 
-  // The full name exactly as the system reports it. ${host} stops at the first
-  // '.', so without this there is no way to get the fqdn from inside a template
-  // - only by setting the whole spec to "auto", which a template cannot do.
-  str::utils::replace(spec, "${hostname_uc}", prep(boost::algorithm::to_upper_copy(host_name)));
-  str::utils::replace(spec, "${hostname_lc}", prep(boost::algorithm::to_lower_copy(host_name)));
-  str::utils::replace(spec, "${hostname}", prep(host_name));
-
-  const str::utils::token dn = str::utils::getToken(host_name, '.');
-  str::utils::replace(spec, "${host}", prep(dn.first));
-  str::utils::replace(spec, "${domain}", prep(dn.second));
-  str::utils::replace(spec, "${host_uc}", prep(boost::algorithm::to_upper_copy(dn.first)));
-  str::utils::replace(spec, "${domain_uc}", prep(boost::algorithm::to_upper_copy(dn.second)));
-  str::utils::replace(spec, "${host_lc}", prep(boost::algorithm::to_lower_copy(dn.first)));
-  str::utils::replace(spec, "${domain_lc}", prep(boost::algorithm::to_lower_copy(dn.second)));
+  if (has_address_token) {
+    // A machine with no usable address in a family keeps that family's tokens
+    // unresolved, same as the host name tokens above when gethostname() fails.
+    if (spec.find("${address_ipv4}") != std::string::npos) {
+      if (const boost::optional<ip::address> v4 = discover_local_address(false)) str::utils::replace(spec, "${address_ipv4}", prep(v4->to_string()));
+    }
+    if (spec.find("${address_ipv6") != std::string::npos) {
+      if (const boost::optional<ip::address> v6 = discover_local_address(true)) {
+        const ip::address_v6 addr = v6->to_v6();
+        str::utils::replace(spec, "${address_ipv6_lc_comp}", prep(socket_helpers::format_ipv6(addr, false, true)));
+        str::utils::replace(spec, "${address_ipv6_lc_uncomp}", prep(socket_helpers::format_ipv6(addr, false, false)));
+        str::utils::replace(spec, "${address_ipv6_uc_comp}", prep(socket_helpers::format_ipv6(addr, true, true)));
+        str::utils::replace(spec, "${address_ipv6_uc_uncomp}", prep(socket_helpers::format_ipv6(addr, true, false)));
+        str::utils::replace(spec, "${address_ipv6_lc}", prep(socket_helpers::format_ipv6(addr, false, true)));
+        str::utils::replace(spec, "${address_ipv6_uc}", prep(socket_helpers::format_ipv6(addr, true, true)));
+        str::utils::replace(spec, "${address_ipv6}", prep(socket_helpers::format_ipv6(addr, false, true)));
+      }
+    }
+  }
   return spec;
 }
 }  // namespace
+
+std::string socket_helpers::format_ipv6(const boost::asio::ip::address_v6 &address, const bool uppercase, const bool compressed) {
+  std::string formatted;
+  if (compressed) {
+    // to_string() is the RFC 5952 canonical form: lowercase hex digits with
+    // the longest zero run elided.
+    formatted = address.to_string();
+  } else {
+    // All eight groups, zero-padded to four digits: the fixed-width form some
+    // inventory/monitoring systems key their host records on.
+    const boost::asio::ip::address_v6::bytes_type bytes = address.to_bytes();
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (std::size_t i = 0; i < bytes.size(); i += 2) {
+      if (i > 0) oss << ':';
+      oss << std::setw(2) << static_cast<unsigned int>(bytes[i]) << std::setw(2) << static_cast<unsigned int>(bytes[i + 1]);
+    }
+    formatted = oss.str();
+  }
+  if (uppercase) boost::algorithm::to_upper(formatted);
+  return formatted;
+}
 
 std::string socket_helpers::sanitize_path_component(std::string value) {
   // gethostname() is not fully under the operator's control - DHCP can set it
