@@ -19,10 +19,10 @@ settings::instance_ptr settings::settings_handler_impl::get_no_wait() {
   return instance_;
 }
 
-void settings::settings_handler_impl::update_defaults() {
-  for (const std::string &path : get_reg_sections("", false)) {
+void settings::settings_handler_impl::update_defaults(bool include_samples) {
+  for (const std::string &path : get_reg_sections("", include_samples)) {
     get()->add_path(path);
-    for (const std::string &key : get_reg_keys(path, false)) {
+    for (const std::string &key : get_reg_keys(path, include_samples)) {
       auto desc = get_registered_key(path, key);
       auto advanced = desc.has_value() && desc.value().advanced;
       auto default_value = desc.has_value() ? desc.value().default_value : "";
@@ -45,8 +45,12 @@ void settings::settings_handler_impl::update_defaults() {
 }
 
 void settings::settings_handler_impl::remove_defaults() {
-  for (std::string path : get_reg_sections("", false)) {
-    for (std::string key : get_reg_keys(path, false)) {
+  // Samples are included so this is the inverse of update_defaults(true): a
+  // sample section written by --use-samples holds only default-valued keys and
+  // is removed again here; one the operator has edited differs from the
+  // defaults and is kept, like any other key.
+  for (std::string path : get_reg_sections("", true)) {
+    for (std::string key : get_reg_keys(path, true)) {
       auto desc = get_registered_key(path, key);
       auto default_value = desc.has_value() ? desc.value().default_value : "";
       if (get()->has_key(path, key)) {

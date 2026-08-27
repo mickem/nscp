@@ -243,39 +243,44 @@ NSCP_CREATE_TEST(
         ${MONGOOSE_CPP_DIR}
         ${NSCP_INCLUDEDIR}
 )
-if(NSCP_WEB_BACKEND STREQUAL "mongoose")
-    target_include_directories(
-        mongoose_wrapper_test
-        PRIVATE
-            ${MONGOOSE_INCLUDE_DIR}
-    )
-endif()
-if(OPENSSL_FOUND)
+# NSCP_CREATE_TEST is a no-op when NSCP_BUILD_TESTS is off, so everything that
+# decorates the target has to be guarded too (same pattern as CheckDisk /
+# CheckSecurity) - an unguarded call aborts the configure of a test-less build.
+if(TARGET mongoose_wrapper_test)
     if(NSCP_WEB_BACKEND STREQUAL "mongoose")
-        target_compile_definitions(
+        target_include_directories(
             mongoose_wrapper_test
             PRIVATE
-                MG_ENABLE_OPENSSL=1
-                MG_DISABLE_PFS=1
+                ${MONGOOSE_INCLUDE_DIR}
         )
     endif()
-    target_include_directories(
+    if(OPENSSL_FOUND)
+        if(NSCP_WEB_BACKEND STREQUAL "mongoose")
+            target_compile_definitions(
+                mongoose_wrapper_test
+                PRIVATE
+                    MG_ENABLE_OPENSSL=1
+                    MG_DISABLE_PFS=1
+            )
+        endif()
+        target_include_directories(
+            mongoose_wrapper_test
+            PRIVATE
+                ${OPENSSL_INCLUDE_DIR}
+        )
+        target_link_libraries(mongoose_wrapper_test ${OPENSSL_LIBRARIES})
+        if(WIN32)
+            target_link_libraries(mongoose_wrapper_test CRYPT32)
+        endif()
+    endif()
+    target_compile_definitions(
         mongoose_wrapper_test
         PRIVATE
-            ${OPENSSL_INCLUDE_DIR}
+            MG_ENABLE_HTTP_WEBSOCKET=0
+            MG_ENABLE_BROADCAST=1
+            MG_ENABLE_THREADS
     )
-    target_link_libraries(mongoose_wrapper_test ${OPENSSL_LIBRARIES})
-    if(WIN32)
-        target_link_libraries(mongoose_wrapper_test CRYPT32)
-    endif()
 endif()
-target_compile_definitions(
-    mongoose_wrapper_test
-    PRIVATE
-        MG_ENABLE_HTTP_WEBSOCKET=0
-        MG_ENABLE_BROADCAST=1
-        MG_ENABLE_THREADS
-)
 
 # Make sure the test process can locate runtime DLLs (gtest_main, nscp_mongoose,
 # boost, openssl, ...) regardless of how it is launched (ctest, IDE runner,

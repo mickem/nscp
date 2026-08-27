@@ -756,6 +756,43 @@ TEST_F(SettingsDefaultsTest, UpdateDefaultsIgnoresSamplePaths) {
   EXPECT_FALSE(impl_->get()->has_key("/sample", "k"));
 }
 
+TEST_F(SettingsDefaultsTest, UpdateDefaultsWithSamplesMaterialisesSampleKeys) {
+  // include_samples is what `--add-defaults --use-samples` runs: the sample
+  // objects (sample schedules, targets, real-time filters) are written out as
+  // a starting point to edit.
+  impl_->register_path(0xffff, "/sample", "S", "", false, /*is_sample=*/true, true);
+  impl_->register_key(0xffff, "/sample", "k", "string", "", "", "sample-default", false, /*is_sample=*/true, true);
+
+  impl_->update_defaults(true);
+
+  EXPECT_EQ(impl_->get()->get_string("/sample", "k", ""), "sample-default");
+}
+
+TEST_F(SettingsDefaultsTest, SampleDefaultsRoundTripLeavesNothingBehind) {
+  // remove_defaults includes samples, making it the inverse of
+  // update_defaults(true): an untouched sample section is stripped again.
+  impl_->register_path(0xffff, "/sample", "S", "", false, /*is_sample=*/true, true);
+  impl_->register_key(0xffff, "/sample", "k", "string", "", "", "sample-default", false, /*is_sample=*/true, true);
+
+  impl_->update_defaults(true);
+  impl_->remove_defaults();
+
+  EXPECT_FALSE(impl_->get()->has_key("/sample", "k"));
+  EXPECT_FALSE(impl_->get()->has_section("/sample"));
+}
+
+TEST_F(SettingsDefaultsTest, RemoveDefaultsKeepsAnEditedSampleKey) {
+  // A sample the operator has turned into real configuration differs from its
+  // default and must survive the cleanup like any other key.
+  impl_->register_path(0xffff, "/sample", "S", "", false, /*is_sample=*/true, true);
+  impl_->register_key(0xffff, "/sample", "k", "string", "", "", "sample-default", false, /*is_sample=*/true, true);
+  impl_->get()->set_string("/sample", "k", "operator-value");
+
+  impl_->remove_defaults();
+
+  EXPECT_EQ(impl_->get()->get_string("/sample", "k", ""), "operator-value");
+}
+
 TEST_F(SettingsDefaultsTest, RemoveDefaultsDropsKeysLeftAtTheirDefault) {
   impl_->register_path(0xffff, "/sec", "S", "", false, false, true);
   impl_->register_key(0xffff, "/sec", "k", "string", "", "", "the-default", false, false, true);

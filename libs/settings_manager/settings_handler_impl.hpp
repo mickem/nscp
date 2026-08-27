@@ -71,7 +71,7 @@ class settings_handler_impl : public settings_core {
 
   instance_ptr get();
   instance_ptr get_no_wait();
-  void update_defaults();
+  void update_defaults(bool include_samples = false);
   void remove_defaults();
   // primary_context is what set_primary stores in boot.ini. It is passed
   // separately from `to` because an instance's context is the *expanded* one
