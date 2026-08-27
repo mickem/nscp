@@ -683,3 +683,84 @@ TEST(settings_ini, get_changes_is_empty_after_a_deletion_is_saved) {
   EXPECT_EQ(settings_test::read_file(file).find("doomed"), std::string::npos);
   EXPECT_FALSE(s.get_string("/section", "key").has_value()) << "and it stays gone for readers";
 }
+
+// --- [/includes] value resolution (issue #636) -------------------------------
+// A key defined in an included file must resolve through the parent store both
+// ways: enumeration (get_keys) AND the value read (get_string). Issue #636 was
+// the halfway failure: the Scheduler saw the schedule keys from an included
+// file but every value came back empty, so each schedule lost its command.
+// These pin the full scenario from that report so it cannot quietly come back.
+
+TEST(settings_ini, include_file_keys_and_values_resolve_through_the_parent) {
+  temp_dir dir;
+  auto included = dir.file("checks.ini");
+  write_file(included,
+             "[/settings/scheduler/schedules]\n"
+             "test_swap=alias_swap2\n");
+  auto file = dir.file("nsclient.ini");
+  write_file(file, "[/includes]\nchecks=" + ini_context(included) + "\n");
+
+  ini_child_core core;
+  settings::INISettings s(&core, "master", ini_context(file));
+
+  const auto keys = s.get_keys("/settings/scheduler/schedules");
+  ASSERT_NE(std::find(keys.begin(), keys.end(), "test_swap"), keys.end()) << "the included key must be enumerated";
+  EXPECT_TRUE(s.has_key("/settings/scheduler/schedules", "test_swap"));
+  // The value read is what #636 lost: enumerated but empty.
+  EXPECT_EQ(s.get_string("/settings/scheduler/schedules", "test_swap", ""), "alias_swap2");
+}
+
+TEST(settings_ini, include_directory_keys_and_values_resolve_through_the_parent) {
+  // The exact #636 setup: [/includes] points at a *directory*, and the
+  // schedules live in a file inside it. That chains two stores (main ->
+  // directory -> file), so the value has to survive two child hops.
+  temp_dir dir;
+  boost::filesystem::path sub = dir.path() / "ini";
+  boost::filesystem::create_directories(sub);
+  write_file(sub / "checks.ini",
+             "[/settings/scheduler/schedules]\n"
+             "test_swap=alias_swap2\n"
+             "test_swap2=check_swap\n");
+  auto file = dir.file("nsclient.ini");
+  write_file(file,
+             "[/includes]\n"
+             "otherfiles=" + sub.generic_string() + "/\n"
+             "[/settings/scheduler/schedules]\n"
+             "uptime=check_uptime\n");
+
+  ini_child_core core;
+  settings::INISettings s(&core, "master", ini_context(file));
+
+  const auto keys = s.get_keys("/settings/scheduler/schedules");
+  EXPECT_NE(std::find(keys.begin(), keys.end(), "uptime"), keys.end());
+  ASSERT_NE(std::find(keys.begin(), keys.end(), "test_swap"), keys.end());
+  ASSERT_NE(std::find(keys.begin(), keys.end(), "test_swap2"), keys.end());
+
+  EXPECT_EQ(s.get_string("/settings/scheduler/schedules", "uptime", ""), "check_uptime");
+  EXPECT_EQ(s.get_string("/settings/scheduler/schedules", "test_swap", ""), "alias_swap2");
+  EXPECT_EQ(s.get_string("/settings/scheduler/schedules", "test_swap2", ""), "check_swap");
+}
+
+TEST(settings_ini, include_directory_sections_and_subkeys_resolve_through_the_parent) {
+  // A schedule written as its own section inside the included file: the object
+  // reader walks get_sections + get_keys + get_string on the sub-path, so all
+  // three have to fold the include in.
+  temp_dir dir;
+  boost::filesystem::path sub = dir.path() / "ini";
+  boost::filesystem::create_directories(sub);
+  write_file(sub / "sections.ini",
+             "[/settings/scheduler/schedules/fancy]\n"
+             "command=check_ok\n"
+             "interval=30s\n");
+  auto file = dir.file("nsclient.ini");
+  write_file(file, "[/includes]\notherfiles=" + sub.generic_string() + "/\n");
+
+  ini_child_core core;
+  settings::INISettings s(&core, "master", ini_context(file));
+
+  const auto sections = s.get_sections("/settings/scheduler/schedules");
+  ASSERT_NE(std::find(sections.begin(), sections.end(), "fancy"), sections.end());
+  EXPECT_EQ(s.get_keys("/settings/scheduler/schedules/fancy").size(), 2u);
+  EXPECT_EQ(s.get_string("/settings/scheduler/schedules/fancy", "command", ""), "check_ok");
+  EXPECT_EQ(s.get_string("/settings/scheduler/schedules/fancy", "interval", ""), "30s");
+}
