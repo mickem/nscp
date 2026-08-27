@@ -109,6 +109,13 @@ void filter_object::apply_parent(const filter_object& parent) {
   import_string(filter_crit, parent.filter_crit);
   import_string(filter_ok, parent.filter_ok);
   if (parent.debug) debug = parent.debug;
+  // Like `debug` above, a plain bool cannot tell "explicitly false" from
+  // "unset", so this can only propagate a parent's true. That is fine because
+  // this function is not how filters inherit at runtime: the object handler
+  // clones the parent template and then reads the child's own keys over it
+  // (and `run on startup` is registered without a default exactly so an
+  // absent key keeps the cloned value while an explicit `false` overrides an
+  // inherited `true`).
   if (parent.run_on_startup) run_on_startup = parent.run_on_startup;
   import_string(target, parent.target);
   import_string(target_id, parent.target_id);
