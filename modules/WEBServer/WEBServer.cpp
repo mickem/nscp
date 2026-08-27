@@ -224,7 +224,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   ensure_role(roles, settings, role_path, "legacy", "legacy,login.get", "legacy API", false);
   ensure_role(roles, settings, role_path, "full", "*", "Full access");
   ensure_role(roles, settings, role_path, "client",
-              "public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list", "read only");
+              "public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list",
+              "read + run checks (queries.execute can run side-effecting commands)");
   ensure_role(roles, settings, role_path, "monitoring", "public,queries.execute,aliases.list,login.get,metrics.get", "checks and queries only");
 
   if (!disable_admin_user) {
@@ -255,8 +256,11 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
         NSC_LOG_ERROR("SECURITY: WEB role '" + name +
                       "' grants the 'legacy' permission, which unlocks the deprecated /query.pb and /query/{name} "
                       "endpoints. Any user with this role can run ANY registered check or command (including configured "
-                      "CheckExternalScripts commands) even without 'queries.execute'. Only grant 'legacy' to roles for "
-                      "trusted legacy systems that cannot use the versioned /api/v2/queries endpoints.");
+                      "CheckExternalScripts commands) even without 'queries.execute'. It ALSO unlocks POST "
+                      "/settings/query.pb, which reads settings WITHOUT the redaction the /api/v2/settings endpoints "
+                      "apply (exposing stored secrets in cleartext) and can WRITE settings - without holding "
+                      "'settings.get'/'settings.put'. Only grant 'legacy' to roles for trusted legacy systems that "
+                      "cannot use the versioned /api/v2/queries and /api/v2/settings endpoints.");
       }
     });
 

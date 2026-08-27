@@ -89,12 +89,18 @@ class token_store {
     return true;
   }
 
-  std::string get_user(const std::string &token) const {
+  std::string get_user(const std::string &token) const { return get_user(token, now()); }
+
+  std::string get_user(const std::string &token, const time_t now) const {
     const std::lock_guard<std::mutex> lock(mutex_);
     const auto cit = tokens.find(token);
-    if (cit != tokens.end()) {
+    if (cit != tokens.end() && !has_token_expired(cit->second.created, now)) {
       return cit->second.user;
     }
+    // Do not resolve a username for an expired (or missing) token. is_valid()
+    // is the primary gate and evicts on lookup, but guarding here too keeps the
+    // "expired token never names a user" invariant even if a caller reads
+    // get_user() without a preceding is_valid().
     return "";
   }
 

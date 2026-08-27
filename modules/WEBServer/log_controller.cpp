@@ -133,7 +133,10 @@ void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mo
     std::string message = get_str_or(o, "message", "no message");
     core->log(level, file, line, message);
   } catch (const std::exception &) {
+    // Return the 400 as-is; do not fall through to setCodeOk() below, which
+    // would leave a "400" body under a 200 status.
     response.setCodeBadRequest("Problems parsing JSON");
+    return;
   }
   response.setCodeOk();
 }

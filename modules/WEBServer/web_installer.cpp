@@ -162,6 +162,16 @@ bool http_get(const std::string& ca_path, std::string url, std::string& body, st
         if (next.empty() || next[0] != '/') next = "/" + next;
         next = u.protocol + "://" + u.host + (u.port == "80" || u.port == "443" ? "" : ":" + u.port) + next;
       }
+      // Refuse an HTTPS→HTTP downgrade. The bundle's integrity rests on the TLS
+      // channel (the SHA-256 manifest is fetched over the same connection), so a
+      // redirect that drops to cleartext would let a network attacker rewrite
+      // both the manifest and the zip. An operator who explicitly starts from an
+      // http:// --url is already opting out of TLS; we only block the silent
+      // downgrade of a chain that began on https.
+      if (u.protocol == "https" && boost::algorithm::istarts_with(next, "http://")) {
+        error = "Refusing to follow an HTTPS->HTTP redirect to " + next + " (cleartext downgrade)";
+        return false;
+      }
       url = next;
       continue;
     }

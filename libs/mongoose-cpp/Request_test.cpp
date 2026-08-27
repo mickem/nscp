@@ -182,6 +182,22 @@ TEST(Request, GetCookieHandlesQuotedValue) {
   EXPECT_EQ(r.getCookie("name"), "quoted-value");
 }
 
+TEST(Request, GetCookieRequiresNameBoundary) {
+  // A cookie whose name merely ends with the requested name must NOT match:
+  // looking up "token" must not be satisfied by a client-supplied "eviltoken".
+  const Request::headers_type h{{"cookie", "eviltoken=attacker; other=1"}};
+  const auto r = make_request("GET", "/", "", h);
+  EXPECT_EQ(r.getCookie("token", "fb"), "fb");
+}
+
+TEST(Request, GetCookieMatchesLaterCookieWithSuffixNameEarlier) {
+  // The real "token" appears after a decoy "xtoken"; the boundary check must
+  // skip the decoy and return the genuine value.
+  const Request::headers_type h{{"cookie", "xtoken=decoy; token=real"}};
+  const auto r = make_request("GET", "/", "", h);
+  EXPECT_EQ(r.getCookie("token"), "real");
+}
+
 TEST(Request, GetCookieIsCaseInsensitiveForName) {
   // mg_strcasestr is case-insensitive for the variable name.
   Request::headers_type h{{"cookie", "Session=abc"}};

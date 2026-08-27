@@ -69,6 +69,7 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 
   if (what.size() != 2) {
     response.setCodeNotFound("Query not found");
+    return;
   }
   std::string module = what.str(1);
 
@@ -110,6 +111,7 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
 
   if (what.size() != 3) {
     response.setCodeNotFound("Invalid request");
+    return;
   }
   const std::string module = what.str(1);
   const std::string command = what.str(2);

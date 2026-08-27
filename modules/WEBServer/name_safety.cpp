@@ -21,6 +21,11 @@ bool is_safe_segment(const std::string& seg) {
   // "." and ".." are path-traversal primitives even when each character
   // would otherwise be allowed.
   if (seg == "." || seg == "..") return false;
+  // A leading '-' makes the name look like an option flag when it is later
+  // passed as an argument value (e.g. `--script <name>`); reject it so a name
+  // like "-rf" or "-o" cannot be mistaken for a switch by a downstream parser.
+  // Interior '-' (e.g. "check-disk") stays allowed.
+  if (seg.front() == '-') return false;
   for (char c : seg) {
     if (!is_safe_segment_char(c)) return false;
   }

@@ -5,12 +5,41 @@
 
 #include <gtest/gtest.h>
 
+#include <set>
+#include <string>
+
 TEST(TokenStoreTest, GenerateToken) {
   const std::string token1 = token_store::generate_token(32);
   EXPECT_EQ(token1.length(), 32);
   const std::string token2 = token_store::generate_token(32);
   EXPECT_EQ(token2.length(), 32);
   EXPECT_NE(token1, token2);
+}
+
+TEST(TokenStoreTest, GenerateTokenCharsetAndLengths) {
+  // Every character must come from the [0-9A-Za-z] alphabet regardless of the
+  // requested length (guards against the CSPRNG rejection-sampling loop
+  // emitting a stray byte).
+  const auto is_alnum = [](char c) {
+    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+  };
+  for (const int len : {1, 2, 16, 32, 64, 129}) {
+    const std::string t = token_store::generate_token(len);
+    EXPECT_EQ(static_cast<int>(t.size()), len);
+    for (const char c : t) EXPECT_TRUE(is_alnum(c)) << "unexpected char in token of len " << len;
+  }
+  EXPECT_TRUE(token_store::generate_token(0).empty());
+  EXPECT_TRUE(token_store::generate_token(-5).empty());
+}
+
+TEST(TokenStoreTest, GenerateTokenNoDuplicatesInLargeSample) {
+  // A predictable/degenerate RNG would collide quickly; a CSPRNG will not.
+  std::set<std::string> seen;
+  for (int i = 0; i < 2000; ++i) {
+    const std::string t = token_store::generate_token(32);
+    EXPECT_EQ(t.size(), 32u);
+    EXPECT_TRUE(seen.insert(t).second) << "duplicate token generated";
+  }
 }
 
 TEST(TokenStoreTest, GenerateForUser) {
@@ -53,6 +82,17 @@ TEST(TokenStoreTest, Expiration) {
   EXPECT_TRUE(store.is_valid(token, token_store::now()));
   EXPECT_TRUE(store.is_valid(token, token_store::now() + HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS - 1)));
   EXPECT_FALSE(store.is_valid(token, token_store::now() + HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1)));
+}
+
+TEST(TokenStoreTest, GetUserDoesNotResolveExpiredToken) {
+  // get_user() must honour expiry on its own, not only via a preceding
+  // is_valid(): an expired token must never name a user.
+  token_store store;
+  const std::string user = "test_user";
+  const std::string token = store.generate_for(user);
+  EXPECT_EQ(store.get_user(token, token_store::now()), user);
+  EXPECT_EQ(store.get_user(token, token_store::now() + HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS - 1)), user);
+  EXPECT_EQ(store.get_user(token, token_store::now() + HOURS_TO_SECONDS(TOKEN_EXPIRATION_HOURS + 1)), "");
 }
 
 TEST(TokenStoreTest, Grants) {

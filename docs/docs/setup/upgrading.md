@@ -192,6 +192,16 @@ page tracks those in one place. Full per-release detail lives in each
   `modified` entry whose old value equalled its new one. Tooling that treated
   a non-empty diff as "unsaved work pending" no longer needs to special-case
   that; no configuration change is needed.
+- 🔒 **WEB server security-review hardening.** A review of the `WEBServer`
+  module produced several defense-in-depth fixes (session tokens now come from
+  the OpenSSL CSPRNG, cookie-name matching requires a name boundary, the
+  installer refuses an HTTPS→HTTP redirect, and the `legacy` grant's startup
+  warning now names `/settings/query.pb`). The default install needs no
+  action. Two changes touch observable behaviour: a script or module **name
+  that begins with `-` is now rejected** (rename it; interior dashes are
+  fine), and the legacy **`POST /auth/logout` route now enforces `allowed
+  hosts`** like the rest of the API (a caller outside the perimeter gets 403).
+  See the [security notice](../security/notices.md#web-server-security-review-hardening).
 
 ## 0.16.4
 
