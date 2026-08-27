@@ -55,12 +55,26 @@ release.
    [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs). Using
    the maintainer's personal account works but is not recommended; a
    dedicated bot identity is cleaner.
-2. Create a classic Personal Access Token with the `public_repo` scope (or a
-   fine-grained PAT with `Pull requests: write` on `microsoft/winget-pkgs`).
+2. Create a classic Personal Access Token with `public_repo` and `workflow`.
+   `wingetcreate` never writes to `microsoft/winget-pkgs` directly — it forks
+   it into the token's own account, pushes a branch there and opens the PR
+   from that fork. So the token needs repository write access in *its own*
+   account, which a fine-grained PAT scoped to `microsoft/winget-pkgs` does
+   not grant. Adding the `workflow` scope is cheap insurance — `winget-pkgs`
+   carries files under `.github/workflows`, which some token types are barred
+   from writing.
 3. Store it as the `WINGET_PR_TOKEN` repository secret.
 4. The very first submission for `Mickem.NSClient` may need a manual
    `wingetcreate new` run to seed the package directory in `winget-pkgs`.
    Subsequent versions can use `wingetcreate submit` as the workflow does.
+
+The bot's fork of `winget-pkgs` has to be current before `wingetcreate` can
+push to it, and upstream takes hundreds of commits a day — a fork left alone
+between releases drifts far enough that the fast-forward stops working. The
+workflow syncs the fork itself before submitting, which keeps it current on
+every release. If that step still fails, sign in as the bot and press "Sync
+fork", or delete the fork outright (`wingetcreate` re-forks on the next run —
+check the fork has no open PRs first).
 
 ### Chocolatey (`publish-chocolatey.yml`)
 
@@ -86,7 +100,7 @@ release.
 
 | Secret               | Used by                  | Notes                                                                                   |
 | -------------------- | ------------------------ | --------------------------------------------------------------------------------------- |
-| `WINGET_PR_TOKEN`    | `publish-winget.yml`     | Classic PAT with `public_repo`, or fine-grained with `Pull requests: write` on winget-pkgs. |
+| `WINGET_PR_TOKEN`    | `publish-winget.yml`     | Classic PAT with `public_repo` + `workflow`. Not a fine-grained PAT — the fork lives in the token's own account. |
 | `CHOCOLATEY_API_KEY` | `publish-chocolatey.yml` | API key from `https://community.chocolatey.org/account`.                                |
 | `SCOOP_BUCKET_PAT`   | `publish-scoop.yml`      | PAT with write access to the Scoop bucket repository (`mickem/scoop-bucket` by default). |
 
