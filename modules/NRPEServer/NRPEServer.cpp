@@ -276,6 +276,17 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &pe
       wcmd = utf8::cvt<std::string>(utf8::from_encoding(cmd.first, encoding_));
       wargs = utf8::cvt<std::string>(utf8::from_encoding(cmd.second, encoding_));
     }
+    // Re-apply the metachar guard to the DECODED command/arguments. The check
+    // above runs on the raw wire bytes; when a non-UTF-8 `encoding` is
+    // configured a multi-byte sequence can decode into an ASCII metacharacter
+    // that was not literally present on the wire (e.g. the historic Shift-JIS
+    // trailing-byte class). wcmd/wargs are what actually gets dispatched, so
+    // this is the authoritative gate; the raw check stays as an early, clearer
+    // rejection for the common UTF-8 case.
+    if (!allowNasty_ && (wcmd.find_first_of(NASTY_METACHARS) != std::string::npos || wargs.find_first_of(NASTY_METACHARS) != std::string::npos)) {
+      NSC_LOG_ERROR("Request contained illegal metachars after decoding!");
+      throw nrpe::nrpe_exception("Request contained illegal metachars after decoding!");
+    }
     // When the transport has resolved a peer identity (e.g. the client
     // cert CN under `client identity source = cn`), stamp it as the
     // principal so the policy sees `NRPEServer:<cn>` rather than a
