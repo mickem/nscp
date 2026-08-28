@@ -254,11 +254,11 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &pe
     }
   }
   if (!allowNasty_) {
-    if (cmd.first.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+    if (cmd.first.find_first_of(NASTY_METACHARS) != std::string::npos) {
       NSC_LOG_ERROR("Request command contained illegal metachars!");
       throw nrpe::nrpe_exception("Request command contained illegal metachars!");
     }
-    if (cmd.second.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+    if (cmd.second.find_first_of(NASTY_METACHARS) != std::string::npos) {
       NSC_LOG_ERROR("Request arguments contained illegal metachars!");
       throw nrpe::nrpe_exception("Request command contained illegal metachars!");
     }
