@@ -60,6 +60,11 @@ struct smtp_target_object : nscapi::targets::target_object {
                     "Connection security. `starttls` (default, port 587) connects in clear and upgrades to TLS before AUTH; `tls` connects with TLS "
                     "immediately (port 465); `none` is plain SMTP and is only safe for trusted internal relays.")
 
+        .add_string("ca", sh::path_fun_key([this](auto value) { this->set_property_string("ca", value); }, "${ca-path}"), "CA",
+                    "Certificate authority bundle used to verify the submission server's certificate. Defaults to the agent's trusted bundle: the "
+                    "distribution's CA store on unix, and the exported Windows ROOT store on Windows. Set to `none` to fall back to OpenSSL's built-in "
+                    "default paths, which on Windows do not include the system certificate store.")
+
         .add_string("ehlo-hostname", sh::string_fun_key([this](auto value) { this->set_property_string("ehlo-hostname", value); }, ""), "EHLO HOSTNAME",
                     "Hostname to advertise in EHLO. Defaults to the agent's hostname; some submission services require a real FQDN here.")
 
@@ -93,6 +98,8 @@ struct options_reader_impl : client::options_reader_interface {
        "SMTP AUTH password.")
       ("security", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("security", value); }),
        "Transport security: none | starttls (default) | tls.")
+      ("ca", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ca", value); }),
+       "CA bundle used to verify the server certificate (default: the agent's trusted bundle, ${ca-path}).")
       ("ehlo-hostname", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ehlo-hostname", value); }),
        "Hostname to send in EHLO.")
       ("insecure-skip-verify", po::bool_switch()->notifier([&data] (auto value) { data.set_bool_data("insecure-skip-verify", value); }),

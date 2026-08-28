@@ -356,7 +356,21 @@ void send(const connection_config& cfg, const message& msg) {
     ssl_ctx.set_verify_mode(asio::ssl::verify_none);
   } else {
     ssl_ctx.set_verify_mode(asio::ssl::verify_peer);
-    ssl_ctx.set_default_verify_paths();
+    // Verify against the bundle the agent was configured with. This defaults
+    // to ${ca-path}, which on unix is the distribution's own bundle and on
+    // Windows is the ROOT store the service exports at boot - OpenSSL's
+    // default verify paths do not include the Windows certificate store at
+    // all, so relying on them alone made verify_peer fail against every public
+    // provider there and left insecure-skip-verify as the only way through.
+    // Loading is only attempted when verification is on, so a missing bundle
+    // cannot break a deliberately unverified session.
+    if (!cfg.ca_path.empty() && cfg.ca_path != "none") {
+      boost::system::error_code ec;
+      ssl_ctx.load_verify_file(cfg.ca_path, ec);
+      if (ec) throw smtp_exception("failed to load CA bundle '" + cfg.ca_path + "': " + ec.message());
+    } else {
+      ssl_ctx.set_default_verify_paths();
+    }
   }
 
   asio::io_context io;

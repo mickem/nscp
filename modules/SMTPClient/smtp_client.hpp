@@ -22,6 +22,7 @@ struct connection_data : socket_helpers::connection_info {
   std::string username;
   std::string password;
   std::string security;  // "none" | "starttls" | "tls"
+  std::string ca_path;   // CA bundle verifying the server certificate
   bool insecure_skip_verify = false;
   std::string canonical_name;  // EHLO hostname
 
@@ -42,6 +43,7 @@ struct connection_data : socket_helpers::connection_info {
     password = arguments.get_string_data("password");
     security = arguments.get_string_data("security");
     if (security.empty()) security = "starttls";
+    ca_path = arguments.get_string_data("ca");
     insecure_skip_verify = arguments.get_bool_data("insecure-skip-verify");
 
     sender = arguments.get_string_data("sender");
@@ -66,6 +68,7 @@ struct connection_data : socket_helpers::connection_info {
     ss << ", username: " << (username.empty() ? "<unset>" : username);
     ss << ", password: " << (password.empty() ? "<unset>" : "<set>");
     ss << ", security: " << security;
+    ss << ", ca: " << (ca_path.empty() ? "<openssl defaults>" : ca_path);
     ss << ", subject: " << subject_template;
     ss << ", template-len: " << template_string.size();
     return ss.str();
@@ -92,6 +95,7 @@ struct smtp_client_handler : client::handler_interface {
     cfg.username = con.username;
     cfg.password = con.password;
     cfg.security = con.security;
+    cfg.ca_path = con.ca_path;
     cfg.insecure_skip_verify = con.insecure_skip_verify;
     cfg.canonical_name = con.canonical_name.empty() ? con.sender_hostname : con.canonical_name;
     cfg.timeout_seconds = static_cast<int>(con.timeout);

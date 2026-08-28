@@ -296,3 +296,57 @@ TEST(SmtpTimeout, TheTimeoutBoundsTheWholeSubmissionNotEachOperation) {
 
   EXPECT_NE(error.find("timed out"), std::string::npos) << error;
 }
+
+// =============================================================================
+// CA bundle
+// =============================================================================
+
+TEST(SmtpCaBundle, AnUnreadableBundleFailsTheSubmission) {
+  // Silently continuing with an unloadable CA would leave verify_peer running
+  // against an empty trust store, which fails the handshake with a confusing
+  // "unable to get local issuer certificate". Name the real problem instead.
+  smtp::connection_config cfg;
+  cfg.server = "127.0.0.1";
+  cfg.port = "1";
+  cfg.security = "tls";
+  cfg.ca_path = "/nonexistent/no-such-ca-bundle.pem";
+
+  smtp::message msg;
+  msg.from = "agent@example.com";
+  msg.to = "ops@example.com";
+  msg.body = "body";
+
+  try {
+    smtp::send(cfg, msg);
+    FAIL() << "expected the missing CA bundle to fail the submission";
+  } catch (const smtp_exception &e) {
+    EXPECT_NE(std::string(e.what()).find("failed to load CA bundle"), std::string::npos) << e.what();
+  }
+}
+
+TEST(SmtpCaBundle, TheBundleIsIgnoredWhenVerificationIsWaived) {
+  // insecure-skip-verify is for self-signed labs, where ${ca-path} may well
+  // not resolve to anything. Loading the bundle only in the verifying branch
+  // keeps a missing file from breaking a session that never wanted it.
+  smtp::connection_config cfg;
+  cfg.server = "127.0.0.1";
+  cfg.port = "1";
+  cfg.security = "tls";
+  cfg.ca_path = "/nonexistent/no-such-ca-bundle.pem";
+  cfg.insecure_skip_verify = true;
+  cfg.timeout_seconds = 5;
+
+  smtp::message msg;
+  msg.from = "agent@example.com";
+  msg.to = "ops@example.com";
+  msg.body = "body";
+
+  try {
+    smtp::send(cfg, msg);
+    FAIL() << "expected the connection to port 1 to fail";
+  } catch (const smtp_exception &e) {
+    // It must get as far as the connection - i.e. past the CA setup entirely.
+    EXPECT_EQ(std::string(e.what()).find("failed to load CA bundle"), std::string::npos) << e.what();
+    EXPECT_NE(std::string(e.what()).find("connect failed"), std::string::npos) << e.what();
+  }
+}

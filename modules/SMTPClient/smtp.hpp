@@ -40,6 +40,7 @@ struct connection_config {
   std::string username;               // AUTH username (empty = no AUTH)
   std::string password;               // AUTH password
   std::string canonical_name;         // EHLO hostname; defaults to "localhost"
+  std::string ca_path;                // CA bundle used to verify the server; "" / "none" = OpenSSL defaults
   bool insecure_skip_verify = false;  // for self-signed test servers
   int timeout_seconds = 30;
 };

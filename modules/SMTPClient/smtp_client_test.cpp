@@ -64,6 +64,19 @@ TEST(SmtpConnectionData, CertificateVerificationIsOnUnlessWaived) {
   EXPECT_TRUE(connection_for({{"address", "h"}, {"insecure-skip-verify", "true"}}).insecure_skip_verify);
 }
 
+TEST(SmtpConnectionData, CarriesTheConfiguredCaBundle) {
+  // The target's `ca` (defaulting to ${ca-path}, already expanded by the
+  // settings layer) is what verification runs against. Without it the client
+  // fell back to OpenSSL's default verify paths, which on Windows do not
+  // include the system certificate store - so verification failed against
+  // every public provider and insecure-skip-verify was the only way out.
+  EXPECT_EQ(connection_for({{"address", "h"}, {"ca", "/etc/ssl/certs/ca-certificates.crt"}}).ca_path, "/etc/ssl/certs/ca-certificates.crt");
+}
+
+TEST(SmtpConnectionData, AnUnsetCaMeansTheOpenSslDefaults) {
+  EXPECT_EQ(connection_for({{"address", "h"}}).ca_path, "");
+}
+
 TEST(SmtpConnectionData, CarriesTheCredentialsAndEnvelope) {
   const smtp_client::connection_data con = connection_for({{"address", "h"},
                                                            {"username", "agent"},
