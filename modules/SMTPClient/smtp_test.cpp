@@ -350,3 +350,84 @@ TEST(SmtpCaBundle, TheBundleIsIgnoredWhenVerificationIsWaived) {
     EXPECT_NE(std::string(e.what()).find("connect failed"), std::string::npos) << e.what();
   }
 }
+
+// =============================================================================
+// EHLO capability parsing
+// =============================================================================
+//
+// read_reply() joins the lines of a multi-line reply with '\n', so that is the
+// shape these take.
+
+using smtp::detail::auth_mechanisms;
+using smtp::detail::has_capability;
+
+namespace {
+const char *kTypicalEhlo =
+    "250-mx.example.com at your service\n"
+    "250-SIZE 35882577\n"
+    "250-8BITMIME\n"
+    "250-STARTTLS\n"
+    "250-AUTH LOGIN PLAIN XOAUTH2\n"
+    "250 SMTPUTF8";
+}  // namespace
+
+TEST(SmtpCapabilities, FindsCapabilitiesOnTheirOwnLine) {
+  EXPECT_TRUE(has_capability(kTypicalEhlo, "STARTTLS"));
+  EXPECT_TRUE(has_capability(kTypicalEhlo, "8BITMIME"));
+  EXPECT_TRUE(has_capability(kTypicalEhlo, "SIZE"));
+  EXPECT_TRUE(has_capability(kTypicalEhlo, "SMTPUTF8"));
+}
+
+TEST(SmtpCapabilities, IsCaseInsensitive) {
+  EXPECT_TRUE(has_capability("250 starttls", "STARTTLS"));
+  EXPECT_TRUE(has_capability("250 STARTTLS", "starttls"));
+}
+
+TEST(SmtpCapabilities, DoesNotMatchTheGreetingText) {
+  // The greeting is free text the server chooses. A host that names itself
+  // after the capability must not be able to answer for it - with substring
+  // matching, "starttls.example.com" advertised STARTTLS.
+  EXPECT_FALSE(has_capability("250-starttls.example.com ESMTP\n250 SIZE 100", "STARTTLS"));
+}
+
+TEST(SmtpCapabilities, DoesNotMatchACapabilityParameter) {
+  // AUTH's mechanism list is parameters, not capabilities of its own.
+  EXPECT_FALSE(has_capability("250-mx.example.com\n250 AUTH PLAIN LOGIN", "PLAIN"));
+  EXPECT_FALSE(has_capability("250-mx.example.com\n250 AUTH PLAIN LOGIN", "LOGIN"));
+}
+
+TEST(SmtpCapabilities, DoesNotMatchAPrefixOrSuffixOfAnotherCapability) {
+  EXPECT_FALSE(has_capability("250 STARTTLSFOO", "STARTTLS"));
+  EXPECT_FALSE(has_capability("250 XSTARTTLS", "STARTTLS"));
+}
+
+TEST(SmtpCapabilities, DoesNotMatchAcrossALineJoin) {
+  // Replies used to be concatenated with no separator at all, so the tail of
+  // one line and the head of the next formed tokens no server ever sent:
+  // "250 X-START" + "250-TLS ..." read as "...X-START250-TLS...". The join is
+  // now a newline and matching is per line, so neither half can conjure a
+  // capability.
+  EXPECT_FALSE(has_capability("250-X-START\n250-TLS ok\n250 SIZE 1", "STARTTLS"));
+}
+
+TEST(SmtpCapabilities, AnEmptyOrShortReplyAdvertisesNothing) {
+  EXPECT_FALSE(has_capability("", "STARTTLS"));
+  EXPECT_FALSE(has_capability("250", "STARTTLS"));
+}
+
+TEST(SmtpAuthMechanisms, ListsTheAdvertisedMechanisms) {
+  const std::vector<std::string> mechs = auth_mechanisms(kTypicalEhlo);
+  EXPECT_EQ(mechs, (std::vector<std::string>{"LOGIN", "PLAIN", "XOAUTH2"}));
+}
+
+TEST(SmtpAuthMechanisms, UppercasesWhateverTheServerSent) {
+  EXPECT_EQ(auth_mechanisms("250 AUTH plain login"), (std::vector<std::string>{"PLAIN", "LOGIN"}));
+}
+
+TEST(SmtpAuthMechanisms, IsEmptyWhenAuthIsNotAdvertised) {
+  EXPECT_TRUE(auth_mechanisms("250-mx.example.com\n250 STARTTLS").empty());
+  // A greeting mentioning the word must not be read as an AUTH capability.
+  EXPECT_TRUE(auth_mechanisms("250 AUTHORITY.example.com ESMTP").empty());
+}
+
+TEST(SmtpAuthMechanisms, IsEmptyForAnAuthCapabilityWithNoMechanisms) { EXPECT_TRUE(auth_mechanisms("250 AUTH").empty()); }

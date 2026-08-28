@@ -7,6 +7,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <algorithm>
 #include <bytes/base64.hpp>
 #include <chrono>
 #include <cstring>
@@ -118,12 +119,16 @@ class sync_io {
     if (ec) throw smtp_exception("write failed: " + ec.message());
   }
 
-  // Read one CRLF-terminated SMTP reply. Multi-line replies are concatenated
-  // (the caller gets every line up to and including the final "NNN <space>").
+  // Read one CRLF-terminated SMTP reply. Multi-line replies are returned with
+  // their lines joined by '\n' (the caller gets every line up to and including
+  // the final "NNN <space>"). The separator matters: capability lookups run
+  // per line, and running the lines together also made error messages
+  // unreadable.
   std::string read_reply() {
     std::string out;
     while (true) {
       const std::string line = read_line();
+      if (!out.empty()) out.push_back('\n');
       out += line;
       // RFC 5321 4.2: each reply line is "NNN-text" for continuation,
       // "NNN text" for the final line. A line shorter than 4 bytes is a
@@ -288,6 +293,67 @@ std::string dot_stuff_and_crlf(const std::string& body) {
   return out;
 }
 
+namespace {
+
+// The capability a reply line advertises: the first token after the 4-byte
+// "250-" / "250 " reply code, uppercased. Empty when the line carries no
+// capability (the greeting line, or anything too short to hold a code).
+std::string capability_of(const std::string& line) {
+  if (line.size() < 4) return std::string();
+  std::size_t begin = 4;
+  while (begin < line.size() && (line[begin] == ' ' || line[begin] == '\t')) ++begin;
+  std::size_t end = begin;
+  while (end < line.size() && line[end] != ' ' && line[end] != '\t') ++end;
+  return boost::algorithm::to_upper_copy(line.substr(begin, end - begin));
+}
+
+// The parameters following the capability on a reply line, split on spaces
+// and uppercased. For "250 AUTH PLAIN LOGIN" this is {"PLAIN", "LOGIN"}.
+std::vector<std::string> capability_params(const std::string& line) {
+  std::vector<std::string> out;
+  std::istringstream is(line.size() < 4 ? std::string() : line.substr(4));
+  std::string token;
+  bool first = true;
+  while (is >> token) {
+    if (first) {
+      // The capability name itself.
+      first = false;
+      continue;
+    }
+    out.push_back(boost::algorithm::to_upper_copy(token));
+  }
+  return out;
+}
+
+std::vector<std::string> reply_lines(const std::string& reply) {
+  std::vector<std::string> lines;
+  boost::algorithm::split(lines, reply, boost::algorithm::is_any_of("\n"));
+  return lines;
+}
+
+}  // namespace
+
+// A capability is the first token of its own reply line, not a substring of
+// the reply as a whole. Matching the whole blob let a server's free text - a
+// greeting naming the software, an unrelated capability's parameter, or two
+// lines run together at the join - answer for a capability the server never
+// advertised. That mattered most for STARTTLS: "did the server offer
+// STARTTLS" is what decides whether the session gets encrypted at all.
+bool has_capability(const std::string& ehlo_reply, const std::string& keyword) {
+  const std::string wanted = boost::algorithm::to_upper_copy(keyword);
+  for (const std::string& line : reply_lines(ehlo_reply)) {
+    if (capability_of(line) == wanted) return true;
+  }
+  return false;
+}
+
+std::vector<std::string> auth_mechanisms(const std::string& ehlo_reply) {
+  for (const std::string& line : reply_lines(ehlo_reply)) {
+    if (capability_of(line) == "AUTH") return capability_params(line);
+  }
+  return std::vector<std::string>();
+}
+
 }  // namespace detail
 
 namespace {  // re-open anon namespace for the rest of the helpers
@@ -299,9 +365,17 @@ void do_auth(sync_io& io, const std::string& user, const std::string& pass, cons
   // Fall back to AUTH LOGIN otherwise. Both are TLS-only here because we
   // refuse to enter this function over an unencrypted channel - see
   // send().
-  const bool plain =
-      ehlo_response.find("AUTH") != std::string::npos && (ehlo_response.find("PLAIN") != std::string::npos || ehlo_response.find("LOGIN") == std::string::npos);
-  if (plain) {
+  const std::vector<std::string> mechanisms = detail::auth_mechanisms(ehlo_response);
+  const auto advertises = [&mechanisms](const char* m) { return std::find(mechanisms.begin(), mechanisms.end(), m) != mechanisms.end(); };
+
+  if (mechanisms.empty()) {
+    throw smtp_exception("a username is configured but the server does not advertise AUTH: " + ehlo_response);
+  }
+  if (!advertises("PLAIN") && !advertises("LOGIN")) {
+    throw smtp_exception("server advertises no AUTH mechanism we support (offered: " + boost::algorithm::join(mechanisms, ", ") + "; supported: PLAIN, LOGIN)");
+  }
+
+  if (advertises("PLAIN")) {
     // RFC 4616: "\0username\0password" base64-encoded.
     std::string sasl;
     sasl.push_back('\0');
@@ -418,7 +492,7 @@ void send(const connection_config& cfg, const message& msg) {
 
   // STARTTLS upgrade.
   if (starttls) {
-    if (ehlo_caps.find("STARTTLS") == std::string::npos) {
+    if (!detail::has_capability(ehlo_caps, "STARTTLS")) {
       throw smtp_exception("server did not advertise STARTTLS but security=starttls was requested");
     }
     conn.write("STARTTLS\r\n");

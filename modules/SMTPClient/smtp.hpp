@@ -5,6 +5,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace smtp {
 
@@ -74,6 +75,17 @@ std::string sanitise_header(const std::string& v);
 // Applies RFC 5321 transparency (lines starting with "." are doubled) and
 // normalises lone CR / LF to CRLF. Used for the DATA payload.
 std::string dot_stuff_and_crlf(const std::string& body);
+
+// True if `ehlo_reply` advertises `keyword` as an ESMTP capability. The reply
+// is the multi-line EHLO response with its lines joined by '\n'; a capability
+// is the first token of a line, after the "250-" / "250 " reply code, matched
+// case-insensitively. Free text elsewhere in the reply - the greeting line, a
+// capability's parameters - never counts as a capability.
+bool has_capability(const std::string& ehlo_reply, const std::string& keyword);
+
+// The SASL mechanisms advertised on the AUTH capability line, uppercased, in
+// the order the server listed them. Empty when AUTH was not advertised.
+std::vector<std::string> auth_mechanisms(const std::string& ehlo_reply);
 }  // namespace detail
 
 }  // namespace smtp
