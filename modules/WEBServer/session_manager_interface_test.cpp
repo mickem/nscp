@@ -106,15 +106,31 @@ TEST_F(SessionManagerTest, TokenGenerationAndValidation) {
 
 TEST_F(SessionManagerTest, StoreUserInResponseSetsCookies) {
   Mongoose::StreamResponse resp;
-  smi.store_user_in_response("user", resp);
+  EXPECT_TRUE(smi.store_user_in_response("user", resp));
   EXPECT_EQ(resp.getCookie("uid"), "user");
   EXPECT_FALSE(resp.getCookie("token").empty());
 }
 
-TEST_F(SessionManagerTest, StoreTokenInResponseSetsCookies) {
+TEST_F(SessionManagerTest, StoreUserInResponseFailsClosedWhenCsprngFails) {
+  // A CSPRNG failure must not produce a half-formed session: no token cookie,
+  // no uid cookie, and a false return so the caller refuses the request.
   Mongoose::StreamResponse resp;
-  smi.store_token_in_response("validtoken", resp);
+  token_store::set_rand_bytes_for_test([](unsigned char *, int) { return 0; });
+  const bool stored = smi.store_user_in_response("user", resp);
+  token_store::set_rand_bytes_for_test(nullptr);
+  EXPECT_FALSE(stored);
+  EXPECT_TRUE(resp.getCookie("token").empty());
+  EXPECT_TRUE(resp.getCookie("uid").empty());
+}
+
+TEST_F(SessionManagerTest, StoreSessionInResponseSetsCookies) {
+  // The token and the user are now passed together - resolved from one locked
+  // observation in token_store::validate() - rather than the user being looked
+  // up again from the token.
+  Mongoose::StreamResponse resp;
+  smi.store_session_in_response("validtoken", "user", resp);
   EXPECT_EQ(resp.getCookie("token"), "validtoken");
+  EXPECT_EQ(resp.getCookie("uid"), "user");
 }
 
 TEST_F(SessionManagerTest, CanCheckPermissions) {

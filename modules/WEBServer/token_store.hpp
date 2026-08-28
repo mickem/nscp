@@ -71,6 +71,17 @@ class token_store {
   }
 
  public:
+  // Signature of OpenSSL's RAND_bytes. Only used for the test seam below.
+  using rand_bytes_fn = int (*)(unsigned char *buf, int num);
+
+  // Test seam: replaces the CSPRNG backing generate_token(). Passing nullptr
+  // restores the real one. Never called in production - it exists so the
+  // fail-closed path (CSPRNG present but failing) and the rejection-sampling
+  // loop can be exercised deterministically.
+  static void set_rand_bytes_for_test(rand_bytes_fn fn);
+
+  // Returns an empty string if a CSPRNG is present but failed; callers MUST
+  // treat that as a failure to issue a credential rather than proceeding.
   static std::string generate_token(int len);
   static time_t now() { return time(nullptr); }
 
@@ -86,6 +97,26 @@ class token_store {
       tokens.erase(it);
       return false;
     }
+    return true;
+  }
+
+  // Resolve validity and identity under a single lock and a single clock
+  // read. is_valid() followed by get_user() takes the lock twice and calls
+  // now() twice, so a token expiring between the two calls yielded an empty
+  // uid on an otherwise-authorised request. Callers on the request path
+  // should use this; is_valid()/get_user() remain for callers that need only
+  // one half.
+  bool validate(const std::string &token, std::string &user) { return validate(token, user, now()); }
+
+  bool validate(const std::string &token, std::string &user, const time_t now) {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    const auto it = tokens.find(token);
+    if (it == tokens.end()) return false;
+    if (has_token_expired(it->second.created, now)) {
+      tokens.erase(it);
+      return false;
+    }
+    user = it->second.user;
     return true;
   }
 
@@ -105,10 +136,15 @@ class token_store {
   }
 
   std::string generate_for(const std::string &user) {
+    // Generate before taking the lock: the CSPRNG call does not need it, and
+    // an empty result means the CSPRNG failed, in which case no session may
+    // be created at all. Storing a "" key would hand every tokenless request
+    // a valid session.
+    std::string token = generate_token(32);
+    if (token.empty()) return token;
     const time_t t = now();
     const std::lock_guard<std::mutex> lock(mutex_);
     sweep_expired_locked(t);
-    std::string token = generate_token(32);
     token_entry entry;
     entry.user = user;
     entry.created = t;

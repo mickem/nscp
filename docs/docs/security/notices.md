@@ -107,9 +107,14 @@ consistency issues.
   non-deterministic — some toolchains have historically implemented it as a
   fixed-seed PRNG, which would make tokens predictable. Tokens now come from
   `RAND_bytes()` (the same CSPRNG already used for password salts), with
-  rejection sampling to keep the alphabet unbiased, falling back to
-  `std::random_device` only when built without OpenSSL. TLS-serving builds
-  always have OpenSSL.
+  rejection sampling to keep the alphabet unbiased. A build *without* OpenSSL
+  still uses `std::random_device` (it cannot serve TLS either); a build that
+  has the CSPRNG never silently substitutes the weaker source — if
+  `RAND_bytes()` fails, **no token or generated password is issued at all**
+  and the request fails with a 500 (`nscp web add-user` / `nscp web install`
+  report an RNG failure). Refusing is the correct outcome for a bearer
+  credential, but it does mean a broken OpenSSL RNG blocks logins rather than
+  degrading them; the failure is logged as a `SECURITY:` error.
 - **Cookie name matching now requires a name boundary.** The bundled
   `mg_get_cookie` matched a requested cookie name as a substring, so a
   client cookie named `eviltoken` could satisfy a lookup for `token`. It now
@@ -126,8 +131,11 @@ consistency issues.
 - **The web-UI installer refuses an HTTPS→HTTP redirect.** The bundle's
   integrity rests on the TLS channel (the SHA-256 manifest is fetched over the
   same connection), so a redirect chain that began on `https://` is no longer
-  allowed to drop to cleartext. An operator who explicitly passes an
-  `http://` `--url` is unaffected.
+  allowed to drop to cleartext. A protocol-relative `Location` (`//host/path`)
+  is now resolved as such, inheriting the current scheme, instead of being
+  glued onto the current origin as a path — which both mis-resolved the
+  redirect and hid it from the downgrade check. An operator who explicitly
+  passes an `http://` `--url` is unaffected.
 - **The `legacy` grant's startup warning now names `/settings/query.pb`.** In
   addition to the query/RCE routes it already flagged, the `SECURITY` warning
   now states that `legacy` also unlocks `POST /settings/query.pb`, which reads

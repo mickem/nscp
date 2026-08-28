@@ -530,6 +530,12 @@ bool WEBServer::cli_add_user(const PB::Commands::ExecuteRequestMessage::Request 
     if (password.empty()) {
       result << "WARNING: No password specified using a generated password" << std::endl;
       password = token_store::generate_token(32);
+      if (password.empty()) {
+        // The CSPRNG failed. Seeding an empty password would be far worse
+        // than refusing - it would leave an account whose password is "".
+        nscapi::protobuf::functions::set_response_bad(*response, "Failed to generate a password (RNG failure)");
+        return true;
+      }
       password_for_display = password;
     } else if (web_password::is_hashed(password)) {
       // Existing on-disk hash; nothing to migrate, nothing to show.
@@ -766,6 +772,10 @@ bool WEBServer::install_server(const PB::Commands::ExecuteRequestMessage::Reques
     if (password.empty() && !disable_admin) {
       result << "WARNING: No password specified using a generated password" << std::endl;
       password = token_store::generate_token(32);
+      if (password.empty()) {
+        nscapi::protobuf::functions::set_response_bad(*response, "Failed to generate a password (RNG failure)");
+        return true;
+      }
     }
 
     nscapi::protobuf::functions::settings_query s(get_id());

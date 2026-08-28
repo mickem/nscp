@@ -510,3 +510,103 @@ TEST_F(WebInstallerTest, StatusReportsNotInstalledWhenManifestMissing) {
 }
 
 }  // namespace
+
+// --- resolve_redirect --------------------------------------------------------
+//
+// Pulled out of http_get() so the redirect rules are testable without a
+// socket. Covers the three Location shapes plus the HTTPS->HTTP refusal.
+
+namespace {
+nsclient::web::detail::parsed_url origin(const std::string& protocol, const std::string& host, const std::string& port) {
+  nsclient::web::detail::parsed_url u;
+  u.protocol = protocol;
+  u.host = host;
+  u.port = port;
+  u.path = "/";
+  return u;
+}
+}  // namespace
+
+TEST(WebInstallerRedirect, AbsoluteSameSchemeIsFollowed) {
+  std::string next, error;
+  EXPECT_TRUE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "https://b.example/bundle.zip", next, error));
+  EXPECT_EQ(next, "https://b.example/bundle.zip");
+  EXPECT_TRUE(error.empty());
+}
+
+TEST(WebInstallerRedirect, PathRelativeGluesOntoCurrentOrigin) {
+  std::string next, error;
+  EXPECT_TRUE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "/x/bundle.zip", next, error));
+  EXPECT_EQ(next, "https://a.example/x/bundle.zip");
+
+  // A Location without a leading slash is still a path.
+  next.clear();
+  EXPECT_TRUE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "bundle.zip", next, error));
+  EXPECT_EQ(next, "https://a.example/bundle.zip");
+}
+
+TEST(WebInstallerRedirect, PathRelativeKeepsNonDefaultPort) {
+  std::string next, error;
+  EXPECT_TRUE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "8443"), "/bundle.zip", next, error));
+  EXPECT_EQ(next, "https://a.example:8443/bundle.zip");
+}
+
+TEST(WebInstallerRedirect, ProtocolRelativeInheritsHttps) {
+  // "//host/path" has no "://" - before the dedicated branch it was glued onto
+  // the current origin as a path, mis-resolving the redirect and hiding it
+  // from the downgrade check.
+  std::string next, error;
+  EXPECT_TRUE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "//b.example/bundle.zip", next, error));
+  EXPECT_EQ(next, "https://b.example/bundle.zip");
+}
+
+TEST(WebInstallerRedirect, ProtocolRelativeInheritsHttp) {
+  std::string next, error;
+  EXPECT_TRUE(nsclient::web::detail::resolve_redirect(origin("http", "a.example", "80"), "//b.example/bundle.zip", next, error));
+  EXPECT_EQ(next, "http://b.example/bundle.zip");
+}
+
+TEST(WebInstallerRedirect, RefusesHttpsToHttpDowngrade) {
+  std::string next, error;
+  EXPECT_FALSE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "http://evil.example/bundle.zip", next, error));
+  EXPECT_TRUE(next.empty()) << "a refused redirect must not yield a target";
+  EXPECT_NE(error.find("cleartext downgrade"), std::string::npos) << error;
+}
+
+TEST(WebInstallerRedirect, RefusesHttpsToHttpDowngradeCaseInsensitively) {
+  std::string next, error;
+  EXPECT_FALSE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "HTTP://evil.example/x", next, error));
+  EXPECT_TRUE(next.empty());
+}
+
+TEST(WebInstallerRedirect, HttpsToHttpsIsNotMistakenForADowngrade) {
+  // "https://" must not match a "http://" prefix test.
+  std::string next, error;
+  EXPECT_TRUE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "https://b.example/x", next, error));
+  EXPECT_EQ(next, "https://b.example/x");
+}
+
+TEST(WebInstallerRedirect, HttpOriginMayRedirectToHttp) {
+  // An operator who explicitly starts on http:// has already opted out of TLS;
+  // only the silent downgrade of an https chain is blocked.
+  std::string next, error;
+  EXPECT_TRUE(nsclient::web::detail::resolve_redirect(origin("http", "a.example", "80"), "http://b.example/x", next, error));
+  EXPECT_EQ(next, "http://b.example/x");
+}
+
+TEST(WebInstallerRedirect, SurroundingWhitespaceIsTrimmed) {
+  std::string next, error;
+  EXPECT_TRUE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "  https://b.example/x  ", next, error));
+  EXPECT_EQ(next, "https://b.example/x");
+
+  // Trimming must not be a way to sneak a downgrade past the check.
+  next.clear();
+  EXPECT_FALSE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "  http://evil.example/x", next, error));
+  EXPECT_TRUE(next.empty());
+}
+
+TEST(WebInstallerRedirect, EmptyLocationIsRefused) {
+  std::string next, error;
+  EXPECT_FALSE(nsclient::web::detail::resolve_redirect(origin("https", "a.example", "443"), "   ", next, error));
+  EXPECT_FALSE(error.empty());
+}
