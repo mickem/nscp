@@ -34,7 +34,21 @@ class sync_io {
  public:
   sync_io(asio::io_context& io, tcp::socket& s, int timeout_seconds) : io_(io), socket_ref_(s), tls_stream_(nullptr), timeout_(timeout_seconds) {}
 
-  void use_tls(ssl_stream& s) { tls_stream_ = &s; }
+  // Run the TLS handshake under the same deadline as every other operation,
+  // then route subsequent reads and writes through the encrypted stream.
+  // asio's synchronous handshake() takes no timeout, so a peer that stalls
+  // part-way through one would hang the submission thread indefinitely - the
+  // very thing run_with_deadline() exists to prevent everywhere else.
+  void handshake(ssl_stream& s, const char* what) {
+    boost::system::error_code ec;
+    run_with_deadline(
+        [&](auto&& done) {
+          s.async_handshake(asio::ssl::stream_base::client, [done = std::move(done)](const boost::system::error_code& e) { done(e); });
+        },
+        ec);
+    if (ec) throw smtp_exception(std::string(what) + " failed: " + ec.message());
+    tls_stream_ = &s;
+  }
 
   // Connect to the first endpoint that succeeds, with a deadline.
   void connect(const tcp::resolver::results_type& endpoints) {
@@ -324,10 +338,7 @@ void send(const connection_config& cfg, const message& msg) {
   conn.connect(endpoints);
 
   if (tls_immediate) {
-    boost::system::error_code ec;
-    tls.handshake(asio::ssl::stream_base::client, ec);
-    if (ec) throw smtp_exception("TLS handshake failed: " + ec.message());
-    conn.use_tls(tls);
+    conn.handshake(tls, "TLS handshake");
   }
 
   // Banner.
@@ -355,10 +366,7 @@ void send(const connection_config& cfg, const message& msg) {
     conn.write("STARTTLS\r\n");
     r = conn.read_reply();
     expect_status(r, '2', "STARTTLS");
-    boost::system::error_code ec;
-    tls.handshake(asio::ssl::stream_base::client, ec);
-    if (ec) throw smtp_exception("TLS handshake (STARTTLS) failed: " + ec.message());
-    conn.use_tls(tls);
+    conn.handshake(tls, "TLS handshake (STARTTLS)");
     // Re-EHLO over the secure channel; capabilities can change after TLS.
     conn.write("EHLO " + ehlo_name + "\r\n");
     r = conn.read_reply();
