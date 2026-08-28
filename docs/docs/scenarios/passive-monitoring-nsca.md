@@ -326,6 +326,97 @@ After restart, NSClient++ will start executing scheduled checks and pushing resu
 
 ---
 
+## Step 6 — Send a Result Without Waiting for the Interval
+
+Waiting five minutes (or an hour) to see whether an edit to `nsclient.ini` did
+what you wanted is the slowest possible feedback loop. Three commands let you
+push a result immediately; they differ in how much of the scheduled pipeline
+they exercise.
+
+### Run the configured schedules now
+
+`run_schedules` (Scheduler module) runs the schedules you configured in Step 2
+right away and submits their results on their normal channel — same command,
+same arguments, same alias, same target — so what lands on the monitoring
+server is exactly what the timer would have sent. This is the one to use after
+a configuration change:
+
+```
+nscp client --boot --query run_schedules
+Ran 4 schedule(s): cpu, disk_c, host_check, memory
+```
+
+Add `--argument schedule=<alias>` to run a single schedule instead of all of
+them:
+
+```
+nscp client --boot --query run_schedules --argument schedule=disk_c
+Ran 1 schedule(s): disk_c
+```
+
+`run_schedules` is an ordinary check command, so it is equally available over
+NRPE, in `nscp test`, and over the REST API — handy for a "push my results now"
+button:
+
+```
+curl -k -u admin:<password> "https://<agent>:8443/api/v2/queries/run_schedules/commands/execute"
+```
+
+<!-- @formatter:off -->
+!!! note
+    `nscp client --boot` boots a second, short-lived agent from the same
+    `nsclient.ini` — it does not talk to the running service, so the results are
+    submitted by that temporary process. Reload the service first (or restart
+    it) if you want the running agent to pick your edit up as well.
+<!-- @formatter:on -->
+
+### Push a check that is not in the schedule
+
+`check_and_forward` (CheckHelpers module) runs any check and forwards its result
+as a passive check. Nothing has to be configured in the scheduler first, which
+makes it a good way to try a new check before adding it:
+
+```
+nscp client --boot --query check_and_forward --argument command=check_cpu --argument alias="CPU Load" --argument channel=NSCA
+OK: Message submitted: NSCA
+```
+
+| Argument      | Meaning                                                                     |
+|---------------|-------------------------------------------------------------------------------|
+| `command`     | The check to run (required).                                                  |
+| `arguments`   | Arguments for that check, repeat for more than one.                           |
+| `channel`     | Channel to submit on, defaults to `NSCA`.                                     |
+| `alias`       | Service description to report, defaults to the command name.                  |
+| `destination` | Which NSCA target to send to, defaults to the client's default target.        |
+| `source`      | Host name to report as, defaults to this machine's.                           |
+
+Note that the `OK` here only means "handed to the NSCA client" — the status of
+`check_cpu` itself is what was submitted and is visible on the monitoring
+server, not in this reply.
+
+### Send a hand-written result
+
+Finally, the `nscp nsca` form from [Step 1](#step-1-verify-the-nsca-connection)
+sends a result you write yourself, with no check involved at all. That makes it
+the right tool for testing connectivity, encryption and host/service naming
+against the NSCA daemon — and the wrong one for verifying that a check
+produces what you expect, since the message is whatever you typed:
+
+```
+nscp nsca --host <nagios-server-ip> --password secret-password --encryption aes256 ^
+    --command "CPU Load" --result 0 --message "Hello from NSClient++"
+```
+
+<!-- @formatter:off -->
+!!! tip
+    If the reason you are pushing results by hand is that the agent was just
+    restarted or rebooted and the monitoring server is showing stale data, set
+    `run on startup = true` on the schedules instead — they then run once as
+    soon as the agent is up, and after every configuration reload.
+<!-- @formatter:on -->
+
+---
+
 ## Complete Configuration Example
 
 ```ini
@@ -371,6 +462,12 @@ token    = my-nrdp-token
 ```
 
 The scheduler configuration stays the same — just change `channel = NSCA` to `channel = NRDP`.
+
+[Step 6](#step-6-send-a-result-without-waiting-for-the-interval) works the same
+way: `run_schedules` submits on whatever channel each schedule is configured
+for, `check_and_forward` takes `channel=NRDP`, and the hand-written one-off is
+`nscp nrdp --url http://nagios-server/nrdp/ --token my-nrdp-token --command
+"CPU Load" --result 0 --message "Hello from NSClient++"`.
 
 ---
 
@@ -420,7 +517,10 @@ net stop nscp
 nscp test
 ```
 
-…and watch the trace lines as the scheduler fires.
+…and watch the trace lines as the scheduler fires. Rather than waiting for the
+interval, type `run_schedules` at the `nscp test` prompt (or run the commands
+from [Step 6](#step-6-send-a-result-without-waiting-for-the-interval)) to fire
+them on demand and watch what happens.
 
 ---
 
