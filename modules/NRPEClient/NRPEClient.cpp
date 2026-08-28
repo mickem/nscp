@@ -179,7 +179,7 @@ bool NRPEClient::install_server(const PB::Commands::ExecuteRequestMessage::Reque
       insecure = val.get_string();
     else if (val.matches(path, "allow arguments") && val.get_bool())
       arguments = "safe";
-    else if (val.matches(path, "verify"))
+    else if (val.matches(path, "verify mode"))
       verify = val.get_string();
     else if (val.matches(path, "ssl options"))
       sslops = val.get_string();
