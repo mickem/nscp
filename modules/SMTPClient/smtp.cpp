@@ -3,7 +3,10 @@
 
 #include "smtp.hpp"
 
+#include <openssl/rand.h>
+
 #include <algorithm>
+#include <atomic>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -375,6 +378,48 @@ bool has_capability(const std::string& ehlo_reply, const std::string& keyword) {
   return false;
 }
 
+// Mail without a Message-ID is treated as suspicious by essentially every
+// spam filter, and it is the identifier a mail admin traces a lost
+// notification by, so a monitoring agent that omits it is exactly the wrong
+// place to save two lines. Uniqueness is all that is required of the local
+// part - nothing here is a security decision - but OpenSSL is already linked
+// so its CSPRNG is the cheapest source; a clock and a counter cover the case
+// where it refuses.
+std::string make_message_id(const std::string& from, const std::string& ehlo_name) {
+  // Right hand side: the sender's own domain, so the id lines up with the
+  // address the message claims to be from.
+  std::string domain;
+  const std::size_t at = from.rfind('@');
+  if (at != std::string::npos && at + 1 < from.size()) domain = from.substr(at + 1);
+  if (domain.empty()) domain = ehlo_name;
+
+  // The domain lands in a header, so hold it to the same character set the
+  // EHLO name is held to rather than trusting where it came from.
+  std::string safe_domain;
+  for (const char c : domain) {
+    const auto u = static_cast<unsigned char>(c);
+    const bool alnum = (u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || (u >= '0' && u <= '9');
+    if (alnum || c == '.' || c == '-' || c == '_') safe_domain.push_back(c);
+  }
+  if (safe_domain.empty()) safe_domain = "localhost";
+
+  static const char* kHex = "0123456789abcdef";
+  std::string unique;
+  unsigned char raw[16];
+  if (RAND_bytes(raw, static_cast<int>(sizeof(raw))) == 1) {
+    for (const unsigned char b : raw) {
+      unique.push_back(kHex[b >> 4]);
+      unique.push_back(kHex[b & 0x0f]);
+    }
+  } else {
+    static std::atomic<unsigned long long> counter(0);
+    std::ostringstream fallback;
+    fallback << std::hex << std::chrono::system_clock::now().time_since_epoch().count() << '.' << ++counter;
+    unique = fallback.str();
+  }
+  return "<" + unique + "@" + safe_domain + ">";
+}
+
 std::vector<std::string> auth_mechanisms(const std::string& ehlo_reply) {
   for (const std::string& line : reply_lines(ehlo_reply)) {
     if (capability_of(line) == "AUTH") return capability_params(line);
@@ -568,6 +613,7 @@ void send(const connection_config& cfg, const message& msg) {
   if (!subject.empty()) headers << "Subject: " << subject << "\r\n";
   headers << "MIME-Version: 1.0\r\n";
   headers << "Content-Type: text/plain; charset=utf-8\r\n";
+  headers << "Message-ID: " << detail::make_message_id(msg.from, ehlo_name) << "\r\n";
   // Date header is RFC-required for many strict relays (Outlook, Gmail).
   {
     const auto now = boost::posix_time::second_clock::universal_time();

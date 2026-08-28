@@ -92,6 +92,11 @@ bool has_capability(const std::string& ehlo_reply, const std::string& keyword);
 // The SASL mechanisms advertised on the AUTH capability line, uppercased, in
 // the order the server listed them. Empty when AUTH was not advertised.
 std::vector<std::string> auth_mechanisms(const std::string& ehlo_reply);
+
+// Builds the RFC 5322 Message-ID for one submission, angle brackets included.
+// The right hand side is the sender's domain, falling back to `ehlo_name`;
+// the left hand side is random. Callers get a different value every time.
+std::string make_message_id(const std::string& from, const std::string& ehlo_name);
 }  // namespace detail
 
 }  // namespace smtp

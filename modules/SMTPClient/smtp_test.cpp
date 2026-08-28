@@ -20,6 +20,7 @@
 
 #include <boost/asio.hpp>
 #include <chrono>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -490,4 +491,49 @@ TEST(SmtpValidateEhloName, TheSubmissionIsRefusedBeforeAnythingIsSent) {
     EXPECT_NE(std::string(e.what()).find("EHLO name contains an illegal character"), std::string::npos) << e.what();
     EXPECT_EQ(std::string(e.what()).find("connect failed"), std::string::npos) << "must be refused before connecting: " << e.what();
   }
+}
+
+// =============================================================================
+// make_message_id
+// =============================================================================
+
+using smtp::detail::make_message_id;
+
+TEST(SmtpMessageId, IsAnAngleBracketedAddrSpec) {
+  const std::string id = make_message_id("alerts@example.com", "agent.example.com");
+
+  ASSERT_FALSE(id.empty());
+  EXPECT_EQ(id.front(), '<');
+  EXPECT_EQ(id.back(), '>');
+  EXPECT_NE(id.find('@'), std::string::npos) << id;
+}
+
+TEST(SmtpMessageId, TakesTheDomainFromTheSender) {
+  EXPECT_NE(make_message_id("alerts@example.com", "agent.internal").find("@example.com>"), std::string::npos);
+}
+
+TEST(SmtpMessageId, FallsBackToTheEhloNameWhenTheSenderHasNoDomain) {
+  EXPECT_NE(make_message_id("alerts", "agent.internal").find("@agent.internal>"), std::string::npos);
+}
+
+TEST(SmtpMessageId, FallsBackToLocalhostWhenThereIsNothingUsable) { EXPECT_NE(make_message_id("alerts", "").find("@localhost>"), std::string::npos); }
+
+TEST(SmtpMessageId, IsDifferentEveryTime) {
+  // A repeated Message-ID invites receivers to discard the second copy as a
+  // duplicate, which for alert mail means a lost notification.
+  std::set<std::string> seen;
+  for (int i = 0; i < 100; ++i) seen.insert(make_message_id("alerts@example.com", "agent.example.com"));
+
+  EXPECT_EQ(seen.size(), 100u);
+}
+
+TEST(SmtpMessageId, CannotCarryAHeaderInjectionFromTheDomain) {
+  // The right hand side comes from the sender address or the EHLO name; both
+  // are validated before send() gets here, but this header is built from them
+  // so it holds the line itself too.
+  const std::string id = make_message_id("alerts@exa mple.com\r\nBcc: evil@x.example", "agent.example.com");
+
+  EXPECT_EQ(id.find('\r'), std::string::npos) << id;
+  EXPECT_EQ(id.find('\n'), std::string::npos) << id;
+  EXPECT_EQ(id.find(' '), std::string::npos) << id;
 }
