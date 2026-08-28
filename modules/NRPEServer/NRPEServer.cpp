@@ -270,7 +270,7 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &pe
     }
     if (cmd.second.find_first_of(NASTY_METACHARS) != std::string::npos) {
       NSC_LOG_ERROR("Request arguments contained illegal metachars!");
-      throw nrpe::nrpe_exception("Request command contained illegal metachars!");
+      throw nrpe::nrpe_exception("Request arguments contained illegal metachars!");
     }
   }
   std::string wmsg, wperf;
