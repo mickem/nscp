@@ -200,6 +200,14 @@ agent can be made to trust something it should not.
   `insecure-skip-verify=true` token that REST passes. The reset failed
   *towards* verifying, so this was not a hole — it is why the setting appeared
   to do nothing.
+- **`--source-host` no longer redirects the connection.** Shared by every
+  client module, it was registered against the destination container, where
+  the well-known `host` key routes into the typed address field — so naming a
+  source host pointed the client at that host instead of the configured
+  server, sending the submission (credentials included, for a module that
+  authenticates) somewhere the operator did not intend. It binds to the sender
+  now. `SMTPClient` and `NRDPClient` were not exposed: each registered its own
+  competing copy, which made the option ambiguous and refused outright.
 
 **What to do:** nothing is required on unix, where `${ca-path}` resolves to the
 distribution's own CA bundle. On **Windows**, an SMTP target that was working
