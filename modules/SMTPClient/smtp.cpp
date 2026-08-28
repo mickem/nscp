@@ -40,6 +40,21 @@ class sync_io {
   // part-way through one would hang the submission thread indefinitely - the
   // very thing run_with_deadline() exists to prevent everywhere else.
   void handshake(ssl_stream& s, const char* what) {
+    // Nothing may be left in the receive buffer when we hand the socket to
+    // TLS. read_until() reads whole segments, so a server (or a man in the
+    // middle who can inject one packet) that appends bytes to the STARTTLS
+    // greeting leaves them sitting here in cleartext - and every read after
+    // the handshake would consume them as if they had arrived authenticated
+    // inside the TLS session. That is the STARTTLS command/response injection
+    // family (CVE-2011-0411 and relatives): forged capabilities in the
+    // re-EHLO, or forged 2xx acknowledgements that make the agent report a
+    // notification as delivered when nothing was ever sent. RFC 3207 4
+    // requires the client to discard any knowledge obtained before the
+    // handshake, so refuse the session rather than trust the bytes.
+    if (buf_.size() > 0) {
+      throw smtp_exception(std::string(what) + " aborted: server sent " + std::to_string(buf_.size()) +
+                           " byte(s) of unexpected data before the handshake (possible STARTTLS response injection)");
+    }
     boost::system::error_code ec;
     run_with_deadline(
         [&](auto&& done) {

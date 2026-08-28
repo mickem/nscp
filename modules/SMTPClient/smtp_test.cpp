@@ -18,7 +18,11 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio.hpp>
+#include <chrono>
 #include <string>
+#include <thread>
+#include <vector>
 
 using smtp::smtp_exception;
 using smtp::detail::dot_stuff_and_crlf;
@@ -142,4 +146,132 @@ TEST(SmtpDotStuff, EndOfDataMarkerCannotBeSmuggled) {
 TEST(SmtpDotStuff, DotInTheMiddleOfALineIsUntouched) {
   // Only leading dots get doubled - dots in the middle pass through.
   EXPECT_EQ(dot_stuff_and_crlf("server.example.com is up"), "server.example.com is up\r\n");
+}
+
+// =============================================================================
+// STARTTLS response injection
+// =============================================================================
+//
+// These drive the real smtp::send() against a scripted plaintext server. No
+// TLS server is needed: everything under test happens before the handshake,
+// and the handshake against a non-TLS peer fails in a distinguishable way,
+// which is exactly what the negative control wants.
+
+namespace {
+
+namespace asio = boost::asio;
+using tcp = asio::ip::tcp;
+
+// A single-connection plaintext server replaying a fixed script: write a
+// canned response, read one command line, write the next, and so on. Each
+// response goes out in one write(), so a response carrying more than one line
+// reaches the client as a single segment - which is how a real injection
+// arrives.
+class scripted_server {
+ public:
+  explicit scripted_server(std::vector<std::string> responses)
+      : acceptor_(io_, tcp::endpoint(asio::ip::make_address("127.0.0.1"), 0)), responses_(std::move(responses)) {
+    port_ = acceptor_.local_endpoint().port();
+    thread_ = std::thread([this] { serve(); });
+  }
+  ~scripted_server() {
+    if (thread_.joinable()) thread_.join();
+  }
+
+  std::string port() const { return std::to_string(port_); }
+
+ private:
+  void serve() {
+    boost::system::error_code ec;
+    tcp::socket sock(io_);
+    acceptor_.accept(sock, ec);
+    if (ec) return;
+    asio::streambuf buf;
+    for (std::size_t i = 0; i < responses_.size(); ++i) {
+      if (i > 0) {
+        asio::read_until(sock, buf, "\r\n", ec);
+        if (ec) return;
+        std::istream is(&buf);
+        std::string command;
+        std::getline(is, command);
+      }
+      asio::write(sock, asio::buffer(responses_[i]), ec);
+      if (ec) return;
+    }
+    // Give the client time to read the last response before the socket goes
+    // away, so it sees the script rather than a reset.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  asio::io_context io_;
+  tcp::acceptor acceptor_;
+  std::vector<std::string> responses_;
+  unsigned short port_ = 0;
+  std::thread thread_;
+};
+
+const char *kBanner = "220 mx.example.com ESMTP\r\n";
+const char *kEhloWithStarttls = "250-mx.example.com\r\n250-STARTTLS\r\n250 HELP\r\n";
+
+// Run a STARTTLS submission against a server whose STARTTLS reply is
+// `starttls_reply`, and return the resulting error message.
+std::string starttls_failure(const std::string &starttls_reply) {
+  scripted_server server({kBanner, kEhloWithStarttls, starttls_reply});
+
+  smtp::connection_config cfg;
+  cfg.server = "127.0.0.1";
+  cfg.port = server.port();
+  cfg.security = "starttls";
+  cfg.insecure_skip_verify = true;
+  cfg.timeout_seconds = 5;
+
+  smtp::message msg;
+  msg.from = "agent@example.com";
+  msg.to = "ops@example.com";
+  msg.subject = "hello";
+  msg.body = "body";
+
+  try {
+    smtp::send(cfg, msg);
+  } catch (const smtp_exception &e) {
+    return e.what();
+  }
+  return "<no exception>";
+}
+
+}  // namespace
+
+TEST(SmtpStarttls, RefusesDataPipelinedIntoTheStarttlsGreeting) {
+  // The server appends forged replies to its "220 go ahead" in the same
+  // segment. Those bytes are cleartext and attacker-controlled, but they would
+  // be consumed by the reads that happen after the handshake - so they would be
+  // trusted as if they had arrived inside the TLS session. Refuse the session.
+  const std::string error = starttls_failure("220 Go ahead\r\n250-mx.example.com\r\n250 OK\r\n");
+
+  EXPECT_NE(error.find("STARTTLS response injection"), std::string::npos) << error;
+}
+
+TEST(SmtpStarttls, ForgedDeliveryAcknowledgementsAreNotAccepted) {
+  // The payoff of the injection above: a full set of forged 2xx replies would
+  // walk the client through MAIL/RCPT/DATA and have it report the notification
+  // as delivered when nothing was ever sent. The submission must fail instead.
+  const std::string error = starttls_failure(
+      "220 Go ahead\r\n"
+      "250-mx.example.com\r\n250 AUTH PLAIN\r\n"
+      "250 sender ok\r\n"
+      "250 recipient ok\r\n"
+      "354 go\r\n"
+      "250 queued as 12345\r\n");
+
+  EXPECT_NE(error.find("STARTTLS response injection"), std::string::npos) << error;
+}
+
+TEST(SmtpStarttls, AWellBehavedGreetingReachesTheHandshake) {
+  // Negative control: with nothing pipelined the guard must stay out of the
+  // way. The scripted server does not speak TLS, so the session still fails -
+  // but at the handshake, which proves the guard did not fire.
+  const std::string error = starttls_failure("220 Go ahead\r\n");
+
+  EXPECT_EQ(error.find("STARTTLS response injection"), std::string::npos) << error;
+  EXPECT_NE(error.find("TLS handshake (STARTTLS)"), std::string::npos) << error;
 }

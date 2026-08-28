@@ -78,6 +78,9 @@ NSCP_CREATE_TEST(
         GTest::gtest
         GTest::gtest_main
         ${Boost_DATE_TIME_LIBRARY}
+        # The STARTTLS tests run a scripted server on a loopback socket.
+        ${Boost_THREAD_LIBRARY}
+        ${CMAKE_THREAD_LIBS_INIT}
         ${EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
