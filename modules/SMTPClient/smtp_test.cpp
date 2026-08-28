@@ -428,3 +428,66 @@ TEST(SmtpAuthMechanisms, IsEmptyWhenAuthIsNotAdvertised) {
 }
 
 TEST(SmtpAuthMechanisms, IsEmptyForAnAuthCapabilityWithNoMechanisms) { EXPECT_TRUE(auth_mechanisms("250 AUTH").empty()); }
+
+// =============================================================================
+// validate_ehlo_name
+// =============================================================================
+
+using smtp::detail::validate_ehlo_name;
+
+TEST(SmtpValidateEhloName, AcceptsHostNamesAndAddressLiterals) {
+  EXPECT_NO_THROW(validate_ehlo_name("localhost"));
+  EXPECT_NO_THROW(validate_ehlo_name("mail-gw.example.com"));
+  EXPECT_NO_THROW(validate_ehlo_name("agent_01.corp.example"));
+  EXPECT_NO_THROW(validate_ehlo_name("[192.168.1.10]"));
+  EXPECT_NO_THROW(validate_ehlo_name("[IPv6:2001:db8::1]"));
+}
+
+TEST(SmtpValidateEhloName, RejectsEmpty) { EXPECT_THROW(validate_ehlo_name(""), smtp_exception); }
+
+TEST(SmtpValidateEhloName, RejectsCommandInjection) {
+  // The EHLO name is not necessarily operator data: it defaults to the
+  // submitting sender's host name, which for a relayed submission comes from
+  // the request header. A CRLF would end the EHLO and let the sender run
+  // commands of their own on an authenticated submission session - here, a
+  // whole message addressed wherever they like, sent as us.
+  EXPECT_THROW(validate_ehlo_name("me.example.com\r\nMAIL FROM:<attacker@evil.example>"), smtp_exception);
+  EXPECT_THROW(validate_ehlo_name("me.example.com\nRSET"), smtp_exception);
+  EXPECT_THROW(validate_ehlo_name("me.example.com\rRSET"), smtp_exception);
+}
+
+TEST(SmtpValidateEhloName, RejectsASpace) {
+  // Smaller scale, same idea: a space appends EHLO parameters.
+  EXPECT_THROW(validate_ehlo_name("me.example.com AUTH=x"), smtp_exception);
+}
+
+TEST(SmtpValidateEhloName, RejectsOtherControlAndPunctuation) {
+  EXPECT_THROW(validate_ehlo_name(std::string("me.example\0com", 14)), smtp_exception);
+  EXPECT_THROW(validate_ehlo_name("me.example.com\t"), smtp_exception);
+  EXPECT_THROW(validate_ehlo_name("<me.example.com>"), smtp_exception);
+}
+
+TEST(SmtpValidateEhloName, TheSubmissionIsRefusedBeforeAnythingIsSent) {
+  // Validation runs with the envelope checks, ahead of resolve and connect, so
+  // an injected EHLO name never reaches a socket. Port 1 would fail to connect
+  // if we got that far; seeing the EHLO error instead is the proof we did not.
+  smtp::connection_config cfg;
+  cfg.server = "127.0.0.1";
+  cfg.port = "1";
+  cfg.security = "none";
+  cfg.canonical_name = "agent.example.com\r\nMAIL FROM:<attacker@evil.example>";
+  cfg.timeout_seconds = 5;
+
+  smtp::message msg;
+  msg.from = "agent@example.com";
+  msg.to = "ops@example.com";
+  msg.body = "body";
+
+  try {
+    smtp::send(cfg, msg);
+    FAIL() << "expected the injected EHLO name to be refused";
+  } catch (const smtp_exception &e) {
+    EXPECT_NE(std::string(e.what()).find("EHLO name contains an illegal character"), std::string::npos) << e.what();
+    EXPECT_EQ(std::string(e.what()).find("connect failed"), std::string::npos) << "must be refused before connecting: " << e.what();
+  }
+}

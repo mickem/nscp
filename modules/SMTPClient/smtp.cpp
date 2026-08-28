@@ -265,6 +265,31 @@ std::string sanitise_header(const std::string& v) {
   return out;
 }
 
+// The EHLO argument is interpolated straight into a command line, so it needs
+// the same treatment the envelope addresses get. It is not always operator
+// data: it defaults to the submitting sender's host name, which for a relayed
+// submission arrives in the request header from whoever sent it. A CR / LF
+// there would end the EHLO and start a command of the attacker's choosing on
+// an authenticated submission session - their MAIL FROM and RCPT TO, sent as
+// us. A space is refused for the same reason at a smaller scale: it would let
+// them append EHLO parameters.
+//
+// RFC 5321 4.1.1.1 allows a domain name or an address literal here, so the
+// permitted set is letters, digits, and the punctuation those two forms need.
+void validate_ehlo_name(const std::string& name) {
+  if (name.empty()) {
+    throw smtp_exception("EHLO name is empty");
+  }
+  for (const char c : name) {
+    const auto u = static_cast<unsigned char>(c);
+    const bool alnum = (u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || (u >= '0' && u <= '9');
+    const bool punct = (c == '.' || c == '-' || c == '_' || c == '[' || c == ']' || c == ':');
+    if (!alnum && !punct) {
+      throw smtp_exception("EHLO name contains an illegal character; expected a host name or an address literal");
+    }
+  }
+}
+
 // RFC 5321 4.5.2 transparency: any line in DATA that starts with "." must
 // be sent as ".." Also normalise lone CR / LF to CRLF so a body produced
 // on Unix or Windows arrives with consistent line endings.
@@ -414,6 +439,10 @@ void send(const connection_config& cfg, const message& msg) {
   detail::validate_address(msg.to, "to");
   const std::string subject = detail::sanitise_header(msg.subject);
 
+  // Validated up here with the addresses, before anything is put on the wire.
+  const std::string ehlo_name = cfg.canonical_name.empty() ? std::string("localhost") : cfg.canonical_name;
+  detail::validate_ehlo_name(ehlo_name);
+
   // Validate security mode early so a typo does not silently fall through
   // to plain transport.
   const std::string sec = boost::algorithm::to_lower_copy(cfg.security);
@@ -479,8 +508,6 @@ void send(const connection_config& cfg, const message& msg) {
   // Banner.
   std::string r = conn.read_reply();
   expect_status(r, '2', "banner");
-
-  const std::string ehlo_name = cfg.canonical_name.empty() ? std::string("localhost") : cfg.canonical_name;
 
   // EHLO.
   conn.write("EHLO " + ehlo_name + "\r\n");

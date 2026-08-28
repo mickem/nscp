@@ -72,6 +72,12 @@ void validate_address(const std::string& addr, const char* what);
 // header lines. Returns the cleaned string.
 std::string sanitise_header(const std::string& v);
 
+// Throws smtp_exception unless `name` is usable as an EHLO/HELO argument: a
+// domain name or an address literal, and nothing else. It is written straight
+// into a command line, so a space (which would add EHLO parameters) or a CR /
+// LF (which would start a command of its own) has to be refused here.
+void validate_ehlo_name(const std::string& name);
+
 // Applies RFC 5321 transparency (lines starting with "." are doubled) and
 // normalises lone CR / LF to CRLF. Used for the DATA payload.
 std::string dot_stuff_and_crlf(const std::string& body);
