@@ -463,6 +463,63 @@ TEST(client_query, command_line_options_override_the_target) {
   EXPECT_EQ(f.handler->last_target.timeout, 99);
 }
 
+TEST(client_query, the_source_host_names_the_sender_not_the_target) {
+  // --source-host says which host the result is about; it is the source
+  // container every handler reads it back from. It used to bind to the
+  // destination, where set_string_data() routes the well-known "host" key
+  // into the typed address field - so naming a source host quietly redirected
+  // the connection to it and the sender was never set at all.
+  fixture f;
+  f.add_target("default", {{"address", "nrpe://server.example.com:5666"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--source-host", "monitored-box"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_sender.get_host(), "monitored-box");
+  EXPECT_EQ(f.handler->last_target.get_host(), "server.example.com") << "the server we connect to must be untouched";
+}
+
+TEST(client_query, the_sender_host_alias_behaves_the_same) {
+  fixture f;
+  f.add_target("default", {{"address", "nrpe://server.example.com:5666"}});
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--sender-host", "monitored-box"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_sender.get_host(), "monitored-box");
+  EXPECT_EQ(f.handler->last_target.get_host(), "server.example.com");
+}
+
+TEST(client_query, the_source_host_is_registered_exactly_once) {
+  // A module that registers --source-host in its own options_reader as well
+  // makes the name ambiguous, and program_options then refuses to parse it at
+  // all - which is what happened to SMTPClient and NRDPClient. Registering it
+  // once, centrally, is what keeps it usable.
+  fixture f;
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--source-host", "monitored-box"}), response);
+
+  EXPECT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(first_message(response).find("ambiguous"), std::string::npos) << first_message(response);
+}
+
+TEST(client_query, the_host_options_still_name_the_target) {
+  // The other half of the split: --host / --port / --address keep naming the
+  // server being connected to.
+  fixture f;
+  PB::Commands::QueryResponseMessage response;
+
+  f.config.do_query(fixture::query_request("check_cpu", {"--host", "server.example.com", "--port", "5666"}), response);
+
+  ASSERT_EQ(f.handler->query_calls, 1) << first_message(response);
+  EXPECT_EQ(f.handler->last_target.get_host(), "server.example.com");
+  EXPECT_EQ(f.handler->last_target.address.get_port_string(), "5666");
+  EXPECT_TRUE(f.handler->last_sender.get_host().empty()) << "the sender must not pick up the target's host";
+}
+
 TEST(client_query, an_unknown_option_is_reported_rather_than_sent) {
   fixture f;
   PB::Commands::QueryResponseMessage response;

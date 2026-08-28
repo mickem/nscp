@@ -57,17 +57,17 @@ struct options_reader_impl : client::options_reader_interface {
     return std::make_shared<nrdp_target_object>(parent, alias, path);
   }
 
-  void process(boost::program_options::options_description& desc, client::destination_container& source, client::destination_container& data) override {
+  // `source` is unused: --source-host / --sender-host are registered once by
+  // add_common_options() against the source container. Registering them here
+  // as well made program_options treat both names as ambiguous, so neither
+  // could be used on an NRDP command at all.
+  void process(boost::program_options::options_description& desc, client::destination_container&, client::destination_container& data) override {
     // clang-format off
     desc.add_options()
     ("key", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("token", value); }),
     "The security token")
     ("password", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("token", value); }),
     "The security token")
-    ("source-host", po::value<std::string>()->notifier([&source] (const auto& value) { source.set_string_data("host", value); }),
-    "Source/sender host name (default is auto which means use the name of the actual host)")
-    ("sender-host", po::value<std::string>()->notifier([&source] (const auto& value) { source.set_string_data("host", value); }),
-    "Source/sender host name (default is auto which means use the name of the actual host)")
     ("token", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("token", value); }),
     "The security token")
     ("tls-version", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("tls version", value); }),

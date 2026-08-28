@@ -88,7 +88,11 @@ struct options_reader_impl : client::options_reader_interface {
     return std::make_shared<smtp_target_object>(parent, alias, path);
   }
 
-  void process(boost::program_options::options_description& desc, client::destination_container& source, client::destination_container& data) override {
+  // `source` is unused: --source-host / --sender-host are registered once by
+  // add_common_options() against the source container. Registering them here
+  // as well made program_options treat both names as ambiguous, so neither
+  // could be used on an SMTP command at all.
+  void process(boost::program_options::options_description& desc, client::destination_container&, client::destination_container& data) override {
     // clang-format off
     desc.add_options()
       ("sender", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("sender", value); }),
@@ -119,10 +123,6 @@ struct options_reader_impl : client::options_reader_interface {
       // populated from the target, and an absent option must leave it alone.
       ("insecure-skip-verify", po::value<bool>()->implicit_value(true)->notifier([&data] (auto value) { data.set_bool_data("insecure-skip-verify", value); }),
        "Skip TLS certificate validation (test environments only).")
-      ("source-host", po::value<std::string>()->notifier([&source] (auto value) { source.set_string_data("host", value); }),
-       "Source/sender host name (default is auto which means use the name of the actual host).")
-      ("sender-host", po::value<std::string>()->notifier([&source] (auto value) { source.set_string_data("host", value); }),
-       "Source/sender host name (alias for --source-host).")
       ;
     // clang-format on
   }
