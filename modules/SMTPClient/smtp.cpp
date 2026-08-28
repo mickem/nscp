@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <atomic>
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
