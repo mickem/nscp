@@ -18,7 +18,7 @@
 #include <win/com_helpers.hpp>
 #include <win/wmi/wmi_query.hpp>
 
-#include "duration_keyword.hpp"
+#include <check/duration_keyword.hpp>
 
 namespace printqueue_check {
 

@@ -11,7 +11,7 @@
 #include <vector>
 #include <win/registry.hpp>
 
-#include "duration_keyword.hpp"
+#include <check/duration_keyword.hpp>
 
 namespace pending_reboot_check {
 

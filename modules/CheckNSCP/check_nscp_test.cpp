@@ -190,3 +190,166 @@ TEST(ParseReleasesPayload, MissingTagSkipsEntry) {
   ASSERT_TRUE(parse_releases_payload(payload, /*include_prerelease=*/false, tag, url, published, error));
   EXPECT_EQ(tag, "v0.6.6");
 }
+
+// ---------------------------------------------------------------------------
+// check_nscp (agent health)
+// ---------------------------------------------------------------------------
+
+using check_nscp_helpers::crash_scan;
+using check_nscp_helpers::extension_of;
+using check_nscp_helpers::health_obj;
+using check_nscp_helpers::is_crash_report;
+
+TEST(ExtensionOf, ReturnsExtensionWithLeadingDot) {
+  EXPECT_EQ(extension_of("2025-01-02-12-00-00.crash"), ".crash");
+  EXPECT_EQ(extension_of("dump.dmp"), ".dmp");
+}
+
+TEST(ExtensionOf, LowerCasesTheExtension) {
+  EXPECT_EQ(extension_of("REPORT.CRASH"), ".crash");
+  EXPECT_EQ(extension_of("Report.TxT"), ".txt");
+}
+
+TEST(ExtensionOf, IgnoresDirectoriesInThePath) {
+  EXPECT_EQ(extension_of("/var/lib/nsclient.d/crash-dumps/report.crash"), ".crash");
+  // A dot in a directory name must not be mistaken for the file's extension.
+  EXPECT_EQ(extension_of("/var/lib/nsclient.d/crash-dumps/report"), "");
+  EXPECT_EQ(extension_of("C:\\Program Files\\NSClient++\\crash dumps\\report.crash"), ".crash");
+}
+
+TEST(ExtensionOf, NoExtensionIsEmpty) {
+  EXPECT_EQ(extension_of("report"), "");
+  EXPECT_EQ(extension_of(""), "");
+  // A leading dot is part of the name, not an extension.
+  EXPECT_EQ(extension_of(".nscp"), "");
+}
+
+TEST(IsCrashReport, AcceptsTheArchivedReportExtensions) {
+  // What the crash handler writes today, plus minidumps and the plain text
+  // reports older releases produced.
+  EXPECT_TRUE(is_crash_report("2025-01-02-12-00-00.crash"));
+  EXPECT_TRUE(is_crash_report("crash.dmp"));
+  EXPECT_TRUE(is_crash_report("crash.txt"));
+  EXPECT_TRUE(is_crash_report("CRASH.CRASH"));
+}
+
+TEST(IsCrashReport, RejectsEverythingElse) {
+  EXPECT_FALSE(is_crash_report("nsclient.log"));
+  EXPECT_FALSE(is_crash_report("readme"));
+  EXPECT_FALSE(is_crash_report("report.crash.bak"));
+  EXPECT_FALSE(is_crash_report(""));
+}
+
+TEST(CrashScan, EmptyScanHasNoCrashes) {
+  const crash_scan scan;
+  EXPECT_EQ(scan.count, 0);
+  EXPECT_EQ(scan.newest, "");
+  EXPECT_FALSE(scan.has_newest);
+  EXPECT_FALSE(scan.age(1000));
+}
+
+TEST(CrashScan, CountsOnlyCrashReports) {
+  crash_scan scan;
+  scan.add("a.crash", 100);
+  scan.add("nsclient.log", 200);
+  scan.add("b.dmp", 150);
+  scan.add("cache", 300);
+  EXPECT_EQ(scan.count, 2);
+}
+
+TEST(CrashScan, NewestReportWins) {
+  crash_scan scan;
+  scan.add("old.crash", 100);
+  scan.add("new.crash", 300);
+  scan.add("middle.crash", 200);
+  EXPECT_EQ(scan.newest, "new.crash");
+  EXPECT_EQ(scan.newest_time, 300);
+  EXPECT_EQ(scan.count, 3);
+}
+
+TEST(CrashScan, NonReportsNeverBecomeTheNewest) {
+  // The historical bug: the newest-file bookkeeping ran over every directory
+  // entry while only ".txt" files were counted, so ${last_crash} could name a
+  // file that is not a crash report at all.
+  crash_scan scan;
+  scan.add("old.crash", 100);
+  scan.add("nsclient.log", 5000);
+  EXPECT_EQ(scan.newest, "old.crash");
+  EXPECT_EQ(scan.count, 1);
+}
+
+TEST(CrashScan, AgeIsRelativeToNow) {
+  crash_scan scan;
+  scan.add("a.crash", 1000);
+  const boost::optional<long long> age = scan.age(1600);
+  ASSERT_TRUE(age);
+  EXPECT_EQ(*age, 600);
+}
+
+TEST(CrashScan, AgeOfAFutureReportIsClampedToZero) {
+  // Clock skew or a restored backup must not produce a negative age.
+  crash_scan scan;
+  scan.add("a.crash", 2000);
+  const boost::optional<long long> age = scan.age(1000);
+  ASSERT_TRUE(age);
+  EXPECT_EQ(*age, 0);
+}
+
+TEST(HealthObj, DefaultsAreAHealthyAgent) {
+  const health_obj obj;
+  EXPECT_EQ(obj.get_crashes(), 0);
+  EXPECT_EQ(obj.get_errors(), 0);
+  EXPECT_EQ(obj.get_uptime(), 0);
+  EXPECT_EQ(obj.get_last_crash(), "");
+  EXPECT_EQ(obj.get_last_error(), "");
+  EXPECT_FALSE(obj.get_crash_age());
+  EXPECT_EQ(obj.get_crash_age_s(), "none");
+}
+
+TEST(HealthObj, RendersTheSummary) {
+  health_obj obj;
+  obj.crashes = 2;
+  obj.errors = 3;
+  obj.uptime = 3 * 60 * 60 + 25 * 60;
+  EXPECT_EQ(obj.get_summary(), "2 crash(es), 3 error(s), uptime 03:25");
+  // show() is what the filter engine falls back to for ${list} entries.
+  EXPECT_EQ(obj.show(), obj.get_summary());
+}
+
+TEST(HealthObj, UptimeHonoursMaxUnit) {
+  health_obj obj;
+  obj.uptime = 6 * 7 * 24 * 60 * 60;  // six weeks
+  obj.max_unit = str::format::unit_week;
+  EXPECT_EQ(obj.get_uptime_s(), "6w 0d 00:00");
+  obj.max_unit = str::format::unit_day;
+  EXPECT_EQ(obj.get_uptime_s(), "42d 00:00");
+  obj.max_unit = str::format::unit_hour;
+  EXPECT_EQ(obj.get_uptime_s(), "1008:00");
+}
+
+TEST(HealthObj, CrashAgeRendersWithTheSameGranularity) {
+  health_obj obj;
+  obj.crash_age = 2 * 24 * 60 * 60;
+  obj.max_unit = str::format::unit_day;
+  EXPECT_EQ(obj.get_crash_age_s(), "2d 00:00");
+  ASSERT_TRUE(obj.get_crash_age());
+  EXPECT_EQ(*obj.get_crash_age(), 2 * 24 * 60 * 60);
+}
+
+TEST(HealthObj, NegativeDurationsRenderAsZero) {
+  health_obj obj;
+  obj.uptime = -1;
+  EXPECT_EQ(obj.get_uptime_s(), "0");
+}
+
+TEST(HealthObj, CarriesTheLastCrashAndError) {
+  health_obj obj;
+  obj.last_crash = "2025-01-02-12-00-00.crash";
+  obj.last_error = "Failed to load module";
+  obj.version = "0.17.2";
+  obj.date = "2026-01-02";
+  EXPECT_EQ(obj.get_last_crash(), "2025-01-02-12-00-00.crash");
+  EXPECT_EQ(obj.get_last_error(), "Failed to load module");
+  EXPECT_EQ(obj.get_version(), "0.17.2");
+  EXPECT_EQ(obj.get_date(), "2026-01-02");
+}

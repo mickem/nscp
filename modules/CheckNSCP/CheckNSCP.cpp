@@ -7,6 +7,7 @@
 
 #include <boost/date_time.hpp>
 #include <boost/filesystem.hpp>
+#include <check/duration_keyword.hpp>
 #include <file_helpers.hpp>
 #include <net/http/client.hpp>
 #include <nscapi/macros.hpp>
@@ -22,6 +23,9 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <str/format.hpp>
 
+#include <ctime>
+#include <memory>
+
 #include "check_nscp_helpers.hpp"
 
 namespace sh = nscapi::settings_helper;
@@ -32,9 +36,17 @@ using check_nscp_helpers::nscp_version;
 bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
   start_ = boost::posix_time::microsec_clock::local_time();
 
-  sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
+  const nscapi::settings_helper::settings_impl_interface_ptr proxy = nscapi::settings_proxy::create(get_id(), get_core());
+  sh::settings_registry settings(proxy);
   settings.set_alias("nscp", alias, "check");
-  crashFolder = get_core()->expand_path(CRASH_ARCHIVE_FOLDER);
+
+  // The crash handler archives reports in /settings/crash "archive folder";
+  // read the same key rather than assuming the default, so that check_nscp
+  // still looks in the right place when an administrator has moved it. Read
+  // through the proxy instead of registering the key here: it belongs to the
+  // core, and registering it again would document a core setting on this
+  // module's reference page.
+  crashFolder = get_core()->expand_path(proxy->get_string("/settings/crash", "archive folder", CRASH_ARCHIVE_FOLDER));
   NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
 
   // Default the CA bundle to the trusted system store (${ca-path} expands to
@@ -88,36 +100,6 @@ void CheckNSCP::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
     error_count_++;
     last_error_ = message.message();
   }
-}
-
-int get_crashes(const boost::filesystem::path &root, std::string &last_crash) {
-  if (!boost::filesystem::is_directory(root)) {
-    return 0;
-  }
-  int count = 0;
-
-  time_t last_write = std::time(nullptr);
-  const boost::filesystem::directory_iterator begin(root);
-  const boost::filesystem::directory_iterator end;
-  for (const auto &p : boost::make_iterator_range(begin, end)) {
-    if (boost::filesystem::is_regular_file(p) && file_helpers::meta::get_extension(p) == "txt") count++;
-    const time_t lw = boost::filesystem::last_write_time(p);
-    if (lw > last_write) {
-      last_write = lw;
-      last_crash = file_helpers::meta::get_filename(p);
-    }
-  }
-  return count;
-}
-
-std::size_t CheckNSCP::get_errors(std::string &last_error) {
-  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-  if (!lock.owns_lock()) {
-    last_error = "Failed to get lock";
-    return error_count_ + 1;
-  }
-  last_error = last_error_;
-  return error_count_;
 }
 
 namespace check_nscp_version {
@@ -417,31 +399,131 @@ void CheckNSCP::check_nscp_update(const PB::Commands::QueryRequestMessage::Reque
   filter_helper.post_process(filter);
 }
 
+namespace check_nscp_health {
+
+using check_nscp_helpers::health_obj;
+
+typedef parsers::where::filter_handler_impl<std::shared_ptr<health_obj> > native_context;
+
+struct filter_obj_handler : native_context {
+  filter_obj_handler() {
+    // Shared duration converter so thresholds can be written the way an
+    // operator thinks about them (`uptime < 5m`, `crash_age < 7d`) instead of
+    // in raw seconds; without it "5m" would silently compare as 5.
+    static const parsers::where::value_type type_custom_duration = parsers::where::type_custom_int_1;
+
+    registry_.add_int_var("crashes", &health_obj::get_crashes, "Number of crash reports found in the crash archive folder").add_int_perf("", "", "_crashes");
+    registry_.add_int_var("errors", &health_obj::get_errors, "Number of errors logged by NSClient++ since it was started")
+        .add_int_perf("", "", "_errors");
+    registry_.add_int_var("uptime", type_custom_duration, &health_obj::get_uptime, "Seconds since NSClient++ was started (accepts units: uptime < 5m)")
+        .add_int_perf("s", "", "_uptime");
+    registry_.add_optional_int_var("crash_age", type_custom_duration, &health_obj::get_crash_age, "none",
+                                   "Seconds since the most recent crash report was written, 'none' when nothing has crashed (accepts units: crash_age < 7d)")
+        .add_int_perf("s", "", "_crash_age");
+    registry_.add_converter(type_custom_duration, &duration_keyword::parse_duration<std::shared_ptr<health_obj> >);
+
+    registry_.add_string_var("last_crash", &health_obj::get_last_crash, "File name of the most recent crash report (empty when nothing has crashed)")
+        .add_string_var("last_error", &health_obj::get_last_error, "The most recently logged error message (empty when nothing has been logged)")
+        .add_string_var("version", &health_obj::get_version, "The running NSClient++ version")
+        .add_string_var("date", &health_obj::get_date, "The build date of the running NSClient++");
+
+    registry_.add_human_string("uptime", &health_obj::get_uptime_s, "Time since NSClient++ was started (granularity controlled by max-unit)")
+        .add_human_string("crash_age", &health_obj::get_crash_age_s, "Time since the most recent crash report (granularity controlled by max-unit)");
+  }
+};
+
+typedef modern_filter::modern_filters<health_obj, filter_obj_handler> filter;
+
+}  // namespace check_nscp_health
+
+// Scan the crash archive folder. Counts the crash reports it holds and reports
+// the most recent one; a folder which does not exist (the normal case on unix,
+// where there is no crash handler) simply yields an empty scan rather than an
+// error.
+check_nscp_helpers::crash_scan CheckNSCP::scan_crashes() const {
+  check_nscp_helpers::crash_scan scan;
+  boost::system::error_code ec;
+  if (!boost::filesystem::is_directory(crashFolder, ec)) return scan;
+  const boost::filesystem::directory_iterator end;
+  boost::filesystem::directory_iterator it(crashFolder, ec);
+  if (ec) {
+    NSC_DEBUG_MSG_STD("Failed to read crash folder " + crashFolder.string() + ": " + utf8::utf8_from_native(ec.message()));
+    return scan;
+  }
+  for (; it != end; it.increment(ec)) {
+    if (ec) break;
+    // Anything that vanishes or turns unreadable mid-scan is skipped rather
+    // than aborting the whole check.
+    if (!boost::filesystem::is_regular_file(it->path(), ec) || ec) continue;
+    const std::time_t written = boost::filesystem::last_write_time(it->path(), ec);
+    scan.add(file_helpers::meta::get_filename(it->path()), ec ? 0 : written);
+  }
+  return scan;
+}
+
+std::size_t CheckNSCP::get_errors(std::string &last_error) {
+  boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+  if (!lock.owns_lock()) {
+    last_error = "Failed to get lock";
+    return error_count_ + 1;
+  }
+  last_error = last_error_;
+  return error_count_;
+}
+
 void CheckNSCP::check_nscp(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response) {
-  po::options_description desc = nscapi::program_options::create_desc(request);
-  po::variables_map vm;
-  if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
-  response->set_result(PB::Common::ResultCode::OK);
-  std::string last, message;
-  int crash_count = get_crashes(crashFolder, last);
-  str::format::append_list(message, str::xtos(crash_count) + " crash(es)", std::string(", "));
-  if (crash_count > 0) {
-    response->set_result(PB::Common::ResultCode::CRITICAL);
-    str::format::append_list(message, std::string("last crash: " + last), std::string(", "));
+  typedef check_nscp_health::filter filter_type;
+  modern_filter::data_container data;
+  modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
+
+  filter_type filter;
+  std::string max_unit_str = "w";
+  // Defaults preserve the historical verdict: any crash report or any logged
+  // error makes the agent CRITICAL.
+  filter_helper.add_options("", "crashes > 0 or errors > 0", "", filter.get_filter_syntax(), "ignored");
+  filter_helper.add_syntax("${status}: ${list}", "${crashes} crash(es), ${errors} error(s), uptime ${uptime}", "nscp", "", "");
+  filter_helper.get_desc().add_options()(
+      "max-unit", po::value<std::string>(&max_unit_str)->default_value("w"),
+      "Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', "
+      "h=>'1008:00'.");
+
+  if (!filter_helper.parse_options()) return;
+
+  str::format::itos_as_time_unit max_unit;
+  try {
+    max_unit = str::format::parse_itos_as_time_unit(max_unit_str);
+  } catch (const std::invalid_argument &e) {
+    nscapi::protobuf::functions::set_response_bad(*response, e.what());
+    return;
   }
 
-  auto err_count = get_errors(last);
-  str::format::append_list(message, str::xtos(err_count) + " error(s)", std::string(", "));
-  if (err_count > 0) {
-    response->set_result(PB::Common::ResultCode::CRITICAL);
-    str::format::append_list(message, std::string("last error: " + last), std::string(", "));
-  }
-  boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();
-  ;
-  boost::posix_time::time_duration td = end - start_;
+  if (!filter_helper.build_filter(filter)) return;
 
-  std::stringstream uptime;
-  uptime << "uptime " << td;
-  str::format::append_list(message, uptime.str(), std::string(", "));
-  response->add_lines()->set_message(message);
+  const std::shared_ptr<check_nscp_helpers::health_obj> record(new check_nscp_helpers::health_obj());
+  record->max_unit = max_unit;
+
+  const check_nscp_helpers::crash_scan scan = scan_crashes();
+  record->crashes = scan.count;
+  record->last_crash = scan.newest;
+  record->crash_age = scan.age(std::time(nullptr));
+
+  std::string last_error;
+  record->errors = static_cast<long long>(get_errors(last_error));
+  record->last_error = last_error;
+
+  const boost::posix_time::time_duration td = boost::posix_time::microsec_clock::local_time() - start_;
+  record->uptime = td.total_seconds();
+
+  // The version is informational here (check_nscp_version is the command that
+  // checks it), so an unparsable version must not fail the health check.
+  try {
+    const nscp_version version(get_core()->getApplicationVersionString());
+    record->version = version.to_string();
+    record->date = version.date;
+  } catch (const std::exception &e) {
+    NSC_DEBUG_MSG_STD(std::string("Failed to parse version: ") + utf8::utf8_from_native(e.what()));
+  }
+
+  filter.match(record);
+  filter_helper.post_process(filter);
 }

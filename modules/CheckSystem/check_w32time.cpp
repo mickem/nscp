@@ -17,7 +17,7 @@
 #include <win/registry.hpp>
 #include <win/services.hpp>
 
-#include "duration_keyword.hpp"
+#include <check/duration_keyword.hpp>
 
 namespace w32time_check {
 
