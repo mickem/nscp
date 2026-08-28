@@ -62,6 +62,24 @@ page tracks those in one place. Full per-release detail lives in each
   folder out. Crash reports remain a Windows-only concept; on Linux there is no
   crash handler, so `crashes` is always 0.
 
+- **`check_and_forward` now actually submits the result.** The command ran the
+  wrapped check, answered `Message submitted` and delivered nothing: the
+  submission was built in a form the channels could not read, so NSCA, NRDP,
+  Graphite and every other client module received a message with no results in
+  it. It now submits like a scheduled check does. If you had given up on the
+  command, it works — and if you built a workaround around its silence (for
+  instance a schedule that exists only to be triggered), that workaround is no
+  longer needed. The command also gained `channel` (`target` still works as a
+  synonym), `alias`, `destination` and `source` options, and names the result
+  after the command when no alias is given.
+- **New: run scheduled checks on demand with `run_schedules`.** After editing
+  `nsclient.ini` you no longer have to wait out the interval to see the new
+  result on the monitoring server — `nscp client --boot --query run_schedules`
+  (optionally `--argument schedule=<alias>`) runs the configured schedules now
+  and submits their results on their normal channel. It is a regular check
+  command, so it also works over NRPE, REST and in `nscp test`. Nothing changes
+  for existing configurations; the timers are untouched. See
+  [Passive monitoring → Step 6](../scenarios/passive-monitoring-nsca.md#step-6-send-a-result-without-waiting-for-the-interval).
 - 🔒 **NRDP HTTPS submissions now verify the server certificate by default on
   the `nscp client`/REST path.** Previously an `https://` submission made that
   way with no `verify mode` set trusted any certificate silently (configured
