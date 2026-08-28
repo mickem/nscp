@@ -24,6 +24,18 @@ struct parsed_url {
 // that isn't an absolute http/https URL with a non-empty host.
 bool parse_url(const std::string& url, parsed_url& out);
 
+// Resolve a redirect Location against the URL it was served from.
+//
+// Handles the three shapes a Location can take: absolute ("https://h/p"),
+// protocol-relative ("//h/p", which inherits the current scheme per RFC 3986
+// 4.2) and path-relative ("/p" or "p"). Refuses an HTTPS->HTTP downgrade: the
+// bundle's integrity rests on the TLS channel, so a chain that began on https
+// must not silently drop to cleartext.
+//
+// Returns true and fills `next` on success; returns false and fills `error`
+// when the redirect is refused.
+bool resolve_redirect(const parsed_url& current, std::string location, std::string& next, std::string& error);
+
 // Parse a "<hex> <filename>" sha256 manifest (sha256sum/shasum output).
 // Returns the lower-cased 64-char hex digest, or empty on malformed input.
 std::string parse_sha256_manifest(const std::string& contents);

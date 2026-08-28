@@ -84,3 +84,16 @@ TEST(NameSafety, ScriptNameRejectsControlAndUnsafeChars) {
   EXPECT_FALSE(is_safe_script_name(std::string("a\0b", 3)));
   EXPECT_FALSE(is_safe_script_name("a\nb"));
 }
+
+TEST(NameSafety, RejectsLeadingDash) {
+  // A leading '-' in any segment could be mistaken for an option flag when the
+  // name is later passed as an argument value (e.g. `--script <name>`).
+  EXPECT_FALSE(is_safe_script_name("-rf"));
+  EXPECT_FALSE(is_safe_script_name("-o"));
+  EXPECT_FALSE(is_safe_script_name("subdir/-x"));
+  EXPECT_FALSE(is_safe_module_name("-evil"));
+  // Interior dashes stay allowed.
+  EXPECT_TRUE(is_safe_script_name("check-disk"));
+  EXPECT_TRUE(is_safe_script_name("subdir/check-disk"));
+  EXPECT_TRUE(is_safe_module_name("check-system"));
+}

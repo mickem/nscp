@@ -99,8 +99,10 @@ struct session_manager_interface {
 
   std::list<std::string> boot();
   bool validate_user(const std::string &user, const std::string &password);
-  void store_user_in_response(const std::string &user, Mongoose::StreamResponse &response);
-  void store_token_in_response(const std::string &token, Mongoose::StreamResponse &response) const;
+  // Returns false when no session could be created (CSPRNG failure); the
+  // caller must not treat the request as authenticated.
+  bool store_user_in_response(const std::string &user, Mongoose::StreamResponse &response);
+  void store_session_in_response(const std::string &token, const std::string &user, Mongoose::StreamResponse &response) const;
   bool can(const std::string &grant, Mongoose::StreamResponse &response);
   static void get_user_from_response(const Mongoose::StreamResponse &response, std::string &user, std::string &key);
   void add_user(const std::string &user, const std::string &role, const std::string &password);

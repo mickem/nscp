@@ -123,19 +123,23 @@ bool session_manager_interface::process_auth_header(const std::string &grant, Mo
       return false;
     }
     rate_limiter.record_success(remote_ip);
-    store_user_in_response(user_and_password.first, response);
+    if (!store_user_in_response(user_and_password.first, response)) {
+      response.setCodeServerError("500 Failed to issue token");
+      return false;
+    }
     return can(grant, response);
   }
   if (is_bearer_auth(auth)) {
     const std::string token = auth.substr(7);
-    if (!tokens.is_valid(token)) {
+    std::string user;
+    if (!tokens.validate(token, user)) {
       rate_limiter.record_failure(remote_ip);
       NSC_LOG_ERROR("Authentication failed for " + remote_ip);
       response.setCodeForbidden(NOT_ALLOWED);
       return false;
     }
     rate_limiter.record_success(remote_ip);
-    store_token_in_response(token, response);
+    store_session_in_response(token, user, response);
     return can(grant, response);
   }
   NSC_LOG_ERROR("Unknown authentication scheme for " + remote_ip);
@@ -171,7 +175,10 @@ bool session_manager_interface::process_password_header(const std::string &grant
     return false;
   }
   rate_limiter.record_success(remote_ip);
-  store_user_in_response(kImplicitUser, response);
+  if (!store_user_in_response(kImplicitUser, response)) {
+    response.setCodeServerError("500 Failed to issue token");
+    return false;
+  }
   return can(grant, response);
 }
 
@@ -203,12 +210,13 @@ bool session_manager_interface::is_logged_in(const std::string &grant, Mongoose:
     response.setCodeForbidden(NOT_ALLOWED);
     return false;
   }
-  if (!tokens.is_valid(token)) {
+  std::string user;
+  if (!tokens.validate(token, user)) {
     NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to invalid token");
     response.setCodeForbidden(NOT_ALLOWED);
     return false;
   }
-  store_token_in_response(token, response);
+  store_session_in_response(token, user, response);
   if (!can(grant, response)) {
     NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp() + " due to insufficient permissions");
     response.setCodeForbidden(NOT_ALLOWED);
@@ -223,14 +231,27 @@ std::list<std::string> session_manager_interface::boot() {
   return errors;
 }
 
-void session_manager_interface::store_user_in_response(const std::string &user, Mongoose::StreamResponse &response) {
-  response.setCookie("token", tokens.generate_for(user));
+bool session_manager_interface::store_user_in_response(const std::string &user, Mongoose::StreamResponse &response) {
+  const std::string token = tokens.generate_for(user);
+  if (token.empty()) {
+    // generate_for only returns empty when the CSPRNG failed. token_store
+    // deliberately has no logging of its own (nor do grant_store /
+    // user_manager) - this is the layer that reports, and refusing here is
+    // what makes the fail-closed contract in generate_token() meaningful.
+    NSC_LOG_ERROR(
+        "SECURITY: refused to issue a session token because the cryptographic RNG (RAND_bytes) failed. No session was "
+        "created. Authentication will keep failing until the OpenSSL RNG is usable again.");
+    return false;
+  }
+  response.setCookie("token", token);
   response.setCookie("uid", user);
+  return true;
 }
 
-void session_manager_interface::store_token_in_response(const std::string &token, Mongoose::StreamResponse &response) const {
+void session_manager_interface::store_session_in_response(const std::string &token, const std::string &user,
+                                                          Mongoose::StreamResponse &response) const {
   response.setCookie("token", token);
-  response.setCookie("uid", tokens.get_user(token));
+  response.setCookie("uid", user);
 }
 
 void session_manager_interface::get_user_from_response(const Mongoose::StreamResponse &response, std::string &user, std::string &key) {

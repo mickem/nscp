@@ -80,6 +80,7 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 
   if (what.size() != 2) {
     response.setCodeNotFound("Module not found");
+    return;
   }
   std::string module = what.str(1);
   if (!name_safety::is_safe_module_name(module)) {

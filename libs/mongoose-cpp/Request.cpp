@@ -51,6 +51,13 @@ long long mg_get_cookie(const char *cookie_header, const char *var_name, char *d
   dst[0] = '\0';
 
   for (; (s = mg_strcasestr(s, var_name)) != nullptr; s += name_len) {
+    // The match must start at a cookie-name boundary, not in the middle of a
+    // longer name: without the left-boundary check, a client cookie named
+    // "eviltoken" would satisfy a lookup for "token" (the substring search
+    // finds "token" inside it and sees the following '='). Cookies are
+    // separated by "; ", so a valid name is preceded by start-of-header, a
+    // space, or a ';'.
+    if (s != cookie_header && s[-1] != ' ' && s[-1] != ';') continue;
     if (s[name_len] != '=') continue;
     s += name_len + 1;
     const char *p = std::strchr(s, ' ');
