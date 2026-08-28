@@ -103,7 +103,11 @@ struct nsca_client_handler final : public client::handler_interface {
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
     connection_data con(target, sender);
 
-    NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + target.to_string()); }
+    // Log the redacted connection_data, never target.to_string(): the latter
+    // dumps the raw destination_container data map, which still contains the
+    // `password` in the clear and would defeat the redaction in
+    // connection_data::to_string().
+    NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + con.to_string()); }
     unsigned int len = 512;
     if (target.has_data("buffer length"))
       len = target.get_int_data("buffer length", 512);
