@@ -177,6 +177,46 @@ TEST(NrdpParse, MissingMessageElementFails) {
   EXPECT_EQ(ret.get<1>(), "Invalid response from server");
 }
 
+TEST(NrdpParse, EmptyStatusElementIsInvalidNotACrash) {
+  // "<status></status>" has no text child, so tinyxml2's FirstChild() returns
+  // null. Dereferencing it used to crash the submission thread; a hostile or
+  // broken server (or a MITM on an unverified/plaintext link) could trigger it
+  // at will. It must now be reported as an invalid response.
+  const std::string body =
+      "<?xml version=\"1.0\"?>"
+      "<result>"
+      "<status></status>"
+      "<message>hello</message>"
+      "</result>";
+  const auto ret = nrdp::data::parse_response(body);
+  EXPECT_EQ(ret.get<0>(), -1);
+  EXPECT_EQ(ret.get<1>(), "Invalid response from server");
+}
+
+TEST(NrdpParse, EmptyMessageElementIsInvalidNotACrash) {
+  const std::string body =
+      "<?xml version=\"1.0\"?>"
+      "<result>"
+      "<status>0</status>"
+      "<message></message>"
+      "</result>";
+  const auto ret = nrdp::data::parse_response(body);
+  EXPECT_EQ(ret.get<0>(), -1);
+  EXPECT_EQ(ret.get<1>(), "Invalid response from server");
+}
+
+TEST(NrdpParse, BothElementsEmptyIsInvalidNotACrash) {
+  const std::string body =
+      "<?xml version=\"1.0\"?>"
+      "<result>"
+      "<status/>"
+      "<message/>"
+      "</result>";
+  const auto ret = nrdp::data::parse_response(body);
+  EXPECT_EQ(ret.get<0>(), -1);
+  EXPECT_EQ(ret.get<1>(), "Invalid response from server");
+}
+
 TEST(NrdpParse, NonNumericStatusFallsBackToMinusOne) {
   const std::string body =
       "<?xml version=\"1.0\"?>"

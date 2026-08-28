@@ -172,6 +172,69 @@ TEST(NrdpConnectionData, CarriesTheTokenAndTlsSettings) {
   EXPECT_EQ(con.ca, "/etc/ca.pem");
 }
 
+TEST(NrdpConnectionData, HttpsDefaultsVerifyModeToPeer) {
+  // A missing verify mode must not silently disable certificate verification
+  // on HTTPS: the TLS layer maps an empty string to verify_none, so the client
+  // would submit the token to an unauthenticated (possibly MITM) server.
+  const nrdp_client::connection_data con(target_with({{"address", "https://h"}}), client::destination_container());
+
+  EXPECT_EQ(con.verify_mode, "peer");
+}
+
+TEST(NrdpConnectionData, AnExplicitVerifyModeIsNotOverridden) {
+  const nrdp_client::connection_data con(target_with({{"address", "https://h"}, {"verify mode", "none"}}), client::destination_container());
+
+  EXPECT_EQ(con.verify_mode, "none") << "an operator opting out of verification must still be honoured";
+}
+
+TEST(NrdpConnectionData, PlainHttpLeavesVerifyModeEmpty) {
+  // verify mode is meaningless without TLS, so http must not gain a spurious
+  // default.
+  const nrdp_client::connection_data con(target_with({{"address", "http://h"}}), client::destination_container());
+
+  EXPECT_EQ(con.verify_mode, "");
+}
+
+TEST(NrdpConnectionData, ToStringDoesNotLeakTheToken) {
+  // The token is a shared secret; to_string() is emitted at trace level on
+  // every submission and must never carry it in the clear.
+  const nrdp_client::connection_data con(target_with({{"address", "https://h"}, {"token", "s3cret-token"}}), client::destination_container());
+
+  const std::string s = con.to_string();
+  EXPECT_EQ(s.find("s3cret-token"), std::string::npos) << s;
+  EXPECT_NE(s.find("<set>"), std::string::npos) << s;
+}
+
+TEST(NrdpConnectionData, ToStringMarksAnUnsetTokenWithoutLeaking) {
+  const nrdp_client::connection_data con(target_with({{"address", "https://h"}}), client::destination_container());
+
+  EXPECT_NE(con.to_string().find("token: <unset>"), std::string::npos) << con.to_string();
+}
+
+TEST(NrdpConnectionData, ToStringRedactsProxyCredentials) {
+  const nrdp_client::connection_data con(target_with({{"address", "https://h"}, {"proxy", "http://user:p4ss@proxy:3128/"}}),
+                                         client::destination_container());
+
+  const std::string s = con.to_string();
+  EXPECT_EQ(s.find("p4ss"), std::string::npos) << s;
+  EXPECT_EQ(s.find("user:"), std::string::npos) << s;
+  EXPECT_NE(s.find("<redacted>@proxy:3128"), std::string::npos) << s;
+}
+
+TEST(NrdpRedactProxyUrl, LeavesACredentiallessUrlUnchanged) {
+  EXPECT_EQ(nrdp_client::redact_proxy_url("http://proxy:3128/"), "http://proxy:3128/");
+}
+
+TEST(NrdpRedactProxyUrl, RedactsUserinfo) {
+  EXPECT_EQ(nrdp_client::redact_proxy_url("http://user:pass@proxy:3128/"), "http://<redacted>@proxy:3128/");
+}
+
+TEST(NrdpRedactProxyUrl, DoesNotMistakeAPathAtForUserinfo) {
+  // An '@' after the host (in the path) must not be treated as a userinfo
+  // separator.
+  EXPECT_EQ(nrdp_client::redact_proxy_url("http://proxy:3128/path@thing"), "http://proxy:3128/path@thing");
+}
+
 TEST(NrdpConnectionData, TlsVersionDefaultsToTwelveOrLater) {
   // Not a cosmetic default: it is what keeps the client off TLS 1.0/1.1 when
   // the target says nothing.

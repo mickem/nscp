@@ -79,9 +79,19 @@ boost::tuple<int, std::string> data::parse_response(const std::string& str) {
   }
   tinyxml2::XMLNode* tnStatus = nStatus->FirstChild();
   tinyxml2::XMLNode* tnError = nError->FirstChild();
+  // An element with no text child (e.g. "<status></status>") yields a null
+  // FirstChild(); dereferencing it would crash the submission thread. A remote
+  // NRDP server — or anyone able to inject a response on a plaintext or
+  // unverified connection — could send exactly that, so treat a missing text
+  // node as an invalid response rather than a segfault.
+  if (tnStatus == nullptr || tnError == nullptr) {
+    return boost::make_tuple(-1, "Invalid response from server");
+  }
 
-  std::string status = tnStatus->Value();
-  std::string error = tnError->Value();
+  const char* status_value = tnStatus->Value();
+  const char* error_value = tnError->Value();
+  const std::string status = status_value != nullptr ? status_value : "";
+  const std::string error = error_value != nullptr ? error_value : "";
   return boost::make_tuple(str::stox<int>(status, -1), error);
 }
 }  // namespace nrdp

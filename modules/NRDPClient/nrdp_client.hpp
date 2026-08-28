@@ -17,6 +17,21 @@
 #include "nrdp.hpp"
 
 namespace nrdp_client {
+// Replace any "user:pass@" userinfo in a proxy URL with "<redacted>@" so the
+// URL can be logged without leaking embedded credentials. Anything without
+// userinfo is returned unchanged.
+inline std::string redact_proxy_url(const std::string &url) {
+  const auto scheme_pos = url.find("://");
+  const std::size_t host_start = scheme_pos == std::string::npos ? 0 : scheme_pos + 3;
+  // Userinfo lives only in the authority, i.e. before the first '/', '?' or '#'
+  // that ends it. An '@' after that (in the path or query) is not a credential
+  // separator and must be left alone.
+  const auto authority_end = url.find_first_of("/?#", host_start);
+  const auto at_pos = url.rfind('@', authority_end == std::string::npos ? std::string::npos : authority_end);
+  if (at_pos == std::string::npos || at_pos < host_start) return url;
+  return url.substr(0, host_start) + "<redacted>" + url.substr(at_pos);
+}
+
 struct connection_data : socket_helpers::connection_info {
   std::string token;
   std::string protocol;
@@ -46,6 +61,14 @@ struct connection_data : socket_helpers::connection_info {
     tls_version = arguments.get_string_data("tls version");
     if (tls_version.empty()) tls_version = "1.2+";
     verify_mode = arguments.get_string_data("verify mode");
+    // Fail safe: an empty verify mode resolves to verify_none in the TLS layer,
+    // which would submit over HTTPS without validating the server certificate
+    // (defeating the point of using TLS and exposing the token to a MITM). The
+    // configured-target path already defaults to "peer"; mirror that for the
+    // bare CLI/REST path so a missing verify mode never silently downgrades.
+    // Operators who intentionally want no verification (self-signed without a
+    // pinned CA) must now set it to "none" explicitly.
+    if (verify_mode.empty() && protocol == "https") verify_mode = "peer";
     ca = arguments.get_string_data("ca");
     proxy_url = arguments.get_string_data("proxy");
     no_proxy_str = arguments.get_string_data("no proxy");
@@ -79,11 +102,16 @@ struct connection_data : socket_helpers::connection_info {
     ss << ", port: " << port_;
     ss << ", path: " << path;
     ss << ", timeout: " << timeout;
-    ss << ", token: " << token;
+    // Never log the actual token: this string is emitted at trace level on
+    // every submission and the NRDP token is a shared secret equivalent to the
+    // NSCA password (which is redacted the same way in nsca_client.hpp).
+    ss << ", token: " << (token.empty() ? "<unset>" : "<set>");
     ss << ", sender: " << sender_hostname;
     ss << ", tls version: " << tls_version;
     ss << ", verify mode: " << verify_mode;
-    if (!proxy_url.empty()) ss << ", proxy: " << proxy_url;
+    // A proxy URL may embed credentials (http://user:pass@proxy:3128/); redact
+    // rather than leak them into the trace log.
+    if (!proxy_url.empty()) ss << ", proxy: " << redact_proxy_url(proxy_url);
     if (!no_proxy_str.empty()) ss << ", no proxy: " << no_proxy_str;
     return ss.str();
   }
