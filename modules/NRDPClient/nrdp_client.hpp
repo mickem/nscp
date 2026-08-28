@@ -129,7 +129,11 @@ struct nrdp_client_handler : client::handler_interface {
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
     connection_data con(target, sender);
 
-    NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + target.to_string()); }
+    // Log the redacted connection_data, never target.to_string(): the latter
+    // dumps the raw destination_container data map, which still contains the
+    // `token` and any `proxy` credentials in the clear and would defeat the
+    // redaction in connection_data::to_string().
+    NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + con.to_string()); }
 
     nrdp::data nrdp_data;
 
