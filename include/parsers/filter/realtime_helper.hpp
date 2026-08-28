@@ -23,7 +23,16 @@ template <class runtime_data, class config_object>
 struct realtime_filter_helper {
   nscapi::core_wrapper *core;
   int plugin_id;
-  realtime_filter_helper(nscapi::core_wrapper *core, const int plugin_id) : core(core), plugin_id(plugin_id) {}
+  // Number of process_startup() rounds which still left something pending,
+  // bounding the retries (see max_startup_attempts).
+  int startup_attempts;
+  realtime_filter_helper(nscapi::core_wrapper *core, const int plugin_id) : core(core), plugin_id(plugin_id), startup_attempts(0) {}
+
+  // How many process_startup() rounds may fail before the remaining `run on
+  // startup` submissions are abandoned. The rounds are driven by the module's
+  // real-time loop (sub-second to a few seconds apart), so this covers a slow
+  // boot without retrying a genuinely broken destination forever.
+  static constexpr int max_startup_attempts = 20;
 
   typedef typename runtime_data::filter_type filter_type;
   typedef typename runtime_data::transient_data_type transient_data_type;
@@ -53,6 +62,9 @@ struct realtime_filter_helper {
    public:
     bool debug;
     bool escape_html;
+    // Still needs its `run on startup` priming submitted, see
+    // process_startup(). Only touched from the module's real-time thread.
+    bool startup_pending;
     runtime_data data;
     std::atomic<long long> match_count;
     std::atomic<long long> error_count;
@@ -69,6 +81,7 @@ struct realtime_filter_helper {
           severity(0),
           debug(false),
           escape_html(false),
+          startup_pending(false),
           data(data),
           match_count(0),
           error_count(0),
@@ -170,6 +183,7 @@ struct realtime_filter_helper {
     item->silent_period = object->filter.silent_period;
     item->debug = object->filter.debug;
     item->escape_html = object->filter.escape_html;
+    item->startup_pending = object->filter.run_on_startup;
     if (!object->filter.command.empty()) item->command = object->filter.command;
     std::string message;
 
@@ -275,6 +289,55 @@ struct realtime_filter_helper {
       if (item->broken) continue;
       item->touch(current_time, false);
     }
+  }
+
+  // Whether any filter still has a `run on startup` submission to deliver.
+  // Lets the module's real-time loop shorten its wait only while priming is
+  // actually outstanding.
+  bool has_pending_startup() const {
+    for (const container_type &item : items) {
+      if (!item->broken && item->startup_pending) return true;
+    }
+    return false;
+  }
+
+  // Prime the destination for every filter which opted in via `run on
+  // startup` (#584): submit the ok/empty message right away instead of
+  // leaving the destination (e.g. the cache behind check_cache) without an
+  // entry until the first data change or `maximum age` expiry. At boot no
+  // data has been seen yet, which is exactly the state the `maximum age`
+  // timeout reports, so the same message is submitted.
+  //
+  // Returns true once nothing is pending any more. A submission can fail
+  // because the destination module has not registered its channel yet - the
+  // real-time thread starts while later plugins are still loading (the same
+  // ordering problem the Scheduler solves with startModule) - so a failed
+  // attempt stays pending, to be retried by the caller's loop, and is only
+  // logged as an error once the attempts are exhausted (a destination which
+  // is still missing then is a real misconfiguration, which the `maximum
+  // age` path would keep reporting too).
+  bool process_startup() {
+    const boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
+    bool pending = false;
+    nscapi::core_helper ch(core, plugin_id);
+    for (const container_type &item : items) {
+      if (item->broken || !item->startup_pending) continue;
+      std::string response;
+      if (ch.submit_simple_message(item->get_target(), item->get_source_id(), item->get_target_id(), item->command, NSCAPI::query_return_codes::returnOK,
+                                   item->timeout_msg, "", response)) {
+        item->startup_pending = false;
+        item->touch(current_time, false);
+      } else if (startup_attempts + 1 >= max_startup_attempts) {
+        item->error_count.fetch_add(1, std::memory_order_relaxed);
+        item->startup_pending = false;
+        NSC_LOG_ERROR("Failed to submit startup message for '" + item->get_alias() + "', giving up: " + response);
+      } else {
+        pending = true;
+        NSC_DEBUG_MSG("Startup message for '" + item->get_alias() + "' could not be delivered yet, will retry: " + response);
+      }
+    }
+    if (pending) startup_attempts++;
+    return !pending;
   }
 
   void process_items(transient_data_type data) {

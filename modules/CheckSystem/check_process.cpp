@@ -176,6 +176,8 @@ void helper::add_obj(std::shared_ptr<filters::proc::filter_config_object> object
 
 void helper::boot() { proc_helper->helper.touch_all(); }
 
+bool helper::process_startup() { return proc_helper->helper.process_startup(); }
+
 void helper::check() {
   NSC_error err;
 

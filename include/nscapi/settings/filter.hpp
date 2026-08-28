@@ -24,6 +24,10 @@ namespace settings_filters {
 struct NSCAPI_EXPORT filter_object {
   bool debug;
   bool escape_html;
+  // Submit the filter's "empty message" once as soon as the module starts, so
+  // the destination (e.g. the cache behind check_cache) has an entry before
+  // the first data change or `maximum age` timeout fires (issue #584).
+  bool run_on_startup;
   std::string syntax_top;
   std::string syntax_detail;
   std::string target;
@@ -62,6 +66,7 @@ struct NSCAPI_EXPORT filter_object {
   filter_object(std::string syntax_top, std::string syntax_detail, std::string target)
       : debug(false),
         escape_html(false),
+        run_on_startup(false),
         syntax_top(std::move(syntax_top)),
         syntax_detail(std::move(syntax_detail)),
         target(std::move(target)),

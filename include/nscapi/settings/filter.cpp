@@ -63,6 +63,17 @@ void filter_object::read_object(settings_helper::path_extension& path, const boo
           "How long before a new alert is reported after an alert is reported. In other words whenever an alert is fired and a notification is sent the same "
           "notification will not be sent again until this period has ended.\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
 
+      // No default here: the value is inherited from the parent template via
+      // the clone-then-read flow (like the scheduler's same-named option), and
+      // a registered default would reset the cloned value whenever the key is
+      // absent. An explicit `false` on a child still overrides an inherited
+      // `true`.
+      .add_bool("run on startup", sh::bool_key(&run_on_startup), "RUN ON STARTUP",
+                "Submit the \"empty message\" (with an OK status) once as soon as NSClient++ has started instead of waiting for the first event or the "
+                "\"maximum age\" timeout. Use this to prime the destination (for instance the cache queried by check_cache) so checks made right after a "
+                "restart do not fail with \"Entry not found\". Inherited from the default filter unless set here.",
+                true)
+
       .add_string("empty message", sh::string_key(&timeout_msg, "eventlog found no records"), "EMPTY MESSAGE",
                   "The message to display if nothing matches the filter (generally considered the ok state).", !is_default)
 
@@ -98,6 +109,14 @@ void filter_object::apply_parent(const filter_object& parent) {
   import_string(filter_crit, parent.filter_crit);
   import_string(filter_ok, parent.filter_ok);
   if (parent.debug) debug = parent.debug;
+  // Like `debug` above, a plain bool cannot tell "explicitly false" from
+  // "unset", so this can only propagate a parent's true. That is fine because
+  // this function is not how filters inherit at runtime: the object handler
+  // clones the parent template and then reads the child's own keys over it
+  // (and `run on startup` is registered without a default exactly so an
+  // absent key keeps the cloned value while an explicit `false` overrides an
+  // inherited `true`).
+  if (parent.run_on_startup) run_on_startup = parent.run_on_startup;
   import_string(target, parent.target);
   import_string(target_id, parent.target_id);
   import_string(source_id, parent.source_id);

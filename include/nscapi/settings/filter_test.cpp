@@ -22,6 +22,7 @@ TEST(FilterObjectTest, ConstructorBasic) {
   EXPECT_EQ("target", obj.target);
   EXPECT_FALSE(obj.debug);
   EXPECT_FALSE(obj.escape_html);
+  EXPECT_FALSE(obj.run_on_startup);
   EXPECT_EQ(-1, obj.severity);
 }
 
@@ -36,6 +37,7 @@ TEST(FilterObjectTest, CopyConstructor) {
   filter_object original("top", "detail", "target");
   original.debug = true;
   original.escape_html = true;
+  original.run_on_startup = true;
   original.syntax_ok = "ok_syntax";
   original.filter_ok = "ok_filter";
   original.filter_warn = "warn_filter";
@@ -57,6 +59,7 @@ TEST(FilterObjectTest, CopyConstructor) {
   EXPECT_EQ(original.target, copy.target);
   EXPECT_EQ(original.debug, copy.debug);
   EXPECT_EQ(original.escape_html, copy.escape_html);
+  EXPECT_EQ(original.run_on_startup, copy.run_on_startup);
   EXPECT_EQ(original.syntax_ok, copy.syntax_ok);
   EXPECT_EQ(original.filter_ok, copy.filter_ok);
   EXPECT_EQ(original.filter_warn, copy.filter_warn);
@@ -472,6 +475,28 @@ TEST(FilterObjectTest, ApplyParentDoesNotOverwriteDebugFlagWhenChildIsTrue) {
   child.apply_parent(parent);
 
   EXPECT_TRUE(child.debug);
+}
+
+TEST(FilterObjectTest, ApplyParentCopiesRunOnStartupFlag) {
+  filter_object parent("", "", "");
+  parent.run_on_startup = true;
+
+  filter_object child("", "", "");
+  child.apply_parent(parent);
+
+  EXPECT_TRUE(child.run_on_startup);
+}
+
+TEST(FilterObjectTest, ApplyParentDoesNotOverwriteRunOnStartupWhenChildIsTrue) {
+  filter_object parent("", "", "");
+  parent.run_on_startup = false;
+
+  filter_object child("", "", "");
+  child.run_on_startup = true;
+
+  child.apply_parent(parent);
+
+  EXPECT_TRUE(child.run_on_startup);
 }
 
 TEST(FilterObjectTest, ApplyParentSeverityOnlyWhenChildIsUnset) {

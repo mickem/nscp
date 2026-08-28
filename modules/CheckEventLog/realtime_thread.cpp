@@ -65,9 +65,17 @@ void real_time_thread::thread_proc() {
   }
   helper.touch_all();
 
+  // `run on startup` submissions are delivered from inside the loop rather
+  // than as a one-shot here: this thread starts while later plugins (the
+  // destination of the filter) may still be loading, so failed attempts are
+  // retried across the loop's waits - which are shortened while priming is
+  // outstanding - until the destination's channel exists.
+  bool startup_done = !helper.has_pending_startup();
+
   unsigned int errors = 0;
   while (true) {
     bool has_errors = false;
+    if (!startup_done) startup_done = helper.process_startup();
     filter_helper::op_duration dur = helper.find_minimum_timeout();
 
     DWORD dwWaitTime = INFINITE;
@@ -75,6 +83,7 @@ void real_time_thread::thread_proc() {
       dwWaitTime = 0;
     else if (dur)
       dwWaitTime = static_cast<DWORD>(dur->total_milliseconds());
+    if (!startup_done && dwWaitTime > 500) dwWaitTime = 500;
 
     NSC_DEBUG_MSG("Sleeping for: " + str::xtos(dwWaitTime) + "ms");
     DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(evlog_list.size() + 1), handles, FALSE, dwWaitTime);

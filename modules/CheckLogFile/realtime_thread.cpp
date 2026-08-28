@@ -116,8 +116,18 @@ void real_time_thread::thread_proc() {
 
   helper.touch_all();
 
+  // `run on startup` submissions are delivered from inside the loop rather
+  // than as a one-shot here: this thread starts while later plugins (for
+  // instance the SimpleCache behind a `destination = cache`) may still be
+  // loading, so failed attempts are retried across the loop's waits - which
+  // are shortened while priming is outstanding - until the destination's
+  // channel exists.
+  bool startup_done = !helper.has_pending_startup();
+
   while (true) {
+    if (!startup_done) startup_done = helper.process_startup();
     filter_helper::op_duration dur = helper.find_minimum_timeout();
+    if (!startup_done && (!dur || *dur > boost::posix_time::milliseconds(500))) dur = boost::posix_time::milliseconds(500);
     std::string trigger_folder;
 #ifdef WIN32
     DWORD dwWaitTime = INFINITE;
