@@ -14,6 +14,11 @@ class NRPEServer : public nscapi::impl::simple_plugin, nrpe::server::handler {
   bool allowNasty_;
   bool allowArgs_;
   bool multiple_packets_;
+  // Whether the unauthenticated `_NRPE_CHECK` ping reply includes the full
+  // NSClient++ application version string. Default true preserves the legacy
+  // banner that check_nrpe and monitoring tooling expect; set false to avoid
+  // disclosing the exact build to anyone permitted to open the port.
+  bool expose_version_;
   std::string encoding_;
   // "none" -> empty principal (legacy behaviour).
   // "cn"   -> Common Name value of the verified client cert (e.g.

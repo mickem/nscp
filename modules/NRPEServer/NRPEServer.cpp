@@ -80,6 +80,12 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
       "extended response", sh::bool_key(&multiple_packets_, !insecure), "EXTENDED RESPONSE",
       "Send more then 1 return packet to allow response to go beyond payload size (requires modified client if legacy is true this defaults to false).");
 
+  settings.alias().add_key_to_settings().add_bool(
+      "expose version", sh::bool_key(&expose_version_, true), "EXPOSE VERSION IN PING REPLY",
+      "Include the full NSClient++ version string in the unauthenticated _NRPE_CHECK ping reply. "
+      "Defaults to true for compatibility with check_nrpe and monitoring tooling; set to false to "
+      "avoid disclosing the exact build to any host permitted to open the NRPE port.");
+
   settings.alias()
       .add_parent("/settings/default")
       .add_key_to_settings()
@@ -238,10 +244,14 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &pe
                   ", peer_identity='" + peer_identity + "')");
   }
   if (cmd.first == "_NRPE_CHECK") {
-    packets.push_back(nrpe::packet::create_response(
-        p.getVersion(), NSCAPI::query_return_codes::returnOK,
-        "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...",
-        p.get_payload_length()));
+    // The ping reply is unauthenticated (it precedes the argument and
+    // permission checks). Only disclose the exact build when `expose version`
+    // is on; otherwise answer OK with a generic banner so version-fingerprint
+    // scanning of a permitted host learns nothing.
+    const std::string ping_message =
+        expose_version_ ? "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine..."
+                        : "I seem to be doing fine...";
+    packets.push_back(nrpe::packet::create_response(p.getVersion(), NSCAPI::query_return_codes::returnOK, ping_message, p.get_payload_length()));
     // Literal payload — NSC_TRACE_MSG already gates internally so no outer
     // NSC_TRACE_ENABLED block is required here.
     NSC_TRACE_MSG("NRPE response: _NRPE_CHECK ping reply");
@@ -254,13 +264,13 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &pe
     }
   }
   if (!allowNasty_) {
-    if (cmd.first.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+    if (cmd.first.find_first_of(NASTY_METACHARS) != std::string::npos) {
       NSC_LOG_ERROR("Request command contained illegal metachars!");
       throw nrpe::nrpe_exception("Request command contained illegal metachars!");
     }
-    if (cmd.second.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
+    if (cmd.second.find_first_of(NASTY_METACHARS) != std::string::npos) {
       NSC_LOG_ERROR("Request arguments contained illegal metachars!");
-      throw nrpe::nrpe_exception("Request command contained illegal metachars!");
+      throw nrpe::nrpe_exception("Request arguments contained illegal metachars!");
     }
   }
   std::string wmsg, wperf;
@@ -275,6 +285,17 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p, const std::string &pe
     } else {
       wcmd = utf8::cvt<std::string>(utf8::from_encoding(cmd.first, encoding_));
       wargs = utf8::cvt<std::string>(utf8::from_encoding(cmd.second, encoding_));
+    }
+    // Re-apply the metachar guard to the DECODED command/arguments. The check
+    // above runs on the raw wire bytes; when a non-UTF-8 `encoding` is
+    // configured a multi-byte sequence can decode into an ASCII metacharacter
+    // that was not literally present on the wire (e.g. the historic Shift-JIS
+    // trailing-byte class). wcmd/wargs are what actually gets dispatched, so
+    // this is the authoritative gate; the raw check stays as an early, clearer
+    // rejection for the common UTF-8 case.
+    if (!allowNasty_ && (wcmd.find_first_of(NASTY_METACHARS) != std::string::npos || wargs.find_first_of(NASTY_METACHARS) != std::string::npos)) {
+      NSC_LOG_ERROR("Request contained illegal metachars after decoding!");
+      throw nrpe::nrpe_exception("Request contained illegal metachars after decoding!");
     }
     // When the transport has resolved a peer identity (e.g. the client
     // cert CN under `client identity source = cn`), stamp it as the

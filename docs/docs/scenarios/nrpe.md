@@ -207,6 +207,94 @@ In general certificates can be a bit tricky to get right.
 
 ---
 
+## Securing the NRPE endpoint
+
+The walkthrough above builds up from insecure to client-certificate auth. This
+section is the condensed checklist — the settings that actually decide how
+secure the endpoint is, and the two defaults that most often surprise
+operators.
+
+### Server: authenticate callers, don't just encrypt
+
+With the default `verify mode = none` the server encrypts the channel but does
+**not** ask the caller for a certificate — the only thing separating a
+legitimate monitoring server from anyone else on the network is the
+`allowed hosts` IP list. IP filtering is worth keeping (and it now **fails
+closed**: an empty `allowed hosts` rejects every connection rather than
+allowing all), but it is not authentication. For a genuinely authenticated
+endpoint, require a client certificate signed by a CA you control:
+
+```ini
+[/settings/NRPE/server]
+use ssl                = true
+verify mode            = peer-cert          ; require a client cert, fail if absent
+ca                     = ${certificate-path}/ca.pem
+certificate            = ${certificate-path}/server.pem
+certificate key        = ${certificate-path}/server.key
+allowed hosts          = 192.168.0.0/24     ; still keep this tight
+insecure               = false
+```
+
+`verify mode = peer-cert` is the alias for `peer` + `fail-if-no-cert`: the
+handshake is rejected unless the client presents a certificate that chains to
+`ca`. `nscp nrpe install --verify=peer-cert --ca ...` writes the same config.
+
+Optionally, stamp the verified client's identity onto each request so the core
+permission system can authorize per-caller:
+
+```ini
+[/settings/NRPE/server]
+client identity source = cn                 ; use the client cert Common Name
+```
+
+`client identity source = cn` is only honoured when TLS is actually verifying
+the peer (`verify mode` contains `peer` and `fail-if-no-cert`, plus a `ca`) —
+the module refuses to start otherwise, because an unverified CN would be
+attacker-supplied.
+
+### Server: don't advertise the build
+
+The `_NRPE_CHECK` ping reply (`check_nrpe -H host` with no command) is answered
+before any authentication and, by default, returns the exact NSClient++ version.
+To stop disclosing the build to anything that can open the port:
+
+```ini
+[/settings/NRPE/server]
+expose version = false
+```
+
+`check_nrpe` still receives an OK reply, just without the version string.
+
+### Client: verify the server (NSClient++ as an NRPE client)
+
+When NSClient++ itself calls out over NRPE (the `NRPEClient` module / a
+`[/settings/NRPE/client/targets/...]` target), the client default is likewise
+`verify mode = none` — it encrypts but accepts **any** server certificate,
+which leaves it open to a man-in-the-middle. Point the target at your CA and
+turn verification on:
+
+```ini
+[/settings/NRPE/client/targets/monitored-host]
+address     = monitored-host
+use ssl     = true
+verify mode = peer-cert
+ca          = ${certificate-path}/ca.pem
+```
+
+With `verify mode` set to peer, the client validates the server certificate
+chain **and** checks that its name matches the host it dialled, so a valid
+certificate from the wrong host is rejected.
+
+### Keep the argument guards conservative
+
+Leave `allow nasty characters = false` (the default) — it blocks shell
+metacharacters at the NRPE ingress. If you must accept arguments, enable
+`allow arguments` only, and only behind a tight `allowed hosts` list. See
+[Security Tunables](#security-tunables-allow-arguments-and-allow-nasty-characters)
+below.
+
+---
+
 ## Running Checks with Arguments
 
 Once the connection works, the next step is running real checks. The
