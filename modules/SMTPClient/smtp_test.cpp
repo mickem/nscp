@@ -167,10 +167,12 @@ using tcp = asio::ip::tcp;
 // response goes out in one write(), so a response carrying more than one line
 // reaches the client as a single segment - which is how a real injection
 // arrives.
+// `delay` is slept before each response, to model a server that answers
+// slowly but never hangs outright.
 class scripted_server {
  public:
-  explicit scripted_server(std::vector<std::string> responses)
-      : acceptor_(io_, tcp::endpoint(asio::ip::make_address("127.0.0.1"), 0)), responses_(std::move(responses)) {
+  explicit scripted_server(std::vector<std::string> responses, std::chrono::milliseconds delay = std::chrono::milliseconds(0))
+      : acceptor_(io_, tcp::endpoint(asio::ip::make_address("127.0.0.1"), 0)), responses_(std::move(responses)), delay_(delay) {
     port_ = acceptor_.local_endpoint().port();
     thread_ = std::thread([this] { serve(); });
   }
@@ -195,6 +197,7 @@ class scripted_server {
         std::string command;
         std::getline(is, command);
       }
+      if (delay_.count() > 0) std::this_thread::sleep_for(delay_);
       asio::write(sock, asio::buffer(responses_[i]), ec);
       if (ec) return;
     }
@@ -206,6 +209,7 @@ class scripted_server {
   asio::io_context io_;
   tcp::acceptor acceptor_;
   std::vector<std::string> responses_;
+  std::chrono::milliseconds delay_;
   unsigned short port_ = 0;
   std::thread thread_;
 };
@@ -213,17 +217,19 @@ class scripted_server {
 const char *kBanner = "220 mx.example.com ESMTP\r\n";
 const char *kEhloWithStarttls = "250-mx.example.com\r\n250-STARTTLS\r\n250 HELP\r\n";
 
-// Run a STARTTLS submission against a server whose STARTTLS reply is
-// `starttls_reply`, and return the resulting error message.
-std::string starttls_failure(const std::string &starttls_reply) {
-  scripted_server server({kBanner, kEhloWithStarttls, starttls_reply});
+// Run a STARTTLS submission against a scripted server and return the
+// resulting error message. Every case here fails somewhere - the server does
+// not speak TLS - so the message is the assertion target.
+std::string starttls_failure(const std::string &starttls_reply, std::chrono::milliseconds delay = std::chrono::milliseconds(0),
+                             int timeout_seconds = 5) {
+  scripted_server server({kBanner, kEhloWithStarttls, starttls_reply}, delay);
 
   smtp::connection_config cfg;
   cfg.server = "127.0.0.1";
   cfg.port = server.port();
   cfg.security = "starttls";
   cfg.insecure_skip_verify = true;
-  cfg.timeout_seconds = 5;
+  cfg.timeout_seconds = timeout_seconds;
 
   smtp::message msg;
   msg.from = "agent@example.com";
@@ -274,4 +280,19 @@ TEST(SmtpStarttls, AWellBehavedGreetingReachesTheHandshake) {
 
   EXPECT_EQ(error.find("STARTTLS response injection"), std::string::npos) << error;
   EXPECT_NE(error.find("TLS handshake (STARTTLS)"), std::string::npos) << error;
+}
+
+// =============================================================================
+// Timeout budget
+// =============================================================================
+
+TEST(SmtpTimeout, TheTimeoutBoundsTheWholeSubmissionNotEachOperation) {
+  // The server answers every command in 400ms - comfortably inside any single
+  // deadline, but three of them cannot fit in a one second budget. With a
+  // per-operation deadline each read would get its own second, the session
+  // would walk all the way to the handshake, and an operator who asked to give
+  // up after a second would instead wait a multiple of it.
+  const std::string error = starttls_failure("220 Go ahead\r\n", std::chrono::milliseconds(400), 1);
+
+  EXPECT_NE(error.find("timed out"), std::string::npos) << error;
 }

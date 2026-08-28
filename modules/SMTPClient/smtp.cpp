@@ -32,7 +32,15 @@ using ssl_stream = asio::ssl::stream<tcp::socket>;
 
 class sync_io {
  public:
-  sync_io(asio::io_context& io, tcp::socket& s, int timeout_seconds) : io_(io), socket_ref_(s), tls_stream_(nullptr), timeout_(timeout_seconds) {}
+  // `timeout_seconds` is the budget for the whole submission, not for each
+  // individual operation: an SMTP session is a fixed handful of round trips,
+  // and an operator setting timeout=30 means "give up on this notification
+  // after 30 seconds", not "allow 30 seconds per read". Per-operation
+  // deadlines multiplied out to minutes of worst case - a slow peer that
+  // answers just inside the deadline every time, or a host name resolving to
+  // several dead addresses, each of which got a fresh deadline of its own.
+  sync_io(asio::io_context& io, tcp::socket& s, int timeout_seconds)
+      : io_(io), socket_ref_(s), tls_stream_(nullptr), deadline_(std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds)) {}
 
   // Run the TLS handshake under the same deadline as every other operation,
   // then route subsequent reads and writes through the encrypted stream.
@@ -63,6 +71,25 @@ class sync_io {
         ec);
     if (ec) throw smtp_exception(std::string(what) + " failed: " + ec.message());
     tls_stream_ = &s;
+  }
+
+  // Resolve under the shared budget. The platform resolver's own timeouts are
+  // long (and not ours to set), so a black-holed name server would otherwise
+  // stall the submission well past the configured timeout before any socket
+  // operation got a chance to be deadlined.
+  tcp::resolver::results_type resolve(const std::string& host, const std::string& port) {
+    tcp::resolver resolver(io_);
+    tcp::resolver::results_type endpoints;
+    boost::system::error_code ec;
+    run_with_deadline([&](auto&& done) {
+      resolver.async_resolve(host, port, [&endpoints, done = std::move(done)](const boost::system::error_code& e, tcp::resolver::results_type r) {
+        endpoints = std::move(r);
+        done(e);
+      });
+    },
+                      ec);
+    if (ec) throw smtp_exception("DNS resolve failed: " + ec.message());
+    return endpoints;
   }
 
   // Connect to the first endpoint that succeeds, with a deadline.
@@ -139,14 +166,20 @@ class sync_io {
     out_ec = asio::error::would_block;
     std::size_t bytes = 0;
     asio::steady_timer timer(io_);
-    timer.expires_after(std::chrono::seconds(timeout_));
+    // A deadline already in the past fires immediately, which is what we want
+    // once the budget is spent.
+    timer.expires_at(deadline_);
     bool timed_out = false;
     timer.async_wait([&](const boost::system::error_code& e) {
       if (e == asio::error::operation_aborted) return;
       timed_out = true;
-      // Cancel any outstanding I/O so run() returns.
+      // Cancel any outstanding I/O so run() returns. stop() covers the
+      // operations cancelling the socket does not reach - a resolve in
+      // particular runs off on its own thread and would otherwise keep run()
+      // going until the platform resolver gave up on its own schedule.
       boost::system::error_code ignore;
       socket_ref_.cancel(ignore);
+      io_.stop();
     });
     init([&](const boost::system::error_code& e, std::size_t n = 0) {
       out_ec = e;
@@ -171,7 +204,7 @@ class sync_io {
   tcp::socket& socket_ref_;
   ssl_stream* tls_stream_;
   asio::streambuf buf_;
-  int timeout_;
+  std::chrono::steady_clock::time_point deadline_;
 };
 
 // ---------------------------------------------------------------------------
@@ -346,11 +379,7 @@ void send(const connection_config& cfg, const message& msg) {
   sync_io conn(io, tls.next_layer(), cfg.timeout_seconds);
 
   // Resolve and connect.
-  tcp::resolver resolver(io);
-  boost::system::error_code resolve_ec;
-  auto endpoints = resolver.resolve(cfg.server, cfg.port, resolve_ec);
-  if (resolve_ec) throw smtp_exception("DNS resolve failed: " + resolve_ec.message());
-  conn.connect(endpoints);
+  conn.connect(conn.resolve(cfg.server, cfg.port));
 
   if (tls_immediate) {
     conn.handshake(tls, "TLS handshake");
