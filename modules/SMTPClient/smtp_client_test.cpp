@@ -16,10 +16,12 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 #include "smtp_client.hpp"
+#include "smtp_handler.hpp"
 
 #include <gtest/gtest.h>
 
 #include <map>
+#include <vector>
 #include <string>
 
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
@@ -132,4 +134,60 @@ TEST(SmtpConnectionData, DoesNotClaimToHonourRetry) {
   const smtp_client::connection_data con = connection_for({{"address", "h"}, {"retry", "7"}});
 
   EXPECT_NE(con.retry, 7) << "retry is not honoured, so it must not be read in as though it were";
+}
+
+// =============================================================================
+// Command line / REST argument handling
+// =============================================================================
+
+namespace {
+
+// Parse `args` through the module's own option descriptor, over a destination
+// container that already carries the target's settings, and return it. This is
+// the shape the real path has: the target is loaded first, then the command
+// line is parsed on top of it.
+client::destination_container parse_over_target(const std::map<std::string, std::string> &target_options, const std::vector<std::string> &args) {
+  client::destination_container data = target_with(target_options);
+  client::destination_container source;
+
+  smtp_handler::options_reader_impl reader;
+  boost::program_options::options_description desc("test");
+  reader.process(desc, source, data);
+
+  boost::program_options::variables_map vm;
+  boost::program_options::store(boost::program_options::command_line_parser(args).options(desc).run(), vm);
+  boost::program_options::notify(vm);
+  return data;
+}
+
+}  // namespace
+
+TEST(SmtpOptions, AcceptsAValuedBooleanAsRestPassesIt) {
+  // REST hands the whole "key=value" over as one token. bool_switch rejects
+  // that with "does not take any arguments" - and only over REST, so it would
+  // have looked fine from the command line.
+  client::destination_container data = parse_over_target({{"address", "h"}}, {"--insecure-skip-verify=true"});
+
+  EXPECT_TRUE(data.get_bool_data("insecure-skip-verify"));
+}
+
+TEST(SmtpOptions, AcceptsABareBooleanFlagFromTheCommandLine) {
+  client::destination_container data = parse_over_target({{"address", "h"}}, {"--insecure-skip-verify"});
+
+  EXPECT_TRUE(data.get_bool_data("insecure-skip-verify"));
+}
+
+TEST(SmtpOptions, AValuedFalseTurnsTheFlagOff) {
+  client::destination_container data = parse_over_target({{"address", "h"}, {"insecure-skip-verify", "true"}}, {"--insecure-skip-verify=false"});
+
+  EXPECT_FALSE(data.get_bool_data("insecure-skip-verify"));
+}
+
+TEST(SmtpOptions, AnAbsentFlagLeavesTheTargetSettingAlone) {
+  // The option carries no default: `data` arrives already populated from the
+  // target, so a default would fire the notifier with false on every
+  // submission and quietly undo the target's own insecure-skip-verify.
+  client::destination_container data = parse_over_target({{"address", "h"}, {"insecure-skip-verify", "true"}}, {});
+
+  EXPECT_TRUE(data.get_bool_data("insecure-skip-verify")) << "the command line did not mention the option, so the target's value must stand";
 }

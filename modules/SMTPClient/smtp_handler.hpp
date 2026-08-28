@@ -3,11 +3,18 @@
 
 #pragma once
 
+#include <boost/program_options.hpp>
+#include <client/command_line_parser.hpp>
 #include <memory>
 #include <nscapi/settings/helper.hpp>
+#include <nscapi/nscapi_targets.hpp>
 
 namespace smtp_handler {
 namespace sh = nscapi::settings_helper;
+// The header used to borrow these aliases from whatever included it
+// (SMTPClient.h happens to declare both at global scope), which left it
+// uncompilable on its own and so untestable.
+namespace po = boost::program_options;
 
 struct smtp_target_object : nscapi::targets::target_object {
   typedef target_object parent;
@@ -102,7 +109,15 @@ struct options_reader_impl : client::options_reader_interface {
        "CA bundle used to verify the server certificate (default: the agent's trusted bundle, ${ca-path}).")
       ("ehlo-hostname", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ehlo-hostname", value); }),
        "Hostname to send in EHLO.")
-      ("insecure-skip-verify", po::bool_switch()->notifier([&data] (auto value) { data.set_bool_data("insecure-skip-verify", value); }),
+      // Not bool_switch, for two reasons. It rejects the single
+      // "insecure-skip-verify=true" token that REST passes, with "does not
+      // take any arguments" - and only on that transport, so the CLI kept
+      // working while every REST caller got an error. It also carries a
+      // default, which fires this notifier with false on every submission that
+      // does not name the option, overwriting whatever the target configured.
+      // No default_value here for the same reason: `data` arrives already
+      // populated from the target, and an absent option must leave it alone.
+      ("insecure-skip-verify", po::value<bool>()->implicit_value(true)->notifier([&data] (auto value) { data.set_bool_data("insecure-skip-verify", value); }),
        "Skip TLS certificate validation (test environments only).")
       ("source-host", po::value<std::string>()->notifier([&source] (auto value) { source.set_string_data("host", value); }),
        "Source/sender host name (default is auto which means use the name of the actual host).")
