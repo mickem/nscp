@@ -174,6 +174,15 @@ void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::Stream
         "proxy logs and Referer headers. Log out via DELETE /api/v2/login with the Authorization: Bearer header.\" }");
     return;
   }
+  // Enforce the same allowed-hosts perimeter as auth_token (and every
+  // is_logged_in path). Without this, a host outside 'allowed hosts' could
+  // reach this route with a spoofed User-Agent and revoke a token it observed
+  // (e.g. from a proxy log), because the only other gate is the client-chosen
+  // User-Agent allowlist.
+  if (!session->is_allowed(request.getRemoteIp())) {
+    response.setCodeForbidden("403 You're not allowed");
+    return;
+  }
   const std::string token = request.get("token");
   session->revoke_token(token);
   response.setHeader("__TOKEN", "");
