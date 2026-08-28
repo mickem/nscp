@@ -123,3 +123,13 @@ TEST(SmtpConnectionData, DescribesItselfWithoutLeakingThePassword) {
   EXPECT_NE(described.find("mail.example.com"), std::string::npos) << described;
   EXPECT_EQ(described.find("s3cret"), std::string::npos) << "the password must never reach a log: " << described;
 }
+
+TEST(SmtpConnectionData, DoesNotClaimToHonourRetry) {
+  // smtp::send() makes one attempt per submission. The setting used to be read
+  // into the inherited retry field, where nothing consumed it, so the target
+  // looked configured for retries it never performed. The inherited default
+  // stands, untouched by the target's own `retry`.
+  const smtp_client::connection_data con = connection_for({{"address", "h"}, {"retry", "7"}});
+
+  EXPECT_NE(con.retry, 7) << "retry is not honoured, so it must not be read in as though it were";
+}

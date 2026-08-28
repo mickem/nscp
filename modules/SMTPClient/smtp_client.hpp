@@ -37,7 +37,13 @@ struct connection_data : socket_helpers::connection_info {
     address = arguments.address.host;
     port_ = arguments.address.get_port_string("587");
     timeout = arguments.get_int_data("timeout", 30);
-    retry = arguments.get_int_data("retry", 3);
+    // No `retry` here: smtp::send() makes exactly one attempt per submission
+    // and this client has no retry loop to feed. Reading the setting into the
+    // inherited field only made it look honoured. Retrying a submission is not
+    // free either - a failure after the server accepted DATA would deliver the
+    // notification twice - so the option stays unread until there is a
+    // retry policy that distinguishes a transient failure from a permanent
+    // rejection.
 
     username = arguments.get_string_data("username");
     password = arguments.get_string_data("password");
