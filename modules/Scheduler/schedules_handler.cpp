@@ -10,6 +10,15 @@ target_object scheduler::get(int id) {
   return metadata[id];
 }
 
+std::list<target_object> scheduler::get_all() {
+  std::list<target_object> ret;
+  boost::mutex::scoped_lock l(tasks.get_mutex());
+  for (const metadata_map::value_type &v : metadata) {
+    if (v.second) ret.push_back(v.second);
+  }
+  return ret;
+}
+
 void scheduler::start() {
   tasks.set_handler(this);
   tasks.start();
