@@ -18,6 +18,7 @@
 #include <error/error.hpp>
 #include <file_helpers.hpp>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <nsclient/logger/log_message_factory.hpp>
 #include <nsclient/logger/logger.hpp>
@@ -953,6 +954,20 @@ extern "C" UINT __stdcall ScheduleWriteConfig(MSIHANDLE hInstall) {
     write_changed_key(h, data, ALLOWED_HOSTS, defpath, L"allowed hosts");
     write_changed_key(h, data, NSCLIENT_PWD, defpath, L"password");
 
+    // Operator-supplied TLS material: ExecInstallCerts puts the files at the
+    // default names under ${certificate-path}, so certificate.pem and ca.pem
+    // are picked up with no configuration at all - but a *separate* private
+    // key is only read where a `certificate key` setting points at it (the
+    // modules default to reading the key from the certificate file). Wire it
+    // up for the two servers the installer manages TLS for; other servers are
+    // configured by hand, as documented. Written unexpanded, like the fleet
+    // include, so the configuration stays relocatable.
+    if (!boost::algorithm::trim_copy(h.getMsiPropery(CERTIFICATE_KEY)).empty()) {
+      const std::wstring key_file = L"${certificate-path}/certificate_key.pem";
+      write_key(h, data, 1, L"/settings/NRPE/server", L"certificate key", key_file);
+      write_key(h, data, 1, L"/settings/WEB/server", L"certificate key", key_file);
+    }
+
     std::wstring confSet = h.getMsiPropery(L"CONF_SET");
     h.logMessage(L"Adding conf: " + confSet);
     if (!confSet.empty()) {
@@ -1492,6 +1507,206 @@ extern "C" UINT __stdcall ExecPrepareLayout(MSIHANDLE hInstall) {
     return ERROR_INSTALL_FAILURE;
   } catch (...) {
     h.setError(L"ExecPrepareLayout", L"Unknown exception");
+    return ERROR_INSTALL_FAILURE;
+  }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Operator-supplied TLS material (GitHub #568)
+//
+// CERTIFICATE, CERTIFICATE_KEY and CERTIFICATE_CA name PEM files on the
+// installing machine to install as ${certificate-path}/certificate.pem,
+// certificate_key.pem and ca.pem - the default names every server module
+// reads. With the files in place the service never generates its self-signed
+// fallback (that only happens when the file at the default path is missing),
+// so this is how a silent install ships CA-signed material instead of
+// self-signed certificates.
+//
+// Split over two custom actions for the usual reason: the immediate half
+// validates the properties - failing before a single file has been copied
+// when the operator got the command line wrong - and the deferred half runs
+// elevated, after ExecPrepareLayout has created (and on the modern layout
+// secured) the folder the files go into.
+
+namespace {
+
+// What lands where. certificate_key.pem is also the file ScheduleWriteConfig
+// points the `certificate key` settings at, and all three names are already
+// in the uninstall cleanup lists (the RemoveFile rows in Product.wxs and
+// removable_security_files below) - the operator keeps the originals, so the
+// copies do not outlive the installation.
+struct cert_property {
+  const wchar_t *property;
+  const char *file_name;
+  // A cheap sanity marker so CERTIFICATE=<key file> (and friends) fails here,
+  // naming the property, instead of as a TLS handshake error weeks later.
+  // "PRIVATE KEY-----" matches the PKCS#8, RSA/EC and encrypted PEM headers
+  // alike.
+  const char *pem_marker;
+  // What the file was expected to contain, for the error message.
+  const wchar_t *expected;
+};
+const cert_property cert_properties[] = {
+    {CERTIFICATE, "certificate.pem", "-----BEGIN CERTIFICATE-----", L"a PEM certificate"},
+    {CERTIFICATE_KEY, "certificate_key.pem", "PRIVATE KEY-----", L"a PEM private key"},
+    {CERTIFICATE_CA, "ca.pem", "-----BEGIN CERTIFICATE-----", L"a PEM certificate (bundle)"},
+};
+
+bool file_contains_marker(const std::string &file, const char *marker) {
+  std::ifstream in(file.c_str(), std::ios::binary);
+  if (!in) return false;
+  const std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  return content.find(marker) != std::string::npos;
+}
+
+}  // namespace
+
+extern "C" UINT __stdcall ScheduleInstallCerts(MSIHANDLE hInstall) {
+  msi_helper h(hInstall, L"ScheduleInstallCerts");
+  try {
+    const std::wstring certificate = boost::algorithm::trim_copy(h.getMsiPropery(CERTIFICATE));
+    const std::wstring certificate_key = boost::algorithm::trim_copy(h.getMsiPropery(CERTIFICATE_KEY));
+    const std::wstring ca = boost::algorithm::trim_copy(h.getMsiPropery(CERTIFICATE_CA));
+    if (certificate.empty() && certificate_key.empty() && ca.empty()) {
+      h.logMessage(L"No CERTIFICATE/CERTIFICATE_KEY/CERTIFICATE_CA given: not installing any TLS material");
+      return ERROR_SUCCESS;
+    }
+
+    // Everything below fails the install rather than installing an agent whose
+    // TLS material is not what the operator asked for: the service would fall
+    // back to a generated self-signed certificate (or refuse to serve), and on
+    // an unattended install nobody reads the log that says why.
+    if (!certificate_key.empty() && certificate.empty()) {
+      h.errorMessage(
+          L"CERTIFICATE_KEY was given without CERTIFICATE. A private key on its own is never read - pass CERTIFICATE=<file> with the certificate it "
+          L"belongs to (or put both in one file and pass only CERTIFICATE).");
+      return ERROR_INSTALL_FAILURE;
+    }
+    // A separate key file is only used where a `certificate key` setting
+    // points at it (the modules default to reading the key from the
+    // certificate file itself), and those settings are written by
+    // ScheduleWriteConfig - the exact test repeated here so we fail precisely
+    // when they would not be written, which would leave every server trying
+    // to read a private key from certificate.pem and failing to start TLS.
+    if (!certificate_key.empty() && h.getMsiPropery(INT_CONF_CAN_CHANGE) != L"1") {
+      std::wstring reason = boost::algorithm::trim_copy(h.getMsiPropery(INT_CONF_CAN_CHANGE_REASON));
+      if (reason.empty()) reason = L"the installer is not allowed to change the configuration";
+      h.errorMessage(L"Refusing to install a separate certificate key: the configuration cannot be changed (" + reason +
+                     L"), so the `certificate key` settings pointing the servers at it cannot be written. Let the installer write the configuration (do "
+                     L"not pass ALLOW_CONFIGURATION=0), or concatenate the key into the certificate file and pass only CERTIFICATE.");
+      return ERROR_INSTALL_FAILURE;
+    }
+
+    for (const cert_property &p : cert_properties) {
+      const std::wstring value = boost::algorithm::trim_copy(h.getMsiPropery(p.property));
+      if (value.empty()) continue;
+      const std::string file = utf8::cvt<std::string>(value);
+      boost::system::error_code ec;
+      if (!boost::filesystem::is_regular_file(file, ec)) {
+        h.errorMessage(std::wstring(p.property) + L"=" + value + L" does not name a file on this machine.");
+        return ERROR_INSTALL_FAILURE;
+      }
+      if (!file_contains_marker(file, p.pem_marker)) {
+        h.errorMessage(std::wstring(p.property) + L"=" + value + L" could not be read or does not look like " + p.expected +
+                       L" (expected the file to contain \"" + utf8::cvt<std::wstring>(p.pem_marker) + L"\").");
+        return ERROR_INSTALL_FAILURE;
+      }
+    }
+
+    // The servers read the private key from the certificate file when no
+    // `certificate key` is configured, so a certificate without an embedded
+    // key needs the separate key file - catch the combination that would pass
+    // every per-file check above and still serve nothing.
+    if (!certificate.empty() && certificate_key.empty() && !file_contains_marker(utf8::cvt<std::string>(certificate), "PRIVATE KEY-----")) {
+      h.errorMessage(L"CERTIFICATE=" + certificate +
+                     L" contains no private key and no CERTIFICATE_KEY was given, so the servers would have no key to serve TLS with. Pass the key as "
+                     L"CERTIFICATE_KEY=<file>, or concatenate certificate and key into one file.");
+      return ERROR_INSTALL_FAILURE;
+    }
+
+    msi_helper::custom_action_data_w data;
+    data.write_string(h.getTargetPath(L"INSTALLLOCATION"));
+    data.write_string(certificate);
+    data.write_string(certificate_key);
+    data.write_string(ca);
+    h.logMessage(L"Scheduling (ExecInstallCerts): " + data.to_string());
+    const HRESULT hr = h.do_deferred_action(L"ExecInstallCerts", data, 1000);
+    if (FAILED(hr)) {
+      h.errorMessage(L"failed to schedule the certificate installation");
+      return hr;
+    }
+    return ERROR_SUCCESS;
+  } catch (const installer_exception &e) {
+    h.errorMessage(L"Failed to schedule the certificate installation: " + e.what());
+    return ERROR_INSTALL_FAILURE;
+  } catch (const std::exception &e) {
+    h.errorMessage(L"Failed to schedule the certificate installation: " + utf8::to_unicode(e.what()));
+    return ERROR_INSTALL_FAILURE;
+  } catch (...) {
+    h.errorMessage(L"Failed to schedule the certificate installation: <UNKNOWN EXCEPTION>");
+    return ERROR_INSTALL_FAILURE;
+  }
+}
+
+extern "C" UINT __stdcall ExecInstallCerts(MSIHANDLE hInstall) {
+  msi_helper h(hInstall, L"ExecInstallCerts");
+  try {
+    msi_helper::custom_action_data_r data(h.getMsiPropery(L"CustomActionData"));
+    const std::string install_folder = as_install_folder(data.get_next_string());
+    // Same order the immediate half wrote them, which is the order of
+    // cert_properties.
+    const std::string sources[] = {utf8::cvt<std::string>(data.get_next_string()), utf8::cvt<std::string>(data.get_next_string()),
+                                   utf8::cvt<std::string>(data.get_next_string())};
+
+    // Where the service will look for the files, which depends on the layout -
+    // ExecPrepareLayout has already created (and on the modern layout secured)
+    // the shared folder and recorded the choice in boot.ini, so reading it
+    // back here is how the two agree.
+    const resolved_shared_folder shared = shared_folder_for(resolve_layout(install_folder, L""), install_folder, &h);
+    if (!shared.resolved) {
+      h.errorMessage(
+          L"Cannot install the TLS material: this host uses the modern layout but %ProgramData% could not be determined, so the files cannot be placed "
+          L"where the service will look for them.");
+      return ERROR_INSTALL_FAILURE;
+    }
+    const std::string security_folder = expand_install_path(CERT_FOLDER, install_folder, shared.folder);
+
+    boost::system::error_code ec;
+    boost::filesystem::create_directories(security_folder, ec);
+    if (ec) {
+      h.errorMessage(L"Cannot install the TLS material: could not create " + utf8::cvt<std::wstring>(security_folder) + L": " +
+                     utf8::cvt<std::wstring>(ec.message()));
+      return ERROR_INSTALL_FAILURE;
+    }
+
+    std::size_t index = 0;
+    for (const cert_property &p : cert_properties) {
+      const std::string source = sources[index++];
+      if (source.empty()) continue;
+      const boost::filesystem::path target = boost::filesystem::path(security_folder) / p.file_name;
+      // Overwriting is deliberate, and different from the fleet identity: the
+      // property is an explicit ask, and the operator still has the source
+      // file - unlike a generated key, nothing is lost by replacing it.
+      if (boost::filesystem::exists(target, ec)) {
+        h.logMessage("Replacing the existing " + target.string());
+      }
+      boost::filesystem::copy_file(source, target, boost::filesystem::copy_options::overwrite_existing, ec);
+      if (ec) {
+        h.errorMessage(L"Failed to install " + utf8::cvt<std::wstring>(source) + L" as " + utf8::cvt<std::wstring>(target.string()) + L": " +
+                       utf8::cvt<std::wstring>(ec.message()));
+        return ERROR_INSTALL_FAILURE;
+      }
+      h.logMessage("Installed " + source + " as " + target.string());
+    }
+    return ERROR_SUCCESS;
+  } catch (const installer_exception &e) {
+    h.errorMessage(L"Failed to install the TLS material: " + e.what());
+    return ERROR_INSTALL_FAILURE;
+  } catch (const std::exception &e) {
+    h.errorMessage(L"Failed to install the TLS material: " + utf8::to_unicode(e.what()));
+    return ERROR_INSTALL_FAILURE;
+  } catch (...) {
+    h.errorMessage(L"Failed to install the TLS material: <UNKNOWN EXCEPTION>");
     return ERROR_INSTALL_FAILURE;
   }
 }

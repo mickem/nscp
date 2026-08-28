@@ -1,0 +1,56 @@
+# Operator-supplied TLS material (GitHub #568).
+#
+# CERTIFICATE, CERTIFICATE_KEY and CERTIFICATE_CA install the given PEM files
+# into security\ under the default names every server module reads
+# (certificate.pem, certificate_key.pem, ca.pem). The test asserts the
+# installed files match the sources byte for byte: the service generates a
+# self-signed certificate at the same path when it is missing (and it boots
+# during the install), so mere presence would pass even if the properties did
+# nothing.
+#
+# The separate private key is only read where a `certificate key` setting
+# points at it - the modules default to reading the key from the certificate
+# file itself - so the installer also wires it up for the NRPE and WEB
+# servers, which is the other half of what this case pins down.
+#
+# The cert/key/CA sources are generated fresh into $TEST-DATA by the harness
+# (see generate_certificates in helpers.py), triggered by `certificates` below.
+command_line: ["msiexec.exe", "/i", "$MSI-FILE", "/qn", "/l*", "log.txt", "ADDLOCAL=ALL",
+  "CERTIFICATE=$TEST-DATA\\server.pem",
+  "CERTIFICATE_KEY=$TEST-DATA\\server.key",
+  "CERTIFICATE_CA=$TEST-DATA\\ca.pem"]
+replace_password: true
+certificates: true
+
+boot.ini: |
+  [settings]
+  1 = ini://${shared-path}/nsclient.ini
+
+nsclient.ini: |
+  [/modules]
+  checkdisk = enabled
+  checkeventlog = enabled
+  checkexternalscripts = enabled
+  checkhelpers = enabled
+  checknscp = enabled
+  checksystem = enabled
+  nrpeserver = enabled
+  webserver = enabled
+
+  [/settings/NRPE/server]
+  certificate key = ${certificate-path}/certificate_key.pem
+  insecure = false
+  tls version = tlsv1.2+
+  verify mode = peer-cert
+
+  [/settings/WEB/server]
+  certificate key = ${certificate-path}/certificate_key.pem
+
+  [/settings/default]
+  allowed hosts = 127.0.0.1
+  password = $$PASSWORD$$
+
+installed_files:
+  security/certificate.pem: server.pem
+  security/certificate_key.pem: server.key
+  security/ca.pem: ca.pem

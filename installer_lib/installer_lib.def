@@ -11,6 +11,8 @@ EXPORTS
 	ExecPrepareLayout
 	ScheduleRemoveSecrets
 	ExecRemoveSecrets
+	ScheduleInstallCerts
+	ExecInstallCerts
 	ScheduleEnrollFleet
 	ExecEnrollFleet
 	NeedUninstall
