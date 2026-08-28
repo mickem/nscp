@@ -913,8 +913,18 @@ int nsclient::core::plugin_manager::simple_query(std::string module, std::string
   std::list<std::string> responses;
   std::list<std::string> errors;
   nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
-  int ret = load_and_run(
-      module, [command, arguments, request, &responses](auto plugin) { return query_helper(plugin, command, arguments, request, &responses); }, errors);
+  // Only to give a named module a chance to be loaded on demand: the query
+  // itself is dispatched through the command registry below (query_helper is a
+  // no-op). Without a module there is nothing to load, and running it anyway
+  // appended a bogus "No module was specified..." line to the result of every
+  // `nscp client --query <command>` invocation that did not name one.
+  // Always overwritten below (the command registry decides the outcome); this
+  // is just a defined starting value.
+  int ret = NSCAPI::cmd_return_codes::isSuccess;
+  if (!module.empty()) {
+    ret = load_and_run(
+        module, [command, arguments, request, &responses](auto plugin) { return query_helper(plugin, command, arguments, request, &responses); }, errors);
+  }
 
   commands::plugin_type plugin = commands_.get(command);
   if (!plugin) {
