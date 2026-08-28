@@ -11,7 +11,9 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_response.hpp>
+#include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/protobuf/nagios.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
@@ -355,23 +357,41 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
   const forwarded_identity id = extract_identity(request_message);
   po::options_description desc = nscapi::program_options::create_desc(request);
   std::vector<std::string> arguments;
-  std::string target;
+  std::string channel;
+  std::string legacy_channel;
   std::string command;
+  std::string alias;
+  std::string source;
+  std::string destination;
   // clang-format off
   desc.add_options()
-    ("target", po::value<std::string>(&target), "Commands to run (can be used multiple times)")
-    ("command", po::value<std::string>(&command), "Commands to run (can be used multiple times)")
-    ("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+    ("command", po::value<std::string>(&command), "The command to run before forwarding the result")
+    ("arguments", po::value<std::vector<std::string> >(&arguments), "An argument for the wrapped command, repeat for more than one")
+    ("channel", po::value<std::string>(&channel),
+      "The channel to submit the result on, i.e. which client module sends it (NSCA, NRDP, GRAPHITE, ...). Defaults to NSCA")
+    ("target", po::value<std::string>(&legacy_channel), "Legacy synonym for channel (kept for backwards compatibility)")
+    ("alias", po::value<std::string>(&alias), "Alias (service description) to report the result as, defaults to the name of the command")
+    ("destination", po::value<std::string>(&destination),
+      "The target to send the message to (resolved by the client module, defaults to its default target)")
+    ("source", po::value<std::string>(&source), "The name of the source system, defaults to the host name of this machine")
     ;
   // clang-format on
   po::variables_map vm;
-  std::vector<std::string> args;
 
-  po::positional_options_description p;
-  p.add("arguments", -1);
-
-  if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p)) return;
-  if (command.size() == 0) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+  // No positional option for `arguments`: declaring one makes the key=value
+  // token parser break at the literal token "arguments", and the CLI's
+  // `--argument key=value` form (which also passes an undashed key=value pair)
+  // then feeds its own tokens to the wrapped command. Arguments are given one
+  // per `arguments=` instead.
+  if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
+  if (command.empty()) return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+  if (channel.empty()) channel = legacy_channel;
+  if (channel.empty()) channel = "NSCA";
+  // Name the result after the command unless told otherwise: NSCA falls back to
+  // the command name on its own, but the metric based channels (Graphite,
+  // Elastic, ...) render ${check_alias} verbatim and would emit an empty
+  // segment.
+  if (alias.empty()) alias = command;
 
   std::string local_response;
   nscapi::core_helper ch(get_core(), get_id());
@@ -383,11 +403,32 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
     return;
   }
 
+  // The channels parse what they get as a SubmitRequestMessage, so the query
+  // response has to be converted first: the two messages are NOT wire
+  // compatible (the query payload is field 2, the submit payload field 3), so
+  // handing the raw query response to submit_message used to deliver a message
+  // with no payloads at all - the check ran, the submission "succeeded" and
+  // nothing whatsoever reached the monitoring server.
+  nscapi::protobuf::functions::make_submit_from_query(local_response, channel, alias, destination, source);
+
   std::string submit_response;
-  if (!get_core()->submit_message(target, local_response, submit_response)) {
-    nscapi::protobuf::functions::set_response_bad(*response, "Failed to submit to: " + target);
+  if (!get_core()->submit_message(channel, local_response, submit_response)) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to submit to: " + channel);
+    return;
   }
-  nscapi::protobuf::functions::set_response_good(*response, "Message submitted: " + target);
+  std::string error;
+  try {
+    if (!nscapi::protobuf::functions::parse_simple_submit_response(submit_response, error)) {
+      nscapi::protobuf::functions::set_response_bad(*response, "Failed to submit to " + channel + ": " + error);
+      return;
+    }
+  } catch (const std::exception &e) {
+    // A multi-channel submission (channel=NSCA,GRAPHITE) hands back one reply
+    // per channel, which the single-payload parser above rejects. The message
+    // went out, so report that rather than failing the check.
+    NSC_DEBUG_MSG("Could not parse the submission reply from " + channel + ": " + utf8::utf8_from_native(e.what()));
+  }
+  nscapi::protobuf::functions::set_response_good(*response, "Message submitted: " + channel);
 }
 
 struct worker_object {
