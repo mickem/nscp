@@ -24,16 +24,20 @@ page tracks those in one place. Full per-release detail lives in each
   keywords the thresholds name. The default verdict is unchanged — any crash
   report or any logged error is CRITICAL — but two things change for existing
   users. The message is now `N crash(es), M error(s), uptime <duration>`
-  without the appended `last crash:` / `last error:` fragments; add
-  `"detail-syntax=${crashes} crash(es) (${last_crash}), ${errors} error(s)
-  (${last_error}), uptime ${uptime}"` to put them back. And the crash count is
-  no longer always zero, so an agent with an old report still sitting in the
-  crash archive folder will start reporting CRITICAL — threshold on
-  `crash_age` (for example `"crit=crash_age < 7d"`) if you only care about
-  recent crashes, or clean the folder out. The check also now reads the
-  configured `[/settings/crash]` `archive folder` instead of assuming the
-  default location. Crash reports remain a Windows-only concept; on Linux
-  `crashes` is always 0.
+  without the appended `last crash:` / `last error:` fragments. To put them
+  back, pass a `detail-syntax`:
+
+    ```
+    check_nscp "detail-syntax=${crashes} crash(es) (${last_crash}), ${errors} error(s) (${last_error}), uptime ${uptime}"
+    ```
+
+  And the crash count is no longer always zero, so an agent with an old
+  report still sitting in the crash archive folder will start reporting
+  CRITICAL — threshold on `crash_age` (for example `"crit=crash_age < 7d"`)
+  if you only care about recent crashes, or clean the folder out. The check
+  also now reads the configured `[/settings/crash]` `archive folder` instead
+  of assuming the default location. Crash reports remain a Windows-only
+  concept; on Linux `crashes` is always 0.
 
 - 🔒 **NRDP HTTPS submissions now verify the server certificate by default on
   the `nscp client`/REST path.** Previously an `https://` submission made that

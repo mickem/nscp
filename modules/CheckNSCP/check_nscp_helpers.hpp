@@ -176,12 +176,19 @@ struct crash_scan {
 
   crash_scan() : count(0), newest_time(0), has_newest(false) {}
 
-  void add(const std::string &filename, const std::time_t last_write) {
+  // A report whose modification time could not be read still counts - the file
+  // is there, so the agent did crash - but it takes no part in the newest-wins
+  // comparison: with an unknown timestamp it would either be ranked by a made
+  // up value or, as the only report, make ${last_crash} name a file and
+  // ${crash_age} report an age neither of which we actually know. Pass
+  // boost::none for it and leave those two keywords to the reports we can date.
+  void add(const std::string &filename, const boost::optional<std::time_t> last_write) {
     if (!is_crash_report(filename)) return;
     count++;
-    if (!has_newest || last_write > newest_time) {
+    if (!last_write) return;
+    if (!has_newest || *last_write > newest_time) {
       has_newest = true;
-      newest_time = last_write;
+      newest_time = *last_write;
       newest = filename;
     }
   }

@@ -452,11 +452,16 @@ check_nscp_helpers::crash_scan CheckNSCP::scan_crashes() const {
   }
   for (; it != end; it.increment(ec)) {
     if (ec) break;
-    // Anything that vanishes or turns unreadable mid-scan is skipped rather
-    // than aborting the whole check.
-    if (!boost::filesystem::is_regular_file(it->path(), ec) || ec) continue;
-    const std::time_t written = boost::filesystem::last_write_time(it->path(), ec);
-    scan.add(file_helpers::meta::get_filename(it->path()), ec ? 0 : written);
+    // An entry that vanishes or turns unreadable mid-scan is skipped rather
+    // than aborting the whole check: we cannot even tell whether it was a file.
+    boost::system::error_code entry_ec;
+    if (!boost::filesystem::is_regular_file(it->path(), entry_ec) || entry_ec) continue;
+    // A report we can see but cannot date is still counted; crash_scan::add
+    // keeps it out of the newest-wins comparison rather than dating it to the
+    // epoch, which would make ${crash_age} read as decades old.
+    boost::system::error_code time_ec;
+    const std::time_t written = boost::filesystem::last_write_time(it->path(), time_ec);
+    scan.add(file_helpers::meta::get_filename(it->path()), time_ec ? boost::none : boost::optional<std::time_t>(written));
   }
   return scan;
 }

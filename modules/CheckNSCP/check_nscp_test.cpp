@@ -278,6 +278,37 @@ TEST(CrashScan, NonReportsNeverBecomeTheNewest) {
   EXPECT_EQ(scan.count, 1);
 }
 
+TEST(CrashScan, AnUndatableReportStillCounts) {
+  // The scan could not read the file's modification time. The report is there,
+  // so it counts - but it must not be dated to the epoch.
+  crash_scan scan;
+  scan.add("undatable.crash", boost::none);
+  EXPECT_EQ(scan.count, 1);
+  EXPECT_FALSE(scan.has_newest);
+  EXPECT_EQ(scan.newest, "");
+  EXPECT_FALSE(scan.age(1000));
+}
+
+TEST(CrashScan, AnUndatableReportNeverBecomesTheNewest) {
+  crash_scan scan;
+  scan.add("dated.crash", 500);
+  scan.add("undatable.crash", boost::none);
+  EXPECT_EQ(scan.count, 2);
+  EXPECT_EQ(scan.newest, "dated.crash");
+  const boost::optional<long long> age = scan.age(800);
+  ASSERT_TRUE(age);
+  EXPECT_EQ(*age, 300);
+}
+
+TEST(CrashScan, AnUndatableReportDoesNotShadowALaterOne) {
+  // Order must not matter: the undatable entry is simply not a candidate.
+  crash_scan scan;
+  scan.add("undatable.crash", boost::none);
+  scan.add("dated.crash", 500);
+  EXPECT_EQ(scan.newest, "dated.crash");
+  EXPECT_EQ(scan.newest_time, 500);
+}
+
 TEST(CrashScan, AgeIsRelativeToNow) {
   crash_scan scan;
   scan.add("a.crash", 1000);
