@@ -23,5 +23,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Tests are type-checked by vitest/eslint tooling, not the production build.
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
 }
