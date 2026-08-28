@@ -8,6 +8,13 @@
 		"reload"		: true
 	},
 
+	"commands" : {
+		"run_schedules" : {
+			"description" : "Run configured schedules now instead of waiting for their interval and submit the results as passive checks.",
+			"request"	: "true"
+		}
+	},
+
 	"metrics" : "produce",
 
 	"on_start" : true,

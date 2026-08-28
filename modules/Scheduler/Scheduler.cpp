@@ -9,13 +9,16 @@
 #include <nscapi/protobuf/command.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_status.hpp>
+#include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/settings/helper.hpp>
 #include <nscapi/settings/proxy.hpp>
 #include <str/format.hpp>
 #include <str/utf8.hpp>
+#include <str/xtos.hpp>
 
 namespace sh = nscapi::settings_helper;
+namespace po = boost::program_options;
 
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
   if (mode == NSCAPI::reloadStart) {
@@ -162,49 +165,11 @@ void Scheduler::on_trace(const char *file, const int line, std::string msg) { GE
 
 bool Scheduler::handle_schedule(const schedules::target_object item) {
   try {
-    std::string response;
-    nscapi::core_helper ch(get_core(), get_id());
-    if (!ch.simple_query(item->command, item->arguments, response)) {
-      NSC_LOG_ERROR("Failed to execute: " + item->command);
-      if (item->channel.empty()) {
-        NSC_LOG_ERROR_WA("No channel specified for ", item->get_alias());
-        return true;
-      }
-      nscapi::protobuf::functions::create_simple_submit_request(item->channel, item->command, NSCAPI::query_return_codes::returnUNKNOWN,
-                                                                "Command was not found: " + item->command, "", response);
-      std::string result;
-      get_core()->submit_message(item->channel, response, result);
-      return true;
-    }
-    PB::Commands::QueryResponseMessage resp_msg;
-    resp_msg.ParseFromString(response);
-    PB::Commands::QueryResponseMessage resp_msg_send;
-    resp_msg_send.mutable_header()->CopyFrom(resp_msg.header());
-    for (const PB::Commands::QueryResponseMessage::Response &p : resp_msg.payload()) {
-      if (nscapi::report::matches(item->report, nscapi::protobuf::functions::gbp_to_nagios_status(p.result()))) resp_msg_send.add_payload()->CopyFrom(p);
-    }
-    if (resp_msg_send.payload_size() > 0) {
-      if (item->channel == "drop") {
-        return true;
-      }
-      if (item->channel.empty()) {
-        NSC_LOG_ERROR_STD("No channel specified for " + item->get_alias() + " message will not be sent.");
-        return true;
-      }
-      nscapi::protobuf::functions::make_submit_from_query(response, item->channel, item->get_alias(), item->target_id, item->source_id);
-      std::string result;
-      if (!get_core()->submit_message(item->channel, response, result)) {
-        NSC_LOG_ERROR_STD("Failed to submit: " + item->get_alias());
-        return true;
-      }
-      std::string error;
-      if (!nscapi::protobuf::functions::parse_simple_submit_response(result, error)) {
-        NSC_LOG_ERROR_STD("Failed to submit " + item->get_alias() + ": " + error);
-        return true;
-      }
-    } else {
-      NSC_DEBUG_MSG("Filter not matched for: " + item->get_alias() + " so nothing is reported");
-    }
+    std::string error;
+    // Errors are logged inside run_schedule; the timer path keeps rescheduling
+    // regardless so a single failing check does not silently drop out of the
+    // schedule for the lifetime of the process.
+    run_schedule(item, forwarded_identity(), error);
     return true;
   } catch (nsclient::nsclient_exception &e) {
     NSC_LOG_ERROR_EXR("Failed to register command: ", e);
@@ -216,6 +181,140 @@ bool Scheduler::handle_schedule(const schedules::target_object item) {
     NSC_LOG_ERROR_EX(item->get_alias());
     return false;
   }
+}
+
+Scheduler::forwarded_identity Scheduler::extract_identity(const PB::Commands::QueryRequestMessage &request_message) {
+  // The same two metadata keys core_helper stamps and plugin_manager reads
+  // back when it evaluates the permission rules.
+  forwarded_identity id;
+  for (const auto &kv : request_message.header().metadata()) {
+    if (kv.key() == "nscp.caller_plugin_id")
+      id.caller_plugin_id = kv.value();
+    else if (kv.key() == "nscp.principal")
+      id.principal = kv.value();
+  }
+  return id;
+}
+
+bool Scheduler::run_schedule(const schedules::target_object &item, const forwarded_identity &id, std::string &error) {
+  std::string response;
+  nscapi::core_helper ch(get_core(), get_id());
+  // Forward the caller identity (empty for our own timer runs) so an on-demand
+  // run is checked against the permissions of whoever asked for it rather than
+  // against the Scheduler module.
+  if (!ch.simple_query_on_behalf_of(id.caller_plugin_id, id.principal, item->command, item->arguments, response)) {
+    error = "Command was not found: " + item->command;
+    NSC_LOG_ERROR("Failed to execute: " + item->command);
+    if (item->channel.empty()) {
+      NSC_LOG_ERROR_WA("No channel specified for ", item->get_alias());
+      return false;
+    }
+    nscapi::protobuf::functions::create_simple_submit_request(item->channel, item->command, NSCAPI::query_return_codes::returnUNKNOWN, error, "", response);
+    std::string result;
+    get_core()->submit_message(item->channel, response, result);
+    return false;
+  }
+  PB::Commands::QueryResponseMessage resp_msg;
+  resp_msg.ParseFromString(response);
+  PB::Commands::QueryResponseMessage resp_msg_send;
+  resp_msg_send.mutable_header()->CopyFrom(resp_msg.header());
+  for (const PB::Commands::QueryResponseMessage::Response &p : resp_msg.payload()) {
+    if (nscapi::report::matches(item->report, nscapi::protobuf::functions::gbp_to_nagios_status(p.result()))) resp_msg_send.add_payload()->CopyFrom(p);
+  }
+  if (resp_msg_send.payload_size() == 0) {
+    NSC_DEBUG_MSG("Filter not matched for: " + item->get_alias() + " so nothing is reported");
+    return true;
+  }
+  if (item->channel == "drop") {
+    return true;
+  }
+  if (item->channel.empty()) {
+    error = "No channel specified for " + item->get_alias();
+    NSC_LOG_ERROR_STD(error + " message will not be sent.");
+    return false;
+  }
+  nscapi::protobuf::functions::make_submit_from_query(response, item->channel, item->get_alias(), item->target_id, item->source_id);
+  std::string result;
+  if (!get_core()->submit_message(item->channel, response, result)) {
+    error = "Failed to submit: " + item->get_alias();
+    NSC_LOG_ERROR_STD(error);
+    return false;
+  }
+  if (!nscapi::protobuf::functions::parse_simple_submit_response(result, error)) {
+    NSC_LOG_ERROR_STD("Failed to submit " + item->get_alias() + ": " + error);
+    return false;
+  }
+  return true;
+}
+
+void Scheduler::run_schedules(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                              const PB::Commands::QueryRequestMessage &request_message) {
+  po::options_description desc = nscapi::program_options::create_desc(request);
+  std::vector<std::string> wanted;
+  // clang-format off
+  desc.add_options()
+    ("schedule", po::value<std::vector<std::string> >(&wanted),
+      "Alias of a schedule to run, can be given more than once. Defaults to every configured schedule.")
+    ;
+  // clang-format on
+  po::variables_map vm;
+  // Deliberately no positional option: it would make the key=value token parser
+  // break at the literal token "schedule", which in turn breaks the CLI's
+  // `--argument schedule=<alias>` form (it passes an undashed key=value pair
+  // alongside the dashed one). Aliases are given one per `schedule=` instead.
+  if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) return;
+
+  std::list<schedules::target_object> all = scheduler_.get_all();
+  // The scheduler keeps its schedules in an unordered map, so sort them to get
+  // a stable order in the message (and to run them in a predictable one).
+  all.sort([](const schedules::target_object &lhs, const schedules::target_object &rhs) { return lhs->get_alias() < rhs->get_alias(); });
+  if (all.empty()) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "No schedules configured");
+  }
+
+  std::list<schedules::target_object> selected;
+  if (wanted.empty()) {
+    selected = all;
+  } else {
+    for (const std::string &alias : wanted) {
+      bool found = false;
+      for (const schedules::target_object &item : all) {
+        if (item->get_alias() == alias) {
+          selected.push_back(item);
+          found = true;
+        }
+      }
+      if (!found) {
+        std::string available;
+        for (const schedules::target_object &item : all) str::format::append_list(available, item->get_alias());
+        return nscapi::protobuf::functions::set_response_bad(*response, "No such schedule: " + alias + " (available: " + available + ")");
+      }
+    }
+  }
+
+  std::string ran, failed;
+  for (const schedules::target_object &item : selected) {
+    std::string error;
+    bool ok;
+    try {
+      ok = run_schedule(item, extract_identity(request_message), error);
+    } catch (const std::exception &e) {
+      ok = false;
+      error = utf8::utf8_from_native(e.what());
+    } catch (...) {
+      ok = false;
+      error = "Unknown exception";
+    }
+    if (ok) {
+      str::format::append_list(ran, item->get_alias());
+    } else {
+      str::format::append_list(failed, item->get_alias() + " (" + error + ")");
+    }
+  }
+  if (!failed.empty()) {
+    return nscapi::protobuf::functions::set_response_bad(*response, "Failed to run: " + failed + (ran.empty() ? "" : ", ran: " + ran));
+  }
+  nscapi::protobuf::functions::set_response_good(*response, "Ran " + str::xtos(selected.size()) + " schedule(s): " + ran);
 }
 
 void Scheduler::fetchMetrics(PB::Metrics::MetricsMessage::Response *response) {
