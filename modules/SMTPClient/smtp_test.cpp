@@ -220,8 +220,7 @@ const char *kEhloWithStarttls = "250-mx.example.com\r\n250-STARTTLS\r\n250 HELP\
 // Run a STARTTLS submission against a scripted server and return the
 // resulting error message. Every case here fails somewhere - the server does
 // not speak TLS - so the message is the assertion target.
-std::string starttls_failure(const std::string &starttls_reply, std::chrono::milliseconds delay = std::chrono::milliseconds(0),
-                             int timeout_seconds = 5) {
+std::string starttls_failure(const std::string &starttls_reply, std::chrono::milliseconds delay = std::chrono::milliseconds(0), int timeout_seconds = 5) {
   scripted_server server({kBanner, kEhloWithStarttls, starttls_reply}, delay);
 
   smtp::connection_config cfg;
@@ -420,9 +419,7 @@ TEST(SmtpAuthMechanisms, ListsTheAdvertisedMechanisms) {
   EXPECT_EQ(mechs, (std::vector<std::string>{"LOGIN", "PLAIN", "XOAUTH2"}));
 }
 
-TEST(SmtpAuthMechanisms, UppercasesWhateverTheServerSent) {
-  EXPECT_EQ(auth_mechanisms("250 AUTH plain login"), (std::vector<std::string>{"PLAIN", "LOGIN"}));
-}
+TEST(SmtpAuthMechanisms, UppercasesWhateverTheServerSent) { EXPECT_EQ(auth_mechanisms("250 AUTH plain login"), (std::vector<std::string>{"PLAIN", "LOGIN"})); }
 
 TEST(SmtpAuthMechanisms, IsEmptyWhenAuthIsNotAdvertised) {
   EXPECT_TRUE(auth_mechanisms("250-mx.example.com\n250 STARTTLS").empty());

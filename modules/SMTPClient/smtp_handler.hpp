@@ -6,8 +6,8 @@
 #include <boost/program_options.hpp>
 #include <client/command_line_parser.hpp>
 #include <memory>
-#include <nscapi/settings/helper.hpp>
 #include <nscapi/nscapi_targets.hpp>
+#include <nscapi/settings/helper.hpp>
 
 namespace smtp_handler {
 namespace sh = nscapi::settings_helper;
@@ -64,8 +64,8 @@ struct smtp_target_object : nscapi::targets::target_object {
                       "with security=none refuses to start.")
 
         .add_string("security", sh::string_fun_key([this](auto value) { this->set_property_string("security", value); }, "starttls"), "TRANSPORT SECURITY",
-                    "Connection security. `starttls` (default, port 587) connects in clear and upgrades to TLS before AUTH; `tls` connects with TLS "
-                    "immediately (port 465); `none` is plain SMTP and is only safe for trusted internal relays.")
+                    "Connection security. `starttls` (default, port 587) connects in clear and upgrades to TLS before AUTH; `tls` (alias `ssl`) connects "
+                    "with TLS immediately (port 465); `none` is plain SMTP and is only safe for trusted internal relays.")
 
         .add_string("ca", sh::path_fun_key([this](auto value) { this->set_property_string("ca", value); }, "${ca-path}"), "CA",
                     "Certificate authority bundle used to verify the submission server's certificate. Defaults to the agent's trusted bundle: the "
@@ -75,10 +75,10 @@ struct smtp_target_object : nscapi::targets::target_object {
         .add_string("ehlo-hostname", sh::string_fun_key([this](auto value) { this->set_property_string("ehlo-hostname", value); }, ""), "EHLO HOSTNAME",
                     "Hostname to advertise in EHLO. Defaults to the agent's hostname; some submission services require a real FQDN here.")
 
-        .add_string("insecure-skip-verify", sh::bool_fun_key([this](auto value) { this->set_property_bool("insecure-skip-verify", value); }, false),
-                    "SKIP TLS CERT VERIFY",
-                    "When true, skip certificate validation on the server. Only safe for self-signed test environments; never set this on a production "
-                    "submission service.");
+        .add_bool("insecure-skip-verify", sh::bool_fun_key([this](auto value) { this->set_property_bool("insecure-skip-verify", value); }, false),
+                  "SKIP TLS CERT VERIFY",
+                  "When true, skip certificate validation on the server. Only safe for self-signed test environments; never set this on a production "
+                  "submission service.");
   }
 };
 
@@ -104,7 +104,7 @@ struct options_reader_impl : client::options_reader_interface {
       ("password", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("password", value); }),
        "SMTP AUTH password.")
       ("security", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("security", value); }),
-       "Transport security: none | starttls (default) | tls.")
+       "Transport security: none | starttls (default) | tls (alias ssl).")
       ("ca", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ca", value); }),
        "CA bundle used to verify the server certificate (default: the agent's trusted bundle, ${ca-path}).")
       ("ehlo-hostname", po::value<std::string>()->notifier([&data] (auto value) { data.set_string_data("ehlo-hostname", value); }),

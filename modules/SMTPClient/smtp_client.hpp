@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <client/command_line_parser.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
@@ -11,6 +13,7 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <str/utils.hpp>
 
 #include "smtp.hpp"
 

@@ -9,20 +9,17 @@
 // message templates live here too, since a target that renders an empty
 // subject is a target whose mail gets filed as spam.
 
-// smtp_client.hpp expects its includer to have pulled in the client
-// machinery and the logging macros already (SMTPClient.cpp does).
-#include <client/command_line_parser.hpp>
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-
 #include "smtp_client.hpp"
-#include "smtp_handler.hpp"
 
 #include <gtest/gtest.h>
 
+#include <client/command_line_parser.hpp>
 #include <map>
-#include <vector>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
+#include <vector>
+
+#include "smtp_handler.hpp"
 
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
@@ -46,9 +43,7 @@ TEST(SmtpConnectionData, DefaultsToTheSubmissionPort) {
   EXPECT_EQ(connection_for({{"address", "mail.example.com"}}).get_port(), "587");
 }
 
-TEST(SmtpConnectionData, AnExplicitPortWins) {
-  EXPECT_EQ(connection_for({{"address", "mail.example.com:2525"}}).get_port(), "2525");
-}
+TEST(SmtpConnectionData, AnExplicitPortWins) { EXPECT_EQ(connection_for({{"address", "mail.example.com:2525"}}).get_port(), "2525"); }
 
 TEST(SmtpConnectionData, DefaultsToStarttls) {
   // Silently sending mail in clear because the target did not name a mode
@@ -75,9 +70,7 @@ TEST(SmtpConnectionData, CarriesTheConfiguredCaBundle) {
   EXPECT_EQ(connection_for({{"address", "h"}, {"ca", "/etc/ssl/certs/ca-certificates.crt"}}).ca_path, "/etc/ssl/certs/ca-certificates.crt");
 }
 
-TEST(SmtpConnectionData, AnUnsetCaMeansTheOpenSslDefaults) {
-  EXPECT_EQ(connection_for({{"address", "h"}}).ca_path, "");
-}
+TEST(SmtpConnectionData, AnUnsetCaMeansTheOpenSslDefaults) { EXPECT_EQ(connection_for({{"address", "h"}}).ca_path, ""); }
 
 TEST(SmtpConnectionData, CarriesTheCredentialsAndEnvelope) {
   const smtp_client::connection_data con = connection_for({{"address", "h"},

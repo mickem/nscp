@@ -3,11 +3,11 @@
 
 #include "smtp.hpp"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <algorithm>
 #include <bytes/base64.hpp>
 #include <chrono>
 #include <cstring>
@@ -66,10 +66,7 @@ class sync_io {
     }
     boost::system::error_code ec;
     run_with_deadline(
-        [&](auto&& done) {
-          s.async_handshake(asio::ssl::stream_base::client, [done = std::move(done)](const boost::system::error_code& e) { done(e); });
-        },
-        ec);
+        [&](auto&& done) { s.async_handshake(asio::ssl::stream_base::client, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); }, ec);
     if (ec) throw smtp_exception(std::string(what) + " failed: " + ec.message());
     tls_stream_ = &s;
   }
@@ -82,13 +79,14 @@ class sync_io {
     tcp::resolver resolver(io_);
     tcp::resolver::results_type endpoints;
     boost::system::error_code ec;
-    run_with_deadline([&](auto&& done) {
-      resolver.async_resolve(host, port, [&endpoints, done = std::move(done)](const boost::system::error_code& e, tcp::resolver::results_type r) {
-        endpoints = std::move(r);
-        done(e);
-      });
-    },
-                      ec);
+    run_with_deadline(
+        [&](auto&& done) {
+          resolver.async_resolve(host, port, [&endpoints, done = std::move(done)](const boost::system::error_code& e, tcp::resolver::results_type r) {
+            endpoints = std::move(r);
+            done(e);
+          });
+        },
+        ec);
     if (ec) throw smtp_exception("DNS resolve failed: " + ec.message());
     return endpoints;
   }
@@ -97,7 +95,12 @@ class sync_io {
   void connect(const tcp::resolver::results_type& endpoints) {
     boost::system::error_code ec = asio::error::host_not_found;
     for (auto it = endpoints.begin(); ec && it != endpoints.end(); ++it) {
-      socket_ref_.close();
+      // Non-throwing close: an incidental failure here (closing a socket that
+      // was never opened, on the first pass) would otherwise escape as a
+      // boost::system::system_error rather than the smtp_exception every
+      // caller of send() catches.
+      boost::system::error_code close_ec;
+      socket_ref_.close(close_ec);
       const auto ep = it->endpoint();
       run_with_deadline([&](auto&& done) { socket_ref_.async_connect(ep, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); }, ec);
     }
@@ -418,7 +421,7 @@ void send(const connection_config& cfg, const message& msg) {
   const bool starttls = (sec == "starttls");
   const bool plain_only = (sec == "none");
   if (!tls_immediate && !starttls && !plain_only) {
-    throw smtp_exception("invalid security mode '" + cfg.security + "' (expected none|starttls|tls)");
+    throw smtp_exception("invalid security mode '" + cfg.security + "' (expected none|starttls|tls, or ssl as an alias for tls)");
   }
 
   // SSL context. We default to TLS 1.2+ peer verification and let the
