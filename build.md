@@ -176,7 +176,7 @@ mkdir %BUILD_FOLDER%\nscp
 Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
 
 ```commandline
-SET OPENSSL_VERSION=3.5.4
+SET OPENSSL_VERSION=3.5.8
 cd %BUILD_FOLDER%
 curl -L https://github.com/openssl/openssl/releases/download/openssl-%OPENSSL_VERSION%/openssl-%OPENSSL_VERSION%.tar.gz --output openssl-%OPENSSL_VERSION%.tar.gz
 7z x openssl-%OPENSSL_VERSION%.tar.gz
@@ -435,7 +435,7 @@ set NSCP_VERSION=NORMALLY READ FROM GIT
 Run the following commands in a Visual Studio Command Prompt (2015 x64 Native):
 
 ```commandline
-SET OPENSSL_VERSION=3.5.2
+SET OPENSSL_VERSION=3.5.8
 cd %BUILD_FOLDER%
 curl -L https://github.com/openssl/openssl/releases/download/openssl-%OPENSSL_VERSION%/openssl-%OPENSSL_VERSION%.tar.gz --output openssl-%OPENSSL_VERSION%.tar.gz
 7z x openssl-%OPENSSL_VERSION%.tar.gz
