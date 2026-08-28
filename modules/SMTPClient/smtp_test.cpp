@@ -294,7 +294,25 @@ TEST(SmtpTimeout, TheTimeoutBoundsTheWholeSubmissionNotEachOperation) {
   // up after a second would instead wait a multiple of it.
   const std::string error = starttls_failure("220 Go ahead\r\n", std::chrono::milliseconds(400), 1);
 
-  EXPECT_NE(error.find("timed out"), std::string::npos) << error;
+  // Both halves are our own wording on purpose. Matching the platform's text
+  // for a timeout does not travel: asio maps the deadline to ETIMEDOUT on
+  // POSIX ("Connection timed out") and WSAETIMEDOUT on Windows ("a connection
+  // attempt failed because the connected party did not properly respond"),
+  // so an assertion on the system message passes on one and fails on the
+  // other.
+  EXPECT_NE(error.find("the budget for the whole submission"), std::string::npos) << error;
+  // And the structural half: reaching the handshake at all would mean the
+  // reads had each been given a deadline of their own.
+  EXPECT_EQ(error.find("TLS handshake"), std::string::npos) << "the budget should be spent before the handshake is reached: " << error;
+}
+
+TEST(SmtpTimeout, ASpentBudgetIsReportedInOurOwnWords) {
+  // A client-side deadline reported through the platform's timeout text reads
+  // as though the server misbehaved - actively misleading on Windows, where
+  // the system string blames the connected party for a limit this client set.
+  const std::string error = starttls_failure("220 Go ahead\r\n", std::chrono::milliseconds(400), 1);
+
+  EXPECT_NE(error.find("timed out after 1s"), std::string::npos) << error;
 }
 
 // =============================================================================

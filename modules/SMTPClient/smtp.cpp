@@ -44,7 +44,24 @@ class sync_io {
   // answers just inside the deadline every time, or a host name resolving to
   // several dead addresses, each of which got a fresh deadline of its own.
   sync_io(asio::io_context& io, tcp::socket& s, int timeout_seconds)
-      : io_(io), socket_ref_(s), tls_stream_(nullptr), deadline_(std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds)) {}
+      : io_(io),
+        socket_ref_(s),
+        tls_stream_(nullptr),
+        timeout_seconds_(timeout_seconds),
+        deadline_(std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds)) {}
+
+  // Render a failure for an operator. A spent budget is ours to explain, not
+  // the platform's: asio maps the deadline to ETIMEDOUT / WSAETIMEDOUT, whose
+  // system text describes a peer that did not answer - on Windows, "a
+  // connection attempt failed because the connected party did not properly
+  // respond". That blames the server for a deadline this client set, and it
+  // reads differently on every platform. Say what actually happened instead.
+  std::string describe(const boost::system::error_code& ec) const {
+    if (ec == asio::error::timed_out) {
+      return "timed out after " + std::to_string(timeout_seconds_) + "s (the budget for the whole submission)";
+    }
+    return ec.message();
+  }
 
   // Run the TLS handshake under the same deadline as every other operation,
   // then route subsequent reads and writes through the encrypted stream.
@@ -70,7 +87,7 @@ class sync_io {
     boost::system::error_code ec;
     run_with_deadline(
         [&](auto&& done) { s.async_handshake(asio::ssl::stream_base::client, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); }, ec);
-    if (ec) throw smtp_exception(std::string(what) + " failed: " + ec.message());
+    if (ec) throw smtp_exception(std::string(what) + " failed: " + describe(ec));
     tls_stream_ = &s;
   }
 
@@ -90,7 +107,7 @@ class sync_io {
           });
         },
         ec);
-    if (ec) throw smtp_exception("DNS resolve failed: " + ec.message());
+    if (ec) throw smtp_exception("DNS resolve failed: " + describe(ec));
     return endpoints;
   }
 
@@ -107,7 +124,7 @@ class sync_io {
       const auto ep = it->endpoint();
       run_with_deadline([&](auto&& done) { socket_ref_.async_connect(ep, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); }, ec);
     }
-    if (ec) throw smtp_exception("connect failed: " + ec.message());
+    if (ec) throw smtp_exception("connect failed: " + describe(ec));
   }
 
   // Write a string. CRLF must already be in `data`.
@@ -122,7 +139,7 @@ class sync_io {
           }
         },
         ec);
-    if (ec) throw smtp_exception("write failed: " + ec.message());
+    if (ec) throw smtp_exception("write failed: " + describe(ec));
   }
 
   // Read one CRLF-terminated SMTP reply. Multi-line replies are returned with
@@ -162,7 +179,7 @@ class sync_io {
           }
         },
         ec, &bytes);
-    if (ec) throw smtp_exception("read failed: " + ec.message());
+    if (ec) throw smtp_exception("read failed: " + describe(ec));
     std::istream is(&buf_);
     std::string line;
     std::getline(is, line);  // strips '\n'
@@ -215,6 +232,7 @@ class sync_io {
   tcp::socket& socket_ref_;
   ssl_stream* tls_stream_;
   asio::streambuf buf_;
+  int timeout_seconds_;
   std::chrono::steady_clock::time_point deadline_;
 };
 
