@@ -184,3 +184,39 @@ TEST(SmtpOptions, AnAbsentFlagLeavesTheTargetSettingAlone) {
 
   EXPECT_TRUE(data.get_bool_data("insecure-skip-verify")) << "the command line did not mention the option, so the target's value must stand";
 }
+
+// =============================================================================
+// The trusted CA bundle the submission verifies against
+// =============================================================================
+
+namespace {
+
+// The ca the handler would hand smtp::send() for this target, given a module
+// whose ${ca-path} resolved to `default_ca`.
+std::string effective_ca(const std::map<std::string, std::string> &target_options, const std::string &default_ca) {
+  smtp_client::connection_data con(target_with(target_options), client::destination_container());
+  if (con.ca_path.empty()) con.ca_path = default_ca;
+  return con.ca_path;
+}
+
+}  // namespace
+
+TEST(SmtpCaBundle, ATargetWithoutItsOwnCaUsesTheAgentBundle) {
+  // The `ca` setting defaults to ${ca-path}, but only for a target whose
+  // settings were read. A command-line submission, or a default target built
+  // from the target object's constructor properties, arrives with `ca` unset -
+  // and used to fall back to OpenSSL's built-in verify paths, which on Windows
+  // do not include the certificate store. That is the hole `ca` exists to
+  // close, so the module-level bundle has to cover these paths too.
+  EXPECT_EQ(effective_ca({{"address", "h"}}, "/etc/ssl/certs/ca-certificates.crt"), "/etc/ssl/certs/ca-certificates.crt");
+}
+
+TEST(SmtpCaBundle, ATargetsOwnCaWins) {
+  EXPECT_EQ(effective_ca({{"address", "h"}, {"ca", "/etc/pki/private-relay.pem"}}, "/etc/ssl/certs/ca-certificates.crt"), "/etc/pki/private-relay.pem");
+}
+
+TEST(SmtpCaBundle, AnExplicitNoneIsNotOverriddenByTheAgentBundle) {
+  // `none` is how an operator asks for OpenSSL's own defaults; the fallback
+  // must not quietly put the agent bundle back.
+  EXPECT_EQ(effective_ca({{"address", "h"}, {"ca", "none"}}, "/etc/ssl/certs/ca-certificates.crt"), "none");
+}

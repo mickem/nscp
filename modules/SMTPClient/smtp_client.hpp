@@ -85,6 +85,16 @@ struct connection_data : socket_helpers::connection_info {
 };
 
 struct smtp_client_handler : client::handler_interface {
+  // The agent's trusted CA bundle, resolved once from ${ca-path} at module
+  // load (SMTPClient::loadModuleEx). The `ca` target setting carries the same
+  // default, but only a target whose settings were actually read gets it: a
+  // command-line submission, or a default target built from the target
+  // object's constructor properties, arrives with `ca` unset. Without this
+  // fallback those paths dropped back to OpenSSL's built-in verify paths -
+  // which on Windows do not include the certificate store, the exact hole the
+  // `ca` setting exists to close.
+  std::string default_ca;
+
   bool query(client::destination_container, client::destination_container, const PB::Commands::QueryRequestMessage&,
              PB::Commands::QueryResponseMessage&) override {
     return false;
@@ -96,6 +106,10 @@ struct smtp_client_handler : client::handler_interface {
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
     connection_data con(target, sender);
+    // Fold the fallback in before tracing, so the trace shows the bundle the
+    // submission will actually verify against. An explicit `ca` - including
+    // `none`, which asks for OpenSSL's defaults - is left alone.
+    if (con.ca_path.empty()) con.ca_path = default_ca;
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("SMTP target: " + con.to_string()); }
 
     smtp::connection_config cfg;
