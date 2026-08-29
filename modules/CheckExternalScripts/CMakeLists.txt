@@ -61,3 +61,22 @@ target_link_libraries(
 )
 
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+# The script provider (alias/command bookkeeping and wrapped-command expansion)
+# only needs a core wrapper with stubbed settings/registry endpoints, so it is
+# unit-testable on every platform.
+NSCP_CREATE_TEST(
+    script_provider_test
+    SOURCES
+        script_provider_test.cpp
+        script_provider.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)

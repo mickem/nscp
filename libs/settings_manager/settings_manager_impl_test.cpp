@@ -15,6 +15,8 @@
 #include <config.h>
 #include <gtest/gtest.h>
 
+#include <settings/client/settings_proxy.hpp>
+
 #include <algorithm>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/filesystem.hpp>
@@ -1153,6 +1155,118 @@ TEST_F(SettingsContextTest, CreateInstanceBuildsTheBackendTheContextNames) {
   const settings::instance_raw_ptr ini = impl_->create_instance("master", ini_context(file));
   ASSERT_TRUE(static_cast<bool>(ini));
   EXPECT_EQ(ini->get_type(), "ini");
+}
+
+// ===========================================================================
+// settings_proxy - the settings_impl_interface adapter handed to plugins (via
+// settings_manager::get_proxy). Every call is a one-line forward into the
+// handler or its active instance; the tests drive each forward through a real
+// INI store so a broken delegation shows up as a wrong value, not just a
+// missing call.
+// ===========================================================================
+
+class SettingsProxyTest : public SettingsDefaultsTest {
+ protected:
+  std::unique_ptr<settings_client::settings_proxy> proxy_;
+
+  void SetUp() override {
+    SettingsDefaultsTest::SetUp();
+    proxy_ = std::make_unique<settings_client::settings_proxy>(impl_.get());
+  }
+};
+
+TEST_F(SettingsProxyTest, SetAndGetStringRoundTripThroughTheStore) {
+  proxy_->set_string("/sec", "key", "value-via-proxy");
+  EXPECT_EQ(proxy_->get_string("/sec", "key", "fallback"), "value-via-proxy");
+  EXPECT_EQ(proxy_->get_string("/sec", "missing", "fallback"), "fallback");
+}
+
+TEST_F(SettingsProxyTest, RegisterPathIsForwardedToTheCore) {
+  proxy_->register_path("/proxied", "Proxied title", "Proxied description", false, false);
+  const auto desc = impl_->get_registered_path("/proxied");
+  EXPECT_EQ(desc.title, "Proxied title");
+  EXPECT_EQ(desc.description, "Proxied description");
+}
+
+TEST_F(SettingsProxyTest, RegisterSubkeyIsForwardedToTheCore) {
+  // Subkey registration is what object sections (targets, schedules, ...) use
+  // to describe their dynamic children.
+  EXPECT_NO_THROW(proxy_->register_subkey("/proxied", "Subkey title", "Subkey description", false, false));
+}
+
+TEST_F(SettingsProxyTest, RegisterKeyStoresMetadataAndDefault) {
+  proxy_->register_key("/proxied", "k", "string", "Key title", "Key description", "key-default", false, false, false);
+  const auto desc = impl_->get_registered_key("/proxied", "k");
+  ASSERT_TRUE(desc.has_value());
+  EXPECT_EQ(desc->title, "Key title");
+  EXPECT_EQ(desc->default_value, "key-default");
+  EXPECT_FALSE(impl_->is_sensitive_key("/proxied", "k"));
+}
+
+TEST_F(SettingsProxyTest, RegisterKeyMarksSensitiveKeys) {
+  // The sensitive flag is what redirects passwords into the credential
+  // manager, so the proxy losing it would leak secrets into plaintext INI.
+  proxy_->register_key("/proxied", "password", "string", "t", "d", "", false, false, true);
+  EXPECT_TRUE(impl_->is_sensitive_key("/proxied", "password"));
+}
+
+TEST_F(SettingsProxyTest, RegisterTplIsAcceptedAndIgnored) {
+  // register_tpl is a documented no-op on this interface (templates register
+  // through the core API with a plugin id); it must stay callable.
+  EXPECT_NO_THROW(proxy_->register_tpl("/proxied", "title", "icon", "description", "fields"));
+  EXPECT_TRUE(impl_->get_registered_templates().empty());
+}
+
+TEST_F(SettingsProxyTest, GetSectionsAndKeysReflectTheStore) {
+  proxy_->set_string("/parent/a", "k1", "v1");
+  proxy_->set_string("/parent/a", "k2", "v2");
+  proxy_->set_string("/parent/b", "k1", "v1");
+
+  const auto sections = proxy_->get_sections("/parent");
+  EXPECT_EQ(sections.size(), 2u);
+
+  const auto keys = proxy_->get_keys("/parent/a");
+  EXPECT_EQ(keys.size(), 2u);
+}
+
+TEST_F(SettingsProxyTest, RemoveKeyDeletesJustTheKey) {
+  proxy_->set_string("/sec", "keep", "v");
+  proxy_->set_string("/sec", "drop", "v");
+
+  proxy_->remove_key("/sec", "drop");
+
+  EXPECT_EQ(proxy_->get_string("/sec", "drop", "gone"), "gone");
+  EXPECT_EQ(proxy_->get_string("/sec", "keep", ""), "v");
+}
+
+TEST_F(SettingsProxyTest, RemovePathDeletesTheSection) {
+  proxy_->set_string("/sec", "k", "v");
+
+  proxy_->remove_path("/sec");
+
+  EXPECT_FALSE(impl_->get()->has_key("/sec", "k"));
+}
+
+TEST_F(SettingsProxyTest, ExpandPathGoesThroughTheHandler) {
+  // The passthrough provider hands paths back unchanged, so the observable
+  // contract is "whatever the handler answers", not a literal expansion.
+  EXPECT_EQ(proxy_->expand_path("${base-path}/scripts"), "${base-path}/scripts");
+}
+
+TEST_F(SettingsProxyTest, LogForwardersReachTheCoreLogger) {
+  // The null test logger swallows the records; the contract here is that all
+  // four severities route through the core's logger without blowing up on a
+  // live handler.
+  EXPECT_NO_THROW(proxy_->err(__FILE__, __LINE__, "an error"));
+  EXPECT_NO_THROW(proxy_->warn(__FILE__, __LINE__, "a warning"));
+  EXPECT_NO_THROW(proxy_->info(__FILE__, __LINE__, "some info"));
+  EXPECT_NO_THROW(proxy_->debug(__FILE__, __LINE__, "some debug"));
+}
+
+TEST_F(SettingsProxyTest, AccessorsHandBackTheHandler) {
+  EXPECT_EQ(proxy_->get_core(), impl_.get());
+  EXPECT_EQ(proxy_->get_handler(), impl_.get());
+  EXPECT_TRUE(static_cast<bool>(proxy_->get_impl()));
 }
 
 }  // namespace

@@ -79,6 +79,7 @@ NSCP_CREATE_TEST(
     SOURCES
         nrdp_test.cpp
         nrdp_client_test.cpp
+        nrdp_handler_test.cpp
         nrdp.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp

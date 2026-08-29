@@ -185,3 +185,160 @@ TEST(CheckService, RssThresholdTrips) {
   s.has_metrics = true;
   EXPECT_EQ(run({s}, {"critical=rss > 1073741824"}, response), PB::Common::ResultCode::CRITICAL) << join_lines(response);
 }
+
+// ---- field getters and show ------------------------------------------------
+
+TEST(CheckService, FieldGettersExposeRawValues) {
+  filter_obj s = make_svc("docker", "active", "running", "enabled", "enabled");
+  s.desc = "Docker Application Container Engine";
+  s.load_state = "loaded";
+  s.pid = 999;
+  s.rss = 1024;
+  s.vms = 4096;
+  s.cpu = 1.5;
+  s.tasks = 20;
+  s.created = 1700000000;
+  s.age = 3600;
+
+  EXPECT_EQ(s.get_name(), "docker");
+  EXPECT_EQ(s.get_desc(), "Docker Application Container Engine");
+  EXPECT_EQ(s.get_active(), "active");
+  EXPECT_EQ(s.get_state_s(), "running");
+  EXPECT_EQ(s.get_sub_state(), "running");
+  EXPECT_EQ(s.get_load_state(), "loaded");
+  EXPECT_EQ(s.get_start_type_s(), "enabled");
+  EXPECT_EQ(s.get_preset(), "enabled");
+  EXPECT_EQ(s.get_pid(), 999);
+  EXPECT_EQ(s.get_rss(), 1024);
+  EXPECT_EQ(s.get_vms(), 4096);
+  EXPECT_DOUBLE_EQ(s.get_cpu(), 1.5);
+  EXPECT_EQ(s.get_tasks(), 20);
+  EXPECT_EQ(s.get_created(), 1700000000);
+  EXPECT_EQ(s.get_age(), 3600);
+  EXPECT_EQ(s.show(), "docker:running");
+  EXPECT_EQ(s.get_state_i(), filter_obj::state_running);
+}
+
+TEST(CheckService, ParseStateStaticAndUnknown) {
+  EXPECT_EQ(filter_obj::parse_state("static"), filter_obj::state_static);
+  EXPECT_EQ(filter_obj::parse_state("oneshot"), filter_obj::state_oneshot);
+  EXPECT_EQ(filter_obj::parse_state("exited"), filter_obj::state_oneshot);
+  EXPECT_EQ(filter_obj::parse_state("bogus"), filter_obj::state_unknown);
+}
+
+// ---- active-state booleans ---------------------------------------------------
+
+TEST(CheckService, ActiveStateBooleans) {
+  const filter_obj running = make_svc("a", "active", "running", "enabled", "");
+  EXPECT_TRUE(running.is_running());
+  EXPECT_TRUE(running.is_started());
+  EXPECT_FALSE(running.is_stopped());
+  EXPECT_FALSE(running.is_failed());
+  EXPECT_EQ(running.get_started(), 1);
+  EXPECT_EQ(running.get_stopped(), 0);
+
+  const filter_obj oneshot = make_svc("b", "active", "exited", "enabled", "");
+  EXPECT_FALSE(oneshot.is_running());  // running means sub-state running, not just active
+  EXPECT_TRUE(oneshot.is_started());
+
+  const filter_obj stopped = make_svc("c", "inactive", "dead", "disabled", "");
+  EXPECT_FALSE(stopped.is_running());
+  EXPECT_FALSE(stopped.is_started());
+  EXPECT_TRUE(stopped.is_stopped());
+  EXPECT_FALSE(stopped.is_failed());
+  EXPECT_EQ(stopped.get_started(), 0);
+  EXPECT_EQ(stopped.get_stopped(), 1);
+
+  const filter_obj failed = make_svc("d", "failed", "failed", "enabled", "");
+  EXPECT_TRUE(failed.is_stopped());  // failed counts as stopped
+  EXPECT_TRUE(failed.is_failed());
+}
+
+// ---- start-type helpers ------------------------------------------------------
+
+TEST(CheckService, StartTypeBooleansIncludeRuntimeVariants) {
+  filter_obj s = make_svc("a", "active", "running", "enabled", "");
+  EXPECT_TRUE(s.is_enabled());
+  s.start_type = "enabled-runtime";
+  EXPECT_TRUE(s.is_enabled());
+  s.start_type = "disabled";
+  EXPECT_TRUE(s.is_disabled());
+  EXPECT_FALSE(s.is_enabled());
+  s.start_type = "static";
+  EXPECT_TRUE(s.is_static());
+  s.start_type = "masked";
+  EXPECT_TRUE(s.is_masked());
+  s.start_type = "masked-runtime";
+  EXPECT_TRUE(s.is_masked());
+}
+
+TEST(CheckService, StartTypeToIntCoversAllVariants) {
+  filter_obj s = make_svc("a", "active", "running", "enabled", "");
+  EXPECT_EQ(s.get_start_type_i(), filter_obj::start_type_enabled);
+  s.start_type = "disabled";
+  EXPECT_EQ(s.get_start_type_i(), filter_obj::start_type_disabled);
+  s.start_type = "static";
+  EXPECT_EQ(s.get_start_type_i(), filter_obj::start_type_static);
+  s.start_type = "masked";
+  EXPECT_EQ(s.get_start_type_i(), filter_obj::start_type_masked);
+  s.start_type = "generated";
+  EXPECT_EQ(s.get_start_type_i(), filter_obj::start_type_unknown);
+}
+
+TEST(CheckService, ParseStartTypeAcceptsWindowsStyleAliases) {
+  EXPECT_EQ(filter_obj::parse_start_type("enabled"), filter_obj::start_type_enabled);
+  EXPECT_EQ(filter_obj::parse_start_type("auto"), filter_obj::start_type_enabled);
+  EXPECT_EQ(filter_obj::parse_start_type("disabled"), filter_obj::start_type_disabled);
+  EXPECT_EQ(filter_obj::parse_start_type("manual"), filter_obj::start_type_disabled);
+  EXPECT_EQ(filter_obj::parse_start_type("static"), filter_obj::start_type_static);
+  EXPECT_EQ(filter_obj::parse_start_type("masked"), filter_obj::start_type_masked);
+  EXPECT_EQ(filter_obj::parse_start_type("bogus"), filter_obj::start_type_unknown);
+}
+
+// ---- expectation helpers (state_is_ok / state_is_perfect) --------------------
+
+TEST(CheckService, StateIsOkExpectations) {
+  // masked: only OK when actually stopped.
+  EXPECT_TRUE(make_svc("a", "inactive", "dead", "masked", "").state_is_ok());
+  EXPECT_FALSE(make_svc("a", "active", "running", "masked", "").state_is_ok());
+  // disabled: any state is acceptable.
+  EXPECT_TRUE(make_svc("b", "active", "running", "disabled", "").state_is_ok());
+  EXPECT_TRUE(make_svc("b", "inactive", "dead", "disabled", "").state_is_ok());
+  // enabled: must at least be started (running or oneshot both count).
+  EXPECT_TRUE(make_svc("c", "active", "running", "enabled", "").state_is_ok());
+  EXPECT_TRUE(make_svc("c", "active", "exited", "enabled", "").state_is_ok());
+  EXPECT_FALSE(make_svc("c", "inactive", "dead", "enabled", "").state_is_ok());
+  EXPECT_FALSE(make_svc("c", "failed", "failed", "enabled", "").state_is_ok());
+  // static / unknown types: always OK.
+  EXPECT_TRUE(make_svc("d", "inactive", "dead", "static", "").state_is_ok());
+  EXPECT_TRUE(make_svc("e", "inactive", "dead", "generated", "").state_is_ok());
+}
+
+TEST(CheckService, StateIsPerfectIsStricterThanOk) {
+  // disabled: perfect only when stopped (ok allows running too).
+  EXPECT_TRUE(make_svc("a", "inactive", "dead", "disabled", "").state_is_perfect());
+  EXPECT_FALSE(make_svc("a", "active", "running", "disabled", "").state_is_perfect());
+  // enabled: perfect requires sub-state running — oneshot is merely ok.
+  EXPECT_TRUE(make_svc("b", "active", "running", "enabled", "").state_is_perfect());
+  EXPECT_FALSE(make_svc("b", "active", "exited", "enabled", "").state_is_perfect());
+  EXPECT_FALSE(make_svc("b", "inactive", "dead", "enabled", "").state_is_perfect());
+  // masked: perfect when stopped only.
+  EXPECT_TRUE(make_svc("c", "inactive", "dead", "masked", "").state_is_perfect());
+  EXPECT_FALSE(make_svc("c", "active", "running", "masked", "").state_is_perfect());
+  // static / unknown types: always perfect.
+  EXPECT_TRUE(make_svc("d", "active", "running", "static", "").state_is_perfect());
+  EXPECT_TRUE(make_svc("e", "inactive", "dead", "generated", "").state_is_perfect());
+}
+
+// ---- keyword plumbing through the real filter --------------------------------
+
+TEST(CheckService, StartTypeKeywordFiltersThroughEvaluate) {
+  // Drive the same getters through the production filter registry: only the
+  // enabled-but-stopped service should trip the threshold.
+  PB::Commands::QueryResponseMessage::Response response;
+  filter_obj bad = make_svc("crashed", "inactive", "dead", "enabled", "enabled");
+  filter_obj good = make_svc("docker", "active", "running", "enabled", "enabled");
+  const auto rc = run({bad, good}, {"filter=start_type = 'enabled'", "critical=state = 'stopped'"}, response);
+  EXPECT_EQ(rc, PB::Common::ResultCode::CRITICAL) << join_lines(response);
+  EXPECT_NE(join_lines(response).find("crashed"), std::string::npos) << join_lines(response);
+}

@@ -106,6 +106,9 @@ NSCP_CREATE_TEST(
         check_process.cpp
         check_service_test.cpp
         check_service.cpp
+        check_cpu_frequency_test.cpp
+        check_cpu_frequency.cpp
+        check_network_test.cpp
         check_temperature_test.cpp
         check_temperature.cpp
         check_load_test.cpp

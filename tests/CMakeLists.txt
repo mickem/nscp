@@ -221,6 +221,9 @@ if(OPENSSL_FOUND)
             ${NSCP_INCLUDEDIR}/net/check_nt/server/parser_test.cpp
             ${NSCP_INCLUDEDIR}/net/check_nt/server/protocol_test.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/client/nsca_client_protocol_test.cpp
+            ${NSCP_INCLUDEDIR}/net/check_mk/data_test.cpp
+            ${NSCP_INCLUDEDIR}/net/check_mk/client/client_protocol_test.cpp
+            ${NSCP_INCLUDEDIR}/net/check_mk/server/server_protocol_test.cpp
             ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
             ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
             ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp
@@ -655,6 +658,49 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/file_helpers_test.cpp
     LIBRARIES
         GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+NSCP_CREATE_TEST(
+    pid_file_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/pid_file_test.cpp
+        ${NSCP_INCLUDEDIR}/pid_file.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_FILESYSTEM_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
+if(NOT WIN32)
+    NSCP_CREATE_TEST(
+        execute_process_test
+        SOURCES
+            ${NSCP_INCLUDEDIR}/process/execute_process_unix_test.cpp
+            ${NSCP_INCLUDEDIR}/process/execute_process_unix.cpp
+        LIBRARIES
+            GTest::gtest_main
+        INCLUDES
+            ${NSCP_INCLUDEDIR}
+    )
+endif()
+
+NSCP_CREATE_TEST(
+    compat_test
+    SOURCES
+        ${NSCP_INCLUDEDIR}/compat_test.cpp
+        ${NSCP_INCLUDEDIR}/compat.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscp_protobuf
+        ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_FILESYSTEM_LIBRARY}
     INCLUDES
         ${NSCP_INCLUDEDIR}

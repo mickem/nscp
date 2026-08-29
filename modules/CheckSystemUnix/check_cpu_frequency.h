@@ -33,9 +33,17 @@ struct cpu_frequency {
 typedef std::list<cpu_frequency> cpus_type;
 
 cpus_type read_cpu_frequency();
+// Same, but reading from an alternate sysfs cpu directory (the layout of
+// /sys/devices/system/cpu). Exposed for unit testing against fixture trees.
+cpus_type read_cpu_frequency(const std::string &base_path);
 
 void check_cpu_frequency(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response);
+// Evaluate a pre-read list of cores against the request's filter/thresholds.
+// Exposed for unit testing.
+void check_cpu_frequency_evaluate(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
+                                  const cpus_type &data);
 
 void build_cpu_frequency_metrics(PB::Metrics::MetricsBundle *parent);
+void build_cpu_frequency_metrics(PB::Metrics::MetricsBundle *parent, const cpus_type &data);
 
 }  // namespace cpu_frequency_check

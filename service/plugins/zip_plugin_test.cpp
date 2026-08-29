@@ -252,6 +252,46 @@ TEST_F(ZipPluginTest, reports_a_fixed_version_and_never_claims_duplicates) {
   EXPECT_FALSE(plugin->has_on_event());
 }
 
+TEST_F(ZipPluginTest, has_no_lifecycle_hooks_beyond_load_and_unload) {
+  // A zip module's whole lifecycle is "install the scripts on load": it has no
+  // start phase, nothing to prepare before shutdown, and start_plugin is a
+  // fixed yes so the plugin manager treats the load as complete.
+  const fs::path archive = make_archive("simple.zip", {{"module.json", R"({"name":"Simple","description":""})"}});
+  const auto plugin = open(archive);
+
+  EXPECT_FALSE(plugin->has_start());
+  EXPECT_TRUE(plugin->start_plugin());
+  EXPECT_FALSE(plugin->has_prepare_shutdown());
+  EXPECT_NO_THROW(plugin->prepare_shutdown_plugin());
+}
+
+TEST_F(ZipPluginTest, advertises_no_handlers_or_metrics) {
+  // The capability flags drive dispatch in the plugin manager; a zip module
+  // must opt out of everything or it would be handed traffic its handlers
+  // (which all throw) cannot serve.
+  const fs::path archive = make_archive("simple.zip", {{"module.json", R"({"name":"Simple","description":""})"}});
+  const auto plugin = open(archive);
+
+  EXPECT_FALSE(plugin->hasMessageHandler());
+  EXPECT_FALSE(plugin->has_command_line_exec());
+  EXPECT_FALSE(plugin->has_routing_handler());
+  EXPECT_FALSE(plugin->hasMetricsFetcher());
+  EXPECT_FALSE(plugin->hasMetricsSubmitter());
+}
+
+TEST_F(ZipPluginTest, log_messages_are_swallowed) {
+  // Both log sinks - the static one and the logging_subscriber override - are
+  // deliberate no-ops: a zip module has no DLL to forward log records into.
+  std::string payload = "a log line";
+  EXPECT_NO_THROW(zip_plugin::on_log_message(payload));
+  EXPECT_EQ(payload, "a log line");
+
+  const fs::path archive = make_archive("simple.zip", {{"module.json", R"({"name":"Simple","description":""})"}});
+  const auto plugin = open(archive);
+  nsclient::logging::logging_subscriber &subscriber = *plugin;
+  EXPECT_NO_THROW(subscriber.on_log_message(payload));
+}
+
 TEST_F(ZipPluginTest, routing_a_message_through_a_zip_module_is_an_error) {
   // A zip module carries scripts; it has no handlers of its own, so anything
   // that would dispatch to one has to fail loudly rather than silently drop.

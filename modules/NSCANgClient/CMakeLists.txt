@@ -68,16 +68,23 @@ NSCP_CREATE_TEST(
     nsca_ng_test
     SOURCES
         nsca_ng_test.cpp
+        nsca_ng_handler_test.cpp
         nsca_ng.cpp
         nsca_ng_client.cpp
+        nsca_ng_handler.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         # Defines utf8::to_unicode / utf8::wstring_to_string, used transitively
         # via utf8::utf8_from_native by both nsca_ng_client.cpp (native error
         # message conversion) and socket_helpers.cpp (OpenSSL error conversion).
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        # Defines client::options_reader_interface::add_ssl_options used by
+        # nsca_ng_handler.cpp (utf8.cpp above overlaps and is deduplicated).
+        ${NSCP_CLIENT_CPP}
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
         ${OPENSSL_LIBRARIES}
         ${NSCP_DEF_PLUGIN_LIB}
         # OpenSSL's bundled CAPI engine on Windows pulls in Crypt32. The

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include <openssl/ssl.h>
 
+#include <boost/asio.hpp>
 #include <cstring>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <set>
@@ -448,4 +449,175 @@ TEST(NscaNgSslContext, PskModeContextStaysAtDefaults) {
   ssl_from_ctx s(ctx);
   ASSERT_NE(s.ssl, nullptr);
   EXPECT_EQ(SSL_get_verify_mode(s.ssl), SSL_VERIFY_NONE);
+}
+
+TEST(NscaNgConnectionData, ToStringDescribesConnectionWithoutPassword) {
+  client::destination_container target;
+  target.address.host = "srv.example";
+  target.set_string_data("password", "s3cret-pw");
+  client::destination_container sender;
+  sender.address.host = "agent01";
+
+  nsca_ng_client::connection_data c(target, sender);
+  const std::string s = c.to_string();
+
+  EXPECT_NE(s.find("srv.example"), std::string::npos) << s;
+  EXPECT_NE(s.find("identity: agent01"), std::string::npos) << s;
+  EXPECT_NE(s.find("use_psk: true"), std::string::npos) << s;
+  EXPECT_NE(s.find("insecure: false"), std::string::npos) << s;
+  EXPECT_NE(s.find("sender: agent01"), std::string::npos) << s;
+  EXPECT_NE(s.find("timeout: 30s"), std::string::npos) << s;
+  EXPECT_NE(s.find("host_check_default: false"), std::string::npos) << s;
+  EXPECT_EQ(s.find("s3cret-pw"), std::string::npos) << "the PSK password must never be traced: " << s;
+}
+
+// ============================================================================
+// nsca_ng_client_handler — unsupported operations
+// ============================================================================
+
+TEST(NscaNgClientHandler, QueryIsNotSupported) {
+  nsca_ng_client::nsca_ng_client_handler h;
+  PB::Commands::QueryRequestMessage req;
+  PB::Commands::QueryResponseMessage resp;
+  EXPECT_FALSE(h.query(client::destination_container(), client::destination_container(), req, resp));
+}
+
+TEST(NscaNgClientHandler, ExecIsNotSupported) {
+  nsca_ng_client::nsca_ng_client_handler h;
+  PB::Commands::ExecuteRequestMessage req;
+  PB::Commands::ExecuteResponseMessage resp;
+  EXPECT_FALSE(h.exec(client::destination_container(), client::destination_container(), req, resp));
+}
+
+TEST(NscaNgClientHandler, MetricsIsNotSupported) {
+  nsca_ng_client::nsca_ng_client_handler h;
+  PB::Metrics::MetricsMessage msg;
+  EXPECT_FALSE(h.metrics(client::destination_container(), client::destination_container(), msg));
+}
+
+// ============================================================================
+// nsca_ng_client_handler::submit — transport-level error paths
+// ============================================================================
+//
+// These drive the full submit pipeline (connection_data extraction, TLS
+// connection object setup, retry loop, error reporting) without an NSCA-NG
+// server. A local TCP listener (that never speaks TLS) exercises the
+// post-connect phases; a freshly closed local port exercises the
+// connection-refused path. The MOIN/PUSH exchange itself needs a real
+// TLS-PSK server and stays with the integration suite.
+
+namespace {
+
+// A listening socket that accepts TCP connects (via the kernel backlog) but
+// never speaks — connects succeed and any TLS handshake stalls forever.
+struct local_listener {
+  boost::asio::io_context io;
+  boost::asio::ip::tcp::acceptor acceptor;
+  local_listener() : acceptor(io, boost::asio::ip::tcp::endpoint(boost::asio::ip::make_address("127.0.0.1"), 0)) {}
+  unsigned short port() const { return acceptor.local_endpoint().port(); }
+};
+
+// Grab a port that was just proven free and close it again, so connecting to
+// it is (near-)deterministically refused.
+unsigned short closed_port() {
+  local_listener l;
+  return l.port();
+}
+
+client::destination_container ng_target(unsigned short port) {
+  client::destination_container t;
+  t.set_string_data("address", "127.0.0.1:" + std::to_string(port));
+  // Note: "retries" (unlike "retry") lands in the generic data map, which is
+  // where the NSCA-NG connection_data reads it from.
+  t.set_string_data("retries", "0");
+  t.set_string_data("password", "test-psk");
+  return t;
+}
+
+// Submits a single dummy payload and returns the error message reported in
+// the (single) response payload. Asserts the transaction failed.
+std::string submit_error(client::destination_container target) {
+  nsca_ng_client::nsca_ng_client_handler h;
+  client::destination_container sender;
+  sender.address.host = "agent01";
+
+  PB::Commands::SubmitRequestMessage req;
+  req.add_payload()->set_command("svc");
+  PB::Commands::SubmitResponseMessage resp;
+
+  EXPECT_TRUE(h.submit(sender, target, req, resp)) << "submit always produces a response message";
+  if (resp.payload_size() != 1) {
+    ADD_FAILURE() << "expected exactly one response payload, got " << resp.payload_size();
+    return "<no payload>";
+  }
+  EXPECT_EQ(resp.payload(0).result().code(), PB::Common::Result_StatusCodeType_STATUS_ERROR);
+  return resp.payload(0).result().message();
+}
+
+}  // namespace
+
+TEST(NscaNgSubmit, ConnectionRefusedReportsNetworkError) {
+  const std::string err = submit_error(ng_target(closed_port()));
+  EXPECT_NE(err.find("NSCA-NG network error"), std::string::npos) << err;
+  EXPECT_NE(err.find("connect"), std::string::npos) << err;
+}
+
+TEST(NscaNgSubmit, NetworkErrorsAreRetried) {
+  // retries=1 → two attempts through the retry loop (with its 1s backoff);
+  // both fail on the closed port and the last error is reported.
+  client::destination_container t = ng_target(closed_port());
+  t.set_string_data("retries", "1");
+  const std::string err = submit_error(t);
+  EXPECT_NE(err.find("NSCA-NG network error"), std::string::npos) << err;
+}
+
+TEST(NscaNgSubmit, BrokenPskCipherListIsReported) {
+  // An unparsable cipher list must abort with the actual cause instead of
+  // letting OpenSSL fall back to its cert-based default list.
+  client::destination_container t = ng_target(closed_port());
+  t.set_string_data("allowed ciphers", "NOT-A-REAL-CIPHER");
+  const std::string err = submit_error(t);
+  EXPECT_NE(err.find("Failed to apply PSK cipher list"), std::string::npos) << err;
+}
+
+TEST(NscaNgSubmit, UnresolvableHostIsReported) {
+  client::destination_container t = ng_target(1);
+  t.address.host = "no such host name";  // spaces: fails resolution without touching DNS
+  const std::string err = submit_error(t);
+  EXPECT_NE(err.find("Failed to resolve"), std::string::npos) << err;
+}
+
+TEST(NscaNgSubmit, CertModeWithoutVerificationIsRefused) {
+  // Cert mode + verify none + no insecure opt-in must refuse to tunnel data
+  // through an unauthenticated TLS session (MITM protection).
+  local_listener server;
+  client::destination_container t = ng_target(server.port());
+  t.set_string_data("use psk", "false");
+  t.set_string_data("verify mode", "none");
+  const std::string err = submit_error(t);
+  EXPECT_NE(err.find("Refusing to connect"), std::string::npos) << err;
+}
+
+TEST(NscaNgSubmit, PskHandshakeAgainstSilentServerTimesOut) {
+  // Connect succeeds (kernel backlog) but the server never answers the
+  // ClientHello — the deadline must cancel the handshake.
+  local_listener server;
+  client::destination_container t = ng_target(server.port());
+  t.data["timeout"] = "1";  // typed set_string_data("timeout") never reaches the data map
+  const std::string err = submit_error(t);
+  EXPECT_NE(err.find("TLS handshake timed out"), std::string::npos) << err;
+}
+
+TEST(NscaNgSubmit, CertModeInsecureProceedsToHandshake) {
+  // With the explicit insecure opt-in the cert-mode connection proceeds past
+  // the verification guard (SNI set, handshake started) and then times out
+  // against the silent server.
+  local_listener server;
+  client::destination_container t = ng_target(server.port());
+  t.set_string_data("use psk", "false");
+  t.set_string_data("verify mode", "none");
+  t.set_string_data("insecure", "true");
+  t.data["timeout"] = "1";
+  const std::string err = submit_error(t);
+  EXPECT_NE(err.find("TLS handshake"), std::string::npos) << err;
 }
