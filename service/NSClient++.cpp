@@ -616,10 +616,30 @@ void NSClientT::unloadPlugins() {
   plugins_->stop_plugins();
 }
 void NSClientT::reloadPlugins() {
+  // Re-read the included configuration before working out which modules should
+  // be running. An include is served from the child instance built when the
+  // configuration was last loaded, so a module enabled in one since then -
+  // fleet.ini, rewritten by the fleet sync, being the case that matters - is
+  // invisible to find_all_active_plugins() and never gets loaded. That is how a
+  // fleet bundle enabling a module ended up doing nothing at all: the file on
+  // disk said the module was enabled and the host reported itself in sync,
+  // while the module only really appeared at the next service restart.
+  //
+  // Only the children are refreshed, and deliberately so. Clearing the whole
+  // store would also throw away configuration that was set in memory and never
+  // saved - which is precisely how `nscp unit` and `nscp client` work: they
+  // configure the agent in memory and then reload to apply it. Dropping that
+  // leaves them with no modules at all.
+  for (const settings::instance_ptr &child : settings_manager::get_settings()->get_children()) {
+    if (child) child->clear_cache();
+  }
   plugins_->start_plugins(NSCAPI::reloadStart);
+  // Loads whatever is enabled and not already loaded; modules that are
+  // running are recognised as duplicates and left alone.
   boot_load_active_plugins();
   plugins_->start_plugins(NSCAPI::normalStart);
-  // TODO: Figure out changed set and remove/add delete/added modules.
+  // TODO: a module *disabled* since the last load is still left running; that
+  // needs unloading a live plugin, which is a different problem from this one.
   settings_manager::get_core()->set_reload(false);
 }
 

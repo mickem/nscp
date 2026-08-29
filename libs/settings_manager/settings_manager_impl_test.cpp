@@ -1052,6 +1052,92 @@ TEST_F(SettingsContextTest, AContextWithoutAPlaceholderIsUnaffected) {
   EXPECT_FALSE(impl_->context_exists(ini_context(dir.path() / "${host}-plain.ini")));
 }
 
+// --- what a reload has to do before it can see a new module ----------------
+//
+// NSClientT::reloadPlugins() re-scans /modules to decide what to load. The
+// list it reads is served partly from the child instances built when the
+// configuration was last loaded, so a module enabled in an *included* file
+// since then - fleet.ini, written by the fleet sync, is the case that matters
+// - stays invisible until that child re-reads its file. That is why the reload
+// refreshes the includes first: without it a fleet bundle enabling a module
+// applied cleanly, the host reported itself in sync, and the module was only
+// really loaded the next time the service happened to restart.
+//
+// It refreshes the *children* rather than clearing the whole store, and the
+// last test here is why: clearing the store also discards configuration held
+// in memory and never saved, which is exactly how `nscp unit` and
+// `nscp client` set themselves up before asking for a reload.
+
+class SettingsIncludeReloadTest : public SettingsHandlerTest {
+ protected:
+  settings_test::temp_dir dir_;
+  boost::filesystem::path main_ini_;
+  boost::filesystem::path included_ini_;
+  std::unique_ptr<passthrough_provider> provider_;
+
+  void SetUp() override {
+    provider_ = std::make_unique<passthrough_provider>();
+    impl_ = std::make_unique<settings_manager::NSCSettingsImpl>(provider_.get());
+    main_ini_ = dir_.file("nsclient.ini");
+    included_ini_ = dir_.file("fleet.ini");
+    write_included("CheckSystem = enabled\n");
+    settings_test::write_file(main_ini_, "[/includes]\nfleet = " + ini_context(included_ini_) + "\n");
+    impl_->set_instance("master", ini_context(main_ini_));
+  }
+
+  void write_included(const std::string &modules) { settings_test::write_file(included_ini_, "[/modules]\n" + modules); }
+
+  settings::settings_interface::string_list modules() { return impl_->get()->get_keys("/modules"); }
+
+  // What NSClientT::reloadPlugins() does before re-scanning /modules.
+  void refresh_includes() {
+    for (const settings::instance_ptr &child : impl_->get()->get_children()) {
+      if (child) child->clear_cache();
+    }
+  }
+
+  static bool has(const settings::settings_interface::string_list &keys, const std::string &key) {
+    return std::find(keys.begin(), keys.end(), key) != keys.end();
+  }
+};
+
+TEST_F(SettingsIncludeReloadTest, ModulesFromAnIncludedFileAreVisible) {
+  EXPECT_TRUE(has(modules(), "CheckSystem"));
+}
+
+TEST_F(SettingsIncludeReloadTest, AModuleAddedToAnIncludeAppearsOnlyAfterTheIncludesAreRefreshed) {
+  ASSERT_TRUE(has(modules(), "CheckSystem"));
+
+  write_included("CheckSystem = enabled\nNRDPClient = enabled\n");
+
+  // Served from the child built at load time, so the new module is not here
+  // yet. A reload that skipped the refresh would scan this same stale list and
+  // conclude there was nothing new to load.
+  EXPECT_FALSE(has(modules(), "NRDPClient"));
+
+  refresh_includes();
+
+  EXPECT_TRUE(has(modules(), "NRDPClient"));
+  EXPECT_TRUE(has(modules(), "CheckSystem")) << "refreshing must not lose what the include already had";
+}
+
+TEST_F(SettingsIncludeReloadTest, RefreshingTheIncludesKeepsConfigurationSetInMemory) {
+  // The reason the reload refreshes the children instead of clearing the whole
+  // store. `nscp unit` and `nscp client` enable their modules in memory and
+  // then ask for a reload to apply them; nothing is ever saved to disk. A
+  // reload that cleared the store would drop this and leave them with no
+  // modules at all - which is precisely what a first attempt at the fix did.
+  impl_->get()->set_string("/modules", "PythonScript", "enabled");
+  ASSERT_TRUE(has(modules(), "PythonScript"));
+
+  refresh_includes();
+
+  EXPECT_TRUE(has(modules(), "PythonScript")) << "an unsaved in-memory module must survive the refresh";
+  EXPECT_EQ(impl_->get()->get_string("/modules", "PythonScript", ""), "enabled");
+  // ... and the include is still there alongside it.
+  EXPECT_TRUE(has(modules(), "CheckSystem"));
+}
+
 TEST_F(SettingsContextTest, CreateInstanceBuildsTheBackendTheContextNames) {
   const settings::instance_raw_ptr dummy = impl_->create_instance("master", "dummy");
   ASSERT_TRUE(static_cast<bool>(dummy));
