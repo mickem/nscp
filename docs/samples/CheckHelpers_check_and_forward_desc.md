@@ -34,7 +34,9 @@ monitoring server.
 
     The wrapped check runs with the permissions of whoever called
     `check_and_forward`, not with those of `CheckHelpers` — see
-    [permissions](../../concepts/permissions.md).
+    [permissions](../../concepts/permissions.md). If the wrapped check is
+    denied, nothing is submitted and the command returns the denial as an
+    error.
 
 !!! warning
 

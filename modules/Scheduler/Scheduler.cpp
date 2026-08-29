@@ -216,6 +216,19 @@ bool Scheduler::run_schedule(const schedules::target_object &item, const forward
   }
   PB::Commands::QueryResponseMessage resp_msg;
   resp_msg.ParseFromString(response);
+  // A permission denial is answered as a successful query with an UNKNOWN
+  // "Permission denied" payload, flagged with this header marker by the core
+  // (emit_denied_payload in service/plugins/plugin_manager.cpp). It is not the
+  // check's result, so it must not reach the channel: submitting it would
+  // clobber the last real result on the server and let a caller who may run
+  // run_schedules but not the underlying check still push something to it.
+  for (const auto &kv : resp_msg.header().metadata()) {
+    if (kv.key() == "nscp.query_denied") {
+      error = "Permission denied: not allowed to run " + item->command;
+      NSC_LOG_ERROR("Not running schedule " + item->get_alias() + ": " + error);
+      return false;
+    }
+  }
   PB::Commands::QueryResponseMessage resp_msg_send;
   resp_msg_send.mutable_header()->CopyFrom(resp_msg.header());
   for (const PB::Commands::QueryResponseMessage::Response &p : resp_msg.payload()) {

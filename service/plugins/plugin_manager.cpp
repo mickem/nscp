@@ -700,6 +700,17 @@ static void emit_denied_payload(PB::Commands::QueryResponseMessage *response_mes
   PB::Commands::QueryResponseMessage::Response *payload = response_message->add_payload();
   payload->set_command(command);
   nscapi::protobuf::functions::set_response_bad(*payload, "Permission denied: " + subject + " is not allowed to run " + command);
+  // Denials come back as an ordinary UNKNOWN payload (execute_query still
+  // returns isSuccess), which callers that FORWARD results somewhere else -
+  // Scheduler's run_schedules, CheckHelpers' check_and_forward - must be able
+  // to tell apart from a check that legitimately returned UNKNOWN: a denial
+  // must never be submitted to a monitoring channel as if it were the
+  // check's result. The message text is not a contract, so stamp a
+  // machine-readable marker in the response header instead (one entry per
+  // denied command; batch queries can mix denied and dispatched payloads).
+  auto *marker = response_message->mutable_header()->add_metadata();
+  marker->set_key("nscp.query_denied");
+  marker->set_value(command);
 }
 
 NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::string &request, std::string &response) {

@@ -33,8 +33,10 @@ happens exactly when it would have anyway.
 
     The checks run with the permissions of whoever called `run_schedules`, not
     with those of the Scheduler module — see
-    [permissions](../../concepts/permissions.md). The scheduler's own timed runs
-    are unaffected and keep running as the Scheduler.
+    [permissions](../../concepts/permissions.md). A schedule whose check is
+    denied submits nothing to its channel and is reported back as failed. The
+    scheduler's own timed runs are unaffected and keep running as the
+    Scheduler.
 
 !!! tip
 

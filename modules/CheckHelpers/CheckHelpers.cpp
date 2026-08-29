@@ -403,6 +403,24 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
     return;
   }
 
+  {
+    // A permission denial is answered as a successful query with an UNKNOWN
+    // "Permission denied" payload, flagged with this header marker by the core
+    // (emit_denied_payload in service/plugins/plugin_manager.cpp). It is not
+    // the check's result, so it must not be forwarded: submitting it would
+    // clobber the last real result for the alias on the server and let a
+    // caller who may run check_and_forward but not the wrapped command still
+    // push something to its service.
+    PB::Commands::QueryResponseMessage resp_msg;
+    resp_msg.ParseFromString(local_response);
+    for (const auto &kv : resp_msg.header().metadata()) {
+      if (kv.key() == "nscp.query_denied") {
+        nscapi::protobuf::functions::set_response_bad(*response, "Permission denied: not allowed to run " + command + ", nothing was submitted");
+        return;
+      }
+    }
+  }
+
   // The channels parse what they get as a SubmitRequestMessage, so the query
   // response has to be converted first: the two messages are NOT wire
   // compatible (the query payload is field 2, the submit payload field 3), so
