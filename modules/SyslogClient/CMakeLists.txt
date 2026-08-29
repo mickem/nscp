@@ -46,6 +46,7 @@ NSCP_CREATE_TEST(
     syslog_client_test
     SOURCES
         syslog_client_test.cpp
+        syslog_handler_test.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         # syslog_target_object's vtable pulls in its read(), which calls

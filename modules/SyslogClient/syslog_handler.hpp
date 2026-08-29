@@ -50,6 +50,9 @@ struct syslog_target_object : public nscapi::targets::target_object {
                     "")
         .add_string("unknown severity", sh::string_fun_key([this](auto value) { this->set_property_string("unknown severity", value); }, "emergency"), "TODO",
                     "");
+
+    settings.register_all();
+    settings.notify();
   }
 };
 
