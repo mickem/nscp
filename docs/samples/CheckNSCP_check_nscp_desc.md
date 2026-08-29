@@ -27,10 +27,13 @@ OK: 0 crash(es), 0 error(s), uptime 0
 | `uptime` | Time since the CheckNSCP module was loaded, which for a normally configured agent is the agent's own uptime. |
 | `version`, `date` | The running build, same values `check_nscp_version` reports. |
 
-The three crash-report extensions are historical: 0.6.10 and later write one
-`<timestamp>.crash` per crash, while the breakpad handler used up to 0.6.9 left
-a `<guid>.dmp` minidump and a `<guid>.dmp.txt` description behind. All three are
-counted so an archive that predates the change still reports correctly.
+The three crash-report extensions are historical. 0.6.10 and later write one
+plain-text `<timestamp>.crash` per crash, naming the exception, the faulting
+address and the module it landed in. Up to 0.6.9 the agent used Google
+Breakpad, which left a `<guid>.dmp` minidump and a `<guid>.dmp.txt` description
+behind; breakpad was dropped because its vendored submodule and build machinery
+had become a dependency burden. All three extensions are counted, so an archive
+that predates the change still reports correctly.
 
 `uptime` and `crash_age` accept units in thresholds, so you can write
 `crit=uptime < 5m` or `warn=crash_age < 7d` rather than converting to seconds

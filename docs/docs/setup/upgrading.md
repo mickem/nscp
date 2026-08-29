@@ -23,10 +23,14 @@ page tracks those in one place. Full per-release detail lives in each
       it used returns the extension *with* its leading dot (`.txt`). That
       comparison has been false since the check was written in 0.4.2, so the
       crash count read 0 whatever was in the folder.
-    - 0.6.10 replaced the bundled breakpad handler with the current one, which
-      writes one `<timestamp>.crash` file per crash instead of breakpad's
-      `<guid>.dmp` plus a `<guid>.dmp.txt` description. From 0.6.10 on, even a
-      corrected `.txt` match would have found nothing.
+    - 0.6.10 dropped Google Breakpad, whose vendored submodule and build
+      machinery had become a dependency burden, along with the separate
+      crash-report sender tool that shipped with it. The handler that replaced
+      it writes one plain-text `<timestamp>.crash` file per crash — the
+      exception, the faulting address and the module it landed in — where
+      breakpad left a `<guid>.dmp` minidump plus a `<guid>.dmp.txt`
+      description. From 0.6.10 on, even a corrected `.txt` match would have
+      found nothing.
 
   Separately, 0.4.3 stopped the module reading the archive folder from
   `[/settings/crash]` `archive folder` and hardcoded the compile-time default
