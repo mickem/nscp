@@ -251,6 +251,23 @@ bool Scheduler::run_schedule(const schedules::target_object &item, const forward
 
 void Scheduler::run_schedules(const PB::Commands::QueryRequestMessage::Request &request, PB::Commands::QueryResponseMessage::Response *response,
                               const PB::Commands::QueryRequestMessage &request_message) {
+  // A schedule whose command is run_schedules would make this function invoke
+  // itself through the core's (synchronous, same-thread) query dispatch and
+  // recurse until the stack ran out, killing the agent on a plain
+  // misconfiguration. The per-thread guard bounds that: the nested invocation
+  // fails with an error instead of recursing (and the per-schedule refusal
+  // below catches the direct case with a clearer message).
+  static thread_local bool in_run_schedules = false;
+  if (in_run_schedules) {
+    return nscapi::protobuf::functions::set_response_bad(*response,
+                                                         "run_schedules invoked from within run_schedules (a schedule runs run_schedules?); refusing to recurse");
+  }
+  in_run_schedules = true;
+  struct reset_guard {
+    bool &flag;
+    ~reset_guard() { flag = false; }
+  } guard{in_run_schedules};
+
   po::options_description desc = nscapi::program_options::create_desc(request);
   std::vector<std::string> wanted;
   // clang-format off
@@ -294,12 +311,22 @@ void Scheduler::run_schedules(const PB::Commands::QueryRequestMessage::Request &
     }
   }
 
+  // The request header does not change between schedules, so resolve the
+  // caller identity once rather than per iteration.
+  const forwarded_identity id = extract_identity(request_message);
   std::string ran, failed;
   for (const schedules::target_object &item : selected) {
     std::string error;
     bool ok;
+    if (item->command == "run_schedules") {
+      // Running it would only bounce off the reentrancy guard above and
+      // submit that error to the schedule's channel; refuse it up front with
+      // a message naming the actual problem.
+      str::format::append_list(failed, item->get_alias() + " (schedule runs run_schedules, refusing to recurse)");
+      continue;
+    }
     try {
-      ok = run_schedule(item, extract_identity(request_message), error);
+      ok = run_schedule(item, id, error);
     } catch (const std::exception &e) {
       ok = false;
       error = utf8::utf8_from_native(e.what());
