@@ -223,6 +223,15 @@ Every command that wraps another check forwards identity:
 The trivial leaf commands (`check_ok`, `check_warning`, `check_critical`, `check_version`) don't dispatch and so don't
 forward anything.
 
+### Other modules that forward identity
+
+`Scheduler`'s `run_schedules` command does the same: the checks it runs on demand are attributed to whoever asked for
+the run (`WEBServer:operator → CheckSystem.check_cpu`), not to the Scheduler. So a principal can only push a schedule
+whose check they are allowed to run anyway. When the wrapped check is denied, nothing is submitted to the schedule's
+channel — the caller gets a "Permission denied" error and the last real result on the monitoring server is left
+untouched (`check_and_forward` behaves the same way for its wrapped command). The scheduler's own timed runs are
+unaffected and stay attributed to `Scheduler` — write the rules for those against `Scheduler` as before.
+
 ### When forwarding falls back
 
 If `CheckHelpers` is called by a path that doesn't stamp identity (an out-of-tree module, or a very old caller that

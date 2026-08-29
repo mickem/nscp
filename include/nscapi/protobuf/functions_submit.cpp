@@ -55,6 +55,32 @@ bool functions::parse_simple_submit_response(const std::string &request, std::st
   return payload.mutable_result()->code() == PB::Common::Result_StatusCodeType_STATUS_OK;
 }
 
+bool functions::parse_multi_submit_response(const std::string &request, std::string &response) {
+  PB::Commands::SubmitResponseMessage message;
+  if (!message.ParseFromString(request)) {
+    response = "Failed to parse submit response message";
+    return false;
+  }
+  if (message.payload_size() == 0) {
+    response = "Submit response contained no status";
+    return false;
+  }
+  // A submission to a comma list of channels (or a channel with several
+  // listeners) answers with one payload per handler; the submission as a
+  // whole only succeeded if every handler succeeded. Collect the failures so
+  // the caller can report which handler(s) rejected the message.
+  bool ok = true;
+  std::string errors;
+  for (const auto &payload : message.payload()) {
+    if (payload.result().code() == PB::Common::Result_StatusCodeType_STATUS_OK) continue;
+    ok = false;
+    if (!errors.empty()) errors += ", ";
+    errors += payload.result().message();
+  }
+  response = ok ? message.payload(0).result().message() : errors;
+  return ok;
+}
+
 void functions::append_simple_submit_response_payload(PB::Commands::SubmitResponseMessage::Response *payload, std::string command, bool result,
                                                       std::string msg) {
   payload->set_command(command);

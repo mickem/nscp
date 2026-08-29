@@ -700,6 +700,17 @@ static void emit_denied_payload(PB::Commands::QueryResponseMessage *response_mes
   PB::Commands::QueryResponseMessage::Response *payload = response_message->add_payload();
   payload->set_command(command);
   nscapi::protobuf::functions::set_response_bad(*payload, "Permission denied: " + subject + " is not allowed to run " + command);
+  // Denials come back as an ordinary UNKNOWN payload (execute_query still
+  // returns isSuccess), which callers that FORWARD results somewhere else -
+  // Scheduler's run_schedules, CheckHelpers' check_and_forward - must be able
+  // to tell apart from a check that legitimately returned UNKNOWN: a denial
+  // must never be submitted to a monitoring channel as if it were the
+  // check's result. The message text is not a contract, so stamp a
+  // machine-readable marker in the response header instead (one entry per
+  // denied command; batch queries can mix denied and dispatched payloads).
+  auto *marker = response_message->mutable_header()->add_metadata();
+  marker->set_key("nscp.query_denied");
+  marker->set_value(command);
 }
 
 NSCAPI::nagiosReturn nsclient::core::plugin_manager::execute_query(const std::string &request, std::string &response) {
@@ -913,8 +924,18 @@ int nsclient::core::plugin_manager::simple_query(std::string module, std::string
   std::list<std::string> responses;
   std::list<std::string> errors;
   nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
-  int ret = load_and_run(
-      module, [command, arguments, request, &responses](auto plugin) { return query_helper(plugin, command, arguments, request, &responses); }, errors);
+  // Only to give a named module a chance to be loaded on demand: the query
+  // itself is dispatched through the command registry below (query_helper is a
+  // no-op). Without a module there is nothing to load, and running it anyway
+  // appended a bogus "No module was specified..." line to the result of every
+  // `nscp client --query <command>` invocation that did not name one.
+  // Always overwritten below (the command registry decides the outcome); this
+  // is just a defined starting value.
+  int ret = NSCAPI::cmd_return_codes::isSuccess;
+  if (!module.empty()) {
+    ret = load_and_run(
+        module, [command, arguments, request, &responses](auto plugin) { return query_helper(plugin, command, arguments, request, &responses); }, errors);
+  }
 
   commands::plugin_type plugin = commands_.get(command);
   if (!plugin) {
@@ -1030,10 +1051,18 @@ void nsclient::core::plugin_manager::register_submission_listener(unsigned int p
 NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char *channel, std::string &request, std::string &response) {
   std::string schannel = channel;
   bool found = false;
+  // One reply string per handler invocation. Handing every handler the same
+  // `response` string would let each one overwrite the previous handler's
+  // reply, so with channel=NSCA,GRAPHITE an NSCA failure was silently masked
+  // by GRAPHITE's OK - the caller has to see every handler's verdict to be
+  // able to report a partial failure.
+  std::list<std::string> replies;
   for (std::string cur_chan : str::utils::split_lst(schannel, std::string(","))) {
     if (cur_chan == "noop") {
       found = true;
-      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
+      std::string reply;
+      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", reply);
+      replies.push_back(reply);
       continue;
     }
     if (cur_chan == "log") {
@@ -1044,16 +1073,20 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
                       nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i), nscapi::protobuf::functions::no_truncation));
       }
       found = true;
-      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
+      std::string reply;
+      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", reply);
+      replies.push_back(reply);
       continue;
     }
     try {
       for (nsclient::plugin_type p : channels_.get(cur_chan)) {
+        std::string reply;
         try {
-          p->handleNotification(cur_chan.c_str(), request, response);
+          p->handleNotification(cur_chan.c_str(), request, reply);
         } catch (...) {
           LOG_ERROR_CORE("Plugin throw exception: " + p->get_alias_or_name());
         }
+        if (!reply.empty()) replies.push_back(reply);
         found = true;
       }
     } catch (nsclient::plugins_list_exception &e) {
@@ -1070,6 +1103,24 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
   if (!found) {
     LOG_ERROR_CORE("No handler for channel: " + schannel + " active channels: " + channels_.to_string());
     return NSCAPI::api_return_codes::hasFailed;
+  }
+  if (replies.size() == 1) {
+    // The single-handler case keeps the reply byte-for-byte as the handler
+    // built it (header included) - the overwhelmingly common case, and the
+    // one parse_simple_submit_response is written for.
+    response = replies.front();
+  } else {
+    // Multiple handlers: merge every reply's payloads into one message so no
+    // verdict is lost. Callers submitting to a comma list of channels parse
+    // this with parse_multi_submit_response.
+    PB::Commands::SubmitResponseMessage merged;
+    for (const std::string &reply : replies) {
+      PB::Commands::SubmitResponseMessage msg;
+      if (!msg.ParseFromString(reply)) continue;
+      if (!merged.has_header() && msg.has_header()) merged.mutable_header()->CopyFrom(msg.header());
+      for (int i = 0; i < msg.payload_size(); i++) merged.add_payload()->CopyFrom(msg.payload(i));
+    }
+    response = merged.SerializeAsString();
   }
   return NSCAPI::api_return_codes::isSuccess;
 }

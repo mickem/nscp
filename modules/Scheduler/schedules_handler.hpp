@@ -177,6 +177,11 @@ struct scheduler : public simple_scheduler::handler {
   std::atomic<task_handler*> handler_{nullptr};
 
   target_object get(int id);
+  // Snapshot of every schedule which was successfully added (i.e. what the
+  // scheduler will actually run - schedules rejected at load time for a bad
+  // interval are not in here). Returns a copy so callers can iterate without
+  // holding the task mutex.
+  std::list<target_object> get_all();
 
   void start();
   void stop();
