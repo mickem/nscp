@@ -137,6 +137,37 @@ common:
           description: Enable logging of info messages from the web server.
           sample: false
           title: Log info
+    /settings/WEB/server/roles:
+      info:
+        advanced: false
+        description: A list of roles and with coma separated list of access rights.
+        subkey: false
+        title: Web server roles
+      keys:
+        client:
+          advanced: false
+          default_value: public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
+          description: Default role for read + run checks (queries.execute can run side-effecting commands)
+          sample: false
+          title: Role for read + run checks (queries.execute can run side-effecting commands)
+        full:
+          advanced: false
+          default_value: '*'
+          description: Default role for Full access
+          sample: false
+          title: Role for Full access
+        legacy:
+          advanced: false
+          default_value: legacy,login.get
+          description: Default role for legacy API
+          sample: false
+          title: Role for legacy API
+        monitoring:
+          advanced: false
+          default_value: public,queries.execute,aliases.list,login.get,metrics.get
+          description: Default role for checks and queries only
+          sample: false
+          title: Role for checks and queries only
     /settings/WEB/server/users:
       info:
         advanced: false
@@ -254,69 +285,3 @@ namespace: generic
 platforms:
 - unix
 - windows
-unix:
-  paths:
-    /settings/WEB/server/roles:
-      info:
-        advanced: false
-        description: A list of roles and with coma separated list of access rights.
-        subkey: false
-        title: Web server roles
-      keys:
-        client:
-          advanced: false
-          default_value: public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-          description: Default role for read only
-          sample: false
-          title: Role for read only
-        full:
-          advanced: false
-          default_value: '*'
-          description: Default role for Full access
-          sample: false
-          title: Role for Full access
-        legacy:
-          advanced: false
-          default_value: legacy,login.get
-          description: Default role for legacy API
-          sample: false
-          title: Role for legacy API
-        monitoring:
-          advanced: false
-          default_value: public,queries.execute,aliases.list,login.get,metrics.get
-          description: Default role for checks and queries only
-          sample: false
-          title: Role for checks and queries only
-windows:
-  paths:
-    /settings/WEB/server/roles:
-      info:
-        advanced: false
-        description: A list of roles and with coma separated list of access rights.
-        subkey: false
-        title: Web server roles
-      keys:
-        client:
-          advanced: false
-          default_value: public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-          description: Default role for read + run checks (queries.execute can run side-effecting commands)
-          sample: false
-          title: Role for read + run checks (queries.execute can run side-effecting commands)
-        full:
-          advanced: false
-          default_value: '*'
-          description: Default role for Full access
-          sample: false
-          title: Role for Full access
-        legacy:
-          advanced: false
-          default_value: legacy,login.get
-          description: Default role for legacy API
-          sample: false
-          title: Role for legacy API
-        monitoring:
-          advanced: false
-          default_value: public,queries.execute,aliases.list,login.get,metrics.get
-          description: Default role for checks and queries only
-          sample: false
-          title: Role for checks and queries only

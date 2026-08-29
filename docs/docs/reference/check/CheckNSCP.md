@@ -197,56 +197,50 @@ agent is OK|'nscp_crashes'=0;0;0 'nscp_errors'=0;0;0
 <a id="check_nscp_options"></a>
 #### Command-line Arguments
 
-=== "Windows"
-
-    | Option                           | Default Value | Description                                                                                                                                               |
-    |----------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | [max-unit](#check_nscp_max-unit) | w             | Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'. |
+| Option                           | Default Value | Description                                                                                                                                               |
+|----------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [max-unit](#check_nscp_max-unit) | w             | Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'. |
 
 
 
-    <h5 id="check_nscp_max-unit">max-unit:</h5>
+<h5 id="check_nscp_max-unit">max-unit:</h5>
 
-    Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'.
+Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'.
 
-    *Default Value:* `w`
-
-
-    **Common options:**
-
-    These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+*Default Value:* `w`
 
 
-    | Option                                                                                                     | Default Value                                              |
-    |------------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
-    | <a id="check_nscp_filter"></a>[filter](../common-options.md#filter)                                        |                                                            |
-    | <a id="check_nscp_warning"></a>[warning](../common-options.md#warning)                                     |                                                            |
-    | <a id="check_nscp_warn"></a>[warn](../common-options.md#warn)                                              |                                                            |
-    | <a id="check_nscp_critical"></a>[critical](../common-options.md#critical)                                  | crashes > 0 or errors > 0                                  |
-    | <a id="check_nscp_crit"></a>[crit](../common-options.md#crit)                                              |                                                            |
-    | <a id="check_nscp_ok"></a>[ok](../common-options.md#ok)                                                    |                                                            |
-    | <a id="check_nscp_debug"></a>[debug](../common-options.md#debug)                                           | false                                                      |
-    | <a id="check_nscp_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                      |
-    | <a id="check_nscp_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                    |
-    | <a id="check_nscp_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                            |
-    | <a id="check_nscp_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                      |
-    | <a id="check_nscp_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                          |
-    | <a id="check_nscp_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                         |
-    | <a id="check_nscp_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                            |
-    | <a id="check_nscp_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                            |
-    | <a id="check_nscp_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${crashes} crash(es), ${errors} error(s), uptime ${uptime} |
-    | <a id="check_nscp_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | nscp                                                       |
-    | <a id="check_nscp_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                            |
-    | <a id="check_nscp_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                            |
-    | <a id="check_nscp_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                         |
-    | <a id="check_nscp_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                            |
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
 
 
-    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+| Option                                                                                                     | Default Value                                              |
+|------------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
+| <a id="check_nscp_filter"></a>[filter](../common-options.md#filter)                                        |                                                            |
+| <a id="check_nscp_warning"></a>[warning](../common-options.md#warning)                                     |                                                            |
+| <a id="check_nscp_warn"></a>[warn](../common-options.md#warn)                                              |                                                            |
+| <a id="check_nscp_critical"></a>[critical](../common-options.md#critical)                                  | crashes > 0 or errors > 0                                  |
+| <a id="check_nscp_crit"></a>[crit](../common-options.md#crit)                                              |                                                            |
+| <a id="check_nscp_ok"></a>[ok](../common-options.md#ok)                                                    |                                                            |
+| <a id="check_nscp_debug"></a>[debug](../common-options.md#debug)                                           | false                                                      |
+| <a id="check_nscp_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                      |
+| <a id="check_nscp_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                    |
+| <a id="check_nscp_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                            |
+| <a id="check_nscp_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                      |
+| <a id="check_nscp_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                          |
+| <a id="check_nscp_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                         |
+| <a id="check_nscp_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                            |
+| <a id="check_nscp_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                            |
+| <a id="check_nscp_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${crashes} crash(es), ${errors} error(s), uptime ${uptime} |
+| <a id="check_nscp_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | nscp                                                       |
+| <a id="check_nscp_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                            |
+| <a id="check_nscp_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                            |
+| <a id="check_nscp_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                         |
+| <a id="check_nscp_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                            |
 
-=== "Linux"
 
-    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 <a id="check_nscp_filter_keys"></a>

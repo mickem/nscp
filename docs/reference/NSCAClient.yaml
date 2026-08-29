@@ -4,6 +4,40 @@ common:
       via NSCA
     title: NSCAClient
   paths:
+    /settings/NSCA/client:
+      info:
+        advanced: false
+        description: Section for NSCA passive check module.
+        subkey: false
+        title: NSCA CLIENT SECTION
+      keys:
+        channel:
+          advanced: false
+          default_value: NSCA
+          description: The channel to listen to.
+          sample: false
+          title: CHANNEL
+        encoding:
+          advanced: true
+          default_value: ''
+          description: ''
+          sample: false
+          title: NSCA DATA ENCODING
+        hostname:
+          advanced: false
+          default_value: auto
+          description: "The host name of the monitored computer.\nSet this to auto (default) to use the\
+            \ windows name of the computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\tHostname\
+            \ in lowercase\n${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname\
+            \ in lowercase\n${domain_uc}\tDomainname in uppercase\n${address_ipv4}\tIPv4 address of the\
+            \ computer\n${address_ipv6}\tIPv6 address of the computer (lowercase, compressed)\n${address_ipv6_lc}\t\
+            IPv6 address in lowercase (compressed)\n${address_ipv6_uc}\tIPv6 address in uppercase (compressed)\n\
+            ${address_ipv6_lc_comp}\tIPv6 address in lowercase, compressed (2001:db8::7)\n${address_ipv6_lc_uncomp}\t\
+            IPv6 address in lowercase, uncompressed (2001:0db8:0000:0000:0000:0000:0000:0007)\n${address_ipv6_uc_comp}\t\
+            IPv6 address in uppercase, compressed\n${address_ipv6_uc_uncomp}\tIPv6 address in uppercase,\
+            \ uncompressed\n"
+          sample: false
+          title: HOSTNAME
     /settings/NSCA/client/handlers:
       info:
         advanced: false
@@ -465,69 +499,3 @@ namespace: client
 platforms:
 - unix
 - windows
-unix:
-  paths:
-    /settings/NSCA/client:
-      info:
-        advanced: false
-        description: Section for NSCA passive check module.
-        subkey: false
-        title: NSCA CLIENT SECTION
-      keys:
-        channel:
-          advanced: false
-          default_value: NSCA
-          description: The channel to listen to.
-          sample: false
-          title: CHANNEL
-        encoding:
-          advanced: true
-          default_value: ''
-          description: ''
-          sample: false
-          title: NSCA DATA ENCODING
-        hostname:
-          advanced: false
-          default_value: auto
-          description: "The host name of the monitored computer.\nSet this to auto (default) to use the\
-            \ windows name of the computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\nHostname\
-            \ in lowercase\n${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname\
-            \ in lowercase\n${domain_uc}\tDomainname in uppercase\n"
-          sample: false
-          title: HOSTNAME
-windows:
-  paths:
-    /settings/NSCA/client:
-      info:
-        advanced: false
-        description: Section for NSCA passive check module.
-        subkey: false
-        title: NSCA CLIENT SECTION
-      keys:
-        channel:
-          advanced: false
-          default_value: NSCA
-          description: The channel to listen to.
-          sample: false
-          title: CHANNEL
-        encoding:
-          advanced: true
-          default_value: ''
-          description: ''
-          sample: false
-          title: NSCA DATA ENCODING
-        hostname:
-          advanced: false
-          default_value: auto
-          description: "The host name of the monitored computer.\nSet this to auto (default) to use the\
-            \ windows name of the computer.\n\nauto\tHostname\n${host}\tHostname\n${host_lc}\tHostname\
-            \ in lowercase\n${host_uc}\tHostname in uppercase\n${domain}\tDomainname\n${domain_lc}\tDomainname\
-            \ in lowercase\n${domain_uc}\tDomainname in uppercase\n${address_ipv4}\tIPv4 address of the\
-            \ computer\n${address_ipv6}\tIPv6 address of the computer (lowercase, compressed)\n${address_ipv6_lc}\t\
-            IPv6 address in lowercase (compressed)\n${address_ipv6_uc}\tIPv6 address in uppercase (compressed)\n\
-            ${address_ipv6_lc_comp}\tIPv6 address in lowercase, compressed (2001:db8::7)\n${address_ipv6_lc_uncomp}\t\
-            IPv6 address in lowercase, uncompressed (2001:0db8:0000:0000:0000:0000:0000:0007)\n${address_ipv6_uc_comp}\t\
-            IPv6 address in uppercase, compressed\n${address_ipv6_uc_uncomp}\tIPv6 address in uppercase,\
-            \ uncompressed\n"
-          sample: false
-          title: HOSTNAME

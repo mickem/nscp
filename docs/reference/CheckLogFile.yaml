@@ -19,429 +19,6 @@ common:
           description: Spawns a background thread which waits for file changes.
           sample: false
           title: Real time
-  queries:
-    check_logfile:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: ''
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: ${column1}
-        empty-state: ignored
-        empty-syntax: '%(status): Nothing found'
-        escape-html: 'false'
-        filter: ''
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: ''
-        perf-config: ''
-        perf-syntax: ${column1}
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: ${count}/${total} (${problem_list})
-        warn: ''
-        warning: ''
-      fields:
-      - generic: false
-        long_description: 'Fetch the value from the given column number.
-
-          Syntax: column(<coulmn number>)'
-        name: column()
-        short_description: ''
-      - generic: false
-        long_description: The value in the first column
-        name: column1
-        short_description: ''
-      - generic: false
-        long_description: The value in the second column
-        name: column2
-        short_description: ''
-      - generic: false
-        long_description: The value in the third column
-        name: column3
-        short_description: ''
-      - generic: false
-        long_description: The value in the 4:th column
-        name: column4
-        short_description: ''
-      - generic: false
-        long_description: The value in the 5:th column
-        name: column5
-        short_description: ''
-      - generic: false
-        long_description: The value in the 6:th column
-        name: column6
-        short_description: ''
-      - generic: false
-        long_description: The value in the 7:th column
-        name: column7
-        short_description: ''
-      - generic: false
-        long_description: The value in the 8:th column
-        name: column8
-        short_description: ''
-      - generic: false
-        long_description: The value in the 9:th column
-        name: column9
-        short_description: ''
-      - generic: false
-        long_description: The name of the file
-        name: file
-        short_description: ''
-      - generic: false
-        long_description: The name of the file
-        name: filename
-        short_description: ''
-      - generic: false
-        long_description: Match the content of an entire line
-        name: line
-        short_description: ''
-      info:
-        description: Check for errors in log file or generic pattern matching in text files.
-      params:
-      - content_type: 2
-        default_value: \n
-        is_simple: false
-        long_description: 'Character string used to split a file into several lines (default `\n`).
-
-          The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters
-          are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly
-          on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`)
-          makes the entire file content available as a single record, which is useful together with a
-          multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
-
-          `, a trailing carriage return is stripped from each record so that files with CRLF line endings
-          produce clean lines.'
-        name: line-split
-        repeatable: false
-        required: false
-        short_description: Character string used to split a file into several lines (default `\n`).
-      - content_type: 2
-        default_value: \t
-        is_simple: false
-        long_description: Character string to split a line into several columns (default \t)
-        name: column-split
-        repeatable: false
-        required: false
-        short_description: Character string to split a line into several columns (default \t)
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Alias for split-column
-        name: split
-        repeatable: false
-        required: false
-        short_description: Alias for split-column
-      - content_type: 2
-        default_value: ''
-        is_simple: false
-        long_description: 'File to read (can be specified multiple times to check multiple files.
-
-          Notice that specifying multiple files will create an aggregate set it will not check each file
-          individually.
-
-          In other words if one file contains an error the entire check will result in error or if you
-          check the count it is the global count which is used.'
-        name: file
-        repeatable: false
-        required: false
-        short_description: File to read (can be specified multiple times to check multiple files.
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: A comma separated list of files to scan (same as file except a list)
-        name: files
-        repeatable: false
-        required: false
-        short_description: A comma separated list of files to scan (same as file except a list)
-      - content_type: 2
-        default_value: auto
-        is_simple: false
-        long_description: 'Only scan lines added since the last check with the same bookmark name.
-
-          NSClient++ remembers, per file and per bookmark, how far it read last time and resumes from
-          there, so a line is reported once instead of on every check. The first check of a file reads
-          it in full; a file which is truncated, rotated or replaced is detected (via its size and a fingerprint
-          of its first bytes) and read from the beginning again. A trailing line which is not yet terminated
-          by line-split is held back until it is complete, so half-written lines are never reported twice.
-
-          If you set this to auto (or leave the value empty) the bookmark name is derived from the file
-          name together with a hash of your filter, warning and critical expressions, which keeps unrelated
-          checks of the same file from consuming each other''s lines. Use an explicit name to share (or
-          separate) positions deliberately. Positions are persisted when NSClient++ shuts down and restored
-          on start; the newest ones are kept if more than a thousand accumulate.'
-        name: bookmark
-        repeatable: false
-        required: false
-        short_description: Only scan lines added since the last check with the same bookmark name.
-      - content_type: 2
-        default_value: '0'
-        is_simple: false
-        long_description: 'Only examine the newest <N> lines of each file (0, the default, means every
-          line).
-
-          The limit is applied per file, after any bookmark: with a bookmark the check still only sees
-          lines added since the last check, and this caps how many of them are reported when a burst of
-          lines was written at once. The lines dropped by the limit are never reported later either -
-          the bookmark moves past everything which was read.
-
-          Which end of the file holds the newest lines is controlled by `newest`.'
-        name: max-lines
-        repeatable: false
-        required: false
-        short_description: Only examine the newest <N> lines of each file (0, the default, means every
-          line).
-      - content_type: 2
-        default_value: last
-        is_simple: false
-        long_description: 'Which end of the file holds the newest line: `last` (the default: lines are
-          appended, as with most machine-written logs) or `first` (the file is rewritten with the newest
-          line at the top, which is common in hand-maintained files such as changelogs).
-
-          This only decides which end `max-lines` counts from; lines are always reported in the order
-          they appear in the file. `newest=first` cannot be combined with `bookmark`, since a file which
-          is rewritten from the top has no stable position to resume from.'
-        name: newest
-        repeatable: false
-        required: false
-        short_description: 'Which end of the file holds the newest line: `last` (the default: lines are
-          appended, as with most machine-written logs) or `first` (the file is rewritten with the newest
-          line at the top, which is common in hand-maintained files such as changelogs).'
-module: CheckLogFile
-namespace: check
-platforms:
-- unix
-- windows
-unix:
-  paths:
-    /settings/logfile/real-time/checks:
-      info:
-        advanced: false
-        description: A set of filters to use in real-time mode
-        subkey: true
-        title: Real-time filters
-      sample:
-        keys:
-          byte unit:
-            advanced: true
-            default_value: ''
-            description: 'Unit to render every byte value of the message in: B, KB, MB, GB, TB, PB or
-              EB. Empty (the default) scales each value on its own. Performance data is unaffected.'
-            sample: true
-            title: BYTE UNIT
-          column split:
-            advanced: false
-            default_value: ''
-            description: THe character(s) to use when splitting on column level
-            sample: true
-            title: COLUMN SPLIT
-          column-split:
-            advanced: true
-            default_value: ''
-            description: Alias for column split
-            sample: true
-            title: COLUMN SPLIT
-          command:
-            advanced: true
-            default_value: ''
-            description: The name of the command (think nagios service name) to report up stream (defaults
-              to alias if not set)
-            sample: true
-            title: COMMAND NAME
-          critical:
-            advanced: false
-            default_value: ''
-            description: If any rows match this filter severity will escalated to CRITICAL
-            sample: true
-            title: CRITICAL FILTER
-          debug:
-            advanced: true
-            default_value: ''
-            description: Enable this to display debug information for this match filter
-            sample: true
-            title: DEBUG
-          decimal separator:
-            advanced: true
-            default_value: ''
-            description: 'Character to use as the decimal separator of the message, for instance '',''
-              for the European rendering. Only the message is affected: performance data and the numbers
-              written in a filter always use ''.''.'
-            sample: true
-            title: DECIMAL SEPARATOR
-          decimals:
-            advanced: true
-            default_value: '-1'
-            description: Number of decimals to render the numbers of the message with (-1 keeps the historical
-              rendering of up to three decimals with the trailing zeros stripped). Performance data is
-              unaffected.
-            sample: true
-            title: DECIMALS
-          destination:
-            advanced: true
-            default_value: ''
-            description: The destination for intercepted messages
-            sample: true
-            title: DESTINATION
-          detail syntax:
-            advanced: true
-            default_value: ''
-            description: Format string for dates
-            sample: true
-            title: SYNTAX
-          empty message:
-            advanced: true
-            default_value: eventlog found no records
-            description: The message to display if nothing matches the filter (generally considered the
-              ok state).
-            sample: true
-            title: EMPTY MESSAGE
-          escape html:
-            advanced: true
-            default_value: ''
-            description: Escape HTML characters (< and >).
-            sample: true
-            title: ESCAPE HTML
-          file:
-            advanced: false
-            default_value: ''
-            description: The file check
-            sample: true
-            title: FILE
-          files:
-            advanced: true
-            default_value: ''
-            description: Check multiple files
-            sample: true
-            title: FILES
-          filter:
-            advanced: false
-            default_value: ''
-            description: Scan files for matching rows for each matching rows an OK message will be submitted
-            sample: true
-            title: FILTER
-          list separator:
-            advanced: true
-            default_value: ''
-            description: String used to separate the items of %(list) and friends (default ', '). Accepts
-              the escapes \n, \r, \t and \\; set it to \n to render one item per line (most Nagios compatible
-              frontends show everything after the first line as long output). Reference it as %(sep) in
-              the top syntax to also break before the first item.
-            sample: true
-            title: LIST SEPARATOR
-          maximum age:
-            advanced: false
-            default_value: 5m
-            description: 'How long before reporting "ok".
-
-              If this is set to "false" no periodic ok messages will be reported only errors.'
-            sample: true
-            title: MAXIMUM AGE
-          ok:
-            advanced: false
-            default_value: ''
-            description: If any rows match this filter severity will escalated down to OK
-            sample: true
-            title: OK FILTER
-          ok syntax:
-            advanced: true
-            default_value: ''
-            description: Format string for dates
-            sample: true
-            title: SYNTAX
-          perf config:
-            advanced: true
-            default_value: ''
-            description: Performance data configuration
-            sample: true
-            title: PERF CONFIG
-          read entire file:
-            advanced: true
-            default_value: ''
-            description: When set to `true` the file is read in full on every check. When `false` (the
-              default) the real-time check resumes reading from the position it stopped at the previous
-              time the file was processed, so only newly-appended data is matched. If the file shrinks
-              (for example after log rotation) the next check restarts from the beginning.
-            sample: true
-            title: read entire file
-          severity:
-            advanced: true
-            default_value: ''
-            description: THe severity of this message (OK, WARNING, CRITICAL, UNKNOWN)
-            sample: true
-            title: SEVERITY
-          silent period:
-            advanced: false
-            default_value: 'false'
-            description: 'How long before a new alert is reported after an alert is reported. In other
-              words whenever an alert is fired and a notification is sent the same notification will not
-              be sent again until this period has ended.
-
-              If this is set to "false" no periodic ok messages will be reported only errors.'
-            sample: true
-            title: Silent period
-          source id:
-            advanced: true
-            default_value: ''
-            description: The name of the source system, will automatically use the remote system if a
-              remote system is called. Almost most sending systems will replace this with current systems
-              hostname if not present. So use this only if you need specific source systems for specific
-              schedules and not calling remote systems.
-            sample: true
-            title: SOURCE ID
-          target:
-            advanced: false
-            default_value: ''
-            description: Same as destination
-            sample: true
-            title: DESTINATION
-          target id:
-            advanced: true
-            default_value: ''
-            description: The target to send the message to (will be resolved by the consumer)
-            sample: true
-            title: TARGET ID
-          thousands separator:
-            advanced: true
-            default_value: ''
-            description: Character to group the thousands of the message with. Empty (the default) means
-              no grouping. Only the message is affected.
-            sample: true
-            title: THOUSANDS SEPARATOR
-          top syntax:
-            advanced: true
-            default_value: ''
-            description: Format string for dates
-            sample: true
-            title: SYNTAX
-          warning:
-            advanced: false
-            default_value: ''
-            description: If any rows match this filter severity will escalated to WARNING
-            sample: true
-            title: WARNING FILTER
-windows:
-  paths:
     /settings/logfile/real-time/checks:
       info:
         advanced: false
@@ -657,3 +234,217 @@ windows:
             description: If any rows match this filter severity will escalated to WARNING
             sample: true
             title: WARNING FILTER
+  queries:
+    check_logfile:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: ''
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${column1}
+        empty-state: ignored
+        empty-syntax: '%(status): Nothing found'
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: ${column1}
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: ${count}/${total} (${problem_list})
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: 'Fetch the value from the given column number.
+
+          Syntax: column(<coulmn number>)'
+        name: column()
+        short_description: ''
+      - generic: false
+        long_description: The value in the first column
+        name: column1
+        short_description: ''
+      - generic: false
+        long_description: The value in the second column
+        name: column2
+        short_description: ''
+      - generic: false
+        long_description: The value in the third column
+        name: column3
+        short_description: ''
+      - generic: false
+        long_description: The value in the 4:th column
+        name: column4
+        short_description: ''
+      - generic: false
+        long_description: The value in the 5:th column
+        name: column5
+        short_description: ''
+      - generic: false
+        long_description: The value in the 6:th column
+        name: column6
+        short_description: ''
+      - generic: false
+        long_description: The value in the 7:th column
+        name: column7
+        short_description: ''
+      - generic: false
+        long_description: The value in the 8:th column
+        name: column8
+        short_description: ''
+      - generic: false
+        long_description: The value in the 9:th column
+        name: column9
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: file
+        short_description: ''
+      - generic: false
+        long_description: The name of the file
+        name: filename
+        short_description: ''
+      - generic: false
+        long_description: Match the content of an entire line
+        name: line
+        short_description: ''
+      info:
+        description: Check for errors in log file or generic pattern matching in text files.
+      params:
+      - content_type: 2
+        default_value: \n
+        is_simple: false
+        long_description: 'Character string used to split a file into several lines (default `\n`).
+
+          The escape sequences `\n` and `\t` are translated to LF and TAB respectively; all other characters
+          are taken literally. Multi-character delimiters are supported (for example `\r\n` to split strictly
+          on CRLF, or `|||` for a  custom separator). Setting `line-split` to an empty value (`line-split=`)
+          makes the entire file content available as a single record, which is useful together with a
+          multi-line regular-expression filter.\nWhen the chosen delimiter ends with `
+
+          `, a trailing carriage return is stripped from each record so that files with CRLF line endings
+          produce clean lines.'
+        name: line-split
+        repeatable: false
+        required: false
+        short_description: Character string used to split a file into several lines (default `\n`).
+      - content_type: 2
+        default_value: \t
+        is_simple: false
+        long_description: Character string to split a line into several columns (default \t)
+        name: column-split
+        repeatable: false
+        required: false
+        short_description: Character string to split a line into several columns (default \t)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Alias for split-column
+        name: split
+        repeatable: false
+        required: false
+        short_description: Alias for split-column
+      - content_type: 2
+        default_value: ''
+        is_simple: false
+        long_description: 'File to read (can be specified multiple times to check multiple files.
+
+          Notice that specifying multiple files will create an aggregate set it will not check each file
+          individually.
+
+          In other words if one file contains an error the entire check will result in error or if you
+          check the count it is the global count which is used.'
+        name: file
+        repeatable: false
+        required: false
+        short_description: File to read (can be specified multiple times to check multiple files.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: A comma separated list of files to scan (same as file except a list)
+        name: files
+        repeatable: false
+        required: false
+        short_description: A comma separated list of files to scan (same as file except a list)
+      - content_type: 2
+        default_value: auto
+        is_simple: false
+        long_description: 'Only scan lines added since the last check with the same bookmark name.
+
+          NSClient++ remembers, per file and per bookmark, how far it read last time and resumes from
+          there, so a line is reported once instead of on every check. The first check of a file reads
+          it in full; a file which is truncated, rotated or replaced is detected (via its size and a fingerprint
+          of its first bytes) and read from the beginning again. A trailing line which is not yet terminated
+          by line-split is held back until it is complete, so half-written lines are never reported twice.
+
+          If you set this to auto (or leave the value empty) the bookmark name is derived from the file
+          name together with a hash of your filter, warning and critical expressions, which keeps unrelated
+          checks of the same file from consuming each other''s lines. Use an explicit name to share (or
+          separate) positions deliberately. Positions are persisted when NSClient++ shuts down and restored
+          on start; the newest ones are kept if more than a thousand accumulate.'
+        name: bookmark
+        repeatable: false
+        required: false
+        short_description: Only scan lines added since the last check with the same bookmark name.
+      - content_type: 2
+        default_value: '0'
+        is_simple: false
+        long_description: 'Only examine the newest <N> lines of each file (0, the default, means every
+          line).
+
+          The limit is applied per file, after any bookmark: with a bookmark the check still only sees
+          lines added since the last check, and this caps how many of them are reported when a burst of
+          lines was written at once. The lines dropped by the limit are never reported later either -
+          the bookmark moves past everything which was read.
+
+          Which end of the file holds the newest lines is controlled by `newest`.'
+        name: max-lines
+        repeatable: false
+        required: false
+        short_description: Only examine the newest <N> lines of each file (0, the default, means every
+          line).
+      - content_type: 2
+        default_value: last
+        is_simple: false
+        long_description: 'Which end of the file holds the newest line: `last` (the default: lines are
+          appended, as with most machine-written logs) or `first` (the file is rewritten with the newest
+          line at the top, which is common in hand-maintained files such as changelogs).
+
+          This only decides which end `max-lines` counts from; lines are always reported in the order
+          they appear in the file. `newest=first` cannot be combined with `bookmark`, since a file which
+          is rewritten from the top has no stable position to resume from.'
+        name: newest
+        repeatable: false
+        required: false
+        short_description: 'Which end of the file holds the newest line: `last` (the default: lines are
+          appended, as with most machine-written logs) or `first` (the file is rewritten with the newest
+          line at the top, which is common in hand-maintained files such as changelogs).'
+module: CheckLogFile
+namespace: check
+platforms:
+- unix
+- windows

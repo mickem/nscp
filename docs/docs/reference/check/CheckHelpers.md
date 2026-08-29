@@ -272,47 +272,28 @@ check_cpu OK OK: CPU load is ok.
 <a id="check_and_forward_options"></a>
 #### Command-line Arguments
 
-=== "Windows"
+<a id="check_and_forward_command"></a>
+<a id="check_and_forward_arguments"></a>
+<a id="check_and_forward_channel"></a>
+<a id="check_and_forward_target"></a>
+<a id="check_and_forward_alias"></a>
+<a id="check_and_forward_destination"></a>
+<a id="check_and_forward_source"></a>
 
-    <a id="check_and_forward_command"></a>
-    <a id="check_and_forward_arguments"></a>
-    <a id="check_and_forward_channel"></a>
-    <a id="check_and_forward_target"></a>
-    <a id="check_and_forward_alias"></a>
-    <a id="check_and_forward_destination"></a>
-    <a id="check_and_forward_source"></a>
-
-    | Option      | Default Value | Description                                                                                                          |
-    |-------------|---------------|----------------------------------------------------------------------------------------------------------------------|
-    | command     |               | The command to run before forwarding the result                                                                      |
-    | arguments   |               | An argument for the wrapped command, repeat for more than one                                                        |
-    | channel     |               | The channel to submit the result on, i.e. which client module sends it (NSCA, NRDP, GRAPHITE, ...). Defaults to NSCA |
-    | target      |               | Legacy synonym for channel (kept for backwards compatibility)                                                        |
-    | alias       |               | Alias (service description) to report the result as, defaults to the name of the command                             |
-    | destination |               | The target to send the message to (resolved by the client module, defaults to its default target)                    |
-    | source      |               | The name of the source system, defaults to the host name of this machine                                             |
+| Option      | Default Value | Description                                                                                                          |
+|-------------|---------------|----------------------------------------------------------------------------------------------------------------------|
+| command     |               | The command to run before forwarding the result                                                                      |
+| arguments   |               | An argument for the wrapped command, repeat for more than one                                                        |
+| channel     |               | The channel to submit the result on, i.e. which client module sends it (NSCA, NRDP, GRAPHITE, ...). Defaults to NSCA |
+| target      |               | Legacy synonym for channel (kept for backwards compatibility)                                                        |
+| alias       |               | Alias (service description) to report the result as, defaults to the name of the command                             |
+| destination |               | The target to send the message to (resolved by the client module, defaults to its default target)                    |
+| source      |               | The name of the source system, defaults to the host name of this machine                                             |
 
 
 
 
-    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
-
-=== "Linux"
-
-    <a id="check_and_forward_target"></a>
-    <a id="check_and_forward_command"></a>
-    <a id="check_and_forward_arguments"></a>
-
-    | Option    | Default Value | Description                                  |
-    |-----------|---------------|----------------------------------------------|
-    | target    |               | Commands to run (can be used multiple times) |
-    | command   |               | Commands to run (can be used multiple times) |
-    | arguments |               | List of arguments (for wrapped command)      |
-
-
-
-
-    This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
 
 ### check_critical

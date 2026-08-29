@@ -139,8 +139,6 @@ A list of all available queries (check commands)
 
 ### run_schedules
 
-*Available on Windows only.*
-
 Run configured schedules now instead of waiting for their interval and submit the results as passive checks.
 
 #### About `run_schedules`

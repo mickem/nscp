@@ -58,6 +58,95 @@ common:
           sample: false
           title: Certificate verify mode
   queries:
+    check_nscp:
+      common_fields:
+      - count
+      - crit_count
+      - crit_list
+      - detail_list
+      - list
+      - ok_count
+      - ok_list
+      - problem_count
+      - problem_list
+      - sep
+      - status
+      - total
+      - warn_count
+      - warn_list
+      common_options:
+        byte-unit: ''
+        crit: ''
+        critical: crashes > 0 or errors > 0
+        debug: 'false'
+        decimal-separator: ''
+        decimals: '-1'
+        detail-syntax: ${crashes} crash(es), ${errors} error(s), uptime ${uptime}
+        empty-state: ignored
+        empty-syntax: ''
+        escape-html: 'false'
+        filter: ''
+        help: ''
+        help-pb: ''
+        help-short: ''
+        list-separator: ', '
+        ok: ''
+        ok-syntax: ''
+        perf-config: ''
+        perf-syntax: nscp
+        show-all: 'false'
+        show-default: ''
+        thousands-separator: ''
+        top-syntax: '${status}: ${list}'
+        warn: ''
+        warning: ''
+      fields:
+      - generic: false
+        long_description: 'Seconds since the most recent crash report was written, ''none'' when nothing
+          has crashed (accepts units: crash_age < 7d)'
+        name: crash_age
+        short_description: ''
+      - generic: false
+        long_description: Number of crash reports found in the crash archive folder
+        name: crashes
+        short_description: ''
+      - generic: false
+        long_description: The build date of the running NSClient++
+        name: date
+        short_description: ''
+      - generic: false
+        long_description: Number of errors logged by NSClient++ since it was started
+        name: errors
+        short_description: ''
+      - generic: false
+        long_description: File name of the most recent crash report (empty when nothing has crashed)
+        name: last_crash
+        short_description: ''
+      - generic: false
+        long_description: The most recently logged error message (empty when nothing has been logged)
+        name: last_error
+        short_description: ''
+      - generic: false
+        long_description: 'Seconds since NSClient++ was started (accepts units: uptime < 5m)'
+        name: uptime
+        short_description: ''
+      - generic: false
+        long_description: The running NSClient++ version
+        name: version
+        short_description: ''
+      info:
+        description: Check the internal health of NSClient++.
+      params:
+      - content_type: 2
+        default_value: w
+        is_simple: false
+        long_description: 'Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default:
+          w). For a 6-week uptime, w=>''6w 0d 00:00'', d=>''42d 00:00'', h=>''1008:00''.'
+        name: max-unit
+        repeatable: false
+        required: false
+        short_description: 'Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default:
+          w). For a 6-week uptime, w=>''6w 0d 00:00'', d=>''42d 00:00'', h=>''1008:00''.'
     check_nscp_update:
       common_fields:
       - count
@@ -248,104 +337,3 @@ namespace: check
 platforms:
 - unix
 - windows
-unix:
-  queries:
-    check_nscp:
-      common_options:
-        help: ''
-        help-pb: ''
-        help-short: ''
-        show-default: ''
-      info:
-        description: Check the internal health of NSClient++.
-windows:
-  queries:
-    check_nscp:
-      common_fields:
-      - count
-      - crit_count
-      - crit_list
-      - detail_list
-      - list
-      - ok_count
-      - ok_list
-      - problem_count
-      - problem_list
-      - sep
-      - status
-      - total
-      - warn_count
-      - warn_list
-      common_options:
-        byte-unit: ''
-        crit: ''
-        critical: crashes > 0 or errors > 0
-        debug: 'false'
-        decimal-separator: ''
-        decimals: '-1'
-        detail-syntax: ${crashes} crash(es), ${errors} error(s), uptime ${uptime}
-        empty-state: ignored
-        empty-syntax: ''
-        escape-html: 'false'
-        filter: ''
-        help: ''
-        help-pb: ''
-        help-short: ''
-        list-separator: ', '
-        ok: ''
-        ok-syntax: ''
-        perf-config: ''
-        perf-syntax: nscp
-        show-all: 'false'
-        show-default: ''
-        thousands-separator: ''
-        top-syntax: '${status}: ${list}'
-        warn: ''
-        warning: ''
-      fields:
-      - generic: false
-        long_description: 'Seconds since the most recent crash report was written, ''none'' when nothing
-          has crashed (accepts units: crash_age < 7d)'
-        name: crash_age
-        short_description: ''
-      - generic: false
-        long_description: Number of crash reports found in the crash archive folder
-        name: crashes
-        short_description: ''
-      - generic: false
-        long_description: The build date of the running NSClient++
-        name: date
-        short_description: ''
-      - generic: false
-        long_description: Number of errors logged by NSClient++ since it was started
-        name: errors
-        short_description: ''
-      - generic: false
-        long_description: File name of the most recent crash report (empty when nothing has crashed)
-        name: last_crash
-        short_description: ''
-      - generic: false
-        long_description: The most recently logged error message (empty when nothing has been logged)
-        name: last_error
-        short_description: ''
-      - generic: false
-        long_description: 'Seconds since NSClient++ was started (accepts units: uptime < 5m)'
-        name: uptime
-        short_description: ''
-      - generic: false
-        long_description: The running NSClient++ version
-        name: version
-        short_description: ''
-      info:
-        description: Check the internal health of NSClient++.
-      params:
-      - content_type: 2
-        default_value: w
-        is_simple: false
-        long_description: 'Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default:
-          w). For a 6-week uptime, w=>''6w 0d 00:00'', d=>''42d 00:00'', h=>''1008:00''.'
-        name: max-unit
-        repeatable: false
-        required: false
-        short_description: 'Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default:
-          w). For a 6-week uptime, w=>''6w 0d 00:00'', d=>''42d 00:00'', h=>''1008:00''.'

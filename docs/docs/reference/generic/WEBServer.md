@@ -420,49 +420,25 @@ legacy=legacy,login.get
 monitoring=public,queries.execute,aliases.list,login.get,metrics.get
 ```
 
-=== "Windows"
+#### Role for read + run checks (queries.execute can run side-effecting commands) <a id="/settings/WEB/server/roles/client"></a>
 
-    #### Role for read + run checks (queries.execute can run side-effecting commands) <a id="/settings/WEB/server/roles/client"></a>
-
-    Default role for read + run checks (queries.execute can run side-effecting commands)
+Default role for read + run checks (queries.execute can run side-effecting commands)
 
 
-    | Key            | Description                                                                                                     |
-    |----------------|-----------------------------------------------------------------------------------------------------------------|
-    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
-    | Key:           | client                                                                                                          |
-    | Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
+| Key            | Description                                                                                                     |
+|----------------|-----------------------------------------------------------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
+| Key:           | client                                                                                                          |
+| Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
 
 
-    **Sample:**
+**Sample:**
 
-    ```
-    [/settings/WEB/server/roles]
-    # Role for read + run checks (queries.execute can run side-effecting commands)
-    client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-    ```
-
-=== "Linux"
-
-    #### Role for read only <a id="/settings/WEB/server/roles/client"></a>
-
-    Default role for read only
-
-
-    | Key            | Description                                                                                                     |
-    |----------------|-----------------------------------------------------------------------------------------------------------------|
-    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
-    | Key:           | client                                                                                                          |
-    | Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
-
-
-    **Sample:**
-
-    ```
-    [/settings/WEB/server/roles]
-    # Role for read only
-    client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-    ```
+```
+[/settings/WEB/server/roles]
+# Role for read + run checks (queries.execute can run side-effecting commands)
+client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
+```
 
 #### Role for Full access <a id="/settings/WEB/server/roles/full"></a>
 
