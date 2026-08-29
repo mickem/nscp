@@ -372,6 +372,31 @@ the upgrade, a cert-mode target whose server certificate does not chain to
 the configured `ca` (or does not match the host name) will fail to connect —
 that is the verification taking effect; fix the server certificate or, if
 you accept the MITM exposure, opt out explicitly with `insecure = true`.
+
+### check_mk client: configured TLS settings were silently ignored
+
+**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Medium
+
+The check_mk client's target object built a settings registry for its SSL
+keys but never called `register_all()`/`notify()` on it, so every TLS-related
+key on a `[/settings/check_mk/client/targets/…]` section — `use ssl`,
+`certificate`, `certificate key`, `ca`, `allowed ciphers`, `verify mode`,
+`dh` — was read from the file and then discarded. The effective configuration
+was always the built-in default: **no TLS**. An operator who had configured
+`use ssl = true` (with or without certificate verification) was getting
+plaintext check_mk connections without any warning, and the keys were also
+missing from the generated reference documentation because they were never
+registered.
+
+The keys are registered and applied again, with regression tests pinning the
+behaviour. Note the flip side: targets that carry an old `use ssl = true`
+start negotiating TLS on upgrade, so a plaintext-only check_mk server end
+will now cause the check to fail — loudly, which is the point.
+
+The same missing-`register_all()`/`notify()` defect existed in the syslog
+client's target object (severity/facility/template keys, no security impact)
+and is fixed in the same release.
+
 ### Elastic client: server certificate verification, authentication and modernization
 
 **Fixed in:** unreleased (next release after 0.18.0) · **Severity:** Medium

@@ -129,6 +129,25 @@ per-release detail lives in each
   explicitly to keep the previous behaviour. Batched documents also now get
   distinct ids — previously all documents in one bulk request shared an id
   and overwrote each other, so multi-entry events show up completely now.
+- 🔒 **check_mk client targets: configured TLS settings are honoured again.**
+  `check_mk_target_object::read()` added the SSL keys (`use ssl`,
+  `certificate`, `verify mode`, `ca`, …) to its settings registry but never
+  called `register_all()`/`notify()`, so values set on a
+  `[/settings/check_mk/client/targets/…]` section were silently ignored and
+  the client connected in plaintext regardless of configuration. The keys are
+  read (and documented) again. If you configured `use ssl = true` on a
+  check_mk target, the connection becomes TLS on upgrade — make sure the
+  server side actually speaks TLS, or the check starts failing. Details in the
+  [security notice](../security/notices.md#check_mk-client-configured-tls-settings-were-silently-ignored).
+
+- 📨 **Syslog client targets: configured severities and templates are honoured
+  again.** The same defect existed in the syslog client's target object: the
+  `severity`, `facility`, `tag_syntax`, `message_syntax` and per-status
+  severity keys on a `[/settings/syslog/client/targets/…]` section were never
+  read, so the built-in defaults (`error`/`kernel`/…) always won. Values you
+  configured — perhaps years ago, without effect — now apply; if your syslog
+  routing depends on the previously effective defaults, review the target
+  sections for stale keys.
 
 - 📨 🔒 **Syslog messages now carry the RFC 3164 HOSTNAME field, and several
   syslog options work for the first time** (see the
