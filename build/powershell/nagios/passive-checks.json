@@ -1,0 +1,10 @@
+{
+  "_comment": "The passive service catalog shared by the whole Nagios turn-key flow. add-nagios-bundle.ps1 turns each entry into a scheduler schedule (the entry name becomes the schedule name, which is the servicename NRDP submits), and setup-nagios-machine.ps1 bakes the same names into the Nagios VM as the service objects fleet-nagios-sync.sh renders per host. Only commands that exist on both Windows and Linux belong here.",
+  "interval": "300s",
+  "services": [
+    { "name": "cpu", "command": "check_cpu" },
+    { "name": "memory", "command": "check_memory" },
+    { "name": "drives", "command": "check_drivesize" },
+    { "name": "uptime", "command": "check_uptime" }
+  ]
+}
