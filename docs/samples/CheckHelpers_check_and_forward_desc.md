@@ -40,7 +40,7 @@ monitoring server.
 
 !!! warning
 
-    Before 0.17.2 the result never left the agent: the submission was built in a
+    Before 0.18.0 the result never left the agent: the submission was built in a
     way the channels could not read, so the check ran, the command answered
     `Message submitted` and nothing at all reached the monitoring server. If you
     worked around this, the workaround is no longer needed.
