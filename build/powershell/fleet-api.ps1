@@ -62,6 +62,8 @@ function Invoke-FleetApi {
         [Parameter(Mandatory)][string]$Path,
         [string]$Method = "Get",
         [string]$ApiKey,
+        # A hashtable/object to send as the JSON request body.
+        [object]$Body = $null,
         [switch]$SkipCertificateCheck,
         [int]$TimeoutSec = 30
     )
@@ -75,6 +77,13 @@ function Invoke-FleetApi {
         ErrorAction = "Stop"
     }
     if ($ApiKey) { $params.Headers = @{ Authorization = "Bearer $ApiKey" } }
+    if ($null -ne $Body) {
+        # -Depth: the default (2) silently truncates nested structures like a
+        # bundle's config_json; 5.1 also needs the charset spelled out or
+        # non-ASCII ends up mangled on the wire.
+        $params.Body = [System.Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 16))
+        $params.ContentType = "application/json; charset=utf-8"
+    }
     if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -ge 6) {
         $params.SkipCertificateCheck = $true
     }
@@ -163,6 +172,92 @@ function Remove-FleetHost {
     )
     Invoke-FleetApi -FleetServer $FleetServer -Path "/api/hosts/$HostId" -Method Delete `
         -ApiKey $ApiKey -SkipCertificateCheck:$SkipCertificateCheck | Out-Null
+}
+
+<#
+.SYNOPSIS
+    List the hosts the fleet server knows about (GET /api/hosts).
+.DESCRIPTION
+    Returns the raw host objects (id, hostname, os, status, last_seen_at, ...).
+    A view_only API key is enough. -EnrolledOnly keeps just the hosts an agent
+    has actually joined from (status in_sync/out_of_sync/offline/lost),
+    which is the set a monitoring server should know about.
+#>
+function Get-FleetHosts {
+    param(
+        [Parameter(Mandatory)][string]$FleetServer,
+        [Parameter(Mandatory)][string]$ApiKey,
+        [switch]$EnrolledOnly,
+        [switch]$SkipCertificateCheck
+    )
+    $hosts = @(Invoke-FleetApi -FleetServer $FleetServer -Path "/api/hosts" `
+            -ApiKey $ApiKey -SkipCertificateCheck:$SkipCertificateCheck)
+    if ($EnrolledOnly) {
+        # enrolled_at is how the server itself defines "an agent joined";
+        # unlike the status vocabulary it cannot drift.
+        $hosts = @($hosts | Where-Object { $null -ne $_.enrolled_at -and $_.hostname })
+    }
+    return $hosts
+}
+
+<#
+.SYNOPSIS
+    Read and validate nagios/passive-checks.json, the service catalog shared by
+    every stage of the Nagios turn-key flow.
+.OUTPUTS
+    An object with Services (name/command objects), Interval ("300s") and
+    IntervalSeconds. Throws on anything the carriers could not represent: the
+    names become scheduler section names, NRDP service names, Nagios
+    service_descriptions and lines in a plain text list.
+#>
+function Read-PassiveCheckCatalog {
+    param([Parameter(Mandatory)][string]$Path)
+    $catalog = Get-Content -Path $Path -Raw | ConvertFrom-Json
+    $services = @($catalog.services)
+    if ($services.Count -eq 0) { throw "$Path has no services." }
+    foreach ($service in $services) {
+        if ("$($service.name)" -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+            throw "$Path : service name '$($service.name)' is not a plain identifier (letters, digits, '.', '_', '-')."
+        }
+        if (-not "$($service.command)") { throw "$Path : service '$($service.name)' has no command." }
+    }
+    if ("$($catalog.interval)" -notmatch '^(\d+)s$') {
+        throw "$Path : interval '$($catalog.interval)' must be a number of seconds like '300s'."
+    }
+    [pscustomobject]@{
+        Services        = $services
+        Interval        = "$($catalog.interval)"
+        IntervalSeconds = [int]$Matches[1]
+    }
+}
+
+<#
+.SYNOPSIS
+    Parse the .nagios.pwd file written by setup-nagios-machine.ps1.
+.OUTPUTS
+    An object with PublicIp, NagiosUrl, NagiosUser, NagiosPassword, NrdpUrl,
+    NrdpToken and FleetServer (missing lines come back empty).
+#>
+function Read-NagiosPwdFile {
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path $Path)) {
+        throw "Nagios credentials file '$Path' does not exist - run setup-nagios-machine.ps1 first, or pass the values explicitly."
+    }
+    $values = @{}
+    foreach ($line in Get-Content -Path $Path) {
+        if ($line -match '^([^:]+):\s*(.*)$') {
+            $values[$Matches[1].Trim()] = $Matches[2].Trim()
+        }
+    }
+    [pscustomobject]@{
+        PublicIp       = "$($values['Public IP'])"
+        NagiosUrl      = "$($values['Nagios URL'])"
+        NagiosUser     = "$($values['Nagios User'])"
+        NagiosPassword = "$($values['Nagios Password'])"
+        NrdpUrl        = "$($values['NRDP URL'])"
+        NrdpToken      = "$($values['NRDP Token'])"
+        FleetServer    = "$($values['Fleet Server'])"
+    }
 }
 
 # Machine names that look like something out of a real estate rather than

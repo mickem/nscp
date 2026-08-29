@@ -69,6 +69,15 @@
     Delete every machine in the manifest: its resource group, its credentials
     file and its manifest entry. Add -RemoveFleetHosts to also delete the hosts
     from the fleet server (needs an admin/owner API key).
+
+    The resource groups are deleted concurrently (one takes minutes, and it is
+    nearly all waiting on Azure), so a teardown costs about as long as its
+    slowest machine rather than the sum of all of them.
+.PARAMETER NoWait
+    With -Destroy: start every resource-group deletion and return without
+    waiting for them. Azure finishes them on its own. The manifest is kept,
+    because nothing was confirmed gone - re-run -Destroy afterwards to verify
+    and clear it (groups that are already gone drop out silently).
 .EXAMPLE
     # One Windows + one Ubuntu machine, enrolled with the fleet server:
     $env:NSCLIENT_FLEET_API_KEY = "nsk_..."
@@ -92,7 +101,7 @@ param(
     [int]$Ubuntu = 1,
     [ValidateRange(0, 50)]
     [int]$Rocky = 0,
-    [string]$Version = "0.15.0",
+    [string]$Version = "0.17.0",
     [string]$Location = "WestEurope",
     [string[]]$WindowsVersions = @("windows-2025"),
     [string]$UbuntuVersion = "24.04",
@@ -103,6 +112,7 @@ param(
     [switch]$FleetInsecure,
     [switch]$FleetNoVerify,
     [string]$FleetCaFile = "",
+    [string]$VmSize = "Standard_F1as_v7",
     [string]$ResourceGroupPrefix = "NSCP-Fleet",
     [string]$AdminUsername = "azureadmin",
     [switch]$Parallel,
@@ -112,6 +122,7 @@ param(
     [switch]$DryRun,
     [switch]$Destroy,
     [switch]$RemoveFleetHosts,
+    [switch]$NoWait,
     [switch]$Force
 )
 
@@ -165,49 +176,108 @@ if ($Destroy) {
     }
     Import-Module Az.Resources
     $remaining = [System.Collections.Generic.List[object]]::new()
+
+    # Fleet hosts first, sequentially: these are quick REST calls, and doing
+    # them before the (slow) Azure deletes means a machine leaves the fleet UI
+    # immediately rather than minutes later.
     foreach ($m in $existing) {
-        if ($RemoveFleetHosts) {
-            # The manifest remembers which server each machine enrolled with, so
-            # -FleetServer only has to be passed to override it.
-            $server = if ($FleetServer) { $FleetServer } else { $m.FleetServer }
-            if (-not $m.HostId) {
-                Write-Warning "   $($m.Name) has no fleet host id in the manifest; nothing to remove."
+        if (-not $RemoveFleetHosts) { break }
+        # The manifest remembers which server each machine enrolled with, so
+        # -FleetServer only has to be passed to override it.
+        $server = if ($FleetServer) { $FleetServer } else { $m.FleetServer }
+        if (-not $m.HostId) {
+            Write-Warning "   $($m.Name) has no fleet host id in the manifest; nothing to remove."
+        }
+        elseif (-not $server -or -not $ApiKey) {
+            Write-Warning "   -RemoveFleetHosts needs a fleet server url and an API key; keeping fleet host $($m.HostId)."
+        }
+        else {
+            try {
+                Remove-FleetHost -FleetServer $server -ApiKey $ApiKey -HostId $m.HostId -SkipCertificateCheck:$skipCert
+                Write-Host "   ✅ removed fleet host $($m.HostId) ($($m.Name))"
             }
-            elseif (-not $server -or -not $ApiKey) {
-                Write-Warning "   -RemoveFleetHosts needs a fleet server url and an API key; keeping fleet host $($m.HostId)."
-            }
-            else {
-                try {
-                    Remove-FleetHost -FleetServer $server -ApiKey $ApiKey -HostId $m.HostId -SkipCertificateCheck:$skipCert
-                    Write-Host "   ✅ removed fleet host $($m.HostId) ($($m.Name))"
-                }
-                catch {
-                    # An add_hosts key cannot delete; that must not stop the teardown.
-                    Write-Warning "   could not remove fleet host $($m.HostId): $($_.Exception.Message)"
-                }
+            catch {
+                # An add_hosts key cannot delete; that must not stop the teardown.
+                Write-Warning "   could not remove fleet host $($m.HostId): $($_.Exception.Message)"
             }
         }
+    }
+
+    # Then the resource groups, all at once. Deleting one takes minutes and is
+    # almost entirely waiting on Azure, so doing them one after another made a
+    # teardown take (machines x minutes). -AsJob starts the delete and returns
+    # immediately, which parallelises the waiting - and unlike
+    # ForEach-Object -Parallel it needs no PowerShell 7.
+    $pending = [System.Collections.Generic.List[object]]::new()
+    foreach ($m in $existing) {
         try {
             # A resource group that is already gone (a previous partial teardown,
-            # or one deleted by hand) is a success, not a failure to retry.
-            if (Get-AzResourceGroup -Name $m.ResourceGroup -ErrorAction SilentlyContinue) {
-                Write-Host "   deleting resource group $($m.ResourceGroup)..."
-                Remove-AzResourceGroup -Name $m.ResourceGroup -Force | Out-Null
-            }
-            else {
+            # one deleted by hand, or a -NoWait run that has since finished) is a
+            # success, not a failure to retry.
+            if (-not (Get-AzResourceGroup -Name $m.ResourceGroup -ErrorAction SilentlyContinue)) {
                 Write-Host "   resource group $($m.ResourceGroup) no longer exists"
+                if ($m.PwdFile -and (Test-Path $m.PwdFile)) { Remove-Item $m.PwdFile -Force -ErrorAction SilentlyContinue }
+                Write-Host "   ✅ $($m.Name) removed"
+                continue
             }
-            if ($m.PwdFile -and (Test-Path $m.PwdFile)) { Remove-Item $m.PwdFile -Force -ErrorAction SilentlyContinue }
-            Write-Host "   ✅ $($m.Name) removed"
+            Write-Host "   deleting resource group $($m.ResourceGroup)..."
+            $job = Remove-AzResourceGroup -Name $m.ResourceGroup -Force -AsJob -ErrorAction Stop
+            $pending.Add([pscustomobject]@{ Machine = $m; Job = $job })
         }
         catch {
-            Write-Warning "   failed to delete $($m.ResourceGroup): $($_.Exception.Message)"
+            Write-Warning "   failed to start deleting $($m.ResourceGroup): $($_.Exception.Message)"
             $remaining.Add($m)
         }
     }
+
+    if ($NoWait -and $pending.Count -gt 0) {
+        # Azure carries on deleting server-side after this process exits. The
+        # manifest is deliberately left alone: nothing has been *confirmed*
+        # gone, and a later -Destroy reconciles it (the groups will by then read
+        # as "no longer exists" and drop out).
+        Write-Host ""
+        Write-Host "● -NoWait: $($pending.Count) resource group deletion(s) are running in Azure; not waiting for them."
+        Write-Host "   They complete on their own. Re-run -Destroy later to confirm and clear the manifest,"
+        Write-Host "   or watch them with: Get-AzResourceGroup | Where-Object ResourceGroupName -like '$ResourceGroupPrefix-*'"
+        return
+    }
+
+    if ($pending.Count -gt 0) {
+        Write-Host "● Waiting for $($pending.Count) resource group deletion(s) to finish (they run concurrently)..."
+        $spent = 0
+        while ($pending | Where-Object { $_.Job.State -eq "Running" }) {
+            Start-Sleep -Seconds 10
+            $spent += 10
+            $left = @($pending | Where-Object { $_.Job.State -eq "Running" }).Count
+            Write-Host ("   {0,3}s elapsed, {1} still deleting: {2}" -f $spent, $left,
+                (@($pending | Where-Object { $_.Job.State -eq "Running" } | ForEach-Object { $_.Machine.Name }) -join ", "))
+        }
+        foreach ($p in $pending) {
+            $m = $p.Machine
+            try {
+                # Receive-Job rethrows whatever the delete failed with; a job
+                # that ended in any state other than Completed is a failure.
+                Receive-Job -Job $p.Job -ErrorAction Stop | Out-Null
+                if ($p.Job.State -ne "Completed") { throw "deletion job ended in state '$($p.Job.State)'" }
+                if ($m.PwdFile -and (Test-Path $m.PwdFile)) { Remove-Item $m.PwdFile -Force -ErrorAction SilentlyContinue }
+                Write-Host "   ✅ $($m.Name) removed"
+            }
+            catch {
+                Write-Warning "   failed to delete $($m.ResourceGroup): $($_.Exception.Message)"
+                $remaining.Add($m)
+            }
+            finally {
+                Remove-Job -Job $p.Job -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     if ($remaining.Count -gt 0) {
         Write-Manifest -Path $ManifestFile -Machines $remaining
-        Write-Error "❌ $($remaining.Count) machine(s) could not be removed and are still in the manifest."
+        # Write-Host, not Write-Error: see the summary at the end of the script -
+        # under $ErrorActionPreference = "Stop" an error record here renders as a
+        # crash and swallows the `exit`.
+        Write-Host "❌ $($remaining.Count) machine(s) could not be removed and are still in the manifest." -ForegroundColor Red
         exit 1
     }
     Remove-Item $ManifestFile -Force -ErrorAction SilentlyContinue
@@ -221,6 +291,18 @@ if ($Parallel -and $PSVersionTable.PSVersion.Major -lt 7) {
 }
 $total = $Windows + $Ubuntu + $Rocky
 if ($total -lt 1) { throw "Nothing to do: -Windows, -Ubuntu and -Rocky are all 0." }
+# The Linux setup scripts verify - as the service user - that the enrollment
+# material is readable, which the packages only arrange from 0.16.2 on (the
+# agent's adopt_owner). Against an older release every Ubuntu/Rocky machine
+# fails that check by design, ten minutes of Azure provisioning later; say so
+# now instead. Windows is unaffected (the service runs as LocalSystem).
+$minLinuxRelease = [version]"0.16.2"
+$parsedVersion = $null
+if (($Ubuntu -gt 0 -and -not $UbuntuPackageUrl) -or ($Rocky -gt 0 -and -not $RockyPackageUrl)) {
+    if ([version]::TryParse($Version, [ref]$parsedVersion) -and $parsedVersion -lt $minLinuxRelease) {
+        throw "Release $Version predates the Linux fleet-enrollment fix ($minLinuxRelease): every Ubuntu/Rocky machine would fail its post-enrollment check. Use -Version $minLinuxRelease or newer, or point -UbuntuPackageUrl/-RockyPackageUrl at a build that includes it."
+    }
+}
 if (-not $DryRun) {
     if (-not $FleetServer) { throw "-FleetServer is required (or set `$env:NSCLIENT_FLEET_SERVER)." }
     if (-not $ApiKey) { throw "-ApiKey is required (or set `$env:NSCLIENT_FLEET_API_KEY). Mint one from *API keys* in the fleet UI." }
@@ -249,6 +331,7 @@ function Add-FleetMachine {
         "-ResourceGroupName", $rg,
         "-Location", $Location,
         "-AdminUsername", $AdminUsername,
+        "-VmSize", $VmSize,
         "-PwdFile", $pwdFile
     ) + $ExtraArgs
     if ($FleetInsecure -or $FleetNoVerify) { $setupArgs += "-FleetInsecure" }
@@ -308,6 +391,70 @@ $health = Test-FleetServer -FleetServer $FleetServer -SkipCertificateCheck:$skip
 Write-Host "   /healthz -> $health (the machines must reach this url from Azure too)"
 
 & (Join-Path $scriptDir "connect-to-azure.ps1")
+
+# --- Capacity preflight ------------------------------------------------------
+# Once the region's vCPU quota is used up Azure refuses the VM create - but only
+# *after* the resource group, vnet, NSG, public IP and NIC are already there, so
+# the machine fails ten minutes in with a bare "setup exited 1" and leaves
+# billable resources behind. A default subscription gets 10 vCPUs per region, so
+# what the estate can be is (10 / vCPUs per machine) - ten of the 1-vCPU default,
+# five of a 2-vCPU size. Both quotas that apply are checked: the size's own
+# family and the regional total. Machines that are already up count against
+# both, so an estate you have not torn down shrinks what this run can create.
+#
+# A failure to *perform* the check (permissions, an API hiccup) is only a
+# warning - it must not block a run that would have worked. A definite answer
+# (the size is unusable, or the quota is genuinely short) stops the run.
+$shortfalls = @()
+$sizeProblem = $null
+try {
+    $sku = Get-AzComputeResourceSku -Location $Location -ErrorAction Stop |
+    Where-Object { $_.ResourceType -eq "virtualMachines" -and $_.Name -eq $VmSize } |
+    Select-Object -First 1
+    if (-not $sku) {
+        $sizeProblem = "$VmSize is not offered in $Location. Pick another -VmSize or -Location."
+    }
+    else {
+        # A size can exist in the region and still be blocked for this
+        # subscription. A purely *zonal* restriction does not apply to us: these
+        # VMs are created without a zone.
+        $hardBlocks = @($sku.Restrictions | Where-Object { $_.Type -ne "Zone" })
+        if ($hardBlocks) {
+            $sizeProblem = "$VmSize is not available to this subscription in ${Location}: $($hardBlocks.ReasonCode -join ', '). Pick another -VmSize or -Location."
+        }
+    }
+    if (-not $sizeProblem) {
+        $perMachine = 2
+        $vcpus = ($sku.Capabilities | Where-Object { $_.Name -eq "vCPUs" }).Value
+        if ($vcpus) { $perMachine = [int]$vcpus }
+        $needed = $machines.Count * $perMachine
+        # "cores" is the regional total; the family quota is the per-size one.
+        $quotaNames = @("cores")
+        if ($sku.Family) { $quotaNames += $sku.Family }
+        $usage = Get-AzVMUsage -Location $Location -ErrorAction Stop
+        foreach ($quotaName in $quotaNames) {
+            $u = $usage | Where-Object { $_.Name.Value -eq $quotaName } | Select-Object -First 1
+            if (-not $u) { continue }
+            $free = $u.Limit - $u.CurrentValue
+            if ($free -lt $needed) {
+                $shortfalls += "{0}: {1} of {2} vCPUs free, {3} needed" -f $u.Name.LocalizedValue, $free, $u.Limit, $needed
+            }
+        }
+        if ($shortfalls.Count -eq 0) {
+            Write-Host "● Capacity: $($machines.Count) x $VmSize ($perMachine vCPU each) = $needed vCPUs, within the $Location quota"
+        }
+    }
+}
+catch {
+    Write-Warning "Could not check the vCPU quota in $Location ($($_.Exception.Message)); provisioning anyway."
+}
+if ($sizeProblem) { throw $sizeProblem }
+if ($shortfalls.Count -gt 0) {
+    throw ("Not enough vCPU quota in $Location for $($machines.Count) machine(s):`n   " +
+        ($shortfalls -join "`n   ") +
+        "`n   Tear down an estate that is still up (./provision-fleet-machines.ps1 -Destroy -FleetServer $FleetServer)," +
+        " provision fewer machines, pick another -Location, or raise the quota in the Azure portal (Subscription > Usage + quotas).")
+}
 
 # --- Per-machine worker ------------------------------------------------------
 # Mirrors run-all-tests.ps1: the setup script is run as a child process (it calls
@@ -414,7 +561,19 @@ Write-Host "Tear down: ./provision-fleet-machines.ps1 -Destroy -RemoveFleetHosts
 
 $failed = @($results | Where-Object { $_.Status -ne "OK" })
 if ($failed.Count -gt 0) {
-    Write-Error "❌ $($failed.Count)/$($results.Count) machine(s) failed."
+    # Not Write-Error: this script runs with $ErrorActionPreference = "Stop", so
+    # an error record here is a *terminating* one - PowerShell renders the
+    # summary as an exception block (source line, caret, truncated message) that
+    # reads like the script itself crashed, and the `exit` below never runs. The
+    # run finished and reported; say so plainly and set the exit code.
+    Write-Host ""
+    Write-Host "❌ $($failed.Count)/$($results.Count) machine(s) failed:" -ForegroundColor Red
+    foreach ($f in $failed) {
+        # The table above truncates Detail; print it in full here.
+        Write-Host ("   {0,-14} {1,-16} {2}" -f $f.Name, $f.Image, $f.Detail) -ForegroundColor Red
+    }
+    Write-Host "   Logs: ./linux/show-log.ps1 (or ./win/show-log.ps1) -VmName <name>"
+    Write-Host "   Failures are in the manifest too, so -Destroy cleans up whatever was created."
     exit 1
 }
 Write-Host "✅ All $($results.Count) machine(s) provisioned and enrolled."

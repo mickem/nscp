@@ -25,8 +25,9 @@
     The administrator username for the new VM.
 .PARAMETER FleetServer
     Enroll the machine with this NSClient fleet server (e.g.
-    "https://fleet.example.com") once the package is installed. Requires
-    -FleetToken.
+    "https://fleet.example.com") once the package is installed. Defaults to
+    $env:NSCLIENT_FLEET_SERVER. Enrollment needs -FleetToken as well; without
+    one, an inherited NSCLIENT_FLEET_SERVER simply means "do not enroll".
 .PARAMETER FleetToken
     The one-time bootstrap token for -FleetServer, as minted by POST /api/hosts
     (see fleet-api.ps1) or by the install command in the fleet UI.
@@ -38,6 +39,10 @@
 .PARAMETER FleetCaFile
     A local PEM file with the CA that issued the fleet server certificate. It is
     copied to the VM and used to verify the enrollment call.
+.PARAMETER VmSize
+    Azure VM size. The default is a 1-vCPU size: a subscription's vCPU quota is
+    what caps the size of an estate, so halving the vCPUs per machine doubles
+    how many fit. Must be a Generation 2 size (every image below is Gen2).
 #>
 param(
     [string]$ResourceGroupName = "NSCP-RG",
@@ -53,21 +58,30 @@ param(
     # build/powershell/.vm.pwd; the wrapper passes a per-machine path so parallel
     # runs don't clobber each other.
     [string]$PwdFile = "",
-    [string]$FleetServer = "",
+    [string]$FleetServer = $env:NSCLIENT_FLEET_SERVER,
     [string]$FleetToken = "",
     [switch]$FleetInsecure,
     [switch]$FleetNoVerify,
-    [string]$FleetCaFile = ""
+    [string]$FleetCaFile = "",
+    [string]$VmSize = "Standard_F1as_v7"
 )
 
 # Fleet options are all-or-nothing: half of them means a machine that quietly
 # never joins the fleet, which is exactly what we are here to test.
 if ($FleetServer -and -not $FleetToken) {
-    Write-Error "❌ -FleetServer needs -FleetToken (mint one with fleet-api.ps1's New-FleetHost, or copy it from the fleet UI's install command)."
-    exit 1
+    # An explicitly passed -FleetServer without a token is the mistake this
+    # check exists for. One inherited from NSCLIENT_FLEET_SERVER is not: that
+    # variable is set once and left set, so it must not turn every plain test
+    # VM into a failed run - it just means "not enrolling this one".
+    if ($PSBoundParameters.ContainsKey("FleetServer")) {
+        Write-Error "❌ -FleetServer needs -FleetToken (mint one with fleet-api.ps1's New-FleetHost, or copy it from the fleet UI's install command)."
+        exit 1
+    }
+    Write-Host "● NSCLIENT_FLEET_SERVER is set but no -FleetToken was given: provisioning without fleet enrollment."
+    $FleetServer = ""
 }
 if ($FleetToken -and -not $FleetServer) {
-    Write-Error "❌ -FleetToken needs -FleetServer."
+    Write-Error "❌ -FleetToken needs -FleetServer (or set NSCLIENT_FLEET_SERVER)."
     exit 1
 }
 if ($FleetCaFile -and -not (Test-Path $FleetCaFile)) {
@@ -144,7 +158,6 @@ $nic = New-AzNetworkInterface -Name "$($VmName)-nic" -ResourceGroupName $Resourc
 
 # Set Rocky Linux image based on version
 $PublisherName = "resf"
-$VMSize = "Standard_D2ls_v6"
 
 switch ($RockyVersion) {
     "9" {
@@ -226,6 +239,15 @@ sudo nscp web install --https --allowed-hosts '0.0.0.0/0,::/0' --password '$WebP
 sudo nscp settings --activate-module CheckHelpers || true
 sudo nscp settings --activate-module CheckSystem || true
 sudo nscp settings --activate-module CheckDisk || true
+# NRDPClient and Scheduler are activated here even though nothing uses them
+# yet: a fleet bundle that *enables* a module only writes it into fleet.ini, and
+# the delayed reload that follows re-reads settings for the plugins already
+# loaded - it does not load a newly enabled one. Without this the Nagios bundle
+# applies, the host reports "in sync", and nothing is ever submitted until the
+# service happens to restart. Loading them up front costs nothing (neither does
+# anything without configuration) and keeps the monitoring flow turn-key.
+sudo nscp settings --activate-module NRDPClient || true
+sudo nscp settings --activate-module Scheduler || true
 
 # Configure firewall
 sudo dnf install -y firewalld
