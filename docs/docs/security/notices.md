@@ -227,6 +227,48 @@ the upgrade, a cert-mode target whose server certificate does not chain to
 the configured `ca` (or does not match the host name) will fail to connect —
 that is the verification taking effect; fix the server certificate or, if
 you accept the MITM exposure, opt out explicitly with `insecure = true`.
+### Elastic client: server certificate verification, authentication and modernization
+
+**Fixed in:** unreleased (next release after 0.18.0) · **Severity:** Medium
+
+A security review and modernization of the `ElasticClient` module (which
+forwards events, metrics and the NSClient++ log to Elasticsearch):
+
+- **HTTPS submissions now verify the server certificate.** The module
+  hardcoded TLS verification to `none`, so an `https://` address validated
+  neither the certificate chain nor the host name — an on-path attacker could
+  read everything the agent ships (event-log entries, metrics and the agent
+  log, which can carry sensitive operational detail) and forge responses.
+  Verification now defaults to `peer` against the platform CA bundle
+  (`${ca-path}`), with new `tls version`, `verify mode` and `ca` settings
+  matching the other HTTP client modules.
+- **The module can now authenticate.** Elasticsearch has shipped with
+  security enabled by default since 8.0, but the module could not send
+  credentials at all — forcing anonymous-write clusters. New `user`/`password`
+  (basic authentication) and `api key` settings add the `Authorization`
+  header; the values are stored as password-typed settings and never written
+  to the trace log.
+- **A stalled server can no longer wedge the agent.** Submissions ran with no
+  network timeout, so an Elasticsearch server (or man-in-the-middle) that
+  accepted the connection and went silent blocked the submitting thread
+  forever. A new `timeout` setting (default 30 seconds) bounds every
+  connect/read/write.
+- **Documents in a batch no longer overwrite each other.** Every document in
+  a bulk request was given the *same* random `_id`, so when one event message
+  carried several entries only the last survived in Elasticsearch — silent
+  data loss in the shipped audit trail. Each document now gets its own id.
+- **Error responses are parsed defensively.** The response body (attacker-
+  influenced on an unverified link, and previously parsed with throwing
+  accessors) is now handled without assuming a shape, and error text included
+  in the agent log is truncated.
+
+**What to do:** nothing for plain `http://` addresses (the common loopback
+setup). If you submit to an `https://` Elasticsearch endpoint with a
+self-signed certificate, set `ca` to the certificate (or explicitly set
+`verify mode = none` to keep the old insecure behaviour). If you run
+Elasticsearch 6.x or older, set `event type`, `metrics type` and
+`nsclient log type` explicitly — the legacy `_type` parameter is no longer
+sent by default because Elasticsearch 8+ rejects it.
 
 ### NSCA client and server security-review hardening
 
@@ -367,7 +409,6 @@ retried — certificate verification now succeeds against public providers. A
 target pointing at an internal relay with a private CA should name that bundle
 in `ca` rather than waive verification. See
 [Upgrading](../setup/upgrading.md#0172) for the full list.
-
 ### NRPE: decoded-argument metachar guard, optional version banner, and consistency fixes
 
 **Fixed in:** 0.18.0 · **Severity:** Low

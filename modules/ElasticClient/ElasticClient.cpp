@@ -4,12 +4,9 @@
 #include "ElasticClient.h"
 
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/date_time/gregorian/formatters.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/json.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
+#include <bytes/base64.hpp>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -19,19 +16,22 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <nscapi/settings/proxy.hpp>
 #include <nsclient/logger/logger_helper.hpp>
+#include <nsclient/nsclient_exception.hpp>
 #include <str/format.hpp>
 #include <str/utils.hpp>
 
-#include "elastic_handler.hpp"
+#include "elastic_bulk.hpp"
 
 namespace json = boost::json;
+namespace sh = nscapi::settings_helper;
 
 /**
  * Default c-tor
  * @return
  */
-ElasticClient::ElasticClient() : started(false) {}
+ElasticClient::ElasticClient() : started(false), timeout(30) {}
 
 /**
  * Default d-tor
@@ -70,29 +70,49 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
         .add_string("address", sh::string_key(&address), "Elastic address", "The address to send data to (http://127.0.0.1:9200/_bulk).")
 
+        .add_string("user", sh::string_key(&user, ""), "Elastic user",
+                    "The username used to authenticate against Elasticsearch (basic authentication). Leave empty to send no credentials.")
+        .add_password("password", sh::string_key(&password, ""), "Elastic password",
+                      "The password used to authenticate against Elasticsearch (basic authentication).")
+        .add_password("api key", sh::string_key(&api_key, ""), "Elastic API key",
+                      "An Elasticsearch API key (the base64 encoded id:key value as returned when the key is created), sent as 'Authorization: ApiKey ...'. "
+                      "Takes precedence over user/password when both are set.")
+
+        .add_string("tls version", sh::string_key(&tls_version, "1.2+"), "TLS version",
+                    "The TLS version to use when connecting over https (1.0, 1.1, 1.2, 1.2+ or 1.3).")
+        .add_string("verify mode", sh::string_key(&verify_mode, "peer"), "TLS verify mode",
+                    "How to verify the Elasticsearch server certificate when connecting over https. 'peer' (the default) validates the certificate chain and "
+                    "hostname against the configured CA. Set to 'none' to disable verification - this is insecure and lets an on-path attacker read the "
+                    "submitted data and any configured credentials.")
+        .add_string("ca", sh::path_key(&ca, "${ca-path}"), "Certificate authority",
+                    "The certificate authority bundle used to verify the Elasticsearch server certificate (used when 'verify mode' is not 'none').")
+
+        .add_int("timeout", sh::uint_key(&timeout, 30), "Timeout",
+                 "Timeout (in seconds) for each connect, read and write when talking to Elasticsearch. 0 waits forever.")
+
         .add_string("event index", sh::string_key(&event_index, "nsclient_event-%(date)"), "Elastic index used for events",
                     "The elastic index to use for events (log messages).")
-        .add_string("event type", sh::string_key(&event_type, "eventlog"), "Elastic type used for events", "The elastic type to use for events (log messages).")
+        .add_string("event type", sh::string_key(&event_type, ""), "Elastic type used for events",
+                    "The elastic type to use for events (log messages). Only set this for Elasticsearch 6.x or older: mapping types were removed in "
+                    "Elasticsearch 8, which rejects requests that carry a type.")
 
         .add_string("metrics index", sh::string_key(&metrics_index, "nsclient_metrics-%(date)"), "Elastic index used for metrics",
                     "The elastic index to use for metrics.")
-        .add_string("metrics type", sh::string_key(&metrics_type, "metrics"), "Elastic type used for metrics", "The elastic type to use for metrics.")
+        .add_string("metrics type", sh::string_key(&metrics_type, ""), "Elastic type used for metrics",
+                    "The elastic type to use for metrics. Only set this for Elasticsearch 6.x or older: mapping types were removed in Elasticsearch 8, "
+                    "which rejects requests that carry a type.")
 
-        .add_string("nsclient log index", sh::string_key(&nsclient_index, "nsclient_log-%(date)"), "Elastic index used for metrics",
-                    "The elastic index to use for metrics.")
-        .add_string("nsclient log type", sh::string_key(&nsclient_type, "nsclient log"), "Elastic type used for metrics",
-                    "The elastic type to use for metrics.")
+        .add_string("nsclient log index", sh::string_key(&nsclient_index, "nsclient_log-%(date)"), "Elastic index used for the nsclient log",
+                    "The elastic index to use for the NSClient++ log.")
+        .add_string("nsclient log type", sh::string_key(&nsclient_type, ""), "Elastic type used for the nsclient log",
+                    "The elastic type to use for the NSClient++ log. Only set this for Elasticsearch 6.x or older: mapping types were removed in "
+                    "Elasticsearch 8, which rejects requests that carry a type.")
 
         ;
 
     settings.register_all();
     settings.notify();
-    //
-    // 		client_.finalize(get_settings_proxy());
-    //
-    // 		nscapi::core_helper core(get_core(), get_id());
-    // 		core.register_channel(channel_);
-    //
+
     hostname_ = socket_helpers::expand_hostname(hostname_);
 
     nscapi::core_helper ch(get_core(), get_id());
@@ -117,35 +137,19 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
 /**
  * Unload (terminate) module.
- * Attempt to stop the background processing thread.
+ * Stop accepting events so nothing is sent during/after shutdown.
  * @return true if successfully, false if not (if not things might be bad)
  */
-bool ElasticClient::unloadModule() { return true; }
-
-void ElasticClient::handleNotification(const std::string &, const PB::Commands::SubmitRequestMessage &request_message,
-                                       PB::Commands::SubmitResponseMessage *response_message) {
-  // 	client_.do_submit(request_message, *response_message);
+bool ElasticClient::unloadModule() {
+  started = false;
+  return true;
 }
-std::string parse_index(std::string index) {
-  std::string date = boost::gregorian::to_iso_extended_string(boost::gregorian::day_clock::universal_day());
-  return boost::algorithm::replace_all_copy(index, "%(date)", date);
-}
-void send_to_elastic(const std::string address, const std::string index, std::string type, const std::vector<std::string> payloads, bool log_errors) {
-  boost::uuids::uuid uuid = boost::uuids::random_generator()();
 
-  std::string payload;
-  for (const std::string &data : payloads) {
-    json::object tgtidx;
-    tgtidx["_index"] = parse_index(index);
-    tgtidx["_type"] = type;
-    tgtidx["_id"] = boost::uuids::to_string(uuid);
-
-    json::object header;
-    header["index"] = tgtidx;
-
-    payload += json::serialize(header) + "\n";
-    payload += data + "\n";
+void ElasticClient::send_to_elastic(const std::string &index, const std::string &type, const std::vector<std::string> &payloads, bool log_errors) const {
+  if (payloads.empty()) {
+    return;
   }
+  const std::string payload = elastic_bulk::build_payload(index, type, payloads);
 
   if (log_errors) {
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG(payload); }
@@ -153,10 +157,25 @@ void send_to_elastic(const std::string address, const std::string index, std::st
 
   try {
     const http::parsed_url parsed = http::parse_url(address);
-    http::http_client_options opts(parsed.protocol, "1.2+", "none", "");
+    if (parsed.host.empty()) {
+      if (log_errors) {
+        NSC_LOG_ERROR("Invalid elastic address: " + address);
+      }
+      return;
+    }
+    http::http_client_options opts(parsed.protocol, tls_version, verify_mode, ca);
+    opts.timeout_seconds_ = timeout;
     http::request rq("POST", parsed.host, parsed.path, payload);
     rq.add_header("Content-Type", "application/x-ndjson");
     rq.add_header("Content-Length", str::xtos(payload.size()));
+    // Never log the Authorization header value: the API key is a bearer
+    // credential and the basic form is base64(user:password), trivially
+    // reversible.
+    if (!api_key.empty()) {
+      rq.add_header("Authorization", "ApiKey " + api_key);
+    } else if (!user.empty()) {
+      rq.add_header("Authorization", "Basic " + bytes::base64_encode(user + ":" + password));
+    }
     http::simple_client c(opts);
     const http::response r = c.fetch(parsed.host, parsed.port, rq);
 
@@ -170,38 +189,27 @@ void send_to_elastic(const std::string address, const std::string index, std::st
       }
     }
 
-    try {
-      auto root = json::parse(r.payload_).as_object();
-      if (root.contains("errors")) {
-        if (root["errors"].as_bool()) {
-          std::string errors;
-          for (const auto &item : root["items"].as_array()) {
-            auto o = item.as_object();
-            str::format::append_list(errors, o["index"].as_object()["error"].as_object()["reason"].as_string().c_str());
-          }
-          if (log_errors) {
-            NSC_LOG_ERROR("Failed to send log record to elastic: " + errors);
-          }
+    if (!r.is_2xx()) {
+      if (log_errors) {
+        std::string details = elastic_bulk::extract_errors(r.payload_);
+        if (details.empty()) {
+          details = r.payload_.substr(0, 200);
         }
-      } else if (log_errors && root.contains("error")) {
-        NSC_LOG_ERROR("Failed to send log record to elastic: " + static_cast<std::string>(root["error"].as_object()["reason"].as_string().c_str()));
+        NSC_LOG_ERROR("Failed to send to elastic (HTTP " + str::xtos(r.status_code_) + "): " + details);
       }
-    } catch (const std::exception &e) {
-      if (log_errors) {
-        NSC_LOG_ERROR_EXR("Failed to parse elastic response: ", e);
-      }
-    } catch (...) {
-      if (log_errors) {
-        NSC_LOG_ERROR_EX("Failed to parse elastic response: UNKNOWN EXCEPTION");
-      }
+      return;
+    }
+    const std::string errors = elastic_bulk::extract_errors(r.payload_);
+    if (!errors.empty() && log_errors) {
+      NSC_LOG_ERROR("Failed to send to elastic: " + errors);
     }
   } catch (const socket_helpers::socket_exception &e) {
     if (log_errors) {
-      NSC_LOG_ERROR("Failed to send log record to elastic (connection error): " + e.reason());
+      NSC_LOG_ERROR("Failed to send to elastic (connection error): " + e.reason());
     }
   } catch (const std::exception &e) {
     if (log_errors) {
-      NSC_LOG_ERROR_EXR("Failed to send log record to elastic: ", e);
+      NSC_LOG_ERROR_EXR("Failed to send to elastic: ", e);
     }
   }
 }
@@ -210,10 +218,11 @@ void ElasticClient::onEvent(const PB::Commands::EventMessage &request, const std
   if (!started || address.empty()) {
     return;
   }
-  std::string time = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
+  const std::string now = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
 
   std::vector<std::string> payloads;
   for (const ::PB::Commands::EventMessage::Request &line : request.payload()) {
+    std::string time = now;
     json::object node;
     for (const PB::Common::KeyValue &e : line.data()) {
       if (e.key() == "written_str") {
@@ -226,7 +235,7 @@ void ElasticClient::onEvent(const PB::Commands::EventMessage &request, const std
     node["hostname"] = hostname_;
     payloads.push_back(json::serialize(node));
   }
-  send_to_elastic(address, event_index, event_type, payloads, true);
+  send_to_elastic(event_index, event_type, payloads, true);
 }
 
 namespace {
@@ -268,7 +277,7 @@ void ElasticClient::submitMetrics(const PB::Metrics::MetricsMessage &response) {
 
   std::vector<std::string> payloads;
   payloads.push_back(json::serialize(metrics));
-  send_to_elastic(address, metrics_index, metrics_type, payloads, true);
+  send_to_elastic(metrics_index, metrics_type, payloads, true);
 }
 
 void ElasticClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
@@ -285,8 +294,10 @@ void ElasticClient::handleLogMessage(const PB::Log::LogEntry::Entry &message) {
   node["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
   node["hostname"] = hostname_;
 
+  // Never log errors for our own log messages: a failing send would otherwise
+  // log an error, which is forwarded here again, forever.
   bool log = message.sender() != "elastic";
   std::vector<std::string> payloads;
   payloads.push_back(json::serialize(node));
-  send_to_elastic(address, nsclient_index, nsclient_type, payloads, log);
+  send_to_elastic(nsclient_index, nsclient_type, payloads, log);
 }
