@@ -30,6 +30,9 @@ struct check_mk_target_object : public nscapi::targets::target_object {
     if (is_sample) root_path.set_sample();
 
     add_ssl_keys(root_path);
+
+    settings.register_all();
+    settings.notify();
   }
 };
 
