@@ -122,12 +122,6 @@ common:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET
-module: Scheduler
-namespace: generic
-platforms:
-- unix
-- windows
-windows:
   queries:
     run_schedules:
       common_options:
@@ -149,3 +143,8 @@ windows:
         required: false
         short_description: Alias of a schedule to run, can be given more than once. Defaults to every
           configured schedule.
+module: Scheduler
+namespace: generic
+platforms:
+- unix
+- windows
