@@ -616,10 +616,44 @@ void NSClientT::unloadPlugins() {
   plugins_->stop_plugins();
 }
 void NSClientT::reloadPlugins() {
+  // Re-read the included configuration before working out which modules should
+  // be running. An include is served from the child instance built when the
+  // configuration was last loaded, so a module enabled in one since then -
+  // fleet.ini, rewritten by the fleet sync, being the case that matters - is
+  // invisible to find_all_active_plugins() and never gets loaded. That is how a
+  // fleet bundle enabling a module ended up doing nothing at all: the file on
+  // disk said the module was enabled and the host reported itself in sync,
+  // while the module only really appeared at the next service restart.
+  //
+  // Only the children are refreshed, and deliberately so. Clearing the whole
+  // store would also throw away configuration that was set in memory and never
+  // saved - which is precisely how `nscp unit` and `nscp client` work: they
+  // configure the agent in memory and then reload to apply it. Dropping that
+  // leaves them with no modules at all.
+  for (const settings::instance_ptr &child : settings_manager::get_settings()->get_children()) {
+    if (!child) continue;
+    // A missing include is not an error (the backend just comes back empty),
+    // but a file that cannot be *read* - permissions, transient I/O - throws,
+    // and by then this child's caches are already emptied. Catch it here so
+    // one broken include costs only its own content: the remaining includes
+    // still refresh and the reload still runs. Letting it escape would abort
+    // the whole reload before the re-scan, when the store is at its most
+    // stale.
+    try {
+      child->clear_cache();
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Failed to re-read included configuration " + child->get_context() + ": " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      LOG_ERROR_CORE_STD("Failed to re-read included configuration " + child->get_context());
+    }
+  }
   plugins_->start_plugins(NSCAPI::reloadStart);
+  // Loads whatever is enabled and not already loaded; modules that are
+  // running are recognised as duplicates and left alone.
   boot_load_active_plugins();
   plugins_->start_plugins(NSCAPI::normalStart);
-  // TODO: Figure out changed set and remove/add delete/added modules.
+  // TODO: a module *disabled* since the last load is still left running; that
+  // needs unloading a live plugin, which is a different problem from this one.
   settings_manager::get_core()->set_reload(false);
 }
 
