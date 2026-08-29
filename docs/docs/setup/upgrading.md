@@ -6,15 +6,17 @@ in place — defaults are preserved and the default install is usually unaffecte
 touch. Read the entries between the version you are on and the version you are
 moving to.
 
-Items marked 🔒 are security-relevant; the [Security notices](../security/notices.md)
-page tracks those in one place. Full per-release detail lives in each
+Each entry carries an icon for the area it touches. 🔒 is the one that
+matters: those entries are security-relevant, and the
+[Security notices](../security/notices.md) page tracks them in one place. Full
+per-release detail lives in each
 [GitHub release](https://github.com/mickem/nscp/releases).
 
 ---
 
-## 0.17.1
+## 0.18.0
 
-- **`check_nscp` is now a filter check, and it can see crash reports again.**
+- 💥 **`check_nscp` is now a filter check, and it can see crash reports again.**
   Crash reporting itself has always worked — the agent has archived crash
   dumps since 0.4.x — but `check_nscp`'s *count* of them has not, for two
   independent reasons that accumulated over the years:
@@ -62,7 +64,7 @@ page tracks those in one place. Full per-release detail lives in each
   folder out. Crash reports remain a Windows-only concept; on Linux there is no
   crash handler, so `crashes` is always 0.
 
-- **`check_and_forward` now actually submits the result.** The command ran the
+- 📤 **`check_and_forward` now actually submits the result.** The command ran the
   wrapped check, answered `Message submitted` and delivered nothing: the
   submission was built in a form the channels could not read, so NSCA, NRDP,
   Graphite and every other client module received a message with no results in
@@ -89,7 +91,7 @@ page tracks those in one place. Full per-release detail lives in each
     command now reports that failure instead of `Message submitted` — including
     when only one channel of a comma list (`channel=NSCA,GRAPHITE`) fails,
     which previously was silently reported as success.
-- **A reload now loads modules enabled in an included file since the last one.**
+- ⚙️ **A reload now loads modules enabled in an included file since the last one.**
   An `[/includes]` file is read once when the configuration is loaded and served
   from memory after that, so a module switched on in one — most importantly
   `fleet.ini`, which the fleet sync rewrites whenever a bundle changes — was not
@@ -102,7 +104,7 @@ page tracks those in one place. Full per-release detail lives in each
   running are left alone. Two things are unchanged: a module *disabled* since
   the last load keeps running until the service restarts, and `[/modules]` in
   the main `nsclient.ini` is still only read at startup.
-- **New: run scheduled checks on demand with `run_schedules`.** After editing
+- 📅 **New: run scheduled checks on demand with `run_schedules`.** After editing
   `nsclient.ini` you no longer have to wait out the interval to see the new
   result on the monitoring server — `nscp client --boot --query run_schedules`
   (optionally `--argument schedule=<alias>`) runs the configured schedules now
@@ -110,7 +112,7 @@ page tracks those in one place. Full per-release detail lives in each
   command, so it also works over NRPE, REST and in `nscp test`. Nothing changes
   for existing configurations; the timers are untouched. See
   [Passive monitoring → Step 6](../scenarios/passive-monitoring-nsca.md#step-6-send-a-result-without-waiting-for-the-interval).
-- **A denied check is no longer submitted as a passive result.** The permission
+- 🚫 **A denied check is no longer submitted as a passive result.** The permission
   layer answers a denied query as a *successful* query carrying an UNKNOWN
   "Permission denied" payload, and both `run_schedules` and `check_and_forward`
   forwarded that to the monitoring server — overwriting the last real result
@@ -120,7 +122,7 @@ page tracks those in one place. Full per-release detail lives in each
   may run, expect the denial as an error where you previously saw a stale
   UNKNOWN appear on the server. See
   [Permissions](../concepts/permissions.md).
-- **`settings --update --add-defaults --use-samples` now writes the sample
+- 🔧 **`settings --update --add-defaults --use-samples` now writes the sample
   objects.** The flag was parsed and never read, so it behaved exactly like the
   plain invocation. It now writes the registered `/sample` sections, and
   `--remove-defaults` strips them again — the two are now exact inverses. An
@@ -128,10 +130,10 @@ page tracks those in one place. Full per-release detail lives in each
   output is byte-for-byte what it was. If you have scripted
   `--add-defaults --use-samples` expecting today's (sample-free) output, drop
   the flag.
-- **`nscp client --query <cmd>` no longer appends "No module was specified…".**
+- 💬 **`nscp client --query <cmd>` no longer appends "No module was specified…".**
   The line was appended to every result when no `--module` was named. Scripts
   that stripped or matched it can stop; naming a module is unchanged.
-- **Settings writes work again when `[/includes]` names a directory.** Saving
+- 🔧 **Settings writes work again when `[/includes]` names a directory.** Saving
   handed the directory path to the INI writer, and the resulting "Is a
   directory" error aborted the whole save — so `nscp settings --set` and the
   web UI failed *and the main file was never written*. Directory includes are
@@ -147,7 +149,7 @@ page tracks those in one place. Full per-release detail lives in each
   malformed server response can no longer crash the agent, and the NRDP token
   and any proxy-URL credentials are redacted from the trace log. See
   [Security notices](../security/notices.md).
-- **`--source-host` / `--sender-host` now name the sending host, on every
+- 📡 **`--source-host` / `--sender-host` now name the sending host, on every
   client module.** They were registered against the *destination* container,
   where the well-known `host` key is routed into the typed address field — so
   naming a source host silently redirected the connection to it, and the
@@ -183,15 +185,15 @@ page tracks those in one place. Full per-release detail lives in each
   capabilities are matched per reply line instead of by substring search. No
   configuration change is needed. See
   [Security notices](../security/notices.md#smtp-client-security-review-hardening).
-- **The SMTP `timeout` is now a budget for the whole submission** rather than a
+- ⏱️ **The SMTP `timeout` is now a budget for the whole submission** rather than a
   fresh deadline per operation (and per resolved address). A target that
   previously completed by using several times its configured `timeout` across
   a slow session will now give up at the configured value; raise `timeout` on
   targets talking to a slow relay.
-- **SMTP messages now carry a `Message-ID` header.** Nothing to do — it
+- ✉️ **SMTP messages now carry a `Message-ID` header.** Nothing to do — it
   improves deliverability and gives mail administrators a handle to trace a
   notification by.
-- **The SMTP `retry` setting is not honoured and is no longer read.** The
+- 🧹 **The SMTP `retry` setting is not honoured and is no longer read.** The
   module always made exactly one attempt per submission; reading the value
   made it look otherwise. `retry`/`retries` are registered for every client
   module centrally, so they still appear in the SMTPClient reference, but
@@ -238,7 +240,7 @@ page tracks those in one place. Full per-release detail lives in each
 
 ## 0.17.0
 
-- **Check-specific filter keywords that clashed with the generic summary
+- 🏷️ **Check-specific filter keywords that clashed with the generic summary
   keywords are renamed.** A handful of checks registered their own keyword
   named `status`, `count` or `total` — the same names as the built-in summary
   keywords (`%(status)`, `%(count)`, …). The check-specific value won in
@@ -301,7 +303,7 @@ page tracks those in one place. Full per-release detail lives in each
   migrate) now keeps a placeholder you pass it as-is in `boot.ini` while
   migrating into the expanded per-host file, so the template survives on a
   fleet-managed machine.
-- **Check messages can now be told how to render their numbers.** Every filter
+- 🔢 **Check messages can now be told how to render their numbers.** Every filter
   check gained four options - `decimals`, `byte-unit`, `decimal-separator` and
   `thousands-separator` - so `check_drivesize` can report
   `141.06GB/1006.85GB` (or `141,06GB/1.006,85GB`) instead of
@@ -322,7 +324,7 @@ page tracks those in one place. Full per-release detail lives in each
   rendering scientific (`1.23457e+07`). A pipeline that matches float text in
   the message may need its pattern relaxed when you first set one of these
   options; leave all four unset and the message is byte-for-byte unchanged.
-- **An unknown unit in `format_bytes()` is now reported instead of rendering
+- 🔢 **An unknown unit in `format_bytes()` is now reported instead of rendering
   nonsense.** `format_bytes(used, 'gb')` used to render `1.27055e-10` because
   the unit comparison was case sensitive, and any misspelled unit rendered
   `value/1024^7`. Lowercase units now work, and a unit that names nothing (say
@@ -330,11 +332,11 @@ page tracks those in one place. Full per-release detail lives in each
   failed: Unknown byte unit: ZB`. A syntax string with such a typo returns
   UNKNOWN rather than a quietly wrong number - fix the unit, or the check will
   stay UNKNOWN.
-- **A `unit:` in `perf-config` that names no unit no longer divides the metric
+- 📊 **A `unit:` in `perf-config` that names no unit no longer divides the metric
   by 1024⁷.** An unrecognised unit now leaves the value alone. If a graph of
   yours has been flat at a near-zero value, check the `unit:` spelling in its
   `perf-config`: the metric will jump to its real magnitude on upgrade.
-- **`perf-config`'s `unit:` now converts plain byte series instead of
+- 📊 **`perf-config`'s `unit:` now converts plain byte series instead of
   relabelling them.** On series that are byte counts but do not auto-scale
   (most byte keywords outside `check_drivesize`), `unit:KB` used to change the
   label only, shipping `=1536KB` for a value of 1536 *bytes* - a metric off by
@@ -345,19 +347,19 @@ page tracks those in one place. Full per-release detail lives in each
   measured in bytes (`ms`, `%`, `s`, ...) and explicit `minimum:`/`maximum:`
   overrides are unaffected, and a `unit:` that names no byte unit still only
   changes the label.
-- **Errors raised while a template renders are now reported.** A function that
+- 🧩 **Errors raised while a template renders are now reported.** A function that
   failed inside `detail-syntax` or `top-syntax` used to leave the placeholder
   empty and say nothing; the check now returns UNKNOWN with `Filter processing
   failed: …`. This surfaces template mistakes that have been silently producing
   incomplete messages.
-- **`check_pending_reboot`'s default message now names the pending-since
+- 🪟 **`check_pending_reboot`'s default message now names the pending-since
   time.** When the reboot was queued by Component Based Servicing or Windows
   Update, the message gains a suffix: `Reboot required: Windows Update` became
   `Reboot required: Windows Update (pending since 2026-08-16 09:41:12)`.
   Notification pipelines that match the exact message text (an anchored regex,
   a string equality) need their pattern relaxed; thresholds, states and
   existing keywords are unchanged.
-- **Filter comparisons between a text keyword and a bare number are now
+- 🔢 **Filter comparisons between a text keyword and a bare number are now
   numeric.** A string-typed keyword compared against an unquoted number used
   to order *lexically* — `filter=value > 90` on `filter_perf` matched
   `value=100` as false ("100" sorts before "90") — or, with the operands
@@ -374,42 +376,42 @@ page tracks those in one place. Full per-release detail lives in each
   `age > 30m`), and the `= 'unknown'` / `= 'never'` sentinels for optional
   values. Review any filter that deliberately relied on text ordering
   against a bare number: quote the number to keep the old behaviour.
-- **Fractional numbers in thresholds are no longer truncated or rounded.**
+- 🔢 **Fractional numbers in thresholds are no longer truncated or rounded.**
   `count > 2.5` used to evaluate as `count > 3` (the literal was rounded
   into the counter's integer domain); unit literals lost their fraction
   entirely, so `working_set > 1.5g` meant 1g and `uptime < 2.5h` meant 2h.
   Fractions now mean what they say. Whole-number thresholds are unchanged;
   only expressions that already used a decimal point can behave differently.
-- **`filter_perf`/`render_perf`/`xform_perf`: the `max` and `min` filter
+- 📊 **`filter_perf`/`render_perf`/`xform_perf`: the `max` and `min` filter
   keywords were swapped.** `max` read the perf-data *minimum* bound and
   `min` the *maximum*. They now read the bounds they name — a filter that
   compensated for the swap needs the two names exchanged back.
-- **Syslog submission works again, so a configured syslog server will start
+- 📨 **Syslog submission works again, so a configured syslog server will start
   receiving traffic.** `SyslogClient` read its connection settings from the
   wrong place, so the target's address, port, facility, severity and templates
   were all ignored: the agent logged `Undefined facility:` and sent nothing.
   Broken since 0.4.3 (2015). If you have a syslog target configured, check it
   still points where you want before upgrading - it has not been delivering,
   and it will now. `CheckMKClient` had the same defect on its query path.
-- **SMTP notifications now announce this host in EHLO instead of
+- ✉️ **SMTP notifications now announce this host in EHLO instead of
   `localhost`.** The sender's host name was read from the wrong place, so it
   was always empty and the EHLO fell back to `localhost`. If your mail server
   applies HELO/EHLO policy (SPF checks, or a rule that rejects `localhost`),
   the agent will now identify itself properly - set `ehlo-hostname` on the
   target if you need a specific name.
-- **`nscp settings --show` now says so when `--key` is missing.** `--show
+- 🔧 **`nscp settings --show` now says so when `--key` is missing.** `--show
   --path /some/path` without a `--key` used to print nothing and exit 0; it
   now reports `Invalid command line please use --path and --key with show`
   and exits non-zero. A bare `--show` still describes the active
   settings store, and `--show --path … --key …` is unchanged. Scripts that
   relied on the silent success need the missing `--key` added.
-- **Client commands shorter than eight characters work again.** A command
+- 💬 **Client commands shorter than eight characters work again.** A command
   such as `cpu` or `run` answered `Exception processing command line:
   basic_string::substr …` instead of running, in every module built on the
   shared client machinery (NRPE, NSCA, NRDP, Graphite, …). Remove any
   workaround that renamed such commands to a longer alias; no configuration
   change is needed.
-- **The settings diff no longer reports changes that were already saved.**
+- 🔧 **The settings diff no longer reports changes that were already saved.**
   `get_changes()` — behind the REST settings `diff` endpoint and any
   operator-facing "what am I about to save?" view — kept listing an edit for
   the lifetime of the process after it had been written, reporting it as a
@@ -430,7 +432,7 @@ page tracks those in one place. Full per-release detail lives in each
 
 ## 0.16.3
 
-- **`check_nt` (NSClientServer) answers the real nagios-plugins client again.**
+- 🔌 **`check_nt` (NSClientServer) answers the real nagios-plugins client again.**
   Requests without a trailing newline used to hang until the client timed out
   (`No data was received from host!`) — broken since 0.12.2. Remove any
   client-side timeout/retry workarounds; no configuration change is needed.
@@ -456,33 +458,33 @@ page tracks those in one place. Full per-release detail lives in each
 
 ## 0.16.1
 
-- **RHEL/SUSE:** workaround `ca=` arguments can be dropped — `${ca-path}` now
+- 🐧 **RHEL/SUSE:** workaround `ca=` arguments can be dropped — `${ca-path}` now
   resolves on its own (the explicit form still works). Packagers cross-building
   for another distribution should set `-DCONFIG_CA_PATH=`.
-- **`check_logfile`** is unchanged unless you opt in to `bookmark` / `max-lines`.
+- 📄 **`check_logfile`** is unchanged unless you opt in to `bookmark` / `max-lines`.
   Adopting `bookmark` is a trade-off: a line is consumed when the check runs
   (not when its result is submitted) and positions are saved on clean shutdown,
   so a crash re-reports the backlog. Prefer an explicit bookmark name for a
   check whose filter changes often.
-- **Settings URLs with a query string now send it.** A server that relied on
+- 🔧 **Settings URLs with a query string now send it.** A server that relied on
   receiving the bare path will now see the parameters. The offline-boot cache
   file is migrated to the query-aware name once on first start.
-- **`${hostname}` in an existing config changes meaning** — it is now expanded
+- 🏷️ **`${hostname}` in an existing config changes meaning** — it is now expanded
   everywhere `expand_hostname` is used (including submit clients' `hostname`),
   where it used to be left as literal text.
-- **`run on startup` is off by default** so the default install is unaffected;
+- ⏱️ **`run on startup` is off by default** so the default install is unaffected;
   if you enable it for the `default` schedule use `startup window` to avoid a
   thundering herd.
-- **Building the HTML docs on non-Windows** now needs `-DNSCP_BUILD_DOCS_HTML=ON`.
+- 📚 **Building the HTML docs on non-Windows** now needs `-DNSCP_BUILD_DOCS_HTML=ON`.
 
 ## 0.14.1
 
-- **Licence change:** now distributed as **Apache-2.0 OR GPL-2.0-only** — a
+- ⚖️ **Licence change:** now distributed as **Apache-2.0 OR GPL-2.0-only** — a
   clarification/relicensing with no code or runtime behaviour change. Review it
   if your organisation tracks bundled-software licences.
-- **CheckNet perfdata is on by default.** If you added perfdata manually,
+- 📊 **CheckNet perfdata is on by default.** If you added perfdata manually,
   make sure you are not now emitting it twice.
-- **Boolean check arguments** (`option=true` / `option=false`) now work from the
+- ☑️ **Boolean check arguments** (`option=true` / `option=false`) now work from the
   CLI as well as REST; bare-flag usage is unchanged.
 - 🔒 **`CheckSecurity` is not loaded by default.** Enable it before using its
   checks (`nscp settings --active-module CheckSecurity`). Windows-only checks
@@ -500,22 +502,22 @@ page tracks those in one place. Full per-release detail lives in each
   behaviour). Set to `cn` only after configuring `verify_mode = peer-cert` and a
   `ca path` pinned to your **private** monitoring CA — the system trust store
   would accept any public cert's CN.
-- **`[/paths]` overrides** from an older install moved to `[paths]` in
+- 📁 **`[/paths]` overrides** from an older install moved to `[paths]` in
   `boot.ini` (same section name, different file). No automatic migration — copy
   each entry across and delete the old section.
 - 🔒 **WEB `disable admin user = true`** is a new opt-in for status-only WEB
   exposure; existing installs keep their admin unchanged.
-- **NRPEServer** now survives a failed listener (logs an ERROR, leaves the
+- 🔌 **NRPEServer** now survives a failed listener (logs an ERROR, leaves the
   module loaded) instead of failing the whole module. Add "NRPE listener failed"
   as a signal if you alerted on module-load failure.
-- **`insecure = true` on NRPEServer** now logs at ERROR (louder, behaviour
+- 🔊 **`insecure = true` on NRPEServer** now logs at ERROR (louder, behaviour
   unchanged) — whitelist the message on agents intentionally run insecure.
 
 ## 0.12.5
 
-- **`[/paths]` users:** copy entries into `[paths]` in `boot.ini`; the
+- 📁 **`[/paths]` users:** copy entries into `[paths]` in `boot.ini`; the
   settings-side section is no longer consulted. Default installs are unaffected.
-- **Custom-plugin authors:** implement the new optional `prepare_shutdown`
+- 🧩 **Custom-plugin authors:** implement the new optional `prepare_shutdown`
   callback if your module manages sockets or background threads — `unload` is
   now a last-resort teardown.
 - 🔒 **Monitoring-only WEB deployments:** `disable admin user = true` under
@@ -546,7 +548,7 @@ page tracks those in one place. Full per-release detail lives in each
 
 ## 0.11.33
 
-- No configuration migration required (new `proxy` keys are opt-in). The
+- ✅ No configuration migration required (new `proxy` keys are opt-in). The
   `check_files` fixes change a few corner cases: `max-depth=0` now scans the top
   directory (#730); missing paths return UNKNOWN (#613); junction loops are not
   double-counted (#605); empty results return OK instead of UNKNOWN (#717).

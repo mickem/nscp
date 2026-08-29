@@ -1,12 +1,15 @@
 # Passive checks that actually arrive, and four security reviews
 
-0.17.1 is a correctness and hardening release. Three things that reported
-success while doing nothing are fixed: `check_and_forward` built its submission
-in a form no channel could read, `check_nscp` had counted zero crash reports
-since 0.4.2, and a module enabled by a fleet bundle was never loaded until the
-service restarted. Alongside that, security reviews of the SMTP, NRPE, NRDP/NSCA
-and WEB modules landed, the bundled OpenSSL moves to 3.5.8, and `run_schedules`
-lets you submit a passive result without waiting out the interval.
+Most of 0.18.0 is about things that reported success while doing nothing.
+`check_and_forward` built its submission in a form no channel could read,
+`check_nscp` had counted zero crash reports since 0.4.2, and a module enabled by
+a fleet bundle was never loaded until the service restarted — all three are
+fixed. Security reviews of the SMTP, NRPE, NRDP/NSCA and WEB modules landed
+alongside them, and the bundled OpenSSL moves to 3.5.8.
+
+It also adds `run_schedules` for submitting a passive result without waiting out
+the interval, lets the MSI install your own TLS certificates, and gives
+real-time filters a way to prime their destination at startup.
 
 ## ✨ Highlights
 
@@ -296,4 +299,4 @@ have: 65 unit tests and 18 browser tests against the production bundle.
   since the last load keeps running until the service restarts, and `[/modules]`
   in the main `nsclient.ini` is still only read at startup.
 
-**Full Changelog**: https://github.com/mickem/nscp/compare/0.17.0...0.17.1
+**Full Changelog**: https://github.com/mickem/nscp/compare/0.17.0...0.18.0
