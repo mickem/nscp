@@ -2732,6 +2732,16 @@ windows:
             description: Performance data configuration
             sample: true
             title: PERF CONFIG
+          run on startup:
+            advanced: true
+            default_value: ''
+            description: Submit the "empty message" (with an OK status) once as soon as NSClient++ has
+              started instead of waiting for the first event or the "maximum age" timeout. Use this to
+              prime the destination (for instance the cache queried by check_cache) so checks made right
+              after a restart do not fail with "Entry not found". Inherited from the default filter unless
+              set here.
+            sample: true
+            title: RUN ON STARTUP
           severity:
             advanced: true
             default_value: ''
@@ -2916,6 +2926,16 @@ windows:
             description: Performance data configuration
             sample: true
             title: PERF CONFIG
+          run on startup:
+            advanced: true
+            default_value: ''
+            description: Submit the "empty message" (with an OK status) once as soon as NSClient++ has
+              started instead of waiting for the first event or the "maximum age" timeout. Use this to
+              prime the destination (for instance the cache queried by check_cache) so checks made right
+              after a restart do not fail with "Entry not found". Inherited from the default filter unless
+              set here.
+            sample: true
+            title: RUN ON STARTUP
           severity:
             advanced: true
             default_value: ''
@@ -3094,6 +3114,16 @@ windows:
             description: Performance data configuration
             sample: true
             title: PERF CONFIG
+          run on startup:
+            advanced: true
+            default_value: ''
+            description: Submit the "empty message" (with an OK status) once as soon as NSClient++ has
+              started instead of waiting for the first event or the "maximum age" timeout. Use this to
+              prime the destination (for instance the cache queried by check_cache) so checks made right
+              after a restart do not fail with "Entry not found". Inherited from the default filter unless
+              set here.
+            sample: true
+            title: RUN ON STARTUP
           severity:
             advanced: true
             default_value: ''
@@ -3278,6 +3308,16 @@ windows:
             description: A list of processes to check (or * for all)
             sample: true
             title: PROCESS
+          run on startup:
+            advanced: true
+            default_value: ''
+            description: Submit the "empty message" (with an OK status) once as soon as NSClient++ has
+              started instead of waiting for the first event or the "maximum age" timeout. Use this to
+              prime the destination (for instance the cache queried by check_cache) so checks made right
+              after a restart do not fail with "Entry not found". Inherited from the default filter unless
+              set here.
+            sample: true
+            title: RUN ON STARTUP
           severity:
             advanced: true
             default_value: ''

@@ -403,12 +403,12 @@ info=false
 
 A list of roles and with coma separated list of access rights.
 
-| Key                                             | Default Value                                                                                                 | Description                      |
-|-------------------------------------------------|---------------------------------------------------------------------------------------------------------------|----------------------------------|
-| [client](#role-for-read-only)                   | public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list | Role for read only               |
-| [full](#role-for-full-access)                   | *                                                                                                             | Role for Full access             |
-| [legacy](#role-for-legacy-api)                  | legacy,login.get                                                                                              | Role for legacy API              |
-| [monitoring](#role-for-checks-and-queries-only) | public,queries.execute,aliases.list,login.get,metrics.get                                                     | Role for checks and queries only |
+| Key                                                                                   | Default Value                                                                                                 | Description                                                                  |
+|---------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| [client](#role-for-read-+-run-checks-queries.execute-can-run-side-effecting-commands) | public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list | Role for read + run checks (queries.execute can run side-effecting commands) |
+| [full](#role-for-full-access)                                                         | *                                                                                                             | Role for Full access                                                         |
+| [legacy](#role-for-legacy-api)                                                        | legacy,login.get                                                                                              | Role for legacy API                                                          |
+| [monitoring](#role-for-checks-and-queries-only)                                       | public,queries.execute,aliases.list,login.get,metrics.get                                                     | Role for checks and queries only                                             |
 
 
 ```ini
@@ -420,25 +420,49 @@ legacy=legacy,login.get
 monitoring=public,queries.execute,aliases.list,login.get,metrics.get
 ```
 
-#### Role for read only <a id="/settings/WEB/server/roles/client"></a>
+=== "Windows"
 
-Default role for read only
+    #### Role for read + run checks (queries.execute can run side-effecting commands) <a id="/settings/WEB/server/roles/client"></a>
 
-
-| Key            | Description                                                                                                     |
-|----------------|-----------------------------------------------------------------------------------------------------------------|
-| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
-| Key:           | client                                                                                                          |
-| Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
+    Default role for read + run checks (queries.execute can run side-effecting commands)
 
 
-**Sample:**
+    | Key            | Description                                                                                                     |
+    |----------------|-----------------------------------------------------------------------------------------------------------------|
+    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
+    | Key:           | client                                                                                                          |
+    | Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
 
-```
-[/settings/WEB/server/roles]
-# Role for read only
-client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-```
+
+    **Sample:**
+
+    ```
+    [/settings/WEB/server/roles]
+    # Role for read + run checks (queries.execute can run side-effecting commands)
+    client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
+    ```
+
+=== "Linux"
+
+    #### Role for read only <a id="/settings/WEB/server/roles/client"></a>
+
+    Default role for read only
+
+
+    | Key            | Description                                                                                                     |
+    |----------------|-----------------------------------------------------------------------------------------------------------------|
+    | Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                                       |
+    | Key:           | client                                                                                                          |
+    | Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list` |
+
+
+    **Sample:**
+
+    ```
+    [/settings/WEB/server/roles]
+    # Role for read only
+    client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
+    ```
 
 #### Role for Full access <a id="/settings/WEB/server/roles/full"></a>
 
