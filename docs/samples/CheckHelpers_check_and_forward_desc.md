@@ -18,7 +18,7 @@ on the server is indistinguishable from the scheduled version.
 | Option        | What it is for                                                                                    |
 |---------------|---------------------------------------------------------------------------------------------------|
 | `command`     | The check to run. Required.                                                                       |
-| `arguments`   | Arguments for that check, repeat for more than one. Also accepted positionally.                   |
+| `arguments`   | Arguments for that check, repeat for more than one. Not accepted positionally.                    |
 | `channel`     | Channel to submit on, defaults to `NSCA`. `target` is kept as a legacy synonym.                   |
 | `alias`       | Service description to report as, defaults to the name of the command.                            |
 | `destination` | Which target of the client module to send to, defaults to that module's default target.           |

@@ -72,6 +72,23 @@ page tracks those in one place. Full per-release detail lives in each
   longer needed. The command also gained `channel` (`target` still works as a
   synonym), `alias`, `destination` and `source` options, and names the result
   after the command when no alias is given.
+
+    **Breaking:** the command no longer accepts positional arguments for the
+    wrapped command. `check_and_forward command=check_cpu warn=load>80` used to
+    (try to) hand the bare trailing tokens to the wrapped command; it now fails
+    to parse. Pass each wrapped-command argument through `arguments=` instead,
+    one per argument:
+
+    ```
+    check_and_forward command=check_cpu "arguments=warn=load>80" "arguments=crit=load>90"
+    ```
+
+    The positional form had to go because its parser also swallowed the CLI's
+    own `--argument key=value` tokens, which is what fed the wrapped command
+    garbage and made it fail. If a submission is rejected by the channel the
+    command now reports that failure instead of `Message submitted` — including
+    when only one channel of a comma list (`channel=NSCA,GRAPHITE`) fails,
+    which previously was silently reported as success.
 - **New: run scheduled checks on demand with `run_schedules`.** After editing
   `nsclient.ini` you no longer have to wait out the interval to see the new
   result on the monitoring server — `nscp client --boot --query run_schedules`
