@@ -82,3 +82,7 @@ rotate-signing-secret.ps1
 # repo root while a coverage report is generated. run.sh sweeps them, but
 # a hard-killed run cannot.
 *.gcov
+# The check_nsclient helper binary: CI (and local builds following it)
+# download it into the repo root before running cmake, see build-debian.yml
+# and CHECK_NSCLIENT_LOCATION in CMakeLists.txt.
+/check_nsclient
