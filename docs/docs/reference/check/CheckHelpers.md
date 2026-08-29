@@ -105,24 +105,190 @@ This command also accepts the standard [help options](../common-options.md#stand
 
 Run a check and forward the result as a passive check.
 
+#### About `check_and_forward`
+
+`check_and_forward` runs another check and submits its result as a **passive
+check** on a channel — the same thing the Scheduler does when an
+interval elapses, but on demand and for a single check.
+
+Use it when you want a result to reach the monitoring server *now*: after
+changing a check's arguments in `nsclient.ini`, while setting up a new NSCA or
+NRDP target, or from a script that decides for itself when a result is
+interesting.
+
+The channel is the name a client module listens on — `NSCA` for the NSCA
+client, `NRDP` for NRDP, `GRAPHITE`, `SYSLOG`, and so on (see the module's
+`channel` setting). The client module then resolves the destination, encrypts
+and sends the result exactly as it would for a scheduled check, so what arrives
+on the server is indistinguishable from the scheduled version.
+
+| Option        | What it is for                                                                                    |
+|---------------|---------------------------------------------------------------------------------------------------|
+| `command`     | The check to run. Required.                                                                       |
+| `arguments`   | Arguments for that check, repeat for more than one. Not accepted positionally.                    |
+| `channel`     | Channel to submit on, defaults to `NSCA`. `target` is kept as a legacy synonym.                   |
+| `alias`       | Service description to report as, defaults to the name of the command.                            |
+| `destination` | Which target of the client module to send to, defaults to that module's default target.           |
+| `source`      | Source host name to report as, defaults to the host name of this machine.                         |
+
+The command itself returns **OK** when the result was handed to the channel and
+**UNKNOWN** when the check could not be run or the channel refused it (no such
+channel, or the client module failed to send). It does **not** return the status
+of the wrapped check — that status is what was submitted, and is visible on the
+monitoring server.
+
+!!! note
+
+    The wrapped check runs with the permissions of whoever called
+    `check_and_forward`, not with those of `CheckHelpers` — see
+    [permissions](../../concepts/permissions.md). If the wrapped check is
+    denied, nothing is submitted and the command returns the denial as an
+    error.
+
+!!! warning
+
+    Before 0.18.0 the result never left the agent: the submission was built in a
+    way the channels could not read, so the check ran, the command answered
+    `Message submitted` and nothing at all reached the monitoring server. If you
+    worked around this, the workaround is no longer needed.
+
 **Jump to section:**
 
+* [Sample Commands](#check_and_forward_samples)
 * [Command-line Arguments](#check_and_forward_options)
+
+
+<a id="check_and_forward_samples"></a>
+#### Sample Commands
+
+Given this configuration:
+
+```ini
+[/modules]
+CheckSystem  = enabled
+CheckHelpers = enabled
+NSCAClient   = enabled
+
+[/settings/NSCA/client/targets/default]
+address    = nsca://nagios-server:5667
+password   = secret-password
+encryption = aes256
+```
+
+**Run a check and send its result as a passive check:**
+
+```
+nscp client --boot --query check_and_forward command=check_cpu channel=NSCA "alias=CPU Load"
+Message submitted: NSCA
+```
+
+The NSCA daemon on the monitoring server logs the result under the service
+description given by `alias`, exactly as a scheduled check would deliver it:
+
+```
+nsca: SERVICE CHECK -> Host Name: 'win-server-01', Service Description: 'CPU Load',
+      Return Code: '0', Output: 'OK: CPU load is ok.|...'
+```
+
+**Pass arguments to the wrapped check** — one per `arguments=`:
+
+```
+nscp client --boot --query check_and_forward command=check_cpu channel=NSCA "alias=CPU Load" "arguments=warning=load>10"
+Message submitted: NSCA
+```
+
+The status of the wrapped check is what gets submitted; the `OK` you see here
+only says the result was handed to the NSCA client.
+
+**The `-a` / `--argument` spelling works too**, which is what you want from a
+batch file or a script:
+
+```
+nscp client --boot --query check_and_forward --argument command=check_cpu --argument channel=NSCA --argument "alias=CPU Load"
+Message submitted: NSCA
+```
+
+**A channel nobody listens on is an error, not a silent drop:**
+
+```
+nscp client --boot --query check_and_forward command=check_cpu channel=NOPE
+Failed to submit to: NOPE
+```
+
+**Over REST**, to push a result on demand from a script:
+
+```
+curl -k -u admin:<password> "https://<agent>:8443/api/v2/queries/check_and_forward/commands/execute?command=check_cpu&channel=NSCA&alias=CPU+Load"
+{"command":"check_and_forward","result":0,"lines":[{"message":"Message submitted: NSCA","perf":{}}]}
+```
+
+#### Trying it without a monitoring server
+
+`SimpleFileWriter` is a channel that writes results to a local file, which makes
+it a quick way to see exactly what is being submitted:
+
+```ini
+[/modules]
+CheckSystem      = enabled
+CheckHelpers     = enabled
+SimpleFileWriter = enabled
+
+[/settings/writers/file]
+file = results.txt
+```
+
+```
+nscp client --boot --query check_and_forward command=check_cpu channel=FILE "alias=CPU Load"
+Message submitted: FILE
+```
+
+`results.txt` then contains one line per submitted result, as
+`${alias-or-command} ${result} ${message}`:
+
+```
+CPU Load OK OK: CPU load is ok.
+```
+
+Add an argument for the wrapped check and the forwarded status changes with it —
+the check really runs, it is not a fixed OK:
+
+```
+nscp client --boot --query check_and_forward command=check_cpu channel=FILE "alias=CPU Load" "arguments=warning=load>-1"
+Message submitted: FILE
+```
+
+```
+CPU Load WARNING WARNING: 5s: 0%, 1m: 0%, 5m: 0%
+```
+
+Without `alias` the result is named after the command instead:
+
+```
+check_cpu OK OK: CPU load is ok.
+```
 
 
 
 <a id="check_and_forward_options"></a>
 #### Command-line Arguments
 
-<a id="check_and_forward_target"></a>
 <a id="check_and_forward_command"></a>
 <a id="check_and_forward_arguments"></a>
+<a id="check_and_forward_channel"></a>
+<a id="check_and_forward_target"></a>
+<a id="check_and_forward_alias"></a>
+<a id="check_and_forward_destination"></a>
+<a id="check_and_forward_source"></a>
 
-| Option    | Default Value | Description                                  |
-|-----------|---------------|----------------------------------------------|
-| target    |               | Commands to run (can be used multiple times) |
-| command   |               | Commands to run (can be used multiple times) |
-| arguments |               | List of arguments (for wrapped command)      |
+| Option      | Default Value | Description                                                                                                          |
+|-------------|---------------|----------------------------------------------------------------------------------------------------------------------|
+| command     |               | The command to run before forwarding the result                                                                      |
+| arguments   |               | An argument for the wrapped command, repeat for more than one                                                        |
+| channel     |               | The channel to submit the result on, i.e. which client module sends it (NSCA, NRDP, GRAPHITE, ...). Defaults to NSCA |
+| target      |               | Legacy synonym for channel (kept for backwards compatibility)                                                        |
+| alias       |               | Alias (service description) to report the result as, defaults to the name of the command                             |
+| destination |               | The target to send the message to (resolved by the client module, defaults to its default target)                    |
+| source      |               | The name of the source system, defaults to the host name of this machine                                             |
 
 
 

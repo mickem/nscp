@@ -29,17 +29,235 @@ A list of all available queries (check commands)
 
 Check the internal health of NSClient++.
 
+#### About `check_nscp`
+
+`check_nscp` reports on the health of the agent itself: whether it has crashed,
+whether it has logged errors, and how long it has been running. It is the check
+you point at NSClient++ to answer "is my monitoring agent healthy?", as opposed
+to `check_nscp_version` (which version is this?) and `check_nscp_update` (is a
+newer one available?).
+
+It is a normal filter check, so the usual `filter` / `warning` / `critical`,
+`top-syntax` / `detail-syntax` and `perf-config` options all apply. Exactly one
+object is fed to the filter — the agent — so `${list}` is a single line.
+
+The default thresholds keep the historical verdict: **any** crash report or
+**any** logged error makes the agent CRITICAL.
+
+```
+check_nscp
+OK: 0 crash(es), 0 error(s), uptime 0
+```
+
+#### What the keywords are measured against
+
+| Keyword | Where it comes from |
+|---------|---------------------|
+| `crashes`, `last_crash`, `crash_age` | The crash archive folder, i.e. the `archive folder` key in `[/settings/crash]`. Files ending in `.crash`, `.dmp` or `.txt` count as crash reports. |
+| `errors`, `last_error` | Messages logged at ERROR or CRITICAL level, counted since the module was loaded. The counter is not reset by a restart of the check, only by a restart of the agent. |
+| `uptime` | Time since the CheckNSCP module was loaded, which for a normally configured agent is the agent's own uptime. |
+| `version`, `date` | The running build, same values `check_nscp_version` reports. |
+
+The three crash-report extensions are historical. 0.6.10 and later write one
+plain-text `<timestamp>.crash` per crash, naming the exception, the faulting
+address and the module it landed in. Up to 0.6.9 the agent used Google
+Breakpad, which left a `<guid>.dmp` minidump and a `<guid>.dmp.txt` description
+behind; breakpad was dropped because its vendored submodule and build machinery
+had become a dependency burden. All three extensions are counted, so an archive
+that predates the change still reports correctly.
+
+`uptime` and `crash_age` accept units in thresholds, so you can write
+`crit=uptime < 5m` or `warn=crash_age < 7d` rather than converting to seconds
+yourself. Rendered through `${uptime}` / `${crash_age}` they come out as a
+human-readable duration whose largest unit is controlled by `max-unit`.
+
+#### Crash reports are a Windows concept
+
+NSClient++ only archives crash reports on Windows — there is no crash handler in
+the Unix builds. On Linux the crash archive folder therefore stays empty and
+`crashes` is always `0`; that is the documented result, not a failure. The
+`errors` and `uptime` keywords work identically on both platforms.
+
+#### Alerting on a crash that has since been cleaned up
+
+`crashes` counts every report still in the archive folder, so an agent that
+crashed a year ago and was never tidied up stays CRITICAL forever. To alert only
+on a *recent* crash, threshold on `crash_age` instead and let the count alone go
+unremarked:
+
+```
+check_nscp "crit=crash_age < 7d" "warn=errors > 0"
+```
+
+`crash_age` is `none` when the archive holds no report at all, and every numeric
+comparison against `none` is false — so the expression above is quietly OK on an
+agent that has never crashed.
+
 **Jump to section:**
 
+* [Sample Commands](#check_nscp_samples)
 * [Command-line Arguments](#check_nscp_options)
+* [Filter keywords](#check_nscp_filter_keys)
+
+
+<a id="check_nscp_samples"></a>
+#### Sample Commands
+
+**Check that the agent is healthy**
+
+With no arguments the defaults apply: any crash report or any logged error is
+CRITICAL.
+
+```
+check_nscp
+OK: 0 crash(es), 0 error(s), uptime 4d 02:17|'nscp_crashes'=0;0;0 'nscp_errors'=0;0;0
+```
+
+**An agent that has crashed**
+
+```
+check_nscp
+CRITICAL: 2 crash(es), 0 error(s), uptime 03:12|'nscp_crashes'=2;0;0 'nscp_errors'=0;0;0
+```
+
+**Name the crash report and how old it is**
+
+```
+check_nscp "detail-syntax=last=${last_crash} age=${crash_age}"
+CRITICAL: last=2026-01-02-08-15-31.crash age=0:31|'nscp_crashes'=2;0;0 'nscp_errors'=0;0;0
+```
+
+**Only alert on a recent crash**
+
+`crash_age` accepts units, so the window is written the way you think about it.
+An agent that crashed half an hour ago trips a 7-day window:
+
+```
+check_nscp "crit=crash_age < 7d"
+CRITICAL: 2 crash(es), 0 error(s), uptime 03:12|'nscp_crash_age'=1878s;0;604800
+```
+
+…and one that has never crashed does not, because every numeric comparison
+against `none` is false. There is no value to graph either, so the check emits
+no performance data at all:
+
+```
+check_nscp "crit=crash_age < 7d"
+OK: 0 crash(es), 0 error(s), uptime 4d 02:17
+```
+
+**Warn before the crash archive piles up**
+
+A threshold on a keyword also produces that keyword's performance data, so this
+graphs the crash count with both thresholds attached — and nothing else.
+
+```
+check_nscp "warn=crashes > 5" "crit=crashes > 10"
+OK: 0 crash(es), 0 error(s), uptime 4d 02:17|'nscp_crashes'=0;5;10
+```
+
+**Alert on a freshly restarted agent**
+
+`uptime` takes units too. The default `critical` still applies here, so the
+crash and error metrics come along with the uptime one.
+
+```
+check_nscp "warn=uptime < 5m"
+WARNING: 0 crash(es), 0 error(s), uptime 42s|'nscp_crashes'=0;0;0 'nscp_errors'=0;0;0 'nscp_uptime'=42s;300;0
+```
+
+**Change the granularity of the rendered durations**
+
+`max-unit` controls the largest unit `${uptime}` and `${crash_age}` use.
+
+```
+check_nscp "max-unit=h" "detail-syntax=up=${uptime}"
+OK: up=98:17|'nscp_crashes'=0;0;0 'nscp_errors'=0;0;0
+```
+
+**Report the last error the agent logged**
+
+`errors` counts messages logged at ERROR or CRITICAL level since the agent
+started; `${last_error}` is the most recent of them.
+
+```
+check_nscp "detail-syntax=${errors} error(s): ${last_error}"
+CRITICAL: 1 error(s): Failed to load module: CheckWMI|'nscp_crashes'=0;0;0 'nscp_errors'=1;0;0
+```
+
+**Custom top-level output**
+
+```
+check_nscp "top-syntax=agent is ${status}"
+agent is OK|'nscp_crashes'=0;0;0 'nscp_errors'=0;0;0
+```
 
 
 
 <a id="check_nscp_options"></a>
 #### Command-line Arguments
 
+| Option                           | Default Value | Description                                                                                                                                               |
+|----------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [max-unit](#check_nscp_max-unit) | w             | Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'. |
+
+
+
+<h5 id="check_nscp_max-unit">max-unit:</h5>
+
+Largest time unit used to render ${uptime} and ${crash_age}: s|m|h|d|w (default: w). For a 6-week uptime, w=>'6w 0d 00:00', d=>'42d 00:00', h=>'1008:00'.
+
+*Default Value:* `w`
+
+
+**Common options:**
+
+These options are shared by all filter based commands and are described on the [common options](../common-options.md#common-options) page; the default values below are specific to this command.
+
+
+| Option                                                                                                     | Default Value                                              |
+|------------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
+| <a id="check_nscp_filter"></a>[filter](../common-options.md#filter)                                        |                                                            |
+| <a id="check_nscp_warning"></a>[warning](../common-options.md#warning)                                     |                                                            |
+| <a id="check_nscp_warn"></a>[warn](../common-options.md#warn)                                              |                                                            |
+| <a id="check_nscp_critical"></a>[critical](../common-options.md#critical)                                  | crashes > 0 or errors > 0                                  |
+| <a id="check_nscp_crit"></a>[crit](../common-options.md#crit)                                              |                                                            |
+| <a id="check_nscp_ok"></a>[ok](../common-options.md#ok)                                                    |                                                            |
+| <a id="check_nscp_debug"></a>[debug](../common-options.md#debug)                                           | false                                                      |
+| <a id="check_nscp_show-all"></a>[show-all](../common-options.md#show-all)                                  | false                                                      |
+| <a id="check_nscp_empty-state"></a>[empty-state](../common-options.md#empty-state)                         | ignored                                                    |
+| <a id="check_nscp_perf-config"></a>[perf-config](../common-options.md#perf-config)                         |                                                            |
+| <a id="check_nscp_escape-html"></a>[escape-html](../common-options.md#escape-html)                         | false                                                      |
+| <a id="check_nscp_list-separator"></a>[list-separator](../common-options.md#list-separator)                | ,                                                          |
+| <a id="check_nscp_top-syntax"></a>[top-syntax](../common-options.md#top-syntax)                            | ${status}: ${list}                                         |
+| <a id="check_nscp_ok-syntax"></a>[ok-syntax](../common-options.md#ok-syntax)                               |                                                            |
+| <a id="check_nscp_empty-syntax"></a>[empty-syntax](../common-options.md#empty-syntax)                      |                                                            |
+| <a id="check_nscp_detail-syntax"></a>[detail-syntax](../common-options.md#detail-syntax)                   | ${crashes} crash(es), ${errors} error(s), uptime ${uptime} |
+| <a id="check_nscp_perf-syntax"></a>[perf-syntax](../common-options.md#perf-syntax)                         | nscp                                                       |
+| <a id="check_nscp_byte-unit"></a>[byte-unit](../common-options.md#byte-unit)                               |                                                            |
+| <a id="check_nscp_decimal-separator"></a>[decimal-separator](../common-options.md#decimal-separator)       |                                                            |
+| <a id="check_nscp_decimals"></a>[decimals](../common-options.md#decimals)                                  | -1                                                         |
+| <a id="check_nscp_thousands-separator"></a>[thousands-separator](../common-options.md#thousands-separator) |                                                            |
+
+
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
 
+
+<a id="check_nscp_filter_keys"></a>
+#### Filter keywords
+
+| Option     | Description                                                                                                             |
+|------------|-------------------------------------------------------------------------------------------------------------------------|
+| crash_age  | Seconds since the most recent crash report was written, 'none' when nothing has crashed (accepts units: crash_age < 7d) |
+| crashes    | Number of crash reports found in the crash archive folder                                                               |
+| date       | The build date of the running NSClient++                                                                                |
+| errors     | Number of errors logged by NSClient++ since it was started                                                              |
+| last_crash | File name of the most recent crash report (empty when nothing has crashed)                                              |
+| last_error | The most recently logged error message (empty when nothing has been logged)                                             |
+| uptime     | Seconds since NSClient++ was started (accepts units: uptime < 5m)                                                       |
+| version    | The running NSClient++ version                                                                                          |
+
+This command also supports the [common filter keywords](../common-options.md#common-filter-keywords): count, total, ok_count, warn_count, crit_count, problem_count, list, ok_list, warn_list, crit_list, problem_list, detail_list, sep, status.
 
 ### check_nscp_update
 

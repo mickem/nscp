@@ -122,6 +122,27 @@ common:
             description: The target to send the message to (will be resolved by the consumer)
             sample: true
             title: TARGET
+  queries:
+    run_schedules:
+      common_options:
+        help: ''
+        help-pb: ''
+        help-short: ''
+        show-default: ''
+      info:
+        description: Run configured schedules now instead of waiting for their interval and submit the
+          results as passive checks.
+      params:
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Alias of a schedule to run, can be given more than once. Defaults to every configured
+          schedule.
+        name: schedule
+        repeatable: false
+        required: false
+        short_description: Alias of a schedule to run, can be given more than once. Defaults to every
+          configured schedule.
 module: Scheduler
 namespace: generic
 platforms:

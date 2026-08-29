@@ -25,7 +25,7 @@ changes.
 
 ### OpenSSL 3.5.5–3.5.8 — bundled OpenSSL updated past four upstream security releases
 
-**Fixed in:** 0.17.1 (bundles OpenSSL 3.5.8) · **Severity:** Moderate (highest fix reachable through NSClient++)
+**Fixed in:** 0.18.0 (bundles OpenSSL 3.5.8) · **Severity:** Moderate (highest fix reachable through NSClient++)
 
 The **Windows builds** of NSClient++ statically bundle
 [OpenSSL](https://github.com/openssl/openssl) as the TLS engine for the
@@ -34,7 +34,7 @@ for certificate parsing in `check_certificate`, and for password hashing.
 Releases up to 0.17.0 bundled OpenSSL 3.5.4; the four upstream security
 releases since then — 3.5.5 (27 Jan 2026), 3.5.6 (7 Apr 2026), 3.5.7
 (9 Jun 2026) and 3.5.8 (25 Aug 2026) — fix some forty CVEs on the 3.5 LTS
-line, and 0.17.1 moves the bundled copy to 3.5.8.
+line, and 0.18.0 moves the bundled copy to 3.5.8.
 
 The fixes most relevant to NSClient++ sit on code paths it actually calls:
 
@@ -66,7 +66,7 @@ apply.
 Not affected: the Linux packages (DEB/RPM) link the distribution's OpenSSL
 and receive these fixes through ordinary OS updates.
 
-**What to do:** upgrade Windows installs to 0.17.1 or later — promptly if
+**What to do:** upgrade Windows installs to 0.18.0 or later — promptly if
 `check_certificate` is pointed at certificate files or directories that
 less-trusted principals can write to. No configuration change is needed.
 
@@ -142,7 +142,7 @@ first, alongside the release that contains them.
 
 ### SMTP client security-review hardening
 
-**Fixed in:** 0.17.2 · **Severity:** Low–Medium
+**Fixed in:** 0.18.0 · **Severity:** Low–Medium
 
 A review of the `SMTPClient` module produced a set of fixes to how it sets up
 and trusts a submission session. None is remotely exploitable by an
@@ -219,7 +219,7 @@ in `ca` rather than waive verification. See
 
 ### NRPE: decoded-argument metachar guard, optional version banner, and consistency fixes
 
-**Fixed in:** 0.17.2 · **Severity:** Low
+**Fixed in:** 0.18.0 · **Severity:** Low
 
 A review of the `NRPEServer` / `NRPEClient` modules produced a set of
 defense-in-depth fixes. None is remotely exploitable on a default install
@@ -259,7 +259,7 @@ guard was always intended to catch.
 
 ### NRDP client security-review hardening
 
-**Fixed in:** 0.17.2 · **Severity:** Low–Medium
+**Fixed in:** 0.18.0 · **Severity:** Low–Medium
 
 A focused security review of the passive submission protocols (`NRDPClient`,
 `NSCAClient`/`NSCAServer`) produced a small set of defense-in-depth fixes on
@@ -296,7 +296,7 @@ behaviour was to trust any certificate silently.
 
 ### WEB server security-review hardening
 
-**Fixed in:** 0.17.0 · **Severity:** Low–Medium
+**Fixed in:** 0.18.0 · **Severity:** Low–Medium
 
 A focused security review of the `WEBServer` module (REST API + web UI)
 produced a set of defense-in-depth fixes. None is a confirmed remote

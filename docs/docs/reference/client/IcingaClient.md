@@ -160,12 +160,19 @@ Set this to auto (default) to use the windows name of the computer.
 
 auto	Hostname
 ${host}	Hostname
-${host_lc}
-Hostname in lowercase
+${host_lc}	Hostname in lowercase
 ${host_uc}	Hostname in uppercase
 ${domain}	Domainname
 ${domain_lc}	Domainname in lowercase
 ${domain_uc}	Domainname in uppercase
+${address_ipv4}	IPv4 address of the computer
+${address_ipv6}	IPv6 address of the computer (lowercase, compressed)
+${address_ipv6_lc}	IPv6 address in lowercase (compressed)
+${address_ipv6_uc}	IPv6 address in uppercase (compressed)
+${address_ipv6_lc_comp}	IPv6 address in lowercase, compressed (2001:db8::7)
+${address_ipv6_lc_uncomp}	IPv6 address in lowercase, uncompressed (2001:0db8:0000:0000:0000:0000:0000:0007)
+${address_ipv6_uc_comp}	IPv6 address in uppercase, compressed
+${address_ipv6_uc_uncomp}	IPv6 address in uppercase, uncompressed
 
 
 

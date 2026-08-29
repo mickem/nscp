@@ -82,3 +82,7 @@ rotate-signing-secret.ps1
 # repo root while a coverage report is generated. run.sh sweeps them, but
 # a hard-killed run cannot.
 *.gcov
+# Release-notes drafts. These are written for the GitHub release body and are
+# deliberately not part of the repository; keeping them ignored stops a
+# `git add -A` from sweeping one in.
+/release-notes-*.md

@@ -109,6 +109,14 @@ common:
           description: ''
           sample: false
           title: NRPE PAYLOAD ENCODING
+        expose version:
+          advanced: false
+          default_value: 'true'
+          description: Include the full NSClient++ version string in the unauthenticated _NRPE_CHECK ping
+            reply. Defaults to true for compatibility with check_nrpe and monitoring tooling; set to false
+            to avoid disclosing the exact build to any host permitted to open the NRPE port.
+          sample: false
+          title: EXPOSE VERSION IN PING REPLY
         extended response:
           advanced: false
           default_value: 'true'

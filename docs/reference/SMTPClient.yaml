@@ -246,11 +246,21 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: 'Transport security: none | starttls (default) | tls.'
+        long_description: 'Transport security: none | starttls (default) | tls (alias ssl).'
         name: security
         repeatable: false
         required: false
-        short_description: 'Transport security: none | starttls (default) | tls.'
+        short_description: 'Transport security: none | starttls (default) | tls (alias ssl).'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'CA bundle used to verify the server certificate (default: the agent''s trusted
+          bundle, ${ca-path}).'
+        name: ca
+        repeatable: false
+        required: false
+        short_description: 'CA bundle used to verify the server certificate (default: the agent''s trusted
+          bundle, ${ca-path}).'
       - content_type: 2
         default_value: ''
         is_simple: true
@@ -259,32 +269,14 @@ common:
         repeatable: false
         required: false
         short_description: Hostname to send in EHLO.
-      - content_type: 4
-        default_value: ''
-        is_simple: true
+      - content_type: 2
+        default_value: 'true'
+        is_simple: false
         long_description: Skip TLS certificate validation (test environments only).
         name: insecure-skip-verify
         repeatable: false
         required: false
         short_description: Skip TLS certificate validation (test environments only).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Source/sender host name (default is auto which means use the name of the actual
-          host).
-        name: source-host
-        repeatable: false
-        required: false
-        short_description: Source/sender host name (default is auto which means use the name of the actual
-          host).
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Source/sender host name (alias for --source-host).
-        name: sender-host
-        repeatable: false
-        required: false
-        short_description: Source/sender host name (alias for --source-host).
 module: SMTPClient
 namespace: client
 platforms:

@@ -125,6 +125,164 @@ startup window = 30s
 ```
 
 
+## Queries
+
+A quick reference for all available queries (check commands) in the Scheduler module.
+
+**List of commands:**
+
+A list of all available queries (check commands)
+
+| Command                         | Description                                                                                                  |
+|---------------------------------|--------------------------------------------------------------------------------------------------------------|
+| [run_schedules](#run_schedules) | Run configured schedules now instead of waiting for their interval and submit the results as passive checks. |
+
+### run_schedules
+
+Run configured schedules now instead of waiting for their interval and submit the results as passive checks.
+
+#### About `run_schedules`
+
+`run_schedules` runs the schedules configured under
+`[/settings/scheduler/schedules]` **now**, instead of waiting for their interval
+(or cron expression) to come around, and submits the results on their normal
+channel.
+
+This is what you want after editing `nsclient.ini`: change a check's arguments,
+reload, run `run_schedules`, and the new result is on the monitoring server
+within seconds rather than at the end of the interval.
+
+Each schedule is executed exactly as the scheduler itself would: the command
+runs, the `report` filter decides whether the result is worth sending, and the
+result is submitted on the schedule's `channel` with its `target`, `source` and
+alias. A schedule with `channel = drop`, or one whose result the `report` filter
+rejects, therefore sends nothing here either — and is still counted as run.
+
+| Option     | What it is for                                                                                   |
+|------------|---------------------------------------------------------------------------------------------------|
+| `schedule` | Alias of a schedule to run, repeat for more than one. Defaults to every configured schedule.       |
+
+The command returns **OK** when every selected schedule ran and submitted, and
+**UNKNOWN** when a schedule was not found, when none is configured, or when a
+submission failed (the message names the schedule and the error). It does not
+return the status of the checks themselves — those go to the monitoring server.
+
+The run is synchronous: the command answers once every selected schedule has
+finished, so running all of them at once takes as long as the slowest check.
+It also does not touch the timers — the next regular run of each schedule
+happens exactly when it would have anyway.
+
+!!! note
+
+    The checks run with the permissions of whoever called `run_schedules`, not
+    with those of the Scheduler module — see
+    [permissions](../../concepts/permissions.md). A schedule whose check is
+    denied submits nothing to its channel and is reported back as failed. The
+    scheduler's own timed runs are unaffected and keep running as the
+    Scheduler.
+
+!!! tip
+
+    To have the schedules run at startup instead — for instance so results are
+    fresh after a reboot or a service restart — set `run on startup = true` on
+    the schedule rather than calling this command.
+
+**Jump to section:**
+
+* [Sample Commands](#run_schedules_samples)
+* [Command-line Arguments](#run_schedules_options)
+
+
+<a id="run_schedules_samples"></a>
+#### Sample Commands
+
+Given this configuration:
+
+```ini
+[/modules]
+CheckSystem = enabled
+CheckHelpers = enabled
+Scheduler = enabled
+NSCAClient = enabled
+
+[/settings/scheduler/schedules/default]
+channel  = NSCA
+interval = 1h
+report   = all
+
+[/settings/scheduler/schedules]
+cpu        = check_cpu
+host_check = check_ok
+```
+
+**Run every configured schedule now and submit the results:**
+
+```
+nscp client --boot --query run_schedules
+Ran 2 schedule(s): cpu, host_check
+```
+
+**Run a single schedule (repeat `schedule=` for more than one):**
+
+```
+nscp client --boot --query run_schedules schedule=cpu
+Ran 1 schedule(s): cpu
+```
+
+The `-a` / `--argument` spelling works too, which is what you want from a batch
+file or a script:
+
+```
+nscp client --boot --query run_schedules --argument schedule=cpu
+Ran 1 schedule(s): cpu
+```
+
+**A schedule that does not exist is reported, not silently skipped:**
+
+```
+nscp client --boot --query run_schedules schedule=nosuchcheck
+No such schedule: nosuchcheck (available: cpu, host_check)
+```
+
+**From the interactive test prompt:**
+
+```
+nscp test
+...
+run_schedules
+OK: Ran 2 schedule(s): cpu, host_check
+```
+
+**Over REST**, to wire a "push my results now" button to the agent:
+
+```
+curl -k -u admin:<password> "https://<agent>:8443/api/v2/queries/run_schedules/commands/execute?schedule=cpu"
+{"command":"run_schedules","result":0,"lines":[{"message":"Ran 1 schedule(s): cpu","perf":{}}]}
+```
+
+**Via NRPE:**
+
+```
+check_nscp_client --host 192.168.56.103 --command run_schedules
+OK: Ran 2 schedule(s): cpu, host_check
+```
+
+
+
+<a id="run_schedules_options"></a>
+#### Command-line Arguments
+
+<a id="run_schedules_schedule"></a>
+
+| Option   | Default Value | Description                                                                                     |
+|----------|---------------|-------------------------------------------------------------------------------------------------|
+| schedule |               | Alias of a schedule to run, can be given more than once. Defaults to every configured schedule. |
+
+
+
+
+This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
+
 
 ## Configuration
 

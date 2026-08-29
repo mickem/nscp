@@ -147,9 +147,9 @@ common:
         client:
           advanced: false
           default_value: public,info.get,info.get.version,queries.list,queries.get,queries.execute,aliases.list,login.get,modules.list
-          description: Default role for read only
+          description: Default role for read + run checks (queries.execute can run side-effecting commands)
           sample: false
-          title: Role for read only
+          title: Role for read + run checks (queries.execute can run side-effecting commands)
         full:
           advanced: false
           default_value: '*'

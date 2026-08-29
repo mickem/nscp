@@ -74,27 +74,65 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Commands to run (can be used multiple times)
-        name: target
-        repeatable: false
-        required: false
-        short_description: Commands to run (can be used multiple times)
-      - content_type: 2
-        default_value: ''
-        is_simple: true
-        long_description: Commands to run (can be used multiple times)
+        long_description: The command to run before forwarding the result
         name: command
         repeatable: false
         required: false
-        short_description: Commands to run (can be used multiple times)
+        short_description: The command to run before forwarding the result
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: List of arguments (for wrapped command)
+        long_description: An argument for the wrapped command, repeat for more than one
         name: arguments
         repeatable: false
         required: false
-        short_description: List of arguments (for wrapped command)
+        short_description: An argument for the wrapped command, repeat for more than one
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The channel to submit the result on, i.e. which client module sends it (NSCA,
+          NRDP, GRAPHITE, ...). Defaults to NSCA
+        name: channel
+        repeatable: false
+        required: false
+        short_description: The channel to submit the result on, i.e. which client module sends it (NSCA,
+          NRDP, GRAPHITE, ...). Defaults to NSCA
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Legacy synonym for channel (kept for backwards compatibility)
+        name: target
+        repeatable: false
+        required: false
+        short_description: Legacy synonym for channel (kept for backwards compatibility)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Alias (service description) to report the result as, defaults to the name of
+          the command
+        name: alias
+        repeatable: false
+        required: false
+        short_description: Alias (service description) to report the result as, defaults to the name of
+          the command
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The target to send the message to (resolved by the client module, defaults to
+          its default target)
+        name: destination
+        repeatable: false
+        required: false
+        short_description: The target to send the message to (resolved by the client module, defaults
+          to its default target)
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The name of the source system, defaults to the host name of this machine
+        name: source
+        repeatable: false
+        required: false
+        short_description: The name of the source system, defaults to the host name of this machine
     check_critical:
       common_options:
         help: ''

@@ -44,6 +44,7 @@ Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 | [debug verify](#debug-peer-certificate-verification)      | false                               | Debug peer certificate verification    |
 | [dh](#dh-key)                                             | ${nrpe-dh}/nrpe_dh_2048.pem         | DH KEY                                 |
 | [encoding](#nrpe-payload-encoding)                        |                                     | NRPE PAYLOAD ENCODING                  |
+| [expose version](#expose-version-in-ping-reply)           | true                                | EXPOSE VERSION IN PING REPLY           |
 | [extended response](#extended-response)                   | true                                | EXTENDED RESPONSE                      |
 | [insecure](#allow-insecure-chiphers-and-encryption)       | false                               | ALLOW INSECURE CHIPHERS and ENCRYPTION |
 | [payload length](#payload-length)                         | 1024                                | PAYLOAD LENGTH                         |
@@ -72,6 +73,7 @@ certificate format=PEM
 client identity source=none
 debug verify=false
 dh=${nrpe-dh}/nrpe_dh_2048.pem
+expose version=true
 extended response=true
 insecure=false
 payload length=1024
@@ -372,6 +374,26 @@ dh=${nrpe-dh}/nrpe_dh_2048.pem
 [/settings/NRPE/server]
 # NRPE PAYLOAD ENCODING
 encoding=
+```
+
+#### EXPOSE VERSION IN PING REPLY <a id="/settings/NRPE/server/expose version"></a>
+
+Include the full NSClient++ version string in the unauthenticated _NRPE_CHECK ping reply. Defaults to true for compatibility with check_nrpe and monitoring tooling; set to false to avoid disclosing the exact build to any host permitted to open the NRPE port.
+
+
+| Key            | Description                                     |
+|----------------|-------------------------------------------------|
+| Path:          | [/settings/NRPE/server](#/settings/NRPE/server) |
+| Key:           | expose version                                  |
+| Default value: | `true`                                          |
+
+
+**Sample:**
+
+```
+[/settings/NRPE/server]
+# EXPOSE VERSION IN PING REPLY
+expose version=true
 ```
 
 #### EXTENDED RESPONSE <a id="/settings/NRPE/server/extended response"></a>

@@ -58,41 +58,44 @@ Submit information to the remote SMTP server.
 <a id="submit_smtp_username"></a>
 <a id="submit_smtp_password"></a>
 <a id="submit_smtp_security"></a>
+<a id="submit_smtp_ca"></a>
 <a id="submit_smtp_ehlo-hostname"></a>
-<a id="submit_smtp_insecure-skip-verify"></a>
-<a id="submit_smtp_source-host"></a>
-<a id="submit_smtp_sender-host"></a>
 
-| Option               | Default Value | Description                                                                            |
-|----------------------|---------------|----------------------------------------------------------------------------------------|
-| host                 |               | The host of the host running the server                                                |
-| port                 |               | The port of the host running the server                                                |
-| address              |               | The address (host:port) of the host running the server                                 |
-| timeout              |               | Number of seconds before connection times out (default=10)                             |
-| target               |               | Target to use (lookup connection info from config)                                     |
-| retry                |               | Number of times ti retry a failed connection attempt (default=2)                       |
-| retries              |               | legacy version of retry                                                                |
-| source-host          |               | Source/sender host name (default is auto which means use the name of the actual host)  |
-| sender-host          |               | Source/sender host name (default is auto which means use the name of the actual host)  |
-| command              |               | The name of the command that the remote daemon should run                              |
-| alias                |               | Same as command                                                                        |
-| message              |               | Message                                                                                |
-| result               |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                 |
-| separator            |               | Separator to use for the batch command (default is |)                                  |
-| batch                |               | Add multiple records using the separator format is: command|result|message             |
-| sender               |               | Envelope sender / From: header.                                                        |
-| recipient            |               | Recipient address (one per submission).                                                |
-| subject              |               | Subject template; %source% / %message% are substituted.                                |
-| template             |               | Body template; %source% / %message% are substituted.                                   |
-| username             |               | SMTP AUTH username.                                                                    |
-| password             |               | SMTP AUTH password.                                                                    |
-| security             |               | Transport security: none | starttls (default) | tls.                                   |
-| ehlo-hostname        |               | Hostname to send in EHLO.                                                              |
-| insecure-skip-verify | N/A           | Skip TLS certificate validation (test environments only).                              |
-| source-host          |               | Source/sender host name (default is auto which means use the name of the actual host). |
-| sender-host          |               | Source/sender host name (alias for --source-host).                                     |
+| Option                                                    | Default Value | Description                                                                                        |
+|-----------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------|
+| host                                                      |               | The host of the host running the server                                                            |
+| port                                                      |               | The port of the host running the server                                                            |
+| address                                                   |               | The address (host:port) of the host running the server                                             |
+| timeout                                                   |               | Number of seconds before connection times out (default=10)                                         |
+| target                                                    |               | Target to use (lookup connection info from config)                                                 |
+| retry                                                     |               | Number of times ti retry a failed connection attempt (default=2)                                   |
+| retries                                                   |               | legacy version of retry                                                                            |
+| source-host                                               |               | Source/sender host name (default is auto which means use the name of the actual host)              |
+| sender-host                                               |               | Source/sender host name (default is auto which means use the name of the actual host)              |
+| command                                                   |               | The name of the command that the remote daemon should run                                          |
+| alias                                                     |               | Same as command                                                                                    |
+| message                                                   |               | Message                                                                                            |
+| result                                                    |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                             |
+| separator                                                 |               | Separator to use for the batch command (default is |)                                              |
+| batch                                                     |               | Add multiple records using the separator format is: command|result|message                         |
+| sender                                                    |               | Envelope sender / From: header.                                                                    |
+| recipient                                                 |               | Recipient address (one per submission).                                                            |
+| subject                                                   |               | Subject template; %source% / %message% are substituted.                                            |
+| template                                                  |               | Body template; %source% / %message% are substituted.                                               |
+| username                                                  |               | SMTP AUTH username.                                                                                |
+| password                                                  |               | SMTP AUTH password.                                                                                |
+| security                                                  |               | Transport security: none | starttls (default) | tls (alias ssl).                                   |
+| ca                                                        |               | CA bundle used to verify the server certificate (default: the agent's trusted bundle, ${ca-path}). |
+| ehlo-hostname                                             |               | Hostname to send in EHLO.                                                                          |
+| [insecure-skip-verify](#submit_smtp_insecure-skip-verify) | true          | Skip TLS certificate validation (test environments only).                                          |
 
 
+
+<h5 id="submit_smtp_insecure-skip-verify">insecure-skip-verify:</h5>
+
+Skip TLS certificate validation (test environments only).
+
+*Default Value:* `true`
 
 
 This command also accepts the standard [help options](../common-options.md#standard-options): help, help-pb, show-default, help-short.
