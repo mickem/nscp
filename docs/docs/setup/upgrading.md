@@ -72,6 +72,57 @@ page tracks those in one place. Full per-release detail lives in each
   malformed server response can no longer crash the agent, and the NRDP token
   and any proxy-URL credentials are redacted from the trace log. See
   [Security notices](../security/notices.md).
+- **`--source-host` / `--sender-host` now name the sending host, on every
+  client module.** They were registered against the *destination* container,
+  where the well-known `host` key is routed into the typed address field — so
+  naming a source host silently redirected the connection to it, and the
+  sender the handler reads was never set. `SMTPClient` and `NRDPClient` had
+  each worked around this by registering their own copies, which made the
+  option name ambiguous and so **unusable on those two modules** (`option
+  '--source-host' is ambiguous`). The options are registered once now, against
+  the sender. If you had scripted around the old behaviour by passing
+  `--source-host` to redirect a connection, use `--host` or `--address` for
+  that instead.
+- 🔒 **SMTP submissions now verify the server certificate against the agent's
+  CA bundle.** `SMTPClient` relied on OpenSSL's built-in default verify paths,
+  which on Windows do not include the Windows certificate store — so the
+  default `security=starttls` failed verification against Gmail, Microsoft 365
+  and every other public provider there, and `insecure-skip-verify` was the
+  only way through. A new **`ca`** target setting (and `--ca` argument)
+  defaults to `${ca-path}`, the same trusted bundle the other TLS clients use:
+  the distribution's CA store on unix, the exported Windows ROOT store on
+  Windows. **If a Windows SMTP target was only working because you set
+  `insecure-skip-verify = true`, remove it and retry** — verification should
+  now succeed. For an internal relay with a private CA, point `ca` at that
+  bundle instead of waiving verification. Set `ca = none` to restore the old
+  behaviour. A bundle that cannot be loaded now fails the submission with a
+  message naming the file, rather than failing the handshake later with an
+  unrelated-looking issuer error. A target that names no `ca` at all — a
+  one-shot command line, or a default target — falls back to the same bundle,
+  resolved once at module load, so no submission path is left on OpenSSL's
+  built-in verify paths by accident.
+- 🔒 **SMTP client security-review hardening.** The same review closed a set of
+  trust gaps in `SMTPClient`: data pipelined into the STARTTLS greeting is
+  refused rather than trusted as post-handshake input, the EHLO name is
+  validated for command injection before it reaches the wire, and ESMTP
+  capabilities are matched per reply line instead of by substring search. No
+  configuration change is needed. See
+  [Security notices](../security/notices.md#smtp-client-security-review-hardening).
+- **The SMTP `timeout` is now a budget for the whole submission** rather than a
+  fresh deadline per operation (and per resolved address). A target that
+  previously completed by using several times its configured `timeout` across
+  a slow session will now give up at the configured value; raise `timeout` on
+  targets talking to a slow relay.
+- **SMTP messages now carry a `Message-ID` header.** Nothing to do — it
+  improves deliverability and gives mail administrators a handle to trace a
+  notification by.
+- **The SMTP `retry` setting is not honoured and is no longer read.** The
+  module always made exactly one attempt per submission; reading the value
+  made it look otherwise. `retry`/`retries` are registered for every client
+  module centrally, so they still appear in the SMTPClient reference, but
+  `SMTPClient` does not act on them.
+
+---
 
 ## 0.17.1
 

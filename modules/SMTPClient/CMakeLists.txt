@@ -78,6 +78,9 @@ NSCP_CREATE_TEST(
         GTest::gtest
         GTest::gtest_main
         ${Boost_DATE_TIME_LIBRARY}
+        # The STARTTLS tests run a scripted server on a loopback socket.
+        ${Boost_THREAD_LIBRARY}
+        ${CMAKE_THREAD_LIBS_INIT}
         ${EXTRA_LIBS}
     INCLUDES
         ${NSCP_INCLUDEDIR}
@@ -90,6 +93,13 @@ NSCP_CREATE_TEST(
         smtp_client_test.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        # smtp_handler.hpp defines smtp_target_object::read(), which calls the
+        # settings helper. Those symbols are in the plugin-api library but are
+        # not exported from it on Windows, so linking the library alone leaves
+        # them unresolved there while ELF's default visibility hides the
+        # problem on unix. Compile them in, as every other test that touches
+        # the settings helper does.
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_CLIENT_CPP}
     LIBRARIES
         GTest::gtest_main

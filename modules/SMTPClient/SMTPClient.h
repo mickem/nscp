@@ -11,8 +11,15 @@
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
+namespace smtp_client {
+struct smtp_client_handler;
+}
+
 class SMTPClient : public nscapi::impl::simple_plugin {
   std::string channel_;
+  // Held so loadModuleEx can hand it the resolved ${ca-path}; client_ owns it
+  // as a handler_interface and cannot give it back.
+  std::shared_ptr<smtp_client::smtp_client_handler> handler_;
   client::configuration client_;
 
  public:

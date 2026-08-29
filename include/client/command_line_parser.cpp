@@ -119,16 +119,34 @@ void client::options_reader_interface::add_ssl_options(boost::program_options::o
   // clang-format on
 }
 
-po::options_description add_common_options(client::destination_container &source, client::destination_container &destination) {
+void client::add_host_options(po::options_description &desc, client::destination_container &container, const client::host_role role) {
   // clang-format off
-  po::options_description desc("Common options");
-  desc.add_options()
-    ("host,H", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_host(v); }),
+  if (role == client::host_role::target) {
+    desc.add_options()
+      ("host,H", po::value<std::string>()->notifier([&container](const auto& v) { container.set_host(v); }),
 	"The host of the host running the server")
-    ("port,P", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_port(v); }),
+      ("port,P", po::value<std::string>()->notifier([&container](const auto& v) { container.set_port(v); }),
 	"The port of the host running the server")
-    ("address", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_address(v); }),
+      ("address", po::value<std::string>()->notifier([&container](const auto& v) { container.set_address(v); }),
 	"The address (host:port) of the host running the server")
+      ;
+    return;
+  }
+  desc.add_options()
+    ("source-host", po::value<std::string>()->notifier([&container](const auto& v) { container.set_string_data("host", v); }),
+	"Source/sender host name (default is auto which means use the name of the actual host)")
+    ("sender-host", po::value<std::string>()->notifier([&container](const auto& v) { container.set_string_data("host", v); }),
+	"Source/sender host name (default is auto which means use the name of the actual host)")
+    ;
+  // clang-format on
+}
+
+po::options_description add_common_options(client::destination_container &source, client::destination_container &destination) {
+  po::options_description desc("Common options");
+  // The connection settings name the server we are about to talk to.
+  client::add_host_options(desc, destination, client::host_role::target);
+  // clang-format off
+  desc.add_options()
     ("timeout,T", po::value<int>()->notifier([&destination](const int& v) { destination.set_int_data("timeout", v); }),
 	"Number of seconds before connection times out (default=10)")
     ("target,t", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_string_data("$target.id$", v); }),
@@ -137,12 +155,15 @@ po::options_description add_common_options(client::destination_container &source
 	"Number of times ti retry a failed connection attempt (default=2)")
     ("retries", po::value<int>()->notifier([&destination](const int& v) { destination.set_int_data("retry", v); }),
 	"legacy version of retry")
-    ("source-host", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_string_data("host", v); }),
-	"Source/sender host name (default is auto which means use the name of the actual host)")
-    ("sender-host", po::value<std::string>()->notifier([&destination](const auto& v) { destination.set_string_data("host", v); }),
-	"Source/sender host name (default is auto which means use the name of the actual host)")
     ;
   // clang-format on
+  // ...and the sender host names the agent the result speaks for, which is the
+  // source container - the one every handler reads it back from. It used to
+  // bind to `destination`, where set_string_data() routes the well-known
+  // "host" key into the typed address field, so naming a source host silently
+  // rewrote the address of the server being connected to and never reached the
+  // sender at all.
+  client::add_host_options(desc, source, client::host_role::source);
   return desc;
 }
 po::options_description add_query_options(client::destination_container &source, client::destination_container &destination, payload_builder &builder) {

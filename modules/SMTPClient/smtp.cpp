@@ -3,7 +3,12 @@
 
 #include "smtp.hpp"
 
+#include <openssl/rand.h>
+
+#include <algorithm>
+#include <atomic>
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -32,19 +37,95 @@ using ssl_stream = asio::ssl::stream<tcp::socket>;
 
 class sync_io {
  public:
-  sync_io(asio::io_context& io, tcp::socket& s, int timeout_seconds) : io_(io), socket_ref_(s), tls_stream_(nullptr), timeout_(timeout_seconds) {}
+  // `timeout_seconds` is the budget for the whole submission, not for each
+  // individual operation: an SMTP session is a fixed handful of round trips,
+  // and an operator setting timeout=30 means "give up on this notification
+  // after 30 seconds", not "allow 30 seconds per read". Per-operation
+  // deadlines multiplied out to minutes of worst case - a slow peer that
+  // answers just inside the deadline every time, or a host name resolving to
+  // several dead addresses, each of which got a fresh deadline of its own.
+  sync_io(asio::io_context& io, tcp::socket& s, int timeout_seconds)
+      : io_(io),
+        socket_ref_(s),
+        tls_stream_(nullptr),
+        timeout_seconds_(timeout_seconds),
+        deadline_(std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds)) {}
 
-  void use_tls(ssl_stream& s) { tls_stream_ = &s; }
+  // Render a failure for an operator. A spent budget is ours to explain, not
+  // the platform's: asio maps the deadline to ETIMEDOUT / WSAETIMEDOUT, whose
+  // system text describes a peer that did not answer - on Windows, "a
+  // connection attempt failed because the connected party did not properly
+  // respond". That blames the server for a deadline this client set, and it
+  // reads differently on every platform. Say what actually happened instead.
+  std::string describe(const boost::system::error_code& ec) const {
+    if (ec == asio::error::timed_out) {
+      return "timed out after " + std::to_string(timeout_seconds_) + "s (the budget for the whole submission)";
+    }
+    return ec.message();
+  }
+
+  // Run the TLS handshake under the same deadline as every other operation,
+  // then route subsequent reads and writes through the encrypted stream.
+  // asio's synchronous handshake() takes no timeout, so a peer that stalls
+  // part-way through one would hang the submission thread indefinitely - the
+  // very thing run_with_deadline() exists to prevent everywhere else.
+  void handshake(ssl_stream& s, const char* what) {
+    // Nothing may be left in the receive buffer when we hand the socket to
+    // TLS. read_until() reads whole segments, so a server (or a man in the
+    // middle who can inject one packet) that appends bytes to the STARTTLS
+    // greeting leaves them sitting here in cleartext - and every read after
+    // the handshake would consume them as if they had arrived authenticated
+    // inside the TLS session. That is the STARTTLS command/response injection
+    // family (CVE-2011-0411 and relatives): forged capabilities in the
+    // re-EHLO, or forged 2xx acknowledgements that make the agent report a
+    // notification as delivered when nothing was ever sent. RFC 3207 4
+    // requires the client to discard any knowledge obtained before the
+    // handshake, so refuse the session rather than trust the bytes.
+    if (buf_.size() > 0) {
+      throw smtp_exception(std::string(what) + " aborted: server sent " + std::to_string(buf_.size()) +
+                           " byte(s) of unexpected data before the handshake (possible STARTTLS response injection)");
+    }
+    boost::system::error_code ec;
+    run_with_deadline(
+        [&](auto&& done) { s.async_handshake(asio::ssl::stream_base::client, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); }, ec);
+    if (ec) throw smtp_exception(std::string(what) + " failed: " + describe(ec));
+    tls_stream_ = &s;
+  }
+
+  // Resolve under the shared budget. The platform resolver's own timeouts are
+  // long (and not ours to set), so a black-holed name server would otherwise
+  // stall the submission well past the configured timeout before any socket
+  // operation got a chance to be deadlined.
+  tcp::resolver::results_type resolve(const std::string& host, const std::string& port) {
+    tcp::resolver resolver(io_);
+    tcp::resolver::results_type endpoints;
+    boost::system::error_code ec;
+    run_with_deadline(
+        [&](auto&& done) {
+          resolver.async_resolve(host, port, [&endpoints, done = std::move(done)](const boost::system::error_code& e, tcp::resolver::results_type r) {
+            endpoints = std::move(r);
+            done(e);
+          });
+        },
+        ec);
+    if (ec) throw smtp_exception("DNS resolve failed: " + describe(ec));
+    return endpoints;
+  }
 
   // Connect to the first endpoint that succeeds, with a deadline.
   void connect(const tcp::resolver::results_type& endpoints) {
     boost::system::error_code ec = asio::error::host_not_found;
     for (auto it = endpoints.begin(); ec && it != endpoints.end(); ++it) {
-      socket_ref_.close();
+      // Non-throwing close: an incidental failure here (closing a socket that
+      // was never opened, on the first pass) would otherwise escape as a
+      // boost::system::system_error rather than the smtp_exception every
+      // caller of send() catches.
+      boost::system::error_code close_ec;
+      socket_ref_.close(close_ec);
       const auto ep = it->endpoint();
       run_with_deadline([&](auto&& done) { socket_ref_.async_connect(ep, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); }, ec);
     }
-    if (ec) throw smtp_exception("connect failed: " + ec.message());
+    if (ec) throw smtp_exception("connect failed: " + describe(ec));
   }
 
   // Write a string. CRLF must already be in `data`.
@@ -59,15 +140,19 @@ class sync_io {
           }
         },
         ec);
-    if (ec) throw smtp_exception("write failed: " + ec.message());
+    if (ec) throw smtp_exception("write failed: " + describe(ec));
   }
 
-  // Read one CRLF-terminated SMTP reply. Multi-line replies are concatenated
-  // (the caller gets every line up to and including the final "NNN <space>").
+  // Read one CRLF-terminated SMTP reply. Multi-line replies are returned with
+  // their lines joined by '\n' (the caller gets every line up to and including
+  // the final "NNN <space>"). The separator matters: capability lookups run
+  // per line, and running the lines together also made error messages
+  // unreadable.
   std::string read_reply() {
     std::string out;
     while (true) {
       const std::string line = read_line();
+      if (!out.empty()) out.push_back('\n');
       out += line;
       // RFC 5321 4.2: each reply line is "NNN-text" for continuation,
       // "NNN text" for the final line. A line shorter than 4 bytes is a
@@ -95,7 +180,7 @@ class sync_io {
           }
         },
         ec, &bytes);
-    if (ec) throw smtp_exception("read failed: " + ec.message());
+    if (ec) throw smtp_exception("read failed: " + describe(ec));
     std::istream is(&buf_);
     std::string line;
     std::getline(is, line);  // strips '\n'
@@ -110,14 +195,20 @@ class sync_io {
     out_ec = asio::error::would_block;
     std::size_t bytes = 0;
     asio::steady_timer timer(io_);
-    timer.expires_after(std::chrono::seconds(timeout_));
+    // A deadline already in the past fires immediately, which is what we want
+    // once the budget is spent.
+    timer.expires_at(deadline_);
     bool timed_out = false;
     timer.async_wait([&](const boost::system::error_code& e) {
       if (e == asio::error::operation_aborted) return;
       timed_out = true;
-      // Cancel any outstanding I/O so run() returns.
+      // Cancel any outstanding I/O so run() returns. stop() covers the
+      // operations cancelling the socket does not reach - a resolve in
+      // particular runs off on its own thread and would otherwise keep run()
+      // going until the platform resolver gave up on its own schedule.
       boost::system::error_code ignore;
       socket_ref_.cancel(ignore);
+      io_.stop();
     });
     init([&](const boost::system::error_code& e, std::size_t n = 0) {
       out_ec = e;
@@ -142,7 +233,8 @@ class sync_io {
   tcp::socket& socket_ref_;
   ssl_stream* tls_stream_;
   asio::streambuf buf_;
-  int timeout_;
+  int timeout_seconds_;
+  std::chrono::steady_clock::time_point deadline_;
 };
 
 // ---------------------------------------------------------------------------
@@ -195,6 +287,31 @@ std::string sanitise_header(const std::string& v) {
   return out;
 }
 
+// The EHLO argument is interpolated straight into a command line, so it needs
+// the same treatment the envelope addresses get. It is not always operator
+// data: it defaults to the submitting sender's host name, which for a relayed
+// submission arrives in the request header from whoever sent it. A CR / LF
+// there would end the EHLO and start a command of the attacker's choosing on
+// an authenticated submission session - their MAIL FROM and RCPT TO, sent as
+// us. A space is refused for the same reason at a smaller scale: it would let
+// them append EHLO parameters.
+//
+// RFC 5321 4.1.1.1 allows a domain name or an address literal here, so the
+// permitted set is letters, digits, and the punctuation those two forms need.
+void validate_ehlo_name(const std::string& name) {
+  if (name.empty()) {
+    throw smtp_exception("EHLO name is empty");
+  }
+  for (const char c : name) {
+    const auto u = static_cast<unsigned char>(c);
+    const bool alnum = (u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || (u >= '0' && u <= '9');
+    const bool punct = (c == '.' || c == '-' || c == '_' || c == '[' || c == ']' || c == ':');
+    if (!alnum && !punct) {
+      throw smtp_exception("EHLO name contains an illegal character; expected a host name or an address literal");
+    }
+  }
+}
+
 // RFC 5321 4.5.2 transparency: any line in DATA that starts with "." must
 // be sent as ".." Also normalise lone CR / LF to CRLF so a body produced
 // on Unix or Windows arrives with consistent line endings.
@@ -226,6 +343,109 @@ std::string dot_stuff_and_crlf(const std::string& body) {
   return out;
 }
 
+namespace {
+
+// The capability a reply line advertises: the first token after the 4-byte
+// "250-" / "250 " reply code, uppercased. Empty when the line carries no
+// capability (the greeting line, or anything too short to hold a code).
+std::string capability_of(const std::string& line) {
+  if (line.size() < 4) return std::string();
+  std::size_t begin = 4;
+  while (begin < line.size() && (line[begin] == ' ' || line[begin] == '\t')) ++begin;
+  std::size_t end = begin;
+  while (end < line.size() && line[end] != ' ' && line[end] != '\t') ++end;
+  return boost::algorithm::to_upper_copy(line.substr(begin, end - begin));
+}
+
+// The parameters following the capability on a reply line, split on spaces
+// and uppercased. For "250 AUTH PLAIN LOGIN" this is {"PLAIN", "LOGIN"}.
+std::vector<std::string> capability_params(const std::string& line) {
+  std::vector<std::string> out;
+  std::istringstream is(line.size() < 4 ? std::string() : line.substr(4));
+  std::string token;
+  bool first = true;
+  while (is >> token) {
+    if (first) {
+      // The capability name itself.
+      first = false;
+      continue;
+    }
+    out.push_back(boost::algorithm::to_upper_copy(token));
+  }
+  return out;
+}
+
+std::vector<std::string> reply_lines(const std::string& reply) {
+  std::vector<std::string> lines;
+  boost::algorithm::split(lines, reply, boost::algorithm::is_any_of("\n"));
+  return lines;
+}
+
+}  // namespace
+
+// A capability is the first token of its own reply line, not a substring of
+// the reply as a whole. Matching the whole blob let a server's free text - a
+// greeting naming the software, an unrelated capability's parameter, or two
+// lines run together at the join - answer for a capability the server never
+// advertised. That mattered most for STARTTLS: "did the server offer
+// STARTTLS" is what decides whether the session gets encrypted at all.
+bool has_capability(const std::string& ehlo_reply, const std::string& keyword) {
+  const std::string wanted = boost::algorithm::to_upper_copy(keyword);
+  for (const std::string& line : reply_lines(ehlo_reply)) {
+    if (capability_of(line) == wanted) return true;
+  }
+  return false;
+}
+
+// Mail without a Message-ID is treated as suspicious by essentially every
+// spam filter, and it is the identifier a mail admin traces a lost
+// notification by, so a monitoring agent that omits it is exactly the wrong
+// place to save two lines. Uniqueness is all that is required of the local
+// part - nothing here is a security decision - but OpenSSL is already linked
+// so its CSPRNG is the cheapest source; a clock and a counter cover the case
+// where it refuses.
+std::string make_message_id(const std::string& from, const std::string& ehlo_name) {
+  // Right hand side: the sender's own domain, so the id lines up with the
+  // address the message claims to be from.
+  std::string domain;
+  const std::size_t at = from.rfind('@');
+  if (at != std::string::npos && at + 1 < from.size()) domain = from.substr(at + 1);
+  if (domain.empty()) domain = ehlo_name;
+
+  // The domain lands in a header, so hold it to the same character set the
+  // EHLO name is held to rather than trusting where it came from.
+  std::string safe_domain;
+  for (const char c : domain) {
+    const auto u = static_cast<unsigned char>(c);
+    const bool alnum = (u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || (u >= '0' && u <= '9');
+    if (alnum || c == '.' || c == '-' || c == '_') safe_domain.push_back(c);
+  }
+  if (safe_domain.empty()) safe_domain = "localhost";
+
+  static const char* kHex = "0123456789abcdef";
+  std::string unique;
+  unsigned char raw[16];
+  if (RAND_bytes(raw, static_cast<int>(sizeof(raw))) == 1) {
+    for (const unsigned char b : raw) {
+      unique.push_back(kHex[b >> 4]);
+      unique.push_back(kHex[b & 0x0f]);
+    }
+  } else {
+    static std::atomic<unsigned long long> counter(0);
+    std::ostringstream fallback;
+    fallback << std::hex << std::chrono::system_clock::now().time_since_epoch().count() << '.' << ++counter;
+    unique = fallback.str();
+  }
+  return "<" + unique + "@" + safe_domain + ">";
+}
+
+std::vector<std::string> auth_mechanisms(const std::string& ehlo_reply) {
+  for (const std::string& line : reply_lines(ehlo_reply)) {
+    if (capability_of(line) == "AUTH") return capability_params(line);
+  }
+  return std::vector<std::string>();
+}
+
 }  // namespace detail
 
 namespace {  // re-open anon namespace for the rest of the helpers
@@ -237,9 +457,17 @@ void do_auth(sync_io& io, const std::string& user, const std::string& pass, cons
   // Fall back to AUTH LOGIN otherwise. Both are TLS-only here because we
   // refuse to enter this function over an unencrypted channel - see
   // send().
-  const bool plain =
-      ehlo_response.find("AUTH") != std::string::npos && (ehlo_response.find("PLAIN") != std::string::npos || ehlo_response.find("LOGIN") == std::string::npos);
-  if (plain) {
+  const std::vector<std::string> mechanisms = detail::auth_mechanisms(ehlo_response);
+  const auto advertises = [&mechanisms](const char* m) { return std::find(mechanisms.begin(), mechanisms.end(), m) != mechanisms.end(); };
+
+  if (mechanisms.empty()) {
+    throw smtp_exception("a username is configured but the server does not advertise AUTH: " + ehlo_response);
+  }
+  if (!advertises("PLAIN") && !advertises("LOGIN")) {
+    throw smtp_exception("server advertises no AUTH mechanism we support (offered: " + boost::algorithm::join(mechanisms, ", ") + "; supported: PLAIN, LOGIN)");
+  }
+
+  if (advertises("PLAIN")) {
     // RFC 4616: "\0username\0password" base64-encoded.
     std::string sasl;
     sasl.push_back('\0');
@@ -275,6 +503,10 @@ void send(const connection_config& cfg, const message& msg) {
   detail::validate_address(msg.to, "to");
   const std::string subject = detail::sanitise_header(msg.subject);
 
+  // Validated up here with the addresses, before anything is put on the wire.
+  const std::string ehlo_name = cfg.canonical_name.empty() ? std::string("localhost") : cfg.canonical_name;
+  detail::validate_ehlo_name(ehlo_name);
+
   // Validate security mode early so a typo does not silently fall through
   // to plain transport.
   const std::string sec = boost::algorithm::to_lower_copy(cfg.security);
@@ -282,7 +514,7 @@ void send(const connection_config& cfg, const message& msg) {
   const bool starttls = (sec == "starttls");
   const bool plain_only = (sec == "none");
   if (!tls_immediate && !starttls && !plain_only) {
-    throw smtp_exception("invalid security mode '" + cfg.security + "' (expected none|starttls|tls)");
+    throw smtp_exception("invalid security mode '" + cfg.security + "' (expected none|starttls|tls, or ssl as an alias for tls)");
   }
 
   // SSL context. We default to TLS 1.2+ peer verification and let the
@@ -294,7 +526,21 @@ void send(const connection_config& cfg, const message& msg) {
     ssl_ctx.set_verify_mode(asio::ssl::verify_none);
   } else {
     ssl_ctx.set_verify_mode(asio::ssl::verify_peer);
-    ssl_ctx.set_default_verify_paths();
+    // Verify against the bundle the agent was configured with. This defaults
+    // to ${ca-path}, which on unix is the distribution's own bundle and on
+    // Windows is the ROOT store the service exports at boot - OpenSSL's
+    // default verify paths do not include the Windows certificate store at
+    // all, so relying on them alone made verify_peer fail against every public
+    // provider there and left insecure-skip-verify as the only way through.
+    // Loading is only attempted when verification is on, so a missing bundle
+    // cannot break a deliberately unverified session.
+    if (!cfg.ca_path.empty() && cfg.ca_path != "none") {
+      boost::system::error_code ec;
+      ssl_ctx.load_verify_file(cfg.ca_path, ec);
+      if (ec) throw smtp_exception("failed to load CA bundle '" + cfg.ca_path + "': " + ec.message());
+    } else {
+      ssl_ctx.set_default_verify_paths();
+    }
   }
 
   asio::io_context io;
@@ -317,24 +563,15 @@ void send(const connection_config& cfg, const message& msg) {
   sync_io conn(io, tls.next_layer(), cfg.timeout_seconds);
 
   // Resolve and connect.
-  tcp::resolver resolver(io);
-  boost::system::error_code resolve_ec;
-  auto endpoints = resolver.resolve(cfg.server, cfg.port, resolve_ec);
-  if (resolve_ec) throw smtp_exception("DNS resolve failed: " + resolve_ec.message());
-  conn.connect(endpoints);
+  conn.connect(conn.resolve(cfg.server, cfg.port));
 
   if (tls_immediate) {
-    boost::system::error_code ec;
-    tls.handshake(asio::ssl::stream_base::client, ec);
-    if (ec) throw smtp_exception("TLS handshake failed: " + ec.message());
-    conn.use_tls(tls);
+    conn.handshake(tls, "TLS handshake");
   }
 
   // Banner.
   std::string r = conn.read_reply();
   expect_status(r, '2', "banner");
-
-  const std::string ehlo_name = cfg.canonical_name.empty() ? std::string("localhost") : cfg.canonical_name;
 
   // EHLO.
   conn.write("EHLO " + ehlo_name + "\r\n");
@@ -349,16 +586,13 @@ void send(const connection_config& cfg, const message& msg) {
 
   // STARTTLS upgrade.
   if (starttls) {
-    if (ehlo_caps.find("STARTTLS") == std::string::npos) {
+    if (!detail::has_capability(ehlo_caps, "STARTTLS")) {
       throw smtp_exception("server did not advertise STARTTLS but security=starttls was requested");
     }
     conn.write("STARTTLS\r\n");
     r = conn.read_reply();
     expect_status(r, '2', "STARTTLS");
-    boost::system::error_code ec;
-    tls.handshake(asio::ssl::stream_base::client, ec);
-    if (ec) throw smtp_exception("TLS handshake (STARTTLS) failed: " + ec.message());
-    conn.use_tls(tls);
+    conn.handshake(tls, "TLS handshake (STARTTLS)");
     // Re-EHLO over the secure channel; capabilities can change after TLS.
     conn.write("EHLO " + ehlo_name + "\r\n");
     r = conn.read_reply();
@@ -398,6 +632,7 @@ void send(const connection_config& cfg, const message& msg) {
   if (!subject.empty()) headers << "Subject: " << subject << "\r\n";
   headers << "MIME-Version: 1.0\r\n";
   headers << "Content-Type: text/plain; charset=utf-8\r\n";
+  headers << "Message-ID: " << detail::make_message_id(msg.from, ehlo_name) << "\r\n";
   // Date header is RFC-required for many strict relays (Outlook, Gmail).
   {
     const auto now = boost::posix_time::second_clock::universal_time();

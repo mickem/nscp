@@ -143,6 +143,29 @@ struct nscp_clp_data {
   }
 };
 
+// Which of the two containers a host-naming option writes into.
+//
+// A client call carries two of them: the destination it connects to and the
+// source it reports on behalf of. Both are destination_containers, and
+// set_string_data() routes the well-known "host" key into the typed address
+// field of whichever one it is handed - so a host option bound to the wrong
+// container does not fail, it silently rewrites the other one's address.
+// Saying which role the options play makes that binding a decision rather
+// than something to get right by accident.
+enum class host_role {
+  target,  // the server being connected to: --host / --port / --address
+  source,  // the agent the result speaks for: --source-host / --sender-host
+};
+
+// Register the host-naming options for `role` against the container that role
+// belongs to.
+//
+// add_common_options() already registers both roles for every client module,
+// so a module's own options_reader should not register them a second time:
+// program_options treats a repeated long name as ambiguous and refuses to
+// parse it, which makes the option unusable rather than merely duplicated.
+void add_host_options(boost::program_options::options_description &desc, destination_container &container, host_role role);
+
 struct options_reader_interface : nscapi::settings_objects::object_factory_interface<nscapi::settings_objects::object_instance_interface> {
   virtual void process(boost::program_options::options_description &desc, destination_container &source, destination_container &destination) = 0;
   void add_ssl_options(boost::program_options::options_description &desc, client::destination_container &data);

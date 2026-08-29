@@ -5,6 +5,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace smtp {
 
@@ -40,6 +41,7 @@ struct connection_config {
   std::string username;               // AUTH username (empty = no AUTH)
   std::string password;               // AUTH password
   std::string canonical_name;         // EHLO hostname; defaults to "localhost"
+  std::string ca_path;                // CA bundle used to verify the server; "" / "none" = OpenSSL defaults
   bool insecure_skip_verify = false;  // for self-signed test servers
   int timeout_seconds = 30;
 };
@@ -70,9 +72,31 @@ void validate_address(const std::string& addr, const char* what);
 // header lines. Returns the cleaned string.
 std::string sanitise_header(const std::string& v);
 
+// Throws smtp_exception unless `name` is usable as an EHLO/HELO argument: a
+// domain name or an address literal, and nothing else. It is written straight
+// into a command line, so a space (which would add EHLO parameters) or a CR /
+// LF (which would start a command of its own) has to be refused here.
+void validate_ehlo_name(const std::string& name);
+
 // Applies RFC 5321 transparency (lines starting with "." are doubled) and
 // normalises lone CR / LF to CRLF. Used for the DATA payload.
 std::string dot_stuff_and_crlf(const std::string& body);
+
+// True if `ehlo_reply` advertises `keyword` as an ESMTP capability. The reply
+// is the multi-line EHLO response with its lines joined by '\n'; a capability
+// is the first token of a line, after the "250-" / "250 " reply code, matched
+// case-insensitively. Free text elsewhere in the reply - the greeting line, a
+// capability's parameters - never counts as a capability.
+bool has_capability(const std::string& ehlo_reply, const std::string& keyword);
+
+// The SASL mechanisms advertised on the AUTH capability line, uppercased, in
+// the order the server listed them. Empty when AUTH was not advertised.
+std::vector<std::string> auth_mechanisms(const std::string& ehlo_reply);
+
+// Builds the RFC 5322 Message-ID for one submission, angle brackets included.
+// The right hand side is the sender's domain, falling back to `ehlo_name`;
+// the left hand side is random. Callers get a different value every time.
+std::string make_message_id(const std::string& from, const std::string& ehlo_name);
 }  // namespace detail
 
 }  // namespace smtp

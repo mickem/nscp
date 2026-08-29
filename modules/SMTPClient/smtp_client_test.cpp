@@ -9,18 +9,17 @@
 // message templates live here too, since a target that renders an empty
 // subject is a target whose mail gets filed as spam.
 
-// smtp_client.hpp expects its includer to have pulled in the client
-// machinery and the logging macros already (SMTPClient.cpp does).
-#include <client/command_line_parser.hpp>
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-
 #include "smtp_client.hpp"
 
 #include <gtest/gtest.h>
 
+#include <client/command_line_parser.hpp>
 #include <map>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <string>
+#include <vector>
+
+#include "smtp_handler.hpp"
 
 nscapi::helper_singleton *nscapi::plugin_singleton = new nscapi::helper_singleton();
 
@@ -44,9 +43,7 @@ TEST(SmtpConnectionData, DefaultsToTheSubmissionPort) {
   EXPECT_EQ(connection_for({{"address", "mail.example.com"}}).get_port(), "587");
 }
 
-TEST(SmtpConnectionData, AnExplicitPortWins) {
-  EXPECT_EQ(connection_for({{"address", "mail.example.com:2525"}}).get_port(), "2525");
-}
+TEST(SmtpConnectionData, AnExplicitPortWins) { EXPECT_EQ(connection_for({{"address", "mail.example.com:2525"}}).get_port(), "2525"); }
 
 TEST(SmtpConnectionData, DefaultsToStarttls) {
   // Silently sending mail in clear because the target did not name a mode
@@ -63,6 +60,17 @@ TEST(SmtpConnectionData, CertificateVerificationIsOnUnlessWaived) {
   EXPECT_FALSE(connection_for({{"address", "h"}}).insecure_skip_verify);
   EXPECT_TRUE(connection_for({{"address", "h"}, {"insecure-skip-verify", "true"}}).insecure_skip_verify);
 }
+
+TEST(SmtpConnectionData, CarriesTheConfiguredCaBundle) {
+  // The target's `ca` (defaulting to ${ca-path}, already expanded by the
+  // settings layer) is what verification runs against. Without it the client
+  // fell back to OpenSSL's default verify paths, which on Windows do not
+  // include the system certificate store - so verification failed against
+  // every public provider and insecure-skip-verify was the only way out.
+  EXPECT_EQ(connection_for({{"address", "h"}, {"ca", "/etc/ssl/certs/ca-certificates.crt"}}).ca_path, "/etc/ssl/certs/ca-certificates.crt");
+}
+
+TEST(SmtpConnectionData, AnUnsetCaMeansTheOpenSslDefaults) { EXPECT_EQ(connection_for({{"address", "h"}}).ca_path, ""); }
 
 TEST(SmtpConnectionData, CarriesTheCredentialsAndEnvelope) {
   const smtp_client::connection_data con = connection_for({{"address", "h"},
@@ -109,4 +117,106 @@ TEST(SmtpConnectionData, DescribesItselfWithoutLeakingThePassword) {
 
   EXPECT_NE(described.find("mail.example.com"), std::string::npos) << described;
   EXPECT_EQ(described.find("s3cret"), std::string::npos) << "the password must never reach a log: " << described;
+}
+
+TEST(SmtpConnectionData, DoesNotClaimToHonourRetry) {
+  // smtp::send() makes one attempt per submission. The setting used to be read
+  // into the inherited retry field, where nothing consumed it, so the target
+  // looked configured for retries it never performed. The inherited default
+  // stands, untouched by the target's own `retry`.
+  const smtp_client::connection_data con = connection_for({{"address", "h"}, {"retry", "7"}});
+
+  EXPECT_NE(con.retry, 7) << "retry is not honoured, so it must not be read in as though it were";
+}
+
+// =============================================================================
+// Command line / REST argument handling
+// =============================================================================
+
+namespace {
+
+// Parse `args` through the module's own option descriptor, over a destination
+// container that already carries the target's settings, and return it. This is
+// the shape the real path has: the target is loaded first, then the command
+// line is parsed on top of it.
+client::destination_container parse_over_target(const std::map<std::string, std::string> &target_options, const std::vector<std::string> &args) {
+  client::destination_container data = target_with(target_options);
+  client::destination_container source;
+
+  smtp_handler::options_reader_impl reader;
+  boost::program_options::options_description desc("test");
+  reader.process(desc, source, data);
+
+  boost::program_options::variables_map vm;
+  boost::program_options::store(boost::program_options::command_line_parser(args).options(desc).run(), vm);
+  boost::program_options::notify(vm);
+  return data;
+}
+
+}  // namespace
+
+TEST(SmtpOptions, AcceptsAValuedBooleanAsRestPassesIt) {
+  // REST hands the whole "key=value" over as one token. bool_switch rejects
+  // that with "does not take any arguments" - and only over REST, so it would
+  // have looked fine from the command line.
+  client::destination_container data = parse_over_target({{"address", "h"}}, {"--insecure-skip-verify=true"});
+
+  EXPECT_TRUE(data.get_bool_data("insecure-skip-verify"));
+}
+
+TEST(SmtpOptions, AcceptsABareBooleanFlagFromTheCommandLine) {
+  client::destination_container data = parse_over_target({{"address", "h"}}, {"--insecure-skip-verify"});
+
+  EXPECT_TRUE(data.get_bool_data("insecure-skip-verify"));
+}
+
+TEST(SmtpOptions, AValuedFalseTurnsTheFlagOff) {
+  client::destination_container data = parse_over_target({{"address", "h"}, {"insecure-skip-verify", "true"}}, {"--insecure-skip-verify=false"});
+
+  EXPECT_FALSE(data.get_bool_data("insecure-skip-verify"));
+}
+
+TEST(SmtpOptions, AnAbsentFlagLeavesTheTargetSettingAlone) {
+  // The option carries no default: `data` arrives already populated from the
+  // target, so a default would fire the notifier with false on every
+  // submission and quietly undo the target's own insecure-skip-verify.
+  client::destination_container data = parse_over_target({{"address", "h"}, {"insecure-skip-verify", "true"}}, {});
+
+  EXPECT_TRUE(data.get_bool_data("insecure-skip-verify")) << "the command line did not mention the option, so the target's value must stand";
+}
+
+// =============================================================================
+// The trusted CA bundle the submission verifies against
+// =============================================================================
+
+namespace {
+
+// The ca the handler would hand smtp::send() for this target, given a module
+// whose ${ca-path} resolved to `default_ca`.
+std::string effective_ca(const std::map<std::string, std::string> &target_options, const std::string &default_ca) {
+  smtp_client::connection_data con(target_with(target_options), client::destination_container());
+  if (con.ca_path.empty()) con.ca_path = default_ca;
+  return con.ca_path;
+}
+
+}  // namespace
+
+TEST(SmtpCaBundle, ATargetWithoutItsOwnCaUsesTheAgentBundle) {
+  // The `ca` setting defaults to ${ca-path}, but only for a target whose
+  // settings were read. A command-line submission, or a default target built
+  // from the target object's constructor properties, arrives with `ca` unset -
+  // and used to fall back to OpenSSL's built-in verify paths, which on Windows
+  // do not include the certificate store. That is the hole `ca` exists to
+  // close, so the module-level bundle has to cover these paths too.
+  EXPECT_EQ(effective_ca({{"address", "h"}}, "/etc/ssl/certs/ca-certificates.crt"), "/etc/ssl/certs/ca-certificates.crt");
+}
+
+TEST(SmtpCaBundle, ATargetsOwnCaWins) {
+  EXPECT_EQ(effective_ca({{"address", "h"}, {"ca", "/etc/pki/private-relay.pem"}}, "/etc/ssl/certs/ca-certificates.crt"), "/etc/pki/private-relay.pem");
+}
+
+TEST(SmtpCaBundle, AnExplicitNoneIsNotOverriddenByTheAgentBundle) {
+  // `none` is how an operator asks for OpenSSL's own defaults; the fallback
+  // must not quietly put the agent bundle back.
+  EXPECT_EQ(effective_ca({{"address", "h"}, {"ca", "none"}}, "/etc/ssl/certs/ca-certificates.crt"), "none");
 }

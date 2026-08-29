@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <client/command_line_parser.hpp>
 #include <net/socket/socket_helpers.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_exec.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
@@ -11,6 +13,7 @@
 #include <nscapi/protobuf/functions_response.hpp>
 #include <nscapi/protobuf/functions_submit.hpp>
 #include <nscapi/protobuf/metrics.hpp>
+#include <str/utils.hpp>
 
 #include "smtp.hpp"
 
@@ -22,6 +25,7 @@ struct connection_data : socket_helpers::connection_info {
   std::string username;
   std::string password;
   std::string security;  // "none" | "starttls" | "tls"
+  std::string ca_path;   // CA bundle verifying the server certificate
   bool insecure_skip_verify = false;
   std::string canonical_name;  // EHLO hostname
 
@@ -36,12 +40,19 @@ struct connection_data : socket_helpers::connection_info {
     address = arguments.address.host;
     port_ = arguments.address.get_port_string("587");
     timeout = arguments.get_int_data("timeout", 30);
-    retry = arguments.get_int_data("retry", 3);
+    // No `retry` here: smtp::send() makes exactly one attempt per submission
+    // and this client has no retry loop to feed. Reading the setting into the
+    // inherited field only made it look honoured. Retrying a submission is not
+    // free either - a failure after the server accepted DATA would deliver the
+    // notification twice - so the option stays unread until there is a
+    // retry policy that distinguishes a transient failure from a permanent
+    // rejection.
 
     username = arguments.get_string_data("username");
     password = arguments.get_string_data("password");
     security = arguments.get_string_data("security");
     if (security.empty()) security = "starttls";
+    ca_path = arguments.get_string_data("ca");
     insecure_skip_verify = arguments.get_bool_data("insecure-skip-verify");
 
     sender = arguments.get_string_data("sender");
@@ -66,6 +77,7 @@ struct connection_data : socket_helpers::connection_info {
     ss << ", username: " << (username.empty() ? "<unset>" : username);
     ss << ", password: " << (password.empty() ? "<unset>" : "<set>");
     ss << ", security: " << security;
+    ss << ", ca: " << (ca_path.empty() ? "<openssl defaults>" : ca_path);
     ss << ", subject: " << subject_template;
     ss << ", template-len: " << template_string.size();
     return ss.str();
@@ -73,6 +85,16 @@ struct connection_data : socket_helpers::connection_info {
 };
 
 struct smtp_client_handler : client::handler_interface {
+  // The agent's trusted CA bundle, resolved once from ${ca-path} at module
+  // load (SMTPClient::loadModuleEx). The `ca` target setting carries the same
+  // default, but only a target whose settings were actually read gets it: a
+  // command-line submission, or a default target built from the target
+  // object's constructor properties, arrives with `ca` unset. Without this
+  // fallback those paths dropped back to OpenSSL's built-in verify paths -
+  // which on Windows do not include the certificate store, the exact hole the
+  // `ca` setting exists to close.
+  std::string default_ca;
+
   bool query(client::destination_container, client::destination_container, const PB::Commands::QueryRequestMessage&,
              PB::Commands::QueryResponseMessage&) override {
     return false;
@@ -84,6 +106,10 @@ struct smtp_client_handler : client::handler_interface {
     nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
     connection_data con(target, sender);
+    // Fold the fallback in before tracing, so the trace shows the bundle the
+    // submission will actually verify against. An explicit `ca` - including
+    // `none`, which asks for OpenSSL's defaults - is left alone.
+    if (con.ca_path.empty()) con.ca_path = default_ca;
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("SMTP target: " + con.to_string()); }
 
     smtp::connection_config cfg;
@@ -92,6 +118,7 @@ struct smtp_client_handler : client::handler_interface {
     cfg.username = con.username;
     cfg.password = con.password;
     cfg.security = con.security;
+    cfg.ca_path = con.ca_path;
     cfg.insecure_skip_verify = con.insecure_skip_verify;
     cfg.canonical_name = con.canonical_name.empty() ? con.sender_hostname : con.canonical_name;
     cfg.timeout_seconds = static_cast<int>(con.timeout);
