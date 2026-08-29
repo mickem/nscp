@@ -631,7 +631,21 @@ void NSClientT::reloadPlugins() {
   // configure the agent in memory and then reload to apply it. Dropping that
   // leaves them with no modules at all.
   for (const settings::instance_ptr &child : settings_manager::get_settings()->get_children()) {
-    if (child) child->clear_cache();
+    if (!child) continue;
+    // A missing include is not an error (the backend just comes back empty),
+    // but a file that cannot be *read* - permissions, transient I/O - throws,
+    // and by then this child's caches are already emptied. Catch it here so
+    // one broken include costs only its own content: the remaining includes
+    // still refresh and the reload still runs. Letting it escape would abort
+    // the whole reload before the re-scan, when the store is at its most
+    // stale.
+    try {
+      child->clear_cache();
+    } catch (const std::exception &e) {
+      LOG_ERROR_CORE_STD("Failed to re-read included configuration " + child->get_context() + ": " + utf8::utf8_from_native(e.what()));
+    } catch (...) {
+      LOG_ERROR_CORE_STD("Failed to re-read included configuration " + child->get_context());
+    }
   }
   plugins_->start_plugins(NSCAPI::reloadStart);
   // Loads whatever is enabled and not already loaded; modules that are

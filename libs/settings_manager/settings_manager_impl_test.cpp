@@ -1073,11 +1073,14 @@ class SettingsIncludeReloadTest : public SettingsHandlerTest {
   settings_test::temp_dir dir_;
   boost::filesystem::path main_ini_;
   boost::filesystem::path included_ini_;
-  std::unique_ptr<passthrough_provider> provider_;
+  // Named to not shadow SettingsHandlerTest::provider_, which stays unused
+  // (and null) here because SetUp is overridden - same pattern as
+  // SettingsContextTest's path_provider_.
+  std::unique_ptr<passthrough_provider> include_provider_;
 
   void SetUp() override {
-    provider_ = std::make_unique<passthrough_provider>();
-    impl_ = std::make_unique<settings_manager::NSCSettingsImpl>(provider_.get());
+    include_provider_ = std::make_unique<passthrough_provider>();
+    impl_ = std::make_unique<settings_manager::NSCSettingsImpl>(include_provider_.get());
     main_ini_ = dir_.file("nsclient.ini");
     included_ini_ = dir_.file("fleet.ini");
     write_included("CheckSystem = enabled\n");
@@ -1089,7 +1092,8 @@ class SettingsIncludeReloadTest : public SettingsHandlerTest {
 
   settings::settings_interface::string_list modules() { return impl_->get()->get_keys("/modules"); }
 
-  // What NSClientT::reloadPlugins() does before re-scanning /modules.
+  // What NSClientT::reloadPlugins() does before re-scanning /modules (minus
+  // its per-include error containment; every file here is readable).
   void refresh_includes() {
     for (const settings::instance_ptr &child : impl_->get()->get_children()) {
       if (child) child->clear_cache();
