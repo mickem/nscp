@@ -4,10 +4,13 @@
 #pragma once
 
 #include <boost/json.hpp>
+#include <boost/optional.hpp>
 #include <cctype>
 #include <cstddef>
+#include <ctime>
 #include <list>
 #include <nsclient/nsclient_exception.hpp>
+#include <str/format.hpp>
 #include <str/utf8.hpp>
 #include <str/utils_no_boost.hpp>
 #include <str/xtos.hpp>
@@ -130,5 +133,117 @@ inline bool parse_releases_payload(const std::string &payload, bool include_prer
     return false;
   }
 }
+
+
+// ---------------------------------------------------------------------------
+// check_nscp (agent health)
+// ---------------------------------------------------------------------------
+
+// Lower-cased extension of a file name, including the leading dot ("" when the
+// name carries no extension). Matches what boost::filesystem::path::extension
+// returns, but works on a plain string so the crash-archive logic below stays
+// unit testable without touching the file system.
+inline std::string extension_of(const std::string &filename) {
+  const std::size_t slash = filename.find_last_of("/\\");
+  const std::string name = slash == std::string::npos ? filename : filename.substr(slash + 1);
+  const std::size_t dot = name.find_last_of('.');
+  // A leading dot is part of the name ("...nscp"), not an extension.
+  if (dot == std::string::npos || dot == 0) return "";
+  std::string ext = name.substr(dot);
+  for (char &c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return ext;
+}
+
+// True when a file in the crash archive folder is a crash report. The crash
+// handler writes "<timestamp>.crash" (see exception_handler_win32.cpp); ".dmp"
+// covers minidumps archived beside it and ".txt" the plain text reports older
+// releases produced. Matching is case insensitive because the archive is
+// written on Windows.
+inline bool is_crash_report(const std::string &filename) {
+  const std::string ext = extension_of(filename);
+  return ext == ".crash" || ext == ".dmp" || ext == ".txt";
+}
+
+// Accumulates a scan of the crash archive folder: how many crash reports it
+// holds and which of them is the most recent. Deliberately free of
+// boost::filesystem so the "is this a report" and "newest wins" rules can be
+// unit tested from a plain list of (filename, mtime) pairs.
+struct crash_scan {
+  long long count;
+  std::string newest;
+  std::time_t newest_time;
+  bool has_newest;
+
+  crash_scan() : count(0), newest_time(0), has_newest(false) {}
+
+  // A report whose modification time could not be read still counts - the file
+  // is there, so the agent did crash - but it takes no part in the newest-wins
+  // comparison: with an unknown timestamp it would either be ranked by a made
+  // up value or, as the only report, make ${last_crash} name a file and
+  // ${crash_age} report an age neither of which we actually know. Pass
+  // boost::none for it and leave those two keywords to the reports we can date.
+  void add(const std::string &filename, const boost::optional<std::time_t> last_write) {
+    if (!is_crash_report(filename)) return;
+    count++;
+    if (!last_write) return;
+    if (!has_newest || *last_write > newest_time) {
+      has_newest = true;
+      newest_time = *last_write;
+      newest = filename;
+    }
+  }
+
+  // Age of the newest crash report in seconds, or boost::none when the archive
+  // holds no report at all. Clamped at zero so a report stamped in the future
+  // (clock skew, a restored backup) reads as "just now" rather than negative.
+  boost::optional<long long> age(const std::time_t now) const {
+    if (!has_newest) return boost::none;
+    const long long delta = static_cast<long long>(now) - static_cast<long long>(newest_time);
+    return delta < 0 ? 0 : delta;
+  }
+};
+
+// Filter object behind check_nscp: a single snapshot of the agent's own health.
+// Kept here (rather than in CheckNSCP.cpp) so the accessors and the rendered
+// forms can be unit tested without the filter engine.
+struct health_obj {
+  long long crashes;
+  std::string last_crash;
+  boost::optional<long long> crash_age;
+  long long errors;
+  std::string last_error;
+  long long uptime;
+  std::string version;
+  std::string date;
+  // Largest unit used when rendering ${uptime} / ${crash_age}; surfaced as the
+  // check's `max-unit` argument, mirroring check_uptime.
+  str::format::itos_as_time_unit max_unit;
+
+  health_obj() : crashes(0), errors(0), uptime(0), max_unit(str::format::unit_week) {}
+
+  std::string show() const { return get_summary(); }
+
+  long long get_crashes() const { return crashes; }
+  long long get_errors() const { return errors; }
+  long long get_uptime() const { return uptime; }
+  boost::optional<long long> get_crash_age() const { return crash_age; }
+  // Empty when nothing has crashed / no error has been logged, so that
+  // `filter=last_error != ''` reads the way it looks.
+  std::string get_last_crash() const { return last_crash; }
+  std::string get_last_error() const { return last_error; }
+  std::string get_version() const { return version; }
+  std::string get_date() const { return date; }
+
+  std::string get_uptime_s() const { return format_duration(uptime); }
+  std::string get_crash_age_s() const { return crash_age ? format_duration(*crash_age) : std::string("none"); }
+  std::string get_summary() const {
+    return str::xtos(crashes) + " crash(es), " + str::xtos(errors) + " error(s), uptime " + get_uptime_s();
+  }
+
+  std::string format_duration(const long long seconds) const {
+    if (seconds < 0) return str::format::itos_as_time(0, max_unit);
+    return str::format::itos_as_time(static_cast<unsigned long long>(seconds) * 1000ULL, max_unit);
+  }
+};
 
 }  // namespace check_nscp_helpers

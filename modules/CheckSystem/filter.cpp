@@ -3,7 +3,7 @@
 
 #include "filter.hpp"
 
-#include "duration_keyword.hpp"
+#include <check/duration_keyword.hpp>
 
 #include <boost/assign.hpp>
 #include <cmath>

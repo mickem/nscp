@@ -14,7 +14,7 @@
 #include <win/wmi/wmi_query.hpp>
 
 #include "check_printqueue.hpp"
-#include "duration_keyword.hpp"
+#include <check/duration_keyword.hpp>
 
 namespace printjobs_check {
 

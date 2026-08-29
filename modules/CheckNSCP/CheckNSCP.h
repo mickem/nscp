@@ -12,6 +12,8 @@
 #include <nscapi/protobuf/log.hpp>
 #include <string>
 
+#include "check_nscp_helpers.hpp"
+
 class CheckNSCP : public nscapi::impl::simple_plugin {
   boost::timed_mutex mutex_;
   boost::filesystem::path crashFolder;
@@ -60,4 +62,8 @@ class CheckNSCP : public nscapi::impl::simple_plugin {
   void handleLogMessage(const PB::Log::LogEntry::Entry &message);
 
   std::size_t get_errors(std::string &last_error);
+
+ private:
+  // Scan the configured crash archive folder for crash reports.
+  check_nscp_helpers::crash_scan scan_crashes() const;
 };
