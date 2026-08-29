@@ -142,7 +142,7 @@ first, alongside the release that contains them.
 
 ### SMTP client security-review hardening
 
-**Fixed in:** 0.17.2 · **Severity:** Low–Medium
+**Fixed in:** 0.17.1 · **Severity:** Low–Medium
 
 A review of the `SMTPClient` module produced a set of fixes to how it sets up
 and trusts a submission session. None is remotely exploitable by an
@@ -219,7 +219,7 @@ in `ca` rather than waive verification. See
 
 ### NRPE: decoded-argument metachar guard, optional version banner, and consistency fixes
 
-**Fixed in:** 0.17.2 · **Severity:** Low
+**Fixed in:** 0.17.1 · **Severity:** Low
 
 A review of the `NRPEServer` / `NRPEClient` modules produced a set of
 defense-in-depth fixes. None is remotely exploitable on a default install
@@ -259,7 +259,7 @@ guard was always intended to catch.
 
 ### NRDP client security-review hardening
 
-**Fixed in:** 0.17.2 · **Severity:** Low–Medium
+**Fixed in:** 0.17.1 · **Severity:** Low–Medium
 
 A focused security review of the passive submission protocols (`NRDPClient`,
 `NSCAClient`/`NSCAServer`) produced a small set of defense-in-depth fixes on
@@ -296,7 +296,7 @@ behaviour was to trust any certificate silently.
 
 ### WEB server security-review hardening
 
-**Fixed in:** 0.17.0 · **Severity:** Low–Medium
+**Fixed in:** 0.17.1 · **Severity:** Low–Medium
 
 A focused security review of the `WEBServer` module (REST API + web UI)
 produced a set of defense-in-depth fixes. None is a confirmed remote

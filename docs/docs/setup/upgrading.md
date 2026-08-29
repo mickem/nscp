@@ -12,7 +12,7 @@ page tracks those in one place. Full per-release detail lives in each
 
 ---
 
-## 0.17.2
+## 0.17.1
 
 - **`check_nscp` is now a filter check, and it can see crash reports again.**
   Crash reporting itself has always worked — the agent has archived crash
@@ -110,6 +110,33 @@ page tracks those in one place. Full per-release detail lives in each
   command, so it also works over NRPE, REST and in `nscp test`. Nothing changes
   for existing configurations; the timers are untouched. See
   [Passive monitoring → Step 6](../scenarios/passive-monitoring-nsca.md#step-6-send-a-result-without-waiting-for-the-interval).
+- **A denied check is no longer submitted as a passive result.** The permission
+  layer answers a denied query as a *successful* query carrying an UNKNOWN
+  "Permission denied" payload, and both `run_schedules` and `check_and_forward`
+  forwarded that to the monitoring server — overwriting the last real result
+  for that service while telling the caller it had succeeded. Both now refuse
+  with `Permission denied: not allowed to run <command>, nothing was
+  submitted` and touch no channel. If you restrict what a REST or NRPE identity
+  may run, expect the denial as an error where you previously saw a stale
+  UNKNOWN appear on the server. See
+  [Permissions](../concepts/permissions.md).
+- **`settings --update --add-defaults --use-samples` now writes the sample
+  objects.** The flag was parsed and never read, so it behaved exactly like the
+  plain invocation. It now writes the registered `/sample` sections, and
+  `--remove-defaults` strips them again — the two are now exact inverses. An
+  edited sample is still never overwritten or removed, and without the flag the
+  output is byte-for-byte what it was. If you have scripted
+  `--add-defaults --use-samples` expecting today's (sample-free) output, drop
+  the flag.
+- **`nscp client --query <cmd>` no longer appends "No module was specified…".**
+  The line was appended to every result when no `--module` was named. Scripts
+  that stripped or matched it can stop; naming a module is unchanged.
+- **Settings writes work again when `[/includes]` names a directory.** Saving
+  handed the directory path to the INI writer, and the resulting "Is a
+  directory" error aborted the whole save — so `nscp settings --set` and the
+  web UI failed *and the main file was never written*. Directory includes are
+  read-only by nature and are now skipped when saving. If you worked around
+  this by removing a directory include, you can put it back.
 - 🔒 **NRDP HTTPS submissions now verify the server certificate by default on
   the `nscp client`/REST path.** Previously an `https://` submission made that
   way with no `verify mode` set trusted any certificate silently (configured
@@ -172,8 +199,32 @@ page tracks those in one place. Full per-release detail lives in each
 
 ---
 
-## 0.17.1
-
+- 🔒 **NRPE hardening: a new `expose version` setting, and the metachar
+  guard now also checks decoded input.** Nothing to do on a default install.
+  Two things are worth knowing. `NRPEServer` gained `expose version` (default
+  `true`, which keeps the legacy banner `check_nrpe` expects); set it to
+  `false` to answer the unauthenticated `_NRPE_CHECK` ping with a generic
+  message instead of the exact build. And `allow nasty characters = false` now
+  re-checks the *decoded* command and arguments, not just the raw wire bytes —
+  with a non-UTF-8 `encoding` set, a multi-byte sequence could previously
+  decode into a metacharacter that was never literally on the wire, so a
+  request the guard was always meant to block may now be rejected. Separately,
+  `nscp nrpe install` reads the stored `verify mode` again instead of silently
+  resetting it on a re-run.
+  See the [security notice](../security/notices.md#nrpe-decoded-argument-metachar-guard-optional-version-banner-and-consistency-fixes).
+- 🔒 **WEB server security-review hardening.** A review of the `WEBServer`
+  module produced several defense-in-depth fixes (session tokens now come from
+  the OpenSSL CSPRNG, cookie-name matching requires a name boundary, the
+  installer refuses an HTTPS→HTTP redirect, and the `legacy` grant's startup
+  warning now names `/settings/query.pb`). The default install needs no
+  action. Two changes touch observable behaviour: a script or module **name
+  that begins with `-` is now rejected** (rename it; interior dashes are
+  fine), and the legacy **`POST /auth/logout` route now enforces `allowed
+  hosts`** like the rest of the API (a caller outside the perimeter gets 403).
+  A third only bites on a broken system: if the OpenSSL CSPRNG fails, the
+  server now **refuses to issue a session token** (HTTP 500, logged as
+  `SECURITY:`) rather than falling back to a weaker generator.
+  See the [security notice](../security/notices.md#web-server-security-review-hardening).
 - 🔒 **The bundled OpenSSL is updated from 3.5.4 to 3.5.8** in the Windows
   builds, picking up the fixes from four upstream security releases on the
   3.5 LTS line. The most relevant fix for NSClient++ is
@@ -365,20 +416,6 @@ page tracks those in one place. Full per-release detail lives in each
   `modified` entry whose old value equalled its new one. Tooling that treated
   a non-empty diff as "unsaved work pending" no longer needs to special-case
   that; no configuration change is needed.
-- 🔒 **WEB server security-review hardening.** A review of the `WEBServer`
-  module produced several defense-in-depth fixes (session tokens now come from
-  the OpenSSL CSPRNG, cookie-name matching requires a name boundary, the
-  installer refuses an HTTPS→HTTP redirect, and the `legacy` grant's startup
-  warning now names `/settings/query.pb`). The default install needs no
-  action. Two changes touch observable behaviour: a script or module **name
-  that begins with `-` is now rejected** (rename it; interior dashes are
-  fine), and the legacy **`POST /auth/logout` route now enforces `allowed
-  hosts`** like the rest of the API (a caller outside the perimeter gets 403).
-  A third only bites on a broken system: if the OpenSSL CSPRNG fails, the
-  server now **refuses to issue a session token** (HTTP 500, logged as
-  `SECURITY:`) rather than falling back to a weaker generator.
-  See the [security notice](../security/notices.md#web-server-security-review-hardening).
-
 ## 0.16.4
 
 - 🔒 **The bundled Mongoose web server is upgraded to 7.23,** fixing two
