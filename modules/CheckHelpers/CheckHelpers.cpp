@@ -416,17 +416,13 @@ void CheckHelpers::check_and_forward(const PB::Commands::QueryRequestMessage::Re
     nscapi::protobuf::functions::set_response_bad(*response, "Failed to submit to: " + channel);
     return;
   }
+  // A multi-channel submission (channel=NSCA,GRAPHITE) hands back one reply
+  // payload per channel; the submission only succeeded if every channel
+  // accepted it, so parse all of them rather than just the first.
   std::string error;
-  try {
-    if (!nscapi::protobuf::functions::parse_simple_submit_response(submit_response, error)) {
-      nscapi::protobuf::functions::set_response_bad(*response, "Failed to submit to " + channel + ": " + error);
-      return;
-    }
-  } catch (const std::exception &e) {
-    // A multi-channel submission (channel=NSCA,GRAPHITE) hands back one reply
-    // per channel, which the single-payload parser above rejects. The message
-    // went out, so report that rather than failing the check.
-    NSC_DEBUG_MSG("Could not parse the submission reply from " + channel + ": " + utf8::utf8_from_native(e.what()));
+  if (!nscapi::protobuf::functions::parse_multi_submit_response(submit_response, error)) {
+    nscapi::protobuf::functions::set_response_bad(*response, "Failed to submit to " + channel + ": " + error);
+    return;
   }
   nscapi::protobuf::functions::set_response_good(*response, "Message submitted: " + channel);
 }

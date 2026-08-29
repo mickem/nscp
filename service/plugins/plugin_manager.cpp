@@ -1040,10 +1040,18 @@ void nsclient::core::plugin_manager::register_submission_listener(unsigned int p
 NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char *channel, std::string &request, std::string &response) {
   std::string schannel = channel;
   bool found = false;
+  // One reply string per handler invocation. Handing every handler the same
+  // `response` string would let each one overwrite the previous handler's
+  // reply, so with channel=NSCA,GRAPHITE an NSCA failure was silently masked
+  // by GRAPHITE's OK - the caller has to see every handler's verdict to be
+  // able to report a partial failure.
+  std::list<std::string> replies;
   for (std::string cur_chan : str::utils::split_lst(schannel, std::string(","))) {
     if (cur_chan == "noop") {
       found = true;
-      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
+      std::string reply;
+      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", reply);
+      replies.push_back(reply);
       continue;
     }
     if (cur_chan == "log") {
@@ -1054,16 +1062,20 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
                       nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i), nscapi::protobuf::functions::no_truncation));
       }
       found = true;
-      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
+      std::string reply;
+      nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", reply);
+      replies.push_back(reply);
       continue;
     }
     try {
       for (nsclient::plugin_type p : channels_.get(cur_chan)) {
+        std::string reply;
         try {
-          p->handleNotification(cur_chan.c_str(), request, response);
+          p->handleNotification(cur_chan.c_str(), request, reply);
         } catch (...) {
           LOG_ERROR_CORE("Plugin throw exception: " + p->get_alias_or_name());
         }
+        if (!reply.empty()) replies.push_back(reply);
         found = true;
       }
     } catch (nsclient::plugins_list_exception &e) {
@@ -1080,6 +1092,24 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
   if (!found) {
     LOG_ERROR_CORE("No handler for channel: " + schannel + " active channels: " + channels_.to_string());
     return NSCAPI::api_return_codes::hasFailed;
+  }
+  if (replies.size() == 1) {
+    // The single-handler case keeps the reply byte-for-byte as the handler
+    // built it (header included) - the overwhelmingly common case, and the
+    // one parse_simple_submit_response is written for.
+    response = replies.front();
+  } else {
+    // Multiple handlers: merge every reply's payloads into one message so no
+    // verdict is lost. Callers submitting to a comma list of channels parse
+    // this with parse_multi_submit_response.
+    PB::Commands::SubmitResponseMessage merged;
+    for (const std::string &reply : replies) {
+      PB::Commands::SubmitResponseMessage msg;
+      if (!msg.ParseFromString(reply)) continue;
+      if (!merged.has_header() && msg.has_header()) merged.mutable_header()->CopyFrom(msg.header());
+      for (int i = 0; i < msg.payload_size(); i++) merged.add_payload()->CopyFrom(msg.payload(i));
+    }
+    response = merged.SerializeAsString();
   }
   return NSCAPI::api_return_codes::isSuccess;
 }

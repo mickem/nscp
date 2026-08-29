@@ -240,7 +240,9 @@ bool Scheduler::run_schedule(const schedules::target_object &item, const forward
     NSC_LOG_ERROR_STD(error);
     return false;
   }
-  if (!nscapi::protobuf::functions::parse_simple_submit_response(result, error)) {
+  // The channel can be a comma list, in which case the reply carries one
+  // payload per channel and all of them have to be OK.
+  if (!nscapi::protobuf::functions::parse_multi_submit_response(result, error)) {
     NSC_LOG_ERROR_STD("Failed to submit " + item->get_alias() + ": " + error);
     return false;
   }

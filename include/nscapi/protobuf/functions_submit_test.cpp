@@ -136,6 +136,65 @@ TEST(SubmitResponseTest, parse_simple_submit_response_empty_string) {
   EXPECT_THROW(nscapi::protobuf::functions::parse_simple_submit_response("", response_msg), std::exception);
 }
 
+namespace {
+void add_submit_payload(PB::Commands::SubmitResponseMessage &message, bool ok, const std::string &msg) {
+  auto *payload = message.add_payload();
+  payload->set_command("cmd");
+  payload->mutable_result()->set_code(ok ? PB::Common::Result_StatusCodeType_STATUS_OK : PB::Common::Result_StatusCodeType_STATUS_ERROR);
+  payload->mutable_result()->set_message(msg);
+}
+}  // namespace
+
+TEST(SubmitResponseTest, parse_multi_submit_response_all_ok) {
+  PB::Commands::SubmitResponseMessage message;
+  add_submit_payload(message, true, "first ok");
+  add_submit_payload(message, true, "second ok");
+
+  std::string response_msg;
+  EXPECT_TRUE(nscapi::protobuf::functions::parse_multi_submit_response(message.SerializeAsString(), response_msg));
+  EXPECT_EQ("first ok", response_msg);
+}
+
+TEST(SubmitResponseTest, parse_multi_submit_response_partial_failure) {
+  // The order matters: the failure comes FIRST, mirroring channel=NSCA,GRAPHITE
+  // where the NSCA failure used to be masked by GRAPHITE's later OK.
+  PB::Commands::SubmitResponseMessage message;
+  add_submit_payload(message, false, "connection refused");
+  add_submit_payload(message, true, "submitted ok");
+
+  std::string response_msg;
+  EXPECT_FALSE(nscapi::protobuf::functions::parse_multi_submit_response(message.SerializeAsString(), response_msg));
+  EXPECT_EQ("connection refused", response_msg);
+}
+
+TEST(SubmitResponseTest, parse_multi_submit_response_collects_all_failures) {
+  PB::Commands::SubmitResponseMessage message;
+  add_submit_payload(message, false, "first error");
+  add_submit_payload(message, true, "ok");
+  add_submit_payload(message, false, "second error");
+
+  std::string response_msg;
+  EXPECT_FALSE(nscapi::protobuf::functions::parse_multi_submit_response(message.SerializeAsString(), response_msg));
+  EXPECT_EQ("first error, second error", response_msg);
+}
+
+TEST(SubmitResponseTest, parse_multi_submit_response_single_payload_matches_simple) {
+  std::string buffer;
+  nscapi::protobuf::functions::create_simple_submit_response_ok("channel", "command", "Success", buffer);
+
+  std::string response_msg;
+  EXPECT_TRUE(nscapi::protobuf::functions::parse_multi_submit_response(buffer, response_msg));
+  EXPECT_EQ("Success", response_msg);
+}
+
+TEST(SubmitResponseTest, parse_multi_submit_response_no_payloads_is_an_error) {
+  // Unlike parse_simple_submit_response this must not throw: an empty reply
+  // (every handler failed to answer) is an ordinary failure to report.
+  std::string response_msg;
+  EXPECT_FALSE(nscapi::protobuf::functions::parse_multi_submit_response("", response_msg));
+  EXPECT_EQ("Submit response contained no status", response_msg);
+}
+
 TEST(SubmitResponseTest, parse_simple_submit_response_error_status) {
   PB::Commands::SubmitResponseMessage message;
   auto* payload = message.add_payload();

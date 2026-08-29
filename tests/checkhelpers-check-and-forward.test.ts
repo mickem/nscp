@@ -73,6 +73,9 @@ describe("CheckHelpers check_and_forward", () => {
       "/modules": {
         CheckHelpers: "enabled",
         GraphiteClient: "enabled",
+        // NSCA is only used by the partial-failure test below; its target
+        // points at a port nothing listens on so submitting to it fails fast.
+        NSCAClient: "enabled",
         WEBServer: "enabled",
       },
       "/settings/default": {
@@ -88,6 +91,12 @@ describe("CheckHelpers check_and_forward", () => {
         address: `127.0.0.1:${port}`,
         "status path": STATUS_PATH,
         "perf path": PERF_PATH,
+      },
+      // Deliberately unreachable: port 1 on localhost refuses immediately, so
+      // the NSCA half of a NSCA,GRAPHITE submission fails without a timeout.
+      "/settings/NSCA/client/targets/default": {
+        address: "127.0.0.1:1",
+        timeout: "2",
       },
     });
 
@@ -152,6 +161,25 @@ describe("CheckHelpers check_and_forward", () => {
     expect(result.lines).toEqual([
       expect.objectContaining({ message: expect.stringContaining("NOSUCHCHANNEL") }),
     ]);
+  });
+
+  it("reports a failure when one channel of a comma list rejects the submission", async () => {
+    // The NSCA target refuses the connection while GRAPHITE accepts, and the
+    // core answers with one reply payload per channel. Every channel's verdict
+    // counts: the NSCA failure must surface even though GRAPHITE succeeded
+    // (it used to be masked by whichever channel replied last).
+    const result = await runQuery(
+      "check_and_forward",
+      "?command=check_ok&channel=NSCA,GRAPHITE&alias=partial",
+    );
+    expect(result.result).toEqual(3); // 3 = UNKNOWN
+    expect(result.lines).toEqual([
+      expect.objectContaining({ message: expect.stringContaining("Failed to submit") }),
+    ]);
+
+    // The failure is partial: the working channel still received the result.
+    const data = await waitForReceived((s) => s.includes("partial"), 30_000);
+    expect(data).toMatch(/^nscp\.forward\.partial\.status 0 \d+$/m);
   });
 
   it("requires a command", async () => {
