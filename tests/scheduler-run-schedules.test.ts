@@ -7,8 +7,8 @@
  * the timer would have sent.
  *
  * Every schedule here uses a one hour interval and does not run on startup, so
- * any result arriving during the test can only have come from an explicit
- * `run_schedules` call.
+ * any *schedule result* arriving during the test can only have come from an
+ * explicit `run_schedules` call.
  *
  * As in scheduler-run-on-startup.test.ts the results are observed through
  * GraphiteClient, whose carbon line protocol is plain TCP text: the "monitoring
@@ -29,6 +29,13 @@ jest.setTimeout(120_000);
 // whatever ${hostname} resolves to on the test machine.
 const STATUS_PATH = "nscp.ondemand.${check_alias}.status";
 
+// The schedules are not the only thing on this Graphite target: the core also
+// pushes its own metrics (nsclient.${hostname}.scheduler.*, .workers.*) to it
+// every `metrics interval`, ten seconds by default. So the captured stream is
+// never only schedule results, and every assertion below matches the pinned
+// status path instead of looking at the raw stream.
+const SCHEDULE_LINE = /^nscp\.ondemand\.[^. ]+\.status \d+ \d+$/;
+
 describe("Scheduler run_schedules", () => {
   let nscp: NscpInstance;
   let server: net.Server;
@@ -48,9 +55,14 @@ describe("Scheduler run_schedules", () => {
     return received; // hand back whatever we have so expect() shows a useful diff
   }
 
+  /** Complete carbon lines captured so far that a schedule produced. */
+  function scheduleLines(data = received): string[] {
+    return data.split("\n").filter((l) => SCHEDULE_LINE.test(l));
+  }
+
   /** Carbon lines captured so far for one schedule alias. */
   function linesFor(alias: string, data = received): string[] {
-    return data.split("\n").filter((l) => l.includes(`.${alias}.`));
+    return scheduleLines(data).filter((l) => l.startsWith(`nscp.ondemand.${alias}.`));
   }
 
   /** Run a query over REST and hand back the JSON result payload. */
@@ -122,10 +134,10 @@ describe("Scheduler run_schedules", () => {
   });
 
   it("reports nothing until asked", async () => {
-    // Both schedules are an hour out, so a few seconds in the agent has sent
-    // nothing at all.
+    // Both schedules are an hour out, so a few seconds in the agent has not
+    // reported a single check result (core metrics aside).
     await new Promise((r) => setTimeout(r, 3_000));
-    expect(received).toBe("");
+    expect(scheduleLines()).toEqual([]);
   });
 
   it("runs a single named schedule", async () => {
@@ -164,9 +176,10 @@ describe("Scheduler run_schedules", () => {
 
   it("does not disturb the regular schedule", async () => {
     // An on-demand run must not queue an extra timed instance: the schedules
-    // are still an hour out, so nothing new arrives after the calls above.
-    const before = received;
+    // are still an hour out, so no further result arrives after the calls
+    // above (a core metrics push landing in the same window is not one).
+    const before = scheduleLines();
     await new Promise((r) => setTimeout(r, 3_000));
-    expect(received).toBe(before);
+    expect(scheduleLines()).toEqual(before);
   });
 });
