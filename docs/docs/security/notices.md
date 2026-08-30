@@ -171,7 +171,7 @@ legacy auth — and produced three hardening fixes on the client side:
   also no longer suggests `none` for self-signed certificates — the right
   configuration is `peer-cert` with `ca` pointing at the certificate.
 
-### Graphite client — metric-line injection scrub and a whole-submission timeout
+### Graphite client: metric-line injection scrub and a whole-submission timeout
 
 **Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low
 
