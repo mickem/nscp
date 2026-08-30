@@ -260,9 +260,16 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     // every iteration in microseconds and returned with `state` still at its
     // initial value - skipping the timeout/kill block entirely and leaking a
     // still-running (now unwaited) process. `while (1) echo x` in a script was
-    // an unkillable per-invocation orphan. Track a deadline instead, and treat
+    // an unkillable per-invocation orphan. Track elapsed time instead, and treat
     // "deadline reached, process still alive" as the timeout path.
-    const ULONGLONG deadline_ms = GetTickCount64() + static_cast<ULONGLONG>(effective_timeout) * 1000ULL;
+    //
+    // GetTickCount (not GetTickCount64) so this keeps compiling on the XP
+    // toolset (v141_xp / NTDDI_VERSION=0x0501); GetTickCount64 needs Vista+.
+    // Its 32-bit millisecond counter wraps every ~49.7 days, but the unsigned
+    // subtraction `GetTickCount() - start_ms` yields the correct elapsed time
+    // across a single wrap, so a bounded timeout is measured correctly.
+    const DWORD start_ms = GetTickCount();
+    const DWORD timeout_ms = static_cast<DWORD>(effective_timeout) * 1000u;
     state = WAIT_TIMEOUT;  // "not yet observed to have exited"
     for (;;) {
       if (!::PeekNamedPipe(hChildOutR.get(), nullptr, 0, nullptr, &dwAvail, nullptr)) {
@@ -281,7 +288,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
         }
         // Drained a chunk; re-check the clock before looping so a chatty child
         // cannot hold us here past the deadline.
-        if (GetTickCount64() >= deadline_ms) {
+        if (GetTickCount() - start_ms >= timeout_ms) {
           state = WAIT_TIMEOUT;
           break;
         }
@@ -292,7 +299,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       if (state != WAIT_TIMEOUT) {
         break;  // process exited; final drain happens below
       }
-      if (GetTickCount64() >= deadline_ms) {
+      if (GetTickCount() - start_ms >= timeout_ms) {
         state = WAIT_TIMEOUT;
         break;
       }
