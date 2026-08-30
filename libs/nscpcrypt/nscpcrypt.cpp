@@ -126,8 +126,9 @@ int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
       return enc;
   }
   // Historically any unrecognized value fell through to ENCRYPT_NONE, so a
-  // typo (or an algorithm this build lacks) silently sent and accepted
-  // plaintext. Fail hard instead; "none" is the explicit opt-out.
+  // typo (or an algorithm this build lacks) silently disabled encryption on
+  // this end — surfacing only as unexplained CRC rejections on a correctly
+  // configured peer. Fail hard instead; "none" is the explicit opt-out.
   throw encryption_exception("Unknown encryption algorithm: '" + encryption_raw + "' (available: " + get_crypto_string() +
                              "; use 'none' to disable encryption)");
 }
