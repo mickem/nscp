@@ -83,6 +83,9 @@ NSCP_CREATE_TEST(
         handler_impl.cpp
         ${NSCP_INCLUDEDIR}/net/check_mk/lua/lua_check_mk.cpp
         ${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
+        # lua_nscp's core_wrapper::log() calls nscapi::logging::parse, which the
+        # Windows plugin_api DLL does not export.
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
     LIBRARIES
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}
