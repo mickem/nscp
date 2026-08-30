@@ -93,6 +93,14 @@ bool has_capability(const std::string& ehlo_reply, const std::string& keyword);
 // the order the server listed them. Empty when AUTH was not advertised.
 std::vector<std::string> auth_mechanisms(const std::string& ehlo_reply);
 
+// Renders server reply text for inclusion in an error message. Replies end up
+// in the agent log and in the submit response, and their bytes are chosen by
+// the peer: control characters (terminal escapes when the log is tailed) are
+// replaced with '?', the '\n' separating the lines of a multi-line reply is
+// rendered as " / " so one reply cannot forge additional log lines, and the
+// result is truncated so a large reply cannot flood the log.
+std::string scrub_reply(const std::string& reply);
+
 // Builds the RFC 5322 Message-ID for one submission, angle brackets included.
 // The right hand side is the sender's domain, falling back to `ehlo_name`;
 // the left hand side is random. Callers get a different value every time.

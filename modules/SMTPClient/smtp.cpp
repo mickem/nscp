@@ -21,6 +21,40 @@
 #include <vector>
 
 namespace smtp {
+
+// Defined ahead of the connection code because every error path below that
+// quotes server text routes it through here first.
+namespace detail {
+
+// Reply bytes are the peer's to choose, and exception messages carry them
+// into the agent log (NSC_LOG_ERROR) and the submit response. Left raw, a
+// reply can embed terminal escape sequences for whoever tails the log, and
+// the '\n' that read_reply() joins a multi-line reply with lets one reply
+// masquerade as several log lines. Render it inert instead: control bytes
+// become '?', the line join becomes " / ", and the result is truncated.
+std::string scrub_reply(const std::string& reply) {
+  constexpr std::size_t max_len = 500;
+  std::string out;
+  out.reserve(std::min(reply.size(), max_len) + 4);
+  for (const char c : reply) {
+    if (out.size() >= max_len) {
+      out += "...";
+      break;
+    }
+    const auto u = static_cast<unsigned char>(c);
+    if (c == '\n') {
+      out += " / ";
+    } else if (u < 0x20 || u == 0x7f) {
+      out.push_back('?');
+    } else {
+      out.push_back(c);
+    }
+  }
+  return out;
+}
+
+}  // namespace detail
+
 namespace {
 namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
@@ -177,10 +211,10 @@ class sync_io {
       // "NNN text" for the final line. A line shorter than 4 bytes is a
       // protocol error.
       if (line.size() < 4) {
-        throw smtp_exception("malformed SMTP reply: '" + line + "'");
+        throw smtp_exception("malformed SMTP reply: '" + detail::scrub_reply(line) + "'");
       }
       if (line[3] == ' ') break;
-      if (line[3] != '-') throw smtp_exception("malformed SMTP reply: '" + line + "'");
+      if (line[3] != '-') throw smtp_exception("malformed SMTP reply: '" + detail::scrub_reply(line) + "'");
     }
     return out;
   }
@@ -287,7 +321,7 @@ class sync_io {
 
 void expect_status(const std::string& reply, char expected_first, const std::string& context) {
   if (reply.size() < 3 || reply[0] != expected_first) {
-    throw smtp_exception(context + " unexpected reply: " + reply);
+    throw smtp_exception(context + " unexpected reply: " + detail::scrub_reply(reply));
   }
 }
 
@@ -505,10 +539,11 @@ void do_auth(sync_io& io, const std::string& user, const std::string& pass, cons
   const auto advertises = [&mechanisms](const char* m) { return std::find(mechanisms.begin(), mechanisms.end(), m) != mechanisms.end(); };
 
   if (mechanisms.empty()) {
-    throw smtp_exception("a username is configured but the server does not advertise AUTH: " + ehlo_response);
+    throw smtp_exception("a username is configured but the server does not advertise AUTH: " + detail::scrub_reply(ehlo_response));
   }
   if (!advertises("PLAIN") && !advertises("LOGIN")) {
-    throw smtp_exception("server advertises no AUTH mechanism we support (offered: " + boost::algorithm::join(mechanisms, ", ") + "; supported: PLAIN, LOGIN)");
+    throw smtp_exception("server advertises no AUTH mechanism we support (offered: " + detail::scrub_reply(boost::algorithm::join(mechanisms, ", ")) +
+                         "; supported: PLAIN, LOGIN)");
   }
 
   if (advertises("PLAIN")) {
@@ -520,18 +555,18 @@ void do_auth(sync_io& io, const std::string& user, const std::string& pass, cons
     sasl += pass;
     io.write("AUTH PLAIN " + b64(sasl) + "\r\n");
     const std::string r = io.read_reply();
-    if (!reply_starts_with(r, "235")) throw smtp_exception("AUTH PLAIN rejected: " + r);
+    if (!reply_starts_with(r, "235")) throw smtp_exception("AUTH PLAIN rejected: " + detail::scrub_reply(r));
     return;
   }
   io.write("AUTH LOGIN\r\n");
   std::string r = io.read_reply();
-  if (!reply_starts_with(r, "334")) throw smtp_exception("AUTH LOGIN not accepted: " + r);
+  if (!reply_starts_with(r, "334")) throw smtp_exception("AUTH LOGIN not accepted: " + detail::scrub_reply(r));
   io.write(b64(user) + "\r\n");
   r = io.read_reply();
-  if (!reply_starts_with(r, "334")) throw smtp_exception("AUTH LOGIN username rejected: " + r);
+  if (!reply_starts_with(r, "334")) throw smtp_exception("AUTH LOGIN username rejected: " + detail::scrub_reply(r));
   io.write(b64(pass) + "\r\n");
   r = io.read_reply();
-  if (!reply_starts_with(r, "235")) throw smtp_exception("AUTH LOGIN password rejected: " + r);
+  if (!reply_starts_with(r, "235")) throw smtp_exception("AUTH LOGIN password rejected: " + detail::scrub_reply(r));
 }
 
 }  // namespace
@@ -667,7 +702,7 @@ void send(const connection_config& cfg, const message& msg) {
   // DATA
   conn.write("DATA\r\n");
   r = conn.read_reply();
-  if (!reply_starts_with(r, "354")) throw smtp_exception("DATA rejected: " + r);
+  if (!reply_starts_with(r, "354")) throw smtp_exception("DATA rejected: " + detail::scrub_reply(r));
 
   // Construct headers + body. The body is dot-stuffed / CRLF-normalised.
   std::ostringstream headers;

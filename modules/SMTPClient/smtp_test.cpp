@@ -381,6 +381,57 @@ TEST(SmtpReplyLimits, ALegitimateMultiLineReplyStaysUnderTheCaps) {
 }
 
 // =============================================================================
+// scrub_reply
+// =============================================================================
+//
+// Server reply text ends up in exception messages, which land in the agent
+// log and in the submit response. The bytes are the peer's to choose, so they
+// are rendered inert before they travel.
+
+using smtp::detail::scrub_reply;
+
+TEST(SmtpScrubReply, PassesOrdinaryReplyTextThrough) {
+  EXPECT_EQ(scrub_reply("550 5.7.1 relay access denied"), "550 5.7.1 relay access denied");
+  EXPECT_EQ(scrub_reply(""), "");
+}
+
+TEST(SmtpScrubReply, NeutralisesTerminalEscapes) {
+  // ESC starts a terminal control sequence for whoever tails the log; every
+  // control byte is replaced, not just the ones with a known trick.
+  const std::string scrubbed = scrub_reply(std::string("554 go \x1b]0;owned\x07 away"));
+
+  EXPECT_EQ(scrubbed.find('\x1b'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed.find('\x07'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed, "554 go ?]0;owned? away");
+}
+
+TEST(SmtpScrubReply, FlattensTheMultiLineJoinSoOneReplyIsOneLogLine) {
+  // read_reply() joins a multi-line reply with '\n'. Passed through raw, a
+  // reply of "250-innocent\n250 ERROR forged line" writes two lines into the
+  // log, and only the first one is labelled as server output.
+  const std::string scrubbed = scrub_reply("250-first\n250 second");
+
+  EXPECT_EQ(scrubbed.find('\n'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed, "250-first / 250 second");
+}
+
+TEST(SmtpScrubReply, TruncatesAnOversizedReply) {
+  const std::string scrubbed = scrub_reply("550 " + std::string(2000, 'x'));
+
+  EXPECT_LT(scrubbed.size(), 600u);
+  EXPECT_EQ(scrubbed.compare(scrubbed.size() - 3, 3, "..."), 0) << scrubbed;
+}
+
+TEST(SmtpScrubReply, TheScrubbedFormIsWhatTheErrorMessageCarries) {
+  // End to end: a scripted rejection carrying an ESC byte must surface with
+  // the byte neutralised, in the same exception operators see in the log.
+  const std::string error = plain_failure({std::string("554 no \x1b[31mred\x1b[0m entry\r\n")});
+
+  EXPECT_EQ(error.find('\x1b'), std::string::npos) << error;
+  EXPECT_NE(error.find("banner unexpected reply: 554 no ?[31mred?[0m entry"), std::string::npos) << error;
+}
+
+// =============================================================================
 // CA bundle
 // =============================================================================
 
