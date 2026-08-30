@@ -161,6 +161,10 @@ describe("Elastic integration", () => {
     expect(log).toBeDefined();
     if (!log) return;
     const lines = log.body.split("\n").filter((l) => l.length > 0);
+    // Action line + document line per record: assert the framing before
+    // indexing into it, so a malformed body fails with a clear message.
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+    expect(lines.length % 2).toBe(0);
     const doc = JSON.parse(lines[1]);
     expect(doc.message).toBeTruthy();
     expect(doc.level).toBeTruthy();

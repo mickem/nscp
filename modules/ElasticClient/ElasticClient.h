@@ -8,12 +8,15 @@
 #include <nscapi/protobuf/log.hpp>
 #include <nscapi/protobuf/metrics.hpp>
 
+#include <atomic>
 #include <string>
 #include <vector>
 
 class ElasticClient : public nscapi::impl::simple_plugin {
  private:
-  bool started;
+  // Read by the event/metrics/log callbacks and written when the module is
+  // unloaded; those run on different threads, so it is not a plain bool.
+  std::atomic<bool> started;
 
   std::string hostname_;
 
@@ -24,7 +27,9 @@ class ElasticClient : public nscapi::impl::simple_plugin {
   std::string tls_version;
   std::string verify_mode;
   std::string ca;
-  unsigned int timeout;
+  // Seconds; read as a signed value so a negative setting is rejected at load
+  // rather than wrapping into an effectively infinite unsigned timeout.
+  int timeout;
 
   std::string event_index;
   std::string event_type;

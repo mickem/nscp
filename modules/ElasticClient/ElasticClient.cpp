@@ -87,7 +87,7 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
         .add_string("ca", sh::path_key(&ca, "${ca-path}"), "Certificate authority",
                     "The certificate authority bundle used to verify the Elasticsearch server certificate (used when 'verify mode' is not 'none').")
 
-        .add_int("timeout", sh::uint_key(&timeout, 30), "Timeout",
+        .add_int("timeout", sh::int_key(&timeout, 30), "Timeout",
                  "Timeout (in seconds) for each connect, read and write when talking to Elasticsearch. 0 waits forever.")
 
         .add_string("event index", sh::string_key(&event_index, "nsclient_event-%(date)"), "Elastic index used for events",
@@ -112,6 +112,11 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
     settings.register_all();
     settings.notify();
+
+    if (timeout < 0) {
+      NSC_LOG_ERROR("Invalid elastic timeout (negative): " + str::xtos(timeout) + ", using 30 seconds");
+      timeout = 30;
+    }
 
     hostname_ = socket_helpers::expand_hostname(hostname_);
 
@@ -164,7 +169,7 @@ void ElasticClient::send_to_elastic(const std::string &index, const std::string 
       return;
     }
     http::http_client_options opts(parsed.protocol, tls_version, verify_mode, ca);
-    opts.timeout_seconds_ = timeout;
+    opts.timeout_seconds_ = static_cast<unsigned int>(timeout < 0 ? 0 : timeout);
     http::request rq("POST", parsed.host, parsed.path, payload);
     rq.add_header("Content-Type", "application/x-ndjson");
     rq.add_header("Content-Length", str::xtos(payload.size()));

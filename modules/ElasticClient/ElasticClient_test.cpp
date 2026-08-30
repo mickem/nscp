@@ -120,3 +120,19 @@ TEST(ElasticBulk, extract_errors_never_throws_on_hostile_shapes) {
   const std::string huge(100000, 'x');
   EXPECT_LE(elastic_bulk::extract_errors(huge).size(), 300u);
 }
+
+TEST(ElasticBulk, extract_errors_strips_control_characters) {
+  // Everything returned here is written to the agent log, so a hostile server
+  // must not be able to forge extra log lines with CR/LF - truncation alone
+  // would leave them in place.
+  const std::string body = "{\"error\":{\"reason\":\"boom\\r\\n2026-01-01 FATAL forged line\"}}";
+  const std::string errors = elastic_bulk::extract_errors(body);
+  EXPECT_EQ(errors.find('\n'), std::string::npos);
+  EXPECT_EQ(errors.find('\r'), std::string::npos);
+  EXPECT_NE(errors.find("boom"), std::string::npos);
+
+  // The same holds for a body that is not JSON at all.
+  const std::string raw = elastic_bulk::extract_errors("not json\r\nforged line");
+  EXPECT_EQ(raw.find('\n'), std::string::npos);
+  EXPECT_EQ(raw.find('\r'), std::string::npos);
+}

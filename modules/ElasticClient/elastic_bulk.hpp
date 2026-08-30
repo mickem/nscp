@@ -31,9 +31,10 @@ inline std::string parse_index(const std::string &index) {
 inline std::string build_payload(const std::string &index, const std::string &type, const std::vector<std::string> &payloads) {
   std::string payload;
   boost::uuids::random_generator generate_uuid;
+  const std::string parsed_index = parse_index(index);
   for (const std::string &data : payloads) {
     boost::json::object tgtidx;
-    tgtidx["_index"] = parse_index(index);
+    tgtidx["_index"] = parsed_index;
     if (!type.empty()) {
       tgtidx["_type"] = type;
     }
@@ -48,11 +49,9 @@ inline std::string build_payload(const std::string &index, const std::string &ty
   return payload;
 }
 
-// Summarize the errors in an Elasticsearch response body; empty when the
-// response reports success. The body comes from the network, so no shape can
-// be assumed: unexpected or non-JSON content is reported (truncated) rather
-// than trusted, and nothing here throws.
-inline std::string extract_errors(const std::string &body) {
+namespace detail {
+// The error summary itself; extract_errors sanitizes what this returns.
+inline std::string extract_errors_raw(const std::string &body) {
   namespace json = boost::json;
   constexpr std::size_t max_snippet = 200;
   boost::system::error_code ec;
@@ -114,5 +113,16 @@ inline std::string extract_errors(const std::string &body) {
   }
   return errors;
 }
+}  // namespace detail
+
+// Summarize the errors in an Elasticsearch response body; empty when the
+// response reports success. The body comes from the network, so no shape can
+// be assumed: unexpected or non-JSON content is reported (truncated) rather
+// than trusted, and nothing here throws.
+//
+// Every returned string is written to the agent log, so control characters are
+// replaced first: truncating a hostile body still leaves any CR/LF in it free
+// to forge additional log lines.
+inline std::string extract_errors(const std::string &body) { return str::format::strip_ctrl_chars(detail::extract_errors_raw(body)); }
 
 }  // namespace elastic_bulk
