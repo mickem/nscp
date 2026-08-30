@@ -89,6 +89,23 @@ per-release detail lives in each
   No action needed; pin an exact version (`tls version = 1.2`) if a peer
   misbehaves when TLS 1.3 is offered. See the
   [security notice](../security/notices.md#nrdp-client-transport-hardening-and-shared-tls-version-floor-fix).
+- 🔒 **The Elastic module now verifies HTTPS server certificates and can
+  authenticate.** `ElasticClient` previously hardcoded TLS verification off;
+  an `https://` address now defaults to `verify mode = peer` against the
+  platform CA bundle, with new `tls version`, `verify mode` and `ca` settings
+  to tune it. New `user`/`password` and `api key` settings authenticate
+  against secured clusters (Elasticsearch 8+ defaults), and a new `timeout`
+  (default 30s) bounds each submission. If you rely on a self-signed
+  certificate, point `ca` at it or set `verify mode = none` explicitly. See
+  [Security notices](../security/notices.md).
+- 📤 **The Elastic module no longer sends the legacy `_type` parameter by
+  default.** Mapping types were removed in Elasticsearch 8, which rejects
+  bulk requests carrying them, so the `event type`, `metrics type` and
+  `nsclient log type` defaults are now empty. Only Elasticsearch 6.x or older
+  needs them: set the old values (`eventlog`, `metrics`, `nsclient log`)
+  explicitly to keep the previous behaviour. Batched documents also now get
+  distinct ids — previously all documents in one bulk request shared an id
+  and overwrote each other, so multi-entry events show up completely now.
 
 ## 0.18.0
 

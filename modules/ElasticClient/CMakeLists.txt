@@ -11,7 +11,6 @@ set(SRCS
     "${TARGET}.cpp"
     ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
     ${NSCP_DEF_PLUGIN_CPP}
-    ${NSCP_CLIENT_CPP}
     ${NSCP_INCLUDEDIR}/json/use_json.cpp
     ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
     ${NSCP_INCLUDEDIR}/bytes/base64.c
@@ -37,9 +36,9 @@ if(WIN32)
     set(SRCS
         ${SRCS}
         "${TARGET}.h"
+        elastic_bulk.hpp
         ${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.hpp
         ${NSCP_DEF_PLUGIN_HPP}
-        ${NSCP_CLIENT_HPP}
     )
 endif(WIN32)
 
@@ -56,3 +55,16 @@ target_link_libraries(
     ${EXTRA_LIBS}
 )
 include(${BUILD_CMAKE_FOLDER}/module.cmake)
+
+NSCP_CREATE_TEST(
+    elastic_test
+    SOURCES
+        ElasticClient_test.cpp
+        ${NSCP_INCLUDEDIR}/json/use_json.cpp
+    LIBRARIES
+        GTest::gtest_main
+        ${Boost_DATE_TIME_LIBRARY}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
