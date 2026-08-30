@@ -32,6 +32,53 @@ per-release detail lives in each
   MITM risk. And servers that require a client certificate will start seeing
   it. The default PSK mode (`use psk = true`) is unaffected. See
   [Security notices](../security/notices.md).
+- 🔒 **NSCA: an unrecognized `encryption` value is now a hard error instead of
+  silently running without encryption.** A typo'd algorithm name (`aes-256`),
+  or one not compiled into the build, used to fall back to *no encryption* on
+  the end carrying it. Since the ciphers must match, a one-sided typo showed
+  up as the peer rejecting every submission with a CRC error rather than as
+  accepted plaintext — but that failure gave no hint of its cause, and a
+  value broken the same way on both ends did run plaintext while looking
+  encrypted. Now the `NSCAServer` module refuses to load and an `NSCAClient`
+  submission fails, each naming the problem and listing the available
+  algorithms. Default installs (`aes256`) are unaffected. **Breaking** only
+  for setups relying on the fallback: fix the algorithm name, or set
+  `encryption = none` explicitly if plaintext was intended — this includes
+  builds compiled without crypto++, where any cipher name previously
+  degraded to plaintext and the server now refuses to start.
+  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+- 🔒 **NSCA hardening: empty-password warning, `performance data = false`
+  honoured, wire-field validation.** Enabling NSCA encryption with an empty
+  `password` now logs an error on both ends (the password *is* the key, so an
+  empty one is a well-known key) — set the same password on both ends to
+  clear it. `NSCAServer`'s `performance data = false` now actually strips
+  perfdata from forwarded submissions (it was silently ignored). Inbound
+  host/service names are stripped of control characters and out-of-range
+  status codes are clamped to UNKNOWN. No action needed on a default install.
+  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+
+---
+
+- 🔒 **NRDP submissions now honour `timeout` and `retry`.** Both settings were
+  parsed but never applied: a submission to a server that accepted the
+  connection and then stalled hung the submission thread forever, and failed
+  submissions were never retried. Every step of the exchange (connect, TLS
+  handshake, proxy tunnel, request, response) now runs under the configured
+  `timeout` (default 30 seconds for configured targets, 10 for one-shot
+  `nscp client` submissions), and transport failures are retried up to `retry`
+  times. Nothing to do unless your NRDP endpoint legitimately takes longer
+  than the timeout to answer — raise `timeout` on that target. The response
+  body is also capped at 5 MB, far above any real NRDP reply. See the
+  [security notice](../security/notices.md#nrdp-client-transport-hardening-and-shared-tls-version-floor-fix).
+
+- 🔒 **A `tls version` with a trailing `+` now means "that version or later".**
+  `1.2+` (the common default) previously negotiated TLS 1.2 *only*; it now
+  also permits TLS 1.3, and `any` is accepted as the documentation always
+  claimed. This applies everywhere the setting exists: NRDP and the other
+  HTTP-based clients, the NRPE/NSCA clients and servers, and `check_tcp`.
+  No action needed; pin an exact version (`tls version = 1.2`) if a peer
+  misbehaves when TLS 1.3 is offered. See the
+  [security notice](../security/notices.md#nrdp-client-transport-hardening-and-shared-tls-version-floor-fix).
 
 - 📨 🔒 **Syslog messages now carry the RFC 3164 HOSTNAME field, and several
   syslog options work for the first time** (see the

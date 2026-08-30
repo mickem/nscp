@@ -55,9 +55,13 @@ struct connection_data : socket_helpers::connection_info {
       protocol = "http";
       port_ = arguments.address.get_port_string("80");
     }
-    timeout = arguments.get_int_data("timeout", 30);
+    // arguments.timeout / arguments.retry, not get_int_data(): the container
+    // routes the well-known "timeout" and "retry" keys into typed fields (see
+    // get_host() below), so the data-map lookup always came back with the
+    // default and a configured value was silently ignored.
+    timeout = arguments.timeout;
+    retry = arguments.retry;
     token = arguments.get_string_data("token");
-    retry = arguments.get_int_data("retry", 3);
     tls_version = arguments.get_string_data("tls version");
     if (tls_version.empty()) tls_version = "1.2+";
     verify_mode = arguments.get_string_data("verify mode");
@@ -162,9 +166,13 @@ struct nrdp_client_handler : client::handler_interface {
 
   static void send(PB::Commands::SubmitResponseMessage::Response *payload, const connection_data &con, const nrdp::data &nrdp_data) {
     try {
-      NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting tuo: " + con.to_string()); }
+      NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting to: " + con.to_string()); }
       http::http_client_options options(con.protocol, con.tls_version, con.verify_mode, con.ca, con.build_proxy_config());
-      http::simple_client c(options);
+      // Every read/write (TLS handshake and proxy CONNECT included) runs
+      // under the configured deadline: this path is driven from the channel
+      // submission thread, and an NRDP server that accepts the connection and
+      // then stalls would otherwise wedge passive monitoring until restart.
+      options.timeout_seconds_ = con.timeout > 0 ? static_cast<unsigned int>(con.timeout) : 30;
       http::request request("POST", con.get_address(), con.path);
       http::request::post_map_type post;
       post["token"] = con.token;
@@ -172,10 +180,33 @@ struct nrdp_client_handler : client::handler_interface {
       post["cmd"] = "submitcheck";
       request.add_post_payload(post);
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Sending: " + nrdp_data.render_request()); }
-      std::ostringstream os;
-      http::response response = c.execute(os, con.get_address(), con.get_port(), request);
-      response.payload_ = os.str();
+
+      // Only transport failures (connect, timeout, truncated response) are
+      // retried; an answer from the server - success, an HTTP error status or
+      // an NRDP-level error - is final. Each attempt gets a fresh client so a
+      // half-established TLS stream is never reused.
+      const int attempts = con.retry > 0 ? con.retry : 1;
+      http::response response;
+      for (int attempt = 1;; ++attempt) {
+        try {
+          http::simple_client c(options);
+          // fetch() rather than execute(): it caps how much of the response is
+          // buffered (an NRDP reply is a few hundred bytes; without the cap a
+          // hostile server could feed an unbounded body into memory) and it
+          // leaves HTTP status handling to us.
+          response = c.fetch(con.get_address(), con.get_port(), request);
+          break;
+        } catch (const socket_helpers::socket_exception &e) {
+          if (attempt >= attempts) throw;
+          NSC_DEBUG_MSG("NRDP submission attempt " + str::xtos(attempt) + " of " + str::xtos(attempts) + " failed: " + e.reason() + ", retrying");
+        }
+      }
       NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Received: " + response.payload_); }
+      if (!response.is_2xx()) {
+        nscapi::protobuf::functions::set_response_bad(
+            *payload, "NRDP server at " + con.get_endpoint_string() + " returned " + str::xtos(response.status_code_) + ": " + response.status_message_);
+        return;
+      }
       boost::tuple<int, std::string> ret = nrdp::data::parse_response(response.payload_);
       if (ret.get<0>() != 0) {
         nscapi::protobuf::functions::set_response_bad(*payload, ret.get<1>());

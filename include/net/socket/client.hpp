@@ -321,8 +321,18 @@ class client : boost::noncopyable {
   typedef ssl_connection<protocol_type> ssl_connection_type;
 
   static boost::asio::ssl::context_base::method make_context(const socket_helpers::connection_info &info) {
-    std::string tmp = boost::algorithm::to_lower_copy(info.ssl.tls_version);
-    str::utils::replace(tmp, "+", "");
+    const std::string tmp = boost::algorithm::to_lower_copy(info.ssl.tls_version);
+    // A '+' form ("1.2+") means "this version or later": the version-pinned
+    // _client methods pin the maximum too, so they cannot express it. The
+    // generic method negotiates upward; the floor itself is applied to the
+    // constructed context via apply_tls_min_version (see the constructor).
+    if (!tmp.empty() && tmp.back() == '+') {
+      socket_helpers::tls_min_version_parser(info.ssl.tls_version);
+      return boost::asio::ssl::context::tls_client;
+    }
+    if (tmp == "any") {
+      return boost::asio::ssl::context::tls_client;
+    }
     if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
       return boost::asio::ssl::context::tlsv13_client;
     }
@@ -356,6 +366,13 @@ class client : boost::noncopyable {
 #endif
 #endif
   {
+#ifdef USE_SSL
+#if BOOST_VERSION >= 106800
+    // make_context() only picks the method; a "1.2+" floor lives outside the
+    // method and has to be applied to the constructed context or it means "any".
+    socket_helpers::apply_tls_min_version(context_, info.ssl.tls_version);
+#endif
+#endif
   }
   ~client() {
     try {

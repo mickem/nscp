@@ -841,7 +841,21 @@ TEST(TlsMethodParser, Tls13Short) { EXPECT_EQ(+socket_helpers::tls_method_parser
 
 TEST(TlsMethodParser, Tls12) { EXPECT_EQ(+socket_helpers::tls_method_parser("tlsv1.2"), +boost::asio::ssl::context::tlsv12); }
 
-TEST(TlsMethodParser, Tls12WithPlus) { EXPECT_EQ(+socket_helpers::tls_method_parser("tlsv1.2+"), +boost::asio::ssl::context::tlsv12); }
+// A '+' form must resolve to the generic method: the version-pinned methods
+// pin the maximum protocol version too, so returning tlsv12 for "1.2+" meant
+// TLS 1.2 ONLY and silently excluded TLS 1.3. The floor lives in
+// tls_min_version_parser / apply_tls_min_version instead.
+TEST(TlsMethodParser, Tls12WithPlus) { EXPECT_EQ(+socket_helpers::tls_method_parser("tlsv1.2+"), +boost::asio::ssl::context::tls); }
+
+TEST(TlsMethodParser, Tls12WithPlusShort) { EXPECT_EQ(+socket_helpers::tls_method_parser("1.2+"), +boost::asio::ssl::context::tls); }
+
+TEST(TlsMethodParser, Tls13WithPlus) { EXPECT_EQ(+socket_helpers::tls_method_parser("1.3+"), +boost::asio::ssl::context::tls); }
+
+// "any" is documented next to the numeric versions and must parse rather than
+// throw: generic method, no pin, no floor.
+TEST(TlsMethodParser, Any) { EXPECT_EQ(+socket_helpers::tls_method_parser("any"), +boost::asio::ssl::context::tls); }
+
+TEST(TlsMethodParser, InvalidPlusThrows) { EXPECT_THROW(socket_helpers::tls_method_parser("1.4+"), socket_helpers::socket_exception); }
 
 TEST(TlsMethodParser, Tls11) { EXPECT_EQ(+socket_helpers::tls_method_parser("tls1.1"), +boost::asio::ssl::context::tlsv11); }
 
@@ -856,6 +870,40 @@ TEST(TlsMethodParser, CaseInsensitive) { EXPECT_EQ(+socket_helpers::tls_method_p
 TEST(TlsMethodParser, InvalidThrows) { EXPECT_THROW(socket_helpers::tls_method_parser("invalid"), socket_helpers::socket_exception); }
 
 TEST(TlsMethodParser, EmptyThrows) { EXPECT_THROW(socket_helpers::tls_method_parser(""), socket_helpers::socket_exception); }
+
+// =============================================================================
+// SSL-specific: tls_min_version_parser / apply_tls_min_version
+// =============================================================================
+
+TEST(TlsMinVersionParser, Tls12PlusAsksForTls12Floor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("1.2+"), TLS1_2_VERSION); }
+
+TEST(TlsMinVersionParser, Tls13PlusAsksForTls13Floor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("tlsv1.3+"), TLS1_3_VERSION); }
+
+TEST(TlsMinVersionParser, Tls10PlusAsksForTls10Floor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("1.0+"), TLS1_VERSION); }
+
+TEST(TlsMinVersionParser, AnExactVersionCarriesNoFloor) {
+  // The pinned method already constrains both ends; a floor would be redundant.
+  EXPECT_EQ(socket_helpers::tls_min_version_parser("1.2"), 0);
+}
+
+TEST(TlsMinVersionParser, AnyCarriesNoFloor) { EXPECT_EQ(socket_helpers::tls_min_version_parser("any"), 0); }
+
+TEST(TlsMinVersionParser, EmptyCarriesNoFloor) { EXPECT_EQ(socket_helpers::tls_min_version_parser(""), 0); }
+
+TEST(TlsMinVersionParser, InvalidPlusThrows) { EXPECT_THROW(socket_helpers::tls_min_version_parser("1.4+"), socket_helpers::socket_exception); }
+
+TEST(ApplyTlsMinVersion, SetsTheFloorOnAGenericContext) {
+  boost::asio::ssl::context ctx(socket_helpers::tls_method_parser("1.2+"));
+  socket_helpers::apply_tls_min_version(ctx, "1.2+");
+  EXPECT_EQ(SSL_CTX_get_min_proto_version(ctx.native_handle()), TLS1_2_VERSION);
+}
+
+TEST(ApplyTlsMinVersion, LeavesAFloorlessVersionAlone) {
+  boost::asio::ssl::context ctx(socket_helpers::tls_method_parser("any"));
+  const long before = SSL_CTX_get_min_proto_version(ctx.native_handle());
+  socket_helpers::apply_tls_min_version(ctx, "any");
+  EXPECT_EQ(SSL_CTX_get_min_proto_version(ctx.native_handle()), before);
+}
 
 // =============================================================================
 // SSL-specific: verify_mode_parser

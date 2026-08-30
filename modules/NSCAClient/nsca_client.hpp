@@ -61,7 +61,9 @@ struct connection_data : public socket_helpers::connection_info {
     // every submission and historically leaked the shared NSCA secret into
     // any operator's debug log file.
     ss << ", password: " << (password.empty() ? "<unset>" : "<set>");
-    ss << ", encryption: " << encryption << "(" << nscp::encryption::helpers::encryption_to_int(encryption) << ")";
+    // Just echo the configured name: resolving it can throw on an unknown
+    // algorithm, and this runs at trace level before the send validates it.
+    ss << ", encryption: " << encryption;
     ss << ", hostname: " << sender_hostname;
     ss << ", encoding: " << encoding;
     ss << ", ssl: " << ssl.to_string();
@@ -108,6 +110,16 @@ struct nsca_client_handler final : public client::handler_interface {
     // `password` in the clear and would defeat the redaction in
     // connection_data::to_string().
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Target configuration: " + con.to_string()); }
+    try {
+      if (con.get_encryption() != nscp::encryption::helpers::no_encryption && con.password.empty()) {
+        NSC_LOG_ERROR_STD("NSCA target " + con.get_endpoint_string() +
+                          " has encryption enabled but an empty password. The NSCA key is derived directly from the password, so this encrypts with a "
+                          "well-known key and anyone on the path can read or forge the submission. Set the target's password (same value as the server).");
+      }
+    } catch (const nscp::encryption::encryption_exception &) {
+      // Unknown algorithm name: send() resolves it again and reports the
+      // error in the submission response.
+    }
     unsigned int len = 512;
     if (target.has_data("buffer length"))
       len = target.get_int_data("buffer length", 512);

@@ -28,6 +28,31 @@ TEST(NscaException, CopyConstructor) {
 }
 
 // =============================================================================
+// sanitize_identity
+// =============================================================================
+
+TEST(NscaSanitizeIdentity, PassesPlainNamesThrough) {
+  EXPECT_EQ(nsca::sanitize_identity("web-01.example.com"), "web-01.example.com");
+  EXPECT_EQ(nsca::sanitize_identity("CPU load"), "CPU load");
+  EXPECT_EQ(nsca::sanitize_identity(""), "");
+}
+
+TEST(NscaSanitizeIdentity, StripsControlCharacters) {
+  EXPECT_EQ(nsca::sanitize_identity("host\nERROR: fake log line"), "hostERROR: fake log line");
+  EXPECT_EQ(nsca::sanitize_identity("svc\r\n\tx"), "svcx");
+  EXPECT_EQ(nsca::sanitize_identity(std::string("a\0b", 3)), "ab");
+  EXPECT_EQ(nsca::sanitize_identity("del\x7f"
+                                    "char"),
+            "delchar");
+  EXPECT_EQ(nsca::sanitize_identity("esc\x1b[31mred"), "esc[31mred");
+}
+
+TEST(NscaSanitizeIdentity, KeepsHighBytes) {
+  // Multi-byte UTF-8 (all bytes >= 0x80) must survive untouched.
+  EXPECT_EQ(nsca::sanitize_identity("h\xc3\xa5st"), "h\xc3\xa5st");
+}
+
+// =============================================================================
 // data constants
 // =============================================================================
 

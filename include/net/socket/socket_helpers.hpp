@@ -265,7 +265,22 @@ struct connection_info {
   }
 };
 #ifdef USE_SSL
+// Parse a `tls version` setting into the context method to construct.
+// An exact version ("1.2", "tlsv1.3") maps to the version-pinned method, which
+// negotiates that version ONLY. A trailing '+' ("1.2+") and the value "any"
+// map to the generic TLS method, which negotiates the highest version both
+// sides support; the floor a '+' form asks for is NOT part of the method -
+// apply it with apply_tls_min_version() on the constructed context, or the
+// '+' silently means "any".
 boost::asio::ssl::context_base::method tls_method_parser(const std::string& tls_version);
+// The minimum protocol version a `tls version` setting asks for: the matching
+// SSL TLS1_x_VERSION constant for a '+' form ("1.2+"), 0 when the setting
+// carries no floor (exact versions pin via the method; "any" has no floor).
+long tls_min_version_parser(const std::string& tls_version);
+// Apply the floor a '+' form asks for to a constructed context; no-op for
+// settings without one. Every context built from tls_method_parser() needs
+// this, or "1.2+" degrades to "any".
+void apply_tls_min_version(boost::asio::ssl::context& ctx, const std::string& tls_version);
 boost::asio::ssl::verify_mode verify_mode_parser(const std::string& verify_mode);
 
 // Whole days until the peer's certificate expires, negative once it already

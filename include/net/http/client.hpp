@@ -352,7 +352,8 @@ struct ssl_socket final : generic_socket {
   // call in here, never in the ssl_socket constructor body. The same applies to
   // the ALPN list: SSL_new copies it out of the context too.
   static boost::asio::ssl::context make_context(const boost::asio::ssl::context::method method, const std::string &ca, const client_identity &identity,
-                                                const boost::asio::ssl::verify_mode verify, const std::vector<std::string> &alpn = std::vector<std::string>()) {
+                                                const boost::asio::ssl::verify_mode verify, const std::vector<std::string> &alpn = std::vector<std::string>(),
+                                                const long tls_min_version = 0) {
     // Fail closed: presenting a client certificate while neither pinning the
     // server nor verifying it is unauthenticated mTLS - the client credential
     // would be handed to whatever server answers, including a man in the middle.
@@ -366,6 +367,13 @@ struct ssl_socket final : generic_socket {
           "and with peer verification disabled. Pin the server certificate or enable verification.");
     }
     boost::asio::ssl::context context(method);
+    // A "1.2+" tls version resolves to the generic TLS method plus a floor;
+    // the floor is not part of the method, so it must be applied here or the
+    // '+' silently degrades to "any".
+    if (tls_min_version != 0 && SSL_CTX_set_min_proto_version(context.native_handle(), tls_min_version) != 1) {
+      throw socket_helpers::socket_exception("Failed to set the minimum TLS protocol version " + str::xtos(tls_min_version) +
+                                             " (TLS wire constant): rejected by this OpenSSL build");
+    }
     if (!ca.empty() && ca != "none") {
       try {
         context.load_verify_file(ca);
@@ -402,9 +410,9 @@ struct ssl_socket final : generic_socket {
 
   explicit ssl_socket(boost::asio::io_context &io_service, boost::asio::ssl::context::method method, boost::asio::ssl::verify_mode verify,
                       const std::string &ca, std::string sni = std::string(), proxy_config proxy = proxy_config(),
-                      const client_identity &identity = client_identity(),
-                      const std::vector<std::string> &alpn = std::vector<std::string>())
-      : context_(make_context(method, ca, identity, verify, alpn)),
+                      const client_identity &identity = client_identity(), const std::vector<std::string> &alpn = std::vector<std::string>(),
+                      const long tls_min_version = 0)
+      : context_(make_context(method, ca, identity, verify, alpn, tls_min_version)),
         ssl_socket_(io_service, context_),
         resolver_(io_service),
         verify_(identity.is_pinned() ? boost::asio::ssl::verify_peer : verify),  // the pin IS the peer identity: always verify against it
@@ -494,14 +502,31 @@ struct ssl_socket final : generic_socket {
     }
     connect_req += "\r\n";
 
-    boost::asio::write(tcp_sock, boost::asio::buffer(connect_req), error);
+    // The CONNECT exchange is I/O against a peer like any read or write: a
+    // proxy that accepts the TCP connection and then stalls must hit the same
+    // deadline as the rest of the transfer, not wedge the calling thread.
+    if (timeout_ == 0) {
+      boost::asio::write(tcp_sock, boost::asio::buffer(connect_req), error);
+    } else {
+      run_with_deadline(io_, tcp_sock, timeout_, "Proxy CONNECT write", error,
+                        [&](auto handler) { boost::asio::async_write(tcp_sock, boost::asio::buffer(connect_req), handler); });
+    }
     if (error) {
       throw socket_helpers::socket_exception("Failed to send CONNECT to proxy " + proxy_.host + ":" + proxy_.port + ": " + error.message());
     }
 
     // Step 3 — Read status line
     boost::asio::streambuf response_buf;
-    boost::asio::read_until(tcp_sock, response_buf, "\r\n");
+    if (timeout_ == 0) {
+      boost::asio::read_until(tcp_sock, response_buf, "\r\n");
+    } else {
+      boost::system::error_code read_ec;
+      run_with_deadline(io_, tcp_sock, timeout_, "Proxy CONNECT read", read_ec,
+                        [&](auto handler) { boost::asio::async_read_until(tcp_sock, response_buf, "\r\n", handler); });
+      if (read_ec) {
+        throw socket_helpers::socket_exception("Failed to read CONNECT response from proxy " + proxy_.host + ":" + proxy_.port + ": " + read_ec.message());
+      }
+    }
     std::istream response_stream(&response_buf);
     std::string http_version;
     unsigned int status_code = 0;
@@ -514,10 +539,30 @@ struct ssl_socket final : generic_socket {
       // a snippet in the exception message — a 407 body often explains *why*
       // (realm, scheme, "user 'alice' is unknown", etc.).
       boost::system::error_code drain_ec;
-      boost::asio::read_until(tcp_sock, response_buf, "\r\n\r\n", drain_ec);
-      // Best-effort read of remaining bytes (proxy typically closes after error).
-      while (!drain_ec) {
-        boost::asio::read(tcp_sock, response_buf, boost::asio::transfer_at_least(1), drain_ec);
+      // Best-effort: the drain only enriches the error message (a 256-byte
+      // snippet of it, at that), so a timeout here just ends the drain rather
+      // than replacing the real failure, and the amount read is hard-capped -
+      // a proxy answering an error with an endless body must not grow the
+      // buffer without bound.
+      static const std::size_t kMaxErrorDrainBytes = 16 * 1024;
+      try {
+        if (timeout_ == 0) {
+          boost::asio::read_until(tcp_sock, response_buf, "\r\n\r\n", drain_ec);
+        } else {
+          run_with_deadline(io_, tcp_sock, timeout_, "Proxy CONNECT drain", drain_ec,
+                            [&](auto handler) { boost::asio::async_read_until(tcp_sock, response_buf, "\r\n\r\n", handler); });
+        }
+        // Read any remaining bytes (proxy typically closes after error).
+        while (!drain_ec && response_buf.size() < kMaxErrorDrainBytes) {
+          if (timeout_ == 0) {
+            boost::asio::read(tcp_sock, response_buf, boost::asio::transfer_at_least(1), drain_ec);
+          } else {
+            run_with_deadline(io_, tcp_sock, timeout_, "Proxy CONNECT drain", drain_ec,
+                              [&](auto handler) { boost::asio::async_read(tcp_sock, response_buf, boost::asio::transfer_at_least(1), handler); });
+          }
+        }
+      } catch (const socket_helpers::socket_exception &) {
+        // Deadline hit mid-drain: report what we have.
       }
       std::string proxy_body((std::istreambuf_iterator<char>(&response_buf)), std::istreambuf_iterator<char>());
       // Strip the headers section if present so the snippet is just the body.
@@ -539,7 +584,16 @@ struct ssl_socket final : generic_socket {
     }
 
     // Drain remaining proxy response headers
-    boost::asio::read_until(tcp_sock, response_buf, "\r\n\r\n");
+    if (timeout_ == 0) {
+      boost::asio::read_until(tcp_sock, response_buf, "\r\n\r\n");
+    } else {
+      boost::system::error_code header_ec;
+      run_with_deadline(io_, tcp_sock, timeout_, "Proxy CONNECT header read", header_ec,
+                        [&](auto handler) { boost::asio::async_read_until(tcp_sock, response_buf, "\r\n\r\n", handler); });
+      if (header_ec) {
+        throw socket_helpers::socket_exception("Failed to read CONNECT response from proxy " + proxy_.host + ":" + proxy_.port + ": " + header_ec.message());
+      }
+    }
 
     // Step 4 — TLS handshake over the established tunnel
     const std::string tls_name = sni_.empty() ? real_host : sni_;
@@ -680,6 +734,10 @@ struct http_client_options {
 #ifdef USE_SSL
   boost::asio::ssl::context::method get_method() const { return socket_helpers::tls_method_parser(tls_version_); }
 
+  // The minimum protocol version a "1.2+" tls version asks for (0 when the
+  // version carries no floor); applied to the TLS context alongside the method.
+  long get_tls_min_version() const { return socket_helpers::tls_min_version_parser(tls_version_); }
+
   boost::asio::ssl::context::verify_mode get_verify() const { return socket_helpers::verify_mode_parser(verify_); };
 #endif  // USE_SSL
 
@@ -697,7 +755,7 @@ class simple_client {
     if (options.is_https()) {
 #ifdef USE_SSL
       socket_ = std::make_unique<ssl_socket>(io_service_, options.get_method(), options.get_verify(), options.ca_, options.sni_, options.proxy_,
-                                             options.identity_, options.alpn_protocols_);
+                                             options.identity_, options.alpn_protocols_, options.get_tls_min_version());
 #else
       throw socket_helpers::socket_exception("HTTPS requested but this build has no TLS support (compiled without OpenSSL)");
 #endif
@@ -784,19 +842,25 @@ class simple_client {
     return p;
   }
 
-  response execute(std::ostream &os, const std::string &server, const std::string &port, const request &req) {
+  /// Connect and send the request, routing through the configured proxy when
+  /// one applies: plain HTTP goes to the proxy with an absolute-URI request,
+  /// HTTPS tunnels via CONNECT inside ssl_socket. Shared by execute() and
+  /// fetch() so both honour the proxy and the configured timeout on every
+  /// path (connect() applies set_timeouts, including for the proxy leg).
+  void connect_and_send(const std::string &server, const std::string &port, const request &req) {
     const bool use_proxy = options_.proxy_.is_set() && !should_bypass(server, options_.proxy_.no_proxy);
 
     if (use_proxy && !options_.is_https()) {
-      // Plain HTTP via proxy: connect to proxy, send request with absolute URI.
-      socket_->connect(options_.proxy_.host, options_.proxy_.port);
-      const request proxy_req = make_proxy_request(req, server, port, options_.proxy_);
-      send_request(proxy_req);
+      connect(options_.proxy_.host, options_.proxy_.port);
+      send_request(make_proxy_request(req, server, port, options_.proxy_));
     } else {
-      // Direct connect, or HTTPS (proxy CONNECT tunnel handled inside ssl_socket).
       connect(server, port);
       send_request(req);
     }
+  }
+
+  response execute(std::ostream &os, const std::string &server, const std::string &port, const request &req) {
+    connect_and_send(server, port, req);
 
     boost::asio::streambuf response_buffer;
     const response resp = read_result(response_buffer);
@@ -821,8 +885,7 @@ class simple_client {
   // Populates response.payload_ with the response body.
   // Only throws on connection or protocol errors.
   response fetch(const std::string &server, const std::string &port, const request &req) {
-    connect(server, port);
-    send_request(req);
+    connect_and_send(server, port, req);
 
     boost::asio::streambuf response_buffer;
     response resp = read_result(response_buffer);
