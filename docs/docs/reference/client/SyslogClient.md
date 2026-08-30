@@ -80,10 +80,10 @@ Submit information to the remote syslog server.
 | batch             |               | Add multiple records using the separator format is: command|result|message            |
 | path              |               |                                                                                       |
 | severity          |               | Severity of error message                                                             |
-| unknown-severity  |               | Severity of error message                                                             |
-| ok-severity       |               | Severity of error message                                                             |
-| warning-severity  |               | Severity of error message                                                             |
-| critical-severity |               | Severity of error message                                                             |
+| unknown-severity  |               | Severity to use when the check result is UNKNOWN                                      |
+| ok-severity       |               | Severity to use when the check result is OK                                           |
+| warning-severity  |               | Severity to use when the check result is WARNING                                      |
+| critical-severity |               | Severity to use when the check result is CRITICAL                                     |
 | facility          |               | Facility of error message                                                             |
 | tag template      |               | Tag template (TODO)                                                                   |
 | message template  |               | Message template (TODO)                                                               |
