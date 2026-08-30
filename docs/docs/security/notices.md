@@ -140,6 +140,59 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
+### Icinga client security-review hardening
+
+**Fixed in:** unreleased · **Severity:** Low
+
+A security review of the `IcingaClient` module (and of the WEB server path
+Icinga's `check_nscp_api` plugin authenticates through) confirmed the
+defaults are sound — TLS verification on by default for configured and ad-hoc
+targets alike, Icinga filter-expression escaping, and the User-Agent-gated
+legacy auth — and produced three hardening fixes on the client side:
+
+- **Credentials are redacted from the trace log.** With log level `trace`, the
+  client logged the whole target configuration through
+  `destination_container::to_string()`, which printed the raw data map —
+  including the Icinga API `password`. The value of any `password` or `token`
+  key is now masked in that output. The fix sits in the shared client
+  machinery, so the other outbound client modules built on the same type
+  (NRPE, NSCA, NRDP, …) are covered by it as well.
+- **The configured `timeout` is enforced on Icinga API calls.** The HTTP
+  client was built without a deadline (wait forever), so the target's
+  `timeout` setting (default 30 s) was read but never applied — an Icinga
+  endpoint that accepted the connection and then stalled could wedge the
+  submitting thread indefinitely, silently stopping scheduler-driven passive
+  results. This is an availability fix; set `timeout = 0` on the target if you
+  really want the old unbounded wait.
+- **Disabled certificate verification is called out.** An `https` submission
+  whose `verify mode` resolves to no peer verification (empty, `none`, or
+  `fail-if-no-cert` alone) now logs a message naming the endpoint, since the
+  API credentials are then sent to whichever server answers. The option help
+  also no longer suggests `none` for self-signed certificates — the right
+  configuration is `peer-cert` with `ca` pointing at the certificate.
+
+### Graphite client — status path scrubbed against metric-line injection
+
+**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low
+
+`GraphiteClient` speaks the carbon plaintext protocol, where every metric is
+one `<path> <value> <timestamp>` line and `;` separates tags. The perf-data
+path and every metric value were already scrubbed so text from a check (a
+check alias, a perfdata label) cannot embed a newline or `;` — but the
+**status path** was only scrubbed for spaces. The `${check_alias}` substituted
+into it can originate from a remote submitter (an NSCA passive result, a
+forwarded submission), so an alias carrying a newline injected an extra,
+attacker-chosen metric line into Graphite, and a `;` injected carbon tags.
+Corrupting a metric another system alerts on, or planting a fake one, is a
+way to hide a real problem or fabricate one.
+
+The status path now goes through the same scrub as the perf path (`\n`, `\r`,
+tab, `;`, NUL, spaces and the other reserved characters all become `_`), and
+the scrub itself additionally replaces tabs, which split a carbon field the
+same way a space does. No operator action is needed; a status path built from
+an alias containing these characters (which previously produced corrupt lines)
+now renders them as `_`.
+
 ### Filter framework: expression length and nesting-depth limits
 
 **Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium

@@ -86,11 +86,23 @@ struct payload_builder {
   }
 };
 
+namespace {
+// Keys whose values are credentials. to_string() feeds trace/debug logging in
+// every client module (IcingaClient traces the whole target container on
+// submit, for instance), and a password copied into the log outlives every
+// other control protecting it — so mask by key here, not at each call site.
+bool is_sensitive_key(const std::string &key) { return key.find("password") != std::string::npos || key.find("token") != std::string::npos; }
+}  // namespace
+
 std::string client::destination_container::to_string() const {
   std::stringstream ss;
-  ss << "address: " << address.to_string() << ", timeout: " << timeout << ", retry: " << retry << ", data: { ";
+  // to_log_safe_string(), not to_string(): a target address is free to carry
+  // credentials in its query parameters (".../submit.php?token=..."), and this
+  // whole string goes to the trace log. The parameters are not what identifies
+  // the destination.
+  ss << "address: " << address.to_log_safe_string() << ", timeout: " << timeout << ", retry: " << retry << ", data: { ";
   for (const data_map::value_type &t : data) {
-    ss << t.first << ": " << t.second << ", ";
+    ss << t.first << ": " << (is_sensitive_key(t.first) ? "***" : t.second) << ", ";
   }
   ss << "}";
   return ss.str();

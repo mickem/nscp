@@ -10,11 +10,15 @@
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <client/command_line_parser.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
 #include <nscapi/protobuf/functions_perfdata.hpp>
 #include <nscapi/protobuf/nagios.hpp>
+#include <str/utf8.hpp>
+#include <str/utils.hpp>
+#include <str/xtos.hpp>
 
 namespace graphite_client {
 struct connection_data : public socket_helpers::connection_info {
@@ -75,13 +79,15 @@ std::string fix_graphite_string(const std::string &s) {
   str::utils::replace(sc, ")", "_");
   str::utils::replace(sc, "%", "percent");
   // Graphite uses the plaintext line protocol "<path> <value> <ts>\n" - one
-  // metric per line, fields separated by spaces. A metric path or value
-  // containing a newline would split into multiple Graphite records. `;`
-  // is the tag separator in the Graphite carbon tag-aware protocol; an
-  // unintended `;` injects fake tags. Replace all four with `_` so a check
-  // name or perfdata label with these characters cannot inject metrics.
+  // metric per line, fields separated by whitespace. A metric path or value
+  // containing a newline would split into multiple Graphite records, and a
+  // tab splits a field the same way a space does. `;` is the tag separator
+  // in the Graphite carbon tag-aware protocol; an unintended `;` injects
+  // fake tags. Replace them all with `_` so a check name or perfdata label
+  // with these characters cannot inject metrics.
   str::utils::replace(sc, "\r", "_");
   str::utils::replace(sc, "\n", "_");
+  str::utils::replace(sc, "\t", "_");
   str::utils::replace(sc, ";", "_");
   str::utils::replace(sc, std::string("\0", 1), "_");
   return sc;
@@ -125,8 +131,12 @@ struct graphite_client_handler : public client::handler_interface {
         g_data d;
         d.path = spath;
         str::utils::replace(d.path, "${check_alias}", p.alias());
-        str::utils::replace(d.path, " ", "_");
         d.value = str::xtos(nscapi::protobuf::functions::gbp_to_nagios_status(p.result()));
+        // Scrub the whole status path like the perf path above: the alias (and
+        // the ${hostname} substituted earlier) may come from a remote submitter
+        // (NSCA, forwarded results), so an embedded newline or ';' must not be
+        // able to inject extra metric lines or carbon tags.
+        d.path = fix_graphite_string(d.path);
         list.push_back(d);
       }
     }
@@ -186,9 +196,7 @@ struct graphite_client_handler : public client::handler_interface {
   // the Graphite line protocol is "<path> <value> <ts>\n", so a value with a
   // space, newline or ';' could otherwise inject an extra metric/tag line.
   // fix_graphite_string leaves a normal numeric value untouched.
-  static std::string make_line(const g_data &d, const std::string &ts) {
-    return d.path + " " + fix_graphite_string(d.value) + " " + ts + "\n";
-  }
+  static std::string make_line(const g_data &d, const std::string &ts) { return d.path + " " + fix_graphite_string(d.value) + " " + ts + "\n"; }
 
   boost::tuple<bool, std::string> send(connection_data con, const std::list<g_data> &data) {
     try {
