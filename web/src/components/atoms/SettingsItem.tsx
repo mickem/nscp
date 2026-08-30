@@ -96,7 +96,7 @@ export default function SettingsItem({ path, setting, dense = false }: Props) {
               secondary: { sx: { whiteSpace: "pre-wrap" } },
             }}
           />
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: 2, flexShrink: 0 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", ml: 2, flexShrink: 0 }}>
             {isBool ? (
               <Switch
                 edge="end"

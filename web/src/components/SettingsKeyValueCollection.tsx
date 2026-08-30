@@ -36,7 +36,7 @@ import {
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { getKeyValueTemplates, KeyValueTemplate } from "./keyValueTemplates.ts";
 
 // Paths whose entries are flat key/value pairs stored directly under one
@@ -150,7 +150,7 @@ export default function SettingsKeyValueCollection({ collectionPath, description
     <Card>
       <CardHeader
         title={
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Typography variant="h6">{title}</Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>
               {collectionPath}

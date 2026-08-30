@@ -90,7 +90,7 @@ export default function SettingsDiffDialog({ open, onClose }: Props) {
                     return (
                       <TableRow key={`${e.path}/${e.key}/${idx}`} hover>
                         <TableCell>
-                          <Stack direction="row" spacing={1} alignItems="center">
+                          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                             <Chip size="small" color={meta.color} label={meta.label} />
                             {e.is_sensitive && (
                               <Tooltip title="Sensitive value, redacted">

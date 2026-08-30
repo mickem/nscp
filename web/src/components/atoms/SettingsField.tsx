@@ -23,7 +23,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlined";
 import CheckIcon from "@mui/icons-material/Check";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -187,7 +187,7 @@ export default function SettingsField({
   if (description.type === "bool") {
     const checked = value.toLowerCase() === "true" || value === "1";
     return (
-      <Stack direction="row" alignItems="center" spacing={1}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
         <FormControlLabel
           control={
             <Switch
@@ -214,7 +214,7 @@ export default function SettingsField({
           variant="standard"
           select={!!enumOpts}
           label={
-            <Stack direction="row" spacing={0.5} alignItems="center" component="span">
+            <Stack direction="row" spacing={0.5} component="span" sx={{ alignItems: "center" }}>
               <span>{label}</span>
               {helpAdornment}
             </Stack>
@@ -324,7 +324,7 @@ function MultiFlagsField({
 
   return (
     <Box sx={{ width: "100%" }}>
-      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", mb: 0.5 }}>
         <Typography variant="caption" color="text.secondary">
           {label}
         </Typography>
@@ -439,18 +439,19 @@ function MetadataAutocompleteField({
             {...params}
             variant="standard"
             label={
-              <Stack direction="row" spacing={0.5} alignItems="center" component="span">
+              <Stack direction="row" spacing={0.5} component="span" sx={{ alignItems: "center" }}>
                 <span>{label}</span>
                 {helpAdornment}
               </Stack>
             }
             slotProps={{
+              ...params.slotProps,
               input: {
-                ...params.InputProps,
+                ...params.slotProps.input,
                 endAdornment: (
                   <>
                     {isFetching ? <CircularProgress size={16} /> : null}
-                    {params.InputProps.endAdornment}
+                    {params.slotProps.input.endAdornment}
                   </>
                 ),
               },
@@ -543,7 +544,7 @@ function RoleSelectField({ path, description }: Pick<Props, "path" | "descriptio
           variant="standard"
           select
           label={
-            <Stack direction="row" spacing={0.5} alignItems="center" component="span">
+            <Stack direction="row" spacing={0.5} component="span" sx={{ alignItems: "center" }}>
               <span>{label}</span>
               {helpAdornment}
             </Stack>
@@ -635,7 +636,7 @@ function FreeSoloSelectField({
             {...params}
             variant="standard"
             label={
-              <Stack direction="row" spacing={0.5} alignItems="center" component="span">
+              <Stack direction="row" spacing={0.5} component="span" sx={{ alignItems: "center" }}>
                 <span>{label}</span>
                 {helpAdornment}
               </Stack>
