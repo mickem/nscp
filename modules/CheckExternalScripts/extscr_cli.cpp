@@ -42,7 +42,18 @@ bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_
 
 bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, PB::Commands::ExecuteResponseMessage::Response *response) {
   boost::filesystem::path path = provider_->get_root();
-  if (!file_helpers::checks::path_contains_file(path, pscript)) {
+  // Resolve symlinks before the containment check. path_contains_file compares
+  // lexically only, so a symlink placed inside the script root but pointing
+  // outside it would otherwise pass, letting show/delete read or remove files
+  // anywhere the service account can reach. weakly_canonical resolves the real
+  // targets (the candidate has already been confirmed to be a regular file by
+  // the callers); fall back to the lexical path if resolution fails.
+  boost::system::error_code ec;
+  boost::filesystem::path real_root = boost::filesystem::weakly_canonical(path, ec);
+  if (ec) real_root = path;
+  boost::filesystem::path real_script = boost::filesystem::weakly_canonical(pscript, ec);
+  if (ec) real_script = pscript;
+  if (!file_helpers::checks::path_contains_file(real_root, real_script)) {
     nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + path.string());
     return false;
   }
@@ -97,8 +108,19 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
       if (boost::algorithm::starts_with(s, rel.string())) s = s.substr(rel.string().size());
       if (s.size() == 0) continue;
       if (s[0] == '\\' || s[0] == '/') s = s.substr(1);
-      boost::filesystem::path clone = i.parent_path();
-      if (boost::filesystem::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
+      // Skip scripts under a `lib` folder unless --include-lib was given. The
+      // previous test used a substring match on the whole path (so a `libs` or
+      // `calibrate` folder was wrongly excluded) AND never consulted the parsed
+      // `lib` flag, so --include-lib did nothing. Match a path *component* named
+      // exactly `lib`, and honour the flag.
+      bool in_lib = false;
+      for (const boost::filesystem::path &part : i) {
+        if (part.string() == "lib") {
+          in_lib = true;
+          break;
+        }
+      }
+      if (boost::filesystem::is_regular_file(i) && (lib || !in_lib)) {
         if (json) {
           data.push_back(json::value(s));
         } else {
@@ -319,12 +341,20 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
     alias = file.filename().stem().string();
   }
 
+  // The command line stored/registered for this script. Only add the separator
+  // space when there actually are arguments, so an argument-less add does not
+  // leave a trailing space in the stored value, the alias description, or the
+  // transient command. Previously the transient registration used `script`
+  // alone, so `add --no-config` (and the in-memory copy on a normal add)
+  // silently dropped the `--arguments` the operator supplied.
+  const std::string command_line = arguments.empty() ? script : (script + " " + arguments);
+
   if (!no_config) {
     nscapi::protobuf::functions::settings_query s(provider_->get_id());
     if (!wrapped)
-      s.set("/settings/external scripts/scripts", alias, script + " " + arguments);
+      s.set("/settings/external scripts/scripts", alias, command_line);
     else
-      s.set("/settings/external scripts/wrapped scripts", alias, script + " " + arguments);
+      s.set("/settings/external scripts/wrapped scripts", alias, command_line);
     s.set(MAIN_MODULES_SECTION, "CheckExternalScripts", "enabled");
     s.save();
     provider_->get_core()->settings_query(s.request(), s.response());
@@ -335,11 +365,11 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
   }
   std::string actual = "";
   if (wrapped)
-    actual = "\nActual command is: " + provider_->generate_wrapped_command(script + " " + arguments);
+    actual = "\nActual command is: " + provider_->generate_wrapped_command(command_line);
   else {
-    provider_->add_command(alias, script);
+    provider_->add_command(alias, command_line);
     nscapi::core_helper core(provider_->get_core(), provider_->get_id());
-    core.register_command(alias, "Alias for: " + script);
+    core.register_command(alias, "Alias for: " + command_line);
   }
   nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script + actual);
 }
@@ -348,7 +378,14 @@ void extscr_cli::configure(const PB::Commands::ExecuteRequestMessage::Request &r
   po::variables_map vm;
   po::options_description desc;
   std::string arguments = "false";
-  const std::string path = "/settings/external scripts/server";
+  // The module reads `allow arguments` / `allow nasty characters` from
+  // `/settings/external scripts` (see CheckExternalScripts::loadModuleEx). The
+  // previous `/settings/external scripts/server` path was never read by anyone,
+  // so this tool reported and "applied" a lockdown that had no effect - a
+  // fail-dangerous mismatch (running `install --arguments=false` left an
+  // existing `allow arguments=true` in force). Write to the path the module
+  // actually consults.
+  const std::string path = "/settings/external scripts";
 
   pf::settings_query q(provider_->get_id());
   q.get(path, "allow arguments", false);

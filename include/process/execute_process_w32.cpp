@@ -3,6 +3,11 @@
 
 #define BUFF_SIZE 4096
 
+// Upper bound on captured child output; see the Unix launcher for the rationale.
+// Past the cap we keep reading (so the child never blocks on a full pipe and the
+// timeout stays enforceable) but discard the excess.
+#define MAX_OUTPUT_BYTES (8u * 1024u * 1024u)
+
 #include <NSCAPI.h>
 #include <win/tool-helper.h>
 
@@ -48,6 +53,11 @@ void kill_process_tree(const DWORD parent_pid) {
 }
 
 typedef hlp::buffer<char> buffer_type;
+
+// The truncation marker and the content ceiling that leaves room for it, so the
+// captured string is a strict <= MAX_OUTPUT_BYTES bound (marker included).
+static const char kOutputTruncMarker[] = "\n[output truncated]";
+static const std::size_t kOutputContentCap = MAX_OUTPUT_BYTES - (sizeof(kOutputTruncMarker) - 1);
 
 struct generic_closer {
   static void close(HANDLE handle) { ::CloseHandle(handle); }
@@ -227,8 +237,13 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     // Trace the spawn so an operator can correlate "spawn -> kill -> exit"
     // log entries when triaging a hung or runaway script. The full command
     // line was already traced by the caller (CheckExternalScripts).
+    // Effective timeout: a caller-supplied 0 falls back to 30s. Compute it once
+    // so the deadline and every message that reports it agree (previously the
+    // deadline used the 30s fallback while the log lines still printed
+    // "timeout=0s").
+    const unsigned int effective_timeout = args.timeout > 0 ? args.timeout : 30;
     NSC_TRACE_ENABLED() {
-      NSC_TRACE_MSG("Spawned external script: alias='" + args.alias + "' pid=" + str::xtos(pi.dwProcessId) + " timeout=" + str::xtos(args.timeout) +
+      NSC_TRACE_MSG("Spawned external script: alias='" + args.alias + "' pid=" + str::xtos(pi.dwProcessId) + " timeout=" + str::xtos(effective_timeout) +
                     "s fork=" + (args.fork ? "true" : "false"));
     }
     if (args.fork) {
@@ -239,18 +254,54 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     DWORD dwAvail = 0;
     std::string str;
     buffer_type buffer(BUFF_SIZE);
-    for (unsigned int i = 0; i < args.timeout * 10; i++) {
+    // Bound the wait by wall-clock time, not iteration count. The previous loop
+    // ran a fixed `timeout * 10` iterations: a child that always had output
+    // pending never entered the `dwAvail == 0` wait branch, so it burned through
+    // every iteration in microseconds and returned with `state` still at its
+    // initial value - skipping the timeout/kill block entirely and leaking a
+    // still-running (now unwaited) process. `while (1) echo x` in a script was
+    // an unkillable per-invocation orphan. Track elapsed time instead, and treat
+    // "deadline reached, process still alive" as the timeout path.
+    //
+    // GetTickCount (not GetTickCount64) so this keeps compiling on the XP
+    // toolset (v141_xp / NTDDI_VERSION=0x0501); GetTickCount64 needs Vista+.
+    // Its 32-bit millisecond counter wraps every ~49.7 days, but the unsigned
+    // subtraction `GetTickCount() - start_ms` yields the correct elapsed time
+    // across a single wrap, so a bounded timeout is measured correctly.
+    const DWORD start_ms = GetTickCount();
+    const DWORD timeout_ms = static_cast<DWORD>(effective_timeout) * 1000u;
+    state = WAIT_TIMEOUT;  // "not yet observed to have exited"
+    for (;;) {
       if (!::PeekNamedPipe(hChildOutR.get(), nullptr, 0, nullptr, &dwAvail, nullptr)) {
+        // Pipe broke (write end closed / child gone). Resolve the real process
+        // state so a genuinely-exited child is reaped rather than killed.
+        state = WaitForSingleObject(pi.hProcess, 0);
         break;
       }
       if (dwAvail > 0) {
-        str += readFromFile(buffer, hChildOutR.get());
-      }
-      if (dwAvail == 0) {
-        state = WaitForSingleObject(pi.hProcess, 100);
-        if (state != WAIT_TIMEOUT) {
+        const std::string chunk = readFromFile(buffer, hChildOutR.get());
+        // Append up to the cap; past it drop the excess but keep draining so the
+        // child never blocks on a full pipe.
+        if (str.size() < kOutputContentCap) {
+          str.append(chunk, 0, kOutputContentCap - str.size());
+          if (str.size() >= kOutputContentCap) str.append(kOutputTruncMarker);
+        }
+        // Drained a chunk; re-check the clock before looping so a chatty child
+        // cannot hold us here past the deadline.
+        if (GetTickCount() - start_ms >= timeout_ms) {
+          state = WAIT_TIMEOUT;
           break;
         }
+        continue;
+      }
+      // Nothing pending: wait briefly for either more output or exit.
+      state = WaitForSingleObject(pi.hProcess, 100);
+      if (state != WAIT_TIMEOUT) {
+        break;  // process exited; final drain happens below
+      }
+      if (GetTickCount() - start_ms >= timeout_ms) {
+        state = WAIT_TIMEOUT;
+        break;
       }
     }
     hChildInW.close();
@@ -259,7 +310,11 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
 
     dwAvail = 0;
     if (::PeekNamedPipe(hChildOutR.get(), nullptr, 0, nullptr, &dwAvail, nullptr) && dwAvail > 0) {
-      str += readFromFile(buffer, hChildOutR.get());
+      const std::string chunk = readFromFile(buffer, hChildOutR.get());
+      if (str.size() < kOutputContentCap) {
+        str.append(chunk, 0, kOutputContentCap - str.size());
+        if (str.size() >= kOutputContentCap) str.append(kOutputTruncMarker);
+      }
     }
     output = utf8::cvt<std::string>(utf8::from_encoding(str, args.encoding));
 
@@ -272,12 +327,16 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       // tree-kill path used std::cout which is lost when running as a
       // service. Surface it via the proper log so operators can see when
       // NSClient++'s own timeout fired vs. some upstream cutoff.
-      NSC_LOG_ERROR("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exceeded timeout=" + str::xtos(args.timeout) +
-                    "s; sending CTRL+C");
-      if (GenerateConsoleCtrlEvent(CTRL_C_EVENT, pi.dwProcessId)) {
+      NSC_LOG_ERROR("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exceeded timeout=" + str::xtos(effective_timeout) +
+                    "s; sending CTRL+BREAK");
+      // The child is launched into its own process group (CREATE_NEW_PROCESS_GROUP
+      // when !fork), so a group-targeted CTRL+C is discarded - only CTRL+BREAK can
+      // be delivered to another group. Use it here; if we share no console (the
+      // service case) the call simply fails and we fall through to the hard kill.
+      if (GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pi.dwProcessId)) {
         if (WaitForSingleObject(pi.hProcess, 2000) == WAIT_OBJECT_0) {
           state = WAIT_OBJECT_0;
-          NSC_TRACE_ENABLED() { NSC_TRACE_MSG("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exited after CTRL+C"); }
+          NSC_TRACE_ENABLED() { NSC_TRACE_MSG("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exited after CTRL+BREAK"); }
         }
       }
       if (state == WAIT_TIMEOUT) {
@@ -288,7 +347,7 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
           NSC_LOG_ERROR("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") did not exit; calling TerminateProcess");
           TerminateProcess(pi.hProcess, 5);
         }
-        output = "Command " + args.alias + " didn't terminate within the timeout period " + str::xtos(args.timeout) + "s";
+        output = "Command " + args.alias + " didn't terminate within the timeout period " + str::xtos(effective_timeout) + "s";
         return NSCAPI::query_return_codes::returnUNKNOWN;
       }
     }

@@ -140,6 +140,57 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
+### CheckExternalScripts security-review hardening
+
+**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium
+
+A review of the `CheckExternalScripts` module and the process launcher it uses
+produced a set of hardening fixes. None is a remotely exploitable RCE on
+a default install — the argument guard is off by default, arguments allowed only
+when an operator opts in, and the script-management operations require an
+authenticated administrator — but each closes a rough edge.
+
+- **`ext-scr install --arguments=...` now writes to the path the module reads.**
+  The argument-lockdown helper read and wrote `allow arguments` /
+  `allow nasty characters` under `/settings/external scripts/server`, a path
+  nothing consults; the module reads them from `/settings/external scripts`. So
+  `install --arguments=false` printed and "applied" a lockdown that had no
+  effect — on a host with an existing `allow arguments = true` it left arguments
+  enabled while reporting they were disabled. It now updates the effective path.
+- **The command timeout is enforced on every path, and output is bounded.** On
+  Unix the single-string shell-fallback ran through `popen()`, which hid the
+  child PID: a hung script blocked forever with `timeout=` silently unenforced,
+  wedging a worker thread per invocation. On Windows the read loop counted
+  iterations rather than elapsed time, so a continuously-chatty script escaped
+  the timeout entirely and leaked an unkillable process each run. Both launchers
+  now bound the wait by wall-clock deadline and cap captured output at 8 MiB,
+  removing a low-effort resource-exhaustion vector for anyone able to trigger a
+  misbehaving check.
+- **The show/delete sandbox resolves symlinks.** `ext-scr show` / `delete`
+  bounded their target with a lexical path check that normalised `..` but did
+  not resolve symlinks, so a symlink placed inside the script root pointing
+  outside it passed — letting an authenticated admin read or remove files
+  anywhere the service account could reach. The target and root are now
+  canonicalised before the containment test.
+- **`%` and `^` are blocked on the shell-fallback path.** The stricter
+  metacharacter set applied to user arguments when a command degrades to the
+  shell fallback omitted cmd.exe's `%VAR%` expansion and `^` escape character,
+  so an argument reaching a `.bat` through cmd could smuggle environment
+  contents or escape sequences into the command line. Both are now refused on
+  that path (opt-out via `allow nasty characters`).
+- **Documentation of two boundaries was corrected.** The `script root` setting
+  claimed scripts cannot be uploaded/downloaded outside the folder, but `add`
+  never enforced that; and `script path` turns every file in a directory into a
+  runnable command. Both descriptions now state the real boundary, and
+  `allow arguments` documents that it governs external scripts, not aliases.
+
+**What to do:** if you rely on `ext-scr install` to lock arguments down, re-run
+it after upgrading to write the effective setting (or set
+`/settings/external scripts` `allow arguments` / `allow nasty characters`
+directly). Treat write access to any `script path` directory, and the ability to
+configure external-script commands, as equivalent to code execution as the
+service account.
+
 ### NRDP client: transport hardening and shared TLS version-floor fix
 
 **Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium
@@ -290,7 +341,6 @@ was genuinely intended. If you see the new empty-password error in the log,
 set the same `password` on both ends. If you counted on
 `performance data = false` while it was broken, note that perfdata now
 really is dropped.
-
 ### SMTP client security-review hardening
 
 **Fixed in:** 0.18.0 · **Severity:** Low–Medium
