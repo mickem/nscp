@@ -189,6 +189,19 @@ submit_result parse_check_result_response(const std::string &body) {
   return r;
 }
 
+bool is_verification_disabled(const std::string &verify_mode) {
+  // Token-for-token mirror of socket_helpers::verify_mode_parser (which does
+  // not trim whitespace either): boost::asio::ssl::verify_peer is only set by
+  // these three tokens, and without verify_peer the other flags do nothing —
+  // the handshake accepts whatever certificate the peer presents.
+  std::vector<std::string> keys;
+  boost::split(keys, verify_mode, boost::is_any_of(","));
+  for (const std::string &key : keys) {
+    if (key == "peer" || key == "certificate" || key == "peer-cert") return false;
+  }
+  return true;
+}
+
 std::string url_encode(const std::string &value) {
   std::ostringstream escaped;
   escaped.fill('0');

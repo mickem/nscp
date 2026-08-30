@@ -57,7 +57,8 @@ struct icinga_target_object : nscapi::targets::target_object {
         .add_string("verify mode", sh::string_fun_key([this](const auto&  value) { this->set_property_string("verify mode", value); }, "peer"),
                     "TLS PEER VERIFY MODE",
                     "Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. "
-                    "In general use peer-cert or none for self signed certificates.")
+                    "For a self signed certificate use peer-cert and point `ca` at that certificate; "
+                    "none disables verification entirely and sends the API credentials to an unverified peer.")
         // path_fun_key (not string_fun_key) so the ${ca-path} placeholder
         // expands via the settings layer to the actual bundle path. On
         // Windows that's the ROOT-store export the service writes at boot;
@@ -104,7 +105,8 @@ struct options_reader_impl : client::options_reader_interface {
         "The TLS version to use 1.0, 1.1, 1.2, 1.3 or any")
     ("verify-mode", po::value<std::string>()->notifier([&data] (const auto&  value) { data.set_string_data("verify mode", value); }),
         "Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. "
-        "In general use peer-cert or none for self signed certificates.")
+        "For a self signed certificate use peer-cert and point --ca at that certificate; "
+        "none disables verification entirely and sends the API credentials to an unverified peer.")
     ("ca", po::value<std::string>()->notifier([&data] (const auto&  value) { data.set_string_data("ca", value); }),
         "Certificate authority to use when verifying certificates.")
     ;

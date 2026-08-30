@@ -133,7 +133,8 @@ common:
             advanced: false
             default_value: peer
             description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
-              workarounds, single. In general use peer-cert or none for self signed certificates.'
+              workarounds, single. For a self signed certificate use peer-cert and point `ca` at that certificate;
+              none disables verification entirely and sends the API credentials to an unverified peer.'
             sample: true
             title: TLS PEER VERIFY MODE
   queries:
@@ -348,12 +349,14 @@ common:
         default_value: ''
         is_simple: true
         long_description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
-          workarounds, single. In general use peer-cert or none for self signed certificates.'
+          workarounds, single. For a self signed certificate use peer-cert and point --ca at that certificate;
+          none disables verification entirely and sends the API credentials to an unverified peer.'
         name: verify-mode
         repeatable: false
         required: false
         short_description: 'Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert,
-          workarounds, single. In general use peer-cert or none for self signed certificates.'
+          workarounds, single. For a self signed certificate use peer-cert and point --ca at that certificate;
+          none disables verification entirely and sends the API credentials to an unverified peer.'
       - content_type: 2
         default_value: ''
         is_simple: true

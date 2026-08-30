@@ -148,3 +148,22 @@ TEST(IcingaTest, UrlEncode) {
   EXPECT_EQ(icinga::url_encode("host!service"), "host%21service");
   EXPECT_EQ(icinga::url_encode("a b/c"), "a%20b%2Fc");
 }
+
+TEST(IcingaTest, VerificationIsDisabledWhenNoTokenEnablesPeerVerification) {
+  // These all resolve to verify_none in socket_helpers::verify_mode_parser:
+  // an empty string parses to no flags at all, "none" is explicit, and
+  // fail-if-no-cert alone does nothing without verify_peer.
+  EXPECT_TRUE(icinga::is_verification_disabled(""));
+  EXPECT_TRUE(icinga::is_verification_disabled("none"));
+  EXPECT_TRUE(icinga::is_verification_disabled("fail-if-no-cert"));
+}
+
+TEST(IcingaTest, VerificationIsEnabledByAnyPeerToken) {
+  EXPECT_FALSE(icinga::is_verification_disabled("peer"));
+  EXPECT_FALSE(icinga::is_verification_disabled("certificate"));
+  EXPECT_FALSE(icinga::is_verification_disabled("peer-cert"));
+  // The parser ORs flags together, so a list that names peer anywhere
+  // verifies even if it also says none.
+  EXPECT_FALSE(icinga::is_verification_disabled("none,peer"));
+  EXPECT_FALSE(icinga::is_verification_disabled("peer,fail-if-no-cert"));
+}
