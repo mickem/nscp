@@ -172,7 +172,9 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
                   "Load all scripts in a given directory and use them as commands.")
 
         .add_file("script root", sh::path_key(&scriptRoot, "${scripts}"), "Script root folder",
-                  "Root path where all scripts are contained (You can not upload/download scripts outside this folder).");
+                  "Root path used to sandbox the ext-scr show/delete operations and the destination of ext-scr add --import: those cannot read, remove, or "
+                  "import a file outside this folder. Note this does NOT bound ext-scr add --script <path>, which can still register an existing file anywhere "
+                  "on disk as a command (an administrator-only action, equivalent to editing the configuration directly).");
 
     settings.register_all();
     settings.notify();

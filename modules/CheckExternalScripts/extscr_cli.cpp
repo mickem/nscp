@@ -108,8 +108,19 @@ void extscr_cli::list(const PB::Commands::ExecuteRequestMessage::Request &reques
       if (boost::algorithm::starts_with(s, rel.string())) s = s.substr(rel.string().size());
       if (s.size() == 0) continue;
       if (s[0] == '\\' || s[0] == '/') s = s.substr(1);
-      boost::filesystem::path clone = i.parent_path();
-      if (boost::filesystem::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
+      // Skip scripts under a `lib` folder unless --include-lib was given. The
+      // previous test used a substring match on the whole path (so a `libs` or
+      // `calibrate` folder was wrongly excluded) AND never consulted the parsed
+      // `lib` flag, so --include-lib did nothing. Match a path *component* named
+      // exactly `lib`, and honour the flag.
+      bool in_lib = false;
+      for (const boost::filesystem::path &part : i) {
+        if (part.string() == "lib") {
+          in_lib = true;
+          break;
+        }
+      }
+      if (boost::filesystem::is_regular_file(i) && (lib || !in_lib)) {
         if (json) {
           data.push_back(json::value(s));
         } else {
@@ -348,9 +359,14 @@ void extscr_cli::add_script(const PB::Commands::ExecuteRequestMessage::Request &
   if (wrapped)
     actual = "\nActual command is: " + provider_->generate_wrapped_command(script + " " + arguments);
   else {
-    provider_->add_command(alias, script);
+    // Register the same command line that was (or would have been) persisted -
+    // including the arguments. Previously the transient registration used
+    // \`script\` alone, so \`add --no-config\` (and the in-memory copy on a normal
+    // add) silently dropped the \`--arguments\` the operator supplied.
+    const std::string command_line = script + " " + arguments;
+    provider_->add_command(alias, command_line);
     nscapi::core_helper core(provider_->get_core(), provider_->get_id());
-    core.register_command(alias, "Alias for: " + script);
+    core.register_command(alias, "Alias for: " + command_line);
   }
   nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script + actual);
 }
