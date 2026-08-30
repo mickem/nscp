@@ -577,6 +577,12 @@ NSCP_CREATE_TEST(
         ${Boost_THREAD_LIBRARY}
         ${Boost_DATE_TIME_LIBRARY}
         ${EXTRA_LIBS}
+        # The Windows builds link OpenSSL statically, and libcrypto's CAPI
+        # engine / winstore STORE loader call into the Windows certificate
+        # store, so Crypt32 has to be on the link line. Module targets get it
+        # from their own EXTRA_LIBS; a test target has to spell it out (same
+        # as net_test / settings_http_test above).
+        $<$<PLATFORM_ID:Windows>:CRYPT32>
     INCLUDES
         ${NSCP_INCLUDEDIR}
         ${CMAKE_SOURCE_DIR}/modules/GraphiteClient
