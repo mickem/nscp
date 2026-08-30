@@ -140,6 +140,28 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
+### Graphite client — status path scrubbed against metric-line injection
+
+**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low
+
+`GraphiteClient` speaks the carbon plaintext protocol, where every metric is
+one `<path> <value> <timestamp>` line and `;` separates tags. The perf-data
+path and every metric value were already scrubbed so text from a check (a
+check alias, a perfdata label) cannot embed a newline or `;` — but the
+**status path** was only scrubbed for spaces. The `${check_alias}` substituted
+into it can originate from a remote submitter (an NSCA passive result, a
+forwarded submission), so an alias carrying a newline injected an extra,
+attacker-chosen metric line into Graphite, and a `;` injected carbon tags.
+Corrupting a metric another system alerts on, or planting a fake one, is a
+way to hide a real problem or fabricate one.
+
+The status path now goes through the same scrub as the perf path (`\n`, `\r`,
+tab, `;`, NUL, spaces and the other reserved characters all become `_`), and
+the scrub itself additionally replaces tabs, which split a carbon field the
+same way a space does. No operator action is needed; a status path built from
+an alias containing these characters (which previously produced corrupt lines)
+now renders them as `_`.
+
 ### CheckExternalScripts security-review hardening
 
 **Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium
@@ -383,6 +405,7 @@ was genuinely intended. If you see the new empty-password error in the log,
 set the same `password` on both ends. If you counted on
 `performance data = false` while it was broken, note that perfdata now
 really is dropped.
+
 ### SMTP client security-review hardening
 
 **Fixed in:** 0.18.0 · **Severity:** Low–Medium

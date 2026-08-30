@@ -561,6 +561,27 @@ NSCP_CREATE_TEST(
 )
 
 
+# graphite_client.hpp renders the carbon plaintext lines; the test drives a
+# whole submission against a loopback TCP server so the sanitization that
+# stops metric-line injection is asserted on the actual byte stream.
+NSCP_CREATE_TEST(
+    graphite_client_test
+    SOURCES
+        ${CMAKE_SOURCE_DIR}/modules/GraphiteClient/graphite_client_test.cpp
+        ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
+        ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        ${NSCP_CLIENT_CPP}
+    LIBRARIES
+        GTest::gtest_main
+        ${NSCP_DEF_PLUGIN_LIB}
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_DATE_TIME_LIBRARY}
+        ${EXTRA_LIBS}
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+        ${CMAKE_SOURCE_DIR}/modules/GraphiteClient
+)
+
 set(SETTINGS_INI_TEST_SOURCES
     ${NSCP_INCLUDEDIR}/settings/impl/settings_ini_test.cpp
     ${NSCP_INCLUDEDIR}/str/utf8.cpp
