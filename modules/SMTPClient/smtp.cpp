@@ -15,6 +15,7 @@
 #include <bytes/base64.hpp>
 #include <chrono>
 #include <cstring>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -124,6 +125,10 @@ class sync_io {
       socket_ref_.close(close_ec);
       const auto ep = it->endpoint();
       run_with_deadline([&](auto&& done) { socket_ref_.async_connect(ep, [done = std::move(done)](const boost::system::error_code& e) { done(e); }); }, ec);
+      // A spent budget ends the walk, not just this attempt: the deadline
+      // covers the whole submission, so every remaining endpoint would time
+      // out the same way before its connect could complete.
+      if (ec == asio::error::timed_out) break;
     }
     if (ec) throw smtp_exception("connect failed: " + describe(ec));
   }
@@ -189,19 +194,38 @@ class sync_io {
   }
 
   // Run a single async op until it completes or the deadline expires. Sets
-  // `out_ec` to the operation's result, or operation_aborted on timeout.
+  // `out_ec` to the operation's result, or timed_out on timeout.
+  //
+  // The op's completion handler can outlive this frame. On timeout the timer
+  // handler stop()s the io_context, and the cancelled op's handler - already
+  // queued, or queued by the cancel - is left unexecuted; it runs on the NEXT
+  // restart()/run(), which happens when a caller issues another operation
+  // after a timeout (connect() walking its endpoint list). A handler that
+  // captured this frame's locals by reference would then write through
+  // dangling references into whatever occupies the stack now. So everything
+  // the handler touches lives in `op`, co-owned by the handler itself: a
+  // stale handler completes against its own orphaned state, which nobody
+  // reads, and the current operation's state is untouchable by it.
+  //
+  // The timer handler needs no such care: run() drains it before returning
+  // in every case (it is either what called stop(), or it completes as
+  // aborted before run() runs out of work), so its frame is always alive.
   template <typename Init>
   void run_with_deadline(Init&& init, boost::system::error_code& out_ec, std::size_t* out_bytes = nullptr) {
-    out_ec = asio::error::would_block;
-    std::size_t bytes = 0;
-    asio::steady_timer timer(io_);
+    struct op_state {
+      explicit op_state(asio::io_context& io) : timer(io), ec(asio::error::would_block), bytes(0), timed_out(false) {}
+      asio::steady_timer timer;
+      boost::system::error_code ec;
+      std::size_t bytes;
+      bool timed_out;
+    };
+    const auto op = std::make_shared<op_state>(io_);
     // A deadline already in the past fires immediately, which is what we want
     // once the budget is spent.
-    timer.expires_at(deadline_);
-    bool timed_out = false;
-    timer.async_wait([&](const boost::system::error_code& e) {
+    op->timer.expires_at(deadline_);
+    op->timer.async_wait([this, op](const boost::system::error_code& e) {
       if (e == asio::error::operation_aborted) return;
-      timed_out = true;
+      op->timed_out = true;
       // Cancel any outstanding I/O so run() returns. stop() covers the
       // operations cancelling the socket does not reach - a resolve in
       // particular runs off on its own thread and would otherwise keep run()
@@ -210,23 +234,21 @@ class sync_io {
       socket_ref_.cancel(ignore);
       io_.stop();
     });
-    init([&](const boost::system::error_code& e, std::size_t n = 0) {
-      out_ec = e;
-      bytes = n;
+    init([op](const boost::system::error_code& e, std::size_t n = 0) {
+      op->ec = e;
+      op->bytes = n;
       // cancel() can throw (the non-throwing cancel(ec) overload is removed
       // under BOOST_ASIO_NO_DEPRECATED). Swallow it so an incidental failure
       // can't escape this handler and misreport a successful operation.
       try {
-        timer.cancel();
+        op->timer.cancel();
       } catch (...) {
       }
     });
     io_.restart();
     io_.run();
-    if (timed_out) {
-      out_ec = asio::error::timed_out;
-    }
-    if (out_bytes) *out_bytes = bytes;
+    out_ec = op->timed_out ? asio::error::timed_out : op->ec;
+    if (out_bytes) *out_bytes = op->bytes;
   }
 
   asio::io_context& io_;
