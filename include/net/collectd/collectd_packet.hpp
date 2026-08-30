@@ -83,7 +83,10 @@ class packet {
   // A packet is "full" once adding another value-list could overflow the
   // network buffer. Leave headroom for one more value-list (a handful of
   // string parts plus the values) so render() never emits an oversized packet.
-  bool is_full() const { return buffer.size() > max_packet_size - 128; }
+  // `reserve` shrinks the budget further for bytes added after rendering —
+  // the signature/encryption wrapping — so a wrapped datagram still fits the
+  // receiver's read size.
+  bool is_full(std::size_t reserve = 0) const { return buffer.size() + reserve > max_packet_size - 128; }
 
   // All multi-byte integers in the collectd protocol are big-endian. Build the
   // big-endian value in a properly aligned local and append its bytes, rather
@@ -103,12 +106,31 @@ class packet {
   // misconfigured hostname/plugin/type — instead of letting the cast to int16_t
   // silently wrap and emit a malformed part.
   void append_string(int16_t type, const std::string &string_data) {
-    const std::size_t data_len = string_data.size() > max_string_length ? max_string_length : string_data.size();
+    const std::string clean = sanitize_string_part(string_data);
+    const std::size_t data_len = clean.size() > max_string_length ? max_string_length : clean.size();
     const int16_t len = static_cast<int16_t>(data_len + 5);
     append_be<int16_t>(buffer, type);
     append_be<int16_t>(buffer, len);
-    buffer.append(string_data, 0, data_len);
+    buffer.append(clean, 0, data_len);
     buffer.push_back('\0');
+  }
+
+  // Scrub a string before it becomes a NUL-terminated wire part. These
+  // fields (host, plugin/type and their instances) come from configuration
+  // and from fragments captured out of metric names, neither fully trusted:
+  // an embedded NUL or control character corrupts the part, and '/' is the
+  // hierarchy separator in collectd identifiers — receivers with
+  // file-writing plugins (csv, rrdtool) build paths from these fields, so
+  // never forward it inside a single field. Replace '/' with '_' to keep
+  // distinct inputs distinct; drop control characters outright.
+  static std::string sanitize_string_part(const std::string &value) {
+    std::string clean;
+    clean.reserve(value.size());
+    for (const char c : value) {
+      if (static_cast<unsigned char>(c) < 0x20 || c == 0x7f) continue;
+      clean.push_back(c == '/' ? '_' : c);
+    }
+    return clean;
   }
   // A number part: type(2) + length(2, always 12) + uint64(8).
   void append_int(int16_t type, unsigned long long int_data) {
@@ -302,7 +324,9 @@ struct collectd_builder {
     return ss.str();
   }
 
-  void render(packet_list &packets) {
+  // `reserve` is passed through to packet::is_full: bytes the caller will
+  // add to each rendered packet afterwards (signature/encryption wrapping).
+  void render(packet_list &packets, std::size_t reserve = 0) {
     bool is_new = true;
     collectd::packet packet;
 
@@ -351,7 +375,7 @@ struct collectd_builder {
       if (!m.derives.empty()) {
         packet.add_derive_value(m.derives);
       }
-      if (packet.is_full()) {
+      if (packet.is_full(reserve)) {
         packets.push_back(packet);
         packet = collectd::packet();
         is_new = true;

@@ -140,6 +140,53 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
+### collectd client security-review hardening
+
+**Fixed in:** unreleased · **Severity:** Low–Medium
+
+A review of the `CollectdClient` module (a send-only UDP forwarder of the
+agent's metrics — it parses no inbound network data) found the material risks
+at the transport level and led to the following changes. Nothing here was
+remotely exploitable against the agent itself; the exposures were to the
+metrics stream and to the receiving collectd server.
+
+- **The collectd `SecurityLevel` modes are implemented.** The client only
+  spoke the unsigned plaintext flavour of the collectd binary protocol:
+  metrics (hostname, CPU/memory/swap, uptime, process counts) crossed the
+  network readable by anyone on the path, anyone who could send UDP to the
+  collectd server could forge metrics for any host — poisoned graphs can mask
+  a real incident — and a server enforcing `SecurityLevel Sign`/`Encrypt`
+  dropped the agent's packets, pressuring operators to lower the server to
+  `None` for *all* senders. Targets now support `security level = sign`
+  (HMAC-SHA-256 signature part) and `encrypt` (AES-256/OFB encryption part)
+  with `user`/`password` against the server's `AuthFile`, interoperable with
+  the reference implementation and covered by an integration test against a
+  real collectd daemon. A configured level fails closed — a typo'd level,
+  missing credentials or a build without OpenSSL stops the send with an error
+  instead of silently degrading to plaintext.
+- **Identifier fields are scrubbed before they reach the wire.** The host,
+  plugin/type and instance strings originate in configuration and in
+  fragments captured out of metric names, and were forwarded verbatim. The
+  wire format NUL-terminates them and `/` is the identifier separator —
+  receivers with file-writing plugins (csv, rrdtool) derive paths from these
+  fields — so control characters are now dropped and `/` is replaced with `_`
+  as defense in depth.
+- **Host names in target addresses work (and fail loudly when they don't
+  resolve).** The send path only parsed IP literals; a target configured with
+  a host name threw on every cycle and was visible only as a repeated log
+  line, so metrics silently never arrived — a monitoring gap that can mask an
+  outage. Addresses are now resolved properly.
+- **Variable regexes are validated at load time.** An invalid regular
+  expression under `[/settings/collectd/client/variables]` used to throw
+  inside every metrics cycle, discarding the entire submission with only a
+  log line; it is now rejected once, loudly, when the configuration is read,
+  and the remaining configuration stays active.
+- **Oversized datagrams cannot be produced by wrapping.** The packet budget
+  (collectd's 1452-byte default read size) is reduced by the
+  signature/encryption overhead when a security level is active, so wrapped
+  datagrams still fit the receiver's buffer instead of being truncated and
+  rejected.
+
 ### SMTP client security-review hardening
 
 **Fixed in:** 0.18.0 · **Severity:** Low–Medium

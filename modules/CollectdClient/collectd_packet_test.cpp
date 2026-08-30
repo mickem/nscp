@@ -338,3 +338,162 @@ TEST(CollectdBuilder, FragmentsLargeMetricSetWithinMtu) {
   }
   EXPECT_EQ(total_value_lists, 500u);
 }
+
+// ============================================================================
+// String part sanitization: fields are NUL-terminated on the wire and '/' is
+// the identifier separator, so neither may pass through into a single part.
+// ============================================================================
+
+TEST(CollectdPacket, SanitizesStringParts) {
+  collectd::packet p;
+  p.add_host(std::string("bad\x01host\x7f\n\0with", 16) + "/slash");
+  p.add_gauge_value({1.0});
+  const auto lists = decode_packet(p.get_buffer());
+  ASSERT_EQ(lists.size(), 1u);
+  EXPECT_EQ(lists[0].host, "badhostwith_slash");
+}
+
+// ============================================================================
+// Reserve-aware fragmentation: when the caller will wrap each packet
+// (signature/encryption), render() must leave that many bytes free.
+// ============================================================================
+
+TEST(CollectdBuilder, FragmentsWithinMtuMinusReserve) {
+  const std::size_t reserve = 128;  // larger than any real sign/encrypt header
+  collectd::collectd_builder b;
+  b.set_time(1ULL << 30, 1ULL << 30);
+  b.set_host("a-reasonably-long-hostname-for-padding");
+  for (int i = 0; i < 500; ++i) {
+    const std::string key = "metric_" + std::to_string(i);
+    b.set_metric(key, std::to_string(i));
+    b.add_metric("plugin" + std::to_string(i) + "-/gauge-value", "gauge:" + key);
+  }
+  collectd::collectd_builder::packet_list packets;
+  b.render(packets, reserve);
+  EXPECT_GT(packets.size(), 1u);
+  std::size_t total_value_lists = 0;
+  for (const auto &pk : packets) {
+    EXPECT_LE(pk.get_size() + reserve, collectd::max_packet_size);
+    total_value_lists += decode_packet(pk.get_buffer()).size();
+  }
+  EXPECT_EQ(total_value_lists, 500u);
+}
+
+// ============================================================================
+// Security level parsing.
+// ============================================================================
+
+#include <net/collectd/collectd_crypto.hpp>
+
+TEST(CollectdCrypto, ParsesSecurityLevels) {
+  collectd::crypto::security_level level;
+  EXPECT_TRUE(collectd::crypto::parse_security_level("", level));
+  EXPECT_EQ(level, collectd::crypto::security_level::none);
+  EXPECT_TRUE(collectd::crypto::parse_security_level("none", level));
+  EXPECT_EQ(level, collectd::crypto::security_level::none);
+  EXPECT_TRUE(collectd::crypto::parse_security_level("Sign", level));
+  EXPECT_EQ(level, collectd::crypto::security_level::sign);
+  EXPECT_TRUE(collectd::crypto::parse_security_level("ENCRYPT", level));
+  EXPECT_EQ(level, collectd::crypto::security_level::encrypt);
+  EXPECT_FALSE(collectd::crypto::parse_security_level("tls", level));
+}
+
+TEST(CollectdCrypto, RefusesEmptyUsername) {
+  std::string out, error;
+  EXPECT_FALSE(collectd::crypto::sign_packet("payload", "", "secret", out, error));
+  EXPECT_FALSE(collectd::crypto::encrypt_packet("payload", "", "secret", out, error));
+}
+
+#ifdef USE_SSL
+
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+
+// ============================================================================
+// Signature part (0x0200): layout and an independently computed HMAC, per
+// collectd's network.c (hash over username || packet, key = password).
+// ============================================================================
+
+TEST(CollectdCrypto, SignedPacketMatchesReferenceLayout) {
+  collectd::packet p;
+  p.add_host("h");
+  p.add_gauge_value({1.5});
+  const std::string payload = p.get_buffer();
+
+  const std::string user = "nscp";
+  const std::string password = "secret-key";
+  std::string out, error;
+  ASSERT_TRUE(collectd::crypto::sign_packet(payload, user, password, out, error)) << error;
+
+  ASSERT_EQ(out.size(), 36u + user.size() + payload.size());
+  const unsigned char *buf = reinterpret_cast<const unsigned char *>(out.data());
+  EXPECT_EQ(read_be<uint16_t>(buf), 0x0200u);
+  EXPECT_EQ(read_be<uint16_t>(buf + 2), 36u + user.size());
+  // Username and untouched payload follow the 32-byte hash.
+  EXPECT_EQ(out.substr(36, user.size()), user);
+  EXPECT_EQ(out.substr(36 + user.size()), payload);
+
+  // Independently recompute the HMAC over username || payload.
+  const std::string authed = user + payload;
+  unsigned char expected[EVP_MAX_MD_SIZE];
+  unsigned int expected_len = 0;
+  ASSERT_NE(HMAC(EVP_sha256(), password.data(), static_cast<int>(password.size()), reinterpret_cast<const unsigned char *>(authed.data()), authed.size(),
+                 expected, &expected_len),
+            nullptr);
+  ASSERT_EQ(expected_len, 32u);
+  EXPECT_EQ(std::memcmp(buf + 4, expected, 32), 0);
+}
+
+// ============================================================================
+// Encryption part (0x0210): decrypt with AES-256/OFB (key = SHA-256 of the
+// password) and verify the embedded SHA-1 checksum and payload, mirroring
+// collectd's parse_part_encr_aes256.
+// ============================================================================
+
+TEST(CollectdCrypto, EncryptedPacketDecryptsToPayload) {
+  collectd::packet p;
+  p.add_host("h");
+  p.add_derive_value({42});
+  const std::string payload = p.get_buffer();
+
+  const std::string user = "nscp";
+  const std::string password = "secret-key";
+  std::string out, error;
+  ASSERT_TRUE(collectd::crypto::encrypt_packet(payload, user, password, out, error)) << error;
+
+  ASSERT_EQ(out.size(), 42u + user.size() + payload.size());
+  const unsigned char *buf = reinterpret_cast<const unsigned char *>(out.data());
+  EXPECT_EQ(read_be<uint16_t>(buf), 0x0210u);
+  EXPECT_EQ(read_be<uint16_t>(buf + 2), out.size());
+  ASSERT_EQ(read_be<uint16_t>(buf + 4), user.size());
+  EXPECT_EQ(out.substr(6, user.size()), user);
+  const unsigned char *iv = buf + 6 + user.size();
+  const unsigned char *encrypted = iv + 16;
+  const std::size_t encrypted_len = out.size() - (6 + user.size() + 16);
+  ASSERT_EQ(encrypted_len, 20 + payload.size());
+
+  unsigned char key[EVP_MAX_MD_SIZE];
+  unsigned int key_len = 0;
+  ASSERT_EQ(EVP_Digest(password.data(), password.size(), key, &key_len, EVP_sha256(), nullptr), 1);
+  ASSERT_EQ(key_len, 32u);
+
+  std::vector<unsigned char> plain(encrypted_len);
+  EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+  ASSERT_NE(ctx, nullptr);
+  int plain_len = 0, final_len = 0;
+  ASSERT_EQ(EVP_DecryptInit_ex(ctx, EVP_aes_256_ofb(), nullptr, key, iv), 1);
+  ASSERT_EQ(EVP_DecryptUpdate(ctx, plain.data(), &plain_len, encrypted, static_cast<int>(encrypted_len)), 1);
+  ASSERT_EQ(EVP_DecryptFinal_ex(ctx, plain.data() + plain_len, &final_len), 1);
+  EVP_CIPHER_CTX_free(ctx);
+  ASSERT_EQ(static_cast<std::size_t>(plain_len + final_len), encrypted_len);
+
+  // First 20 bytes: SHA-1 of the payload; the rest: the payload itself.
+  unsigned char checksum[EVP_MAX_MD_SIZE];
+  unsigned int checksum_len = 0;
+  ASSERT_EQ(EVP_Digest(payload.data(), payload.size(), checksum, &checksum_len, EVP_sha1(), nullptr), 1);
+  ASSERT_EQ(checksum_len, 20u);
+  EXPECT_EQ(std::memcmp(plain.data(), checksum, 20), 0);
+  EXPECT_EQ(std::string(reinterpret_cast<const char *>(plain.data()) + 20, plain.size() - 20), payload);
+}
+
+#endif  // USE_SSL

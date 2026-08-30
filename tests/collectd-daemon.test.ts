@@ -35,9 +35,19 @@ async function docker(args: string[], opts: { reject?: boolean } = {}) {
   return execa("docker", args, { reject: opts.reject ?? true, all: true });
 }
 
+// Credentials matching Dockerfiles/entrypoints/collectd.auth (the AuthFile of
+// the Sign/Encrypt listeners).
+const AUTH_USER = "nscp";
+const AUTH_PASSWORD = "nscp-integration-secret";
+
 dockerOrSkip()("CollectD real-daemon integration", () => {
   let containerId = "";
+  /** Mapped loopback port of the SecurityLevel None listener (25826). */
   let port = 0;
+  /** Mapped loopback port of the SecurityLevel Sign listener (25827). */
+  let signPort = 0;
+  /** Mapped loopback port of the SecurityLevel Encrypt listener (25828). */
+  let encryptPort = 0;
 
   /** Files collectd's csv plugin has written for `host` so far. */
   async function dataFiles(host: string): Promise<string[]> {
@@ -76,9 +86,13 @@ dockerOrSkip()("CollectD real-daemon integration", () => {
       all: true,
     });
 
-    const run = await execa("docker", ["run", "-d", "-p", "127.0.0.1::25826/udp", IMAGE_TAG], {
-      all: true,
-    });
+    const run = await execa(
+      "docker",
+      ["run", "-d", "-p", "127.0.0.1::25826/udp", "-p", "127.0.0.1::25827/udp", "-p", "127.0.0.1::25828/udp", IMAGE_TAG],
+      {
+        all: true,
+      },
+    );
     containerId = run.stdout.trim();
 
     // Wait for "Initialization complete, entering read-loop." in the logs.
@@ -97,12 +111,18 @@ dockerOrSkip()("CollectD real-daemon integration", () => {
       throw new Error(`collectd did not become ready. Logs:\n${logs.stdout}\n${logs.stderr}`);
     }
 
-    // The published loopback UDP port (docker assigns it; `docker port` reports it).
-    const portOut = (await docker(["port", containerId, "25826/udp"])).stdout.trim();
-    port = Number(portOut.split("\n")[0].split(":").pop());
-    if (!Number.isInteger(port) || port <= 0) {
-      throw new Error(`could not parse mapped UDP port from: ${portOut}`);
-    }
+    // The published loopback UDP ports (docker assigns them; `docker port` reports them).
+    const mappedPort = async (containerPort: string): Promise<number> => {
+      const portOut = (await docker(["port", containerId, containerPort])).stdout.trim();
+      const p = Number(portOut.split("\n")[0].split(":").pop());
+      if (!Number.isInteger(p) || p <= 0) {
+        throw new Error(`could not parse mapped UDP port for ${containerPort} from: ${portOut}`);
+      }
+      return p;
+    };
+    port = await mappedPort("25826/udp");
+    signPort = await mappedPort("25827/udp");
+    encryptPort = await mappedPort("25828/udp");
   });
 
   afterAll(async () => {
@@ -201,6 +221,117 @@ dockerOrSkip()("CollectD real-daemon integration", () => {
     it("accepts a two-value ps_count value-list", async () => {
       const files = await waitForFiles(HOST, (f) => f.some((p) => /\/processes\/ps_count-/.test(p)));
       expect(files.some((p) => /\/processes\/ps_count-/.test(p))).toBe(true);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Security levels: the Sign/Encrypt listeners only accept traffic carrying a
+  // valid signature/encryption part for a user in the AuthFile. collectd
+  // verifying and storing the value-lists is positive proof the client's
+  // HMAC-SHA-256 / AES-256-OFB framing matches the reference implementation —
+  // a wrong hash input, key derivation or layout is silently dropped instead.
+  // --------------------------------------------------------------------------
+
+  describe("signed submission (SecurityLevel Sign)", () => {
+    const HOST = "it-collectd-signed";
+    let nscp: NscpInstance;
+
+    beforeAll(async () => {
+      nscp = new NscpInstance();
+      await nscp.configure({
+        "/modules": { CheckSystem: "enabled", CollectdClient: "enabled" },
+        "/settings/core": { "metrics interval": "1s" },
+        "/settings/collectd/client": { hostname: HOST },
+        "/settings/collectd/client/targets/default": {
+          address: `127.0.0.1:${signPort}`,
+          "security level": "sign",
+          user: AUTH_USER,
+          password: AUTH_PASSWORD,
+        },
+      });
+      nscp.start();
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("stores value-lists the server verified against the AuthFile", async () => {
+      const files = await waitForFiles(HOST, (f) => f.some((p) => /\/cpu-total\/cpu-user-/.test(p)));
+      expect(files.some((p) => /\/cpu-total\/cpu-user-/.test(p))).toBe(true);
+    });
+  });
+
+  describe("encrypted submission (SecurityLevel Encrypt)", () => {
+    const HOST = "it-collectd-encrypted";
+    let nscp: NscpInstance;
+
+    beforeAll(async () => {
+      nscp = new NscpInstance();
+      await nscp.configure({
+        "/modules": { CheckSystem: "enabled", CollectdClient: "enabled" },
+        "/settings/core": { "metrics interval": "1s" },
+        "/settings/collectd/client": { hostname: HOST },
+        "/settings/collectd/client/targets/default": {
+          address: `127.0.0.1:${encryptPort}`,
+          "security level": "encrypt",
+          user: AUTH_USER,
+          password: AUTH_PASSWORD,
+        },
+      });
+      nscp.start();
+    });
+
+    afterAll(async () => {
+      await nscp?.stop();
+    });
+
+    it("stores value-lists the server decrypted and checksum-verified", async () => {
+      const files = await waitForFiles(HOST, (f) => f.some((p) => /\/cpu-total\/cpu-user-/.test(p)));
+      expect(files.some((p) => /\/cpu-total\/cpu-user-/.test(p))).toBe(true);
+    });
+  });
+
+  describe("unsigned traffic to the Sign listener", () => {
+    const REJECT_HOST = "it-collectd-rejected";
+    const CONTROL_HOST = "it-collectd-control";
+    let rejected: NscpInstance;
+    let control: NscpInstance;
+
+    beforeAll(async () => {
+      // One plaintext sender aimed at the Sign listener (must be dropped) and
+      // one aimed at the None listener (the timing control: once its metrics
+      // are stored, the rejected sender has been transmitting just as long).
+      rejected = new NscpInstance();
+      await rejected.configure({
+        "/modules": { CheckSystem: "enabled", CollectdClient: "enabled" },
+        "/settings/core": { "metrics interval": "1s" },
+        "/settings/collectd/client": { hostname: REJECT_HOST },
+        "/settings/collectd/client/targets/default": { address: `127.0.0.1:${signPort}` },
+      });
+      control = new NscpInstance();
+      await control.configure({
+        "/modules": { CheckSystem: "enabled", CollectdClient: "enabled" },
+        "/settings/core": { "metrics interval": "1s" },
+        "/settings/collectd/client": { hostname: CONTROL_HOST },
+        "/settings/collectd/client/targets/default": { address: `127.0.0.1:${port}` },
+      });
+      rejected.start();
+      control.start();
+    });
+
+    afterAll(async () => {
+      await rejected?.stop();
+      await control?.stop();
+    });
+
+    it("is rejected while plaintext to the None listener still lands", async () => {
+      // Wait until the control sender's metrics are stored, then a little
+      // longer, so the rejected sender has provably had time to be heard.
+      const controlFiles = await waitForFiles(CONTROL_HOST, (f) => f.some((p) => /\/cpu-total\/cpu-user-/.test(p)));
+      expect(controlFiles.some((p) => /\/cpu-total\/cpu-user-/.test(p))).toBe(true);
+      await new Promise((r) => setTimeout(r, 3000));
+      expect(await dataFiles(REJECT_HOST)).toEqual([]);
     });
   });
 });

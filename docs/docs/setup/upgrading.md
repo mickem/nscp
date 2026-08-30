@@ -14,6 +14,26 @@ per-release detail lives in each
 
 ---
 
+## Unreleased
+
+- 🔒 **The collectd client can now sign or encrypt its traffic.** The
+  `CollectdClient` module previously spoke only the unsigned plaintext flavour
+  of the collectd binary protocol, so metrics crossed the network unprotected
+  and a collectd server enforcing `SecurityLevel Sign`/`Encrypt` dropped them.
+  Each `[/settings/collectd/client/targets/...]` section now accepts
+  `security level` (`none`, `sign` or `encrypt`, default `none`), `user` and
+  `password`, matching an entry in the collectd server's `AuthFile`. The
+  default is unchanged (plaintext), but signing is recommended wherever the
+  path to the collectd server is not otherwise trusted. A configured
+  `sign`/`encrypt` level fails closed: misconfiguration (bad level, missing
+  credentials, a build without OpenSSL) stops the send with an error rather
+  than degrading to plaintext. Two smaller behaviour fixes ship alongside:
+  target `address` now accepts host names (previously only IP literals
+  worked, and a hostname target silently never sent), and an invalid regular
+  expression under `[/settings/collectd/client/variables]` is rejected at
+  load time with an error instead of silently discarding every metrics cycle.
+  See the [security notice](../security/notices.md#collectd-client-security-review-hardening).
+
 ## 0.18.0
 
 - 💥 **`check_nscp` is now a filter check, and it can see crash reports again.**

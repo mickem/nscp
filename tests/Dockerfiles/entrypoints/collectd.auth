@@ -1,0 +1,4 @@
+# AuthFile for the collectd integration test's Sign/Encrypt listeners.
+# Format: "username: password". Test-only credentials, shared with
+# collectd-daemon.test.ts.
+nscp: nscp-integration-secret

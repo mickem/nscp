@@ -5,6 +5,8 @@
 
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/regex.hpp>
+#include <net/collectd/collectd_crypto.hpp>
 #include <net/collectd/collectd_packet.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -42,6 +44,13 @@ class udp_sender {
 
 struct connection_data : public socket_helpers::connection_info {
   std::string sender_hostname;
+  // The collectd network protocol security settings (SecurityLevel semantics):
+  // the raw configured level plus the credentials for sign/encrypt. The level
+  // is parsed (and enforced fail-closed) in the handler before anything is
+  // rendered or sent.
+  std::string security_level;
+  std::string username;
+  std::string password;
 
   connection_data() {}
 
@@ -52,6 +61,9 @@ struct connection_data : public socket_helpers::connection_info {
     ssl.enabled = false;
     timeout = arguments.get_int_data("timeout", 30);
     retry = arguments.get_int_data("retries", 3);
+    security_level = arguments.get_string_data("security level");
+    username = arguments.get_string_data("user");
+    password = arguments.get_string_data("password");
     sender_hostname = sender.address.host;
     if (sender.has_data("host")) sender_hostname = sender.get_string_data("host");
   }
@@ -60,6 +72,10 @@ struct connection_data : public socket_helpers::connection_info {
     std::stringstream ss;
     ss << "host: " << get_endpoint_string();
     ss << ", sender_hostname: " << sender_hostname;
+    // Never log the password; the level and user are enough to debug a
+    // mismatch with the server's AuthFile.
+    if (!security_level.empty()) ss << ", security_level: " << security_level;
+    if (!username.empty()) ss << ", user: " << username;
     return ss.str();
   }
 };
@@ -140,7 +156,18 @@ struct collectd_client_handler : public client::handler_interface {
   collectd_client_handler() : interval_seconds_(10) {}
 
   // Configuration (populated from settings; empty => defaults are used).
-  void add_variable(const std::string &key, const std::string &value) { variables_.push_back(std::make_pair(key, value)); }
+  // Variable regexes are validated here, at load time: a bad pattern would
+  // otherwise throw inside every metrics cycle and silently drop the whole
+  // submission, so reject it once (loudly) and keep the rest of the config.
+  void add_variable(const std::string &key, const std::string &value) {
+    try {
+      const boost::regex validate(value);
+    } catch (const std::exception &e) {
+      NSC_LOG_ERROR("Ignoring collectd variable '" + key + "': invalid regular expression: " + utf8::utf8_from_native(e.what()));
+      return;
+    }
+    variables_.push_back(std::make_pair(key, value));
+  }
   void add_metric(const std::string &key, const std::string &value) { metrics_.push_back(std::make_pair(key, value)); }
   void set_interval(unsigned long long seconds) { interval_seconds_ = seconds; }
 
@@ -216,19 +243,49 @@ struct collectd_client_handler : public client::handler_interface {
     for (const auto &v : variables) builder.add_variable(v.first, v.second);
     for (const auto &m : metrics) builder.add_metric(m.first, m.second);
 
-    collectd::collectd_builder::packet_list packets;
-    builder.render(packets);
     connection_data con(target, sender);
-    send(con, packets);
+
+    // Resolve the security level up front and fail closed: a target asking
+    // for sign/encrypt must never silently degrade to plaintext (typo'd
+    // level, missing credentials, or a build without OpenSSL).
+    collectd::crypto::security_level level;
+    if (!collectd::crypto::parse_security_level(con.security_level, level)) {
+      NSC_LOG_ERROR("Invalid collectd security level '" + con.security_level + "' (expected none, sign or encrypt); not sending metrics to " +
+                    con.get_endpoint_string());
+      return false;
+    }
+    if (level != collectd::crypto::security_level::none) {
+      if (!collectd::crypto::available()) {
+        NSC_LOG_ERROR("collectd security level '" + collectd::crypto::to_string(level) +
+                      "' requires NSClient++ to be built with OpenSSL; not sending metrics to " + con.get_endpoint_string());
+        return false;
+      }
+      if (con.username.empty() || con.password.empty()) {
+        NSC_LOG_ERROR("collectd security level '" + collectd::crypto::to_string(level) + "' requires both user and password; not sending metrics to " +
+                      con.get_endpoint_string());
+        return false;
+      }
+    }
+
+    collectd::collectd_builder::packet_list packets;
+    // Shrink the per-packet budget by the wrapping overhead so signed or
+    // encrypted datagrams still fit the receiver's read size.
+    builder.render(packets, collectd::crypto::overhead(level, con.username));
+    send(con, level, packets);
     return true;
   }
 
-  void send(const connection_data &target, const collectd::collectd_builder::packet_list &packets) {
+  void send(const connection_data &target, const collectd::crypto::security_level level, const collectd::collectd_builder::packet_list &packets) {
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Sending " + str::xtos(packets.size()) + " packets to: " + target.to_string()); }
     try {
       boost::asio::io_context io_service;
-      const boost::asio::ip::address target_address = boost::asio::ip::make_address(target.get_address());
-      const unsigned short target_port = target.get_int_port();
+      // Resolve the configured address: accepts host names as well as IP
+      // literals (make_address only parsed literals, so a hostname target
+      // threw here every cycle and metrics silently never went out).
+      boost::asio::ip::udp::resolver target_resolver(io_service);
+      const boost::asio::ip::udp::endpoint target_endpoint = *target_resolver.resolve(target.get_address(), target.get_port()).begin();
+      const boost::asio::ip::address target_address = target_endpoint.address();
+      const unsigned short target_port = target_endpoint.port();
 
       const bool is_multicast = (target_address.is_v4() && target_address.to_v4().is_multicast()) ||
                                 (target_address.is_v6() && target_address.to_v6().is_multicast());
@@ -254,8 +311,27 @@ struct collectd_client_handler : public client::handler_interface {
 
       for (const collectd::packet &p : packets) {
         if (p.get_size() == 0) continue;  // never put an empty datagram on the wire
+        std::string data = p.get_buffer();
+        // Apply the security level per datagram. Any wrapping failure aborts
+        // the whole send: partial plaintext fallback is never acceptable.
+        std::string error;
+        if (level == collectd::crypto::security_level::sign) {
+          std::string wrapped;
+          if (!collectd::crypto::sign_packet(data, target.username, target.password, wrapped, error)) {
+            NSC_LOG_ERROR("Failed to sign collectd packet: " + error);
+            return;
+          }
+          data = wrapped;
+        } else if (level == collectd::crypto::security_level::encrypt) {
+          std::string wrapped;
+          if (!collectd::crypto::encrypt_packet(data, target.username, target.password, wrapped, error)) {
+            NSC_LOG_ERROR("Failed to encrypt collectd packet: " + error);
+            return;
+          }
+          data = wrapped;
+        }
         for (const std::shared_ptr<udp_sender> &s : senders) {
-          s->send_data(p.get_buffer());
+          s->send_data(data);
         }
       }
       io_service.run();
