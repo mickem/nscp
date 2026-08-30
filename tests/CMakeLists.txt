@@ -242,6 +242,20 @@ if(OPENSSL_FOUND)
     target_compile_definitions(net_test PRIVATE USE_SSL)
 endif()
 
+# Deliberately outside the OpenSSL gate: the NSCA/NRPE legacy crypto helper
+# depends only on crypto++ (optional, at nscpcrypt compile time), and the
+# strict encryption-name parsing must be exercised in every build flavour.
+NSCP_CREATE_TEST(
+    nscpcrypt_test
+    SOURCES
+        ${CMAKE_SOURCE_DIR}/libs/nscpcrypt/nscpcrypt_test.cpp
+    LIBRARIES
+        GTest::gtest_main
+        nscpcrypt
+    INCLUDES
+        ${NSCP_INCLUDEDIR}
+)
+
 NSCP_CREATE_TEST(
     metrics_store_map_test
     SOURCES

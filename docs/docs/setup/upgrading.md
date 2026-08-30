@@ -32,6 +32,32 @@ per-release detail lives in each
   MITM risk. And servers that require a client certificate will start seeing
   it. The default PSK mode (`use psk = true`) is unaffected. See
   [Security notices](../security/notices.md).
+- 🔒 **NSCA: an unrecognized `encryption` value is now a hard error instead of
+  silently running without encryption.** A typo'd algorithm name (`aes-256`),
+  or one not compiled into the build, used to fall back to *no encryption* on
+  the end carrying it. Since the ciphers must match, a one-sided typo showed
+  up as the peer rejecting every submission with a CRC error rather than as
+  accepted plaintext — but that failure gave no hint of its cause, and a
+  value broken the same way on both ends did run plaintext while looking
+  encrypted. Now the `NSCAServer` module refuses to load and an `NSCAClient`
+  submission fails, each naming the problem and listing the available
+  algorithms. Default installs (`aes256`) are unaffected. **Breaking** only
+  for setups relying on the fallback: fix the algorithm name, or set
+  `encryption = none` explicitly if plaintext was intended — this includes
+  builds compiled without crypto++, where any cipher name previously
+  degraded to plaintext and the server now refuses to start.
+  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+- 🔒 **NSCA hardening: empty-password warning, `performance data = false`
+  honoured, wire-field validation.** Enabling NSCA encryption with an empty
+  `password` now logs an error on both ends (the password *is* the key, so an
+  empty one is a well-known key) — set the same password on both ends to
+  clear it. `NSCAServer`'s `performance data = false` now actually strips
+  perfdata from forwarded submissions (it was silently ignored). Inbound
+  host/service names are stripped of control characters and out-of-range
+  status codes are clamped to UNKNOWN. No action needed on a default install.
+  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+
+---
 
 ## 0.18.0
 

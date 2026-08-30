@@ -68,6 +68,21 @@ class data {
   } init_packet;
 };
 
+// Strip ASCII control characters (0x00-0x1f and DEL) from an identity field
+// (host / service name) received off the wire. These fields end up verbatim
+// in log lines and in the submission forwarded on the inbox channel, so an
+// embedded newline or escape sequence would let a remote sender inject fake
+// log records or confuse downstream consumers.
+inline std::string sanitize_identity(const std::string& field) {
+  std::string out;
+  out.reserve(field.size());
+  for (const char c : field) {
+    const auto u = static_cast<unsigned char>(c);
+    if (u >= 0x20 && u != 0x7f) out.push_back(c);
+  }
+  return out;
+}
+
 /* data packet containing service check results */
 class nsca_exception : public std::exception {
   std::string msg_;
