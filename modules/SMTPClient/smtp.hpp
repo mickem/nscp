@@ -95,10 +95,11 @@ std::vector<std::string> auth_mechanisms(const std::string& ehlo_reply);
 
 // Renders server reply text for inclusion in an error message. Replies end up
 // in the agent log and in the submit response, and their bytes are chosen by
-// the peer: control characters (terminal escapes when the log is tailed) are
-// replaced with '?', the '\n' separating the lines of a multi-line reply is
-// rendered as " / " so one reply cannot forge additional log lines, and the
-// result is truncated so a large reply cannot flood the log.
+// the peer: everything outside printable US-ASCII is replaced with '?' (both
+// the C0 controls and the C1 range that carries single-byte terminal escapes),
+// the '\n' separating the lines of a multi-line reply is rendered as " / " so
+// one reply cannot forge additional log lines, and the result is truncated so
+// a large reply cannot flood the log.
 std::string scrub_reply(const std::string& reply);
 
 // Builds the RFC 5322 Message-ID for one submission, angle brackets included.

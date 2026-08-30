@@ -509,9 +509,10 @@ or destabilise the agent.
   permits a real server to send.
 - **Reply text is rendered inert before it reaches the log.** Error messages
   quoted server replies verbatim into the agent log and the submit response.
-  Control bytes (terminal escapes for whoever tails the log) are now replaced,
-  multi-line replies can no longer forge additional log lines, and oversized
-  replies are truncated.
+  Anything outside printable US-ASCII is now replaced — both the C0 controls
+  and the C1 range (0x80–0x9F), which carries single-byte terminal escapes
+  such as CSI — multi-line replies can no longer forge additional log lines,
+  and oversized replies are truncated.
 - **Smaller items:** the reply to `STARTTLS` must now be exactly `220` per
   RFC 3207 rather than any `2xx`; AUTH credentials containing a NUL byte are
   refused before connecting (a NUL would shift the RFC 4616 `AUTH PLAIN`

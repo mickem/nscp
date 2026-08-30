@@ -30,8 +30,21 @@ namespace detail {
 // into the agent log (NSC_LOG_ERROR) and the submit response. Left raw, a
 // reply can embed terminal escape sequences for whoever tails the log, and
 // the '\n' that read_reply() joins a multi-line reply with lets one reply
-// masquerade as several log lines. Render it inert instead: control bytes
-// become '?', the line join becomes " / ", and the result is truncated.
+// masquerade as several log lines. Render it inert instead: the line join
+// becomes " / ", anything that is not printable US-ASCII becomes '?', and
+// the result is truncated.
+//
+// Printable ASCII is the whole allowlist rather than "everything except the
+// C0 controls", because a byte does not have to be C0 to steer a terminal.
+// The C1 range (0x80-0x9F) carries single-byte equivalents of the escape
+// sequences - 0x9B is CSI - which a terminal in a non-UTF-8 locale acts on,
+// and their UTF-8 spellings (0xC2 0x80..0x9F) reach the same code points in
+// a terminal that does decode UTF-8. Allowlisting covers both without
+// enumerating either, and it cannot emit the half-scrubbed byte sequences
+// that dropping individual bytes out of a multi-byte character would. The
+// cost is that legitimately non-ASCII reply text (RFC 6531 permits it)
+// flattens to '?' - acceptable for a diagnostic string whose reason for
+// existing is to be safe to display.
 std::string scrub_reply(const std::string& reply) {
   constexpr std::size_t max_len = 500;
   std::string out;
@@ -44,7 +57,7 @@ std::string scrub_reply(const std::string& reply) {
     const auto u = static_cast<unsigned char>(c);
     if (c == '\n') {
       out += " / ";
-    } else if (u < 0x20 || u == 0x7f) {
+    } else if (u < 0x20 || u >= 0x7f) {
       out.push_back('?');
     } else {
       out.push_back(c);

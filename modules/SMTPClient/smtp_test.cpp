@@ -444,6 +444,35 @@ TEST(SmtpScrubReply, NeutralisesTerminalEscapes) {
   EXPECT_EQ(scrubbed, "554 go ?]0;owned? away");
 }
 
+TEST(SmtpScrubReply, NeutralisesSingleByteC1Escapes) {
+  // A byte does not have to be C0 to steer a terminal: the C1 range carries
+  // single-byte equivalents of the escape sequences, 0x9B being CSI. A
+  // terminal in a non-UTF-8 locale acts on those directly.
+  //
+  // The literals stay split around each escape on purpose: a hex escape in
+  // C++ consumes every hex digit that follows it, so "\x9b31m" is one
+  // (overflowing) escape rather than 0x9B then "31m".
+  const std::string scrubbed = scrub_reply(std::string("550 \x9b"
+                                                       "31m red \x84 next"));
+
+  EXPECT_EQ(scrubbed.find('\x9b'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed.find('\x84'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed, "550 ?31m red ? next");
+}
+
+TEST(SmtpScrubReply, NeutralisesTheUtf8SpellingOfAC1Escape) {
+  // U+009B encoded as UTF-8 is 0xC2 0x9B, which a terminal that does decode
+  // UTF-8 turns back into CSI. Both bytes have to go, and scrubbing the whole
+  // character rather than one byte of it keeps the output from carrying a
+  // half-scrubbed sequence.
+  const std::string scrubbed = scrub_reply(std::string("550 \xc2\x9b"
+                                                       "31m red"));
+
+  EXPECT_EQ(scrubbed.find('\xc2'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed.find('\x9b'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed, "550 ??31m red");
+}
+
 TEST(SmtpScrubReply, FlattensTheMultiLineJoinSoOneReplyIsOneLogLine) {
   // read_reply() joins a multi-line reply with '\n'. Passed through raw, a
   // reply of "250-innocent\n250 ERROR forged line" writes two lines into the
