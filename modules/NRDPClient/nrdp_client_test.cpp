@@ -346,13 +346,14 @@ TEST(NrdpSubmit, AStalledServerTimesOutInsteadOfHangingForever) {
   // wedge the submission thread: the configured timeout has to end the
   // exchange with an error. Before the timeout was wired through, this
   // submit blocked indefinitely (and this test would hang).
-  boost::asio::io_context io;
-  tcp::acceptor acceptor(io, {tcp::v4(), 0});
-  const unsigned short port = acceptor.local_endpoint().port();
-  std::thread server([&acceptor]() {
+  std::promise<unsigned short> p;
+  std::future<unsigned short> f = p.get_future();
+  std::thread server([prom = std::move(p)]() mutable {
     try {
-      boost::asio::io_context server_io;
-      tcp::socket socket(server_io);
+      boost::asio::io_context io;
+      tcp::acceptor acceptor(io, {tcp::v4(), 0});
+      prom.set_value(acceptor.local_endpoint().port());
+      tcp::socket socket(io);
       acceptor.accept(socket);
       // Hold the socket open without answering until the client gives up.
       char buf[1024];
@@ -361,6 +362,7 @@ TEST(NrdpSubmit, AStalledServerTimesOutInsteadOfHangingForever) {
     } catch (...) {
     }
   });
+  const unsigned short port = f.get();
 
   PB::Commands::SubmitRequestMessage request;
   PB::Commands::QueryResponseMessage::Response *payload = request.add_payload();

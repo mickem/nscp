@@ -371,7 +371,8 @@ struct ssl_socket final : generic_socket {
     // the floor is not part of the method, so it must be applied here or the
     // '+' silently degrades to "any".
     if (tls_min_version != 0 && SSL_CTX_set_min_proto_version(context.native_handle(), tls_min_version) != 1) {
-      throw socket_helpers::socket_exception("Failed to set the minimum TLS version");
+      throw socket_helpers::socket_exception("Failed to set the minimum TLS protocol version " + str::xtos(tls_min_version) +
+                                             " (TLS wire constant): rejected by this OpenSSL build");
     }
     if (!ca.empty() && ca != "none") {
       try {
@@ -538,8 +539,12 @@ struct ssl_socket final : generic_socket {
       // a snippet in the exception message — a 407 body often explains *why*
       // (realm, scheme, "user 'alice' is unknown", etc.).
       boost::system::error_code drain_ec;
-      // Best-effort: the drain only enriches the error message, so a timeout
-      // here just ends the drain rather than replacing the real failure.
+      // Best-effort: the drain only enriches the error message (a 256-byte
+      // snippet of it, at that), so a timeout here just ends the drain rather
+      // than replacing the real failure, and the amount read is hard-capped -
+      // a proxy answering an error with an endless body must not grow the
+      // buffer without bound.
+      static const std::size_t kMaxErrorDrainBytes = 16 * 1024;
       try {
         if (timeout_ == 0) {
           boost::asio::read_until(tcp_sock, response_buf, "\r\n\r\n", drain_ec);
@@ -548,7 +553,7 @@ struct ssl_socket final : generic_socket {
                             [&](auto handler) { boost::asio::async_read_until(tcp_sock, response_buf, "\r\n\r\n", handler); });
         }
         // Read any remaining bytes (proxy typically closes after error).
-        while (!drain_ec) {
+        while (!drain_ec && response_buf.size() < kMaxErrorDrainBytes) {
           if (timeout_ == 0) {
             boost::asio::read(tcp_sock, response_buf, boost::asio::transfer_at_least(1), drain_ec);
           } else {
