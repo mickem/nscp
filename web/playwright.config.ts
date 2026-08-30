@@ -23,7 +23,10 @@ export default defineConfig({
   webServer: {
     // Serve the production bundle the way it ships; /api never resolves here —
     // every spec installs its own route mocks before loading a page.
-    command: "npm run build && npm run preview -- --port 4173 --strictPort",
+    // Bind explicitly to 127.0.0.1: without --host, vite listens on
+    // `localhost`, which resolves to ::1 on IPv6-enabled hosts (GitHub
+    // runners) while the readiness probe below polls the IPv4 address.
+    command: "npm run build && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,

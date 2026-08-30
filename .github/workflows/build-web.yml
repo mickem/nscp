@@ -20,7 +20,8 @@ jobs:
 
     - uses: actions/setup-node@v6
       with:
-        node-version: 20
+        # react-router 8 and vite 8 need node >= 22
+        node-version: 22
         cache: 'npm'
         cache-dependency-path: web/package-lock.json
 
@@ -29,6 +30,18 @@ jobs:
       run: |
         npm install
         npm run build
+
+    - name: Unit tests
+      working-directory: web
+      run: npm test
+
+    - name: Install Playwright Chromium
+      working-directory: web
+      run: npx playwright install --with-deps chromium
+
+    - name: Integration tests (rendered UI, Playwright)
+      working-directory: web
+      run: npm run test:e2e
 
     - name: Package bundle
       run: |

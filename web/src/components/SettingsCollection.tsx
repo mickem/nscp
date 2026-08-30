@@ -38,7 +38,7 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import EditIcon from "@mui/icons-material/Edit";
 import SettingsInstanceDialog, { FieldGroup } from "./SettingsInstanceDialog.tsx";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { getFactoryTemplates, InstanceTemplate } from "./instanceTemplates.ts";
 
@@ -562,7 +562,7 @@ export default function SettingsCollection({
     <Card>
       <CardHeader
         title={
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Typography variant="h6">{title}</Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>
               {collectionPath}
@@ -664,7 +664,7 @@ export default function SettingsCollection({
                     onClick={() => setEditingPath(inst.path)}
                   >
                     <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={1}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                         <Typography variant="body2">{inst.name}</Typography>
                         {inst.isTemplate && (
                           <Chip
