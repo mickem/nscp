@@ -3,6 +3,11 @@
 
 #define BUFF_SIZE 4096
 
+// Upper bound on captured child output; see the Unix launcher for the rationale.
+// Past the cap we keep reading (so the child never blocks on a full pipe and the
+// timeout stays enforceable) but discard the excess.
+#define MAX_OUTPUT_BYTES (8u * 1024u * 1024u)
+
 #include <NSCAPI.h>
 #include <win/tool-helper.h>
 
@@ -257,7 +262,13 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
         break;
       }
       if (dwAvail > 0) {
-        str += readFromFile(buffer, hChildOutR.get());
+        const std::string chunk = readFromFile(buffer, hChildOutR.get());
+        // Append up to the cap; past it drop the excess but keep draining so the
+        // child never blocks on a full pipe.
+        if (str.size() < MAX_OUTPUT_BYTES) {
+          str.append(chunk, 0, MAX_OUTPUT_BYTES - str.size());
+          if (str.size() >= MAX_OUTPUT_BYTES) str.append("\n[output truncated]");
+        }
         // Drained a chunk; re-check the clock before looping so a chatty child
         // cannot hold us here past the deadline.
         if (GetTickCount64() >= deadline_ms) {
@@ -282,7 +293,11 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
 
     dwAvail = 0;
     if (::PeekNamedPipe(hChildOutR.get(), nullptr, 0, nullptr, &dwAvail, nullptr) && dwAvail > 0) {
-      str += readFromFile(buffer, hChildOutR.get());
+      const std::string chunk = readFromFile(buffer, hChildOutR.get());
+      if (str.size() < MAX_OUTPUT_BYTES) {
+        str.append(chunk, 0, MAX_OUTPUT_BYTES - str.size());
+        if (str.size() >= MAX_OUTPUT_BYTES) str.append("\n[output truncated]");
+      }
     }
     output = utf8::cvt<std::string>(utf8::from_encoding(str, args.encoding));
 
