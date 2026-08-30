@@ -582,6 +582,14 @@ void send(const connection_config& cfg, const message& msg) {
   detail::validate_address(msg.to, "to");
   const std::string subject = detail::sanitise_header(msg.subject);
 
+  // RFC 4616 frames AUTH PLAIN as NUL-separated fields, so a NUL inside the
+  // username would shift the authcid/password boundary and authenticate as
+  // someone else's credential split. Config strings should never carry one;
+  // refuse rather than reinterpret if one does.
+  if (cfg.username.find('\0') != std::string::npos || cfg.password.find('\0') != std::string::npos) {
+    throw smtp_exception("AUTH username/password must not contain NUL bytes");
+  }
+
   // Validated up here with the addresses, before anything is put on the wire.
   const std::string ehlo_name = cfg.canonical_name.empty() ? std::string("localhost") : cfg.canonical_name;
   detail::validate_ehlo_name(ehlo_name);
@@ -670,7 +678,9 @@ void send(const connection_config& cfg, const message& msg) {
     }
     conn.write("STARTTLS\r\n");
     r = conn.read_reply();
-    expect_status(r, '2', "STARTTLS");
+    // Exactly 220, per RFC 3207 4: any other 2xx here is not "ready to start
+    // TLS", and proceeding to handshake against it helps nobody.
+    if (!reply_starts_with(r, "220")) throw smtp_exception("STARTTLS unexpected reply: " + detail::scrub_reply(r));
     conn.handshake(tls, "TLS handshake (STARTTLS)");
     // Re-EHLO over the secure channel; capabilities can change after TLS.
     conn.write("EHLO " + ehlo_name + "\r\n");

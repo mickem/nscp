@@ -272,6 +272,15 @@ TEST(SmtpStarttls, ForgedDeliveryAcknowledgementsAreNotAccepted) {
   EXPECT_NE(error.find("STARTTLS response injection"), std::string::npos) << error;
 }
 
+TEST(SmtpStarttls, OnlyA220MayStartTheHandshake) {
+  // RFC 3207 4: the reply to STARTTLS is 220. Another 2xx is not "ready to
+  // start TLS", and handshaking against whatever sent it helps nobody.
+  const std::string error = starttls_failure("250 sure why not\r\n");
+
+  EXPECT_NE(error.find("STARTTLS unexpected reply"), std::string::npos) << error;
+  EXPECT_EQ(error.find("TLS handshake"), std::string::npos) << error;
+}
+
 TEST(SmtpStarttls, AWellBehavedGreetingReachesTheHandshake) {
   // Negative control: with nothing pipelined the guard must stay out of the
   // way. The scripted server does not speak TLS, so the session still fails -
@@ -378,6 +387,36 @@ TEST(SmtpReplyLimits, ALegitimateMultiLineReplyStaysUnderTheCaps) {
 
   EXPECT_EQ(error.find("exceeds"), std::string::npos) << error;
   EXPECT_NE(error.find("MAIL FROM"), std::string::npos) << error;
+}
+
+// =============================================================================
+// AUTH credential validation
+// =============================================================================
+
+TEST(SmtpAuthCredentials, ANulByteInTheCredentialsIsRefusedBeforeConnecting) {
+  // RFC 4616 frames AUTH PLAIN as NUL-separated fields, so a NUL inside the
+  // username would shift the authcid/password boundary. Port 1 would fail to
+  // connect if we got that far; seeing the NUL error proves we did not.
+  smtp::connection_config cfg;
+  cfg.server = "127.0.0.1";
+  cfg.port = "1";
+  cfg.security = "tls";
+  cfg.username = std::string("user\0extra", 10);
+  cfg.password = "secret";
+  cfg.timeout_seconds = 5;
+
+  smtp::message msg;
+  msg.from = "agent@example.com";
+  msg.to = "ops@example.com";
+  msg.body = "body";
+
+  try {
+    smtp::send(cfg, msg);
+    FAIL() << "expected the NUL byte to be refused";
+  } catch (const smtp_exception &e) {
+    EXPECT_NE(std::string(e.what()).find("must not contain NUL"), std::string::npos) << e.what();
+    EXPECT_EQ(std::string(e.what()).find("connect failed"), std::string::npos) << "must be refused before connecting: " << e.what();
+  }
 }
 
 // =============================================================================
