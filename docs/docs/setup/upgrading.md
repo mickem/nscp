@@ -16,6 +16,16 @@ per-release detail lives in each
 
 ## Unreleased
 
+- 🔒 **CheckExternalScripts hardening.** A security review of the external
+  scripts module tightened several rough edges: the `ext-scr install` argument
+  lockdown now writes to the setting the module actually reads (previously it
+  was a no-op, so a lockdown could silently not apply), the command timeout is
+  enforced on every execution path with output capped, the `show`/`delete`
+  sandbox resolves symlinks, and `%`/`^` are blocked on the shell-fallback path.
+  The default install is unaffected (arguments are off by default). If you rely
+  on `ext-scr install` to disable arguments, re-run it after upgrading so the
+  effective setting is written. See the
+  [security notice](../security/notices.md#checkexternalscripts-security-review-hardening).
 - 🔒 **NSCA-NG cert mode now actually verifies the server (and presents the
   client certificate).** In 0.18.0 the `NSCANgClient` cert mode
   (`use psk = false`) applied its TLS configuration to the OpenSSL context
