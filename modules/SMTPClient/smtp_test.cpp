@@ -316,6 +316,71 @@ TEST(SmtpTimeout, ASpentBudgetIsReportedInOurOwnWords) {
 }
 
 // =============================================================================
+// Reply size limits
+// =============================================================================
+//
+// The timeout bounds how long a submission may take; these bound how much a
+// hostile peer can make it buffer within that time. Both scripts fail at the
+// banner, before any TLS is involved, so a plain session is enough.
+
+namespace {
+
+// Run a security=none submission against a scripted server and return the
+// resulting error message.
+std::string plain_failure(std::vector<std::string> responses) {
+  scripted_server server(std::move(responses));
+
+  smtp::connection_config cfg;
+  cfg.server = "127.0.0.1";
+  cfg.port = server.port();
+  cfg.security = "none";
+  cfg.timeout_seconds = 5;
+
+  smtp::message msg;
+  msg.from = "agent@example.com";
+  msg.to = "ops@example.com";
+  msg.body = "body";
+
+  try {
+    smtp::send(cfg, msg);
+  } catch (const smtp_exception &e) {
+    return e.what();
+  }
+  return "<no exception>";
+}
+
+}  // namespace
+
+TEST(SmtpReplyLimits, AReplyLineThatNeverEndsIsRefusedNotBuffered) {
+  // 80 KB with no CRLF anywhere: read_until() can never complete, and without
+  // a cap it buffers at line rate until the timeout budget is spent - seconds
+  // of a fast peer's output is gigabytes of agent memory.
+  const std::string error = plain_failure({std::string(80 * 1024, 'x')});
+
+  EXPECT_NE(error.find("reply line exceeds"), std::string::npos) << error;
+}
+
+TEST(SmtpReplyLimits, AReplyWithEndlessContinuationLinesIsRefused) {
+  // Continuation lines ("250-...") keep a single reply open indefinitely; the
+  // per-line cap never fires, so the reply as a whole needs a ceiling too.
+  std::string endless;
+  for (int i = 0; i < 200; ++i) endless += "250-mx.example.com keeps going\r\n";
+  const std::string error = plain_failure({endless});
+
+  EXPECT_NE(error.find("reply exceeds"), std::string::npos) << error;
+  EXPECT_NE(error.find("lines"), std::string::npos) << error;
+}
+
+TEST(SmtpReplyLimits, ALegitimateMultiLineReplyStaysUnderTheCaps) {
+  // Negative control: a normal session walks past the banner and EHLO and
+  // fails at its own scripted rejection, proving the caps stay out of the way.
+  const std::string error = plain_failure({kBanner, "250-mx.example.com\r\n250 HELP\r\n", "550 no\r\n"});
+
+  EXPECT_EQ(error.find("exceeds"), std::string::npos) << error;
+  EXPECT_NE(error.find("MAIL FROM"), std::string::npos) << error;
+}
+
+// =============================================================================
 // CA bundle
 // =============================================================================
 

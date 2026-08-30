@@ -26,6 +26,16 @@ namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 using ssl_stream = asio::ssl::stream<tcp::socket>;
 
+// The timeout bounds how long a submission may take; these bound how much a
+// peer can make it buffer. Without them read_until() accumulates until the
+// deadline - and the deadline is seconds, so a server (or a MITM on a
+// security=none target) that streams bytes without ever sending CRLF turns
+// the budget into gigabytes of agent memory at line rate. RFC 5321 4.5.3.1
+// caps a reply line at 512 bytes and no real server sends EHLO replies
+// hundreds of lines long, so both limits are far above anything legitimate.
+constexpr std::size_t max_reply_line_bytes = 64 * 1024;
+constexpr std::size_t max_reply_lines = 100;
+
 // ---------------------------------------------------------------------------
 // Tiny synchronous IO with deadline
 // ---------------------------------------------------------------------------
@@ -155,7 +165,11 @@ class sync_io {
   // unreadable.
   std::string read_reply() {
     std::string out;
+    std::size_t lines = 0;
     while (true) {
+      if (++lines > max_reply_lines) {
+        throw smtp_exception("SMTP reply exceeds " + std::to_string(max_reply_lines) + " lines; giving up");
+      }
       const std::string line = read_line();
       if (!out.empty()) out.push_back('\n');
       out += line;
@@ -185,6 +199,12 @@ class sync_io {
           }
         },
         ec, &bytes);
+    // not_found is read_until() reporting that buf_ hit its size cap without
+    // a CRLF anywhere in it - a peer streaming an endless line, not a socket
+    // problem, so name it as the protocol violation it is.
+    if (ec == asio::error::not_found) {
+      throw smtp_exception("SMTP reply line exceeds " + std::to_string(max_reply_line_bytes) + " bytes; giving up");
+    }
     if (ec) throw smtp_exception("read failed: " + describe(ec));
     std::istream is(&buf_);
     std::string line;
@@ -254,7 +274,9 @@ class sync_io {
   asio::io_context& io_;
   tcp::socket& socket_ref_;
   ssl_stream* tls_stream_;
-  asio::streambuf buf_;
+  // Capped so read_until() fails with not_found instead of buffering without
+  // bound; the leftover-data check in handshake() counts against it too.
+  asio::streambuf buf_{max_reply_line_bytes};
   int timeout_seconds_;
   std::chrono::steady_clock::time_point deadline_;
 };
