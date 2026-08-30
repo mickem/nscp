@@ -272,6 +272,15 @@ TEST(SmtpStarttls, ForgedDeliveryAcknowledgementsAreNotAccepted) {
   EXPECT_NE(error.find("STARTTLS response injection"), std::string::npos) << error;
 }
 
+TEST(SmtpStarttls, OnlyA220MayStartTheHandshake) {
+  // RFC 3207 4: the reply to STARTTLS is 220. Another 2xx is not "ready to
+  // start TLS", and handshaking against whatever sent it helps nobody.
+  const std::string error = starttls_failure("250 sure why not\r\n");
+
+  EXPECT_NE(error.find("STARTTLS unexpected reply"), std::string::npos) << error;
+  EXPECT_EQ(error.find("TLS handshake"), std::string::npos) << error;
+}
+
 TEST(SmtpStarttls, AWellBehavedGreetingReachesTheHandshake) {
   // Negative control: with nothing pipelined the guard must stay out of the
   // way. The scripted server does not speak TLS, so the session still fails -
@@ -313,6 +322,181 @@ TEST(SmtpTimeout, ASpentBudgetIsReportedInOurOwnWords) {
   const std::string error = starttls_failure("220 Go ahead\r\n", std::chrono::milliseconds(400), 1);
 
   EXPECT_NE(error.find("timed out after 1s"), std::string::npos) << error;
+}
+
+// =============================================================================
+// Reply size limits
+// =============================================================================
+//
+// The timeout bounds how long a submission may take; these bound how much a
+// hostile peer can make it buffer within that time. Both scripts fail at the
+// banner, before any TLS is involved, so a plain session is enough.
+
+namespace {
+
+// Run a security=none submission against a scripted server and return the
+// resulting error message.
+std::string plain_failure(std::vector<std::string> responses) {
+  scripted_server server(std::move(responses));
+
+  smtp::connection_config cfg;
+  cfg.server = "127.0.0.1";
+  cfg.port = server.port();
+  cfg.security = "none";
+  cfg.timeout_seconds = 5;
+
+  smtp::message msg;
+  msg.from = "agent@example.com";
+  msg.to = "ops@example.com";
+  msg.body = "body";
+
+  try {
+    smtp::send(cfg, msg);
+  } catch (const smtp_exception &e) {
+    return e.what();
+  }
+  return "<no exception>";
+}
+
+}  // namespace
+
+TEST(SmtpReplyLimits, AReplyLineThatNeverEndsIsRefusedNotBuffered) {
+  // 80 KB with no CRLF anywhere: read_until() can never complete, and without
+  // a cap it buffers at line rate until the timeout budget is spent - seconds
+  // of a fast peer's output is gigabytes of agent memory.
+  const std::string error = plain_failure({std::string(80 * 1024, 'x')});
+
+  EXPECT_NE(error.find("reply line exceeds"), std::string::npos) << error;
+}
+
+TEST(SmtpReplyLimits, AReplyWithEndlessContinuationLinesIsRefused) {
+  // Continuation lines ("250-...") keep a single reply open indefinitely; the
+  // per-line cap never fires, so the reply as a whole needs a ceiling too.
+  std::string endless;
+  for (int i = 0; i < 200; ++i) endless += "250-mx.example.com keeps going\r\n";
+  const std::string error = plain_failure({endless});
+
+  EXPECT_NE(error.find("reply exceeds"), std::string::npos) << error;
+  EXPECT_NE(error.find("lines"), std::string::npos) << error;
+}
+
+TEST(SmtpReplyLimits, ALegitimateMultiLineReplyStaysUnderTheCaps) {
+  // Negative control: a normal session walks past the banner and EHLO and
+  // fails at its own scripted rejection, proving the caps stay out of the way.
+  const std::string error = plain_failure({kBanner, "250-mx.example.com\r\n250 HELP\r\n", "550 no\r\n"});
+
+  EXPECT_EQ(error.find("exceeds"), std::string::npos) << error;
+  EXPECT_NE(error.find("MAIL FROM"), std::string::npos) << error;
+}
+
+// =============================================================================
+// AUTH credential validation
+// =============================================================================
+
+TEST(SmtpAuthCredentials, ANulByteInTheCredentialsIsRefusedBeforeConnecting) {
+  // RFC 4616 frames AUTH PLAIN as NUL-separated fields, so a NUL inside the
+  // username would shift the authcid/password boundary. Port 1 would fail to
+  // connect if we got that far; seeing the NUL error proves we did not.
+  smtp::connection_config cfg;
+  cfg.server = "127.0.0.1";
+  cfg.port = "1";
+  cfg.security = "tls";
+  cfg.username = std::string("user\0extra", 10);
+  cfg.password = "secret";
+  cfg.timeout_seconds = 5;
+
+  smtp::message msg;
+  msg.from = "agent@example.com";
+  msg.to = "ops@example.com";
+  msg.body = "body";
+
+  try {
+    smtp::send(cfg, msg);
+    FAIL() << "expected the NUL byte to be refused";
+  } catch (const smtp_exception &e) {
+    EXPECT_NE(std::string(e.what()).find("must not contain NUL"), std::string::npos) << e.what();
+    EXPECT_EQ(std::string(e.what()).find("connect failed"), std::string::npos) << "must be refused before connecting: " << e.what();
+  }
+}
+
+// =============================================================================
+// scrub_reply
+// =============================================================================
+//
+// Server reply text ends up in exception messages, which land in the agent
+// log and in the submit response. The bytes are the peer's to choose, so they
+// are rendered inert before they travel.
+
+using smtp::detail::scrub_reply;
+
+TEST(SmtpScrubReply, PassesOrdinaryReplyTextThrough) {
+  EXPECT_EQ(scrub_reply("550 5.7.1 relay access denied"), "550 5.7.1 relay access denied");
+  EXPECT_EQ(scrub_reply(""), "");
+}
+
+TEST(SmtpScrubReply, NeutralisesTerminalEscapes) {
+  // ESC starts a terminal control sequence for whoever tails the log; every
+  // control byte is replaced, not just the ones with a known trick.
+  const std::string scrubbed = scrub_reply(std::string("554 go \x1b]0;owned\x07 away"));
+
+  EXPECT_EQ(scrubbed.find('\x1b'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed.find('\x07'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed, "554 go ?]0;owned? away");
+}
+
+TEST(SmtpScrubReply, NeutralisesSingleByteC1Escapes) {
+  // A byte does not have to be C0 to steer a terminal: the C1 range carries
+  // single-byte equivalents of the escape sequences, 0x9B being CSI. A
+  // terminal in a non-UTF-8 locale acts on those directly.
+  //
+  // The literals stay split around each escape on purpose: a hex escape in
+  // C++ consumes every hex digit that follows it, so "\x9b31m" is one
+  // (overflowing) escape rather than 0x9B then "31m".
+  const std::string scrubbed = scrub_reply(std::string("550 \x9b"
+                                                       "31m red \x84 next"));
+
+  EXPECT_EQ(scrubbed.find('\x9b'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed.find('\x84'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed, "550 ?31m red ? next");
+}
+
+TEST(SmtpScrubReply, NeutralisesTheUtf8SpellingOfAC1Escape) {
+  // U+009B encoded as UTF-8 is 0xC2 0x9B, which a terminal that does decode
+  // UTF-8 turns back into CSI. Both bytes have to go, and scrubbing the whole
+  // character rather than one byte of it keeps the output from carrying a
+  // half-scrubbed sequence.
+  const std::string scrubbed = scrub_reply(std::string("550 \xc2\x9b"
+                                                       "31m red"));
+
+  EXPECT_EQ(scrubbed.find('\xc2'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed.find('\x9b'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed, "550 ??31m red");
+}
+
+TEST(SmtpScrubReply, FlattensTheMultiLineJoinSoOneReplyIsOneLogLine) {
+  // read_reply() joins a multi-line reply with '\n'. Passed through raw, a
+  // reply of "250-innocent\n250 ERROR forged line" writes two lines into the
+  // log, and only the first one is labelled as server output.
+  const std::string scrubbed = scrub_reply("250-first\n250 second");
+
+  EXPECT_EQ(scrubbed.find('\n'), std::string::npos) << scrubbed;
+  EXPECT_EQ(scrubbed, "250-first / 250 second");
+}
+
+TEST(SmtpScrubReply, TruncatesAnOversizedReply) {
+  const std::string scrubbed = scrub_reply("550 " + std::string(2000, 'x'));
+
+  EXPECT_LT(scrubbed.size(), 600u);
+  EXPECT_EQ(scrubbed.compare(scrubbed.size() - 3, 3, "..."), 0) << scrubbed;
+}
+
+TEST(SmtpScrubReply, TheScrubbedFormIsWhatTheErrorMessageCarries) {
+  // End to end: a scripted rejection carrying an ESC byte must surface with
+  // the byte neutralised, in the same exception operators see in the log.
+  const std::string error = plain_failure({std::string("554 no \x1b[31mred\x1b[0m entry\r\n")});
+
+  EXPECT_EQ(error.find('\x1b'), std::string::npos) << error;
+  EXPECT_NE(error.find("banner unexpected reply: 554 no ?[31mred?[0m entry"), std::string::npos) << error;
 }
 
 // =============================================================================

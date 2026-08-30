@@ -4,6 +4,7 @@
 #pragma once
 
 #include <client/command_line_parser.hpp>
+#include <memory>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/protobuf/command.hpp>
@@ -11,11 +12,21 @@
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
+// Defined in syslog_client.hpp, which needs the client machinery included
+// first; a forward declaration keeps that ordering out of this header. The
+// destructor that destroys the shared_ptr lives in the .cpp, where the type
+// is complete.
+namespace syslog_client {
+struct syslog_client_handler;
+}
+
 class SyslogClient : public nscapi::impl::simple_plugin {
  private:
   std::string channel_;
   std::string hostname_;
 
+  // Declared before client_: client_ is constructed with this handler.
+  std::shared_ptr<syslog_client::syslog_client_handler> handler_;
   client::configuration client_;
 
  public:

@@ -43,7 +43,9 @@ chmod 0666 /inbox/messages.txt
 echo ">> Starting test SMTP server"
 echo "   plain+STARTTLS on :1025"
 echo "   implicit TLS    on :1465"
-echo "   credentials: $SMTP_USERNAME / $SMTP_PASSWORD"
+# The password stays out of the container log: harmless for the hardcoded
+# test default, a leak the moment someone overrides it with a real one.
+echo "   credentials: $SMTP_USERNAME / <set via SMTP_PASSWORD>"
 echo "   inbox:       /inbox/messages.txt"
 
 exec python3 /app/server.py

@@ -60,8 +60,8 @@ struct smtp_target_object : nscapi::targets::target_object {
                     "Microsoft 365 use the UPN. App passwords work for both.")
 
         .add_password("password", sh::string_fun_key([this](auto value) { this->set_property_string("password", value); }, ""), "AUTH PASSWORD",
-                      "SMTP AUTH password. Stored sensitive. Credentials are only sent over a TLS / STARTTLS-secured connection; configuring a password "
-                      "with security=none refuses to start.")
+                      "SMTP AUTH password. Stored sensitive. Credentials are only sent over a TLS / STARTTLS-secured connection; a submission with a "
+                      "password configured and security=none fails instead of sending them in clear.")
 
         .add_string("security", sh::string_fun_key([this](auto value) { this->set_property_string("security", value); }, "starttls"), "TRANSPORT SECURITY",
                     "Connection security. `starttls` (default, port 587) connects in clear and upgrades to TLS before AUTH; `tls` (alias `ssl`) connects "

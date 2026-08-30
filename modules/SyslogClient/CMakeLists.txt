@@ -48,6 +48,13 @@ NSCP_CREATE_TEST(
         syslog_client_test.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        # syslog_target_object's vtable pulls in its read(), which calls
+        # settings_keys_easy_init::add_string / string_fun_key. Those live in
+        # nscp_plugin_api but carry no NSCAPI_EXPORT, so they are visible when
+        # linking against the shared object on unix and absent from the import
+        # library on Windows. Compile them into the test rather than widening
+        # the exported plugin API surface.
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_CLIENT_CPP}
     LIBRARIES
         GTest::gtest_main

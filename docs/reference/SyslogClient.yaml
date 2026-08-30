@@ -228,35 +228,35 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Severity of error message
+        long_description: Severity to use when the check result is UNKNOWN
         name: unknown-severity
         repeatable: false
         required: false
-        short_description: Severity of error message
+        short_description: Severity to use when the check result is UNKNOWN
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Severity of error message
+        long_description: Severity to use when the check result is OK
         name: ok-severity
         repeatable: false
         required: false
-        short_description: Severity of error message
+        short_description: Severity to use when the check result is OK
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Severity of error message
+        long_description: Severity to use when the check result is WARNING
         name: warning-severity
         repeatable: false
         required: false
-        short_description: Severity of error message
+        short_description: Severity to use when the check result is WARNING
       - content_type: 2
         default_value: ''
         is_simple: true
-        long_description: Severity of error message
+        long_description: Severity to use when the check result is CRITICAL
         name: critical-severity
         repeatable: false
         required: false
-        short_description: Severity of error message
+        short_description: Severity to use when the check result is CRITICAL
       - content_type: 2
         default_value: ''
         is_simple: true
