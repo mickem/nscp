@@ -110,6 +110,16 @@ struct g_data {
 };
 
 struct syslog_client_handler : public client::handler_interface {
+  // The module's configured `hostname`, already expanded. Held here rather
+  // than pushed through client::configuration::set_sender() because that
+  // stores the value as a url and get_sender() runs it through net::parse(),
+  // which splits on the first colon - an IPv6 literal from ${address_ipv6}
+  // would reach the wire as "2001". Nothing else in this module reads the
+  // sender container, so there is nothing to keep in sync.
+  std::string hostname;
+
+  void set_hostname(std::string value) { hostname = std::move(value); }
+
   bool query(client::destination_container _sender, client::destination_container _target, const PB::Commands::QueryRequestMessage &_request_message,
              PB::Commands::QueryResponseMessage &_response_message) {
     return false;
@@ -129,11 +139,17 @@ struct syslog_client_handler : public client::handler_interface {
     // The RFC 3164 HOSTNAME field: without it the receiver promotes the next
     // token - the tag - to origin host, so a tag template that expands check
     // output would let a monitored process pick which host the record is
-    // filed under. The sender carries the module's configured `hostname`
-    // setting; "-" (the RFC 5424 nil value) marks an unconfigured sender
-    // rather than shifting the fields.
-    std::string hostname = sender.get_host();
-    if (hostname.empty()) hostname = "-";
+    // filed under.
+    //
+    // A source host named on the submission itself (--source-host, or a host
+    // carried in the request header) identifies the machine the result is
+    // about, so it wins; it arrives via set_host() and is not url-parsed.
+    // Otherwise this agent speaks for itself and the configured `hostname`
+    // applies. "-" (the RFC 5424 nil value) holds the position when neither
+    // is known, rather than shifting the remaining fields left.
+    std::string host_field = sender.get_host();
+    if (host_field.empty()) host_field = hostname;
+    if (host_field.empty()) host_field = "-";
 
     std::list<std::string> messages;
 
@@ -155,7 +171,7 @@ struct syslog_client_handler : public client::handler_interface {
       // should use it, not trip the undefined-severity fallback.
       if (severity.empty()) severity = con.severity;
 
-      std::string line = con.parse_priority(severity, con.facility) + date + " " + hostname + " " + tag + " " + message;
+      std::string line = con.parse_priority(severity, con.facility) + date + " " + host_field + " " + tag + " " + message;
       // Neutralise every control byte, not just CR/LF/NUL: a newline would
       // split the check result into extra syslog records (log injection),
       // and the remaining C0 bytes are how ANSI escape sequences and other

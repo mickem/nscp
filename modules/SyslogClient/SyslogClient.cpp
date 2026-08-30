@@ -19,7 +19,8 @@
  * @return
  */
 SyslogClient::SyslogClient()
-    : client_("syslog", std::make_shared<syslog_client::syslog_client_handler>(), std::make_shared<syslog_handler::options_reader_impl>()) {}
+    : handler_(std::make_shared<syslog_client::syslog_client_handler>()),
+      client_("syslog", handler_, std::make_shared<syslog_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
@@ -77,10 +78,13 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
     core.register_channel(channel_);
 
     hostname_ = socket_helpers::expand_hostname(hostname_);
-    // Hand the expanded name to the client machinery: submit() reads it off
-    // the sender container to fill the RFC 3164 HOSTNAME field. Without this
-    // the `hostname` setting was read and expanded but never used.
-    client_.set_sender(hostname_);
+    // Hand the expanded name straight to the handler, which fills the RFC 3164
+    // HOSTNAME field with it. Without this the `hostname` setting was read and
+    // expanded but never used. It deliberately does not go through
+    // client::configuration::set_sender(): that keeps the value as a url and
+    // get_sender() parses it with net::parse(), which cuts at the first colon -
+    // an ${address_ipv6} expansion would be sent as "2001".
+    handler_->set_hostname(hostname_);
   } catch (nsclient::nsclient_exception &e) {
     NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
     return false;

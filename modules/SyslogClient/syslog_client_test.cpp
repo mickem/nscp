@@ -34,6 +34,7 @@ namespace po = boost::program_options;
 #include <gtest/gtest.h>
 
 #include <boost/asio.hpp>
+#include <iterator>
 #include <map>
 #include <string>
 #include <vector>
@@ -88,7 +89,8 @@ class syslog_sink {
 
 // Submit one check result to a syslog sink and hand back the datagrams.
 std::vector<std::string> submit_to(syslog_sink &sink, const PB::Common::ResultCode result, const std::string &message,
-                                   std::map<std::string, std::string> options = {}, const std::string &sender_host = "") {
+                                   std::map<std::string, std::string> options = {}, const std::string &sender_host = "",
+                                   const std::string &configured_hostname = "") {
   options["address"] = "127.0.0.1";
   options["port"] = std::to_string(sink.port());
   if (options.find("facility") == options.end()) options["facility"] = "kernel";
@@ -104,6 +106,7 @@ std::vector<std::string> submit_to(syslog_sink &sink, const PB::Common::ResultCo
 
   PB::Commands::SubmitResponseMessage response;
   syslog_client::syslog_client_handler handler;
+  handler.set_hostname(configured_hostname);
   client::destination_container sender;
   if (!sender_host.empty()) sender.set_host(sender_host);
   handler.submit(sender, target_with(options), request, response);
@@ -269,23 +272,47 @@ TEST(SyslogSubmit, ExpandsTheTagAndMessageTemplates) {
   EXPECT_NE(sent[0].find("msg=the output"), std::string::npos) << sent[0];
 }
 
-TEST(SyslogSubmit, TheDatagramCarriesTheSenderHostname) {
+TEST(SyslogSubmit, TheDatagramCarriesTheConfiguredHostname) {
   // RFC 3164: <PRI>TIMESTAMP HOSTNAME TAG MESSAGE. Without the HOSTNAME field
   // the receiver promotes the next token - the tag - to origin host, and a
   // tag template that expands %message% would let check output choose which
-  // host a record is filed under. The module's `hostname` setting rides in on
-  // the sender container.
+  // host a record is filed under. With no source host on the submission, the
+  // agent speaks for itself and the module's `hostname` setting is used.
   syslog_sink sink;
 
-  const std::vector<std::string> sent = submit_to(sink, PB::Common::ResultCode::OK, "all good", {}, "agent01.example.com");
+  const std::vector<std::string> sent = submit_to(sink, PB::Common::ResultCode::OK, "all good", {}, "", "agent01.example.com");
 
   ASSERT_EQ(sent.size(), 1u);
   EXPECT_NE(sent[0].find(" agent01.example.com nscp "), std::string::npos) << sent[0];
 }
 
-TEST(SyslogSubmit, AnUnknownSenderBecomesTheNilHostname) {
-  // No sender host may not shift the fields either; the RFC 5424 nil value
-  // "-" holds the HOSTNAME position.
+TEST(SyslogSubmit, AnIPv6HostnameSurvivesIntact) {
+  // The `hostname` setting documents ${address_ipv6}, so the value can be an
+  // IPv6 literal. Handing it to the client machinery's set_sender() would
+  // store it as a url and get_sender() would run net::parse() over it, which
+  // cuts at the first colon - the record would claim to come from "2001".
+  syslog_sink sink;
+
+  const std::vector<std::string> sent = submit_to(sink, PB::Common::ResultCode::OK, "all good", {}, "", "2001:db8::7");
+
+  ASSERT_EQ(sent.size(), 1u);
+  EXPECT_NE(sent[0].find(" 2001:db8::7 nscp "), std::string::npos) << sent[0];
+}
+
+TEST(SyslogSubmit, ASourceHostOnTheSubmissionWinsOverTheConfiguredHostname) {
+  // A relayed result names the machine it is about; the relaying agent's own
+  // name must not overwrite it.
+  syslog_sink sink;
+
+  const std::vector<std::string> sent = submit_to(sink, PB::Common::ResultCode::OK, "all good", {}, "origin.example.com", "relay.example.com");
+
+  ASSERT_EQ(sent.size(), 1u);
+  EXPECT_NE(sent[0].find(" origin.example.com nscp "), std::string::npos) << sent[0];
+}
+
+TEST(SyslogSubmit, AnUnknownHostBecomesTheNilHostname) {
+  // Neither a source host nor a configured one may not shift the fields
+  // either; the RFC 5424 nil value "-" holds the HOSTNAME position.
   syslog_sink sink;
 
   const std::vector<std::string> sent = submit_to(sink, PB::Common::ResultCode::OK, "all good");
