@@ -177,14 +177,25 @@ what the receiving syslog server records:
   fallback above (and settings-defined targets sending an empty tag with the
   message text dropped). All keys are aligned and covered by tests.
 
-Syslog remains a cleartext, unauthenticated UDP protocol: these fixes narrow
-what a relayed check result can do to the log, not who can read or spoof the
-traffic in transit. Keep the path to the syslog server on a trusted network
-segment.
+The review's main design finding — the module spoke only cleartext,
+unauthenticated, fire-and-forget UDP — is fixed in the same release: the
+client can now submit over **TCP (RFC 6587)** and **TLS (RFC 5425)** via a
+`transport` target setting (`udp` remains the default, existing
+configurations are unaffected). Over TLS the server certificate is verified
+by default (`verify mode = peer` against `ca`, defaulting to the agent's
+trusted bundle `${ca-path}`, with hostname verification); the only opt-outs
+are the explicit `verify mode = none` / `insecure = true`, and an invalid
+transport or framing configuration fails the submission instead of falling
+back to cleartext. Stream transports also honour the `timeout` and `retries`
+settings, which were previously read from the wrong place and ignored, and
+report real delivery failures instead of UDP's "presumably sent".
 
-**What to do:** nothing is required. If the receiving syslog server's parsing
-rules keyed on the old malformed format (no HOSTNAME field), adjust them —
-records now arrive attributed to the agent's host name instead of the tag.
+**What to do:** point syslog targets at a TLS-capable receiver
+(`transport = tls`, port 6514) wherever the path to the syslog server is not
+a trusted network segment — plain `udp`/`tcp` remain readable and spoofable
+in transit. If the receiving syslog server's parsing rules keyed on the old
+malformed format (no HOSTNAME field), adjust them — records now arrive
+attributed to the agent's host name instead of the tag.
 See [Upgrading](../setup/upgrading.md#unreleased).
 
 ### SMTP client security-review hardening

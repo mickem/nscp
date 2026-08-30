@@ -16,6 +16,38 @@ per-release detail lives in each
 
 ## Unreleased
 
+- 📨 🔒 **The syslog client can now submit over TCP (RFC 6587) and TLS
+  (RFC 5425)** (see the
+  [security notice](../security/notices.md#syslog-client-security-review-hardening)).
+  UDP stays the default and existing configurations are unaffected. What is
+  new:
+
+    - A `transport` target setting/option selecting `udp` (default), `tcp` or
+      `tls`; the tree-wide `use ssl = true` also selects TLS, and an address
+      scheme (`tls://host`) works too. TLS defaults to the RFC 5425 port 6514,
+      the other transports keep 514.
+    - Over TLS the server certificate is **verified by default**
+      (`verify mode = peer` against `ca`, which defaults to the agent's
+      trusted bundle `${ca-path}`, plus hostname verification). Opting out
+      requires an explicit `verify mode = none` or `insecure = true`.
+    - Stream messages use RFC 6587 octet-counted framing by default; a
+      `framing = non-transparent` option (LF-terminated) exists for older TCP
+      receivers. RFC 5425 mandates octet counting, so that combination is
+      refused over TLS, as is any unknown transport/framing value — the
+      submission fails instead of guessing.
+    - The target's `timeout` and `retries` settings now actually apply: they
+      were read from the wrong place and silently ignored. For stream
+      transports `timeout` bounds connect, TLS handshake and writes; a failed
+      connection is retried `retries` times. A stream submission also reports
+      real failures now, instead of UDP's "presumably sent".
+    - Host names can resolve to IPv6 addresses (the UDP resolver was
+      IPv4-only).
+    - The per-target settings registered under
+      `[/settings/syslog/client/targets/<name>]` (severities, templates and
+      the new transport/TLS keys) are now actually registered with the
+      settings subsystem; previously a settings-defined target silently kept
+      its defaults.
+
 - 📨 🔒 **Syslog messages now carry the RFC 3164 HOSTNAME field, and several
   syslog options work for the first time** (see the
   [security notice](../security/notices.md#syslog-client-security-review-hardening)).

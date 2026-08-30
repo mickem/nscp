@@ -19,7 +19,8 @@
  * @return
  */
 SyslogClient::SyslogClient()
-    : client_("syslog", std::make_shared<syslog_client::syslog_client_handler>(), std::make_shared<syslog_handler::options_reader_impl>()) {}
+    : handler_(std::make_shared<syslog_client::syslog_client_handler>()),
+      client_("syslog", handler_, std::make_shared<syslog_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
@@ -75,6 +76,13 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
     nscapi::core_helper core(get_core(), get_id());
     core.register_channel(channel_);
+
+    // The agent's trusted CA bundle for TLS targets that arrive without a
+    // `ca` of their own (command-line submissions, default targets built
+    // from constructor properties). ${ca-path} expands to the
+    // distribution's own bundle on unix and to the exported system store on
+    // Windows - same fallback as the SMTP client.
+    handler_->default_ca = get_core()->expand_path("${ca-path}");
 
     hostname_ = socket_helpers::expand_hostname(hostname_);
     // Hand the expanded name to the client machinery: submit() reads it off

@@ -11,11 +11,19 @@
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
+namespace syslog_client {
+struct syslog_client_handler;
+}
+
 class SyslogClient : public nscapi::impl::simple_plugin {
  private:
   std::string channel_;
   std::string hostname_;
 
+  // Kept alongside client_ (which owns it as a handler_interface) so
+  // loadModuleEx can hand it the resolved ${ca-path} default for TLS
+  // targets that arrive without a `ca` of their own.
+  std::shared_ptr<syslog_client::syslog_client_handler> handler_;
   client::configuration client_;
 
  public:

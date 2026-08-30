@@ -51,12 +51,82 @@ common:
             description: Target host address
             sample: true
             title: TARGET ADDRESS
+          allowed ciphers:
+            advanced: true
+            default_value: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
+            description: OpenSSL cipher list.
+            sample: true
+            title: ALLOWED CIPHERS
+          ca:
+            advanced: false
+            default_value: ${ca-path}
+            description: Certificate authority bundle used to verify the server certificate.
+            sample: true
+            title: CA
+          certificate:
+            advanced: true
+            default_value: ''
+            description: Optional client certificate for mutual TLS.
+            sample: true
+            title: CLIENT CERTIFICATE
+          certificate format:
+            advanced: true
+            default_value: PEM
+            description: Format of the client certificate/key (PEM or DER).
+            sample: true
+            title: CERTIFICATE FORMAT
+          certificate key:
+            advanced: true
+            default_value: ''
+            description: Private key for the client certificate (if not bundled in the certificate file).
+            sample: true
+            title: CLIENT CERTIFICATE KEY
+          critical severity:
+            advanced: false
+            default_value: critical
+            description: Severity to use when the check result is CRITICAL.
+            sample: true
+            title: CRITICAL SEVERITY
+          facility:
+            advanced: false
+            default_value: kernel
+            description: Facility of the syslog message.
+            sample: true
+            title: FACILITY
+          framing:
+            advanced: true
+            default_value: ''
+            description: 'Message framing for stream transports: octet-counted (default, RFC 6587/RFC 5425
+              "LEN SP MSG") or non-transparent (LF-terminated, legacy TCP receivers only - not allowed
+              with TLS).'
+            sample: true
+            title: FRAMING
           host:
             advanced: true
             default_value: ''
             description: The target server to report results to.
             sample: true
             title: TARGET HOST
+          insecure:
+            advanced: true
+            default_value: 'false'
+            description: When true, allow TLS connections that do not verify the server certificate. Off
+              by default; enabling this disables protection against man-in-the-middle attacks.
+            sample: true
+            title: INSECURE
+          message_syntax:
+            advanced: false
+            default_value: '%message%'
+            description: The template used for the syslog MESSAGE field (%message% expands to the check
+              output).
+            sample: true
+            title: MESSAGE TEMPLATE
+          ok severity:
+            advanced: false
+            default_value: informational
+            description: Severity to use when the check result is OK.
+            sample: true
+            title: OK SEVERITY
           port:
             advanced: true
             default_value: ''
@@ -69,12 +139,62 @@ common:
             description: Number of times to retry sending.
             sample: true
             title: RETRIES
+          severity:
+            advanced: false
+            default_value: error
+            description: Severity of the syslog message when no per-state severity matches.
+            sample: true
+            title: SEVERITY
+          tag_syntax:
+            advanced: false
+            default_value: NSCA
+            description: The template used for the syslog TAG field (%message% expands to the check output).
+            sample: true
+            title: TAG TEMPLATE
           timeout:
             advanced: false
             default_value: '30'
             description: Timeout (in seconds) when reading/writing packets to/from sockets.
             sample: true
             title: TIMEOUT
+          tls version:
+            advanced: false
+            default_value: 1.2+
+            description: The TLS version to use (1.0, 1.1, 1.2, 1.2+ or 1.3).
+            sample: true
+            title: TLS VERSION
+          transport:
+            advanced: false
+            default_value: ''
+            description: 'How to reach the syslog server: udp (default, RFC 3164), tcp (RFC 6587) or tls
+              (RFC 5425, encrypted and authenticated).'
+            sample: true
+            title: TRANSPORT
+          unknown severity:
+            advanced: false
+            default_value: emergency
+            description: Severity to use when the check result is UNKNOWN.
+            sample: true
+            title: UNKNOWN SEVERITY
+          use ssl:
+            advanced: false
+            default_value: 'false'
+            description: Use TLS for this target (same as transport = tls).
+            sample: true
+            title: ENABLE TLS
+          verify mode:
+            advanced: false
+            default_value: peer
+            description: 'How to verify the server certificate: ''peer'' (default) / ''peer-cert'' validate
+              the chain and hostname; ''none'' disables verification (insecure).'
+            sample: true
+            title: VERIFY MODE
+          warning severity:
+            advanced: false
+            default_value: warning
+            description: Severity to use when the check result is WARNING.
+            sample: true
+            title: WARNING SEVERITY
   queries:
     submit_syslog:
       common_options:
@@ -212,11 +332,111 @@ common:
       - content_type: 2
         default_value: ''
         is_simple: true
+        long_description: The client certificate to use
+        name: certificate
+        repeatable: false
+        required: false
+        short_description: The client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The DH key to use
+        name: dh
+        repeatable: false
+        required: false
+        short_description: The DH key to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate to use
+        name: certificate-key
+        repeatable: false
+        required: false
+        short_description: Client certificate to use
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: certificate-format
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Certificate authority
+        name: ca
+        repeatable: false
+        required: false
+        short_description: Certificate authority
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: verify
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: Client certificate format
+        name: allowed-ciphers
+        repeatable: false
+        required: false
+        short_description: Client certificate format
+      - content_type: 2
+        default_value: 'true'
+        is_simple: false
+        long_description: Initial an ssl handshake with the server.
+        name: ssl
+        repeatable: false
+        required: false
+        short_description: Initial an ssl handshake with the server.
+      - content_type: 2
+        default_value: ''
+        is_simple: true
         long_description: ''
         name: path
         repeatable: false
         required: false
         short_description: ''
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Transport to use: udp (default, RFC 3164), tcp (RFC 6587) or tls (RFC 5425)'
+        name: transport
+        repeatable: false
+        required: false
+        short_description: 'Transport to use: udp (default, RFC 3164), tcp (RFC 6587) or tls (RFC 5425)'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: 'Stream framing: octet-counted (default) or non-transparent (legacy TCP receivers
+          only)'
+        name: framing
+        repeatable: false
+        required: false
+        short_description: 'Stream framing: octet-counted (default) or non-transparent (legacy TCP receivers
+          only)'
+      - content_type: 2
+        default_value: ''
+        is_simple: true
+        long_description: The TLS version to use (1.0, 1.1, 1.2, 1.2+ or 1.3)
+        name: tls-version
+        repeatable: false
+        required: false
+        short_description: The TLS version to use (1.0, 1.1, 1.2, 1.2+ or 1.3)
+      - content_type: 2
+        default_value: 'true'
+        is_simple: false
+        long_description: Allow TLS connections without verifying the server certificate (disables MITM
+          protection)
+        name: insecure
+        repeatable: false
+        required: false
+        short_description: Allow TLS connections without verifying the server certificate (disables MITM
+          protection)
       - content_type: 2
         default_value: ''
         is_simple: true

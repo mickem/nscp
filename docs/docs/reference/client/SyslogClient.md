@@ -51,7 +51,19 @@ Submit information to the remote syslog server.
 <a id="submit_syslog_result"></a>
 <a id="submit_syslog_separator"></a>
 <a id="submit_syslog_batch"></a>
+<a id="submit_syslog_certificate"></a>
+<a id="submit_syslog_dh"></a>
+<a id="submit_syslog_certificate-key"></a>
+<a id="submit_syslog_certificate-format"></a>
+<a id="submit_syslog_ca"></a>
+<a id="submit_syslog_verify"></a>
+<a id="submit_syslog_allowed-ciphers"></a>
+<a id="submit_syslog_ssl"></a>
 <a id="submit_syslog_path"></a>
+<a id="submit_syslog_transport"></a>
+<a id="submit_syslog_framing"></a>
+<a id="submit_syslog_tls-version"></a>
+<a id="submit_syslog_insecure"></a>
 <a id="submit_syslog_severity"></a>
 <a id="submit_syslog_unknown-severity"></a>
 <a id="submit_syslog_ok-severity"></a>
@@ -78,7 +90,19 @@ Submit information to the remote syslog server.
 | result            |               | Result code either a number or OK, WARN, CRIT, UNKNOWN                                |
 | separator         |               | Separator to use for the batch command (default is |)                                 |
 | batch             |               | Add multiple records using the separator format is: command|result|message            |
+| certificate       |               | The client certificate to use                                                         |
+| dh                |               | The DH key to use                                                                     |
+| certificate-key   |               | Client certificate to use                                                             |
+| certificate-format |              | Client certificate format                                                             |
+| ca                |               | Certificate authority                                                                 |
+| verify            |               | Client certificate format                                                             |
+| allowed-ciphers   |               | Client certificate format                                                             |
+| ssl               |               | Initial an ssl handshake with the server.                                             |
 | path              |               |                                                                                       |
+| transport         |               | Transport to use: udp (default, RFC 3164), tcp (RFC 6587) or tls (RFC 5425)           |
+| framing           |               | Stream framing: octet-counted (default) or non-transparent (legacy TCP receivers only) |
+| tls-version       |               | The TLS version to use (1.0, 1.1, 1.2, 1.2+ or 1.3)                                   |
+| insecure          |               | Allow TLS connections without verifying the server certificate (disables MITM protection) |
 | severity          |               | Severity of error message                                                             |
 | unknown-severity  |               | Severity to use when the check result is UNKNOWN                                      |
 | ok-severity       |               | Severity to use when the check result is OK                                           |
@@ -201,13 +225,32 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key     | Default Value | Description    |
-|---------|---------------|----------------|
-| address |               | TARGET ADDRESS |
-| host    |               | TARGET HOST    |
-| port    |               | TARGET PORT    |
-| retries | 3             | RETRIES        |
-| timeout | 30            | TIMEOUT        |
+| Key                | Default Value                     | Description            |
+|--------------------|-----------------------------------|------------------------|
+| address            |                                   | TARGET ADDRESS         |
+| allowed ciphers    | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH | ALLOWED CIPHERS        |
+| ca                 | ${ca-path}                        | CA                     |
+| certificate        |                                   | CLIENT CERTIFICATE     |
+| certificate format | PEM                               | CERTIFICATE FORMAT     |
+| certificate key    |                                   | CLIENT CERTIFICATE KEY |
+| critical severity  | critical                          | CRITICAL SEVERITY      |
+| facility           | kernel                            | FACILITY               |
+| framing            |                                   | FRAMING                |
+| host               |                                   | TARGET HOST            |
+| insecure           | false                             | INSECURE               |
+| message_syntax     | %message%                         | MESSAGE TEMPLATE       |
+| ok severity        | informational                     | OK SEVERITY            |
+| port               |                                   | TARGET PORT            |
+| retries            | 3                                 | RETRIES                |
+| severity           | error                             | SEVERITY               |
+| tag_syntax         | NSCA                              | TAG TEMPLATE           |
+| timeout            | 30                                | TIMEOUT                |
+| tls version        | 1.2+                              | TLS VERSION            |
+| transport          |                                   | TRANSPORT              |
+| unknown severity   | emergency                         | UNKNOWN SEVERITY       |
+| use ssl            | false                             | ENABLE TLS             |
+| verify mode        | peer                              | VERIFY MODE            |
+| warning severity   | warning                           | WARNING SEVERITY       |
 
 
 **Sample:**
@@ -216,12 +259,38 @@ This is a section of objects. This means that you will create objects below this
 # An example of a REMOTE TARGET DEFINITIONS section
 [/settings/syslog/client/targets/sample]
 #address=...
+allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
+ca=${ca-path}
+#certificate=...
+certificate format=PEM
+#certificate key=...
+critical severity=critical
+facility=kernel
+#framing=...
 #host=...
+insecure=false
+message_syntax=%message%
+ok severity=informational
 #port=...
 retries=3
+severity=error
+tag_syntax=NSCA
 timeout=30
+tls version=1.2+
+#transport=...
+unknown severity=emergency
+use ssl=false
+verify mode=peer
+warning severity=warning
 
 ```
+
+The `transport` key selects how the syslog server is reached: `udp` (the
+default, classic RFC 3164), `tcp` (RFC 6587, octet-counted framing by
+default) or `tls` (RFC 5425 on port 6514, encrypted and authenticated).
+Over TLS the server certificate is verified against `ca` by default
+(`verify mode = peer`, including hostname verification); disabling
+verification requires an explicit `verify mode = none` or `insecure = true`.
 
 
 

@@ -347,7 +347,7 @@ bool write_with_timeout(boost::asio::io_context& io_service, AsyncWriteStream& s
   // Record both success and failure here (unlike the timer, whose handler
   // ignores its own cancellation). If write errors were dropped, the call would
   // block until the timeout elapsed and then report a (false) timeout instead.
-  async_write(sock, buffers, [&write_result](const auto& e) { write_result = e; });
+  async_write(sock, buffers, [&write_result](const auto& e, std::size_t) { write_result = e; });
 
   io_service.restart();
   while (io_service.run_one()) {
@@ -440,7 +440,7 @@ bool read_with_timeout(boost::asio::io_context& io_service, AsyncReadStream& soc
   // Record both success and failure here (unlike the timer, whose handler
   // ignores its own cancellation). If read errors were dropped, the call would
   // block until the timeout elapsed and then report a (false) timeout instead.
-  async_read(sock, buffers, [&read_result](const auto& e) { read_result = e; });
+  async_read(sock, buffers, [&read_result](const auto& e, std::size_t) { read_result = e; });
 
   io_service.restart();
   while (io_service.run_one()) {
