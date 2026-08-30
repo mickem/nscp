@@ -33,7 +33,9 @@ struct nrdp_target_object : nscapi::targets::target_object {
         .add_password("token", sh::string_fun_key([this](const auto& value) { this->set_property_string("token", value); }), "SECURITY TOKEN",
                       "The security token")
         .add_string("tls version", sh::string_fun_key([this](const auto& value) { this->set_property_string("tls version", value); }, "1.3"), "Tls version",
-                    "The tls version to use 1.0, 1.1, 1.2, 1.3 or any")
+                    "The tls version to use: an exact version (1.0, 1.1, 1.2, 1.3) allows only that version, a trailing + (e.g. 1.2+) means that version or "
+                    "later, and any accepts whatever both sides support. Configured targets default to 1.3 (TLS 1.3 only); a bare client submission with no "
+                    "target defaults to 1.2+.")
         .add_string("verify mode", sh::string_fun_key([this](const auto& value) { this->set_property_string("verify mode", value); }, "peer"),
                     "TLS peer verify mode",
                     "Comma separated list of options: none, peer, peer-cert, client-once, fail-if-no-cert, workarounds, single. "
@@ -71,7 +73,7 @@ struct options_reader_impl : client::options_reader_interface {
     ("token", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("token", value); }),
     "The security token")
     ("tls-version", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("tls version", value); }),
-      "The tls version to use 1.0, 1.1, 1.2, 1.3")
+      "The tls version to use: an exact version (1.0, 1.1, 1.2, 1.3) allows only that version, a trailing + (e.g. 1.2+) means that version or later, and any accepts whatever both sides support.")
     ("tls version", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("tls version", value); }),
       "Legacy alias for --tls-version (kept for backwards compatibility).")
     ("verify", po::value<std::string>()->notifier([&data] (const auto& value) { data.set_string_data("verify mode", value); }),

@@ -140,6 +140,53 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
+### NRDP client: transport hardening and shared TLS version-floor fix
+
+**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium
+
+A follow-up security review of the `NRDPClient` module (after the 0.18.0
+hardening below) produced three fixes on the submission transport. None is a
+confirmed remote vulnerability in a default configuration; each closes an
+availability or downgrade gap that a hostile, compromised or merely broken
+NRDP endpoint could lean on. The TLS fix is in the shared TLS stack and
+benefits every module that uses it.
+
+- **A stalled NRDP server can no longer wedge passive monitoring.** The
+  per-target `timeout` (and `retry`) settings were parsed but never applied to
+  the HTTP exchange — every socket operation waited forever, so an NRDP server
+  (or proxy) that accepted the connection and then stalled blocked the
+  submission thread indefinitely, silently stopping passive results until a
+  service restart. The configured timeout now bounds every step of the
+  exchange — connect, TLS handshake, proxy `CONNECT` tunnel setup, request and
+  response — and transport failures (and only transport failures) are retried
+  up to `retry` times, each attempt on a fresh connection. As part of this,
+  `timeout` and `retry` are read from the right place: both were also looked
+  up in the free-form option map while the framework routes them into typed
+  fields, so a configured value was ignored even where the timeout *was*
+  honoured.
+- **An NRDP response can no longer exhaust the agent's memory.** The response
+  body was buffered without any size limit, so a hostile or compromised
+  server — or a man-in-the-middle on a plain-`http://` target — could stream
+  an arbitrarily large reply into the submitting process. The submission path
+  now uses the size-capped fetch path (5 MB, far above any real NRDP reply)
+  and reports an HTTP error status as such (`NRDP server at host:port returned
+  403: Forbidden`) instead of feeding the error page to the XML parser.
+- **`tls version = 1.2+` now actually means "TLS 1.2 or later".** The parser
+  stripped the `+` and mapped the value onto a version-pinned OpenSSL method,
+  which pins the *maximum* protocol version too — so the widely-used default
+  `1.2+` negotiated TLS 1.2 only and silently excluded TLS 1.3. `+` values now
+  resolve to the generic TLS method with an enforced minimum-version floor,
+  and `any` (documented but previously rejected) is accepted. This fix covers
+  the shared stack: all HTTP-based clients (NRDP, Elastic, Docker, web
+  fetches), the NRPE/NSCA socket clients and servers, and `check_tcp`.
+
+**What to do:** nothing required. A submission to an unresponsive server now
+fails (and is retried) after `timeout` — 30 seconds for configured targets —
+instead of hanging; raise `timeout` on a target if your NRDP endpoint is
+legitimately slower than that. Endpoints negotiating with a `+` or `any` TLS
+version can now select TLS 1.3; pin an exact version (`tls version = 1.2`)
+in the unlikely case a peer misbehaves on 1.3.
+
 ### NSCA-NG client: cert-mode TLS settings (peer verification included) were never applied
 
 **Fixed in:** unreleased (first release after 0.18.0) · **Affected:** 0.18.0, `NSCANgClient` in cert mode only · **Severity:** High for cert-mode targets; the default PSK mode is unaffected

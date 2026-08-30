@@ -239,6 +239,27 @@ TEST(ssl_socket, refuses_an_unencodable_alpn_name) {
                socket_helpers::socket_exception);
 }
 
+TEST(ssl_socket, applies_the_tls_floor_to_the_context) {
+  // "1.2+" resolves to the generic method plus a floor; the floor is not part
+  // of the method, so make_context must apply it or "1.2+" degrades to "any".
+  const http::client_identity id;
+  auto ctx = http::ssl_socket::make_context(socket_helpers::tls_method_parser("1.2+"), "", id, boost::asio::ssl::verify_none, {},
+                                            socket_helpers::tls_min_version_parser("1.2+"));
+  EXPECT_EQ(SSL_CTX_get_min_proto_version(ctx.native_handle()), TLS1_2_VERSION);
+}
+
+TEST(http_client_options, exposes_the_tls_floor_for_a_plus_version) {
+  const http::http_client_options opts("https", "1.2+", "peer", "");
+  EXPECT_EQ(opts.get_tls_min_version(), TLS1_2_VERSION);
+  EXPECT_EQ(+opts.get_method(), +boost::asio::ssl::context::tls);
+}
+
+TEST(http_client_options, an_exact_tls_version_has_no_floor) {
+  const http::http_client_options opts("https", "1.2", "peer", "");
+  EXPECT_EQ(opts.get_tls_min_version(), 0);
+  EXPECT_EQ(+opts.get_method(), +boost::asio::ssl::context::tlsv12);
+}
+
 // =============================================================================
 // http::request tests
 // =============================================================================
