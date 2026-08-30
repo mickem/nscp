@@ -155,6 +155,27 @@ per-release detail lives in each
     - All C0 control bytes and DEL in the outgoing line are replaced with
       spaces (previously only CR, LF and NUL), so check output cannot smuggle
       ANSI escape sequences into the receiver's log.
+- ⏱️ **The Graphite `timeout` is now enforced — as a budget for the whole
+  submission.** It was doubly dead before: the value the operator configured
+  never reached the connection (the lookup read a map the well-known `timeout`
+  key is not stored in, so the default 30 always won), and the connection did
+  not use even that — resolution, connect, the TLS handshake and every write
+  ran with no deadline, so a stalled carbon endpoint could hold the submitting
+  thread for the OS-level TCP timeout, or indefinitely on a stuck write. The
+  configured `timeout` (default 30s) is read now and bounds the whole
+  submission as one budget, like the SMTP client's. A target whose submissions
+  previously completed by quietly taking longer will now fail at the
+  configured value; raise `timeout` on targets talking to a slow relay. See
+  [Security notices](../security/notices.md#graphite-client-metric-line-injection-scrub-and-a-whole-submission-timeout).
+- 🧹 **The Graphite `retry` setting is not honoured and is no longer read.**
+  The module always made exactly one attempt per submission; reading the value
+  made it look otherwise, and a retry loop would multiply the worst-case time
+  a stalled endpoint can hold the submitting thread by the retry count.
+  `retry`/`retries` are registered for every client module centrally, so they
+  still appear in the GraphiteClient reference, but `GraphiteClient` does not
+  act on them. Mirrors the SMTP `retry` change in 0.18.0.
+
+---
 
 ## 0.18.0
 

@@ -587,6 +587,14 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}
         ${CMAKE_SOURCE_DIR}/modules/GraphiteClient
 )
+if(OPENSSL_FOUND AND TARGET graphite_client_test)
+    # The TLS submission path (deadline-bounded handshake included) only
+    # compiles under USE_SSL; build the test with it whenever OpenSSL is
+    # available so the handshake-stall timeout case runs.
+    target_compile_definitions(graphite_client_test PRIVATE USE_SSL)
+    target_include_directories(graphite_client_test PRIVATE ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(graphite_client_test ${OPENSSL_LIBRARIES})
+endif()
 
 set(SETTINGS_INI_TEST_SOURCES
     ${NSCP_INCLUDEDIR}/settings/impl/settings_ini_test.cpp

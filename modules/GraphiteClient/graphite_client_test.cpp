@@ -10,6 +10,11 @@
 // The submission itself is captured by a loopback TCP server standing in for
 // carbon, so what is asserted is the exact byte stream a carbon receiver
 // would parse.
+//
+// The timeout tests stall the receiver instead (accept and never read, or
+// never answer the TLS ClientHello) and assert the submission gives up within
+// the configured `timeout` rather than holding the submitting thread - the
+// recurring metrics flush lands on this same code path.
 
 #include "graphite_client.hpp"
 
@@ -99,6 +104,57 @@ class loopback_carbon_receiver {
   unsigned short port_ = 0;
   char buf_[4096] = {};
   std::string received_;
+};
+
+// Accepts one connection and then never reads a byte, holding the socket open
+// until the test releases it: once the kernel buffers on both sides fill up,
+// the client's write can make no progress - the stalled-carbon scenario the
+// submission timeout exists for. It also never writes, so a TLS client waiting
+// for a ServerHello waits forever.
+//
+// Like loopback_carbon_receiver, it runs async under a hard deadline rather
+// than blocking a thread in accept(): a client that never connects (or a
+// broken test) must not wedge the process in the destructor's join().
+class stalled_receiver {
+ public:
+  explicit stalled_receiver(const std::chrono::seconds deadline = std::chrono::seconds(30)) : acceptor_(io_, {tcp::v4(), 0}), socket_(io_), deadline_(io_) {
+    port_ = acceptor_.local_endpoint().port();
+    deadline_.expires_after(deadline);
+    deadline_.async_wait([this](const boost::system::error_code &ec) {
+      if (!ec) stop();
+    });
+    // Accept and then issue no read at all: the connection stays open and
+    // unserviced until stop() runs, which is exactly the stall under test.
+    acceptor_.async_accept(socket_, [this](const boost::system::error_code &ec) {
+      if (ec) stop();
+    });
+    thread_ = std::thread([this] { io_.run(); });
+  }
+  ~stalled_receiver() {
+    // Release the stall so run() finishes, then join. post() hands the work to
+    // the io_context's own thread rather than racing it from this one.
+    boost::asio::post(io_, [this] { stop(); });
+    if (thread_.joinable()) thread_.join();
+  }
+  unsigned short port() const { return port_; }
+
+ private:
+  void stop() {
+    boost::system::error_code ignored;
+    acceptor_.close(ignored);
+    socket_.close(ignored);
+    try {
+      deadline_.cancel();
+    } catch (...) {
+    }
+  }
+
+  boost::asio::io_context io_;
+  tcp::acceptor acceptor_;
+  tcp::socket socket_;
+  boost::asio::steady_timer deadline_;
+  std::thread thread_;
+  unsigned short port_ = 0;
 };
 
 std::vector<std::string> split_lines(const std::string &s) {
@@ -230,3 +286,73 @@ TEST(GraphiteSubmitTest, benign_submission_renders_expected_lines) {
   EXPECT_EQ(0u, lines[0].find("nsclient.myhost.cpu_load.total_5m 87 ")) << lines[0];
   EXPECT_EQ(0u, lines[1].find("nsclient.myhost.cpu_load.status 1 ")) << lines[1];
 }
+
+// `timeout` bounds the whole submission; `retry` is deliberately not read -
+// there is no retry loop, and reading it into the inherited field only made
+// it look honoured (mirrors SMTPClient).
+TEST(GraphiteConnectionDataTest, timeout_is_read_and_retry_is_not) {
+  const client::destination_container sender;
+  const graphite_client::connection_data con(sender, container_with({{"address", "h"}, {"timeout", "5"}, {"retry", "7"}}));
+  EXPECT_EQ(5u, con.timeout);
+  EXPECT_NE(7, con.retry) << "retry is not honoured, so it must not be read in as though it were";
+}
+
+// A carbon endpoint that accepts the connection but never reads (a stalled
+// relay, a zero receive window) must not hold the submitting thread past the
+// configured timeout. The payload is sized well past what the loopback kernel
+// buffers on both sides can absorb, so the write genuinely stalls.
+TEST(GraphiteTimeoutTest, stalled_receiver_fails_within_the_configured_timeout) {
+  stalled_receiver server;
+
+  const client::destination_container sender;
+  const graphite_client::connection_data con(sender, container_with({
+                                                         {"address", "127.0.0.1:" + str::xtos(server.port())},
+                                                         {"timeout", "1"},
+                                                     }));
+
+  graphite_client::g_data d;
+  d.path = std::string(64 * 1024 * 1024, 'a');
+  d.value = "1";
+
+  graphite_client::graphite_client_handler handler;
+  const auto started = std::chrono::steady_clock::now();
+  const boost::tuple<bool, std::string> ret = handler.send(con, {d});
+  const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+
+  EXPECT_FALSE(ret.get<0>()) << ret.get<1>();
+  EXPECT_NE(std::string::npos, ret.get<1>().find("timed out after 1s")) << ret.get<1>();
+  EXPECT_GE(elapsed.count(), 900) << "gave up before the write can have stalled: " << ret.get<1>();
+  // Well under the minutes an OS-level TCP timeout would take; generous
+  // headroom for a loaded CI host.
+  EXPECT_LT(elapsed.count(), 20000);
+}
+
+#ifdef USE_SSL
+// A peer that completes the TCP connect but never answers the ClientHello
+// stalls the TLS handshake - which has no timeout of its own in asio - so the
+// submission budget must cut it short.
+TEST(GraphiteTimeoutTest, stalled_tls_handshake_fails_within_the_configured_timeout) {
+  stalled_receiver server;
+
+  const client::destination_container sender;
+  const graphite_client::connection_data con(sender, container_with({
+                                                         {"address", "127.0.0.1:" + str::xtos(server.port())},
+                                                         {"timeout", "1"},
+                                                         {"ssl", "true"},
+                                                     }));
+
+  graphite_client::g_data d;
+  d.path = "nsclient.host.check.metric";
+  d.value = "1";
+
+  graphite_client::graphite_client_handler handler;
+  const auto started = std::chrono::steady_clock::now();
+  const boost::tuple<bool, std::string> ret = handler.send(con, {d});
+  const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+
+  EXPECT_FALSE(ret.get<0>()) << ret.get<1>();
+  EXPECT_NE(std::string::npos, ret.get<1>().find("TLS handshake failed: timed out after 1s")) << ret.get<1>();
+  EXPECT_GE(elapsed.count(), 900) << "gave up before the handshake can have stalled: " << ret.get<1>();
+  EXPECT_LT(elapsed.count(), 20000);
+}
+#endif
