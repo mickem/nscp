@@ -239,18 +239,41 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
     DWORD dwAvail = 0;
     std::string str;
     buffer_type buffer(BUFF_SIZE);
-    for (unsigned int i = 0; i < args.timeout * 10; i++) {
+    // Bound the wait by wall-clock time, not iteration count. The previous loop
+    // ran a fixed `timeout * 10` iterations: a child that always had output
+    // pending never entered the `dwAvail == 0` wait branch, so it burned through
+    // every iteration in microseconds and returned with `state` still at its
+    // initial value - skipping the timeout/kill block entirely and leaking a
+    // still-running (now unwaited) process. `while (1) echo x` in a script was
+    // an unkillable per-invocation orphan. Track a deadline instead, and treat
+    // "deadline reached, process still alive" as the timeout path.
+    const ULONGLONG deadline_ms = GetTickCount64() + static_cast<ULONGLONG>(args.timeout > 0 ? args.timeout : 30) * 1000ULL;
+    state = WAIT_TIMEOUT;  // "not yet observed to have exited"
+    for (;;) {
       if (!::PeekNamedPipe(hChildOutR.get(), nullptr, 0, nullptr, &dwAvail, nullptr)) {
+        // Pipe broke (write end closed / child gone). Resolve the real process
+        // state so a genuinely-exited child is reaped rather than killed.
+        state = WaitForSingleObject(pi.hProcess, 0);
         break;
       }
       if (dwAvail > 0) {
         str += readFromFile(buffer, hChildOutR.get());
-      }
-      if (dwAvail == 0) {
-        state = WaitForSingleObject(pi.hProcess, 100);
-        if (state != WAIT_TIMEOUT) {
+        // Drained a chunk; re-check the clock before looping so a chatty child
+        // cannot hold us here past the deadline.
+        if (GetTickCount64() >= deadline_ms) {
+          state = WAIT_TIMEOUT;
           break;
         }
+        continue;
+      }
+      // Nothing pending: wait briefly for either more output or exit.
+      state = WaitForSingleObject(pi.hProcess, 100);
+      if (state != WAIT_TIMEOUT) {
+        break;  // process exited; final drain happens below
+      }
+      if (GetTickCount64() >= deadline_ms) {
+        state = WAIT_TIMEOUT;
+        break;
       }
     }
     hChildInW.close();
@@ -273,11 +296,15 @@ int process::execute_process(const exec_arguments &args, std::string &output) {
       // service. Surface it via the proper log so operators can see when
       // NSClient++'s own timeout fired vs. some upstream cutoff.
       NSC_LOG_ERROR("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exceeded timeout=" + str::xtos(args.timeout) +
-                    "s; sending CTRL+C");
-      if (GenerateConsoleCtrlEvent(CTRL_C_EVENT, pi.dwProcessId)) {
+                    "s; sending CTRL+BREAK");
+      // The child is launched into its own process group (CREATE_NEW_PROCESS_GROUP
+      // when !fork), so a group-targeted CTRL+C is discarded - only CTRL+BREAK can
+      // be delivered to another group. Use it here; if we share no console (the
+      // service case) the call simply fails and we fall through to the hard kill.
+      if (GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pi.dwProcessId)) {
         if (WaitForSingleObject(pi.hProcess, 2000) == WAIT_OBJECT_0) {
           state = WAIT_OBJECT_0;
-          NSC_TRACE_ENABLED() { NSC_TRACE_MSG("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exited after CTRL+C"); }
+          NSC_TRACE_ENABLED() { NSC_TRACE_MSG("External script '" + args.alias + "' (pid=" + str::xtos(pi.dwProcessId) + ") exited after CTRL+BREAK"); }
         }
       }
       if (state == WAIT_TIMEOUT) {
