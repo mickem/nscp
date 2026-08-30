@@ -119,3 +119,52 @@ describe("CheckExternalScripts — command timeout enforcement", () => {
     expect(out).toMatch(/hello-from-script/);
   });
 });
+
+describe("CheckExternalScripts — shell-fallback metacharacter guard", () => {
+  // When a command template is not argv-safe (e.g. it contains a backslash the
+  // tokeniser rejects), the command degrades to the shell fallback and the
+  // stricter SHELL_METACHARS set is applied to user arguments. `%` and `^`
+  // (cmd.exe variable expansion / escape) must be blocked there.
+  if (onWindows) {
+    it.skip("shell-fallback guard (Unix launcher only)", () => undefined);
+    return;
+  }
+
+  let nscp: NscpInstance;
+
+  beforeAll(async () => {
+    nscp = new NscpInstance();
+    // A backslash escape (`\x`) makes the template tokeniser throw, forcing the
+    // shell-fallback path where the SHELL_METACHARS guard runs. Arguments are
+    // allowed but nasty characters are not.
+    const ini = [
+      "[/modules]",
+      "CheckExternalScripts = enabled",
+      "",
+      "[/settings/external scripts]",
+      "allow arguments = true",
+      "allow nasty characters = false",
+      "",
+      "[/settings/external scripts/scripts]",
+      "check_fallback = /bin/echo not\\xargv $ARG1$",
+      "",
+    ].join("\n");
+    fs.writeFileSync(nscp.settingsFile, ini);
+  });
+
+  async function query(arg: string) {
+    const r = await nscp.run(["client", "--module", "CheckExternalScripts", "--boot", "--query", "check_fallback", arg], { allowFailure: true });
+    return r.all ?? `${r.stdout}\n${r.stderr}`;
+  }
+
+  it.each(["pct%val", "car^et"])("rejects an argument containing a cmd.exe metacharacter (%s)", async (arg) => {
+    const out = await query(arg);
+    expect(out).toMatch(/illegal characters/i);
+  });
+
+  it("still runs a clean argument through the shell fallback", async () => {
+    const out = await query("plainvalue");
+    expect(out).toMatch(/plainvalue/);
+    expect(out).not.toMatch(/illegal characters/i);
+  });
+});
