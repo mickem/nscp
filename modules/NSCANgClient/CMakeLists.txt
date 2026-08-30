@@ -81,6 +81,10 @@ NSCP_CREATE_TEST(
         # nsca_ng_handler.cpp (utf8.cpp above overlaps and is deduplicated).
         ${NSCP_CLIENT_CPP}
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        # The Windows plugin_api DLL does not export the settings_helper
+        # symbols nsca_ng_handler.cpp's read() needs, so compile them in
+        # (see client_command_line_parser_test).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     LIBRARIES
         GTest::gtest_main
         ${Boost_THREAD_LIBRARY}

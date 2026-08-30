@@ -87,6 +87,10 @@ NSCP_CREATE_TEST(
         ${NSCP_CLIENT_CPP}
         ${TINYXML2_SRCS}
         ${NSCP_INCLUDEDIR}/str/utf8.cpp
+        # The Windows plugin_api DLL does not export the settings_helper
+        # symbols nrdp_handler.hpp's read() needs, so compile them in
+        # (see client_command_line_parser_test).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
     LIBRARIES
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}

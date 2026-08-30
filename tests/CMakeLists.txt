@@ -551,6 +551,10 @@ NSCP_CREATE_TEST(
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
         ${NSCP_INCLUDEDIR}/bytes/base64.c
+        # The Windows plugin_api DLL does not export the settings_helper
+        # symbols icinga_target_object.hpp's read() needs, so compile them in
+        # (see client_command_line_parser_test below).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_CLIENT_CPP}
     LIBRARIES
         GTest::gtest_main

@@ -70,6 +70,12 @@ NSCP_CREATE_TEST(
     SOURCES
         script_provider_test.cpp
         script_provider.cpp
+        # The Windows plugin_api DLL does not export the settings_helper
+        # symbols commands::command_object::read() needs, so compile them in
+        # along with the utf8 conversions they use
+        # (see client_command_line_parser_test).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
+        ${NSCP_INCLUDEDIR}/str/utf8.cpp
     LIBRARIES
         GTest::gtest_main
         ${NSCP_DEF_PLUGIN_LIB}

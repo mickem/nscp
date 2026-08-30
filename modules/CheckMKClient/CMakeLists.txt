@@ -84,6 +84,10 @@ NSCP_CREATE_TEST(
         check_mk_handler_test.cpp
         ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
         ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.cpp
+        # The Windows plugin_api DLL does not export the settings_helper
+        # symbols check_mk_handler.hpp's read() needs, so compile them in
+        # (see client_command_line_parser_test).
+        ${NSCP_INCLUDEDIR}/nscapi/settings/helper.cpp
         ${NSCP_CLIENT_CPP}
     LIBRARIES
         GTest::gtest_main
