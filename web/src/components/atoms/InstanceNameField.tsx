@@ -57,7 +57,7 @@ export default function InstanceNameField({
 
   if (!editing) {
     return (
-      <Stack direction="row" alignItems="center" spacing={0.5}>
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
         <Typography variant="h6">{name}</Typography>
         <Tooltip title="Rename" arrow>
           <IconButton

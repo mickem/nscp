@@ -142,7 +142,7 @@ first, alongside the release that contains them.
 
 ### NRDP client: transport hardening and shared TLS version-floor fix
 
-**Fixed in:** 0.18.1 · **Severity:** Low–Medium
+**Fixed in:** unreleased (first release after 0.18.0) · **Severity:** Low–Medium
 
 A follow-up security review of the `NRDPClient` module (after the 0.18.0
 hardening below) produced three fixes on the submission transport. None is a
@@ -186,6 +186,47 @@ instead of hanging; raise `timeout` on a target if your NRDP endpoint is
 legitimately slower than that. Endpoints negotiating with a `+` or `any` TLS
 version can now select TLS 1.3; pin an exact version (`tls version = 1.2`)
 in the unlikely case a peer misbehaves on 1.3.
+
+### NSCA-NG client: cert-mode TLS settings (peer verification included) were never applied
+
+**Fixed in:** unreleased (first release after 0.18.0) · **Affected:** 0.18.0, `NSCANgClient` in cert mode only · **Severity:** High for cert-mode targets; the default PSK mode is unaffected
+
+A security review of the NSCA-NG client found that in certificate mode
+(`use psk = false`) the TLS configuration was applied to the OpenSSL
+context *after* the TLS stream had been created from it. `SSL_new()` copies
+the verify mode, certificate, cipher list and protocol-version bounds out of
+the `SSL_CTX` at creation time (only the CA store stays shared), so none of
+that configuration reached the live connection:
+
+- **`verify mode = peer-cert` had no effect** — the connection ran with
+  verification off and accepted any certificate the server presented,
+  including a man-in-the-middle's. The host-name check was installed but is
+  advisory when the underlying verify mode is off, and the client's own
+  "refusing to connect unverified" guard read the *configured* mode rather
+  than the live one, so it passed too.
+- **The configured client certificate and key were never presented**, so
+  mutual-TLS setups authenticated in one direction only (and fail against
+  servers that require a client certificate).
+- The `tls version` floor and `allowed ciphers` list were likewise ignored
+  in cert mode.
+
+The context is now fully configured before the connection object is created
+(the same ordering the other TLS client modules use), unit tests assert the
+settings actually arrive on connections created from it, and integration
+tests drive cert mode against a live TLS endpoint both ways: a wrong CA must
+fail the handshake, and a mutual-TLS round-trip must succeed. The same fix
+removes a rare undefined-behaviour window in the connection's I/O-timeout
+handling (a stale deadline handler could fire into a later operation).
+
+Not affected: the default PSK mode (`use psk = true`) configures the SSL
+object directly and always authenticated both ends via the pre-shared key;
+targets that never set `use psk = false` need no action.
+
+**What to do:** upgrade if any NSCA-NG target uses `use psk = false`. After
+the upgrade, a cert-mode target whose server certificate does not chain to
+the configured `ca` (or does not match the host name) will fail to connect —
+that is the verification taking effect; fix the server certificate or, if
+you accept the MITM exposure, opt out explicitly with `insecure = true`.
 
 ### SMTP client security-review hardening
 
