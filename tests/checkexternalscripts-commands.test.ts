@@ -3,9 +3,9 @@
  * binary, over the one-shot CLI / client-query path (no server/port/docker).
  *
  * These cover the security-relevant behaviour of the module: the `ext-scr
- * install` argument-lockdown tool, the argument metacharacter guard, and the
- * timeout enforcement on a runaway script. They are cross-platform except where
- * a case explicitly guards on the OS.
+ * install` argument-lockdown tool (cross-platform), and — on the Unix launcher —
+ * the command timeout on a runaway script and the shell-fallback metacharacter
+ * guard.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -15,7 +15,9 @@ import { NscpInstance } from "@fixtures/index";
 
 jest.setTimeout(120_000);
 
-const onWindows = process.platform === "win32";
+// The timeout / shell-fallback cases drive the POSIX launcher (fork/execvp,
+// /bin/sh, /bin/echo), so they only run off Windows.
+const onUnix = process.platform === "win32" ? describe.skip : describe;
 
 describe("CheckExternalScripts — ext-scr install argument lockdown (settings path)", () => {
   let nscp: NscpInstance;
@@ -61,16 +63,11 @@ describe("CheckExternalScripts — ext-scr install argument lockdown (settings p
   });
 });
 
-describe("CheckExternalScripts — command timeout enforcement", () => {
+onUnix("CheckExternalScripts — command timeout enforcement (POSIX launcher)", () => {
   // A runaway script must be killed at the configured timeout and reported, not
   // left running. On Unix the shell-fallback path used to run through popen(),
   // which hid the child pid and blocked forever with the timeout unenforced;
   // both paths now go through the same fork/exec + deadline machinery.
-  if (onWindows) {
-    it.skip("timeout enforcement (Unix launcher only)", () => undefined);
-    return;
-  }
-
   let nscp: NscpInstance;
   let scriptsDir: string;
 
@@ -120,23 +117,19 @@ describe("CheckExternalScripts — command timeout enforcement", () => {
   });
 });
 
-describe("CheckExternalScripts — shell-fallback metacharacter guard", () => {
+onUnix("CheckExternalScripts — shell-fallback metacharacter guard (POSIX launcher)", () => {
   // When a command template is not argv-safe (e.g. it contains a backslash the
   // tokeniser rejects), the command degrades to the shell fallback and the
   // stricter SHELL_METACHARS set is applied to user arguments. `%` and `^`
   // (cmd.exe variable expansion / escape) must be blocked there.
-  if (onWindows) {
-    it.skip("shell-fallback guard (Unix launcher only)", () => undefined);
-    return;
-  }
-
   let nscp: NscpInstance;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     nscp = new NscpInstance();
     // A backslash escape (`\x`) makes the template tokeniser throw, forcing the
     // shell-fallback path where the SHELL_METACHARS guard runs. Arguments are
-    // allowed but nasty characters are not.
+    // allowed but nasty characters are not. CSimpleIni stores values verbatim,
+    // so the backslash survives into the stored command template.
     const ini = [
       "[/modules]",
       "CheckExternalScripts = enabled",
