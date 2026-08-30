@@ -17,8 +17,8 @@
 
 #include <algorithm>
 #include <boost/asio.hpp>
+#include <chrono>
 #include <client/command_line_parser.hpp>
-#include <future>
 #include <map>
 #include <str/xtos.hpp>
 #include <string>
@@ -39,30 +39,28 @@ client::destination_container container_with(const std::map<std::string, std::st
 
 // Accepts one connection and keeps every byte received until the peer closes,
 // which matches how GraphiteClient submits: connect, write all lines, close.
+//
+// Everything runs async on one io_context with a hard deadline, so a
+// submission that fails before connecting (or stalls mid-stream) cannot leave
+// the server thread blocked in accept()/read() and wedge the join() in
+// received() / the destructor - the deadline cancels the pending operation,
+// run() returns, and the assertions fail loudly on whatever was captured.
 class loopback_carbon_receiver {
  public:
-  loopback_carbon_receiver() {
-    std::promise<unsigned short> p;
-    std::future<unsigned short> f = p.get_future();
-    thread_ = std::thread([this, prom = std::move(p)]() mutable {
-      try {
-        boost::asio::io_context io;
-        tcp::acceptor acceptor(io, {tcp::v4(), 0});
-        prom.set_value(acceptor.local_endpoint().port());
-        tcp::socket socket(io);
-        acceptor.accept(socket);
-        boost::system::error_code ec;
-        char buf[4096];
-        for (;;) {
-          const std::size_t n = socket.read_some(boost::asio::buffer(buf), ec);
-          if (n > 0) received_.append(buf, n);
-          if (ec) break;
-        }
-      } catch (...) {
-        // Leave received_ as-is; the assertions on it will fail loudly.
-      }
+  explicit loopback_carbon_receiver(const std::chrono::seconds deadline = std::chrono::seconds(30))
+      : acceptor_(io_, {tcp::v4(), 0}), socket_(io_), deadline_(io_) {
+    port_ = acceptor_.local_endpoint().port();
+    deadline_.expires_after(deadline);
+    deadline_.async_wait([this](const boost::system::error_code &ec) {
+      if (!ec) stop();
     });
-    port_ = f.get();
+    acceptor_.async_accept(socket_, [this](const boost::system::error_code &ec) {
+      if (ec)
+        stop();
+      else
+        start_read();
+    });
+    thread_ = std::thread([this] { io_.run(); });
   }
   ~loopback_carbon_receiver() {
     if (thread_.joinable()) thread_.join();
@@ -74,8 +72,32 @@ class loopback_carbon_receiver {
   }
 
  private:
+  void start_read() {
+    socket_.async_read_some(boost::asio::buffer(buf_), [this](const boost::system::error_code &ec, const std::size_t n) {
+      if (n > 0) received_.append(buf_, n);
+      if (ec)
+        stop();  // EOF: the client wrote its lines and closed.
+      else
+        start_read();
+    });
+  }
+  void stop() {
+    boost::system::error_code ignored;
+    acceptor_.close(ignored);
+    socket_.close(ignored);
+    try {
+      deadline_.cancel();
+    } catch (...) {
+    }
+  }
+
+  boost::asio::io_context io_;
+  tcp::acceptor acceptor_;
+  tcp::socket socket_;
+  boost::asio::steady_timer deadline_;
   std::thread thread_;
   unsigned short port_ = 0;
+  char buf_[4096] = {};
   std::string received_;
 };
 
@@ -94,6 +116,17 @@ std::vector<std::string> split_lines(const std::string &s) {
 }
 
 }  // namespace
+
+// Regression test for the review finding that the receiver could wedge the
+// test process: when no client ever connects (a submission failing before the
+// connect), received() must return once the deadline fires instead of
+// blocking forever in join().
+TEST(GraphiteLoopbackReceiverTest, does_not_hang_when_no_client_connects) {
+  const auto start = std::chrono::steady_clock::now();
+  loopback_carbon_receiver server{std::chrono::seconds(1)};
+  EXPECT_EQ("", server.received());
+  EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(10));
+}
 
 TEST(GraphiteFixStringTest, replaces_line_and_field_separators) {
   EXPECT_EQ("a_b", graphite_client::fix_graphite_string("a b"));
