@@ -189,18 +189,16 @@ std::string NSClientServer::list_instance(std::string counter) {
     std::istringstream iss(s);
     std::string line;
     while (std::getline(iss, line, '\n')) {
-      // The porcelain enumeration format is `instance,<object>,<instance>`;
-      // we want the third field. Advance to it, but stop if the line has
-      // fewer fields (e.g. an "ERROR: ..." line from a failed PDH
+      // Each porcelain enumeration line has three comma-separated fields:
+      // the literal "instance", the object name and the instance name. We
+      // want the third (the instance name). Advance to it, but stop if the
+      // line has fewer fields (e.g. an "ERROR: ..." line from a failed PDH
       // enumeration - list_instance does not gate on the command's return
       // code) so we never dereference the end iterator.
       Tokenizer tok(line);
       Tokenizer::const_iterator cit = tok.begin();
       int advanced = 0;
-      while (advanced < 2 && cit != tok.end()) {
-        ++cit;
-        ++advanced;
-      }
+      for (; advanced < 2 && cit != tok.end(); ++advanced) ++cit;
       if (advanced == 2 && cit != tok.end()) {
         if (!result.empty()) result += ",";
         result += *cit;
