@@ -42,7 +42,18 @@ bool extscr_cli::run(std::string cmd, const PB::Commands::ExecuteRequestMessage_
 
 bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, PB::Commands::ExecuteResponseMessage::Response *response) {
   boost::filesystem::path path = provider_->get_root();
-  if (!file_helpers::checks::path_contains_file(path, pscript)) {
+  // Resolve symlinks before the containment check. path_contains_file compares
+  // lexically only, so a symlink placed inside the script root but pointing
+  // outside it would otherwise pass, letting show/delete read or remove files
+  // anywhere the service account can reach. weakly_canonical resolves the real
+  // targets (the candidate has already been confirmed to be a regular file by
+  // the callers); fall back to the lexical path if resolution fails.
+  boost::system::error_code ec;
+  boost::filesystem::path real_root = boost::filesystem::weakly_canonical(path, ec);
+  if (ec) real_root = path;
+  boost::filesystem::path real_script = boost::filesystem::weakly_canonical(pscript, ec);
+  if (ec) real_script = pscript;
+  if (!file_helpers::checks::path_contains_file(real_root, real_script)) {
     nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + path.string());
     return false;
   }
