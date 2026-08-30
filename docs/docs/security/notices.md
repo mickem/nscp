@@ -484,6 +484,41 @@ rules keyed on the old malformed format (no HOSTNAME field), adjust them —
 records now arrive attributed to the agent's host name instead of the tag.
 See [Upgrading](../setup/upgrading.md#unreleased).
 
+### SMTP client hardening, second round
+
+**Fixed in:** 0.18.0 · **Severity:** Low–Medium
+
+A follow-up review of the `SMTPClient` module hardened how the client behaves
+against a hostile or misbehaving peer. As with the first round, none of these
+is exploitable by an unauthenticated third party on its own; each removes a
+way the mail server (or whoever controls DNS or the path to it) could degrade
+or destabilise the agent.
+
+- **A timed-out submission no longer runs stale I/O handlers.** When the
+  submission budget expired mid-connect, the cancelled operation's completion
+  handler stayed queued and was executed by the retry against the next
+  resolved address — with references into a stack frame that no longer
+  existed (a use-after-return, so undefined behaviour in a long-running
+  service). Handler state now lives on the heap, co-owned by the handler, and
+  a spent budget ends the endpoint walk instead of retrying into it.
+- **Server replies are bounded.** Nothing capped how much reply data the
+  client would buffer inside its timeout window, so a peer streaming bytes
+  without a line ending — or endless `250-` continuation lines — could turn a
+  30-second budget into gigabytes of agent memory. A reply line is now capped
+  at 64 KB and a reply at 100 lines; both are far above anything RFC 5321
+  permits a real server to send.
+- **Reply text is rendered inert before it reaches the log.** Error messages
+  quoted server replies verbatim into the agent log and the submit response.
+  Anything outside printable US-ASCII is now replaced — both the C0 controls
+  and the C1 range (0x80–0x9F), which carries single-byte terminal escapes
+  such as CSI — multi-line replies can no longer forge additional log lines,
+  and oversized replies are truncated.
+- **Smaller items:** the reply to `STARTTLS` must now be exactly `220` per
+  RFC 3207 rather than any `2xx`; AUTH credentials containing a NUL byte are
+  refused before connecting (a NUL would shift the RFC 4616 `AUTH PLAIN`
+  field boundaries); and the test SMTP server's entrypoint no longer echoes
+  its password into the container log.
+
 ### SMTP client security-review hardening
 
 **Fixed in:** 0.18.0 · **Severity:** Low–Medium
