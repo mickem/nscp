@@ -11,6 +11,8 @@
 #include <chrono>
 #include <cstring>
 #include <ctime>
+#include <list>
+#include <memory>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/protobuf/functions_convert.hpp>
@@ -138,6 +140,49 @@ std::string generate_session_id() {
 }
 
 // =====================================================================
+// TLS context construction
+// =====================================================================
+
+boost::asio::ssl::context make_ssl_context(const connection_data &con) {
+  boost::asio::ssl::context ctx(boost::asio::ssl::context::tls_client);
+  if (con.use_psk) {
+    // With PSK the key itself authenticates both ends — no X.509 material.
+    // The PSK cipher list / callback / TLS-1.2 pin are applied to the SSL
+    // object by nsca_ng_connection; the context stays at defaults.
+    return ctx;
+  }
+
+  // Cert mode: apply the full TLS configuration (certificate + key, CA,
+  // verify mode, TLS min/max version, allowed ciphers, DH params) to the
+  // context HERE, before any stream/SSL is created from it. SSL_new() copies
+  // the verify mode, certificate, cipher list and protocol-version bounds out
+  // of the SSL_CTX at creation time — only the CA store remains shared — so
+  // configuring the context after the stream exists would leave the live SSL
+  // at its defaults, silently skipping peer verification.
+  std::list<std::string> errors;
+  con.ssl.configure_ssl_context(ctx, errors);
+  if (!errors.empty()) {
+    std::string joined;
+    for (const auto &e : errors) joined += (joined.empty() ? "" : "; ") + e;
+    throw socket_helpers::socket_exception("TLS configuration error: " + joined);
+  }
+
+  const auto vmode = con.ssl.get_verify_mode();
+  const bool verifying = (vmode & boost::asio::ssl::verify_peer) != 0;
+
+  // Refuse to fall through to an unauthenticated TLS session unless the
+  // operator has explicitly opted in. Without this the connection would
+  // tunnel data through an unverified peer — vulnerable to MITM.
+  if (!verifying && !con.insecure) {
+    throw socket_helpers::socket_exception(
+        "Refusing to connect: TLS peer verification is disabled and PSK is not in use. "
+        "Either configure 'verify mode = peer-cert' with a 'ca = <path>', re-enable 'use psk = true', "
+        "or set 'insecure = true' to override (disables MITM protection).");
+  }
+  return ctx;
+}
+
+// =====================================================================
 // nsca_ng_connection — TLS connection with deadline-driven I/O.
 // =====================================================================
 //
@@ -163,13 +208,15 @@ class nsca_ng_connection {
   psk_credentials psk_creds_;
   bool tls_active_ = false;
 
-  nsca_ng_connection(bool use_psk, const std::string &psk_cipher_list, const int timeout_seconds)
-      : ctx_(boost::asio::ssl::context::tls_client),
-        ssl_socket_(io_service_, ctx_),
-        resolver_(io_service_),
-        timer_(io_service_),
-        timeout_seconds_(timeout_seconds) {
-    if (use_psk) {
+  // The context must be fully configured before `ssl_socket_` is constructed
+  // from it (member order guarantees this): the stream constructor calls
+  // SSL_new(ctx), which copies verify mode / certificate / cipher list /
+  // proto-version bounds out of the CTX at that moment. make_ssl_context()
+  // does the cert-mode configuration; PSK settings target the SSL object and
+  // are applied below.
+  explicit nsca_ng_connection(const connection_data &con)
+      : ctx_(make_ssl_context(con)), ssl_socket_(io_service_, ctx_), resolver_(io_service_), timer_(io_service_), timeout_seconds_(con.timeout) {
+    if (con.use_psk) {
       // IMPORTANT: configure on the SSL object (`ssl_socket_.native_handle()`),
       // NOT the SSL_CTX. The boost::asio::ssl::stream constructor above already
       // called SSL_new(ctx) and copied the cipher list / seclevel / etc. out of
@@ -191,7 +238,8 @@ class nsca_ng_connection {
       // would leave the agent with an empty cipher list at handshake.
       SSL_set_security_level(ssl, 0);
 
-      const std::string cipher_list = psk_cipher_list.empty() ? kDefaultPskCiphers : psk_cipher_list;
+      // allowed_ciphers (when set) overrides the default PSK cipher list.
+      const std::string cipher_list = con.ssl.allowed_ciphers.empty() ? kDefaultPskCiphers : con.ssl.allowed_ciphers;
       // Throw on cipher-list parse failure rather than letting OpenSSL fall
       // back to its cert-based default. With a silent fallback the resulting
       // PSK handshakes alert with confusing messages like "no suitable
@@ -236,25 +284,42 @@ class nsca_ng_connection {
     }
   }
 
+  // Per-operation state shared between the deadline-timer handler and the
+  // I/O completion handler. Heap-allocated (shared_ptr) rather than stack
+  // locals captured by reference: when the deadline fires in the same event
+  // batch in which the operation completes, run_one() can consume the
+  // completion handler first — timer_.cancel() is then too late (the wait
+  // already finished; its handler sits queued with a success code) and the
+  // loop below exits with that timer handler still pending. It runs during
+  // the NEXT run_with_deadline call's loop, and with by-reference captures it
+  // would write through dangling references into a dead stack frame and
+  // cancel the new operation. With shared state it keeps its own block alive,
+  // and the would_block guard turns the stale firing into a no-op.
+  struct deadline_op_state {
+    boost::system::error_code ec{boost::asio::error::would_block};
+    bool timed_out = false;
+  };
+
   // Run an async op against the io_service with the configured deadline.
   // The passed-in initiator should call `start_async(handler)` with a handler
   // signature of `void(boost::system::error_code)`.
   template <class Initiator>
   void run_with_deadline(Initiator initiator, const std::string &what) {
-    boost::system::error_code op_ec = boost::asio::error::would_block;
-    bool timed_out = false;
+    auto state = std::make_shared<deadline_op_state>();
 
     timer_.expires_after(std::chrono::seconds(timeout_seconds_));
-    timer_.async_wait([this, &timed_out](const boost::system::error_code &ec) {
-      if (ec != boost::asio::error::operation_aborted) {
-        timed_out = true;
-        boost::system::error_code ignored;
-        ssl_socket_.lowest_layer().cancel(ignored);
-      }
+    timer_.async_wait([this, state](const boost::system::error_code &ec) {
+      if (ec == boost::asio::error::operation_aborted) return;
+      // Stale firing: the operation this deadline guarded already completed
+      // (see deadline_op_state above) — don't cancel whatever runs now.
+      if (state->ec != boost::asio::error::would_block) return;
+      state->timed_out = true;
+      boost::system::error_code ignored;
+      ssl_socket_.lowest_layer().cancel(ignored);
     });
 
-    initiator([&op_ec, this](const boost::system::error_code &ec) {
-      op_ec = ec;
+    initiator([state, this](const boost::system::error_code &ec) {
+      state->ec = ec;
       // cancel() can throw (the non-throwing cancel(error_code&) overload is
       // removed under BOOST_ASIO_NO_DEPRECATED). Swallow it here so a completed
       // operation isn't turned into an exception escaping run_one() below.
@@ -265,18 +330,18 @@ class nsca_ng_connection {
     });
 
     io_service_.restart();
-    while (op_ec == boost::asio::error::would_block) {
+    while (state->ec == boost::asio::error::would_block) {
       io_service_.run_one();
     }
 
-    if (timed_out) {
+    if (state->timed_out) {
       throw socket_helpers::socket_exception(what + " timed out after " + std::to_string(timeout_seconds_) + "s");
     }
-    if (op_ec) {
+    if (state->ec) {
       // boost::system::error_code::message() returns the OS-localized native
       // encoding (e.g. CP1252 on Swedish Windows). Convert to UTF-8 so the
       // string can flow through protobuf log fields without being rejected.
-      throw socket_helpers::socket_exception(what + " failed: " + utf8::utf8_from_native(op_ec.message()));
+      throw socket_helpers::socket_exception(what + " failed: " + utf8::utf8_from_native(state->ec.message()));
     }
   }
 
@@ -302,28 +367,10 @@ class nsca_ng_connection {
       // PSK mode intentionally ignores cert/key/ca/verify-mode/tls-version.
       ssl_socket_.set_verify_mode(boost::asio::ssl::verify_none);
     } else {
-      // Apply the full cert-mode TLS configuration: certificate + key,
-      // CA, verify mode, TLS min/max version, allowed ciphers, DH params.
-      std::list<std::string> errors;
-      con.ssl.configure_ssl_context(ctx_, errors);
-      if (!errors.empty()) {
-        std::string joined;
-        for (const auto &e : errors) joined += (joined.empty() ? "" : "; ") + e;
-        throw socket_helpers::socket_exception("TLS configuration error: " + joined);
-      }
-
-      const auto vmode = con.ssl.get_verify_mode();
-      const bool verifying = (vmode & boost::asio::ssl::verify_peer) != 0;
-
-      // Refuse to fall through to an unauthenticated TLS session unless the
-      // operator has explicitly opted in. Without this the connection would
-      // tunnel data through an unverified peer — vulnerable to MITM.
-      if (!verifying && !con.insecure) {
-        throw socket_helpers::socket_exception(
-            "Refusing to connect: TLS peer verification is disabled and PSK is not in use. "
-            "Either configure 'verify mode = peer-cert' with a 'ca = <path>', re-enable 'use psk = true', "
-            "or set 'insecure = true' to override (disables MITM protection).");
-      }
+      // The cert-mode TLS configuration (certificate, CA, verify mode, TLS
+      // version bounds, ciphers) was applied by make_ssl_context() before the
+      // stream was constructed — SSL_new() copied it into the live SSL at
+      // that point. Only the per-connection, host-dependent pieces remain.
 
       // SNI: a server hosting several certs needs the server name to return the
       // right one; without it it may answer with its default cert and fail the
@@ -331,7 +378,9 @@ class nsca_ng_connection {
       if (!host.empty()) {
         SSL_set_tlsext_host_name(ssl_socket_.native_handle(), host.c_str());
       }
-      // Hostname pinning still required even when CA verifies.
+      // Hostname pinning still required even when CA verifies. (Boost keeps
+      // the SSL's current verify mode when installing the callback.)
+      const bool verifying = (con.ssl.get_verify_mode() & boost::asio::ssl::verify_peer) != 0;
       if (verifying) {
         ssl_socket_.set_verify_callback(boost::asio::ssl::host_name_verification(host));
       }
@@ -434,9 +483,11 @@ struct submit_outcome {
 submit_outcome do_send_once(const connection_data &con, const PB::Commands::SubmitRequestMessage &request_message) {
   submit_outcome r;
   try {
-    // For PSK, allowed_ciphers (when set) overrides the default PSK cipher list.
-    // For cert mode, the cipher list is applied later via configure_ssl_context.
-    nsca_ng_connection conn(con.use_psk, con.use_psk ? con.ssl.allowed_ciphers : std::string(), con.timeout);
+    // The constructor builds and applies the full TLS configuration (PSK on
+    // the SSL object, cert mode on the context before the stream exists) and
+    // throws on configuration errors — including the cert-mode refusal to run
+    // unverified without an explicit `insecure = true`.
+    nsca_ng_connection conn(con);
     NSC_TRACE_ENABLED() { NSC_TRACE_MSG("Connecting to: " + con.to_string()); }
     psk_credentials creds{con.identity, con.password};
     conn.connect(con.get_address(), con.get_port(), con, creds);

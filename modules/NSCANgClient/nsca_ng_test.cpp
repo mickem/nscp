@@ -356,3 +356,96 @@ TEST(NscaNgConnectionData, DisablePsk) {
   nsca_ng_client::connection_data c(target, sender);
   EXPECT_FALSE(c.use_psk);
 }
+
+// ============================================================================
+// make_ssl_context
+// ============================================================================
+//
+// Regression guard for the cert-mode configuration-ordering fix: SSL_new()
+// copies the verify mode, certificate, cipher list and protocol-version
+// bounds out of the SSL_CTX at creation time, so the context must be fully
+// configured BEFORE the ssl::stream is constructed from it. These tests
+// create an SSL object from the context exactly the way the stream
+// constructor does and assert the configuration actually arrived on it —
+// which is what the previous implementation (configuring the context after
+// the stream existed) silently failed to do.
+
+namespace {
+
+nsca_ng_client::connection_data make_cert_mode_data(const std::string &verify_mode, const bool insecure, const std::string &tls_version = "") {
+  client::destination_container target;
+  target.address.host = "server.example";
+  target.set_bool_data("use psk", false);
+  if (!verify_mode.empty()) target.set_string_data("verify mode", verify_mode);
+  if (insecure) target.set_bool_data("insecure", true);
+  if (!tls_version.empty()) target.set_string_data("tls version", tls_version);
+  client::destination_container sender;
+  sender.address.host = "agent";
+  return nsca_ng_client::connection_data(target, sender);
+}
+
+// Minimal RAII for an SSL created off the context under test.
+struct ssl_from_ctx {
+  SSL *ssl = nullptr;
+  explicit ssl_from_ctx(boost::asio::ssl::context &ctx) : ssl(SSL_new(ctx.native_handle())) {}
+  ~ssl_from_ctx() {
+    if (ssl) SSL_free(ssl);
+  }
+};
+
+}  // namespace
+
+TEST(NscaNgSslContext, CertModeVerifyModeReachesSslObjects) {
+  const auto con = make_cert_mode_data("peer-cert", false);
+  auto ctx = nsca_ng_client::make_ssl_context(con);
+  ssl_from_ctx s(ctx);
+  ASSERT_NE(s.ssl, nullptr);
+  EXPECT_EQ(SSL_get_verify_mode(s.ssl), SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT)
+      << "verify mode configured on the context must be copied into SSL objects created from it";
+}
+
+TEST(NscaNgSslContext, CertModeTlsVersionBoundsReachSslObjects) {
+  // Default floor is tlsv1.2+ (set by connection_data when unspecified).
+  const auto con = make_cert_mode_data("peer-cert", false);
+  auto ctx = nsca_ng_client::make_ssl_context(con);
+  ssl_from_ctx s(ctx);
+  ASSERT_NE(s.ssl, nullptr);
+  EXPECT_EQ(SSL_get_min_proto_version(s.ssl), TLS1_2_VERSION);
+  EXPECT_EQ(SSL_get_max_proto_version(s.ssl), TLS1_3_VERSION);
+
+  const auto con13 = make_cert_mode_data("peer-cert", false, "tlsv1.3");
+  auto ctx13 = nsca_ng_client::make_ssl_context(con13);
+  ssl_from_ctx s13(ctx13);
+  ASSERT_NE(s13.ssl, nullptr);
+  EXPECT_EQ(SSL_get_min_proto_version(s13.ssl), TLS1_3_VERSION);
+}
+
+TEST(NscaNgSslContext, CertModeUnverifiedRequiresInsecureOptIn) {
+  // No verify mode and no insecure flag: the connection would be wide open to
+  // MITM, so context construction must refuse.
+  EXPECT_THROW(nsca_ng_client::make_ssl_context(make_cert_mode_data("", false)), socket_helpers::socket_exception);
+}
+
+TEST(NscaNgSslContext, CertModeInsecureOptInAllowsUnverified) {
+  const auto con = make_cert_mode_data("", true);
+  auto ctx = nsca_ng_client::make_ssl_context(con);
+  ssl_from_ctx s(ctx);
+  ASSERT_NE(s.ssl, nullptr);
+  EXPECT_EQ(SSL_get_verify_mode(s.ssl), SSL_VERIFY_NONE);
+}
+
+TEST(NscaNgSslContext, PskModeContextStaysAtDefaults) {
+  // PSK authenticates both ends via the key — no cert verification and no
+  // insecure opt-in required; the context must build without throwing.
+  client::destination_container target;
+  target.address.host = "h";
+  client::destination_container sender;
+  sender.address.host = "a";
+  const nsca_ng_client::connection_data con(target, sender);
+  ASSERT_TRUE(con.use_psk);
+
+  auto ctx = nsca_ng_client::make_ssl_context(con);
+  ssl_from_ctx s(ctx);
+  ASSERT_NE(s.ssl, nullptr);
+  EXPECT_EQ(SSL_get_verify_mode(s.ssl), SSL_VERIFY_NONE);
+}

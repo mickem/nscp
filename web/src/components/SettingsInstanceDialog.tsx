@@ -90,7 +90,7 @@ export default function SettingsInstanceDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <InstanceNameField
             name={instanceName}
             path={instancePath}

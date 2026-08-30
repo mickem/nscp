@@ -84,10 +84,13 @@ const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: { textTransform: "none", fontWeight: 600 },
-        containedPrimary: {
-          boxShadow: "0 2px 6px rgba(67,160,71,0.35)",
-        },
       },
+      variants: [
+        {
+          props: { variant: "contained", color: "primary" },
+          style: { boxShadow: "0 2px 6px rgba(67,160,71,0.35)" },
+        },
+      ],
     },
     MuiChip: {
       styleOverrides: {
