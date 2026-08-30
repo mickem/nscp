@@ -48,6 +48,18 @@ TEST(NscpCryptHelpers, UnknownNamesThrowInsteadOfSilentPlaintext) {
   EXPECT_THROW(helpers::encryption_to_int("99"), encryption_exception);
 }
 
+TEST(NscpCryptHelpers, ErrorMessageStripsControlCharacters) {
+  try {
+    helpers::encryption_to_int("bad\nvalue\x1b");
+    FAIL() << "expected encryption_exception";
+  } catch (const encryption_exception &e) {
+    const std::string msg = e.what();
+    EXPECT_EQ(msg.find('\n'), std::string::npos) << msg;
+    EXPECT_EQ(msg.find('\x1b'), std::string::npos) << msg;
+    EXPECT_NE(msg.find("badvalue"), std::string::npos) << msg;
+  }
+}
+
 TEST(NscpCryptHelpers, RoundTripThroughEncryptionToString) {
   EXPECT_EQ(kXor, helpers::encryption_to_int(helpers::encryption_to_string(kXor)));
   EXPECT_EQ(helpers::no_encryption, helpers::encryption_to_int(helpers::encryption_to_string(helpers::no_encryption)));

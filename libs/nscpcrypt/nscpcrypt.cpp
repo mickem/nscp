@@ -114,7 +114,8 @@ int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
   if (encryption == "serpent") return ENCRYPT_SERPENT;
   if (encryption == "gost") return ENCRYPT_GOST;
 #endif
-  if ((encryption.size() == 1 && isdigit(encryption[0])) || (encryption.size() > 1 && isdigit(encryption[0]) && isdigit(encryption[1]))) {
+  if ((encryption.size() == 1 && isdigit(static_cast<unsigned char>(encryption[0]))) ||
+      (encryption.size() > 1 && isdigit(static_cast<unsigned char>(encryption[0])) && isdigit(static_cast<unsigned char>(encryption[1])))) {
     int enc = atoi(encryption.c_str());
     if (enc == ENCRYPT_NONE || enc == ENCRYPT_XOR
 #ifdef HAVE_LIBCRYPTOPP
@@ -129,8 +130,14 @@ int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
   // typo (or an algorithm this build lacks) silently disabled encryption on
   // this end — surfacing only as unexplained CRC rejections on a correctly
   // configured peer. Fail hard instead; "none" is the explicit opt-out.
-  throw encryption_exception("Unknown encryption algorithm: '" + encryption_raw + "' (available: " + get_crypto_string() +
-                             "; use 'none' to disable encryption)");
+  // Strip control characters from the echoed value so the string cannot
+  // inject extra log lines when the error text is logged.
+  std::string safe_name;
+  for (const char c : encryption_raw) {
+    const auto u = static_cast<unsigned char>(c);
+    if (u >= 0x20 && u != 0x7f) safe_name.push_back(c);
+  }
+  throw encryption_exception("Unknown encryption algorithm: '" + safe_name + "' (available: " + get_crypto_string() + "; use 'none' to disable encryption)");
 }
 std::string nscp::encryption::helpers::encryption_to_string(int encryption) {
   if (encryption == ENCRYPT_XOR) return "xor";

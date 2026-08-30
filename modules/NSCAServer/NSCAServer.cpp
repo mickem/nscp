@@ -151,7 +151,8 @@ void NSCAServer::handle(nsca::packet p) {
   // connection layer only logs the IP). Gated because the result body can be
   // large and the string copy would otherwise be paid on every packet.
   NSC_TRACE_ENABLED() {
-    NSC_TRACE_MSG("NSCA submission: host='" + host + "' service='" + service + "' code=" + str::xtos(p.code) + " result_bytes=" + str::xtos(p.result.size()));
+    NSC_TRACE_MSG("NSCA submission: host='" + host + "' service='" + service + "' code=" + str::xtos(code) +
+                  (code != p.code ? " (clamped from " + str::xtos(p.code) + ")" : "") + " result_bytes=" + str::xtos(p.result.size()));
   }
   std::string response;
   const std::string::size_type pos = p.result.find('|');
