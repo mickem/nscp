@@ -329,6 +329,148 @@ TEST(NrdpSubmit, ACommandWithoutAnAliasIsNamedAfterTheCommand) {
   EXPECT_NE(body.find("check_something"), std::string::npos) << body;
 }
 
+TEST(NrdpConnectionData, CarriesTheConfiguredTimeoutAndRetry) {
+  // Both are routed into typed fields by destination_container (like "host"),
+  // so reading them out of the free-form data map silently returned the
+  // default: a configured timeout/retry was ignored.
+  client::destination_container target = target_with({{"address", "https://h"}, {"timeout", "7"}, {"retry", "5"}});
+
+  const nrdp_client::connection_data con(target, client::destination_container());
+
+  EXPECT_EQ(con.timeout, 7);
+  EXPECT_EQ(con.retry, 5);
+}
+
+TEST(NrdpSubmit, AStalledServerTimesOutInsteadOfHangingForever) {
+  // A server that accepts the connection and then never answers must not
+  // wedge the submission thread: the configured timeout has to end the
+  // exchange with an error. Before the timeout was wired through, this
+  // submit blocked indefinitely (and this test would hang).
+  boost::asio::io_context io;
+  tcp::acceptor acceptor(io, {tcp::v4(), 0});
+  const unsigned short port = acceptor.local_endpoint().port();
+  std::thread server([&acceptor]() {
+    try {
+      boost::asio::io_context server_io;
+      tcp::socket socket(server_io);
+      acceptor.accept(socket);
+      // Hold the socket open without answering until the client gives up.
+      char buf[1024];
+      boost::system::error_code ec;
+      while (!ec) socket.read_some(boost::asio::buffer(buf), ec);
+    } catch (...) {
+    }
+  });
+
+  PB::Commands::SubmitRequestMessage request;
+  PB::Commands::QueryResponseMessage::Response *payload = request.add_payload();
+  payload->set_command("check_something");
+  payload->set_result(PB::Common::ResultCode::OK);
+  payload->add_lines()->set_message("fine");
+  client::destination_container sender;
+  sender.set_string_data("host", "monitored-host");
+
+  PB::Commands::SubmitResponseMessage response;
+  nrdp_client::nrdp_client_handler handler;
+  handler.submit(sender, target_with({{"address", "http://127.0.0.1:" + std::to_string(port) + "/nrdp/"}, {"token", "t"}, {"timeout", "1"}, {"retry", "1"}}),
+                 request, response);
+  server.join();
+
+  ASSERT_EQ(response.payload_size(), 1);
+  EXPECT_EQ(response.payload(0).result().code(), PB::Common::Result_StatusCodeType_STATUS_ERROR);
+  EXPECT_NE(response.payload(0).result().message().find("timed out"), std::string::npos) << response.payload(0).result().message();
+}
+
+TEST(NrdpSubmit, AnHttpErrorStatusIsReportedNotParsed) {
+  // A non-2xx answer is the server speaking, not a transport failure: it must
+  // come back as an error naming the status, and must not be retried or fed
+  // to the XML parser (whose "Invalid response" would hide what happened).
+  std::promise<unsigned short> p;
+  std::future<unsigned short> f = p.get_future();
+  std::thread server([prom = std::move(p)]() mutable {
+    try {
+      boost::asio::io_context io;
+      tcp::acceptor acceptor(io, {tcp::v4(), 0});
+      prom.set_value(acceptor.local_endpoint().port());
+      tcp::socket socket(io);
+      acceptor.accept(socket);
+      boost::asio::streambuf buffer;
+      boost::system::error_code ec;
+      boost::asio::read_until(socket, buffer, "\r\n\r\n", ec);
+      const std::string body = "denied";
+      const std::string response_text =
+          "HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
+      boost::asio::write(socket, boost::asio::buffer(response_text), ec);
+    } catch (...) {
+    }
+  });
+  const unsigned short port = f.get();
+
+  PB::Commands::SubmitRequestMessage request;
+  PB::Commands::QueryResponseMessage::Response *payload = request.add_payload();
+  payload->set_command("check_something");
+  payload->set_result(PB::Common::ResultCode::OK);
+  payload->add_lines()->set_message("fine");
+  client::destination_container sender;
+  sender.set_string_data("host", "monitored-host");
+
+  PB::Commands::SubmitResponseMessage response;
+  nrdp_client::nrdp_client_handler handler;
+  handler.submit(sender, target_with({{"address", "http://127.0.0.1:" + std::to_string(port) + "/nrdp/"}, {"token", "t"}}), request, response);
+  server.join();
+
+  ASSERT_EQ(response.payload_size(), 1);
+  EXPECT_EQ(response.payload(0).result().code(), PB::Common::Result_StatusCodeType_STATUS_ERROR);
+  EXPECT_NE(response.payload(0).result().message().find("403"), std::string::npos) << response.payload(0).result().message();
+}
+
+TEST(NrdpSubmit, ATransportFailureIsRetried) {
+  // First connection is accepted and dropped without a byte; the second gets a
+  // proper answer. With retry=2 the submission must succeed on the second
+  // attempt rather than reporting the dropped connection.
+  std::promise<unsigned short> p;
+  std::future<unsigned short> f = p.get_future();
+  std::thread server([prom = std::move(p)]() mutable {
+    try {
+      boost::asio::io_context io;
+      tcp::acceptor acceptor(io, {tcp::v4(), 0});
+      prom.set_value(acceptor.local_endpoint().port());
+      {
+        tcp::socket first(io);
+        acceptor.accept(first);
+        // Closed by scope exit: the client sees EOF before any response.
+      }
+      tcp::socket second(io);
+      acceptor.accept(second);
+      boost::asio::streambuf buffer;
+      boost::system::error_code ec;
+      boost::asio::read_until(second, buffer, "\r\n\r\n", ec);
+      const std::string body = "<result><status>0</status><message>OK</message></result>";
+      const std::string response_text = "HTTP/1.1 200 OK\r\nContent-Type: text/xml\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
+      boost::asio::write(second, boost::asio::buffer(response_text), ec);
+    } catch (...) {
+    }
+  });
+  const unsigned short port = f.get();
+
+  PB::Commands::SubmitRequestMessage request;
+  PB::Commands::QueryResponseMessage::Response *payload = request.add_payload();
+  payload->set_command("check_something");
+  payload->set_result(PB::Common::ResultCode::OK);
+  payload->add_lines()->set_message("fine");
+  client::destination_container sender;
+  sender.set_string_data("host", "monitored-host");
+
+  PB::Commands::SubmitResponseMessage response;
+  nrdp_client::nrdp_client_handler handler;
+  handler.submit(sender, target_with({{"address", "http://127.0.0.1:" + std::to_string(port) + "/nrdp/"}, {"token", "t"}, {"retry", "2"}, {"timeout", "5"}}),
+                 request, response);
+  server.join();
+
+  ASSERT_EQ(response.payload_size(), 1);
+  EXPECT_EQ(response.payload(0).result().code(), PB::Common::Result_StatusCodeType_STATUS_OK) << response.payload(0).result().message();
+}
+
 TEST(NrdpSubmit, OnlySubmitIsSupported) {
   // NRDP is a one-way result feed: there is nothing to query or execute.
   nrdp_client::nrdp_client_handler handler;

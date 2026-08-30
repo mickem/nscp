@@ -14,6 +14,29 @@ per-release detail lives in each
 
 ---
 
+## 0.18.1
+
+- 🔒 **NRDP submissions now honour `timeout` and `retry`.** Both settings were
+  parsed but never applied: a submission to a server that accepted the
+  connection and then stalled hung the submission thread forever, and failed
+  submissions were never retried. Every step of the exchange (connect, TLS
+  handshake, proxy tunnel, request, response) now runs under the configured
+  `timeout` (default 30 seconds for configured targets, 10 for one-shot
+  `nscp client` submissions), and transport failures are retried up to `retry`
+  times. Nothing to do unless your NRDP endpoint legitimately takes longer
+  than the timeout to answer — raise `timeout` on that target. The response
+  body is also capped at 5 MB, far above any real NRDP reply. See the
+  [security notice](../security/notices.md#nrdp-client-transport-hardening-and-shared-tls-version-floor-fix).
+
+- 🔒 **A `tls version` with a trailing `+` now means "that version or later".**
+  `1.2+` (the common default) previously negotiated TLS 1.2 *only*; it now
+  also permits TLS 1.3, and `any` is accepted as the documentation always
+  claimed. This applies everywhere the setting exists: NRDP and the other
+  HTTP-based clients, the NRPE/NSCA clients and servers, and `check_tcp`.
+  No action needed; pin an exact version (`tls version = 1.2`) if a peer
+  misbehaves when TLS 1.3 is offered. See the
+  [security notice](../security/notices.md#nrdp-client-transport-hardening-and-shared-tls-version-floor-fix).
+
 ## 0.18.0
 
 - 💥 **`check_nscp` is now a filter check, and it can see crash reports again.**
