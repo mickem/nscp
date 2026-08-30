@@ -10,6 +10,7 @@ interface Props {
 
 export function Toolbar({ children, sx = {} }: Props) {
   const baseSx: SxProps<Theme> = {
+    alignItems: "center",
     px: 2,
     py: 1,
     mb: 2,
@@ -20,7 +21,6 @@ export function Toolbar({ children, sx = {} }: Props) {
   return (
     <Stack
       direction="row"
-      alignItems="center"
       spacing={1}
       sx={[
         ...(Array.isArray(baseSx) ? baseSx : [baseSx]),

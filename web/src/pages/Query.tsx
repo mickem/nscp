@@ -104,7 +104,7 @@ export default function Query() {
           </Typography>
           <Typography variant="body2">{query?.description}</Typography>
           <Typography variant="body2">Check provided by the <Chip label={query?.plugin} size="small" onClick={() => navigate("/modules/" + query?.plugin)}/> module.</Typography>
-          <Stack direction="row" spacing={1} width={1} sx={{ paddingTop: 3 }}>
+          <Stack direction="row" spacing={1} sx={{ width: 1, paddingTop: 3 }}>
             <TextField label="Command" variant="outlined" size="small" value={query?.name || ""} disabled={true} />
             <TextField
               label="Arguments"
