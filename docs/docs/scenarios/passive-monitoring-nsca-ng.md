@@ -73,13 +73,44 @@ matching PSK identity + password configured. A typical server snippet
 (`nsca-ng.cfg`):
 
 ```text
-listen   = "*:5668"
-command  = "/usr/local/nagios/var/rw/nagios.cmd"
+listen       = "*:5668"
+command_file = "/usr/local/nagios/var/rw/nagios.cmd"
 
 authorize "agent01" {
     password = "shared-secret-do-not-use-in-production"
+    hosts    = [ "^agent01$" ]
+    services = [ "^agent01;" ]
 }
 ```
+
+<!-- @formatter:off -->
+!!! warning "The authorize block needs at least one pattern"
+    An `authorize` block with only a `password` accepts the TLS-PSK handshake
+    but rejects **every** submission with `FAIL` — nsca-ng only accepts what a
+    `hosts`, `services`, or `commands` pattern explicitly allows. The
+    `hosts` patterns are matched against the host name of submitted host-check
+    results, and `services` against `host;service` of service-check results;
+    anchor them (`^...$` / `^...;`) so `agent01` doesn't also authorize
+    `agent012`.
+
+!!! danger "Least privilege: avoid a wildcard commands pattern"
+    The `commands` patterns authorize **raw Nagios external commands** — a
+    wildcard like `commands = [ ".*" ]` lets anyone holding that PSK submit
+    *any* command to the monitoring core (`SHUTDOWN_PROGRAM`,
+    `DISABLE_NOTIFICATIONS`, scheduling downtime, …), so a single compromised
+    agent can silence or steer your whole monitoring. Stick to `hosts` /
+    `services` patterns scoped to the agent's own name, as above, and give
+    every agent its own identity and password so one leaked key doesn't
+    authorize the whole fleet.
+
+!!! tip "Treat the PSK password as a key, not a password"
+    With the plain-PSK TLS ciphersuites there is no forward secrecy, and an
+    attacker who records one handshake can test password guesses offline at
+    leisure — a guessable password undoes the transport security entirely.
+    Generate a long random secret (for example `openssl rand -base64 32`) and
+    use that as the `password` on both ends. The PSK *identity* travels in
+    clear text during the handshake, so don't put anything sensitive in it.
+<!-- @formatter:on -->
 
 ---
 
@@ -100,6 +131,13 @@ Expected output:
 ```
 Submission successful
 ```
+
+!!! note "Keep the password out of the command line in production"
+    Arguments are visible to every local user in the process listing (`ps`,
+    Task Manager) and may land in shell history, so passing `--password` on
+    the command line is for one-off connectivity tests only. Production
+    setups put the password in the target definition (Step 2), which also
+    keeps it out of scheduled-task definitions and scripts.
 
 If you get a TLS handshake failure, the most common causes are (in order):
 
@@ -250,6 +288,16 @@ it if you want faster failover to a different target.
 
 The PSK password and identity must match an `authorize` block on the
 server exactly. Whitespace, case, and trailing newlines all matter.
+
+### Handshake succeeds but every submission is rejected with FAIL
+
+The credentials are fine — the `authorize` block on the server has no
+`hosts` / `services` / `commands` pattern, or the patterns don't match what
+the agent submits. nsca-ng authorizes each command against those patterns
+*after* authentication, and a block with only a `password` allows nothing.
+Check that `services` matches the `host;service` pair the agent sends (the
+host name is the agent's `hostname` setting / `--hostname`, which is also
+worth checking for a mismatch).
 
 ### Output truncated
 
