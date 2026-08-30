@@ -230,6 +230,9 @@ void run_tcp_check(const std::string &host, unsigned short port, int timeout_ms,
     } else {
 #ifdef USE_SSL
       boost::asio::ssl::context ctx(socket_helpers::tls_method_parser(tls_version));
+      // A "1.2+" tls version resolves to the generic method plus a floor that
+      // has to be applied separately, or the '+' silently means "any".
+      socket_helpers::apply_tls_min_version(ctx, tls_version);
       if (!ca_file.empty() && ca_file != "none") {
         try {
           ctx.load_verify_file(ca_file);

@@ -14,7 +14,7 @@ per-release detail lives in each
 
 ---
 
-## 0.18.1
+## Unreleased
 
 - 🔒 **Filter expressions are now bounded in length and nesting depth.** A
   `filter` / `warning` / `critical` expression — and a `%(...)` expression
@@ -29,7 +29,96 @@ per-release detail lives in each
   expression is refused. See the
   [security notice](../security/notices.md#filter-framework-expression-length-and-nesting-depth-limits).
 
+- 🔒 **CheckExternalScripts hardening.** A security review of the external
+  scripts module tightened several rough edges: the `ext-scr install` argument
+  lockdown now writes to the setting the module actually reads (previously it
+  was a no-op, so a lockdown could silently not apply), the command timeout is
+  enforced on every execution path with output capped, the `show`/`delete`
+  sandbox resolves symlinks, and `%`/`^` are blocked on the shell-fallback path.
+  The default install is unaffected (arguments are off by default). If you rely
+  on `ext-scr install` to disable arguments, re-run it after upgrading so the
+  effective setting is written. See the
+  [security notice](../security/notices.md#checkexternalscripts-security-review-hardening).
+- 🔒 **NSCA-NG cert mode now actually verifies the server (and presents the
+  client certificate).** In 0.18.0 the `NSCANgClient` cert mode
+  (`use psk = false`) applied its TLS configuration to the OpenSSL context
+  *after* the connection object had been created from it, and OpenSSL copies
+  the verify mode, client certificate, cipher list and TLS-version bounds out
+  of the context at creation time — so `verify mode = peer-cert` was silently
+  ignored, any certificate the server presented was accepted, and the
+  configured client certificate was never sent. The configuration is applied
+  before the connection is created now. Two operator-visible consequences:
+  a cert-mode target that "worked" against a server whose certificate does
+  not chain to the configured `ca` (or does not match the host name) will now
+  fail to connect — that is the verification working; fix the server
+  certificate, or opt out explicitly with `insecure = true` if you accept the
+  MITM risk. And servers that require a client certificate will start seeing
+  it. The default PSK mode (`use psk = true`) is unaffected. See
+  [Security notices](../security/notices.md).
+- 🔒 **NSCA: an unrecognized `encryption` value is now a hard error instead of
+  silently running without encryption.** A typo'd algorithm name (`aes-256`),
+  or one not compiled into the build, used to fall back to *no encryption* on
+  the end carrying it. Since the ciphers must match, a one-sided typo showed
+  up as the peer rejecting every submission with a CRC error rather than as
+  accepted plaintext — but that failure gave no hint of its cause, and a
+  value broken the same way on both ends did run plaintext while looking
+  encrypted. Now the `NSCAServer` module refuses to load and an `NSCAClient`
+  submission fails, each naming the problem and listing the available
+  algorithms. Default installs (`aes256`) are unaffected. **Breaking** only
+  for setups relying on the fallback: fix the algorithm name, or set
+  `encryption = none` explicitly if plaintext was intended — this includes
+  builds compiled without crypto++, where any cipher name previously
+  degraded to plaintext and the server now refuses to start.
+  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+- 🔒 **NSCA hardening: empty-password warning, `performance data = false`
+  honoured, wire-field validation.** Enabling NSCA encryption with an empty
+  `password` now logs an error on both ends (the password *is* the key, so an
+  empty one is a well-known key) — set the same password on both ends to
+  clear it. `NSCAServer`'s `performance data = false` now actually strips
+  perfdata from forwarded submissions (it was silently ignored). Inbound
+  host/service names are stripped of control characters and out-of-range
+  status codes are clamped to UNKNOWN. No action needed on a default install.
+  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+
 ---
+
+- 🔒 **NRDP submissions now honour `timeout` and `retry`.** Both settings were
+  parsed but never applied: a submission to a server that accepted the
+  connection and then stalled hung the submission thread forever, and failed
+  submissions were never retried. Every step of the exchange (connect, TLS
+  handshake, proxy tunnel, request, response) now runs under the configured
+  `timeout` (default 30 seconds for configured targets, 10 for one-shot
+  `nscp client` submissions), and transport failures are retried up to `retry`
+  times. Nothing to do unless your NRDP endpoint legitimately takes longer
+  than the timeout to answer — raise `timeout` on that target. The response
+  body is also capped at 5 MB, far above any real NRDP reply. See the
+  [security notice](../security/notices.md#nrdp-client-transport-hardening-and-shared-tls-version-floor-fix).
+
+- 🔒 **A `tls version` with a trailing `+` now means "that version or later".**
+  `1.2+` (the common default) previously negotiated TLS 1.2 *only*; it now
+  also permits TLS 1.3, and `any` is accepted as the documentation always
+  claimed. This applies everywhere the setting exists: NRDP and the other
+  HTTP-based clients, the NRPE/NSCA clients and servers, and `check_tcp`.
+  No action needed; pin an exact version (`tls version = 1.2`) if a peer
+  misbehaves when TLS 1.3 is offered. See the
+  [security notice](../security/notices.md#nrdp-client-transport-hardening-and-shared-tls-version-floor-fix).
+- 🔒 **The Elastic module now verifies HTTPS server certificates and can
+  authenticate.** `ElasticClient` previously hardcoded TLS verification off;
+  an `https://` address now defaults to `verify mode = peer` against the
+  platform CA bundle, with new `tls version`, `verify mode` and `ca` settings
+  to tune it. New `user`/`password` and `api key` settings authenticate
+  against secured clusters (Elasticsearch 8+ defaults), and a new `timeout`
+  (default 30s) bounds each submission. If you rely on a self-signed
+  certificate, point `ca` at it or set `verify mode = none` explicitly. See
+  [Security notices](../security/notices.md).
+- 📤 **The Elastic module no longer sends the legacy `_type` parameter by
+  default.** Mapping types were removed in Elasticsearch 8, which rejects
+  bulk requests carrying them, so the `event type`, `metrics type` and
+  `nsclient log type` defaults are now empty. Only Elasticsearch 6.x or older
+  needs them: set the old values (`eventlog`, `metrics`, `nsclient log`)
+  explicitly to keep the previous behaviour. Batched documents also now get
+  distinct ids — previously all documents in one bulk request shared an id
+  and overwrote each other, so multi-entry events show up completely now.
 
 ## 0.18.0
 

@@ -50,10 +50,10 @@ export default function DiskFreeWidget({ metrics }: DiskFreeWidgetProps) {
               <Box key={disk.name}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: 0.5 }}>
                   <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-                    <Typography variant="body2" fontWeight="bold">
+                    <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                       {disk.name}
                     </Typography>
-                    <Typography variant="body2" color={barColor} fontWeight="bold">
+                    <Typography variant="body2" color={barColor} sx={{ fontWeight: "bold" }}>
                       {Math.round(disk.usedPct)}%
                     </Typography>
                   </Box>

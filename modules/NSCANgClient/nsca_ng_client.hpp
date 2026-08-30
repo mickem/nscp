@@ -5,6 +5,7 @@
 
 #include <openssl/ssl.h>
 
+#include <boost/asio/ssl/context.hpp>
 #include <client/command_line_parser.hpp>
 #include <net/socket/socket_helpers.hpp>
 #include <sstream>
@@ -59,6 +60,21 @@ struct nsca_ng_client_handler final : public client::handler_interface {
 };
 
 // --- visible for unit tests ---
+
+// Build the TLS context for one connection. For PSK targets this returns a
+// plain TLS-client context: all PSK configuration happens on the SSL object
+// after the stream is created (see nsca_ng_connection). For cert mode the
+// full TLS configuration — certificate + key, CA, verify mode, TLS version
+// bounds, allowed ciphers — is applied here, and it MUST run before any SSL
+// object is created from the context: SSL_new() copies the verify mode,
+// certificate, cipher list and protocol-version bounds out of the SSL_CTX at
+// creation time (only the CA store stays shared), so configuring the context
+// after the stream exists silently leaves the live SSL unconfigured — most
+// critically with peer verification off.
+// Also enforces the cert-mode safety gate: throws unless the configuration
+// verifies the peer or the operator explicitly opted out via `insecure`.
+// Throws socket_helpers::socket_exception on any configuration error.
+boost::asio::ssl::context make_ssl_context(const connection_data &con);
 
 // Generate a base64-encoded session ID (6 random bytes, 8 base64 chars).
 // Throws std::runtime_error if OpenSSL's RNG fails (B3 fix).

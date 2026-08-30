@@ -20,7 +20,16 @@ class encryption_exception : public std::exception {
   const char *what() const throw() { return msg_.c_str(); }
 };
 struct helpers {
+  // The id encryption_to_int returns for "none"/"" (payload goes over the
+  // wire in the clear).
+  static constexpr int no_encryption = 0;
+
   static std::string get_crypto_string(std::string sep = ", ");
+  // Resolve an algorithm name (or legacy numeric id) to its encryption id.
+  // Only ""/"none"/"0" select no_encryption; any other unrecognized value
+  // throws encryption_exception instead of silently downgrading to
+  // plaintext — an unavailable algorithm (a typo, or a build without
+  // crypto++) must be a hard error, not an unencrypted submission.
   static int encryption_to_int(std::string encryption_raw);
   static std::string encryption_to_string(int encryption);
 };

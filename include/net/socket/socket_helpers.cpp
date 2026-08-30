@@ -634,8 +634,25 @@ void socket_helpers::write_certs(const std::string &cert, const bool ca) {
 }
 
 boost::asio::ssl::context_base::method socket_helpers::tls_method_parser(const std::string &tls_version) {
-  std::string tmp = boost::algorithm::to_lower_copy(tls_version);
-  str::utils::replace(tmp, "+", "");
+  const std::string tmp = boost::algorithm::to_lower_copy(tls_version);
+  // A '+' form ("1.2+") means "this version or later". The version-pinned
+  // methods (context::tlsv12, ...) pin BOTH the minimum and the maximum
+  // protocol version, so returning one of them here silently excluded every
+  // later version - "1.2+" negotiated TLS 1.2 only and never 1.3. The generic
+  // method negotiates the highest mutually supported version; the floor is
+  // applied separately via apply_tls_min_version() because a method cannot
+  // carry it.
+  if (!tmp.empty() && tmp.back() == '+') {
+    // Validate the version part so a typo ("1.4+") still fails loudly here
+    // rather than surfacing as a floor-less "any".
+    tls_min_version_parser(tls_version);
+    return boost::asio::ssl::context::tls;
+  }
+  // Documented alongside the numeric versions: no pin and no floor, accept
+  // whatever both sides support.
+  if (tmp == "any") {
+    return boost::asio::ssl::context::tls;
+  }
   if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") {
     return boost::asio::ssl::context::tlsv13;
   }
@@ -652,6 +669,25 @@ boost::asio::ssl::context_base::method socket_helpers::tls_method_parser(const s
     return boost::asio::ssl::context::sslv23;
   }
   throw socket_exception("Invalid tls version: " + tmp);
+}
+
+long socket_helpers::tls_min_version_parser(const std::string &tls_version) {
+  std::string tmp = boost::algorithm::to_lower_copy(tls_version);
+  if (tmp.empty() || tmp.back() != '+') return 0;
+  tmp.pop_back();
+  if (tmp == "tlsv1.3" || tmp == "tls1.3" || tmp == "1.3") return TLS1_3_VERSION;
+  if (tmp == "tlsv1.2" || tmp == "tls1.2" || tmp == "1.2") return TLS1_2_VERSION;
+  if (tmp == "tlsv1.1" || tmp == "tls1.1" || tmp == "1.1") return TLS1_1_VERSION;
+  if (tmp == "tlsv1.0" || tmp == "tls1.0" || tmp == "1.0") return TLS1_VERSION;
+  throw socket_exception("Invalid tls version: " + tls_version);
+}
+
+void socket_helpers::apply_tls_min_version(boost::asio::ssl::context &ctx, const std::string &tls_version) {
+  const long min_version = tls_min_version_parser(tls_version);
+  if (min_version == 0) return;
+  if (SSL_CTX_set_min_proto_version(ctx.native_handle(), min_version) != 1) {
+    throw socket_exception("Failed to set the minimum TLS version for: " + tls_version);
+  }
 }
 
 boost::asio::ssl::verify_mode socket_helpers::verify_mode_parser(const std::string &verify_mode) {

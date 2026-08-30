@@ -14,12 +14,27 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <bytes/buffer.hpp>
 #include <process/execute_process.hpp>
 #include <string>
 #include <vector>
 
 #define BUFFER_SIZE 4096
+
+// Upper bound on captured child output. A check is expected to print one Nagios
+// line; without a cap a script (buggy or hostile) can emit hundreds of MB within
+// its timeout window and balloon the service's memory. 8 MiB is far above any
+// legitimate check output. Once reached we keep reading (so the child never
+// blocks on a full pipe and the timeout stays enforceable) but discard the rest.
+#define MAX_OUTPUT_BYTES (8u * 1024u * 1024u)
+
+namespace {
+// The truncation marker and the content ceiling that leaves room for it, so the
+// captured string is a strict <= MAX_OUTPUT_BYTES bound (marker included).
+const char kOutputTruncMarker[] = "\n[output truncated]";
+const std::size_t kOutputContentCap = MAX_OUTPUT_BYTES - (sizeof(kOutputTruncMarker) - 1);
+}  // namespace
 
 bool early_timeout = false;
 typedef hlp::buffer<char> buffer_type;
@@ -67,8 +82,14 @@ std::string drain_with_timeout(int fd, time_t deadline, bool& timed_out, bool& h
       // EOF: child closed its end of the pipe.
       return out;
     }
-    buffer[static_cast<std::size_t>(n)] = 0;
-    out.append(buffer.get(), static_cast<std::size_t>(n));
+    // Append up to the content cap; past it keep draining but discard, so the
+    // child is never blocked on a full pipe (which would defeat the timeout) yet
+    // memory stays bounded. The marker fits within MAX_OUTPUT_BYTES.
+    if (out.size() < kOutputContentCap) {
+      const std::size_t room = kOutputContentCap - out.size();
+      out.append(buffer.get(), std::min(static_cast<std::size_t>(n), room));
+      if (out.size() >= kOutputContentCap) out.append(kOutputTruncMarker);
+    }
   }
 }
 
@@ -137,7 +158,10 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   // Parent.
   close(pipefd[1]);
 
-  const time_t deadline = time(nullptr) + (args.timeout > 0 ? args.timeout : 30);
+  // Compute the effective timeout once so the deadline and the messages that
+  // report it agree (a caller-supplied 0 falls back to 30s here).
+  const unsigned int effective_timeout = args.timeout > 0 ? args.timeout : 30;
+  const time_t deadline = time(nullptr) + effective_timeout;
   bool timed_out = false;
   bool had_error = false;
   output = drain_with_timeout(pipefd[0], deadline, timed_out, had_error);
@@ -150,7 +174,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
       int status = 0;
       const pid_t r = waitpid(pid, &status, WNOHANG);
       if (r == pid) {
-        output = "Command " + args.alias + " didn't terminate within " + std::to_string(args.timeout) + "s; killed";
+        output = "Command " + args.alias + " didn't terminate within " + std::to_string(effective_timeout) + "s; killed";
         return NSCAPI::query_return_codes::returnUNKNOWN;
       }
       if (r < 0 && errno != EINTR) break;
@@ -162,7 +186,7 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
     kill(pid, SIGKILL);
     int status = 0;
     waitpid(pid, &status, 0);
-    output = "Command " + args.alias + " didn't terminate within " + std::to_string(args.timeout) + "s; killed";
+    output = "Command " + args.alias + " didn't terminate within " + std::to_string(effective_timeout) + "s; killed";
     return NSCAPI::query_return_codes::returnUNKNOWN;
   }
 
@@ -185,29 +209,6 @@ int execute_argv(const process::exec_arguments& args, std::string& output) {
   return map_exit_status(status);
 }
 
-// Legacy popen path, used when the caller did not supply argv. /bin/sh -c
-// is involved, so any operator-controlled string still has to be carefully
-// quoted by the caller. New callers should populate exec_arguments::argv.
-int execute_popen(const process::exec_arguments& args, std::string& output) {
-  FILE* fp = popen(args.command.c_str(), "r");
-  if (fp == nullptr) {
-    output = "NRPE: Call to popen() failed";
-    return NSCAPI::query_return_codes::returnUNKNOWN;
-  }
-  buffer_type buffer(BUFFER_SIZE);
-  std::size_t bytes_read = 0;
-  while ((bytes_read = fread(buffer.get(), 1, buffer.size() - 1, fp)) > 0) {
-    if (bytes_read < BUFFER_SIZE) {
-      buffer[bytes_read] = 0;
-      output += std::string(buffer.get());
-    }
-  }
-  const int status = pclose(fp);
-  if (status == -1 || !WIFEXITED(status)) {
-    return NSCAPI::query_return_codes::returnUNKNOWN;
-  }
-  return WEXITSTATUS(status);
-}
 }  // namespace
 
 int process::execute_process(const process::exec_arguments& args, std::string& output) {
@@ -215,5 +216,13 @@ int process::execute_process(const process::exec_arguments& args, std::string& o
   if (!args.argv.empty()) {
     return execute_argv(args, output);
   }
-  return execute_popen(args, output);
+  // Legacy single-string command (no argv supplied). Run it through the shell,
+  // but via the same fork/exec machinery as execute_argv rather than popen(),
+  // so the timeout and output cap are enforced. popen() hid the child pid, so a
+  // hung script blocked fread()/pclose() forever with `timeout=` silently
+  // unenforced - a worker thread wedged per invocation. `/bin/sh -c <command>`
+  // reproduces popen's semantics exactly (popen itself execs `/bin/sh -c`).
+  process::exec_arguments shell_args = args;
+  shell_args.argv = {"/bin/sh", "-c", args.command};
+  return execute_argv(shell_args, output);
 }

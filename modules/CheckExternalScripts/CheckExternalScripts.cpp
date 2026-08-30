@@ -163,16 +163,24 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
                   "Kill all child processes (notice this might accidentally kill other processes if PIDs are reused when killing the process).")
 
         .add_bool("allow arguments", sh::bool_key(&allowArgs_, false), "Allow arguments when executing external scripts",
-                  "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
+                  "This option determines whether or not we will allow clients to specify arguments to commands that are executed. NOTICE this governs "
+                  "external script commands only. Command aliases (the alias section) always substitute their client arguments into the internal command they "
+                  "wrap regardless of this setting, because they dispatch to another internal check rather than spawning a process - the wrapped check's own "
+                  "argument handling applies. Restrict which commands an alias may reach through the query permissions, not this flag.")
 
         .add_bool("allow nasty characters", sh::bool_key(&allowNasty_, false), "Allow certain potentially dangerous characters in arguments",
                   "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
         .add_file("script path", sh::string_key(&scriptDirectory), "Load all scripts in a given folder",
-                  "Load all scripts in a given directory and use them as commands.")
+                  "Load all scripts in a given directory and use them as commands. SECURITY: every file in this directory becomes a runnable command (with "
+                  "%ARGS% appended when arguments are allowed), so write/create access to the directory is equivalent to command execution as the service "
+                  "account - restrict it with filesystem ACLs. Prefer listing individual scripts explicitly under the scripts section over pointing this at a "
+                  "shared or writable folder.")
 
         .add_file("script root", sh::path_key(&scriptRoot, "${scripts}"), "Script root folder",
-                  "Root path where all scripts are contained (You can not upload/download scripts outside this folder).");
+                  "Root path used to sandbox the ext-scr show/delete operations and the destination of ext-scr add --import: those cannot read, remove, or "
+                  "import a file outside this folder. Note this does NOT bound ext-scr add --script <path>, which can still register an existing file anywhere "
+                  "on disk as a command (an administrator-only action, equivalent to editing the configuration directly).");
 
     settings.register_all();
     settings.notify();
@@ -268,6 +276,7 @@ bool CheckExternalScripts::commandLineExec(const int target_mode, const PB::Comm
     } else {
       if (!provider_) {
         nscapi::protobuf::functions::set_response_bad(*response, "Failed to create provider");
+        return true;
       }
       extscr_cli client(provider_);
       return client.run(command, request, response);
@@ -536,19 +545,27 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
       std::stringstream ss;
       int i = 1;
       // TODO: CHange this top use protobuffer!
+      // Enumerate $ARGn$ / %ARGn% placeholders in ascending order, one index at
+      // a time, stopping at the first index that appears in no argument. The
+      // previous form incremented `i` up to four times inside a single inner
+      // pass (once per str::xtos(i++)), so the index probed by find() differed
+      // from the one printed and whole numbers were skipped.
       bool found = true;
       while (found) {
         found = false;
+        const std::string arg_dollar = "$ARG" + str::xtos(i) + "$";
+        const std::string arg_percent = "%ARG" + str::xtos(i) + "%";
         for (std::string &arg : args) {
-          if (arg.find("$ARG" + str::xtos(i++) + "$") != std::string::npos) {
-            ss << "$ARG" << str::xtos(i++) << "$,false,," << arg << "\n";
+          if (arg.find(arg_dollar) != std::string::npos) {
+            ss << arg_dollar << ",false,," << arg << "\n";
             found = true;
           }
-          if (arg.find("%ARG" + str::xtos(i++) + "%") != std::string::npos) {
-            ss << "%ARG" << str::xtos(i++) << "%,false,," << arg << "\n";
+          if (arg.find(arg_percent) != std::string::npos) {
+            ss << arg_percent << ",false,," << arg << "\n";
             found = true;
           }
         }
+        ++i;
       }
       nscapi::protobuf::functions::set_response_good(*response, ss.str());
       return;

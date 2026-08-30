@@ -96,6 +96,8 @@ std::string nscp::encryption::helpers::get_crypto_string(std::string sep) {
 
 int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
   std::string encryption = boost::algorithm::to_lower_copy(encryption_raw);
+  boost::algorithm::trim(encryption);
+  if (encryption.empty() || encryption == "none") return ENCRYPT_NONE;
   if (encryption == "xor") return ENCRYPT_XOR;
 #ifdef HAVE_LIBCRYPTOPP
   if (encryption == "des") return ENCRYPT_DES;
@@ -112,9 +114,10 @@ int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
   if (encryption == "serpent") return ENCRYPT_SERPENT;
   if (encryption == "gost") return ENCRYPT_GOST;
 #endif
-  if ((encryption.size() == 1 && isdigit(encryption[0])) || (encryption.size() > 1 && isdigit(encryption[0]) && isdigit(encryption[1]))) {
+  if ((encryption.size() == 1 && isdigit(static_cast<unsigned char>(encryption[0]))) ||
+      (encryption.size() > 1 && isdigit(static_cast<unsigned char>(encryption[0])) && isdigit(static_cast<unsigned char>(encryption[1])))) {
     int enc = atoi(encryption.c_str());
-    if (enc == ENCRYPT_XOR
+    if (enc == ENCRYPT_NONE || enc == ENCRYPT_XOR
 #ifdef HAVE_LIBCRYPTOPP
         || enc == ENCRYPT_DES || enc == ENCRYPT_3DES || enc == ENCRYPT_CAST128 || enc == ENCRYPT_XTEA || enc == ENCRYPT_3WAY || enc == ENCRYPT_BLOWFISH ||
         enc == ENCRYPT_TWOFISH || enc == ENCRYPT_RC2 || enc == ENCRYPT_RIJNDAEL128 || enc == ENCRYPT_RIJNDAEL192 || enc == ENCRYPT_RIJNDAEL256 ||
@@ -123,7 +126,18 @@ int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
     )
       return enc;
   }
-  return ENCRYPT_NONE;
+  // Historically any unrecognized value fell through to ENCRYPT_NONE, so a
+  // typo (or an algorithm this build lacks) silently disabled encryption on
+  // this end — surfacing only as unexplained CRC rejections on a correctly
+  // configured peer. Fail hard instead; "none" is the explicit opt-out.
+  // Strip control characters from the echoed value so the string cannot
+  // inject extra log lines when the error text is logged.
+  std::string safe_name;
+  for (const char c : encryption_raw) {
+    const auto u = static_cast<unsigned char>(c);
+    if (u >= 0x20 && u != 0x7f) safe_name.push_back(c);
+  }
+  throw encryption_exception("Unknown encryption algorithm: '" + safe_name + "' (available: " + get_crypto_string() + "; use 'none' to disable encryption)");
 }
 std::string nscp::encryption::helpers::encryption_to_string(int encryption) {
   if (encryption == ENCRYPT_XOR) return "xor";

@@ -92,6 +92,11 @@ class server : boost::noncopyable {
     boost::system::error_code er;
     context_.set_options(info_.get_ctx_opts(), er);
     if (er) logger_->log_error(__FILE__, __LINE__, "Failed to set option: " + er.message());
+#if BOOST_VERSION >= 106800
+    // make_context() only picks the method; a "1.2+" floor lives outside the
+    // method and has to be applied to the constructed context or it means "any".
+    socket_helpers::apply_tls_min_version(context_, info_.ssl.tls_version);
+#endif
 #endif
   }
   ~server() {}
