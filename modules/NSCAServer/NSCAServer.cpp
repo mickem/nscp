@@ -10,6 +10,7 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/settings/helper.hpp>
+#include <str/utf8.hpp>
 #include <str/xtos.hpp>
 
 namespace CryptoPP {
@@ -70,6 +71,18 @@ bool NSCAServer::loadModuleEx(const std::string &alias, const NSCAPI::moduleLoad
   settings.register_all();
   settings.notify();
 
+  try {
+    encryption_ = nscp::encryption::helpers::encryption_to_int(encryption_name_);
+  } catch (const nscp::encryption::encryption_exception &e) {
+    NSC_LOG_ERROR_STD("Refusing to start NSCA server: " + utf8::utf8_from_native(e.what()));
+    return false;
+  }
+  if (encryption_ != nscp::encryption::helpers::no_encryption && password_.empty()) {
+    NSC_LOG_ERROR_STD("NSCA encryption is enabled (" + encryption_name_ +
+                      ") but the password is empty. The NSCA key is derived directly from the password, so an empty password is a well-known key: anyone who "
+                      "can reach the port can decrypt and forge submissions. Set a password under /settings/default (password=...) on both ends.");
+  }
+
 #ifndef USE_SSL
   if (info_.ssl.enabled) {
     NSC_LOG_ERROR_STD("SSL not available! (not compiled with openssl support)");
@@ -125,27 +138,34 @@ bool NSCAServer::unloadModule() {
 }
 
 void NSCAServer::handle(nsca::packet p) {
+  // The wire fields are attacker-influenced (anyone allowed to reach the
+  // port past the shared secret): strip control characters from the
+  // identity fields before they hit logs or the inbox channel, and clamp
+  // the 16-bit wire return code to the Nagios range (anything else becomes
+  // UNKNOWN instead of flowing downstream as an arbitrary integer).
+  const std::string host = nsca::sanitize_identity(p.host);
+  const std::string service = nsca::sanitize_identity(p.service);
+  const unsigned int code = p.code > static_cast<unsigned int>(NSCAPI::query_return_codes::returnUNKNOWN) ? NSCAPI::query_return_codes::returnUNKNOWN : p.code;
   // Trace inbound NSCA submissions so an operator can see what hosts/services
   // a remote NSCA client is actually pushing through this server (the
   // connection layer only logs the IP). Gated because the result body can be
   // large and the string copy would otherwise be paid on every packet.
   NSC_TRACE_ENABLED() {
-    NSC_TRACE_MSG("NSCA submission: host='" + p.host + "' service='" + p.service + "' code=" + str::xtos(p.code) +
-                  " result_bytes=" + str::xtos(p.result.size()));
+    NSC_TRACE_MSG("NSCA submission: host='" + host + "' service='" + service + "' code=" + str::xtos(p.code) + " result_bytes=" + str::xtos(p.result.size()));
   }
   std::string response;
-  std::string::size_type pos = p.result.find('|');
+  const std::string::size_type pos = p.result.find('|');
   nscapi::core_helper helper(get_core(), get_id());
+  std::string msg = p.result, perf;
   if (pos != std::string::npos) {
-    const std::string msg = p.result.substr(0, pos);
-    const std::string perf = p.result.substr(++pos);
-    helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, perf, response);
-  } else {
-    const std::string empty, msg = p.result;
-    helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
+    msg = p.result.substr(0, pos);
+    // `performance data = false` promises perfdata is stripped before the
+    // submission is forwarded.
+    if (!noPerfData_) perf = p.result.substr(pos + 1);
   }
+  helper.submit_simple_message(channel_, host, "", service, nscapi::plugin_helper::int2nagios(code), msg, perf, response);
   NSC_TRACE_ENABLED() {
-    NSC_TRACE_MSG("NSCA submission: host='" + p.host + "' service='" + p.service + "' channel='" + channel_ +
+    NSC_TRACE_MSG("NSCA submission: host='" + host + "' service='" + service + "' channel='" + channel_ +
                   "' submit_response_bytes=" + str::xtos(response.size()));
   }
 }

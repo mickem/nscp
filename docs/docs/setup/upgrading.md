@@ -14,6 +14,31 @@ per-release detail lives in each
 
 ---
 
+## Unreleased
+
+- 🔒 **NSCA: an unrecognized `encryption` value is now a hard error instead of
+  silent plaintext.** A typo'd algorithm name (`aes-256`), or one not compiled
+  into the build, used to fall back to *no encryption* on both ends without a
+  warning. Now the `NSCAServer` module refuses to load and an `NSCAClient`
+  submission fails, each with a message listing the available algorithms.
+  Default installs (`aes256`) are unaffected. **Breaking** only for setups
+  that were unknowingly running unencrypted: fix the algorithm name, or set
+  `encryption = none` explicitly if plaintext was intended — this includes
+  builds compiled without crypto++, where any cipher name previously
+  degraded to plaintext and now refuses to start.
+  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+- 🔒 **NSCA hardening: empty-password warning, `performance data = false`
+  honoured, wire-field validation.** Enabling NSCA encryption with an empty
+  `password` now logs an error on both ends (the password *is* the key, so an
+  empty one is a well-known key) — set the same password on both ends to
+  clear it. `NSCAServer`'s `performance data = false` now actually strips
+  perfdata from forwarded submissions (it was silently ignored). Inbound
+  host/service names are stripped of control characters and out-of-range
+  status codes are clamped to UNKNOWN. No action needed on a default install.
+  See the [security notice](../security/notices.md#nsca-client-and-server-security-review-hardening).
+
+---
+
 ## 0.18.0
 
 - 💥 **`check_nscp` is now a filter check, and it can see crash reports again.**

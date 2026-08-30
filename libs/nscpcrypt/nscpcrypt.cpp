@@ -96,6 +96,8 @@ std::string nscp::encryption::helpers::get_crypto_string(std::string sep) {
 
 int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
   std::string encryption = boost::algorithm::to_lower_copy(encryption_raw);
+  boost::algorithm::trim(encryption);
+  if (encryption.empty() || encryption == "none") return ENCRYPT_NONE;
   if (encryption == "xor") return ENCRYPT_XOR;
 #ifdef HAVE_LIBCRYPTOPP
   if (encryption == "des") return ENCRYPT_DES;
@@ -114,7 +116,7 @@ int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
 #endif
   if ((encryption.size() == 1 && isdigit(encryption[0])) || (encryption.size() > 1 && isdigit(encryption[0]) && isdigit(encryption[1]))) {
     int enc = atoi(encryption.c_str());
-    if (enc == ENCRYPT_XOR
+    if (enc == ENCRYPT_NONE || enc == ENCRYPT_XOR
 #ifdef HAVE_LIBCRYPTOPP
         || enc == ENCRYPT_DES || enc == ENCRYPT_3DES || enc == ENCRYPT_CAST128 || enc == ENCRYPT_XTEA || enc == ENCRYPT_3WAY || enc == ENCRYPT_BLOWFISH ||
         enc == ENCRYPT_TWOFISH || enc == ENCRYPT_RC2 || enc == ENCRYPT_RIJNDAEL128 || enc == ENCRYPT_RIJNDAEL192 || enc == ENCRYPT_RIJNDAEL256 ||
@@ -123,7 +125,11 @@ int nscp::encryption::helpers::encryption_to_int(std::string encryption_raw) {
     )
       return enc;
   }
-  return ENCRYPT_NONE;
+  // Historically any unrecognized value fell through to ENCRYPT_NONE, so a
+  // typo (or an algorithm this build lacks) silently sent and accepted
+  // plaintext. Fail hard instead; "none" is the explicit opt-out.
+  throw encryption_exception("Unknown encryption algorithm: '" + encryption_raw + "' (available: " + get_crypto_string() +
+                             "; use 'none' to disable encryption)");
 }
 std::string nscp::encryption::helpers::encryption_to_string(int encryption) {
   if (encryption == ENCRYPT_XOR) return "xor";

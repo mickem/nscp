@@ -221,6 +221,7 @@ if(OPENSSL_FOUND)
             ${NSCP_INCLUDEDIR}/net/check_nt/server/parser_test.cpp
             ${NSCP_INCLUDEDIR}/net/check_nt/server/protocol_test.cpp
             ${NSCP_INCLUDEDIR}/net/nsca/client/nsca_client_protocol_test.cpp
+            ${CMAKE_SOURCE_DIR}/libs/nscpcrypt/nscpcrypt_test.cpp
             ${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
             ${NSCP_INCLUDEDIR}/net/socket/socket_helpers.cpp
             ${NSCP_INCLUDEDIR}/net/nrpe/packet.cpp

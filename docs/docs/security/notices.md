@@ -140,6 +140,57 @@ Security-relevant changes that are handled as defense-in-depth / consistency
 hardening rather than assigned a CVE are listed here as they ship, newest
 first, alongside the release that contains them.
 
+### NSCA client and server security-review hardening
+
+**Fixed in:** unreleased · **Severity:** Low–Medium
+
+A focused security review of the NSCA passive-check modules (`NSCAClient`,
+`NSCAServer`) and the shared legacy crypto helper produced four hardening
+changes. None is a remote-code-execution risk; the common theme is that a
+misconfiguration could silently disable protections the operator thought were
+enabled. (The protocol-level limitations of NSCA v3 — CRC32 instead of a MAC,
+password-as-key with no key derivation — are inherent to the wire format;
+prefer the `ssl` transport options or NSCA-NG where both ends support them.)
+
+- **An unrecognized `encryption` value is no longer silent plaintext.** Any
+  value the crypto helper did not recognize — a typo such as `aes-256`, or an
+  algorithm not compiled into the build — historically resolved to *no
+  encryption*: the client transmitted results in the clear and the server
+  accepted cleartext packets, with no warning on either end. An unknown or
+  unavailable algorithm is now a hard error: the `NSCAServer` module refuses
+  to load (with a log line listing the available algorithms) and an
+  `NSCAClient` submission fails with the same message in the submission
+  response. `encryption = none` (or an empty value) remains the explicit way
+  to run unencrypted.
+- **An empty password with encryption enabled now logs a loud error.** The
+  NSCA key is the password zero-padded to the cipher's key length — there is
+  no key-derivation step in the protocol — so `encryption = aes256` with the
+  default empty `password` encrypts under a well-known all-zero key: anyone
+  able to reach the port past `allowed hosts` can decrypt, forge and inject
+  passive results for any host. Both the server (at startup) and the client
+  (at submission) now log an error-level warning describing exactly that.
+  Behaviour is otherwise unchanged; set the same `password` on both ends to
+  clear the warning.
+- **`performance data = false` on the NSCA server works again.** The setting
+  was read and logged but never applied: perfdata was forwarded to the inbox
+  channel regardless. It is now stripped from the submission when the setting
+  is off, as documented.
+- **Inbound wire fields are validated before they reach logs and the inbox
+  channel.** The host name, service name and return code in an NSCA packet
+  are attacker-influenced. ASCII control characters (including newlines and
+  escape sequences, a log-injection vector) are now stripped from the host
+  and service fields, and a return code outside the Nagios range 0–3 is
+  clamped to 3 (UNKNOWN) instead of flowing downstream as an arbitrary
+  16-bit integer.
+
+**What to do:** nothing for a default install (aes256 with a shared password).
+If either end carries a typo'd `encryption` value, or the build lacks
+crypto++, it was previously running unencrypted — fix the algorithm name, or
+set `encryption = none` if plaintext was genuinely intended. If you see the
+new empty-password error in the log, set the same `password` on both ends. If
+you counted on `performance data = false` while it was broken, note that
+perfdata now really is dropped.
+
 ### SMTP client security-review hardening
 
 **Fixed in:** 0.18.0 · **Severity:** Low–Medium

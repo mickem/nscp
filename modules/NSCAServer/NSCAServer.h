@@ -16,10 +16,15 @@ class NSCAServer final : public nscapi::impl::simple_plugin, nsca::server::handl
 
   std::string channel_;
   int encryption_;
+  std::string encryption_name_;
   std::string password_;
   std::string timezone_;
 
-  void set_encryption(const std::string& enc) { encryption_ = nscp::encryption::helpers::encryption_to_int(enc); }
+  // Only record the name here: it is resolved (and validated) in
+  // loadModuleEx after all settings are read, so an unknown algorithm can
+  // fail the module load with a clear error instead of throwing from
+  // inside settings notification.
+  void set_encryption(const std::string& enc) { encryption_name_ = enc; }
   void set_perf_data(const bool value) {
     noPerfData_ = !value;
     if (noPerfData_) log_debug("nsca", __FILE__, __LINE__, "Performance data disabled!");
