@@ -96,7 +96,11 @@ bool is_sensitive_key(const std::string &key) { return key.find("password") != s
 
 std::string client::destination_container::to_string() const {
   std::stringstream ss;
-  ss << "address: " << address.to_string() << ", timeout: " << timeout << ", retry: " << retry << ", data: { ";
+  // to_log_safe_string(), not to_string(): a target address is free to carry
+  // credentials in its query parameters (".../submit.php?token=..."), and this
+  // whole string goes to the trace log. The parameters are not what identifies
+  // the destination.
+  ss << "address: " << address.to_log_safe_string() << ", timeout: " << timeout << ", retry: " << retry << ", data: { ";
   for (const data_map::value_type &t : data) {
     ss << t.first << ": " << (is_sensitive_key(t.first) ? "***" : t.second) << ", ";
   }

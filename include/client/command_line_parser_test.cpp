@@ -189,6 +189,19 @@ TEST(destination_container, to_string_masks_credentials) {
   EXPECT_NE(s.find("username: root"), std::string::npos) << "non-secret values are still printed: " << s;
 }
 
+TEST(destination_container, to_string_drops_the_address_query_string) {
+  // A target address may carry credentials in its parameters, and the whole
+  // string goes to the trace log. The host still has to identify the target.
+  client::destination_container d;
+  d.set_address("https://icinga.example.com:5665/submit.php?token=s3cret");
+
+  const std::string s = d.to_string();
+
+  EXPECT_EQ(s.find("s3cret"), std::string::npos) << s;
+  EXPECT_EQ(s.find("token"), std::string::npos) << s;
+  EXPECT_NE(s.find("icinga.example.com"), std::string::npos) << "the destination must stay identifiable: " << s;
+}
+
 TEST(destination_container, address_sets_protocol_host_and_port_at_once) {
   client::destination_container d;
   d.set_string_data("address", "nrpe://server.example.com:5667");

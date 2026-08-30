@@ -167,3 +167,25 @@ TEST(IcingaTest, VerificationIsEnabledByAnyPeerToken) {
   EXPECT_FALSE(icinga::is_verification_disabled("none,peer"));
   EXPECT_FALSE(icinga::is_verification_disabled("peer,fail-if-no-cert"));
 }
+
+TEST(IcingaTest, AnUnparsableVerifyModeIsNotReportedAsDisabled) {
+  // verify_mode_parser throws on any token it does not know, so these never
+  // produce a connection at all - let the connection attempt report the
+  // configuration error rather than warning about an unverified submission
+  // that never happens.
+  EXPECT_FALSE(icinga::is_verification_disabled("workarounds"));
+  EXPECT_FALSE(icinga::is_verification_disabled("client-once"));
+  EXPECT_FALSE(icinga::is_verification_disabled("single"));
+  EXPECT_FALSE(icinga::is_verification_disabled("none,typo"));
+}
+
+TEST(IcingaTest, EveryTokenTheParserAcceptsIsClassified) {
+  // Guards the mirror: each of these must parse in
+  // socket_helpers::verify_mode_parser, and only the peer-enabling ones may
+  // read as verified. If a token is added there and not here, the "unknown
+  // token" branch above silently reclassifies it.
+  EXPECT_TRUE(icinga::is_verification_disabled("none"));
+  EXPECT_TRUE(icinga::is_verification_disabled("fail-if-no-cert"));
+  EXPECT_TRUE(icinga::is_verification_disabled("fail-if-no-peer-cert"));
+  EXPECT_TRUE(icinga::is_verification_disabled("client-certificate"));
+}

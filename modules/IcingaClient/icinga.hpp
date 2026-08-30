@@ -45,11 +45,13 @@ submit_result parse_check_result_response(const std::string &body);
 /// for inclusion in a path or a query string.
 std::string url_encode(const std::string &value);
 
-/// True when a `verify mode` string leaves TLS peer verification off — no
-/// token in it enables certificate-chain verification, so the connection
-/// accepts any certificate.  Mirrors socket_helpers::verify_mode_parser: only
-/// `peer`, `certificate` and `peer-cert` turn verification on; everything
-/// else (an empty string included) resolves to verify_none.
+/// True when a `verify mode` string leaves TLS peer verification off — the
+/// mode parses, but no token in it enables certificate-chain verification, so
+/// the connection accepts any certificate.  Mirrors
+/// socket_helpers::verify_mode_parser: only `peer`, `certificate` and
+/// `peer-cert` turn verification on, and an empty string resolves to
+/// verify_none.  A string the parser would reject is not "disabled" — it
+/// throws, so no connection is made.
 bool is_verification_disabled(const std::string &verify_mode);
 
 }  // namespace icinga
