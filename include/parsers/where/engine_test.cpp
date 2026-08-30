@@ -1908,9 +1908,11 @@ TEST(EvaluationContextImpl, DebugTraceRendersEveryVerdictKeyword) {
     ctx.debug(row.first);
     expected += row.second + "\n";
   }
-  // An out-of-range verdict renders as "?" rather than crashing the trace.
+  // A verdict outside the named enumerators renders as "?" rather than
+  // crashing the trace. 7 is unnamed but within the enum's representable
+  // range (0..7 for enumerators 0..4), so the cast is not UB under UBSan.
   ctx.set_object(make_traced("junk"));
-  ctx.debug(static_cast<parsers::where::object_match>(99));
+  ctx.debug(static_cast<parsers::where::object_match>(7));
   expected += "?junk\n";
 
   EXPECT_EQ(expected, ctx.get_debug());
